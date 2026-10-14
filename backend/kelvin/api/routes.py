@@ -32,6 +32,7 @@ from kelvin.api.schemas import (
 )
 from kelvin.api.sse import event_stream
 from kelvin.auth.sessions import COOKIE_NAME
+from kelvin.billing.report import next_unit, unit_start
 from kelvin.commands.translate import (
     MODE_LABELS,
     CommandError,
@@ -375,15 +376,34 @@ async def energy(
     request: Request,
     start: Annotated[date, Query(alias="from")],
     end: Annotated[date, Query(alias="to")],
-    group: Literal["day", "month", "year"] = "day",
+    group: Literal["day", "week", "month", "year"] = "day",
+    focus: date | None = None,
+    period_from: date | None = None,
+    period_to: date | None = None,
 ) -> dict:
+    """`from`/`to`: the chart window. `focus` (a day inside the selected period) or
+    `period_from`/`period_to`: the period the hero and per-radiator figures describe."""
     rt = _rt(request)
     linky = _linky(rt)
     _check_days(linky, start, end)
     if end <= start or (end - start).days > MAX_REPORT_DAYS:
         raise HTTPException(422, "Période invalide.")
+    period: tuple[date, date] | None = None
+    if period_from is not None or period_to is not None:
+        if period_from is None or period_to is None:
+            raise HTTPException(422, "Période invalide.")
+        _check_days(linky, period_from, period_to)
+        if period_to <= period_from or (period_to - period_from).days > MAX_REPORT_DAYS:
+            raise HTTPException(422, "Période invalide.")
+        period = (period_from, period_to)
+    elif focus is not None:
+        _check_days(linky, focus)
+        first = unit_start(focus, group)
+        period = (first, next_unit(first, group))
     radiator_ids = list(rt.house.radiators)
-    return await asyncio.to_thread(linky.report, start, end, group, rt.recorder, radiator_ids)
+    return await asyncio.to_thread(
+        linky.report, start, end, group, rt.recorder, radiator_ids, period
+    )
 
 
 @router.get("/linky/curve")

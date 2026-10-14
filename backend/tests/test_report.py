@@ -321,3 +321,33 @@ def test_heating_share_skips_the_partial_first_recording_day():
     r = build_report(date(2026, 10, 1), date(2026, 10, 4), "day", inp)
     assert r["heating_share"] == pytest.approx(0.5)
     assert r["heating_share_since"] == "2026-10-02"
+
+
+def test_week_buckets_are_iso_weeks_from_monday():
+    daily = {d: 10_000 for d in days(date(2026, 10, 1), date(2026, 10, 14))}
+    r = build_report(date(2026, 9, 28), date(2026, 10, 19), "week", inputs(daily))
+    assert [b["key"] for b in r["buckets"]] == ["2026-W40", "2026-W41", "2026-W42"]
+    assert [b["kwh"] for b in r["buckets"]] == [40.0, 70.0, 20.0]
+    assert r["period"]["from"] == "2026-10-12" and r["period"]["to"] == "2026-10-19"
+
+
+def test_week_53_and_the_year_boundary():
+    daily = {d: 10_000 for d in days(date(2026, 12, 28), date(2027, 1, 5))}
+    r = build_report(
+        date(2026, 12, 28), date(2027, 1, 11), "week", inputs(daily, today=date(2027, 1, 6))
+    )
+    assert [b["key"] for b in r["buckets"]] == ["2026-W53", "2027-W01"]
+    assert [b["days"] for b in r["buckets"]] == [7, 7]
+
+
+def test_the_selected_period_is_independent_of_the_chart_window():
+    daily = {d: 10_000 for d in days(date(2026, 1, 1), date(2026, 10, 14))}
+    r = build_report(
+        date(2025, 11, 1),
+        date(2026, 11, 1),
+        "month",
+        inputs(daily),
+        period=(date(2026, 3, 1), date(2026, 4, 1)),
+    )
+    assert (r["period"]["from"], r["period"]["to"]) == ("2026-03-01", "2026-04-01")
+    assert r["period"]["kwh"] == 310.0 and len(r["buckets"]) == 12

@@ -154,7 +154,13 @@ class LinkyService:
         return {"tariff": tariff.view() if tariff else None, "prefill": self.tariffs.prefill()}
 
     def report(
-        self, start: date, end: date, group: Group, recorder: Recorder, radiator_ids: list[str]
+        self,
+        start: date,
+        end: date,
+        group: Group,
+        recorder: Recorder,
+        radiator_ids: list[str],
+        period: tuple[date, date] | None = None,
     ) -> dict[str, Any]:
         edges = local_edges(start, end, "day", self.tz)
         buckets = recorder.energy_buckets(edges, radiator_ids) if radiator_ids else {}
@@ -184,7 +190,7 @@ class LinkyService:
             first_day=self.first_day(),
             radiators_from=radiators_from,
         )
-        return build_report(start, end, group, inputs)
+        return build_report(start, end, group, inputs, period)
 
     def curve_day(self, day: date) -> dict[str, Any]:
         points = self.store.curve(day, day + timedelta(days=1)).get(day, [])

@@ -23,7 +23,7 @@ from kelvin.billing.slots import offpeak_share_of_day, split_curve
 from kelvin.billing.tariff import Tariff
 from kelvin.linky.models import CurvePoint
 
-Group = Literal["day", "month", "year"]
+Group = Literal["day", "week", "month", "year"]
 TRAILING_DAYS = 30
 MIN_TRAILING_DAYS = 7
 MIN_MONTH_DAYS = 20
@@ -55,6 +55,8 @@ def _days(a: date, b: date) -> Iterator[date]:
 def unit_start(day: date, group: Group) -> date:
     if group == "day":
         return day
+    if group == "week":  # ISO week, Monday first
+        return day - timedelta(days=day.weekday())
     if group == "month":
         return day.replace(day=1)
     return date(day.year, 1, 1)
@@ -63,6 +65,8 @@ def unit_start(day: date, group: Group) -> date:
 def next_unit(start: date, group: Group) -> date:
     if group == "day":
         return start + ONE
+    if group == "week":
+        return start + 7 * ONE
     if group == "month":
         return date(start.year + start.month // 12, start.month % 12 + 1, 1)
     return date(start.year + 1, 1, 1)
@@ -71,6 +75,8 @@ def next_unit(start: date, group: Group) -> date:
 def prev_unit(start: date, group: Group) -> date:
     if group == "day":
         return start - ONE
+    if group == "week":
+        return start - 7 * ONE
     if group == "month":
         return date(start.year - (start.month == 1), (start.month - 2) % 12 + 1, 1)
     return date(start.year - 1, 1, 1)
@@ -79,6 +85,9 @@ def prev_unit(start: date, group: Group) -> date:
 def bucket_key(day: date, group: Group) -> str:
     if group == "day":
         return day.isoformat()
+    if group == "week":
+        year, week, _ = day.isocalendar()
+        return f"{year:04d}-W{week:02d}"
     if group == "month":
         return f"{day.year:04d}-{day.month:02d}"
     return f"{day.year:04d}"
@@ -255,7 +264,16 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
     }
 
 
-def build_report(start: date, end: date, group: Group, inp: ReportInputs) -> dict[str, Any]:
+def build_report(
+    start: date,
+    end: date,
+    group: Group,
+    inp: ReportInputs,
+    period: tuple[date, date] | None = None,
+) -> dict[str, Any]:
+    """`[start, end)` is the chart window. `period` is the selected period the hero, the
+    per-radiator figures and the comparisons describe; by default the unit of `group` that
+    holds the last Linky day (or yesterday)."""
     en = _Energy(inp)
     buckets = []
     d = start
@@ -264,6 +282,9 @@ def build_report(start: date, end: date, group: Group, inp: ReportInputs) -> dic
         buckets.append({"key": bucket_key(d, group), **en.summary(d, nxt)})
         d = nxt
     anchor = en.last or (inp.today - ONE)
+    if period is None:
+        period = (unit_start(anchor, group), next_unit(unit_start(anchor, group), group))
+    p_from, p_to = period
     cur_start = unit_start(anchor, group)
     cur_end = anchor + ONE
     prev_start = prev_unit(cur_start, group)
@@ -292,6 +313,7 @@ def build_report(start: date, end: date, group: Group, inp: ReportInputs) -> dic
         "tariff": inp.tariff is not None,
         "buckets": buckets,
         "total": en.summary(start, end),
+        "period": en.period(p_from, p_to),
         "hero": {
             "current": en.period(cur_start, cur_end),
             "previous": en.period(prev_start, prev_end),

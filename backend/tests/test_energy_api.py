@@ -432,3 +432,37 @@ async def test_radiator_energy_and_the_report_run_off_the_event_loop(api, monkey
     p = {"from": str(today() - timedelta(days=7)), "to": str(today())}
     assert (await c.get("/api/energy", params=p)).status_code == 200
     assert len(seen) == 2 and loop_thread not in seen
+
+
+async def test_energy_accepts_week_and_a_selected_period(api):
+    c, _, _, _ = api
+    last = today() - timedelta(days=1)
+    start = last - timedelta(days=last.weekday() + 21)
+    r = await c.get(
+        "/api/energy",
+        params={"from": str(start), "to": str(today()), "group": "week", "focus": str(start)},
+    )
+    body = r.json()
+    assert r.status_code == 200 and body["group"] == "week"
+    assert body["period"]["from"] == str(start)
+    assert body["period"]["to"] == str(start + timedelta(days=7))
+    r = await c.get(
+        "/api/energy",
+        params={
+            "from": str(start),
+            "to": str(today()),
+            "period_from": str(start),
+            "period_to": str(start + timedelta(days=3)),
+        },
+    )
+    assert r.json()["period"]["days"] == 3
+
+
+@pytest.mark.parametrize(
+    "params",
+    [{"period_from": "2026-10-01"}, {"period_from": "2026-10-05", "period_to": "2026-10-01"}],
+)
+async def test_an_invalid_selected_period_is_french(api, params):
+    c, _, _, _ = api
+    r = await c.get("/api/energy", params={"from": "2026-09-01", "to": "2026-10-01", **params})
+    assert r.status_code == 422 and r.json()["detail"] == "Période invalide."
