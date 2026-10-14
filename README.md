@@ -18,9 +18,15 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   own three slots a day); boost a room for a few hours; away for the whole house. Boost and away
   restore what was there before.
 - **History:** temperature and setpoint per room, a 24-hour thermal strip, radiator energy from
-  their own meters.
+  their own meters. Overkiz reports a meter only when it moves; Kelvin spreads the energy
+  between two readings over the time between them, by the radiator's own heating rate when it
+  knows it, and marks such figures as estimates. A reading that cannot be true (above what the
+  radiator can draw, or a drop) is never counted as energy, and the time after a meter's last
+  change stays unknown until it moves again.
 - **Énergie:** whole-home consumption from Linky (through MyElectricalData), an HC/HP bill
-  estimate with price history, comparisons, a month projection and the heating share.
+  estimate with price history, the radiators' share with their own HC/HP and euros, comparisons
+  on comparable days only, a month and a 365-day projection, and the day's half-hours with
+  power and price. A missing figure reads « — », never 0.
 - **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets.
 - **A simulator** of a whole home and a synthetic Linky, for trying Kelvin and for every test.
 
@@ -149,8 +155,11 @@ Kelvin keeps both in `account.json` (0600) in its data volume.
 - **Backend** (`backend/`, Python, FastAPI): it talks to Overkiz through
   [pyoverkiz](https://github.com/iMicknl/python-overkiz-api). It keeps a model of the house
   from the device events, confirms each command by the state the radiator reports, and records
-  samples and meter readings in SQLite. It runs boost and away itself, syncs Linky within its
-  quota, and serves a REST API with server-sent events. See [backend/README.md](backend/README.md).
+  samples and meter readings in SQLite. It follows Cozytouch events and re-reads one radiator's
+  states every 10 minutes; it reads the whole Cozytouch setup only at startup, after an outage
+  or a password change (at most 3 times a day), because Overkiz limits those reads. It runs
+  boost and away itself, syncs Linky within its quota, and serves a REST API with server-sent
+  events. See [backend/README.md](backend/README.md).
 - **Web** (`web/`, SvelteKit, Svelte 5): a static PWA served by the backend. See
   [web/README.md](web/README.md).
 - **Device facts** verified on Sauter radiators: [docs/overkiz-notes.md](docs/overkiz-notes.md);

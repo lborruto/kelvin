@@ -68,3 +68,30 @@ device-by-device resync once the daily budget of full setup reads is spent.
 - **`OVERRIDEMODE_ERROR` is common**: comfort and eco both returned it on the first command although the state was applied. Device state is the only reliable confirmation.
 - Execution events for success carry `failure='NO_FAILURE'`, not null. Only `state` (COMPLETED / FAILED) is meaningful.
 - The order of events is `NOT_TRANSMITTED` → `TRANSMITTED` → state change(s) → final execution state, within about 5–20 s.
+
+## Setup reads and the call budget (2026-10-14, documentation; ruling 8)
+
+The end-user API documentation lists `GET /setup`, `/setup/devices`, `/setup/places` and every
+`…/states/refresh` as "1 call per 1d (bulk-load)" per session. `GET /setup/devices/{url}/states`
+and `GET /setup/quotas` have no printed limit. Kelvin reads the whole setup at startup, after an
+outage and on a password change (at most 3 times in any 24 h, one `SetupReadGuard` whose times
+are stored, so a restart does not reset it) and otherwise re-reads one radiator's device states
+every 10 minutes. It never sends `states/refresh`: that is a radio action on the radiators.
+`GET /api/overkiz/quotas` reads `GET /setup/quotas` only when asked (cached for an hour).
+
+## Energy counters: cadence (main-session observation)
+
+- 2026-10-14, afternoon, 10 minutes of the event listener on the real installation (read-only):
+  no `core:ElectricEnergyConsumptionState` and no temperature event at all, the radiators
+  likely idle. Counters arrive only when they change (or after a refresh), at irregular times.
+- Consequence for the code: readings are written on change, at the time Kelvin learns them; a
+  value read again unchanged is no reading (the reported value may lag the meter, so it proves
+  no 0). Energy between two readings is spread over the gap, weighted by the working rate when
+  the 5-min samples cover at least 80 % of it (idle stretches inside it then read 0), by time
+  otherwise; the time after a counter's last change is unknown (`null`) until it changes again.
+  The cadence only decides how often figures carry the `apportioned` and `interpolated` flags.
+- Still to observe (longer, while radiators heat): the median and maximum gap between counter
+  changes while heating and while idle, the step size in Wh, and the range of
+  `io:CurrentWorkingRateState` (`RateIndex` clamps it to 0–100). Whether an unchanged value
+  re-read later proves that no energy was used depends on that lag; until it is measured,
+  Kelvin does not treat it as proof.
