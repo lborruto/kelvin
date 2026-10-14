@@ -385,3 +385,26 @@ async def test_a_non_object_med_answer_is_a_french_503(api):
     r = await c.put("/api/settings/linky", json={"prm": PRM, "token": TOKEN})
     assert r.status_code == 503
     assert r.json() == {"detail": "MyElectricalData injoignable, réessayez plus tard."}
+
+
+async def test_radiator_energy_keeps_its_shape_and_adds_the_flags(api):
+    c, _, rt, _ = api
+    end = datetime.now(PARIS).replace(minute=0, second=0, microsecond=0)
+    start = end - timedelta(days=2)
+    r = await c.get(
+        "/api/energy/radiators",
+        params={"start": start.timestamp(), "end": end.timestamp(), "group": "day"},
+    )
+    rows = r.json()
+    assert rows, "the simulator seeds a week of readings"
+    assert set(rows[0]) == {
+        "bucket",
+        "radiator_id",
+        "kwh",
+        "t1_kwh",
+        "t2_kwh",
+        "interpolated",
+        "apportioned",
+    }
+    assert {x["radiator_id"] for x in rows} <= set(rt.house.radiators)
+    assert all(x["kwh"] >= 0 for x in rows)

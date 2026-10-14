@@ -51,6 +51,11 @@ from kelvin.overkiz.errors import GatewayError
 
 router = APIRouter(dependencies=[Depends(require_kelvin_header), Depends(require_session)])
 MAX_REPORT_DAYS = 4 * 366
+MAX_HOUR_DAYS = 62  # hourly radiator buckets: two months at most
+MAX_HISTORY_POINTS = 10_000  # per radiator
+MAX_RADIATORS = 50
+_RADIATOR_ID = re.compile(r"[A-Za-z0-9_.-]{1,64}")
+FIRST_TS = 946_684_800  # 2000-01-01T00:00:00Z
 _PRM = re.compile(r"[0-9]{14}")  # ASCII digits only
 FIRST_DAY = date(2000, 1, 1)
 KIND_LABELS = {"manual": "consigne", "comfort": "confort", "eco": "abaissement éco"}
@@ -290,6 +295,23 @@ async def house_program(request: Request):
     )
 
 
+def _check_span(start: float, end: float, max_days: int = MAX_REPORT_DAYS) -> None:
+    """Epoch windows get the same bounds as the dated reports: from 2000-01-01 to two years
+    ahead, `end` after `start`, at most `max_days` long. Every query below is bounded."""
+    hi = time.time() + 2 * 366 * 86400
+    if not (FIRST_TS <= start < end <= hi) or end - start > max_days * 86400:
+        raise HTTPException(422, "Période invalide.")
+
+
+def _ids(raw: str | None) -> list[str]:
+    ids = list(dict.fromkeys(i for i in (raw or "").split(",") if i))
+    if len(ids) > MAX_RADIATORS:
+        raise HTTPException(422, "Trop de radiateurs dans la demande.")
+    if not all(_RADIATOR_ID.fullmatch(i) for i in ids):
+        raise HTTPException(422, "Radiateur inconnu.")
+    return ids
+
+
 @router.get("/history")
 async def history(
     request: Request,
@@ -299,11 +321,14 @@ async def history(
     step: int = Query(default=300, ge=300),
 ) -> list[dict]:
     rt = _rt(request)
-    ids = [i for i in radiators.split(",") if i]
+    ids = _ids(radiators)
     for i in ids:
         _radiator(rt, i)
     end = end or time.time()
     start = start or end - 86400
+    _check_span(start, end)
+    if (end - start) / step > MAX_HISTORY_POINTS:
+        raise HTTPException(422, "Période invalide.")
     return rt.recorder.history(ids, start, end, step)
 
 
@@ -315,9 +340,11 @@ async def energy_radiators(
     group: str = Query(default="day", pattern="^(hour|day|month)$"),
     radiators: str | None = None,
 ) -> list[dict]:
+    """Radiators no longer in the house can be asked for by id: their history stays (L8)."""
     rt = _rt(request)
-    ids = [i for i in (radiators or "").split(",") if i] or list(rt.house.radiators)
-    return rt.recorder.energy(ids, start, end, group)
+    _check_span(start, end, MAX_HOUR_DAYS if group == "hour" else MAX_REPORT_DAYS)
+    ids = _ids(radiators) or list(rt.house.radiators)
+    return rt.recorder.radiator_energy(ids, start, end, group)  # type: ignore[arg-type]
 
 
 def _linky(rt: Runtime) -> LinkyService:

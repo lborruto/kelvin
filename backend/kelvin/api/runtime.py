@@ -104,9 +104,9 @@ def _recorded_wh(recorder: Recorder, house: House, tz: str) -> Callable[[date], 
     ids = list(house.radiators)
 
     def wh(day: date) -> float | None:
-        a, b = day_bounds(day, ZoneInfo(tz))
-        rows = recorder.energy(ids, a, b - 1, "day")
-        return sum(r["kwh"] for r in rows) * 1000 if rows else None
+        buckets = recorder.energy_buckets(list(day_bounds(day, ZoneInfo(tz))), ids)
+        known = [b[0].wh for b in buckets.values() if b[0].wh is not None]
+        return sum(known) if known else None
 
     return wh
 
@@ -188,7 +188,11 @@ async def start_runtime(
 
         commands = CommandService(gateway, house, on_update=on_update)
 
+        recorder_ref: list[Recorder] = []
+
         def on_changed(ids: set[str]) -> None:
+            if recorder_ref:  # a counter reading's time is when its event arrived
+                recorder_ref[0].snapshot_energy(ids)
             room_ids = {house.radiators[i].room_id for i in ids}
             bc.publish(
                 "house",
@@ -209,6 +213,7 @@ async def start_runtime(
         pump.mark_ok()
         commands.on_sent = pump.wake
         recorder = Recorder(db, house, is_fresh=lambda: pump.connected, tz=settings.tz)
+        recorder_ref.append(recorder)
         overrides = OverrideManager(
             db, house, commands, wall=time.time, is_connected=lambda: pump.connected
         )

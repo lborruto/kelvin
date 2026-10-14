@@ -304,3 +304,41 @@ async def test_overkiz_quotas_unreachable_is_a_french_503(ctx):
     r = await c.get("/api/overkiz/quotas")
     assert r.status_code == 503
     assert r.json()["detail"] == "Cozytouch injoignable, réessayez plus tard."
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"start": 0, "end": 3600},  # before 2000
+        {"start": 2_000_000_000, "end": 1_999_000_000},  # end before start
+        {"start": 1_000_000_000, "end": 1_000_000_000 + 5 * 366 * 86400},  # over 4 years
+        {"start": 1_700_000_000, "end": 1_700_000_000 + 300 * 10_001},  # 10 001 points
+    ],
+)
+async def test_history_windows_are_bounded(ctx, params):
+    c, _, _ = ctx
+    p = {"radiators": "9312063", **params}
+    r = await c.get("/api/history", params=p)
+    assert r.status_code == 422 and r.json()["detail"] == "Période invalide."
+
+
+async def test_too_many_or_malformed_radiator_ids_are_refused(ctx):
+    c, _, _ = ctx
+    now = time.time()
+    many = ",".join(f"r{i}" for i in range(51))
+    for path in ("/api/history", "/api/energy/radiators"):
+        r = await c.get(path, params={"radiators": many, "start": now - 3600, "end": now})
+        assert r.status_code == 422 and r.json()["detail"] == "Trop de radiateurs dans la demande."
+    r = await c.get(
+        "/api/energy/radiators", params={"radiators": "a/b", "start": now - 3600, "end": now}
+    )
+    assert r.status_code == 422 and r.json()["detail"] == "Radiateur inconnu."
+
+
+async def test_hourly_radiator_energy_is_capped_at_two_months(ctx):
+    c, _, _ = ctx
+    now = time.time()
+    p = {"start": now - 63 * 86400, "end": now, "group": "hour"}
+    assert (await c.get("/api/energy/radiators", params=p)).status_code == 422
+    p["group"] = "day"
+    assert (await c.get("/api/energy/radiators", params=p)).status_code == 200

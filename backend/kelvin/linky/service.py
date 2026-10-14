@@ -16,10 +16,11 @@ from kelvin.billing.costs import curve_complete
 from kelvin.billing.report import Group, ReportInputs, build_report
 from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
-from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds
+from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource
 from kelvin.linky.store import LinkyStore
 from kelvin.linky.sync import DAILY_BACKFILL_DAYS, DAILY_BUDGET, BudgetExceeded, LinkySync
 from kelvin.recorder.db import Database
+from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
 
 log = logging.getLogger(__name__)
@@ -155,15 +156,17 @@ class LinkyService:
     def report(
         self, start: date, end: date, group: Group, recorder: Recorder, radiator_ids: list[str]
     ) -> dict[str, Any]:
-        a = day_bounds(start, self.tz)[0]
-        b = day_bounds(end, self.tz)[0]
-        rows = recorder.energy(radiator_ids, a, b - 1, "day") if radiator_ids else []
+        edges = local_edges(start, end, "day", self.tz)
+        buckets = recorder.energy_buckets(edges, radiator_ids) if radiator_ids else {}
         per_day: dict[date, float] = {}
         per_id: dict[str, float] = {}
-        for r in rows:
-            d = date.fromisoformat(r["bucket"])
-            per_day[d] = per_day.get(d, 0.0) + r["kwh"]
-            per_id[r["radiator_id"]] = per_id.get(r["radiator_id"], 0.0) + r["kwh"]
+        for rid, row in buckets.items():
+            for i, b in enumerate(row):
+                if b.wh is None:
+                    continue
+                d = start + timedelta(days=i)
+                per_day[d] = per_day.get(d, 0.0) + b.wh / 1000
+                per_id[rid] = per_id.get(rid, 0.0) + b.wh / 1000
         first = recorder.first_energy_ts(radiator_ids)
         radiators_from = (
             datetime.fromtimestamp(first, self.tz).date() + timedelta(days=1)
