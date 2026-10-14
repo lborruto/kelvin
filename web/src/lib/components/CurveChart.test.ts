@@ -115,6 +115,18 @@ describe('CurveChart', () => {
     expect([...container.querySelectorAll<HTMLElement>('.readout .field')].map((f) => f.style.width)).toEqual(before);
   });
 
+  it('an estimated value reserves the whole « est. » beside it (4 px gap and 4 characters at 12 px), not a scaled-down share', () => {
+    const width = (c: Element, label: string) => {
+      const f = [...c.querySelectorAll<HTMLElement>('.readout .field')].find((x) => x.querySelector('dt')!.textContent === label)!;
+      return parseFloat(f.style.width.replace('min(100%, ', ''));
+    };
+    // « 110 Wh est. » measured 75 px in Chromium's UI face; the field was sized 71 px and clipped it.
+    const interp = four.map((p) => ({ ...p, wh: 400, radiators_wh: 110, radiators_known: 1, radiators_total: 1, radiators_interp: true }));
+    const { container } = render(CurveChart, { intervals: interp, label: 'Courbe' });
+    const value = `110${NB}Wh`.length * 13 * 0.6;
+    expect(width(container, 'Reste')).toBeGreaterThanOrEqual(value + 4 + 4 * 12 * 0.6);
+  });
+
   it('a reason too long for a phone line reserves two lines', () => {
     // Radiators above the meter: « Radiateurs au-dessus du compteur : écart de mesure ».
     const above = four.map((p, i) => ({ ...p, radiators_wh: i === 0 ? p.wh + 200 : 100, radiators_known: 2, radiators_total: 2 }));

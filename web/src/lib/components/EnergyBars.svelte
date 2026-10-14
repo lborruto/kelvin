@@ -7,6 +7,7 @@
 
 <script lang="ts">
   import { scaleBand, scaleLinear } from 'd3-scale';
+  import { tick, untrack } from 'svelte';
   import ChartInspector from './ChartInspector.svelte';
   import { cardLeft, nearestIndex, stepIndex, swipeDirection } from '$lib/chart';
   import { fmtKwh } from '$lib/format';
@@ -157,6 +158,27 @@
     focusIdx = i;
     quiet = false;
   }
+  // New bars (another period, a drill, a swipe): nothing of the old ones stays pinned or held. Keyed by label, the old
+  // buttons and the card leave the DOM, so a focus inside the chart moves to the new tab stop instead of falling to <body>.
+  let signature = $derived(groups.map((g) => g.label).join('|'));
+  let shownSignature = untrack(() => signature);
+  $effect.pre(() => {
+    const sig = signature;
+    if (sig === shownSignature) return;
+    shownSignature = sig;
+    untrack(() => {
+      const hadFocus = !!plot && plot.contains(document.activeElement);
+      selected = null;
+      held = null;
+      hover = null;
+      focusIdx = null;
+      quiet = false;
+      if (hadFocus) void tick().then(() => buttons[stop]?.focus());
+    });
+  });
+
+  /** A bar's drill action: Enter runs it; without one, Enter pins the bar (opens or keeps its card). */
+  const canDrill = (i: number) => !!ondrill && (drillLabel ? drillLabel(i) != null : true);
   function onkeydown(e: KeyboardEvent, i: number) {
     if (e.key === 'Escape') {
       if (selected != null || !quiet) {
@@ -167,9 +189,14 @@
       }
       return;
     }
-    if (e.key === 'Enter' && ondrill) {
+    if (e.key === 'Enter') {
       e.preventDefault();
-      ondrill(i);
+      if (canDrill(i)) ondrill!(i);
+      else {
+        selected = i;
+        focusIdx = i;
+        quiet = false;
+      }
       return;
     }
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;

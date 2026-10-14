@@ -188,6 +188,18 @@ describe('half-hour readout (spec §3.2.4)', () => {
     });
   });
 
+  it('with a tariff, a half-hour without a price reads « — » and says why', () => {
+    const all = dayOf('2026-10-14');
+    all[3] = iv(all[3].ts, { offpeak: null, price: null, eur: null });
+    const rows = readInterval(all[3], { intervals: all, tariff: true }).rows;
+    for (const key of ['tarif', 'prix', 'cout']) {
+      expect(rows.find((x) => x.key === key)).toMatchObject({ value: '—', note: 'aucun tarif pour cette demi-heure' });
+    }
+    // A priced half-hour carries no reason; nothing chosen is the idle « — », no reason either.
+    expect(readInterval(all[2], { intervals: all, tariff: true }).rows.find((x) => x.key === 'prix')!.note).toBeUndefined();
+    expect(readInterval(null, { intervals: all, tariff: true }).rows.find((x) => x.key === 'prix')!.note).toBeUndefined();
+  });
+
   it('keeps a fixed set of rows for a day; nothing chosen reads « — »', () => {
     const all = dayOf('2026-10-14').map((x) => ({ ...x, radiators_wh: null, radiators_known: 0, radiators_total: 0, offpeak: null, price: null, eur: null }));
     const idle = readInterval(null, { intervals: all, tariff: false });

@@ -1,6 +1,5 @@
 import type {
   CommandResult,
-  CurveDay,
   EnergyBucket,
   EnergyDay,
   EnergyGroup,
@@ -120,7 +119,6 @@ export const api = {
     ),
   energyDay: (date: string, room?: string | null) =>
     call<EnergyDay>('GET', `/energy/day?date=${enc(date)}` + (room ? `&room=${enc(room)}` : '')),
-  linkyCurve: (date: string) => call<CurveDay>('GET', `/linky/curve?date=${enc(date)}`),
   settings: () => call<SettingsView>('GET', '/settings'),
   putTariff: (tariff: TariffInput) => call<SettingsView>('PUT', '/settings', { tariff }),
   linkyStatus: () => call<LinkyStatus>('GET', '/settings/linky'),

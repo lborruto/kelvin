@@ -53,6 +53,7 @@ export const COPY = {
   halfCost: 'Coût',
   restShort: 'Reste',
   restNegative: `Radiateurs au-dessus du compteur${NB}: écart de mesure`,
+  noPrice: 'aucun tarif pour cette demi-heure',
   temperature: 'Température',
   setpoint: 'consigne',
   offpeak: 'Heures creuses',
@@ -276,10 +277,18 @@ export function readInterval(iv: EnergyInterval | null, ctx: ReadoutCtx): Inspec
     { key: 'energie', label: COPY.energyWh, value: iv ? fmtWh(iv.wh) : '—' }
   ];
   if (ctx.tariff && any((x) => x.offpeak)) {
+    // A chosen half-hour without a price says why (spec §9.1); nothing chosen is the idle « — ».
+    const why = (v: number | null | undefined) => (iv && v == null ? COPY.noPrice : undefined);
     rows.push(
-      { key: 'tarif', label: COPY.rate, value: iv?.offpeak != null ? rateText(iv.offpeak, iv.boundary) : '—', est: !!iv?.boundary },
-      { key: 'prix', label: COPY.price, value: fmtPrice(iv?.price) },
-      { key: 'cout', label: COPY.halfCost, value: fmtEurHalfHour(iv?.eur) }
+      {
+        key: 'tarif',
+        label: COPY.rate,
+        value: iv?.offpeak != null ? rateText(iv.offpeak, iv.boundary) : '—',
+        est: iv?.offpeak != null && iv.boundary,
+        note: why(iv?.offpeak)
+      },
+      { key: 'prix', label: COPY.price, value: fmtPrice(iv?.price), note: why(iv?.price) },
+      { key: 'cout', label: COPY.halfCost, value: fmtEurHalfHour(iv?.eur), note: why(iv?.eur) }
     );
   }
   // The radiator rows belong to every day that had a radiator; an unknown sum (one radiator without a figure,

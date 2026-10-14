@@ -420,19 +420,3 @@ export interface EnergyDay {
     overrides: { id: string; kind: string; temperature: number | null; ends_at: number | null }[];
   } | null;
 }
-export interface CurvePointView {
-  ts: number;
-  minutes: number;
-  wh: number;
-  /** Share of the interval inside the HC slots, 0…1. */
-  offpeak: number;
-}
-export interface CurveDay {
-  date: string;
-  points: CurvePointView[];
-  kwh: number | null;
-  hc_kwh: number | null;
-  hp_kwh: number | null;
-  complete: boolean;
-  available: string[];
-}

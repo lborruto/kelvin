@@ -155,15 +155,51 @@ describe('EnergyBars', () => {
     expect(keys[1]).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('Enter drills down; the inspector offers the same action', async () => {
+  it('Enter drills down where there is a drill action, else pins the bar; the inspector offers the same action', async () => {
     const ondrill = vi.fn();
-    render(EnergyBars, { ...three, ondrill, drillLabel: (i: number) => (i === 1 ? 'Voir la courbe du 12/10' : null) });
+    const { container } = render(EnergyBars, { ...three, ondrill, drillLabel: (i: number) => (i === 1 ? 'Voir la courbe du 12/10' : null) });
     const keys = screen.getAllByRole('button');
+    // No drill action on the third bar: Enter opens its card (and keeps it open on a second Enter).
     await fireEvent.keyDown(keys[2], { key: 'Enter' });
-    expect(ondrill).toHaveBeenLastCalledWith(2);
+    expect(ondrill).not.toHaveBeenCalled();
+    expect(keys[2]).toHaveAttribute('aria-pressed', 'true');
+    expect(container.querySelector('.inspector.sheet .title')).toHaveTextContent('13 octobre');
+    await fireEvent.keyDown(keys[2], { key: 'Enter' });
+    expect(keys[2]).toHaveAttribute('aria-pressed', 'true');
+    await fireEvent.keyDown(keys[1], { key: 'Enter' });
+    expect(ondrill).toHaveBeenLastCalledWith(1);
     await fireEvent.click(keys[1]);
     await fireEvent.click(screen.getByRole('button', { name: 'Voir la courbe du 12/10' }));
     expect(ondrill).toHaveBeenLastCalledWith(1);
+    expect(ondrill).toHaveBeenCalledTimes(2);
+  });
+
+  it('new bars (another period) clear the pin and a held card; focus moves to the new tab stop, never to body', async () => {
+    media.desktop.matches = true;
+    const props = { ...three, ondrill: vi.fn(), drillLabel: () => 'Voir' };
+    const { container, rerender } = render(EnergyBars, props);
+    const keys = screen.getAllByRole('button');
+    keys[2].focus();
+    await fireEvent.keyDown(keys[2], { key: 'ArrowLeft' }); // pins 12/10
+    const action = screen.getByRole('button', { name: 'Voir' });
+    action.focus(); // Tab into the card: it is held on 12/10
+    await tick();
+    expect(container.querySelector('.inspector.card .title')).toHaveTextContent('12 octobre');
+    await rerender({
+      ...props,
+      groups: [
+        { label: '11/9', parts: [{ key: 'home', value: 8 }] },
+        { label: '12/9', parts: [{ key: 'home', value: 9 }] }
+      ],
+      details: [ins('11 septembre', '8,00\u00a0kWh'), ins('12 septembre', '9,00\u00a0kWh')]
+    });
+    await tick();
+    const next = screen.getAllByRole('button').filter((b) => b.classList.contains('key'));
+    expect(next.map((k) => k.getAttribute('aria-pressed'))).toEqual(['false', 'false']);
+    expect(document.activeElement).toBe(next[1]);
+    // The focused bar shows its card, unpinned; nothing of the old period is left.
+    expect(container.querySelector('.inspector.card .title')).toHaveTextContent('12 septembre');
+    expect(container.querySelector('.inspector.card')).not.toHaveClass('pinned');
   });
 
   it('a horizontal swipe steps the period, a tap selects the nearest bar and a second tap closes', async () => {

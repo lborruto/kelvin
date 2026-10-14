@@ -82,11 +82,13 @@
    */
   const CH = 0.6;
   const ONE_LINE = 200;
+  /** « est. » after a value: its 4 px gap plus four characters at 12 px (sized in px, not as a share of the value). */
+  const EST = 4 + CH * 4 * 12;
   let fields = $derived.by(() => {
     const m = new Map<string, { w: number; two: boolean }>();
     for (const r of [readout, ...readings]) {
       for (const x of r.rows) {
-        const base = CH * Math.max(x.label.length * 12, x.value.length * 13 + (x.est ? 40 : 0));
+        const base = Math.max(CH * x.label.length * 12, CH * x.value.length * 13 + (x.est ? EST : 0));
         const note = CH * (x.note?.length ?? 0) * 11;
         const f = m.get(x.key) ?? { w: 0, two: false };
         const two = f.two || note > ONE_LINE;

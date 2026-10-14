@@ -104,8 +104,8 @@ describe('api client', () => {
     const fn = mockFetch(200, {});
     await api.energyReport('2026-09-14', '2026-10-15', 'day');
     expect(fn.mock.calls[0][0]).toBe('/api/energy?from=2026-09-14&to=2026-10-15&group=day');
-    await api.linkyCurve('2026-10-13');
-    expect(fn.mock.calls[1][0]).toBe('/api/linky/curve?date=2026-10-13');
+    await api.energyDay('2026-10-13');
+    expect(fn.mock.calls[1][0]).toBe('/api/energy/day?date=2026-10-13');
     await api.putLinky('12345678901234');
     expect(JSON.parse(fn.mock.calls[2][1].body)).toEqual({ prm: '12345678901234' });
     await api.putLinky('12345678901234', 'tok-123456789');

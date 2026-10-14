@@ -60,6 +60,9 @@ test.describe('layout', () => {
       await page.goto('/energie');
       await settled(page);
       const readout = page.locator('.readout');
+      // The day the page opens on has radiator data in the simulator: the radiator fields (and their reasons) are measured too.
+      await expect(readout.locator('dt', { hasText: /^Radiateurs$/ })).toHaveCount(1);
+      await expect(readout.locator('dt', { hasText: /^Reste$/ })).toHaveCount(1);
       const slider = page.getByRole('slider', { name: /^Parcourir la courbe/ });
       const idle = (await readout.boundingBox())!.height;
       const heights = new Set<number>();
