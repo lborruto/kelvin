@@ -776,3 +776,39 @@ def test_the_total_is_the_sum_of_its_rounded_parts():
     for s in (r["total"], r["period"], r["hero"]["current"], r["hero"]["previous"]):
         if s["eur"] is not None:
             assert s["eur"] == round(s["energy_eur"] + s["subscription_eur"], 2)
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "group"),
+    [
+        (date(2026, 10, 1), date(2026, 11, 1), "day"),  # Mois by day, running: counted to the 13th
+        (date(2025, 10, 20), date(2025, 10, 27), "day"),  # Semaine with the autumn DST day
+        (date(2026, 3, 23), date(2026, 3, 30), "day"),  # Semaine with the spring DST day
+        (date(2026, 1, 1), date(2027, 1, 1), "month"),  # Année by month, two prices
+        (date(2026, 9, 1), date(2026, 10, 1), "week"),  # a month by (clipped) weeks
+        (date(2026, 2, 1), date(2026, 3, 1), "day"),  # 28 days: 15 / 28 a day
+    ],
+)
+def test_bucket_euros_add_up_to_the_period(start, end, group):
+    """Shown sums add up (spec §9.1): the bars' subscription, energy and € sum to the period's
+    to the cent; each bucket stays within a cent of its exact figure, and eur = energy + sub."""
+    span = days(date(2025, 10, 1), date(2026, 10, 14))
+    daily = {d: 13_337 + (i * 179) % 4_001 for i, d in enumerate(span)}
+    t = tariff(
+        Prices(date(2025, 1, 1), 15.0, 0.2068, 0.27),
+        Prices(date(2026, 8, 1), 16.37, 0.2101, 0.2733),
+    )
+    r = build_report(start, end, group, inputs(daily, t=t), period=(start, end))
+    cents = lambda v: round(v * 100)  # noqa: E731
+    p = r["period"]
+    for key in ("subscription_eur", "energy_eur", "eur"):
+        assert sum(cents(b[key]) for b in r["buckets"] if b[key] is not None) == cents(p[key]), key
+        assert cents(r["total"][key]) == cents(p[key])
+    for b in r["buckets"]:
+        if b["eur"] is not None:
+            assert cents(b["eur"]) == cents(b["energy_eur"]) + cents(b["subscription_eur"])
+        if b["subscription_eur"] is not None:
+            a = date.fromisoformat(b["key"][:10]) if group == "day" else None
+            if a is not None:
+                exact = t.prices_on(a).subscription_eur_month / days_in_month(a)
+                assert abs(b["subscription_eur"] - exact) < 0.01 + 1e-9
