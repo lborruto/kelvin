@@ -17,7 +17,7 @@ from kelvin.billing.report import (
 from kelvin.billing.slots import Slot
 from kelvin.billing.tariff import Prices, Tariff
 from kelvin.linky.models import CurvePoint, day_bounds
-from kelvin.linky.service import LOOKBACK_DAYS
+from kelvin.linky.service import LOOKBACK_DAYS, radiator_ranges
 
 PARIS = ZoneInfo("Europe/Paris")
 HALF = (Slot("00:00", "12:00"),)  # half of every hour-weighted flat day is off-peak
@@ -875,13 +875,18 @@ _RADS = {
 }
 
 
-def _loaded(start: date, today: date) -> ReportInputs:
-    """The inputs the service builds for a window starting at `start` (period = window): the
-    curves from 400 days before it on (`LinkyService.report`'s look-back), every day after."""
+def _loaded(start: date, end: date, today: date) -> ReportInputs:
+    """The inputs the service builds for the window [start, end) (period = window): the curves
+    from 400 days before it on (`LinkyService.report`'s look-back), every day after, and the
+    radiator days of the ranges the service loads (`radiator_ranges`)."""
     lo = start - timedelta(days=LOOKBACK_DAYS)
     curve = {d: p for d, p in _CURVE.items() if d >= lo}
     inp = inputs(_DAILY, curve=curve, t=_TARIFF, today=today, first_day=_CURVE_DAYS[0])
-    inp.radiators = _RADS
+    ranges = radiator_ranges((start, end), (start, end))
+    inp.radiators = {
+        rid: {d: rd for d, rd in per.items() if any(a <= d < b for a, b in ranges)}
+        for rid, per in _RADS.items()
+    }
     inp.radiator_life = {rid: (date(2025, 11, 1), None) for rid in _RADS}
     return inp
 
@@ -913,11 +918,11 @@ def test_a_bucket_reads_the_same_euros_in_any_window_and_the_buckets_sum_to_the_
     today = date(2026, 2, 15)
     start = _SPAN[0] + timedelta(days=a)
     end = min(start + timedelta(days=n), _SPAN[1] + timedelta(days=5))
-    r = build_report(start, end, group, _loaded(start, today), period=(start, end))
+    r = build_report(start, end, group, _loaded(start, end, today), period=(start, end))
     d = start
     for b in r["buckets"]:
         nxt = min(next_unit(unit_start(d, group), group), end)
-        alone = build_report(d, nxt, "day", _loaded(d, today), period=(d, nxt))["period"]
+        alone = build_report(d, nxt, "day", _loaded(d, nxt, today), period=(d, nxt))["period"]
         assert _euros(b) == _euros(alone), (b["key"], start, end)
         assert _split(b) == _split(alone), (b["key"], start, end)
         assert _rad_eur(b) == _rad_eur(alone), (b["key"], start, end)

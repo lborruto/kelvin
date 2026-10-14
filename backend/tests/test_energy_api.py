@@ -773,3 +773,37 @@ async def test_room_stats_stop_at_the_end_of_yesterday_like_the_radiator_kwh(api
     calls.clear()
     await c.get("/api/energy", params={**params, "period_to": str(start + timedelta(days=1))})
     assert calls == [(day_bounds(start, PARIS)[0], day_bounds(start, PARIS)[1])]
+
+
+@pytest.mark.parametrize("wall", [(0, 27), (9, 0), (14, 0), (20, 0)], indirect=True)
+async def test_a_days_radiator_euros_read_the_same_in_jour_semaine_and_mois(api):
+    """Batch 4 review N-1: the radiators' € are running sums from 1 January, so the service
+    loads their half-hours from there: a day reads the same € however it is asked."""
+    c, _, rt, _ = api
+    t = rt.linky.today()
+
+    async def report(a: date, b: date, group: str, pa: date, pb: date) -> dict:
+        params = {"from": str(a), "to": str(b), "group": group}
+        params |= {"period_from": str(pa), "period_to": str(pb)}
+        r = await c.get("/api/energy", params=params)
+        assert r.status_code == 200
+        return r.json()
+
+    for k in range(1, 7):
+        d = t - timedelta(days=k)
+        nxt = d + timedelta(days=1)
+        jour = (await report(d - timedelta(days=6), nxt, "day", d, nxt))["period"]["radiators"]
+        week = d - timedelta(days=d.weekday())
+        month = d.replace(day=1)
+        month_end = (month + timedelta(days=32)).replace(day=1)
+        seen = [jour["eur"]]
+        # Semaine, Mois, and a window that starts on the day itself.
+        for a, b in (
+            (week, week + timedelta(days=7)),
+            (month, month_end),
+            (d, nxt + timedelta(days=6)),
+        ):
+            body = await report(a, b, "day", a, b)
+            bucket = next(x for x in body["buckets"] if x["key"] == str(d))
+            seen.append(bucket["radiators"]["eur"])
+        assert jour["eur"] is not None and len(set(seen)) == 1, (d, seen)

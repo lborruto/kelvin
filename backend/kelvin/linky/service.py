@@ -37,6 +37,21 @@ from kelvin.recorder.recorder import Recorder
 log = logging.getLogger(__name__)
 
 SourceFactory = Callable[[str, str], LinkySource]
+
+
+def radiator_ranges(
+    window: tuple[date, date], period: tuple[date, date]
+) -> list[tuple[date, date]]:
+    """The days whose radiator half-hours a report loads: the window and the period, each from
+    1 January of its first year (the radiators' € are running sums anchored there, so a bucket
+    reads the same in any window), one range when they overlap or touch, else each on its own
+    (the years between two far ranges are never bucketed). At most 365 days more per range."""
+    ranges = sorted((date(a.year, 1, 1), b) for a, b in (window, period))
+    if ranges[1][0] <= ranges[0][1]:
+        return [(ranges[0][0], max(ranges[0][1], ranges[1][1]))]
+    return ranges
+
+
 LOOKBACK_DAYS = 400  # last year's period, the 30 trailing days and the ±15-day HC share
 AVG4_YEARS = 4  # the comparison with the mean of the four previous periods, by year
 # Simulator only: demo values so Énergie shows euros out of the box. Never a real installation.
@@ -203,9 +218,7 @@ class LinkyService:
         # touch, else each on its own, so the years between two far ranges are never bucketed
         # (each range is bounded, their union is not). A day's figure does not depend on the
         # range asked (window-consistent buckets), so the merge is exact.
-        ranges = sorted([(start, end), period])
-        if ranges[1][0] <= ranges[0][1]:
-            ranges = [(ranges[0][0], max(ranges[0][1], ranges[1][1]))]
+        ranges = radiator_ranges((start, end), period)
         ids = recorder.energy_radiator_ids()
         radiators: dict[str, dict[date, RadiatorDay]] = {}
         for lo, hi in ranges:
