@@ -1,8 +1,8 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
 from kelvin.billing.costs import days_in_month
@@ -17,6 +17,7 @@ from kelvin.billing.report import (
 from kelvin.billing.slots import Slot
 from kelvin.billing.tariff import Prices, Tariff
 from kelvin.linky.models import CurvePoint, day_bounds
+from kelvin.linky.service import LOOKBACK_DAYS
 
 PARIS = ZoneInfo("Europe/Paris")
 HALF = (Slot("00:00", "12:00"),)  # half of every hour-weighted flat day is off-peak
@@ -829,8 +830,47 @@ _TARIFF = tariff(
 )
 
 
+def shaped(day: date, wh: float, hc: float) -> list[CurvePoint]:
+    """A complete curve of `wh` with the share `hc` of it in the off-peak half (00:00–12:00)."""
+    a, b = day_bounds(day, PARIS)
+    ts = range(a, b, 1800)
+    off = [t for t in ts if datetime.fromtimestamp(t, PARIS).hour < 12]
+    on = [t for t in ts if datetime.fromtimestamp(t, PARIS).hour >= 12]
+    return sorted(
+        [CurvePoint(t, 30, wh * hc / len(off)) for t in off]
+        + [CurvePoint(t, 30, wh * (1 - hc) / len(on)) for t in on],
+        key=lambda p: p.ts,
+    )
+
+
+# Curves: an old history (more than 400 days before the span), a month, then a gap of more
+# than 31 days around the span's start (days there have no curve within ±15 days), then the
+# rest. Each day's off-peak share differs, so which curves a fallback reads changes its share.
+_CURVE_DAYS = [
+    *days(date(2024, 10, 1), date(2024, 11, 16)),
+    *days(date(2025, 10, 1), date(2025, 11, 1)),
+    *days(date(2026, 1, 10), date(2026, 2, 11)),
+]
+_CURVE = {
+    d: shaped(d, _DAILY.get(d, 12_000), 0.15 + 0.7 * ((i * 37) % 11) / 10)
+    for i, d in enumerate(_CURVE_DAYS)
+}
+
+
+def _loaded(start: date, today: date) -> ReportInputs:
+    """The inputs the service builds for a window starting at `start` (period = window): the
+    curves from 400 days before it on (`LinkyService.report`'s look-back), every day after."""
+    lo = start - timedelta(days=LOOKBACK_DAYS)
+    curve = {d: p for d, p in _CURVE.items() if d >= lo}
+    return inputs(_DAILY, curve=curve, t=_TARIFF, today=today, first_day=_CURVE_DAYS[0])
+
+
 def _euros(s: dict) -> tuple:
     return (s["energy_eur"], s["subscription_eur"], s["eur"])
+
+
+def _split(s: dict) -> tuple:
+    return (s["hc_kwh"], s["hp_kwh"], s["split_method"])
 
 
 @settings(max_examples=40, deadline=None, suppress_health_check=[HealthCheck.too_slow])
@@ -839,18 +879,22 @@ def _euros(s: dict) -> tuple:
     n=st.integers(1, 60),
     group=st.sampled_from(["day", "week", "month"]),
 )
+@example(a=0, n=30, group="day")  # 10/12: no curve within ±15 days, history older than 400 days
 def test_a_bucket_reads_the_same_euros_in_any_window_and_the_buckets_sum_to_the_period(a, n, group):
-    """Same bucket, same figure: a bucket's € do not depend on the window asked (a day reads the
-    same in Jour, Semaine, Mois and Année), and any window's buckets add up to its period."""
+    """Same bucket, same figure: a bucket's € and HC/HP split do not depend on the window asked
+    (a day reads the same in Jour, Semaine, Mois and Année), and any window's buckets add up to
+    its period. The curves include a gap of more than 31 days and history older than the
+    look-back, so a day's fallback share must not read curves only some windows load."""
+    today = date(2026, 2, 15)
     start = _SPAN[0] + timedelta(days=a)
     end = min(start + timedelta(days=n), _SPAN[1] + timedelta(days=5))
-    inp = inputs(_DAILY, t=_TARIFF, today=date(2026, 2, 15))
-    r = build_report(start, end, group, inp, period=(start, end))
+    r = build_report(start, end, group, _loaded(start, today), period=(start, end))
     d = start
     for b in r["buckets"]:
         nxt = min(next_unit(unit_start(d, group), group), end)
-        alone = build_report(d, nxt, "day", inp, period=(d, nxt))["period"]
+        alone = build_report(d, nxt, "day", _loaded(d, today), period=(d, nxt))["period"]
         assert _euros(b) == _euros(alone), (b["key"], start, end)
+        assert _split(b) == _split(alone), (b["key"], start, end)
         d = nxt
     cents = lambda v: round(v * 100)  # noqa: E731
     p = r["period"]

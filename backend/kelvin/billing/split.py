@@ -2,8 +2,13 @@
 
 A day with a complete load curve splits by its own curve. Any other day uses, in order:
 complete curve days within ±15 days ("fallback_window"), else complete days of the same
-calendar month in any loaded year ("fallback_month"), else every loaded complete day
-("fallback_all"), else the slot length's share of the day ("slots").
+calendar month from 35 days before the day on ("fallback_month"), else every complete day from
+35 days before the day on ("fallback_all"), else the slot length's share of the day ("slots").
+
+The 35-day floor keeps a day's share independent of the window asked: the service loads curves
+from 400 days before the window and every curve after it, and a day it splits is at most 365
+days before the window (the running € sums start on 1 January), so the curves from 35 days
+before that day on are always loaded, whatever older history some windows also load.
 """
 
 from __future__ import annotations
@@ -16,6 +21,7 @@ from kelvin.billing.slots import Ranges, offpeak_share_of_day, split_curve
 from kelvin.linky.models import CurvePoint
 
 WINDOW_DAYS = 15
+FLOOR_DAYS = 35  # the month and all-days fallbacks read curves from day − 35 days on
 
 
 @dataclass(frozen=True)
@@ -48,11 +54,13 @@ class FallbackShares:
                 for i in range(-WINDOW_DAYS, WINDOW_DAYS + 1)
                 if (v := self.days.get(day + timedelta(days=i))) is not None
             ]
-            month = [v for d, v in self.days.items() if d.month == day.month]
+            floor = day - timedelta(days=FLOOR_DAYS)
+            later = [(d, v) for d, v in self.days.items() if d >= floor]
+            month = [v for d, v in later if d.month == day.month]
             for pairs, method in (
                 (near, "fallback_window"),
                 (month, "fallback_month"),
-                (list(self.days.values()), "fallback_all"),
+                ([v for _, v in later], "fallback_all"),
             ):
                 value = self._share(pairs)
                 if value is not None:
