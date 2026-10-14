@@ -4,7 +4,7 @@ import stat
 import pytest
 
 from kelvin.account import Account, AccountStore
-from kelvin.api.context import boot, open_context, retry_start
+from kelvin.api.context import SETUP_READS_KEY, boot, open_context, retry_start
 from kelvin.api.runtime import start_runtime
 from kelvin.auth.service import (
     BAD_CREDENTIALS,
@@ -595,3 +595,17 @@ async def test_the_running_pump_spends_the_same_setup_read_budget(env):
     await _running(ctx)
     assert ctx.rt.pump.guard is ctx.setup_reads
     assert ctx.setup_reads.used() == 1
+
+
+async def test_the_simulator_does_not_store_its_setup_read_budget(tmp_path):
+    """Dev restarts of the simulator (no Overkiz call is ever made) must never go offline."""
+    AccountStore(tmp_path).save(Account(DEMO_EMAIL, DEMO_PASSWORD))
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    for _ in range(FULL_READS_PER_DAY + 2):
+        ctx = open_context(settings, start_tasks=False)  # the simulator's own FakeGateway
+        try:
+            await boot(ctx)
+            assert ctx.mode == "running"
+        finally:
+            await ctx.close()
+    assert Database(tmp_path / "kelvin.db").get_setting(SETUP_READS_KEY) is None

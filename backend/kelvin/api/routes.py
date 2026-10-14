@@ -48,6 +48,7 @@ from kelvin.house.model import Radiator
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import BudgetExceeded
+from kelvin.overkiz.budget import QuotasUnavailable
 from kelvin.overkiz.errors import GatewayError
 
 router = APIRouter(dependencies=[Depends(require_kelvin_header), Depends(require_session)])
@@ -118,6 +119,8 @@ async def overkiz_quotas(request: Request) -> dict:
         return await rt.quotas.get()
     except GatewayError:
         raise HTTPException(503, "Cozytouch injoignable, réessayez plus tard.") from None
+    except QuotasUnavailable:
+        raise HTTPException(503, "Quotas indisponibles.") from None
 
 
 @router.get("/house")

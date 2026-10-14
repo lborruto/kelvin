@@ -97,3 +97,25 @@ async def test_quota_readout_caches_a_failure_briefly_and_reads_once_at_a_time()
     gate.set()
     assert (await first) == (await second)
     assert calls == 2  # two concurrent requests, one Overkiz call
+
+
+async def test_quota_readout_turns_any_other_failure_into_unavailable_and_caches_it():
+    import pytest
+
+    from kelvin.overkiz.budget import QuotasUnavailable
+
+    clock = ManualClock(0.0)
+    calls = 0
+
+    async def fetch():
+        nonlocal calls
+        calls += 1
+        raise KeyError("unexpected payload")
+
+    readout = QuotaReadout(fetch, wall=clock)
+    with pytest.raises(QuotasUnavailable):
+        await readout.get()
+    clock.advance(QUOTA_ERROR_CACHE_S - 1)
+    with pytest.raises(QuotasUnavailable):
+        await readout.get()
+    assert calls == 1

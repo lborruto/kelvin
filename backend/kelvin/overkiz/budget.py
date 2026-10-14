@@ -10,12 +10,15 @@ which have no documented limit.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from collections import deque
 from collections.abc import Awaitable, Callable, Iterable
 from typing import Any
 
 from kelvin.overkiz.errors import GatewayError
+
+log = logging.getLogger(__name__)
 
 FULL_READS_PER_DAY = 3
 DAY_S = 86400.0
@@ -115,10 +118,15 @@ def sanitize_quotas(raw: Any) -> list[dict[str, Any]]:
     return out
 
 
+class QuotasUnavailable(Exception):
+    """The quota read failed for a reason other than Overkiz itself (an unexpected answer)."""
+
+
 class QuotaReadout:
     """The remaining Overkiz quotas, read at most once an hour, only when asked for.
 
-    One read at a time; a failed read is not retried for QUOTA_ERROR_CACHE_S."""
+    One read at a time; a failed read is not retried for QUOTA_ERROR_CACHE_S. An Overkiz failure
+    raises GatewayError, any other failure QuotasUnavailable (never an unhandled error)."""
 
     def __init__(
         self,
@@ -134,18 +142,23 @@ class QuotaReadout:
         self.error_ttl = error_ttl
         self._value: dict[str, Any] | None = None
         self._failed_at: float | None = None
+        self._failure: type[Exception] = GatewayError
         self._lock = asyncio.Lock()
 
     async def get(self) -> dict[str, Any]:
         async with self._lock:
             if self._failed_at is not None and self.wall() - self._failed_at < self.error_ttl:
-                raise GatewayError("quota read failed recently")
+                raise self._failure("quota read failed recently")
             if self._value is None or self.wall() - self._value["fetched_at"] >= self.ttl:
                 try:
                     raw = await self.fetch()
                 except GatewayError:
-                    self._failed_at = self.wall()
+                    self._failed_at, self._failure = self.wall(), GatewayError
                     raise
+                except Exception as e:  # an answer of an unexpected shape, a bug in a gateway
+                    log.warning("quota read failed (%s)", type(e).__name__)
+                    self._failed_at, self._failure = self.wall(), QuotasUnavailable
+                    raise QuotasUnavailable("quota read failed") from None
                 self._failed_at = None
                 self._value = {"fetched_at": self.wall(), "quotas": sanitize_quotas(raw)}
             return self._value

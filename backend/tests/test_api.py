@@ -368,3 +368,15 @@ async def test_a_failing_energy_snapshot_never_suppresses_the_live_update(ctx, m
     assert q.get_nowait()["event"] == "house"
     assert "energy snapshot failed" in caplog.text
     rt.broadcaster.unsubscribe(q)
+
+
+async def test_an_unexpected_quota_failure_is_a_french_503_not_a_500(ctx):
+    c, rt, _ = ctx
+
+    async def broken():
+        raise ValueError("unexpected payload")
+
+    rt.gateway.quotas = broken
+    rt.quotas = type(rt.quotas)(broken)
+    r = await c.get("/api/overkiz/quotas")
+    assert r.status_code == 503 and r.json()["detail"] == "Quotas indisponibles."

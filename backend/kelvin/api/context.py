@@ -97,12 +97,17 @@ def open_context(
 ) -> AppContext:
     settings.kelvin_data.mkdir(parents=True, exist_ok=True)
     db = Database(settings.kelvin_data / "kelvin.db")
-    stored = db.get_setting(SETUP_READS_KEY, [])
-    setup_reads = SetupReadGuard(
-        wall=wall,
-        reads=stored if isinstance(stored, list) else [],
-        on_record=lambda reads: db.set_setting(SETUP_READS_KEY, reads),
-    )
+    if settings.kelvin_fake and gateway is None:
+        # The simulator's own FakeGateway never calls Overkiz: its budget lives in memory only,
+        # so a developer's restarts never leave it offline.
+        setup_reads = SetupReadGuard(wall=wall)
+    else:
+        stored = db.get_setting(SETUP_READS_KEY, [])
+        setup_reads = SetupReadGuard(
+            wall=wall,
+            reads=stored if isinstance(stored, list) else [],
+            on_record=lambda reads: db.set_setting(SETUP_READS_KEY, reads),
+        )
 
     async def factory(username: str, password: str) -> Gateway:
         if gateway is not None:  # injected (tests): the same fake, given these credentials
