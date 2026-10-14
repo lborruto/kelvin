@@ -65,6 +65,16 @@ describe('RoomsEnergy', () => {
     expect(container.querySelector('.sub')).toHaveTextContent('le 13 octobre 2026');
   });
 
+  it('°C, consigne and heures de chauffe « — » carry their reason, seen and heard', () => {
+    const none = { temp_avg: null, setpoint_avg: null, heating_hours: null };
+    const { container } = render(RoomsEnergy, { rows: [row('a', 'salon', none), row('b', 'salon', none)], span, tariff: true });
+    const tr = container.querySelector('.table tbody tr.room')!;
+    expect(tr.querySelector('th')).toHaveTextContent('°C, consigne et chauffe : moins de la moitié de la période mesurée');
+    const cells = [...tr.querySelectorAll('td')].slice(-3);
+    for (const td of cells) expect(td).toHaveTextContent('— (moins de la moitié de la période mesurée)');
+    expect(container.querySelector('.list > li')).toHaveTextContent('°C, consigne et chauffe : moins de la moitié de la période mesurée');
+  });
+
   it('a room none of whose radiators Kelvin recorded reads « — » and says why', () => {
     house.applySnapshot({
       house: {

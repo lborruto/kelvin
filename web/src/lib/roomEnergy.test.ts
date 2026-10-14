@@ -45,6 +45,13 @@ describe('roomEnergy (spec §3.2.7)', () => {
     expect(list[3]).toMatchObject({ temp: null, hours: null });
   });
 
+  it('°C, setpoint or heating hours without a figure say why (sampled under half the period)', () => {
+    expect(list[3].statsWhy).toBe('moins de la moitié de la période mesurée');
+    expect(list[3].radiators[0].statsWhy).toBe('moins de la moitié de la période mesurée');
+    expect(list[0].statsWhy).toBeNull();
+    expect(list[2].statsWhy).toBeNull(); // no radiator recorded: that is its reason
+  });
+
   it('L3: shares by largest remainder, adding up to 100,0 %', () => {
     expect(list.map((r) => r.share)).toEqual([`62,5${NB}%`, `33,3${NB}%`, '—', `4,2${NB}%`]);
     expect(list[0].fraction).toBeCloseTo(150.25 / 240.25, 9);

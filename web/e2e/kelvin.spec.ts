@@ -304,3 +304,26 @@ test('the manifest has a stable id; theme-color and the version follow the app',
   await themes.getByRole('radio', { name: 'Système' }).click();
   expect(await colours()).toEqual(['#0f1115', '#f5f6f8']);
 });
+
+test('Énergie Par pièce: a full-width table on desktop in every view; focus follows a room toggle across the table/list switch', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'explicit desktop widths');
+  const panel = page.locator('section.panel').filter({ has: page.getByRole('heading', { name: 'Par pièce et par radiateur' }) });
+  for (const width of [1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/energie');
+    for (const view of ['Jour', 'Semaine', 'Mois', 'Année']) {
+      await page.getByRole('radio', { name: view }).click();
+      await expect(panel.locator('.table table')).toBeVisible();
+      await expect(panel.locator('.list')).toBeHidden();
+    }
+  }
+  // A room toggle keeps the focus when the panel narrows to the list (and back).
+  const toggle = panel.locator('.table button[aria-expanded]').first();
+  const room = await toggle.getAttribute('data-room');
+  await toggle.focus();
+  await page.setViewportSize({ width: 400, height: 900 });
+  await expect(panel.locator('.list')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.closest('.list') ? document.activeElement.getAttribute('data-room') : null)).toBe(room);
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await expect.poll(() => page.evaluate(() => document.activeElement?.closest('.table') ? document.activeElement.getAttribute('data-room') : null)).toBe(room);
+});

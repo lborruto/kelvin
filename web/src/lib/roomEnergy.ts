@@ -14,7 +14,9 @@ export const COPY = {
   roomPartial: (k: number, n: number) => `${plural(k, 'radiateur')} sur ${n} ${k > 1 ? 'enregistrés' : 'enregistré'} en partie`,
   radFrom: (day: string) => `enregistré à partir du ${day}`,
   radPartial: (pct: string) => `couverture ${pct}`,
-  none: 'aucun relevé sur la période'
+  none: 'aucun relevé sur la période',
+  // The backend gives no mean °C, setpoint or heating hours below 50 % sample coverage.
+  stats: 'moins de la moitié de la période mesurée'
 } as const;
 
 /** kWh, HC and HP as the table shows them (2 decimals), allocated so that they add up. */
@@ -35,6 +37,8 @@ export interface Figures {
   /** Some energy was spread between two readings (interpolated or apportioned). */
   est: boolean;
   partial: string | null;
+  /** Why °C, setpoint or heating hours read « — » (null when all three are known). */
+  statsWhy: string | null;
   /** The table's figures: a room's radiators add up to the room, and each row's HC + HP to its kWh. */
   shown: Shown;
 }
@@ -67,6 +71,8 @@ const mean = (v: (number | null)[]) => {
 /** A radiator whose figure does not cover the period: partly measured, or not at all (`kwh: null`). */
 const partialOf = (r: ByRadiator) => r.kwh == null || (r.coverage != null && r.coverage < 1);
 const NO_SHOWN: Shown = { kwh: null, hc: null, hp: null };
+const statsWhy = (f: { temp: number | null; setpoint: number | null; hours: number | null }) =>
+  f.temp == null || f.setpoint == null || f.hours == null ? COPY.stats : null;
 
 /**
  * L1 at the table's 2 decimals: the room's HC and HP add up to its kWh, its radiators' kWh and HC
@@ -127,6 +133,7 @@ export function roomEnergy(rows: ByRadiator[], rooms: Room[], radiators: Record<
             ? COPY.radFrom(fmtDay(r.from))
             : COPY.radPartial(fmtPct1(r.coverage))
           : null,
+    statsWhy: statsWhy({ temp: r.temp_avg, setpoint: r.setpoint_avg, hours: r.heating_hours }),
     shown: NO_SHOWN,
     coverage: r.coverage,
     from: r.from
@@ -155,9 +162,12 @@ export function roomEnergy(rows: ByRadiator[], rooms: Room[], radiators: Record<
           : late && latest
             ? COPY.roomFrom(parts.length, rs.length, fmtDay(latest))
             : COPY.roomPartial(parts.length, rs.length),
+      statsWhy: null as string | null,
       shown: NO_SHOWN,
       radiators: rs.map(radRow).sort((a, b) => a.name.localeCompare(b.name, 'fr'))
     };
+    // A room without any recorded radiator says so instead (« aucun radiateur enregistré »).
+    room.statsWhy = rs.length ? statsWhy(room) : null;
     const s = shownFigures(room, room.radiators);
     return { ...room, shown: s.room, radiators: room.radiators.map((r, i) => ({ ...r, shown: s.rads[i] })) };
   });

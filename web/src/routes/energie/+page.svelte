@@ -314,7 +314,7 @@
     </section>
   {/if}
 
-  <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="half" />
+  <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="wide" />
 
   <section class="panel wide" aria-busy={!house.loaded}>
     <h2>{COPY.counters}</h2>

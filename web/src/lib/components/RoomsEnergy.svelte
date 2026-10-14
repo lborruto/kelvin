@@ -26,6 +26,7 @@
     radiators: (n: number) => `Radiateurs (${n})`,
     partial: 'partiel',
     noRadiator: 'aucun radiateur enregistré',
+    statsWhy: (why: string) => `°C, consigne et chauffe\u00a0: ${why}`,
     est: 'est.',
     hoursNote: 'Heures de chauffe : équivalent pleine puissance, par radiateur (moyenne des radiateurs pour une pièce).',
     eurNote: 'Coût : énergie seule, hors abonnement.',
@@ -47,6 +48,41 @@
   let anyEst = $derived(list.some((r) => r.est || r.radiators.some((x) => x.est)));
   const k = (v: number | null) => fmtKwhExact(v, false);
   const toggle = (id: string) => (open[id] = !open[id]);
+
+  // The table and the list are both in the page, one hidden by the panel's width. When a resize
+  // hides the room toggle that holds the focus, the focus moves to the same room's toggle in the
+  // other layout instead of dropping to <body>.
+  let section = $state<HTMLElement>();
+  let held: HTMLElement | null = null;
+  const shown = (el: Element) => (el as HTMLElement).offsetParent !== null;
+  function onfocusin(e: FocusEvent) {
+    const el = e.target as HTMLElement;
+    held = el.dataset?.room != null ? el : null;
+  }
+  function onfocusout(e: FocusEvent) {
+    const el = e.target as HTMLElement;
+    // Focus moved on by the user: forget it. A toggle hidden by the resize keeps its claim.
+    requestAnimationFrame(() => {
+      if (held === el && shown(el) && document.activeElement !== el) held = null;
+    });
+    if (e.relatedTarget && held === el) held = null;
+  }
+  function restore() {
+    if (!held || !section || shown(held)) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== held) {
+      held = null; // the user has moved on
+      return;
+    }
+    const twin = [...section.querySelectorAll<HTMLElement>(`[data-room="${CSS.escape(held.dataset.room!)}"]`)].find(shown);
+    if (twin) twin.focus();
+  }
+  $effect(() => {
+    if (!section || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => requestAnimationFrame(restore));
+    ro.observe(section);
+    return () => ro.disconnect();
+  });
 </script>
 
 {#snippet cells(f: Figures, share: string | null, fraction: number | null)}
@@ -60,9 +96,14 @@
     <td class="r mono">{k(f.shown.hp)}</td>
     <td class="r mono">{fmtEurExact(f.eur, false)}</td>
   {/if}
-  <td class="r mono">{fmtTemp(f.temp, false)}</td>
-  <td class="r mono">{fmtTemp(f.setpoint, false)}</td>
-  <td class="r mono">{fmtHours(f.hours, false)}</td>
+  {@render stat(fmtTemp(f.temp, false), f)}
+  {@render stat(fmtTemp(f.setpoint, false), f)}
+  {@render stat(fmtHours(f.hours, false), f)}
+{/snippet}
+
+<!-- A « — » stat cell carries its reason for screen readers; the row header shows it. -->
+{#snippet stat(value: string, f: Figures)}
+  <td class="r mono">{value}{#if value === '—' && f.statsWhy}<span class="visually-hidden">{` (${f.statsWhy})`}</span>{/if}</td>
 {/snippet}
 
 {#snippet facts(f: Figures)}
@@ -78,7 +119,7 @@
   </dl>
 {/snippet}
 
-<section class="panel rooms {cls}" aria-busy={!house.loaded}>
+<section class="panel rooms {cls}" aria-busy={!house.loaded} bind:this={section} {onfocusin} {onfocusout}>
   <h2>{COPY.title}</h2>
   <p class="muted sub num">{subtitle}</p>
   {#if !house.loaded}
@@ -108,20 +149,24 @@
             <tr class="room">
               <th scope="row">
                 {#if r.radiators.length}
-                  <button type="button" class="disclose" aria-expanded={!!open[r.id]} onclick={() => toggle(r.id)}>
+                  <button type="button" class="disclose" data-room={r.id} aria-expanded={!!open[r.id]} onclick={() => toggle(r.id)}>
                     <span class="chev" class:on={open[r.id]} aria-hidden="true"><Icon name="chevron" size={14} /></span>{r.name}
                   </button>
                 {:else}
                   {r.name}<span class="partial">{COPY.noRadiator}</span>
                 {/if}
                 {#if r.partial}<span class="partial">{COPY.partial} · {r.partial}</span>{/if}
+                {#if r.statsWhy}<span class="partial">{COPY.statsWhy(r.statsWhy)}</span>{/if}
               </th>
               {@render cells(r, r.share, r.fraction)}
             </tr>
             {#if open[r.id]}
               {#each r.radiators as x (x.id)}
                 <tr class="rad">
-                  <th scope="row">{x.name}{#if x.partial}<span class="partial">{x.partial}</span>{/if}</th>
+                  <th scope="row">
+                    {x.name}{#if x.partial}<span class="partial">{x.partial}</span>{/if}
+                    {#if x.statsWhy}<span class="partial">{COPY.statsWhy(x.statsWhy)}</span>{/if}
+                  </th>
                   {@render cells(x, null, null)}
                 </tr>
               {/each}
@@ -137,9 +182,10 @@
           <span class="bar" aria-hidden="true"><span style:transform="scaleX({r.fraction})" style:background={SERIES.radiators}></span></span>
           {#if !r.radiators.length}<p class="partial">{COPY.noRadiator}</p>{/if}
           {#if r.partial}<p class="partial">{COPY.partial} · {r.partial}</p>{/if}
+          {#if r.statsWhy}<p class="partial">{COPY.statsWhy(r.statsWhy)}</p>{/if}
           {@render facts(r)}
           {#if r.radiators.length}
-            <button type="button" class="btn btn-ghost btn-sm more" aria-expanded={!!open[r.id]} onclick={() => toggle(r.id)}>
+            <button type="button" class="btn btn-ghost btn-sm more" data-room={r.id} aria-expanded={!!open[r.id]} onclick={() => toggle(r.id)}>
               <span class="chev" class:on={open[r.id]} aria-hidden="true"><Icon name="chevron" size={14} /></span>{COPY.radiators(r.radiators.length)}
             </button>
             {#if open[r.id]}
@@ -148,6 +194,7 @@
                   <li>
                     <div class="head"><span class="name">{x.name}</span> <span class="num muted">{fmtKwhExact(x.shown.kwh)}{#if x.est}{' '}{COPY.est}{/if}</span></div>
                     {#if x.partial}<p class="partial">{x.partial}</p>{/if}
+                    {#if x.statsWhy}<p class="partial">{COPY.statsWhy(x.statsWhy)}</p>{/if}
                     {@render facts(x)}
                   </li>
                 {/each}
@@ -222,7 +269,7 @@
     display: grid;
     flex: none;
     color: var(--mu);
-    transition: transform var(--t-state) ease;
+    transition: transform var(--t-state) var(--ease-out);
   }
   .chev.on {
     transform: rotate(90deg);
