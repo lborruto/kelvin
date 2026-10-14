@@ -93,6 +93,8 @@ def clean_spans(
     - A spike becomes the new reference only when the counter moves on from it: the next reading
       above it is plausible relative to it (a replaced meter, or a glitched reference such as a
       first reading of 0). That jump is a rebase, never consumption; its time stays unknown.
+      While a jump is pending, a reading at or above it is judged against the jump, not the
+      reference, however late it comes: elapsed time must never turn a jump into consumption.
 
     With `stop_at`, the generator ends after the first span that reaches it (end >= stop_at).
     """
@@ -130,11 +132,17 @@ def clean_spans(
         if d > 0:
             dt = ts - t0
             rebased = False
-            if d > cap * (dt + POWER_SLACK_S):
-                if jump is None or c < jump[1]:
-                    jump = (ts, c)
-                    log.warning("energy spike skipped: %.0f Wh in %d s exceeds the power", d, dt)
-                    continue
+            if jump is not None and c >= jump[1]:
+                # A reading at or above a pending jump is judged against the jump first, with a
+                # confirmed reference too. Two stories fit it: the jump was a transient spike
+                # and c − ref was consumed, or the jump is the counter's new level (a replaced
+                # meter, a glitched reference) and only c − jump was. Elapsed time alone can make
+                # c − ref plausible (a holiday, a summer with no change), so the cap cannot tell
+                # them apart; the rebase is the smaller of the two, so it never invents energy.
+                # Its cost is bounded (jump − ref and the time before the jump stay unknown);
+                # counting from ref adds a phantom that grows with the gap. Equal is no news; above
+                # it but implausible from the jump is implausible from ref as well (the jump was),
+                # so it becomes the candidate.
                 if c == jump[1]:
                     continue  # a repeat is no news: the jump is not confirmed yet
                 if c - jump[1] > cap * (ts - jump[0] + POWER_SLACK_S):
@@ -143,6 +151,10 @@ def clean_spans(
                 log.info("energy counter rebased: a new level persisted")
                 ref, t0, rebased = jump[1], jump[0], True
                 d, dt = c - ref, ts - t0
+            elif d > cap * (dt + POWER_SLACK_S):
+                jump = (ts, c)  # below any pending jump: the lower one is the candidate
+                log.warning("energy spike skipped: %.0f Wh in %d s exceeds the power", d, dt)
+                continue
             jump = low = None
             yield span(Span, (t0, ts, d, dt > max_gap_s))
             if stop_at is not None and ts >= stop_at:

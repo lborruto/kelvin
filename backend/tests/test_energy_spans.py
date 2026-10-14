@@ -244,3 +244,41 @@ def test_a_spike_before_a_reset_cannot_rebase_after_it():
     spans = spans_of(readings, power_w=1500)
     for a, b in zip(spans, spans[1:], strict=False):
         assert a.end <= b.start
+
+
+def test_a_pending_jump_is_not_counted_when_the_next_reading_comes_late():
+    """Re-review round 3, repro A: a first reading of 0, the real level, then the counter is
+    flat for 42 h. By then the whole jump is within the cap from the 0 through elapsed time
+    alone, but it is still a rebase: only the 100 Wh after the level counts."""
+    readings = [Reading(0, 0.0), Reading(3600, 60_000.0), Reading(153_600, 60_100.0)]
+    assert spans_of(readings, power_w=1500) == [Span(3600, 153_600, 100.0, True)]
+
+
+def test_a_new_level_after_a_confirmed_reference_is_not_counted_when_the_next_reading_is_late():
+    """Repro B: a confirmed reference, then a meter replaced at +60 kWh, then +100 Wh 42 h
+    later: the new level is never consumption, however late the reading that confirms it."""
+    readings = [Reading(0, 1000.0), Reading(1800, 1100.0), Reading(3600, 61_100.0)]
+    readings.append(Reading(153_600, 61_200.0))
+    assert spans_of(readings, power_w=1500) == [
+        Span(0, 1800, 100.0, False),
+        Span(3600, 153_600, 100.0, True),
+    ]
+
+
+def test_legacy_repeats_of_a_pending_jump_are_no_news_however_late():
+    """Fuzz seed 224: legacy hourly rows repeat the jump's value. Once enough time passed, a
+    repeat was within the cap from the old reference and the jump became a 60 kWh span."""
+    readings = [Reading(0, 0.0)] + [Reading(3600 * k, 60_000.0) for k in range(1, 60)]
+    readings.append(Reading(3600 * 60, 60_100.0))
+    assert spans_of(readings, power_w=1500) == [Span(3600, 3600 * 60, 100.0, True)]
+
+
+def test_a_reading_below_a_pending_spike_still_counts_from_the_reference():
+    """A transient spike is never adopted: the next reading below it counts from the last good
+    reference, as before the pending-jump rule."""
+    readings = [Reading(0, 3_000_000), Reading(1800, 3_000_300), Reading(3600, 3_600_000)]
+    readings.append(Reading(5400, 3_000_900))
+    assert spans_of(readings, power_w=1500) == [
+        Span(0, 1800, 300.0, False),
+        Span(1800, 5400, 600.0, False),
+    ]

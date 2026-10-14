@@ -578,3 +578,39 @@ def test_legacy_repeated_rows_across_a_chunk_start_are_counted_once():
     legacy = buckets(True)
     assert sum(x or 0.0 for x in legacy) == pytest.approx(1000.0)
     assert legacy == pytest.approx(buckets(False))
+
+
+def test_a_holiday_after_a_glitch_before_the_anchor_is_not_phantom_energy():
+    """Re-review round 3 (latejump2): a transient 0 just before the anchor's run, then a
+    14-day holiday with the counter flat across chunk g. The first reading after it is within
+    the cap from the 0 through elapsed time alone; the chunk must not count the whole
+    lifetime counter (it was +310 kWh over the following days)."""
+    from kelvin.recorder.energy import apportion, clean_spans
+
+    g = _chunk_start()
+    db = Database(":memory:")
+    rec = Recorder(db, build_house(*sample_house()))
+    rows, v, t = [], 50_000.0, g - 30 * 86400
+    while t < g - recorder_module.LOOKBACK_S - 86400:
+        v += 300
+        rows.append([t, v])
+        t += 1800
+    rows[-2][1] = 0.0
+    t = g + 11 * 86400
+    while t < g + 20 * 86400:
+        v += 300
+        rows.append([t, v])
+        t += 1800
+    db.executemany(
+        "INSERT INTO energy VALUES (?,?,?,?,?)", [(a, "9312063", x, None, None) for a, x in rows]
+    )
+    edges = local_edges(
+        datetime.fromtimestamp(g - 31 * 86400, PARIS).date(),
+        datetime.fromtimestamp(g + 21 * 86400, PARIS).date(),
+        "day",
+        PARIS,
+    )
+    chunked = [b.wh for b in rec.energy_buckets(edges, ["9312063"])["9312063"]]
+    full = [b.wh for b in apportion(clean_spans([tuple(r) for r in rows], power_w=1500), edges)]
+    assert sum(x or 0.0 for x in chunked) == pytest.approx(300 * (len(rows) - 1))
+    assert chunked == pytest.approx(full)
