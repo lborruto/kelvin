@@ -98,6 +98,38 @@ describe('CurveChart', () => {
     expect(why().find(([k]) => k === 'Radiateurs')![1]).toBe('1 sur 2 radiateurs mesurés');
   });
 
+  it('sizes every field for the longest text of its day, never for the scrubbed half-hour (R2)', async () => {
+    const width = (c: Element, label: string) => {
+      const f = [...c.querySelectorAll<HTMLElement>('.readout .field')].find((x) => x.querySelector('dt')!.textContent === label)!;
+      return parseFloat(f.style.width.replace('min(100%, ', ''));
+    };
+    const withRad = four.map((p, i) => ({ ...p, radiators_wh: i === 1 ? null : 100, radiators_known: i === 1 ? 10 : 12, radiators_total: 12 }));
+    const { container } = render(CurveChart, { intervals: withRad, label: 'Courbe' });
+    // « 10 sur 12 radiateurs mesurés »: 28 characters at 11 px fit on the field's one reserved line.
+    expect(width(container, 'Radiateurs')).toBeGreaterThanOrEqual(28 * 11 * 0.6);
+    expect(width(container, 'Énergie')).toBeLessThan(width(container, 'Radiateurs'));
+    const before = [...container.querySelectorAll<HTMLElement>('.readout .field')].map((f) => f.style.width);
+    const s = screen.getByRole('slider');
+    await fireEvent.keyDown(s, { key: 'ArrowRight' });
+    await fireEvent.keyDown(s, { key: 'ArrowRight' });
+    expect([...container.querySelectorAll<HTMLElement>('.readout .field')].map((f) => f.style.width)).toEqual(before);
+  });
+
+  it('a reason too long for a phone line reserves two lines', () => {
+    // Radiators above the meter: « Radiateurs au-dessus du compteur : écart de mesure ».
+    const above = four.map((p, i) => ({ ...p, radiators_wh: i === 0 ? p.wh + 200 : 100, radiators_known: 2, radiators_total: 2 }));
+    const { container } = render(CurveChart, { intervals: above, label: 'Courbe' });
+    const reste = [...container.querySelectorAll('.readout .field')].find((f) => f.querySelector('dt')!.textContent === 'Reste')!;
+    expect(reste.querySelector('.why')).toHaveClass('two');
+  });
+
+  it('the idle prompt is one short line (the keyboard hint only where there is room)', () => {
+    const { container } = render(CurveChart, { intervals: four, label: 'Courbe' });
+    const when = container.querySelector('.readout .when dd')!;
+    expect(when.firstChild?.textContent).toBe('Survolez ou touchez la courbe');
+    expect(when.querySelector('.wide')).toHaveTextContent(', ou utilisez les flèches');
+  });
+
   it('states the subscribed power instead of drawing it when it is off the scale', () => {
     const { container } = render(CurveChart, { intervals: four, label: 'Courbe', kva: 12 });
     expect(container.querySelector('line.kva')).toBeNull();

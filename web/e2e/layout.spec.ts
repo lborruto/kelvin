@@ -54,6 +54,31 @@ test.describe('layout', () => {
     }
   });
 
+  test('the Courbe readout keeps its height idle and while scrubbing every half-hour (R2)', async ({ page }) => {
+    for (const width of [320, 390, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/energie');
+      await settled(page);
+      const readout = page.locator('.readout');
+      const slider = page.getByRole('slider', { name: /^Parcourir la courbe/ });
+      const idle = (await readout.boundingBox())!.height;
+      const heights = new Set<number>();
+      await slider.focus();
+      await page.keyboard.press('Home');
+      const n = Number(await slider.getAttribute('aria-valuemax')) + 1;
+      for (let i = 0; i < n; i++) {
+        heights.add((await readout.boundingBox())!.height);
+        await page.keyboard.press('ArrowRight');
+      }
+      expect([...heights], `readout at ${width} px`).toEqual([idle]);
+      // Nothing is cut: every value and reason fits its field.
+      const clipped = await readout.evaluate((el) =>
+        [...el.querySelectorAll('dd, .why')].filter((d) => d.scrollWidth > d.clientWidth + 0.5).map((d) => d.textContent)
+      );
+      expect(clipped, `clipped at ${width} px`).toEqual([]);
+    }
+  });
+
   for (const path of ['/maison', '/energie']) {
     test(`${path} loads without layout shift (CLS < 0.05)`, async ({ page }) => {
       // Registered once: every navigation starts a fresh count.

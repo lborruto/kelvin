@@ -168,6 +168,8 @@ describe('half-hour readout (spec §3.2.4)', () => {
     all[1] = iv(all[1].ts, { offpeak: 0.6667, boundary: true, radiators_wh: 900, radiators_apportioned: true });
     const r = readInterval(all[1], { intervals: all, tariff: true });
     expect(values(r.rows)).toMatchObject({ tarif: `≈${NB}HC 67${NB}%`, radiateurs: `900${NB}Wh`, reste: '—' });
+    // Same copy ruling as the bar inspector: the radiators above the meter is a measurement gap, and says so.
+    expect(r.rows.find((x) => x.key === 'reste')!.note).toBe(`Radiateurs au-dessus du compteur${NB}: écart de mesure`);
     expect(r.rows.find((x) => x.key === 'radiateurs')!.est).toBe(true);
     expect(r.rows.find((x) => x.key === 'tarif')!.est).toBe(true);
   });

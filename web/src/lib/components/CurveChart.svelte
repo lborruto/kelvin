@@ -9,7 +9,8 @@
   const COPY = {
     empty: 'Pas de courbe pour ce jour.',
     scrub: 'Parcourir la courbe, demi-heure par demi-heure',
-    idle: 'Survolez ou touchez la courbe, ou utilisez les flèches.',
+    idle: 'Survolez ou touchez la courbe',
+    idleKeys: ', ou utilisez les flèches',
     idleShort: 'aucune demi-heure choisie',
     hour: 'Heure',
     est: 'est.',
@@ -73,6 +74,28 @@
   let table = $derived(inspectionTable(intervals.map((p, i) => ({ head: intervalLabel(p, intervals), ins: readings[i] })), READOUT_ORDER));
   /** Fields that say why they read « — » on some half-hour of the day: their reason line is always reserved, so scrubbing never reflows (R2). */
   let reasoned = $derived(new Set(readings.flatMap((r) => r.rows.filter((x) => x.note).map((x) => x.key))));
+  /**
+   * Each field's width for the day: the longest text it shows over all half-hours (label 12 px, value 13 px plus « est. »,
+   * reason 11 px) at 0.6 em a character, above the UI face's average. A reason too long for one line on a phone gets two
+   * reserved lines and half the width. Widths depend on the day only, never on the scrubbed half-hour, so the row never
+   * reflows (R2); the field is capped at the row's width.
+   */
+  const CH = 0.6;
+  const ONE_LINE = 200;
+  let fields = $derived.by(() => {
+    const m = new Map<string, { w: number; two: boolean }>();
+    for (const r of [readout, ...readings]) {
+      for (const x of r.rows) {
+        const base = CH * Math.max(x.label.length * 12, x.value.length * 13 + (x.est ? 40 : 0));
+        const note = CH * (x.note?.length ?? 0) * 11;
+        const f = m.get(x.key) ?? { w: 0, two: false };
+        const two = f.two || note > ONE_LINE;
+        m.set(x.key, { two, w: Math.max(f.w, base, two ? note * 0.55 : note) });
+      }
+    }
+    for (const [k, f] of m) if (f.two) m.set(k, { ...f, w: Math.max(f.w, ONE_LINE * 0.55) });
+    return m;
+  });
 </script>
 
 {#if !intervals.length}
@@ -80,11 +103,15 @@
 {:else}
   <!-- A fixed row above the chart, so nothing covers the bars; its fields never change for the day. -->
   <dl class="readout">
-    <div class="when"><dt class="visually-hidden">{COPY.hour}</dt><dd class="num">{current ? readout.title : COPY.idle}</dd></div>
+    <div class="when">
+      <dt class="visually-hidden">{COPY.hour}</dt>
+      <dd class="num">{#if current}{readout.title}{:else}{COPY.idle}<span class="wide">{COPY.idleKeys}</span>{/if}</dd>
+    </div>
     {#each readout.rows as r (r.key)}
-      <div class="field">
+      {@const f = fields.get(r.key)}
+      <div class="field" style:width="min(100%, {Math.ceil(f?.w ?? 0)}px)">
         <dt>{r.label}</dt>
-        <dd class="num">{r.value}{#if r.est}<span class="est">{COPY.est}</span>{/if}{#if r.note || reasoned.has(r.key)}<span class="why">{r.note ?? ''}</span>{/if}</dd>
+        <dd class="num">{r.value}{#if r.est}<span class="est">{COPY.est}</span>{/if}{#if r.note || reasoned.has(r.key)}<span class="why" class:two={f?.two}>{r.note ?? ''}</span>{/if}</dd>
       </div>
     {/each}
   </dl>
@@ -152,19 +179,43 @@
 {/if}
 
 <style>
+  /* Fields flow at their day's width (above), so where a row wraps depends on the day and the width only. */
   .readout {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
-    gap: 4px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
     margin: 0 0 10px;
     font-size: 12px;
   }
   .when {
-    grid-column: 1 / -1;
+    flex: 1 0 100%;
+    min-width: 0;
     font-size: 13px;
     font-weight: 600;
   }
+  /* One line each, whatever is scrubbed: the field widths above fit the day's longest text; the ellipsis is a last guard
+     (the hidden table and the slider's value text keep every word). */
+  .readout dd {
+    min-height: 1lh;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* The keyboard hint, where one line has room for it. */
+  .wide {
+    display: none;
+  }
+  @media (min-width: 1024px) {
+    .wide {
+      display: inline;
+    }
+  }
+  .field {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
   .field dt {
+    white-space: nowrap;
     color: var(--mu);
   }
   dd {
@@ -182,8 +233,15 @@
   .why {
     display: block;
     min-height: 1lh;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 11px;
     color: var(--mu);
+  }
+  /* A reason too long for one line on a phone: two lines, always reserved. */
+  .why.two {
+    min-height: 2lh;
+    white-space: normal;
   }
   .plot {
     position: relative;

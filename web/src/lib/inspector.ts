@@ -52,6 +52,7 @@ export const COPY = {
   price: 'Prix',
   halfCost: 'Coût',
   restShort: 'Reste',
+  restNegative: `Radiateurs au-dessus du compteur${NB}: écart de mesure`,
   temperature: 'Température',
   setpoint: 'consigne',
   offpeak: 'Heures creuses',
@@ -287,9 +288,17 @@ export function readInterval(iv: EnergyInterval | null, ctx: ReadoutCtx): Inspec
     const r = iv?.radiators_wh ?? null;
     const est = !!iv && r != null && (iv.radiators_interp || iv.radiators_apportioned);
     const note = iv && r == null && iv.radiators_total > 0 ? COPY.radMeasured(iv.radiators_known, iv.radiators_total) : undefined;
+    // The rest is what the meter shows minus the radiators; below zero it is a measurement gap, never a figure.
+    const rest = iv && r != null ? Math.round(iv.wh) - Math.round(r) : null;
     rows.push(
       { key: 'radiateurs', label: COPY.radiators, value: fmtWh(r), est, note },
-      { key: 'reste', label: COPY.restShort, value: iv && r != null && Math.round(iv.wh) - Math.round(r) >= 0 ? fmtWh(Math.round(iv.wh) - Math.round(r)) : '—', est }
+      {
+        key: 'reste',
+        label: COPY.restShort,
+        value: rest != null && rest >= 0 ? fmtWh(rest) : '—',
+        est: est && rest != null && rest >= 0,
+        note: rest != null && rest < 0 ? COPY.restNegative : undefined
+      }
     );
   }
   if (ctx.samples?.length) {
