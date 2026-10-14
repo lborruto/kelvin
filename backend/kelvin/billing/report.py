@@ -120,6 +120,19 @@ def last_linky_day(
     return max([*daily_wh, *complete], default=None)
 
 
+def _allocate(exact: list[float], cents: int) -> list[int]:
+    """Whole cents proportional to `exact` that add up to `cents` (largest remainder)."""
+    total = sum(exact)
+    if total <= 0 or cents <= 0:  # no € to share (the cents follow the exact sum: both 0)
+        return [0] * len(exact)
+    raw = [v / total * cents for v in exact]
+    out = [int(r) for r in raw]
+    order = sorted(range(len(raw)), key=lambda i: (-(raw[i] - out[i]), i))
+    for i in order[: cents - sum(out)]:
+        out[i] += 1
+    return out
+
+
 def minus_year(day: date) -> date:
     return minus_years(day, 1)
 
@@ -156,6 +169,7 @@ class _Energy:
         self.share = self.shares.overall().value if self.shares else 0.0
         self._cache: dict[date, DayEnergy | None] = {}
         self._years: dict[int, dict[date, tuple[float, float]]] = {}
+        self._rad_years: dict[int, dict[date, float]] = {}
 
     def day(self, d: date) -> DayEnergy | None:
         if self.first is not None and d < self.first:
@@ -181,7 +195,38 @@ class _Energy:
             life = (min(days), None) if days else None
         return life is not None and life[0] <= d and (life[1] is None or d <= life[1])
 
-    def _radiator_sum(self, ids: list[str], a: date, b: date) -> dict[str, Any] | None:
+    def _rad_year(self, year: int) -> dict[date, float]:
+        """The exact radiator energy € of every radiator-day the sums count (`_known`, priced)
+        from 1 January of `year` up to each day (excluded); the next 1 January closes it."""
+        if year not in self._rad_years:
+            e = 0.0
+            cum: dict[date, float] = {}
+            for d in _days(date(year, 1, 1), date(year + 1, 1, 1)):
+                cum[d] = e
+                for rid, per in self.inp.radiators.items():
+                    rd = per.get(d)
+                    if rd is not None and rd.wh is not None and rd.eur is not None:
+                        if self._known(rid, d):
+                            e += rd.eur
+            cum[date(year + 1, 1, 1)] = e
+            self._rad_years[year] = cum
+        return self._rad_years[year]
+
+    def _radiator_cents(self, a: date, b: date) -> int:
+        """The radiators' € of [a, b) in cents, from running sums anchored on 1 January (as
+        `costs`): a bucket reads the same in every view, and buckets add up to the period."""
+        cents = 0
+        x = a
+        while x < b:
+            y = min(b, date(x.year + 1, 1, 1))
+            cum = self._rad_year(x.year)
+            cents += round(cum[y] * 100) - round(cum[x] * 100)
+            x = y
+        return cents
+
+    def _radiator_sum(
+        self, ids: list[str], a: date, b: date, *, exact: bool = False
+    ) -> dict[str, Any] | None:
         """Radiator energy over [a, b): None when no radiator has energy there (unknown, never
         0). coverage = radiator-days fully measured / radiator-days the radiators existed.
 
@@ -215,14 +260,17 @@ class _Energy:
             "kwh": _r(wh / 1000),
             "hc_kwh": _r(hc / 1000) if priced else None,
             "hp_kwh": _r(hp / 1000) if priced else None,
-            "eur": _r(eur, 2) if priced else None,
+            "eur": (eur if exact else _r(eur, 2)) if priced else None,
             "interpolated": interp,
             "apportioned": appor,
             "coverage": _r(recorded / known, 4) if known else None,
         }
 
     def radiators(self, a: date, b: date) -> dict[str, Any] | None:
-        return self._radiator_sum(sorted(self.inp.radiators), a, b)
+        s = self._radiator_sum(sorted(self.inp.radiators), a, b)
+        if s is not None and s["eur"] is not None:
+            s["eur"] = self._radiator_cents(a, b) / 100
+        return s
 
     def common(self, d: date) -> bool:
         """A day both sources cover whole: Linky has it, and every radiator that existed that
@@ -256,9 +304,19 @@ class _Energy:
         }
 
     def by_radiator(self, a: date, b: date) -> list[dict[str, Any]]:
+        """Per radiator over [a, b). Their € are the radiators' total (`radiators`) shared by
+        largest remainder over each radiator's exact €, so the rooms add up to the heating cost."""
         out = []
+        sums = {
+            rid: self._radiator_sum([rid], a, b, exact=True) for rid in sorted(self.inp.radiators)
+        }
+        priced = [rid for rid, s in sums.items() if s is not None and s["eur"] is not None]
+        if priced:
+            shares = _allocate([sums[rid]["eur"] for rid in priced], self._radiator_cents(a, b))  # type: ignore[index]
+            for rid, c in zip(priced, shares, strict=True):
+                sums[rid]["eur"] = c / 100  # type: ignore[index]
         for rid in sorted(self.inp.radiators):
-            s = self._radiator_sum([rid], a, b)
+            s = sums[rid]
             existed = any(self._known(rid, d) for d in _days(a, b))
             if s is None and not existed:
                 continue

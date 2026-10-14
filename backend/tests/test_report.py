@@ -857,12 +857,37 @@ _CURVE = {
 }
 
 
+# Three radiators whose daily € have fractions of a cent, so rounding each on its own drifts.
+_RADS = {
+    rid: {
+        d: RadiatorDay(
+            w := 1_000 + (i * k * 613) % 9_001,
+            w * 0.3,
+            w * 0.7,
+            w / 1000 * 0.2531,
+            False,
+            False,
+            True,
+        )
+        for i, d in enumerate(days(date(2025, 11, 1), date(2026, 2, 15)))
+    }
+    for rid, k in (("a", 1), ("b", 3), ("c", 7))
+}
+
+
 def _loaded(start: date, today: date) -> ReportInputs:
     """The inputs the service builds for a window starting at `start` (period = window): the
     curves from 400 days before it on (`LinkyService.report`'s look-back), every day after."""
     lo = start - timedelta(days=LOOKBACK_DAYS)
     curve = {d: p for d, p in _CURVE.items() if d >= lo}
-    return inputs(_DAILY, curve=curve, t=_TARIFF, today=today, first_day=_CURVE_DAYS[0])
+    inp = inputs(_DAILY, curve=curve, t=_TARIFF, today=today, first_day=_CURVE_DAYS[0])
+    inp.radiators = _RADS
+    inp.radiator_life = {rid: (date(2025, 11, 1), None) for rid in _RADS}
+    return inp
+
+
+def _rad_eur(s: dict) -> float | None:
+    return (s.get("radiators") or {}).get("eur")
 
 
 def _euros(s: dict) -> tuple:
@@ -895,6 +920,7 @@ def test_a_bucket_reads_the_same_euros_in_any_window_and_the_buckets_sum_to_the_
         alone = build_report(d, nxt, "day", _loaded(d, today), period=(d, nxt))["period"]
         assert _euros(b) == _euros(alone), (b["key"], start, end)
         assert _split(b) == _split(alone), (b["key"], start, end)
+        assert _rad_eur(b) == _rad_eur(alone), (b["key"], start, end)
         d = nxt
     cents = lambda v: round(v * 100)  # noqa: E731
     p = r["period"]
@@ -906,3 +932,8 @@ def test_a_bucket_reads_the_same_euros_in_any_window_and_the_buckets_sum_to_the_
     for s in (*r["buckets"], p):
         if s["eur"] is not None:
             assert cents(s["eur"]) == cents(s["energy_eur"]) + cents(s["subscription_eur"])
+    # The radiators' € too: the buckets add up to the period, and so do the radiators (the
+    # rooms table's € and « Coût du chauffage » read the same total).
+    if _rad_eur(p) is not None:
+        assert sum(cents(_rad_eur(b) or 0) for b in r["buckets"]) == cents(_rad_eur(p))
+        assert sum(cents(x["eur"]) for x in r["by_radiator"]) == cents(_rad_eur(p))
