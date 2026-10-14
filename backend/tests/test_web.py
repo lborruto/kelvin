@@ -204,3 +204,34 @@ async def test_more_traversal_variants_and_a_wrong_method_on_a_real_api_route(tm
             r = await c.delete("/api/health", headers={"X-Kelvin": "1"})
             assert r.status_code == 404
             assert r.json() == {"detail": "Introuvable."}
+
+
+async def test_precompressed_assets_follow_accept_encoding(tmp_path):
+    app = _app(tmp_path, with_web=True)
+    imm = tmp_path / "web" / "_app" / "immutable"
+    (imm / "app.js.br").write_bytes(b"BR")
+    (imm / "app.js.gz").write_bytes(b"GZ")
+    async with LifespanManager(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
+            # Raw bodies: the stand-in files are not real archives, so nothing may decode them.
+            async def raw(accept: str):
+                url = "/_app/immutable/app.js"
+                req = c.build_request("GET", url, headers={"Accept-Encoding": accept})
+                res = await c.send(req, stream=True)
+                body = b"".join([chunk async for chunk in res.aiter_raw()])
+                await res.aclose()
+                return res, body
+
+            br, body = await raw("gzip, br")
+            assert (br.headers["content-encoding"], body) == ("br", b"BR")
+            assert br.headers["content-type"].startswith("text/javascript")
+            assert br.headers["vary"] == "Accept-Encoding"
+            assert "immutable" in br.headers["cache-control"]
+            gz, body = await raw("gzip, br;q=0")
+            assert (gz.headers["content-encoding"], body) == ("gzip", b"GZ")
+            plain = await c.get("/_app/immutable/app.js", headers={"Accept-Encoding": "identity"})
+            assert "content-encoding" not in plain.headers
+            assert plain.text == "console.log(1)"
+            # Without a compressed copy the file itself is sent.
+            index = await c.get("/", headers={"Accept-Encoding": "br"})
+            assert index.text == "<html>kelvin-index</html>"
