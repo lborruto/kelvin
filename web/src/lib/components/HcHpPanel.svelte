@@ -10,6 +10,7 @@
     share: 'Part en heures creuses',
     slots: (pct: string) => `vos heures creuses durent ${pct} de la journée`,
     none: 'Aucune consommation Linky sur la période.',
+    noSlots: 'Le tarif n’a pas d’heures creuses.',
     avg: 'Prix moyen payé',
     perKwh: 'Chaque kWh passé d’HP en HC',
     slider: 'Part de vos heures pleines déplacée en heures creuses',
@@ -46,7 +47,8 @@
     {#if lens?.hc_share != null}
       <p class="muted line">{COPY.slots(fmtPct1(lens.slot_share))}</p>
     {:else}
-      <p class="muted note">{COPY.none}</p>
+      <!-- The backend gives no lens for a tariff without HC slots. -->
+      <p class="muted note">{lens ? COPY.none : COPY.noSlots}</p>
     {/if}
     <dl class="figs rows">
       <div>

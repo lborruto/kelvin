@@ -20,6 +20,15 @@ describe('HeatingPanel', () => {
     expect(container.querySelector('.cost .est')).toHaveTextContent('est.');
   });
 
+  it('says « 1 jour », not « 1 jours »', () => {
+    const { container } = render(HeatingPanel, {
+      heating: { value: 0.5, days: 1, of_days: 2, since: '2026-10-03', inconsistent: false },
+      radiators: rad,
+      restKwh: null
+    });
+    expect(text(container)).toContain('(1 jour sur 2)');
+  });
+
   it('gives the two parts in kWh when every day is covered', () => {
     const { container } = render(HeatingPanel, {
       heating: { value: 0.6505, days: 13, of_days: 13, since: '2026-10-01', inconsistent: false },

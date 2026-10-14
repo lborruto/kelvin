@@ -23,9 +23,10 @@ describe('PowerPanel', () => {
     const { container } = render(PowerPanel, { view: 'day', day: day(), week: null });
     expect(screen.getByRole('heading', { name: 'Puissance' })).toBeInTheDocument();
     const t = text(container);
-    expect(t).toContain('Pointe 6,84 kW à 19:00');
+    expect(t).toContain('Pointe moyenne sur 30 min 6,84 kW 19:00–19:30');
+    expect(t).toContain('la pointe instantanée peut être plus élevée');
     expect(t).toContain('abonnement 12 kVA');
-    expect(t).toContain('57 % de la puissance souscrite');
+    expect(t).toContain('57 % de la puissance souscrite (moyenne 30 min)');
     expect(t).toContain('kVA ≈ kW, facteur de puissance supposé 1');
     expect(t).toContain('Talon (veille) 310 W');
     expect(t).toContain('minimum de nuit (00:00–06:00) : 280 W');
@@ -36,7 +37,7 @@ describe('PowerPanel', () => {
 
   it('an incomplete day reads « — » and says why', () => {
     const { container } = render(PowerPanel, { view: 'day', day: day({ complete: false }), week: null });
-    expect(text(container)).toContain('Pointe —');
+    expect(text(container)).toContain('Pointe moyenne sur 30 min —');
     expect(text(container)).toContain('Talon (veille) —');
     expect(screen.getByText('Pas de courbe complète ce jour-là.')).toBeInTheDocument();
     expect(container.querySelector('.meter')).toBeNull();
@@ -45,7 +46,7 @@ describe('PowerPanel', () => {
   it('a week: the same figures from the period’s complete curve days, with the day of the peak', () => {
     const { container } = render(PowerPanel, { view: 'week', day: day(), week });
     const t = text(container);
-    expect(t).toContain('Pointe 7,20 kW mardi 13 octobre à 19:00');
+    expect(t).toContain('Pointe moyenne sur 30 min 7,20 kW mardi 13 octobre, 19:00–19:30');
     expect(t).toContain('consommation de fond ≈ 7,20 kWh par jour');
     expect(t).toContain('sur 6 jours de courbe complète');
   });
@@ -57,13 +58,13 @@ describe('PowerPanel', () => {
     expect(text(container)).not.toContain('—');
     // A week's figures come from the report: only the subscribed power waits on the day.
     const w = render(PowerPanel, { view: 'week', day: null, week });
-    expect(text(w.container)).toContain('Pointe 7,20 kW');
+    expect(text(w.container)).toContain('Pointe moyenne sur 30 min 7,20 kW');
     expect(w.container.querySelector('.skeleton')).not.toBeNull();
   });
 
   it('a day that failed to load reads « — » and says so', () => {
     const { container } = render(PowerPanel, { view: 'day', day: null, week: null, failed: true });
-    expect(text(container)).toContain('Pointe —');
+    expect(text(container)).toContain('Pointe moyenne sur 30 min —');
     expect(screen.getByText('Courbe du jour indisponible.')).toBeInTheDocument();
     expect(container.querySelector('.skeleton')).toBeNull();
   });

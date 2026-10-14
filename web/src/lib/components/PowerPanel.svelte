@@ -7,10 +7,12 @@
 
   const COPY = {
     title: 'Puissance',
-    peak: 'Pointe',
-    at: 'à',
+    // Linky's curve is half-hour means: the highest one, never an instantaneous peak.
+    peak: 'Pointe moyenne sur 30 min',
+    range: (a: string, b: string) => `${a}–${b}`,
+    instant: 'la pointe instantanée peut être plus élevée',
     kva: (kva: number) => `abonnement ${kva} kVA`,
-    share: (pct: string) => `${pct} de la puissance souscrite`,
+    share: (pct: string) => `${pct} de la puissance souscrite (moyenne 30\u00a0min)`,
     pf: 'kVA ≈ kW, facteur de puissance supposé 1',
     base: 'Talon (veille)',
     night: (w: string) => `minimum de nuit (00:00–06:00) : ${w}`,
@@ -46,9 +48,13 @@
   let share = $derived(peakShare(src?.peak_w, kva));
   let floor = $derived(view === 'day' && day ? baseLoad(src?.base_w_p10, day.intervals) : null);
   let floorWeek = $derived(view === 'week' && src?.base_w_p10 != null ? (src.base_w_p10 * 24) / 1000 : null);
+  // The half-hour itself (« 06:30–07:00 »): on the autumn DST day the repeated hour stays true.
   let when = $derived(
     src?.peak_ts != null
-      ? `${view === 'week' ? `${dayName.format(new Date(src.peak_ts * 1000))} ` : ''}${COPY.at} ${fmtTime(src.peak_ts * 1000)}`
+      ? `${view === 'week' ? `${dayName.format(new Date(src.peak_ts * 1000))}, ` : ''}${COPY.range(
+          fmtTime(src.peak_ts * 1000),
+          fmtTime((src.peak_ts + 1800) * 1000)
+        )}`
       : ''
   );
   let why = $derived(view === 'day' && failed ? COPY.failed : view === 'week' ? COPY.noWeek : COPY.noDay);
@@ -66,6 +72,7 @@
         <dd><strong class="num big">{fmtW(src?.peak_w)}</strong>{#if when}{' '}<span class="num when">{when}</span>{/if}</dd>
       </div>
     </dl>
+    {#if src}<p class="muted note">{COPY.instant}</p>{/if}
     {#if src && waiting}
       <div class="skeleton inset sk-kva" aria-hidden="true"></div>
     {:else if src && kva != null}
@@ -142,7 +149,7 @@
   }
   /* Skeletons at the height of what they stand for: a complete day's figures, the subscribed-power block. */
   .sk-day {
-    height: 264px;
+    height: 286px;
   }
   .sk-kva {
     height: 81px;

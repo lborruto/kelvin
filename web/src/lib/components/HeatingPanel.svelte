@@ -2,11 +2,12 @@
   import type { Heating, RadiatorSum } from '$lib/api/types';
   import { SERIES } from '$lib/energy';
   import { fmtEurExact, fmtKwhExact, fmtPct, fmtPct1 } from '$lib/format';
+  import { plural } from '$lib/plural';
 
   const COPY = {
     title: 'Chauffage',
     sentence: 'de la consommation de la maison vient des radiateurs',
-    days: (n: number, of: number) => ` (${n} jours sur ${of})`,
+    days: (n: number, of: number) => ` (${plural(n, 'jour')} sur ${of})`,
     parts: (rad: string, rest: string) => `${rad} radiateurs · ${rest} reste`,
     cost: (eur: string) => `Coût du chauffage ≈\u00a0${eur} (énergie, hors abonnement)`,
     noCost: 'Coût du chauffage — (aucun relevé de radiateur sur la période)',

@@ -31,6 +31,12 @@ describe('HcHpPanel', () => {
     expect(t).toContain('Si 30 % de vos HP (76,29 kWh) étaient en HC : −4,82 €, à consommation identique.');
   });
 
+  it('a tariff without HC slots reads « — » and says so', () => {
+    const { container } = render(HcHpPanel, { lens: null, tariff: true, hpKwh: 10 });
+    expect(text(container)).toContain('Part en heures creuses —');
+    expect(screen.getByText('Le tarif n’a pas d’heures creuses.')).toBeInTheDocument();
+  });
+
   it('a period without consumption reads « — » and says why', () => {
     const { container } = render(HcHpPanel, { lens: { ...lens, hc_share: null, avg_price: null }, tariff: true, hpKwh: null });
     expect(text(container)).toContain('Part en heures creuses —');
