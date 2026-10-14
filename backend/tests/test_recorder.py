@@ -520,3 +520,60 @@ def test_a_failed_energy_write_is_retried(env, monkeypatch):
     monkeypatch.setattr(db, "executemany", real)
     clock.advance(300)
     assert rec.snapshot_energy() == 4
+
+
+def _chunk_start():
+    return int(ts(2026, 10, 14)) // recorder_module.CHUNK_S * recorder_module.CHUNK_S
+
+
+@pytest.mark.parametrize("rid", ["9312063", "g"])  # 1500 W, power unknown
+@pytest.mark.parametrize("glitch", ["zero", "70pct"])
+def test_a_glitch_at_the_chunk_anchor_changes_nothing(rid, glitch):
+    """The last reading before a chunk's replay start is a glitch: the chunk's days read the
+    same as without it (not unknown, not inflated)."""
+    g = _chunk_start()
+    anchor = g - recorder_module.LOOKBACK_S
+
+    def days(glitched):
+        db = Database(":memory:")
+        rec = Recorder(db, build_house(*sample_house()))
+        rows = [
+            [t, 3_000_000.0 + 300 * i]
+            for i, t in enumerate(range(g - 40 * 86400, g + 40 * 86400, 1800))
+        ]
+        if glitched:
+            k = max(i for i, (t, _) in enumerate(rows) if t < anchor)
+            rows[k][1] = 0.0 if glitch == "zero" else rows[k][1] * 0.7
+        db.executemany(
+            "INSERT INTO energy VALUES (?,?,?,?,?)", [(t, rid, v, None, None) for t, v in rows]
+        )
+        d0 = datetime.fromtimestamp(g + 2 * 86400, PARIS).date()
+        edges = local_edges(d0, d0 + timedelta(days=5), "day", PARIS)
+        return [b.wh for b in rec.energy_buckets(edges, [rid])[rid]]
+
+    clean = days(False)
+    assert clean == pytest.approx([14_400.0] * 5)
+    assert days(True) == pytest.approx(clean)
+
+
+def test_legacy_repeated_rows_across_a_chunk_start_are_counted_once():
+    """Rows written every 5 min before Plan 5 repeat a flat value: a flat stretch across a
+    chunk start then +1 kWh is 1 kWh in total, spread as with change-only rows."""
+    g = _chunk_start()
+
+    def buckets(hourly):
+        db = Database(":memory:")
+        rec = Recorder(db, build_house(*sample_house()))
+        rows = [(g - 10 * 86400, 1_000_000.0)]
+        if hourly:
+            rows += [(t, 1_000_000.0) for t in range(g - 10 * 86400 + 3600, g + 86400, 3600)]
+        rows.append((g + 86400, 1_001_000.0))
+        db.executemany(
+            "INSERT INTO energy VALUES (?,?,?,?,?)", [(t, "g", v, None, None) for t, v in rows]
+        )
+        edges = list(range(g - 12 * 86400, g + 3 * 86400, 86400))
+        return [b.wh for b in rec.energy_buckets(edges, ["g"])["g"]]
+
+    legacy = buckets(True)
+    assert sum(x or 0.0 for x in legacy) == pytest.approx(1000.0)
+    assert legacy == pytest.approx(buckets(False))

@@ -139,3 +139,19 @@ def test_property_blips_never_change_the_sum(series):
     assert total(spans) == pytest.approx(truth[-1] - truth[0])
     for a, b in zip(spans, spans[1:], strict=False):
         assert a.end <= b.start  # spans never overlap
+
+
+def test_a_new_level_that_persists_is_a_rebase_never_consumption():
+    """A meter replaced by one with a higher count (power known): the jump is not counted, and
+    once the next reading confirms the new level, counting goes on from there."""
+    readings = [Reading(0, 10_000), Reading(3600, 1_510_000), Reading(5400, 1_510_000)]
+    assert spans_of(readings, power_w=1000) == []  # a repeat does not confirm the jump
+    readings.append(Reading(7200, 1_510_500))
+    assert spans_of(readings, power_w=1000) == [Span(3600, 7200, 500.0, False)]
+
+
+def test_a_glitched_first_reference_is_rebased_by_the_persisting_level():
+    """The first reading is a 0 (power known): the real level that follows is adopted, not
+    counted, and not blocked for ever either."""
+    readings = [Reading(0, 0.0), Reading(3600, 3_000_000), Reading(7200, 3_000_300)]
+    assert spans_of(readings, power_w=1500) == [Span(3600, 7200, 300.0, False)]

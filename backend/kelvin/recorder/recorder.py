@@ -205,13 +205,29 @@ class Recorder:
                 return out
             after = page[-1][0]
 
-    def _before(self, rid: str, col: str, t: int) -> list[tuple]:
-        """The last reading before t: the reference a replay starting at t needs."""
-        return self.db.rows(
+    def _head(self, rid: str, col: str, t: int) -> _Head:
+        """The anchor of a replay starting at t (see `_Head`), from the database: one scan back
+        through the run of equal values, once per request."""
+        q = self.db.rows
+        last = q(
             f"SELECT ts, {col} FROM energy WHERE radiator_id = ? AND ts < ?"
             f" AND {col} IS NOT NULL ORDER BY ts DESC LIMIT 1",
             (rid, t),
         )
+        if not last:
+            return None
+        v = last[0][1]
+        change = q(
+            f"SELECT ts, {col} FROM energy WHERE radiator_id = ? AND ts < ?"
+            f" AND {col} IS NOT NULL AND {col} != ? ORDER BY ts DESC LIMIT 1",
+            (rid, last[0][0], v),
+        )
+        first = q(
+            f"SELECT ts, {col} FROM energy WHERE radiator_id = ? AND ts > ? AND ts <= ?"
+            f" AND {col} IS NOT NULL ORDER BY ts LIMIT 1",
+            (rid, change[0][0] if change else -(2**62), last[0][0]),
+        )
+        return (change[0] if change else None, first[0], last[0])
 
     def _after(self, rid: str, col: str, t: int) -> Iterator[tuple]:
         """Readings after t, in pages growing from 8 rows to PAGE_ROWS: read until the caller
@@ -236,10 +252,12 @@ class Recorder:
         window: tuple[int, int],
         power_w: float | None,
         first: dict[str, int | None],
-    ) -> list[list[Span]]:
-        """Per counter, the spans of chunk [g, g + CHUNK_S) that overlap `window` (inside it).
+        heads: list[_Head],
+    ) -> tuple[list[list[Span]], list[tuple]]:
+        """Per counter, the spans of chunk [g, g + CHUNK_S) that overlap `window` (inside it),
+        and the chunk's rows as columns (ts, *cols).
 
-        The replay always starts at the last reading before g − LOOKBACK_S, whatever window is
+        The replay always starts at the anchor of g − LOOKBACK_S (`heads`), whatever window is
         asked, and runs past the window's end until a reading is accepted (a glitch or a reset
         candidate after the end never cuts the span crossing it). So a bucket gets the same
         energy in any window that contains it.
@@ -252,7 +270,8 @@ class Recorder:
             start = first[col]
             spans: list[Span] = []
             if start is not None and start < hi:
-                head = self._before(rid, col, a0) if start < a0 else []
+                h = heads[k - 1]
+                head = [] if h is None else [h[1]] if h[0] is None else [h[0], h[1]]
                 readings = chain(
                     head, zip(columns[0], columns[k], strict=True), self._after(rid, col, hi)
                 )
@@ -262,7 +281,7 @@ class Recorder:
                     skip += 1
                 spans = spans[skip:]
             out.append(spans)
-        return out
+        return out, columns
 
     def _rates(self, rid: str, ranges: list[tuple[int, int]]) -> RateIndex:
         """Working-rate samples over the union of `ranges` (the spans to spread by weight), a
@@ -307,11 +326,19 @@ class Recorder:
         radiator = self.house.radiators.get(rid)
         power_w = radiator.power_w if radiator is not None else None
         g = edges[0] // CHUNK_S * CHUNK_S
+        a0 = g - LOOKBACK_S
+        heads = [
+            self._head(rid, col, a0) if first[col] is not None and first[col] < a0 else None
+            for col in cols
+        ]
         while g < edges[-1]:
             lo, hi = max(g, edges[0]), min(g + CHUNK_S, edges[-1])
             i0 = bisect_right(edges, lo) - 1
             sub = edges[i0 : bisect_left(edges, hi) + 1]
-            per = self._chunk_spans(rid, cols, g, (lo, hi), power_w, first)
+            per, columns = self._chunk_spans(rid, cols, g, (lo, hi), power_w, first, heads)
+            # The next chunk's anchors follow from this chunk's rows: no scan back in the table.
+            nxt = g + CHUNK_S - LOOKBACK_S
+            heads = [_advance(h, columns[0], columns[k], nxt) for k, h in enumerate(heads, start=1)]
             need = [r for spans in per for r in _spread(spans, sub, lo, hi)]
             rates = self._rates(rid, need) if need else None
             for row, spans in zip(acc, per, strict=True):
@@ -419,6 +446,38 @@ class Recorder:
 
 
 _UNKNOWN = Bucket(None, 0, False, False)
+
+# The anchor of a replay starting at t, for one counter: (the last reading before the run of
+# equal values that holds at t, the first reading of that run, the last reading before t), or
+# None when nothing was read before t. Starting from the run's first row keeps legacy repeated
+# rows (written every 5 min before Plan 5) from cutting a flat span in two at a chunk start;
+# starting one change earlier lets `clean_spans` see a glitched anchor as the glitch it is.
+_Head = tuple[tuple[int, float] | None, tuple[int, float], tuple[int, float]] | None
+
+
+def _advance(head: _Head, ts: tuple, values: tuple, t: int) -> _Head:
+    """The anchor at t from the anchor at an earlier t' and the rows read in [t', t] (sorted):
+    the same as `Recorder._head(t)` without reading the table again."""
+    j = bisect_left(ts, t) - 1
+    while j >= 0 and values[j] is None:
+        j -= 1
+    if j < 0:
+        return head
+    v = values[j]
+    last = (ts[j], v)
+    first = j
+    for i in range(j - 1, -1, -1):
+        x = values[i]
+        if x is None:
+            continue
+        if x != v:
+            return (ts[i], x), (ts[first], v), last
+        first = i
+    if head is None:
+        return None, (ts[first], v), last
+    if head[1][1] == v:  # the run began before t'
+        return head[0], head[1], last
+    return head[2], (ts[first], v), last
 
 
 def _spread(spans: list[Span], edges: list[int], lo: int, hi: int) -> Iterator[tuple[int, int]]:

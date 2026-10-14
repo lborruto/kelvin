@@ -87,12 +87,16 @@ def clean_spans(
     - Consumption above power_w × (Δt + POWER_SLACK_S) × POWER_MARGIN is implausible (a spike):
       no span is emitted and the reference stays, so the next real reading counts from the last
       good one. The slack absorbs a reading learned a little late.
+    - A spike becomes the new reference only when the counter moves on from it: the next reading
+      above it is plausible relative to it (a replaced meter, or a glitched reference such as a
+      first reading of 0). That jump is a rebase, never consumption; its time stays unknown.
 
     With `stop_at`, the generator ends after the first span that reaches it (end >= stop_at).
     """
     ref: float | None = None
     t0 = 0
     cand: tuple[int, float] | None = None  # an unconfirmed reset: (ts, value)
+    jump: tuple[int, float] | None = None  # a rejected spike that may be a new level
     cap = power_w * POWER_MARGIN / 3600 if power_w else 0.0  # Wh per second, 0: no cap
     span = tuple.__new__  # Span(...) without the NamedTuple constructor's call overhead
     for ts, c in readings:
@@ -120,10 +124,19 @@ def clean_spans(
         if d > 0:
             dt = ts - t0
             if cap and d > cap * (dt + POWER_SLACK_S):
-                log.warning(
-                    "energy spike skipped: %.0f Wh in %d s exceeds the radiator power", d, dt
-                )
-                continue
+                if jump is None or c < jump[1]:
+                    jump = (ts, c)
+                    log.warning("energy spike skipped: %.0f Wh in %d s exceeds the power", d, dt)
+                    continue
+                if c == jump[1]:
+                    continue  # a repeat is no news: the jump is not confirmed yet
+                if c - jump[1] > cap * (ts - jump[0] + POWER_SLACK_S):
+                    jump = (ts, c)  # implausible from the jump too: this is the candidate now
+                    continue
+                log.info("energy counter rebased: a new level persisted")
+                ref, t0 = jump[1], jump[0]
+                d, dt = c - ref, ts - t0
+            jump = None
             yield span(Span, (t0, ts, d, dt > max_gap_s))
             if stop_at is not None and ts >= stop_at:
                 return
