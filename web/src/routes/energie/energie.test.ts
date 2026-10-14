@@ -491,4 +491,17 @@ describe('Énergie', () => {
     // Chambre's radiator has no figure that day: said, never a flat zero.
     expect(await screen.findByText('Pas de relevé pour cette pièce ce jour-là.')).toBeInTheDocument();
   });
+  it('Comparaisons and Projection share a row in every view; the Projection is an estimate that says how', async () => {
+    const { container } = render(Page);
+    for (const view of ['Mois', 'Jour', 'Semaine', 'Année']) {
+      if (view !== 'Mois') await fireEvent.click(screen.getByRole('radio', { name: view }));
+      const cmp = (await screen.findByRole('heading', { name: 'Comparaisons' })).closest('section')!;
+      const proj = screen.getByRole('heading', { name: 'Projection' }).closest('section')!;
+      expect(cmp).toHaveClass('half');
+      expect(proj).toHaveClass('half');
+      expect(cmp.nextElementSibling).toBe(proj);
+    }
+    expect(screen.getByText('Comment c’est calculé')).toBeInTheDocument();
+    expect(container.textContent).not.toContain('12 prochains mois');
+  });
 });

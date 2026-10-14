@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from '$lib/api/client';
   import type { LinkyStatus } from '$lib/api/types';
+  import ComparePanel from '$lib/components/ComparePanel.svelte';
   import CurvePanel from '$lib/components/CurvePanel.svelte';
   import EnergyBars from '$lib/components/EnergyBars.svelte';
   import EnergyHero from '$lib/components/EnergyHero.svelte';
@@ -8,11 +9,12 @@
   import HeatingPanel from '$lib/components/HeatingPanel.svelte';
   import PeriodNav from '$lib/components/PeriodNav.svelte';
   import PowerPanel from '$lib/components/PowerPanel.svelte';
+  import ProjectionPanel from '$lib/components/ProjectionPanel.svelte';
   import RoomDayPanel from '$lib/components/RoomDayPanel.svelte';
   import RoomsEnergy from '$lib/components/RoomsEnergy.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
   import { addDays, bucketLabel, bucketSpan, dataSpan, leadingMissing, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
-  import { fmtDateLong, fmtDay, fmtEur, fmtKwh, fmtTime, monthName, parisTodayIso } from '$lib/format';
+  import { fmtDateLong, fmtDay, fmtKwh, fmtTime, monthName, parisTodayIso } from '$lib/format';
   import { inspectBucket } from '$lib/inspector';
   import { reducedMotion } from '$lib/motion';
   import { announcer } from '$lib/stores/announcer.svelte';
@@ -318,17 +320,10 @@
     <HeatingPanel heating={main.heating} radiators={main.period.radiators} restKwh={main.period.rest_kwh} {running} class={trio.heating} />
   {/if}
 
-  {#if main.projection}
-    {@const pr = main.projection}
-    <section class="panel half">
-      <h2>Projection</h2>
-      <dl class="proj">
-        <dt>{monthName(`${pr.month.key}-01`)}, mois complet</dt>
-        <dd class="num">≈&nbsp;{pr.month.eur != null ? fmtEur(pr.month.eur) : fmtKwh(pr.month.kwh)}</dd>
-        <dt>12 prochains mois</dt>
-        <dd class="num">≈&nbsp;{pr.year.eur != null ? fmtEur(pr.year.eur) : fmtKwh(pr.year.kwh)}</dd>
-      </dl>
-    </section>
+  {#if main.linky}
+    <!-- A pair in every view, so neither sits alone beside an empty half. -->
+    <ComparePanel comparison={main.comparison} view={loaded.view} tariff={main.tariff} class="half" />
+    <ProjectionPanel projection={main.projection} class="half" />
   {/if}
 
   <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="wide" />
@@ -497,22 +492,6 @@
     width: 14px;
     height: 2px;
     border-radius: 1px;
-  }
-  .proj {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 6px 14px;
-    margin: 0;
-    font-size: 13px;
-  }
-  .proj dt {
-    color: var(--mu);
-  }
-  .proj dd {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    text-align: right;
   }
   .counters-sk {
     height: 160px;
