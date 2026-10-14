@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from bisect import bisect_left, bisect_right
 from collections.abc import Callable, Iterable, Iterator
 from datetime import datetime, timedelta
+from itertools import chain
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -16,7 +18,7 @@ from kelvin.recorder.energy import (
     SAMPLE_STEP_S,
     Bucket,
     RateIndex,
-    Reading,
+    Span,
     Unit,
     apportion,
     clean_spans,
@@ -34,6 +36,11 @@ PRUNE_CHUNK = 5000
 PAGE_ROWS = 5000  # rows per query when streaming readings and samples
 # Counter name in the API → column of the energy table.
 COUNTERS = {"total": "total_wh", "t1": "t1_wh", "t2": "t2_wh"}
+# Readings are cleaned in fixed, epoch-aligned chunks of time; each chunk replays LOOKBACK_S of
+# history before it, so its spans never depend on the window asked (bounded work per bucket).
+CHUNK_S = 28 * 86400
+LOOKBACK_S = 3 * 86400
+RANGES_PER_QUERY = 200  # sample ranges OR-ed in one query
 
 
 class Recorder:
@@ -107,8 +114,9 @@ class Recorder:
             if values == self._last_counters(rid):
                 continue
             rows.append((t, rid, *values))
-            self._last_written[rid] = values
         self.db.executemany("INSERT OR REPLACE INTO energy VALUES (?,?,?,?,?)", rows)
+        for row in rows:  # only once written: a failed insert is retried at the next call
+            self._last_written[row[1]] = row[2:]
         return len(rows)
 
     def prune(self, chunk: int = PRUNE_CHUNK) -> int:
@@ -176,74 +184,145 @@ class Recorder:
             for r in rows
         ]
 
-    def _head(self, rid: str, col: str, start: int) -> list[Reading]:
-        """The readings before `start` that a span crossing it needs: the first row of the
-        value the counter held at `start` (when Kelvin first saw that value) and the change
-        before it. At most two rows."""
-        q = self.db.query
-        prev = q(
-            f"SELECT ts, {col} AS v FROM energy WHERE radiator_id = ? AND ts < ?"
+    def _first_ts(self, rid: str, col: str) -> int | None:
+        rows = self.db.rows(
+            f"SELECT MIN(ts) FROM energy WHERE radiator_id = ? AND {col} IS NOT NULL", (rid,)
+        )
+        return rows[0][0] if rows else None
+
+    def _bulk(self, rid: str, cols: list[str], a: int, b: int) -> list[tuple]:
+        """Rows (ts, *cols) with a <= ts <= b, PAGE_ROWS a query (keyset pagination)."""
+        out: list[tuple] = []
+        after = a - 1
+        while True:
+            page = self.db.rows(
+                f"SELECT ts, {', '.join(cols)} FROM energy WHERE radiator_id = ? AND ts > ?"
+                " AND ts <= ? ORDER BY ts LIMIT ?",
+                (rid, after, b, PAGE_ROWS),
+            )
+            out += page
+            if len(page) < PAGE_ROWS:
+                return out
+            after = page[-1][0]
+
+    def _before(self, rid: str, col: str, t: int) -> list[tuple]:
+        """The last reading before t: the reference a replay starting at t needs."""
+        return self.db.rows(
+            f"SELECT ts, {col} FROM energy WHERE radiator_id = ? AND ts < ?"
             f" AND {col} IS NOT NULL ORDER BY ts DESC LIMIT 1",
-            (rid, start),
+            (rid, t),
         )
-        if not prev:
-            return []
-        v = prev[0]["v"]
-        change = q(
-            f"SELECT ts, {col} AS v FROM energy WHERE radiator_id = ? AND ts < ?"
-            f" AND {col} IS NOT NULL AND {col} != ? ORDER BY ts DESC LIMIT 1",
-            (rid, prev[0]["ts"], v),
-        )
-        first = q(
-            f"SELECT ts, {col} AS v FROM energy WHERE radiator_id = ? AND ts > ? AND ts <= ?"
-            f" AND {col} IS NOT NULL ORDER BY ts LIMIT 1",
-            (rid, change[0]["ts"] if change else -1, prev[0]["ts"]),
-        )
-        return [Reading(r["ts"], r["v"]) for r in change + first]
 
-    def _readings(
-        self, rid: str, col: str, start: int, end: int, head: list[Reading]
-    ) -> Iterator[Reading]:
-        """`head`, then every row in [start, end] page by page (keyset pagination, PAGE_ROWS a
-        query), then the first row after `end` with another value."""
-        yield from head
-        last = head[-1].value if head else None
-        after = start - 1
+    def _after(self, rid: str, col: str, t: int) -> Iterator[tuple]:
+        """Readings after t, in pages growing from 8 rows to PAGE_ROWS: read until the caller
+        stops (usually after the first row)."""
+        size = min(8, PAGE_ROWS)
         while True:
-            page = self.db.query(
-                f"SELECT ts, {col} AS v FROM energy WHERE radiator_id = ? AND ts > ?"
-                f" AND ts <= ? ORDER BY ts LIMIT ?",
-                (rid, after, end, PAGE_ROWS),
+            page = self.db.rows(
+                f"SELECT ts, {col} FROM energy WHERE radiator_id = ? AND ts > ?"
+                f" AND {col} IS NOT NULL ORDER BY ts LIMIT ?",
+                (rid, t, size),
             )
-            for r in page:
-                yield Reading(r["ts"], r["v"])
-                if r["v"] is not None:
-                    last = r["v"]
-            if len(page) < PAGE_ROWS:
-                break
-            after = page[-1]["ts"]
-        if last is not None:
-            tail = self.db.query(
-                f"SELECT ts, {col} AS v FROM energy WHERE radiator_id = ? AND ts > ?"
-                f" AND {col} IS NOT NULL AND {col} != ? ORDER BY ts LIMIT 1",
-                (rid, end, last),
-            )
-            yield from (Reading(r["ts"], r["v"]) for r in tail)
+            yield from page
+            if len(page) < size:
+                return
+            t, size = page[-1][0], min(size * 8, PAGE_ROWS)
 
-    def _rates(self, rid: str, start: int, end: int) -> RateIndex:
-        """Working-rate samples over [start, end), paged; bounded by the sample retention."""
-        rows: list[tuple[int, float | None]] = []
-        after = start - SAMPLE_STEP_S - 1
-        while True:
-            page = self.db.query(
-                "SELECT ts, working_rate FROM samples WHERE radiator_id = ? AND ts > ?"
-                " AND ts < ? ORDER BY ts LIMIT ?",
-                (rid, after, end, PAGE_ROWS),
-            )
-            rows += [(r["ts"], r["working_rate"]) for r in page]
-            if len(page) < PAGE_ROWS:
-                return RateIndex(rows)
-            after = page[-1]["ts"]
+    def _chunk_spans(
+        self,
+        rid: str,
+        cols: list[str],
+        g: int,
+        window: tuple[int, int],
+        power_w: float | None,
+        first: dict[str, int | None],
+    ) -> list[list[Span]]:
+        """Per counter, the spans of chunk [g, g + CHUNK_S) that overlap `window` (inside it).
+
+        The replay always starts at the last reading before g − LOOKBACK_S, whatever window is
+        asked, and runs past the window's end until a reading is accepted (a glitch or a reset
+        candidate after the end never cuts the span crossing it). So a bucket gets the same
+        energy in any window that contains it.
+        """
+        lo, hi = window
+        a0 = g - LOOKBACK_S
+        columns = list(zip(*self._bulk(rid, cols, a0, hi), strict=True)) or [()] * (len(cols) + 1)
+        out: list[list[Span]] = []
+        for k, col in enumerate(cols, start=1):
+            start = first[col]
+            spans: list[Span] = []
+            if start is not None and start < hi:
+                head = self._before(rid, col, a0) if start < a0 else []
+                readings = chain(
+                    head, zip(columns[0], columns[k], strict=True), self._after(rid, col, hi)
+                )
+                spans = list(clean_spans(readings, power_w=power_w, stop_at=hi))
+                skip = 0
+                while skip < len(spans) and spans[skip].end <= lo:  # the replayed lookback
+                    skip += 1
+                spans = spans[skip:]
+            out.append(spans)
+        return out
+
+    def _rates(self, rid: str, ranges: list[tuple[int, int]]) -> RateIndex:
+        """Working-rate samples over the union of `ranges` (the spans to spread by weight), a
+        few ranges and PAGE_ROWS rows a query; bounded by the sample retention."""
+        merged: list[list[int]] = []
+        for a, b in sorted(ranges):
+            a -= SAMPLE_STEP_S  # a sample just before a still covers it
+            if merged and a <= merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], b)
+            else:
+                merged.append([a, b])
+        rows: list[tuple] = []
+        for i in range(0, len(merged), RANGES_PER_QUERY):
+            part = merged[i : i + RANGES_PER_QUERY]
+            cond = " OR ".join(["(ts >= ? AND ts < ?)"] * len(part))
+            bounds = [x for r in part for x in r]
+            after = part[0][0] - 1
+            while True:
+                page = self.db.rows(
+                    f"SELECT ts, working_rate FROM samples WHERE radiator_id = ? AND ts > ?"
+                    f" AND ({cond}) ORDER BY ts LIMIT ?",
+                    (rid, after, *bounds, PAGE_ROWS),
+                )
+                rows += page
+                if len(page) < PAGE_ROWS:
+                    break
+                after = page[-1][0]
+        return RateIndex(rows)
+
+    def _buckets(self, rid: str, edges: list[int], cols: list[str]) -> list[list[Bucket]]:
+        """One radiator, several counters, one pass over its rows (spec §2.1).
+
+        Time is cut into fixed chunks of CHUNK_S (epoch-aligned, not window-aligned); each
+        chunk's readings go `clean_spans` → `apportion`, weighted by working-rate samples
+        loaded once per chunk for all counters, and the parts are summed per bucket.
+        """
+        n = len(edges) - 1
+        acc = [[_UNKNOWN] * n for _ in cols]
+        first = {col: self._first_ts(rid, col) for col in cols}
+        if all(v is None for v in first.values()):
+            return acc
+        radiator = self.house.radiators.get(rid)
+        power_w = radiator.power_w if radiator is not None else None
+        g = edges[0] // CHUNK_S * CHUNK_S
+        while g < edges[-1]:
+            lo, hi = max(g, edges[0]), min(g + CHUNK_S, edges[-1])
+            i0 = bisect_right(edges, lo) - 1
+            sub = edges[i0 : bisect_left(edges, hi) + 1]
+            per = self._chunk_spans(rid, cols, g, (lo, hi), power_w, first)
+            need = [r for spans in per for r in _spread(spans, sub, lo, hi)]
+            rates = self._rates(rid, need) if need else None
+            for row, spans in zip(acc, per, strict=True):
+                if not spans:
+                    continue
+                part = apportion(spans, sub, rates, power_w=power_w, clip=(lo, hi))
+                for j, b in enumerate(part, start=i0):
+                    if b.covered_s:
+                        row[j] = _merge(row[j], b)
+            g += CHUNK_S
+        return acc
 
     def energy_radiator_ids(self) -> list[str]:
         """Every radiator Kelvin ever recorded, including ones no longer in the house (L8)."""
@@ -263,21 +342,14 @@ class Recorder:
         """Energy of each radiator per bucket [edges[i], edges[i+1]) (spec §2.1).
 
         Readings → `clean_spans` → `apportion`, weighted by the radiator's working-rate samples.
-        `radiator_ids=None` means every radiator present in the energy table.
+        `radiator_ids=None` means every radiator present in the energy table. A bucket gets the
+        same energy whatever window it is asked in (tested).
         """
         if len(edges) < 2:
             return {}
         col = COUNTERS[counter]
         ids = self.energy_radiator_ids() if radiator_ids is None else radiator_ids
-        out: dict[str, list[Bucket]] = {}
-        for rid in ids:
-            r = self.house.radiators.get(rid)
-            head = self._head(rid, col, edges[0])
-            rates = self._rates(rid, head[0].ts if head else edges[0], edges[-1])
-            readings = self._readings(rid, col, edges[0], edges[-1], head)
-            spans = clean_spans(readings, power_w=r.power_w if r is not None else None)
-            out[rid] = apportion(spans, edges, rates)
-        return out
+        return {rid: self._buckets(rid, edges, [col])[0] for rid in ids}
 
     def _key(self, t: int, unit: Unit) -> str:
         dt = datetime.fromtimestamp(t, self.tz)
@@ -301,14 +373,15 @@ class Recorder:
         if not keep:
             return []
         edges = edges[keep[0] : keep[-1] + 2]
-        per = {c: self.energy_buckets(edges, radiator_ids, counter=c) for c in COUNTERS}
+        cols = list(COUNTERS.values())  # total, t1, t2
+        per = {rid: self._buckets(rid, edges, cols) for rid in radiator_ids}
         out = []
         for i in range(len(edges) - 1):
             for rid in sorted(radiator_ids):
-                b = per["total"][rid][i]
+                b = per[rid][0][i]
                 if b.wh is None:
                     continue
-                t1, t2 = per["t1"][rid][i].wh, per["t2"][rid][i].wh
+                t1, t2 = per[rid][1][i].wh, per[rid][2][i].wh
                 out.append(
                     {
                         "bucket": self._key(edges[i], unit),
@@ -343,6 +416,35 @@ class Recorder:
             except Exception:
                 log.exception("recorder failed")
             await asyncio.sleep(sample_every)
+
+
+_UNKNOWN = Bucket(None, 0, False, False)
+
+
+def _spread(spans: list[Span], edges: list[int], lo: int, hi: int) -> Iterator[tuple[int, int]]:
+    """(start, end) of the spans (in time order) with energy that reach more than one bucket
+    or leave the clip [lo, hi): those are spread by weight and need the samples."""
+    k, n = 0, len(edges) - 1
+    for s in spans:
+        if s.wh <= 0:
+            continue
+        if s.start < lo or s.end > hi:
+            yield s.start, s.end
+            continue
+        while k + 1 < n and edges[k + 1] <= s.start:
+            k += 1
+        if s.end > edges[k + 1]:
+            yield s.start, s.end
+
+
+def _merge(a: Bucket, b: Bucket) -> Bucket:
+    covered = a.covered_s + b.covered_s
+    return Bucket(
+        (a.wh or 0.0) + (b.wh or 0.0) if covered else None,
+        covered,
+        a.interpolated or b.interpolated,
+        a.apportioned or b.apportioned,
+    )
 
 
 def _r(v: float | None) -> float | None:

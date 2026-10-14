@@ -198,8 +198,6 @@ async def start_runtime(
         recorder_ref: list[Recorder] = []
 
         def on_changed(ids: set[str]) -> None:
-            if recorder_ref:  # a counter reading's time is when its event arrived
-                recorder_ref[0].snapshot_energy(ids)
             room_ids = {house.radiators[i].room_id for i in ids}
             bc.publish(
                 "house",
@@ -208,6 +206,11 @@ async def start_runtime(
                     "radiators": [house.radiators[i].view() for i in sorted(ids)],
                 },
             )
+            if recorder_ref:  # a counter reading's time is when its event arrived
+                try:
+                    recorder_ref[0].snapshot_energy(ids)
+                except Exception:  # the live update went out; the 5-min loop retries
+                    log.exception("energy snapshot failed")
 
         pump = EventPump(
             gateway,

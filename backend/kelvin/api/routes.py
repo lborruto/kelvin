@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import time
 from collections.abc import Callable
@@ -319,7 +320,7 @@ async def history(
     radiators: str,
     start: float | None = None,
     end: float | None = None,
-    step: int = Query(default=300, ge=300),
+    step: int = Query(default=300, ge=300, le=MAX_REPORT_DAYS * 86400),
 ) -> list[dict]:
     rt = _rt(request)
     ids = _ids(radiators)
@@ -345,7 +346,8 @@ async def energy_radiators(
     rt = _rt(request)
     _check_span(start, end, MAX_HOUR_DAYS if group == "hour" else MAX_REPORT_DAYS)
     ids = _ids(radiators) or list(rt.house.radiators)
-    return rt.recorder.radiator_energy(ids, start, end, group)  # type: ignore[arg-type]
+    # Off the event loop: years of readings take a moment to bucket.
+    return await asyncio.to_thread(rt.recorder.radiator_energy, ids, start, end, group)  # type: ignore[arg-type]
 
 
 def _linky(rt: Runtime) -> LinkyService:
@@ -377,7 +379,8 @@ async def energy(
     _check_days(linky, start, end)
     if end <= start or (end - start).days > MAX_REPORT_DAYS:
         raise HTTPException(422, "Période invalide.")
-    return linky.report(start, end, group, rt.recorder, list(rt.house.radiators))
+    radiator_ids = list(rt.house.radiators)
+    return await asyncio.to_thread(linky.report, start, end, group, rt.recorder, radiator_ids)
 
 
 @router.get("/linky/curve")

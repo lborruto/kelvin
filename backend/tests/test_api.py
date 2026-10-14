@@ -346,3 +346,25 @@ async def test_hourly_radiator_energy_is_capped_at_two_months(ctx):
     assert (await c.get("/api/energy/radiators", params=p)).status_code == 422
     p["group"] = "day"
     assert (await c.get("/api/energy/radiators", params=p)).status_code == 200
+
+
+async def test_a_history_step_too_large_is_refused_not_a_crash(ctx):
+    c, _, _ = ctx
+    now = time.time()
+    for step in (10**19, 2**63):
+        p = {"radiators": "9312063", "start": now - 86400, "end": now, "step": step}
+        assert (await c.get("/api/history", params=p)).status_code == 422
+
+
+async def test_a_failing_energy_snapshot_never_suppresses_the_live_update(ctx, monkeypatch, caplog):
+    c, rt, _ = ctx
+
+    def broken(ids=None):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(rt.recorder, "snapshot_energy", broken)
+    q = rt.broadcaster.subscribe()
+    rt.pump.on_changed({"9312063"})
+    assert q.get_nowait()["event"] == "house"
+    assert "energy snapshot failed" in caplog.text
+    rt.broadcaster.unsubscribe(q)

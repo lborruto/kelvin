@@ -144,3 +144,32 @@ def test_property_apportion_conserves_energy(case, weighted):
     edges, spans, samples = case
     b = apportion(spans, edges, RateIndex(samples) if weighted else None)
     assert sum(x.wh or 0.0 for x in b) == pytest.approx(sum(s.wh for s in spans), abs=1e-6)
+
+
+def test_weights_that_would_exceed_the_radiator_power_fall_back_to_time():
+    """1 kWh over 10 h, the only heating evidence 5 minutes long: 12 kW for a 1 kW radiator is
+    not plausible, so the energy is spread by time; a 20 kW radiator keeps the weights."""
+    samples = [(i * 300, 100.0 if i == 119 else 0.0) for i in range(120)]
+    spans = [Span(0, 36_000, 1000.0, True)]
+    edges = [h * 3600 for h in range(11)]
+    by_time = apportion(spans, edges, RateIndex(samples), power_w=1000)
+    assert [x.wh for x in by_time] == pytest.approx([100.0] * 10)
+    weighted = apportion(spans, edges, RateIndex(samples), power_w=20_000)
+    assert [x.wh for x in weighted] == pytest.approx([0.0] * 9 + [1000.0])
+
+
+def test_clip_counts_only_the_part_inside_and_flags_by_the_bucket():
+    spans = [Span(0, 7200, 200.0, False)]
+    b = apportion(spans, [0, 3600, 7200], clip=(1800, 7200))
+    assert [x.wh for x in b] == pytest.approx([50.0, 100.0])
+    assert [x.covered_s for x in b] == [1800, 3600]
+    assert [x.apportioned for x in b] == [True, True]
+    assert apportion(spans, [0, 3600, 7200], clip=(7200, 9000))[0].wh is None
+
+
+def test_rate_index_peak():
+    idx = RateIndex([(0, 50.0), (300, None), (600, 100.0), (2000, 20.0)])
+    assert idx.peak(0, 2300) == 1.0
+    assert idx.peak(0, 600) == 0.5
+    assert idx.peak(900, 2000) == 0.0  # no evidence
+    assert idx.peak(1999, 2001) == 0.2

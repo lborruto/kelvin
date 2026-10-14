@@ -63,8 +63,8 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 - `PATCH /api/radiators/{id}/features`
 - `POST /api/house/off` · `POST /api/house/away`
 - `DELETE /api/overrides/{id}`
-- `GET /api/history?radiators=&start=&end=&step=` — at most 50 radiators, a window from 2000-01-01 to two years ahead of at most 4 × 366 days, at most 10 000 points per radiator; otherwise `422 Période invalide.`
-- `GET /api/energy/radiators?start=&end=&group=hour|day|month[&radiators=]` — radiator meters only (epoch seconds; `hour` over 62 days at most). Each row: `bucket`, `radiator_id`, `kwh`, `t1_kwh`/`t2_kwh` (`null` when the register is absent), `interpolated` (a gap over 3 h fed it), `apportioned` (it holds part of a longer span). Buckets Kelvin knows nothing about are omitted, never 0.
+- `GET /api/history?radiators=&start=&end=&step=` — at most 50 radiators, a window from 2000-01-01 to two years ahead of at most 4 × 366 days, at most 10 000 points per radiator, otherwise `422 Période invalide.`; `step` from 300 s to 4 × 366 days (a validation 422 otherwise)
+- `GET /api/energy/radiators?start=&end=&group=hour|day|month[&radiators=]` — radiator meters only (epoch seconds; `hour` over 62 days at most). Each row: `bucket`, `radiator_id`, `kwh`, `t1_kwh`/`t2_kwh` (`null` when no measured span of that register reaches the bucket: the register is absent, or it has not changed since before the bucket — the time after a counter's last change is unknown until it changes again, so a register that stays flat reads `null`, not 0), `interpolated` (a gap over 3 h fed it), `apportioned` (it holds part of a longer span). Buckets Kelvin knows nothing about are omitted, never 0.
 - `GET /api/energy?from=YYYY-MM-DD&to=YYYY-MM-DD&group=day|month|year` — Linky + € + projection + heating share (`to` exclusive)
 - `GET /api/linky/curve?date=YYYY-MM-DD` — 30-min curve with the off-peak share of each interval
 - `GET /api/settings` · `PUT /api/settings {tariff}` — tariff with price history (`valid_from`)
@@ -94,7 +94,7 @@ included. The simulator uses a synthetic Linky and a demo tariff. Verified behav
 `KELVIN_DATA` holds `account.json` (0600) and `kelvin.db`: samples (kept 400 days), radiator
 meter readings (kept), Linky data, tariffs, sessions, overrides and the command log (90 days). The schema version is the `schema_version` setting; migrations run at startup in batches and are idempotent. v1 (Plan 5) stores an absent meter register as `NULL` and keeps the readings as they were in `energy_v0`.
 
-Meter readings are written when a counter changes, at the time Kelvin learns it (Overkiz reports counters only on change); energy between two readings is spread over the time between them, by the radiator's working rate when the 5-min samples cover the gap.
+Meter readings are written when a counter changes, at the time Kelvin learns it (Overkiz reports counters only on change); energy between two readings is spread over the time between them, by the radiator's working rate when the 5-min samples cover the gap (and the weighted power stays within the radiator's), by time otherwise. A drop to below half the counter is a reset only if the next different reading stays low; a jump above the radiator's power (+10 %, +1 min) is skipped and never becomes the reference. Readings are cleaned in fixed 28-day chunks, each replaying 3 days before it, so a bucket reads the same in any window.
 
 ## Notes
 

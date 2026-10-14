@@ -1,9 +1,15 @@
 import threading
-from datetime import date, datetime
+import time
+from contextlib import ExitStack
+from datetime import date, datetime, timedelta
+from unittest import mock
 from zoneinfo import ZoneInfo
 
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
+import kelvin.recorder.recorder as recorder_module
 from kelvin.house.model import build_house
 from kelvin.overkiz.models import StateChange
 from kelvin.overkiz.sample import SAMPLE_GATEWAY, sample_house
@@ -100,12 +106,12 @@ def test_energy_is_spread_over_the_time_between_readings_and_a_reset_counts(env)
         [
             (ts(2026, 10, 12, 23), 1000),
             (ts(2026, 10, 13, 1), 1500),  # 500 Wh over 23:00–01:00: half on each day
-            (ts(2026, 10, 13, 2), 200),  # meter reset: 200 Wh
-            (ts(2026, 10, 14, 2), 1400),  # 1200 Wh over 24 h: 22/24 on the 13th
+            (ts(2026, 10, 13, 2), 200),  # meter reset: 200 Wh...
+            (ts(2026, 10, 14, 2), 700),  # ...confirmed (still low); 500 Wh over 24 h
         ],
     )
     got = day_kwh(rec, ["9312063"], date(2026, 10, 12), date(2026, 10, 15))["9312063"]
-    assert got == [0.25, round(0.25 + 0.2 + 1.2 * 22 / 24, 3), 0.1]
+    assert got == [0.25, round(0.25 + 0.2 + 0.5 * 22 / 24, 3), round(0.5 * 2 / 24, 3)]
 
 
 def test_month_buckets_split_a_span_at_the_month_edge(env):
@@ -362,3 +368,155 @@ def test_readings_and_samples_stream_in_pages_with_the_same_result(env, monkeypa
     whole = rec.energy_buckets(edges, ["9312063"])
     monkeypatch.setattr(recorder_module, "PAGE_ROWS", 7)
     assert rec.energy_buckets(edges, ["9312063"]) == whole
+
+
+def _h(d, h=0):
+    return int(ts(2026, 10, d, h))
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        # a glitch just after the window: the span crossing its end must not stop there
+        [(_h(13, 10), 1_000_000), (_h(13, 12), 1_001_000), (_h(14, 1), 1_000_999)]
+        + [(_h(14, 12), 1_002_000)],
+        # a blip down then back before the window: the reference is the high-water mark
+        [(_h(12, 0), 1_000_000), (_h(12, 1), 999_999), (_h(12, 12), 1_000_000)]
+        + [(_h(13, 12), 1_001_000)],
+        # the value the counter held at the window start is a glitch
+        [(_h(12, 0), 1_000_000), (_h(12, 12), 999_999), (_h(14, 0), 1_002_000)],
+    ],
+    ids=["tail-glitch", "head-blip-recovered", "head-glitch-value"],
+)
+def test_a_day_gets_the_same_energy_whatever_the_window(env, rows):
+    db, _, _, rec = env
+    db.executemany(
+        "INSERT INTO energy VALUES (?,?,?,?,?)", [(t, "g", v, None, None) for t, v in rows]
+    )
+    alone = day_kwh(rec, ["g"], date(2026, 10, 13), date(2026, 10, 14))["g"]
+    two = day_kwh(rec, ["g"], date(2026, 10, 13), date(2026, 10, 15))["g"]
+    three = day_kwh(rec, ["g"], date(2026, 10, 12), date(2026, 10, 15))["g"]
+    assert alone[0] == two[0] == three[1]
+
+
+@st.composite
+def messy_history(draw):
+    """Two weeks of one counter at irregular gaps (1 min to 20 h) with blips, absent values,
+    transient drops to 0, true resets and upward spikes; sometimes working-rate samples."""
+    t = _h(1)
+    v = float(draw(st.integers(2_000, 2_000_000)))
+    rows = []
+    while t < _h(15):
+        t += draw(st.sampled_from([20 * 3600, 3 * 3600, 3600, 300, 60]))
+        kind = draw(
+            st.sampled_from(["up"] * 6 + ["flat", "blip", "zero", "reset", "spike", "none"])
+        )
+        if kind == "up":
+            v += draw(st.integers(0, 800))
+            rows.append((t, v))
+        elif kind == "flat":
+            rows.append((t, v))
+        elif kind == "blip":
+            rows.append((t, v - draw(st.sampled_from([1, 50]))))
+        elif kind == "zero":
+            rows.append((t, 0.0))
+        elif kind == "reset":
+            v = float(draw(st.integers(0, int(v * 0.3))))
+            rows.append((t, v))
+        elif kind == "spike":
+            rows.append((t, v + 10_000_000))
+        else:
+            rows.append((t, None))
+    samples = []
+    if draw(st.booleans()):  # a daily heating pattern, one rate per hour
+        pattern = draw(st.lists(st.sampled_from([0.0, 50.0, 100.0]), min_size=24, max_size=24))
+        s0 = _h(1)
+        samples = [(s0 + i * 300, pattern[i // 12 % 24]) for i in range(14 * 288)]
+    return rows, samples
+
+
+@settings(
+    max_examples=60,
+    deadline=None,
+    suppress_health_check=[HealthCheck.too_slow, HealthCheck.large_base_example],
+)
+@given(
+    messy_history(),
+    st.sampled_from(["g", "9312063"]),  # power unknown / 1500 W
+    st.sampled_from([None, (2 * 86400, 86400)]),  # default chunks, or small ones
+    st.sampled_from(["day", "hour"]),
+)
+def test_property_a_bucket_is_the_same_in_any_window(history, rid, chunking, unit):
+    rows, samples = history
+    db = Database(":memory:")
+    rec = Recorder(db, build_house(*sample_house()))
+    db.executemany(
+        "INSERT INTO energy VALUES (?,?,?,?,?)", [(t, rid, v, None, v and v / 2) for t, v in rows]
+    )
+    db.executemany(
+        "INSERT INTO samples (ts, radiator_id, working_rate) VALUES (?,?,?)",
+        [(t, rid, r) for t, r in samples],
+    )
+    with ExitStack() as stack:
+        if chunking:
+            stack.enter_context(mock.patch.object(recorder_module, "CHUNK_S", chunking[0]))
+            stack.enter_context(mock.patch.object(recorder_module, "LOOKBACK_S", chunking[1]))
+        days = [date(2026, 10, 2) + timedelta(days=i) for i in range(12)]
+        for counter in ("total", "t2"):
+            big_edges = local_edges(days[0], days[-1] + timedelta(days=1), unit, PARIS)
+            big = rec.energy_buckets(big_edges, [rid], counter=counter)[rid]
+            per_day = []
+            for d in days:
+                edges = local_edges(d, d + timedelta(days=1), unit, PARIS)
+                per_day += rec.energy_buckets(edges, [rid], counter=counter)[rid]
+            assert len(per_day) == len(big)
+            for a, b in zip(big, per_day, strict=True):
+                assert (a.wh is None) == (b.wh is None)
+                assert (a.wh or 0.0) == pytest.approx(b.wh or 0.0, rel=1e-9, abs=1e-6)
+                assert (a.covered_s, a.interpolated, a.apportioned) == (
+                    b.covered_s,
+                    b.interpolated,
+                    b.apportioned,
+                )
+
+
+@pytest.mark.perf
+def test_ten_radiators_over_four_years_stay_fast(env):
+    """10 radiators × 4 years of hourly readings + 400 days of 5-min samples: the day, month
+    and hourly radiator views each answer in well under the bound (generous: CI machines)."""
+    db, house, _, rec = env
+    now = int(ts(2026, 10, 14, 12))
+    ids = [*house.radiators, *(f"x{i}" for i in range(6))]
+    a, s = now - 4 * 366 * 86400, now - 400 * 86400
+    for rid in ids:
+        db.executemany(
+            "INSERT INTO energy VALUES (?,?,?,?,?)",
+            [
+                (a + h * 3600, rid, 1e6 + h * 300, (1e6 + h * 300) * 0.4, (1e6 + h * 300) * 0.6)
+                for h in range(4 * 366 * 24)
+            ],
+        )
+        db.executemany(
+            "INSERT INTO samples (ts, radiator_id, working_rate) VALUES (?,?,?)",
+            [(s + i * 300, rid, float(i % 5 * 25)) for i in range(400 * 288)],
+        )
+    for unit, days in (("day", 4 * 366), ("month", 4 * 366), ("hour", 62)):
+        t0 = time.perf_counter()
+        rows = rec.radiator_energy(ids, now - days * 86400, now, unit)
+        assert time.perf_counter() - t0 < 5.0, unit
+        assert rows
+
+
+def test_a_failed_energy_write_is_retried(env, monkeypatch):
+    db, _, clock, rec = env
+    real = db.executemany
+
+    def full(sql, rows):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(db, "executemany", full)
+    with pytest.raises(RuntimeError):
+        rec.snapshot_energy()
+    monkeypatch.setattr(db, "executemany", real)
+    clock.advance(300)
+    assert rec.snapshot_energy() == 4

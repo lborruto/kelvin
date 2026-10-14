@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from datetime import time as dtime
 from itertools import accumulate
-from typing import Literal
+from typing import Literal, NamedTuple
 from zoneinfo import ZoneInfo
 
 log = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 RESET_RATIO = 0.5  # a reading at or below half the previous one is a counter reset...
 RESET_MIN_WH = 1000.0  # ...if the previous one was above 1 kWh
 POWER_MARGIN = 1.1  # a span may not exceed the nominal power by more than 10 %
+POWER_SLACK_S = 60  # ...over its length plus a minute (a reading learned late)
 MAX_GAP_S = 3 * 3600  # longer spans are flagged "interpolated"
 
 MIN_WEIGHT_COVERAGE = 0.8  # working-rate weights need samples over 80 % of the span
@@ -33,14 +34,14 @@ Unit = Literal["halfhour", "hour", "day", "week", "month", "year"]
 WeightFn = Callable[[int, int], tuple[float, int]]
 
 
-@dataclass(frozen=True)
-class Reading:
+class Reading(NamedTuple):
+    """A tuple, so the recorder can stream plain (ts, value) rows through `clean_spans`."""
+
     ts: int
     value: float | None  # None: the counter state was absent; not a reading
 
 
-@dataclass(frozen=True)
-class Span:
+class Span(NamedTuple):
     """Energy measured over [start, end)."""
 
     start: int
@@ -58,12 +59,13 @@ class Bucket:
 
 
 def clean_spans(
-    readings: Iterable[Reading],
+    readings: Iterable[Reading] | Iterable[tuple[int, float | None]],
     *,
     power_w: float | None = None,
     reset_ratio: float = RESET_RATIO,
     reset_min_wh: float = RESET_MIN_WH,
     max_gap_s: int = MAX_GAP_S,
+    stop_at: int | None = None,
 ) -> Iterator[Span]:
     """Consecutive good readings of one counter, in time order → spans of measured energy.
 
@@ -75,38 +77,61 @@ def clean_spans(
     - A value equal to the reference is no news (a heartbeat or a re-reported state): skipped,
       so the span runs on until the counter actually moves.
     - d = value − reference. d > 0 is consumption.
-    - d < 0 with value ≤ reset_ratio × reference and reference > reset_min_wh: a reset; the
-      consumption is the new value.
+    - d < 0 with value ≤ reset_ratio × reference and reference > reset_min_wh is a reset
+      candidate. It is confirmed only when the next reading with another value stays below
+      reset_ratio × the pre-reset reference; then the consumption up to the candidate is its
+      value and the candidate becomes the reference. Otherwise it was a transient drop (a 0, a
+      value read in the wrong unit) and is skipped like a glitch.
     - Any other d < 0 is a glitch (out-of-order or stale value): skipped, the reference stays the
       high-water mark.
-    - Consumption above power_w × Δt × POWER_MARGIN is implausible: no span is emitted (the time
-      stays unknown) and the new value becomes the reference.
+    - Consumption above power_w × (Δt + POWER_SLACK_S) × POWER_MARGIN is implausible (a spike):
+      no span is emitted and the reference stays, so the next real reading counts from the last
+      good one. The slack absorbs a reading learned a little late.
+
+    With `stop_at`, the generator ends after the first span that reaches it (end >= stop_at).
     """
     ref: float | None = None
     t0 = 0
-    for r in readings:
-        c = r.value
+    cand: tuple[int, float] | None = None  # an unconfirmed reset: (ts, value)
+    cap = power_w * POWER_MARGIN / 3600 if power_w else 0.0  # Wh per second, 0: no cap
+    span = tuple.__new__  # Span(...) without the NamedTuple constructor's call overhead
+    for ts, c in readings:
         if c is None:
             continue
         if ref is None:
-            ref, t0 = c, r.ts
+            ref, t0 = c, ts
             continue
-        if r.ts <= t0 or c == ref:
+        if cand is not None:
+            if ts <= cand[0] or c == cand[1]:
+                continue
+            if c < reset_ratio * ref:  # the counter stayed low: a true reset
+                ts_c, v_c = cand
+                if not cap or v_c <= cap * (ts_c - t0 + POWER_SLACK_S):
+                    yield span(Span, (t0, ts_c, v_c, ts_c - t0 > max_gap_s))
+                    if stop_at is not None and ts_c >= stop_at:
+                        return
+                ref, t0 = v_c, ts_c  # the new counter is the reference either way
+            else:
+                log.info("energy counter drop skipped: it recovered at the next reading")
+            cand = None
+        if ts <= t0 or c == ref:
             continue
         d = c - ref
         if d > 0:
-            wh = d
+            dt = ts - t0
+            if cap and d > cap * (dt + POWER_SLACK_S):
+                log.warning(
+                    "energy spike skipped: %.0f Wh in %d s exceeds the radiator power", d, dt
+                )
+                continue
+            yield span(Span, (t0, ts, d, dt > max_gap_s))
+            if stop_at is not None and ts >= stop_at:
+                return
+            ref, t0 = c, ts
         elif c <= reset_ratio * ref and ref > reset_min_wh:
-            wh = c
+            cand = (ts, c)
         else:
             log.info("energy counter glitch skipped (%.0f Wh below the reference)", -d)
-            continue
-        dt = r.ts - t0
-        if power_w and wh > power_w * dt / 3600 * POWER_MARGIN:
-            log.warning("energy span rejected: %.0f Wh in %d s exceeds the radiator power", wh, dt)
-        else:
-            yield Span(t0, r.ts, wh, dt > max_gap_s)
-        ref, t0 = c, r.ts
 
 
 class RateIndex:
@@ -145,36 +170,73 @@ class RateIndex:
         wb, cb = self._upto(b)
         return wb - wa, cb - ca
 
+    def peak(self, a: int, b: int) -> float:
+        """The highest rate (0–1) with evidence inside [a, b); 0.0 when there is none."""
+        k = max(bisect_right(self.starts, a) - 1, 0)
+        top = 0.0
+        while k < len(self.starts) and self.starts[k] < b:
+            if self.ends[k] > a and self.rates[k] > top:
+                top = self.rates[k]
+            k += 1
+        return top
+
 
 def apportion(
-    spans: Iterable[Span], edges: list[int], weights: WeightFn | None = None
+    spans: Iterable[Span],
+    edges: list[int],
+    weights: WeightFn | None = None,
+    *,
+    power_w: float | None = None,
+    clip: tuple[int, int] | None = None,
 ) -> list[Bucket]:
     """Energy per bucket [edges[i], edges[i+1]); `spans` may be a stream (memory O(buckets)).
 
     Each span is spread over the buckets it overlaps: by working-rate weight when `weights`
-    covers at least MIN_WEIGHT_COVERAGE of the span and its integral is positive, otherwise by
-    time. Σ bucket wh equals Σ of the span energy inside the edges (tested).
+    covers at least MIN_WEIGHT_COVERAGE of the span, its integral is positive and (with a known
+    `power_w` and a `RateIndex`) the weighted power never exceeds the radiator's power; by time
+    otherwise. With `clip=(lo, hi)` only the part of each span inside [lo, hi) is counted (the
+    flags still describe the whole span against the whole bucket). Σ bucket wh equals Σ of the
+    span energy inside the edges and the clip (tested).
     """
     n = len(edges) - 1
+    if n <= 0:
+        return []
     wh = [0.0] * n
     covered = [0] * n
     interp = [False] * n
     appor = [False] * n
-    if n <= 0:
-        return []
+    lo_clip, hi_clip = clip if clip is not None else (edges[0], edges[-1])
+    lo_clip, hi_clip = max(lo_clip, edges[0]), min(hi_clip, edges[-1])
+    k = 0  # bucket of the previous span's start: spans usually come in time order
     for s in spans:
-        if s.end <= edges[0] or s.start >= edges[-1] or s.end <= s.start:
+        if s.end <= lo_clip or s.start >= hi_clip or s.end <= s.start:
             continue
+        if edges[k] <= s.start:
+            while k + 1 < n and edges[k + 1] <= s.start:
+                k += 1
+            first = k
+        else:
+            first = k = max(bisect_right(edges, s.start) - 1, 0)
+        if s.end <= edges[first + 1] and lo_clip <= s.start and s.end <= hi_clip:
+            # Inside one bucket and the clip: all of it lands there, whatever the weights.
+            wh[first] += s.wh
+            covered[first] += s.end - s.start
+            if s.wh > 0:
+                interp[first] |= s.interpolated
+            continue
+        last = min(bisect_left(edges, s.end), n)
         length = s.end - s.start
         total = 0.0
         use_weights = False
         if weights is not None:
             total, cov = weights(s.start, s.end)
             use_weights = cov >= MIN_WEIGHT_COVERAGE * length and total > 0
-        first = max(bisect_right(edges, s.start) - 1, 0)
-        last = min(bisect_left(edges, s.end), n)
+            if use_weights and power_w and isinstance(weights, RateIndex):
+                peak_w = s.wh * 3600 * weights.peak(s.start, s.end) / total
+                use_weights = peak_w <= power_w * POWER_MARGIN
         for i in range(first, last):
-            lo, hi = max(s.start, edges[i]), min(s.end, edges[i + 1])
+            lo = max(s.start, edges[i], lo_clip)
+            hi = min(s.end, edges[i + 1], hi_clip)
             if hi <= lo:
                 continue
             frac = (weights(lo, hi)[0] / total) if use_weights else (hi - lo) / length

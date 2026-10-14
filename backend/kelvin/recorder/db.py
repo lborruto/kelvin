@@ -164,6 +164,13 @@ class Database:
         with self._lock:
             return [dict(r) for r in self._open_conn().execute(sql, params).fetchall()]
 
+    def rows(self, sql: str, params: tuple | list = ()) -> list[tuple]:
+        """Like `query`, as plain tuples: for the hot paths that read many rows."""
+        with self._lock:
+            cur = self._open_conn().cursor()
+            cur.row_factory = None
+            return cur.execute(sql, params).fetchall()
+
     def get_setting(self, key: str, default: Any = None) -> Any:
         rows = self.query("SELECT value FROM settings WHERE key = ?", (key,))
         return json.loads(rows[0]["value"]) if rows else default

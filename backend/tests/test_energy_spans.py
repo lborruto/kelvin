@@ -53,12 +53,41 @@ def test_spans_longer_than_three_hours_are_flagged_interpolated():
     assert [s.interpolated for s in spans] == [False, True]
 
 
-def test_the_power_cap_rejects_an_implausible_jump_and_keeps_the_time_unknown():
-    """1 kW for 1 h can draw at most 1.1 kWh; a jump of 50 kWh leaves no span for that hour."""
+def test_the_power_cap_rejects_a_spike_and_keeps_the_reference():
+    """1 kW for 1 h can draw at most 1.1 kWh: a jump of 50 kWh is a spike, never adopted, so the
+    real readings after it still count from the last good value."""
     spans = spans_of(
-        [Reading(0, 10_000), Reading(3600, 60_000), Reading(7200, 60_800)], power_w=1000
+        [Reading(0, 10_000), Reading(3600, 60_000), Reading(7200, 10_900), Reading(10800, 11_500)],
+        power_w=1000,
     )
-    assert spans == [Span(3600, 7200, 800.0, False)]
+    assert spans == [Span(0, 7200, 900.0, False), Span(7200, 10800, 600.0, False)]
+
+
+def test_the_power_cap_allows_a_minute_of_delivery_jitter():
+    """A reading learned a little late: 1 kW × (1 h + 60 s) × 1.1 is about 1118 Wh."""
+    spans = spans_of([Reading(0, 10_000), Reading(3600, 11_110)], power_w=1000)
+    assert spans == [Span(0, 3600, 1110.0, False)]
+    assert spans_of([Reading(0, 10_000), Reading(3600, 11_130)], power_w=1000) == []
+
+
+def test_a_transient_drop_to_zero_that_recovers_is_a_glitch_not_a_reset():
+    """Without a known power: 1 500 000 → 0 → 1 500 100 Wh is 100 Wh, not a lifetime."""
+    spans = spans_of([Reading(0, 1_500_000), Reading(3600, 0), Reading(7200, 1_500_100)])
+    assert spans == [Span(0, 7200, 100.0, False)]
+
+
+def test_a_unit_glitch_that_recovers_is_a_glitch_not_a_reset():
+    """The counter read once in kWh (1500) instead of Wh: still 100 Wh."""
+    spans = spans_of([Reading(0, 1_500_000), Reading(3600, 1500), Reading(7200, 1_500_100)])
+    assert total(spans) == pytest.approx(100.0)
+
+
+def test_a_reset_is_confirmed_by_the_next_different_reading_only():
+    """A repeated post-reset value is no news; the reset waits for a reading that moves."""
+    readings = [Reading(0, 1_500_000), Reading(3600, 100), Reading(5400, 100)]
+    assert spans_of(readings) == []  # not confirmed yet: the time stays unknown
+    readings.append(Reading(7200, 300))
+    assert spans_of(readings) == [Span(0, 3600, 100.0, False), Span(3600, 7200, 200.0, False)]
 
 
 def test_without_a_known_power_there_is_no_cap():
@@ -73,8 +102,9 @@ def test_a_reading_not_newer_than_the_reference_is_skipped():
 
 @st.composite
 def blipped_series(draw):
-    """A monotone counter over ≤ 60 readings, with injected −1 Wh blips, absent values and
-    re-reported older values. Values stay above half the running maximum (no reset)."""
+    """A monotone counter over ≤ 60 readings, with injected −1 Wh blips, absent values,
+    re-reported older values and transient drops to 0 that recover at the next reading. No true
+    reset: every other value stays above half the running maximum."""
     first = draw(st.integers(1_000_000, 10_000_000))
     steps = draw(st.lists(st.integers(0, 2000), min_size=1, max_size=60))
     truth = [first]
@@ -86,7 +116,7 @@ def blipped_series(draw):
         t += draw(st.integers(1, 7200))
         readings.append(Reading(t, v))
         if i and i < len(truth) - 1:
-            kind = draw(st.sampled_from(["none", "minus1", "older", "absent", "dup"]))
+            kind = draw(st.sampled_from(["none", "minus1", "older", "absent", "dup", "zero"]))
             t += draw(st.integers(1, 600))
             if kind == "minus1":
                 readings.append(Reading(t, v - 1))
@@ -94,6 +124,8 @@ def blipped_series(draw):
                 readings.append(Reading(t, truth[draw(st.integers(0, i))]))
             elif kind == "absent":
                 readings.append(Reading(t, None))
+            elif kind == "zero":  # a transient drop that recovers at the next reading
+                readings.append(Reading(t, 0))
             elif kind == "dup":
                 readings.append(Reading(t, v))
     return truth, readings

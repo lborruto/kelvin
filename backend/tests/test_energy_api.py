@@ -1,6 +1,7 @@
 import json
 import logging
 import stat
+import threading
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -408,3 +409,26 @@ async def test_radiator_energy_keeps_its_shape_and_adds_the_flags(api):
     }
     assert {x["radiator_id"] for x in rows} <= set(rt.house.radiators)
     assert all(x["kwh"] >= 0 for x in rows)
+
+
+async def test_radiator_energy_and_the_report_run_off_the_event_loop(api, monkeypatch):
+    """Bucketing years of readings takes time: it must not block every other request."""
+    c, _, rt, _ = api
+    loop_thread = threading.get_ident()
+    seen: list[int] = []
+
+    def spy(fn):
+        def call(*args, **kwargs):
+            seen.append(threading.get_ident())
+            return fn(*args, **kwargs)
+
+        return call
+
+    monkeypatch.setattr(rt.recorder, "radiator_energy", spy(rt.recorder.radiator_energy))
+    monkeypatch.setattr(rt.linky, "report", spy(rt.linky.report))
+    end = datetime.now(PARIS).replace(minute=0, second=0, microsecond=0)
+    p = {"start": (end - timedelta(days=2)).timestamp(), "end": end.timestamp()}
+    assert (await c.get("/api/energy/radiators", params=p)).status_code == 200
+    p = {"from": str(today() - timedelta(days=7)), "to": str(today())}
+    assert (await c.get("/api/energy", params=p)).status_code == 200
+    assert len(seen) == 2 and loop_thread not in seen
