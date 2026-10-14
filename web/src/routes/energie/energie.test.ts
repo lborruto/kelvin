@@ -193,8 +193,8 @@ describe('Énergie', () => {
     });
     vi.mocked(api.energyReport).mockResolvedValue(report());
     const { container } = render(Page);
-    await screen.findByRole('columnheader', { name: 'Depuis l’installation' });
-    expect([...container.querySelectorAll('td.opt')].map((t) => t.textContent)).toEqual(['—', '0,6\u00a0kWh']);
+    await screen.findByRole('columnheader', { name: 'Depuis l’installation (kWh)' });
+    expect([...container.querySelectorAll('td.opt')].map((t) => t.textContent)).toEqual(['—', '0,6']);
   });
 
   it('renders this home’s real shape: young history, no projection, no heating share', async () => {
