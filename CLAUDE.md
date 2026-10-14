@@ -58,15 +58,22 @@ depends on.
   (`CHUNK_S`), each replaying from 3 days before it (`LOOKBACK_S`), so a bucket's energy never
   depends on the window asked; the hypothesis window property in `tests/test_recorder.py`
   guards it. Keep any change to `clean_spans` or the chunking window-consistent.
-- **Report figures:** a sum is whole or `null`, never partial: radiator sums are `null` unless
-  every radiator that existed is known (`radiators_known` / `radiators_total`), and « Reste »
-  is the meter minus a whole sum. Coverage, room stats and comparisons count only elapsed days;
-  comparisons pair days with Linky data on both sides and give no `change` above 20 % of pairs
-  dropped (`comparison.basis` says whether a period is compared unit by unit or by its length).
-  Nothing is counted before the report's first day (the contract start, but not before the
-  daily backfill window unless Kelvin stored older days), in the report and in
-  `/api/energy/day` alike; from it on, every counted day pays its subscription, with or
-  without data.
+- **Report figures:** never pass a partial sum off as whole. In `/api/energy/day`, a
+  half-hour's radiator sum (and a room's) is `null` unless every radiator that existed then is
+  known (`radiators_known` / `radiators_total`). In the report, a radiator sum may be partial
+  and says so with `coverage` (radiator-days fully measured / radiator-days that existed, up to
+  yesterday); its kWh, HC/HP and € count exactly the days coverage counts (never today), it is
+  `null` only when nothing is known, and « Reste » is the meter minus the radiators only at
+  coverage 1 with every day of the bucket present. Coverage, room stats and comparisons count
+  only elapsed days; comparisons pair days with Linky data on both sides and give no `change`
+  above 20 % of pairs dropped (`comparison.basis` says whether a period is compared unit by
+  unit or by its length). No Linky figure, subscription or comparison counts a day before the
+  report's first day (the contract start, but not before the daily backfill window unless
+  Kelvin stored older days), in the report and in `/api/energy/day` alike; from it on, every
+  counted day pays its subscription, with or without data. Radiator figures come from the
+  radiators' own meters, not the contract: the report's radiator sums and `by_radiator` count
+  them on any day the radiator existed, while the day view shows no intervals before the first
+  day.
 - **Schema changes** go in `recorder/db.py` `MIGRATIONS`: idempotent, batched, recorded in the
   `schema_version` setting.
 - **Bounded work:** API windows are bounded (`_check_span`, `_check_days`: 4 × 366 days at
