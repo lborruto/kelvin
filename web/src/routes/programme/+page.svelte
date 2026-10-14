@@ -108,8 +108,9 @@
   let roomName = (id: string) => house.room(id)?.name ?? id;
   let roomOptions = $derived(house.rooms.map((r) => ({ value: r.id, label: r.name })));
   // Phone: one day open at a time (today first), the others show only their bar.
-  let openDay = $state<Day | null>(null);
-  let shownDay = $derived(openDay ?? today);
+  // null: nothing chosen yet (today is open); 'none': the user closed every day.
+  let openDay = $state<Day | 'none' | null>(null);
+  let shownDay = $derived(openDay === null ? today : openDay === 'none' ? null : openDay);
   // The sticky send bar: there is something to send, or a send is on its way.
   let bar = $derived(changes.length > 0 || alsoRooms.length > 0 || busy);
   let barText = $derived.by(() => {
@@ -213,7 +214,7 @@
     <div class="week">
       {#each DAYS as d (d)}
         <ProgramDay label={DAY_LABEL[d]} segs={shown[d]} pending={busy} nowMinute={d === today ? parisMinuteOfDay(now) : null}
-          collapsible={!desktop.matches} open={shownDay === d} ontoggle={() => (openDay = shownDay === d ? null : d)}
+          collapsible={!desktop.matches} open={shownDay === d} ontoggle={() => (openDay = shownDay === d ? 'none' : d)}
           onchange={(segs) => (draft = { ...draft!, [d]: segs })} />
       {/each}
     </div>

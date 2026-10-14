@@ -234,19 +234,33 @@ describe('/programme', () => {
     expect(bar.querySelector('.btn-primary')).toHaveTextContent('Envoyer');
   });
 
-  it('on the phone shows the slots of one day at a time; a day label opens its day', async () => {
-    media.desktop.matches = false;
-    render(Page);
-    const heads = await screen.findAllByRole('button', { expanded: false });
-    // Six closed days, today open.
-    expect(heads).toHaveLength(6);
-    expect(screen.getAllByRole('button', { expanded: true })).toHaveLength(1);
-    const lundi = screen.queryByRole('button', { name: /^Lundi/, expanded: false });
-    if (lundi) {
+  it('on the phone shows the slots of one day at a time; every day header opens and closes its day', async () => {
+    // A Wednesday in Paris, so « today » is fixed.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-14T10:00:00Z'));
+    try {
+      media.desktop.matches = false;
+      render(Page);
+      const day = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) });
+      await screen.findAllByRole('button', { expanded: false });
+      // Today starts open, the six others closed.
+      expect(day('Mercredi')).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getAllByRole('button', { expanded: false })).toHaveLength(6);
       expect(screen.queryByRole('button', { name: 'Ajouter une plage le Lundi' })).toBeNull();
-      await fireEvent.click(lundi);
+      // Today's header closes today: no day open.
+      await fireEvent.click(day('Mercredi'));
+      expect(day('Mercredi')).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryAllByRole('button', { expanded: true })).toHaveLength(0);
+      // Another day opens alone...
+      await fireEvent.click(day('Lundi'));
+      expect(day('Lundi')).toHaveAttribute('aria-expanded', 'true');
+      expect(day('Mercredi')).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' })).toBeInTheDocument();
+      // ...and closing it does not reopen today.
+      await fireEvent.click(day('Lundi'));
+      expect(screen.queryAllByRole('button', { expanded: true })).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
     }
-    expect(screen.getByRole('button', { name: /^Lundi/ })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' })).toBeInTheDocument();
   });
 });
