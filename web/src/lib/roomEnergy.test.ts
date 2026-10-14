@@ -52,6 +52,17 @@ describe('roomEnergy (spec §3.2.7)', () => {
     expect(list[2].statsWhy).toBeNull(); // no radiator recorded: that is its reason
   });
 
+  it('a room mean that leaves out a radiator says so', () => {
+    const [salon] = roomEnergy(
+      [row('a', 'salon'), row('b', 'salon', { temp_avg: null, setpoint_avg: null, heating_hours: null })],
+      rooms,
+      radiators,
+      span
+    );
+    expect(salon).toMatchObject({ temp: 19.4, hours: 3 });
+    expect(salon.statsWhy).toBe(`moyenne de 1 radiateur sur 2 (l’autre${NB}: moins de la moitié de la période mesurée)`);
+  });
+
   it('L3: shares by largest remainder, adding up to 100,0 %', () => {
     expect(list.map((r) => r.share)).toEqual([`62,5${NB}%`, `33,3${NB}%`, '—', `4,2${NB}%`]);
     expect(list[0].fraction).toBeCloseTo(150.25 / 240.25, 9);

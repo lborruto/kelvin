@@ -16,7 +16,9 @@ export const COPY = {
   radPartial: (pct: string) => `couverture ${pct}`,
   none: 'aucun relevé sur la période',
   // The backend gives no mean °C, setpoint or heating hours below 50 % sample coverage.
-  stats: 'moins de la moitié de la période mesurée'
+  stats: 'moins de la moitié de la période mesurée',
+  statsOf: (k: number, n: number) =>
+    `moyenne de ${plural(k, 'radiateur')} sur ${n} (${n - k > 1 ? 'les autres' : 'l’autre'}\u00a0: moins de la moitié de la période mesurée)`
 } as const;
 
 /** kWh, HC and HP as the table shows them (2 decimals), allocated so that they add up. */
@@ -167,7 +169,8 @@ export function roomEnergy(rows: ByRadiator[], rooms: Room[], radiators: Record<
       radiators: rs.map(radRow).sort((a, b) => a.name.localeCompare(b.name, 'fr'))
     };
     // A room without any recorded radiator says so instead (« aucun radiateur enregistré »).
-    room.statsWhy = rs.length ? statsWhy(room) : null;
+    const full = room.radiators.filter((r) => r.statsWhy == null).length;
+    room.statsWhy = !rs.length ? null : statsWhy(room) ?? (full < rs.length ? COPY.statsOf(full, rs.length) : null);
     const s = shownFigures(room, room.radiators);
     return { ...room, shown: s.room, radiators: room.radiators.map((r, i) => ({ ...r, shown: s.rads[i] })) };
   });
