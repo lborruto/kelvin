@@ -449,4 +449,14 @@ describe('Énergie', () => {
     expect(screen.getByRole('heading', { name: 'Compteurs des radiateurs' }).closest('section')).toHaveAttribute('aria-busy', 'true');
     expect(container.querySelector('.table-wrap')).toBeNull();
   });
+
+  it('Mois shows Heures creuses / pleines and Chauffage; Jour and Semaine add Puissance', async () => {
+    vi.mocked(api.energyReport).mockResolvedValue(report({ hc_lens: { hc_share: 0.384, slot_share: 0.3333, avg_price: 0.2437, delta_price: 0.0632 } }));
+    render(Page);
+    expect(await screen.findByRole('heading', { name: 'Heures creuses / pleines' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Chauffage' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Puissance' })).toBeNull();
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    expect(await screen.findByRole('heading', { name: 'Puissance' })).toBeInTheDocument();
+  });
 });

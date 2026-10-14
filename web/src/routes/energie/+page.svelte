@@ -4,11 +4,14 @@
   import CurvePanel from '$lib/components/CurvePanel.svelte';
   import EnergyBars from '$lib/components/EnergyBars.svelte';
   import EnergyHero from '$lib/components/EnergyHero.svelte';
+  import HcHpPanel from '$lib/components/HcHpPanel.svelte';
+  import HeatingPanel from '$lib/components/HeatingPanel.svelte';
   import PeriodNav from '$lib/components/PeriodNav.svelte';
+  import PowerPanel from '$lib/components/PowerPanel.svelte';
   import RoomTodayStrip from '$lib/components/RoomTodayStrip.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
   import { bucketLabel, bucketSpan, leadingMissing, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
-  import { fmtDateLong, fmtDay, fmtEur, fmtKwh, fmtPct, fmtTime, monthName, parisTodayIso } from '$lib/format';
+  import { fmtDateLong, fmtDay, fmtEur, fmtKwh, fmtTime, monthName, parisTodayIso } from '$lib/format';
   import { inspectBucket } from '$lib/inspector';
   import { reducedMotion } from '$lib/motion';
   import { announcer } from '$lib/stores/announcer.svelte';
@@ -132,6 +135,18 @@
         )
       : []
   );
+
+  // Puissance (Jour, Semaine), HC/HP and Chauffage sit three abreast; with fewer, they share the row.
+  let trio = $derived.by(() => {
+    if (!loaded || !loaded.main.linky) return { power: '', hchp: '', heating: '' };
+    const power = loaded.view === 'day' || loaded.view === 'week';
+    if (power) return { power: 'third', hchp: 'third', heating: 'third last' };
+    return { power: '', hchp: 'half', heating: 'half' };
+  });
+  // Puissance in Jour reads the period's own day, never another day still on screen.
+  let powerDay = $derived(loaded && (loaded.view !== 'day' || data.day?.date === loaded.period.from) ? data.day : null);
+  // A period running into today counts its radiators up to yesterday.
+  let running = $derived(!!loaded && loaded.period.to > parisTodayIso());
 
   /** Runs a navigation and, when it changes the view or the period, says the new period once (all four ways in:
    * the views, ‹ ›, « Dernier jour », a bar drill). A failure is said by the error line (role alert). */
@@ -295,12 +310,12 @@
       bind:index={scrub} />
   {/if}
 
-  {#if main.heating_share != null}
-    <section class="panel half">
-      <h2>Chauffage</h2>
-      <p class="share-line"><strong class="num share">{fmtPct(main.heating_share)}</strong> de la consommation de la maison {main.heating_share_since ? `depuis le ${fmtDay(main.heating_share_since)}` : 'sur la période'} vient des radiateurs.</p>
-      <div class="meter" aria-hidden="true"><span style:transform="scaleX({Math.min(1, main.heating_share)})" style:background={SERIES.radiators}></span></div>
-    </section>
+  {#if main.linky}
+    {#if loaded.view === 'day' || loaded.view === 'week'}
+      <PowerPanel view={loaded.view} day={powerDay} week={main.period.curve} failed={!!data.dayError} class={trio.power} />
+    {/if}
+    <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} class={trio.hchp} />
+    <HeatingPanel heating={main.heating} radiators={main.period.radiators} restKwh={main.period.rest_kwh} {running} class={trio.heating} />
   {/if}
 
   {#if main.projection}
@@ -498,14 +513,6 @@
     width: 14px;
     height: 2px;
     border-radius: 1px;
-  }
-  .share-line {
-    font-size: 13px;
-    margin: 0;
-  }
-  .share {
-    font-size: 20px;
-    font-weight: 600;
   }
   .meter {
     height: 6px;
