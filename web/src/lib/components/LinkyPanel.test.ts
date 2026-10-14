@@ -62,7 +62,8 @@ describe('LinkyPanel', () => {
     const token = screen.getByLabelText('Jeton MyElectricalData') as HTMLInputElement;
     expect(token.type).toBe('password');
     expect(token.value).toBe('');
-    expect(token.placeholder).toBe('Enregistré — laisser vide pour le garder');
+    expect(token.placeholder).toBe('Enregistré');
+    expect(document.getElementById(token.getAttribute('aria-describedby')!)).toHaveTextContent('Laissez vide pour garder le jeton.');
     await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer et tester' }));
     expect(api.putLinky).toHaveBeenCalledWith('12345678901234', undefined);
     await fireEvent.input(token, { target: { value: 'tok-new-123456' } });

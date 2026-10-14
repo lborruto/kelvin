@@ -69,12 +69,23 @@
 
   let settingsView = $state<SettingsView | null>(null);
   let linkyStatus = $state<LinkyStatus | null>(null);
-  let settingsError = $state<string | null>(null);
+  let tariffError = $state<string | null>(null);
+  let linkyError = $state<string | null>(null);
 
+  function loadTariff() {
+    tariffError = null;
+    api.settings().then((s) => (settingsView = s)).catch(() => (tariffError = 'Impossible de charger le tarif.'));
+  }
+  function loadLinky() {
+    linkyError = null;
+    api.linkyStatus().then((s) => (linkyStatus = s)).catch(() => (linkyError = 'Impossible de charger l’état du Linky.'));
+  }
   $effect(() => {
-    api.settings().then((s) => (settingsView = s)).catch(() => (settingsError = 'Impossible de charger le tarif.'));
-    api.linkyStatus().then((s) => (linkyStatus = s)).catch(() => (settingsError = 'Impossible de charger l’état du Linky.'));
+    loadTariff();
+    loadLinky();
   });
+  // Tarif, Linky and Réglages appear together, once both answers are in: nothing on screen moves.
+  let settled = $derived((!!settingsView || !!tariffError) && (!!linkyStatus || !!linkyError));
 
   // The form keeps its fields and its « Tarif enregistré. »; its price history follows the prop.
   function tariffSaved(s: SettingsView) {
@@ -101,18 +112,21 @@
   <h2>Absence</h2>
   <p class="muted">Tous les radiateurs passent à une température réduite, puis reprennent leur réglage à la date choisie.</p>
   <div class="row">
-    <label class="field">Jusqu’au <span class="hint">(heure de Paris)</span><input type="datetime-local" min={minUntil} bind:value={until} /></label>
+    <label class="field"><span>Jusqu’au <span class="hint">(heure de Paris)</span></span><input type="datetime-local" min={minUntil}
+        bind:value={until} /></label>
     <div class="field"><span>Température</span>
       <Stepper label="Température d’absence" value={awayTemp} min={7} max={19} debounceMs={0} onchange={(v) => (awayTemp = v)} />
     </div>
-    <button type="button" class="primary" disabled={!until} onclick={startAway}>Activer l’absence</button>
+    <button type="button" class="btn btn-primary" disabled={!until || !house.online} onclick={startAway}>Activer l’absence</button>
   </div>
   {#if untilError}<p class="error" role="alert">{untilError}</p>{/if}
 </section>
 
 <section class="panel">
   <h2>En cours</h2>
-  {#if house.overrides.length}
+  {#if !house.loaded}
+    <p class="line-sk"><span class="skeleton inset" aria-hidden="true"></span></p>
+  {:else if house.overrides.length}
     <ul class="overrides">
       {#each house.overrides as o (o.id)}
         <li>
@@ -120,7 +134,8 @@
             <strong>{kindLabel[o.kind]}</strong> · {roomsOf(o.radiator_ids)} · {fmtTemp(o.temperature)}
             <div class="muted small">{o.restoring ? 'Rétablissement en cours…' : `jusqu’au ${fmtDateTime(o.ends_at * 1000)}`}</div>
           </div>
-          <button type="button" aria-label="Annuler {kindLabel[o.kind]} — {roomsOf(o.radiator_ids)}" onclick={() => run(() => api.cancelOverride(o.id))}>Annuler</button>
+          <button type="button" class="btn btn-sm" aria-label="Annuler {kindLabel[o.kind]} — {roomsOf(o.radiator_ids)}"
+            disabled={!house.online} onclick={() => run(() => api.cancelOverride(o.id))}>Annuler</button>
         </li>
       {/each}
     </ul>
@@ -132,51 +147,64 @@
 <section class="panel">
   <h2>Actions</h2>
   <div class="row">
-    <HouseActions program />
+    <HouseActions program away={false} />
   </div>
 </section>
 
-<section id="tarif" class="panel">
-  <h2>Tarif</h2>
-  {#if settingsView}
-    <TariffForm settings={settingsView} onsaved={tariffSaved} />
-  {:else if !settingsError}
-    <p class="muted">Chargement…</p>
-  {/if}
-</section>
+{#if !settled}
+  <!-- Tarif and Linky in their final shape until both answers are in. -->
+  <section class="panel" aria-hidden="true"><h2>Tarif</h2><div class="skeleton inset" style:height="340px"></div></section>
+  <section class="panel" aria-hidden="true"><h2>Linky</h2><div class="skeleton inset" style:height="190px"></div></section>
+{:else}
+  <section id="tarif" class="panel">
+    <h2>Tarif</h2>
+    {#if settingsView}
+      <TariffForm settings={settingsView} onsaved={tariffSaved} />
+    {:else}
+      <p class="error" role="alert">{tariffError} <button type="button" class="btn btn-sm" onclick={loadTariff}>Réessayer</button></p>
+    {/if}
+  </section>
 
-<section id="linky" class="panel">
-  <h2>Linky</h2>
-  {#if linkyStatus}
-    <LinkyPanel status={linkyStatus} onsaved={(s) => (linkyStatus = s)} />
-  {:else if !settingsError}
-    <p class="muted">Chargement…</p>
-  {/if}
-</section>
-{#if settingsError}<p class="error" role="alert">{settingsError}</p>{/if}
+  <section id="linky" class="panel">
+    <h2>Linky</h2>
+    {#if linkyStatus}
+      <LinkyPanel status={linkyStatus} onsaved={(s) => (linkyStatus = s)} />
+    {:else}
+      <p class="error" role="alert">{linkyError} <button type="button" class="btn btn-sm" onclick={loadLinky}>Réessayer</button></p>
+    {/if}
+  </section>
 
-<section class="panel">
-  <h2>Réglages</h2>
-  <dl>
-    <dt>Compte</dt>
-    <dd class="account">
-      <span>{auth.email ?? '—'}</span>
-      <button type="button" disabled={loggingOut} onclick={logout}>Se déconnecter</button>
-    </dd>
-    <dt>Cozytouch</dt>
-    <dd>
-      <span>{house.status.connected ? 'Connecté' : 'Injoignable'}</span>
-      {#if house.status.last_ok_at}<span class="muted"> · dernière synchro {fmtAgo(house.status.last_ok_at * 1000, now)}</span>{/if}
-      {#if house.status.last_error}<div class="muted small">{house.status.last_error}</div>{/if}
-    </dd>
-    <dt>Thème</dt>
-    <dd>
-      <Segmented options={THEMES} value={themeChoice} label="Thème" onchange={setTheme} />
-    </dd>
-    <dt>Version</dt>
-    <dd class="mono">Kelvin {VERSION}</dd>
-  </dl>
-</section>
+  <section class="panel">
+    <h2>Réglages</h2>
+    <dl>
+      <div class="item">
+        <dt>Compte</dt>
+        <dd class="account">
+          <span class="email">{auth.email ?? '—'}</span>
+          <button type="button" class="btn btn-sm" disabled={loggingOut} onclick={logout}>Se déconnecter</button>
+        </dd>
+      </div>
+      <div class="item">
+        <dt>Cozytouch</dt>
+        <dd>
+          <span>{house.status.connected ? 'Connecté' : 'Injoignable'}</span>
+          {#if house.status.last_ok_at}<span class="muted"> · dernière synchro {fmtAgo(house.status.last_ok_at * 1000, now)}</span>{/if}
+          {#if house.status.last_error}<div class="muted small">{house.status.last_error}</div>{/if}
+        </dd>
+      </div>
+      <div class="item">
+        <dt>Thème</dt>
+        <dd>
+          <Segmented options={THEMES} value={themeChoice} label="Thème" onchange={setTheme} />
+        </dd>
+      </div>
+      <div class="item">
+        <dt>Version</dt>
+        <dd class="mono">Kelvin {VERSION}</dd>
+      </div>
+    </dl>
+  </section>
+{/if}
 
 <style>
   h1 {
@@ -215,26 +243,19 @@
     font-size: 12px;
     color: var(--mu);
   }
-  input {
-    min-height: 44px;
-    padding: 0 10px;
-    background: var(--in);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--tx);
+  .hint {
+    font-weight: 400;
   }
-  button {
-    min-height: 44px;
-    padding: 0 14px;
-    border-radius: var(--radius);
-    border: 1px solid var(--line);
-    background: var(--s2);
-    font-weight: 600;
-    cursor: pointer;
+  .line-sk {
+    display: flex;
+    align-items: center;
+    height: 19px;
   }
-  .primary {
-    background: var(--tx);
-    color: var(--bg);
+  .line-sk .skeleton {
+    display: block;
+    width: 12rem;
+    height: 13px;
+    border-radius: 4px;
   }
   .overrides {
     list-style: none;
@@ -250,28 +271,43 @@
     gap: 10px;
     font-size: 13px;
   }
-  .hint {
-    font-weight: 400;
-  }
   .error {
     color: var(--bad);
     margin: 8px 0 0;
   }
+  .panel > .error:first-of-type {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin: 0;
+  }
+  .error .btn {
+    color: var(--tx);
+  }
   .small {
     font-size: 12px;
   }
+  /* Réglages: label and value share a row, centred on the 44 px controls. */
   dl {
     display: grid;
-    grid-template-columns: 110px 1fr;
-    gap: 10px 14px;
+    gap: 6px;
     margin: 0;
     font-size: 13px;
+  }
+  .item {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    align-items: center;
+    gap: 4px 14px;
+    min-height: 44px;
   }
   dt {
     color: var(--mu);
   }
   dd {
     margin: 0;
+    min-width: 0;
   }
   .account {
     display: flex;
@@ -280,10 +316,20 @@
     gap: 10px;
     justify-content: space-between;
   }
-  /* Phone: the label column takes only what it needs, so the theme control fits at 390 px. */
+  .email {
+    overflow-wrap: anywhere;
+  }
+  /* Phone: the label column takes only what it needs, so the theme control fits at 360 px. */
   @media (max-width: 599px) {
-    dl {
+    .item {
       grid-template-columns: max-content minmax(0, 1fr);
+    }
+  }
+  /* Narrowest phones: the label sits above its value. */
+  @media (max-width: 359px) {
+    .item {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 4px;
     }
   }
 </style>

@@ -16,6 +16,7 @@
   let busy = $state(false);
   let error = $state<string | null>(null);
   let now = $state(Date.now());
+  const uid = $props.id();
 
   $effect(() => {
     const t = setInterval(() => (now = Date.now()), 60_000);
@@ -63,27 +64,34 @@
 </script>
 
 <div class="linky">
-  {#if line}<p class="state">{line}{#if status.state === 'ok' && status.last_ok_at}<span class="muted">&nbsp;· synchro {fmtAgo(status.last_ok_at * 1000, now)}</span>{/if}</p>{/if}
-  {#if problem}<p class="error" role="alert">{problem}</p>{/if}
-  {#if status.simulator}<p class="muted small">Simulateur : Linky de démonstration.</p>{/if}
-  {#if status.consent_expires}<p class="muted small">Consentement Enedis valable jusqu’au {fmtDateLong(status.consent_expires)}</p>{/if}
-  {#if status.configured}<p class="muted small">{plural(status.calls_today, 'appel')} sur {status.budget} aujourd’hui</p>{/if}
+  <!-- The state and its facts read as one block. -->
+  <div class="meta">
+    {#if line}<p class="state">{line}{#if status.state === 'ok' && status.last_ok_at}<span class="muted">&nbsp;· synchro {fmtAgo(status.last_ok_at * 1000, now)}</span>{/if}</p>{/if}
+    {#if problem}<p class="error" role="alert">{problem}</p>{/if}
+    {#if status.simulator}<p class="muted small">Simulateur&nbsp;: Linky de démonstration.</p>{/if}
+    {#if status.consent_expires}<p class="muted small">Consentement Enedis valable jusqu’au {fmtDateLong(status.consent_expires)}</p>{/if}
+    {#if status.configured}<p class="muted small">{plural(status.calls_today, 'appel')} sur {status.budget} aujourd’hui</p>{/if}
+  </div>
 
   <form onsubmit={save} novalidate>
     <label class="field">
       <span>PDL (point de livraison)</span>
       <input inputmode="numeric" autocomplete="off" maxlength="14" bind:value={prm} />
     </label>
+    <div class="tok">
     <label class="field">
       <span>Jeton MyElectricalData</span>
       <input
         type="password"
         autocomplete="new-password"
-        placeholder={status.token_set ? 'Enregistré — laisser vide pour le garder' : ''}
+        placeholder={status.token_set ? 'Enregistré' : ''}
+        aria-describedby={status.token_set ? `${uid}-keep` : undefined}
         bind:value={token} />
     </label>
+    {#if status.token_set}<span class="hint" id="{uid}-keep">Laissez vide pour garder le jeton.</span>{/if}
+    </div>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <button type="submit" class="primary" disabled={busy}>{busy ? 'Test en cours…' : 'Enregistrer et tester'}</button>
+    <button type="submit" class="btn btn-primary" disabled={busy}>{busy ? 'Test en cours…' : 'Enregistrer et tester'}</button>
   </form>
   <p class="muted small">
     Le PDL figure sur la facture (14 chiffres). Le jeton s’obtient sur
@@ -107,8 +115,13 @@
   form {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    align-items: end;
+    align-items: start;
     gap: 12px;
+  }
+  /* The primary button closes the form on its own line, left-aligned (DESIGN Form fields). */
+  form .btn-primary {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
   .field {
     display: grid;
@@ -116,30 +129,20 @@
     font-size: 12px;
     color: var(--mu);
   }
-  input {
-    min-height: 44px;
-    padding: 0 10px;
-    font: inherit;
-    font-size: 15px;
-    font-variant-numeric: tabular-nums;
-    background: var(--in);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--tx);
+  .meta {
+    display: grid;
+    gap: 2px;
   }
-  .primary {
-    min-height: 44px;
-    padding: 0 16px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--tx);
-    color: var(--bg);
-    font-weight: 600;
-    cursor: pointer;
+  .meta:empty {
+    display: none;
   }
-  .primary:disabled {
-    opacity: 0.55;
-    cursor: progress;
+  .tok {
+    display: grid;
+    gap: 4px;
+  }
+  .hint {
+    font-size: 12px;
+    color: var(--mu);
   }
   .error {
     color: var(--bad);
