@@ -159,4 +159,11 @@ describe('Maison', () => {
     render(Page);
     expect(screen.queryByRole('link', { name: 'Absence…' })).toBeNull();
   });
+
+  it('the Tarif and Linky anchors exist from the first render, skeleton included', () => {
+    vi.mocked(api.settings).mockReturnValueOnce(new Promise(() => {}));
+    render(Page);
+    expect(document.getElementById('tarif')).toHaveAttribute('aria-busy', 'true');
+    expect(document.getElementById('linky')).toBeInTheDocument();
+  });
 });

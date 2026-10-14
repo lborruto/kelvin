@@ -88,6 +88,15 @@
   });
   // Tarif, Linky and Réglages appear together, once both answers are in: nothing on screen moves.
   let settled = $derived((!!settingsView || !!tariffError) && (!!linkyStatus || !!linkyError));
+  // The real panels are taller than their skeletons: once they render, land on the anchor again.
+  let landed = false;
+  $effect(() => {
+    if (!settled || landed) return;
+    landed = true;
+    const id = location.hash.slice(1);
+    if (id !== 'tarif' && id !== 'linky') return;
+    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }));
+  });
 
   // The form keeps its fields and its « Tarif enregistré. »; its price history follows the prop.
   function tariffSaved(s: SettingsView) {
@@ -155,8 +164,9 @@
 
 {#if !settled}
   <!-- Tarif and Linky in their final shape until both answers are in. -->
-  <section class="panel" aria-hidden="true"><h2>Tarif</h2><div class="skeleton inset" style:height="340px"></div></section>
-  <section class="panel" aria-hidden="true"><h2>Linky</h2><div class="skeleton inset" style:height="190px"></div></section>
+  <!-- The ids are there from the first render, so /maison#tarif and #linky land on their panel. -->
+  <section id="tarif" class="panel" aria-busy="true"><h2>Tarif</h2><div class="skeleton inset" style:height="340px" aria-hidden="true"></div></section>
+  <section id="linky" class="panel" aria-busy="true"><h2>Linky</h2><div class="skeleton inset" style:height="190px" aria-hidden="true"></div></section>
 {:else}
   <section id="tarif" class="panel">
     <h2>Tarif</h2>
