@@ -105,12 +105,13 @@ def make_linky_source(
     settings: Settings,
     *,
     radiators_halfhours: Callable[[date], list[float | None] | None] | None = None,
+    wall: Callable[[], float] = time.time,
 ) -> Callable[[str, str], LinkySource]:
     """`radiators_halfhours` (simulator only): the demo meter includes what the radiators
     drew, half-hour by half-hour (L15)."""
     if settings.kelvin_fake:  # the simulator never calls MyElectricalData
         return lambda prm, token: FakeLinkySource(
-            tz=settings.tz, radiators_halfhours=radiators_halfhours
+            tz=settings.tz, radiators_halfhours=radiators_halfhours, wall=wall
         )
     from kelvin.linky.med import MedSource
 
@@ -191,6 +192,7 @@ async def start_runtime(
     db: Database | None = None,
     linky: tuple[str, str] | None = None,
     guard: SetupReadGuard | None = None,
+    wall: Callable[[], float] = time.time,
 ) -> Runtime:
     """Log in, read the whole setup once and start the runtime. `guard` is the process's
     budget of full setup reads (spec ruling 8).
@@ -235,7 +237,7 @@ async def start_runtime(
                 "utilisez un autre dossier pour la maison réelle."
             )
         if settings.kelvin_fake and is_sim:  # simulator only, never a real installation
-            seeded = seed_history(db, house, time.time(), tz=settings.tz)
+            seeded = seed_history(db, house, wall(), tz=settings.tz)
             if seeded:
                 log.info("simulator: seeded %d synthetic history rows", seeded)
         bc = Broadcaster()
@@ -293,10 +295,10 @@ async def start_runtime(
         else:  # no state known yet: not connected (nothing recorded) until the reads are in
             pump.request_resync()
         commands.on_sent = pump.wake
-        recorder = Recorder(db, house, is_fresh=lambda: pump.connected, tz=settings.tz)
+        recorder = Recorder(db, house, is_fresh=lambda: pump.connected, tz=settings.tz, wall=wall)
         recorder_ref.append(recorder)
         overrides = OverrideManager(
-            db, house, commands, wall=time.time, is_connected=lambda: pump.connected
+            db, house, commands, wall=wall, is_connected=lambda: pump.connected
         )
         credentials = linky
         if settings.kelvin_fake and is_sim and credentials is None:
@@ -305,10 +307,11 @@ async def start_runtime(
             db,
             tz=settings.tz,
             make_source=make_linky_source(
-                settings, radiators_halfhours=_recorded_halfhours(recorder, settings.tz)
+                settings, radiators_halfhours=_recorded_halfhours(recorder, settings.tz), wall=wall
             ),
             credentials=credentials,
             simulator=settings.kelvin_fake,
+            wall=wall,
         )
         if settings.kelvin_fake and is_sim:
             linky_service.seed_demo_tariff()

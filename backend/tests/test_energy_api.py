@@ -2,7 +2,9 @@ import json
 import logging
 import stat
 import threading
+import time
 from datetime import date, datetime, timedelta
+from datetime import time as dtime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -22,10 +24,30 @@ PRM = "12345678901234"
 
 
 @pytest.fixture
-async def api(tmp_path):
+def wall(request):
+    """The runtime's wall clock: real time, or (parametrized `(hour, minute)`) today at that
+    Paris time, running from there, so the simulator's seeded week never depends on the hour
+    the suite runs at."""
+    hm = getattr(request, "param", None)
+    if hm is None:
+        return time.time
+    start = datetime.combine(datetime.now(PARIS).date(), dtime(*hm), PARIS).timestamp()
+    t0 = time.monotonic()
+    return lambda: start + time.monotonic() - t0
+
+
+# A run just after midnight (the seeded readings then fall on day edges) and one mid-afternoon.
+PINNED = pytest.mark.parametrize("wall", [(0, 27), (14, 0)], indirect=True, ids=["00h27", "14h00"])
+
+
+@pytest.fixture
+async def api(tmp_path, wall):
     gw = FakeGateway(clock=ManualClock())
     app = create_app(
-        Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True), gw, start_tasks=False
+        Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
+        gw,
+        start_tasks=False,
+        wall=wall,
     )
     async with LifespanManager(app):
         async with AsyncClient(
@@ -342,16 +364,20 @@ async def test_real_runtime_without_linky_config_is_off(tmp_path):
         await stop_runtime(rt)
 
 
+@PINNED
 async def test_simulator_demo_is_plausible_over_the_seeded_week(api):
     """The demo Linky covers the simulated radiators plus a household base, every room heats."""
     c, _, rt, _ = api
-    start, end = today() - timedelta(days=8), today()
+    start, end = rt.linky.today() - timedelta(days=8), rt.linky.today()
     r = await c.get("/api/energy", params={"from": str(start), "to": str(end), "group": "day"})
     body = r.json()
     assert 0.4 < body["heating_share"] < 0.85
     first = min(a for a, _ in rt.recorder.energy_extent().values())
     first_day = datetime.fromtimestamp(first, PARIS).date()
-    assert body["heating_share_since"] == str(first_day + timedelta(days=1))  # whole days only
+    # Whole days only: the first reading's day counts when that reading opens it (just after
+    # midnight the seeded hourly readings fall on day edges), else the next day.
+    whole = first_day if first == day_bounds(first_day, PARIS)[0] else first_day + timedelta(days=1)
+    assert body["heating_share_since"] == str(whole)
     assert (
         next(b for b in body["buckets"] if b["key"] == str(first_day - timedelta(days=1)))[
             "radiators_kwh"
@@ -512,16 +538,26 @@ async def test_the_report_loads_only_the_linky_rows_it_needs(api, monkeypatch):
     assert all(a is not None and b is not None and (b - a).days <= 7 + 400 + 1 for a, b in calls)
 
 
-async def test_room_stats_of_a_current_period_use_its_elapsed_part(api):
+@pytest.mark.parametrize(
+    ("wall", "coverage"),
+    [((0, 27), 0.5), ((14, 0), 1.0)],
+    indirect=["wall"],
+    ids=["00h27", "14h00"],
+)
+async def test_room_stats_of_a_current_period_use_its_elapsed_part(api, coverage):
     """Review I-2: a period running into the future is judged on its elapsed part: 50 % of a
-    week that is two days old would leave the stats null for days."""
+    week that is two days old would leave the stats null for days.
+
+    Coverage counts the two elapsed days. Just after midnight yesterday is not whole yet: the
+    radiators have been idle since their last counter change (about 22:00), and the time after
+    a counter's last change is unknown until it changes again (never invented energy)."""
     c, _, rt, _ = api
-    start = today() - timedelta(days=2)
+    start = rt.linky.today() - timedelta(days=2)
     r = await c.get(
         "/api/energy",
         params={
             "from": str(start),
-            "to": str(today()),
+            "to": str(rt.linky.today()),
             "period_from": str(start),
             "period_to": str(start + timedelta(days=7)),
         },
@@ -529,7 +565,7 @@ async def test_room_stats_of_a_current_period_use_its_elapsed_part(api):
     rows = r.json()["by_radiator"]
     assert rows and all(x["temp_avg"] is not None for x in rows)
     assert all(x["heating_hours"] is not None for x in rows)
-    assert all(x["coverage"] == 1.0 for x in rows)
+    assert all(x["coverage"] == coverage for x in rows)
 
 
 async def test_the_default_period_is_the_unit_of_the_last_linky_day(api):
