@@ -216,8 +216,9 @@ class LinkyService:
             rid: (local_day(a, self.tz), None if rid in rooms else local_day(b, self.tz))
             for rid, (a, b) in recorder.energy_extent().items()
         }
-        # Room stats over the elapsed part of the period: its future has no samples yet.
-        stats_end = min(day_bounds(period[1], self.tz)[0], int(self.wall()))
+        # Room stats over the period's elapsed days, up to the end of yesterday: the same days
+        # as the radiator kWh and € beside them (never today, which is still running).
+        stats_end = min(day_bounds(period[1], self.tz)[0], day_bounds(today, self.tz)[0])
         stats = recorder.sample_stats(
             sorted(radiators), day_bounds(period[0], self.tz)[0], stats_end
         )

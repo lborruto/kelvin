@@ -749,3 +749,27 @@ async def test_m1_a_far_window_and_period_bucket_radiators_separately(api, monke
         params={**params, "from": str(start), "to": str(today() + timedelta(days=1))},
     )
     assert r.json()["by_radiator"] == near.json()["by_radiator"]  # the same period figures
+
+
+@pytest.mark.parametrize("wall", [(14, 0)], indirect=True)
+async def test_room_stats_stop_at_the_end_of_yesterday_like_the_radiator_kwh(api, monkeypatch):
+    """Batch 4 review I-4: in a running period, °C, setpoint and heating hours cover the same
+    days as the radiator kWh and € beside them (elapsed days up to yesterday), not today."""
+    c, _, rt, _ = api
+    calls = []
+    original = rt.recorder.sample_stats
+
+    def spy(ids, start, end):
+        calls.append((start, end))
+        return original(ids, start, end)
+
+    monkeypatch.setattr(rt.recorder, "sample_stats", spy)
+    t = rt.linky.today()
+    start = t - timedelta(days=2)
+    params = {"from": str(start), "to": str(t), "period_from": str(start)}
+    await c.get("/api/energy", params={**params, "period_to": str(start + timedelta(days=7))})
+    assert calls == [(day_bounds(start, PARIS)[0], day_bounds(t, PARIS)[0])]
+    # A period over by now ends at its own end.
+    calls.clear()
+    await c.get("/api/energy", params={**params, "period_to": str(start + timedelta(days=1))})
+    assert calls == [(day_bounds(start, PARIS)[0], day_bounds(start, PARIS)[1])]
