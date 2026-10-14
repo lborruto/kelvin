@@ -763,3 +763,16 @@ def test_final_i2_radiator_sums_count_exactly_the_days_coverage_counts():
     assert octo["radiators"]["eur"] == round(13 * 1.3, 2)
     assert (r["by_radiator"][0]["kwh"], r["by_radiator"][0]["coverage"]) == (65.0, 1.0)
     assert r["radiators"] == [{"radiator_id": "a", "kwh": 65.0}]  # v1
+
+
+def test_the_total_is_the_sum_of_its_rounded_parts():
+    """Like an invoice: eur = round(energy_eur) + round(subscription_eur), so the parts add up."""
+    d = date(2026, 10, 13)  # 31 days: 15 / 31 = 0.4839 a day
+    t = tariff(Prices(date(2026, 1, 1), 15.0, 0.2, 0.2))
+    r = build_report(d, d + timedelta(days=1), "day", inputs({d: 26524.5}, t=t))
+    [b] = r["buckets"]
+    # Rounded apart: 5.3049 -> 5.30 and 0.4839 -> 0.48; the unrounded sum 5.7888 would read 5.79.
+    assert (b["energy_eur"], b["subscription_eur"], b["eur"]) == (5.3, 0.48, 5.78)
+    for s in (r["total"], r["period"], r["hero"]["current"], r["hero"]["previous"]):
+        if s["eur"] is not None:
+            assert s["eur"] == round(s["energy_eur"] + s["subscription_eur"], 2)

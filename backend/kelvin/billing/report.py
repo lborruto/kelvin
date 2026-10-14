@@ -299,7 +299,8 @@ class _Energy:
             sub = sum(subscription_eur(d, tariff.prices_on(d)) for d in counted)
             if present:
                 energy = sum(energy_eur(e, tariff.prices_on(e.day)) or 0.0 for e in present)
-                eur = energy + sub
+                # An invoice's rule: the total is the sum of the two rounded lines, so they add up.
+                eur = round(round(energy, 2) + round(sub, 2), 2)
         rad = self.radiators(a, b)
         rest = None
         if (
