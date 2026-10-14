@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from kelvin.billing.costs import days_in_month
+from kelvin.billing.radiators import RadiatorDay
 from kelvin.billing.report import ReportInputs, build_report, minus_year
 from kelvin.billing.slots import Slot
 from kelvin.billing.tariff import Prices, Tariff
@@ -30,15 +31,29 @@ def tariff(*prices: Prices) -> Tariff:
     return Tariff("hchp", 12, HALF, prices or (Prices(date(2026, 1, 1), 15.0, 0.2, 0.3),))
 
 
-def inputs(daily, *, curve=None, radiators=None, by_id=None, t=None, today=date(2026, 10, 14)):
+def rad_days(per_day: dict[date, float], partial=()) -> dict[date, RadiatorDay]:
+    """kWh per day → measured RadiatorDays (no tariff split); `partial` days were not covered
+    whole (the recorder's first day, say)."""
+    return {
+        d: RadiatorDay(kwh * 1000, None, None, None, False, False, d not in partial)
+        for d, kwh in per_day.items()
+    }
+
+
+def inputs(daily, *, curve=None, radiators=None, t=None, today=date(2026, 10, 14), **kw):
+    """`radiators`: {date: kWh} for one radiator "r", or {id: {date: kWh}}."""
+    if radiators and all(isinstance(k, date) for k in radiators):
+        radiators = {"r": radiators}
+    rads = {rid: rad_days(v) for rid, v in (radiators or {}).items()}
     return ReportInputs(
         daily_wh=daily,
         curve=curve or {},
-        radiators_kwh=radiators or {},
-        radiators_by_id=by_id or {},
         tariff=t,
         tz=PARIS,
         today=today,
+        radiators=rads,
+        radiator_life={rid: (min(v), None) for rid, v in rads.items() if v},
+        **kw,
     )
 
 
@@ -119,17 +134,15 @@ def test_year_buckets_and_no_tariff_means_kwh_only():
 
 
 def test_without_linky_the_radiators_still_show():
-    radiators = {d: 2.5 for d in days(date(2026, 10, 1), date(2026, 10, 14))}
+    a = {d: 1.5 for d in days(date(2026, 10, 1), date(2026, 10, 14))}
+    b = {d: 1.0 for d in days(date(2026, 10, 1), date(2026, 10, 14))}
     r = build_report(
-        date(2026, 10, 1),
-        date(2026, 10, 15),
-        "day",
-        inputs({}, radiators=radiators, by_id={"a": 20.0, "b": 12.5}),
+        date(2026, 10, 1), date(2026, 10, 15), "day", inputs({}, radiators={"a": a, "b": b})
     )
     assert r["linky"] is False and r["last_day"] is None and r["projection"] is None
     assert r["buckets"][0]["kwh"] is None and r["buckets"][0]["radiators_kwh"] == 2.5
     assert r["hero"]["current"]["from"] == "2026-10-13"  # yesterday
-    assert r["radiators"] == [{"radiator_id": "a", "kwh": 20.0}, {"radiator_id": "b", "kwh": 12.5}]
+    assert r["radiators"] == [{"radiator_id": "a", "kwh": 19.5}, {"radiator_id": "b", "kwh": 13.0}]
     assert r["heating_share"] is None
 
 
@@ -208,15 +221,22 @@ def test_first_day_input_overrides_the_earliest_data_day():
     assert r["buckets"][0]["missing_days"] == 4  # 1-4 Aug are real holes
 
 
-def test_heating_share_is_clamped_to_one():
+def test_l7_a_share_above_the_meter_is_flagged_never_clamped():
     daily = {date(2026, 10, 1): 10_000}
     r = build_report(
         date(2026, 10, 1),
         date(2026, 10, 2),
         "day",
-        inputs(daily, radiators={date(2026, 10, 1): 12.0}),
+        inputs(daily, radiators={date(2026, 10, 1): 12.0}, today=date(2026, 10, 2)),
     )
-    assert r["heating_share"] == 1.0
+    assert r["heating_share"] is None  # v1 field: « — »
+    assert r["heating"] == {
+        "value": 1.2,
+        "days": 1,
+        "of_days": 1,
+        "since": "2026-10-01",
+        "inconsistent": True,
+    }
 
 
 def test_projection_is_dropped_when_the_data_is_stale():
@@ -317,7 +337,7 @@ def test_heating_share_skips_the_partial_first_recording_day():
     daily = {d: 10_000 for d in days(date(2026, 10, 1), date(2026, 10, 4))}
     radiators = {date(2026, 10, 1): 1.0, date(2026, 10, 2): 5.0, date(2026, 10, 3): 5.0}
     inp = inputs(daily, radiators=radiators)
-    inp.radiators_from = date(2026, 10, 2)
+    inp.radiators["r"] = rad_days(radiators, partial={date(2026, 10, 1)})
     r = build_report(date(2026, 10, 1), date(2026, 10, 4), "day", inp)
     assert r["heating_share"] == pytest.approx(0.5)
     assert r["heating_share_since"] == "2026-10-02"
@@ -351,3 +371,80 @@ def test_the_selected_period_is_independent_of_the_chart_window():
     )
     assert (r["period"]["from"], r["period"]["to"]) == ("2026-03-01", "2026-04-01")
     assert r["period"]["kwh"] == 310.0 and len(r["buckets"]) == 12
+
+
+def test_l8_a_radiator_added_mid_window_makes_coverage_partial_and_rest_unknown():
+    daily = {d: 10_000 for d in days(date(2026, 10, 5), date(2026, 10, 12))}
+    a = {d: 2.0 for d in days(date(2026, 10, 5), date(2026, 10, 12))}
+    b = {d: 1.0 for d in days(date(2026, 10, 8), date(2026, 10, 12))}
+    inp = inputs(daily, radiators={"a": a, "b": b}, today=date(2026, 10, 12))
+    r = build_report(
+        date(2026, 10, 5),
+        date(2026, 10, 12),
+        "week",
+        inp,
+        period=(date(2026, 10, 5), date(2026, 10, 12)),
+    )
+    [week] = r["buckets"]
+    assert week["radiators"]["coverage"] == 1.0  # b did not exist before the 8th
+    assert week["rest_kwh"] == pytest.approx(70 - 14 - 4)
+    inp.radiators["b"] = rad_days(b, partial={date(2026, 10, 8)})  # first day half-measured
+    r = build_report(
+        date(2026, 10, 5),
+        date(2026, 10, 12),
+        "week",
+        inp,
+        period=(date(2026, 10, 5), date(2026, 10, 12)),
+    )
+    [week] = r["buckets"]
+    assert week["radiators"]["coverage"] == pytest.approx(10 / 11, abs=1e-4)
+    assert week["rest_kwh"] is None
+    assert r["heating"]["days"] == 6 and r["heating"]["of_days"] == 7
+
+
+def test_l8_a_removed_radiator_stays_in_the_history_without_dragging_coverage():
+    daily = {d: 10_000 for d in days(date(2026, 10, 1), date(2026, 10, 8))}
+    gone = {d: 3.0 for d in days(date(2026, 10, 1), date(2026, 10, 4))}
+    stays = {d: 2.0 for d in days(date(2026, 10, 1), date(2026, 10, 8))}
+    inp = inputs(daily, radiators={"gone": gone, "stays": stays}, today=date(2026, 10, 8))
+    inp.radiator_life["gone"] = (date(2026, 10, 1), date(2026, 10, 3))
+    r = build_report(date(2026, 10, 1), date(2026, 10, 8), "day", inp)
+    assert [b["radiators"]["coverage"] for b in r["buckets"]] == [1.0] * 7
+    assert r["buckets"][0]["radiators_kwh"] == 5.0 and r["buckets"][5]["radiators_kwh"] == 2.0
+
+
+def test_m6_by_radiator_covers_the_selected_period_not_the_window():
+    daily = {d: 10_000 for d in days(date(2026, 9, 1), date(2026, 10, 14))}
+    a = {d: 1.0 for d in days(date(2026, 9, 1), date(2026, 10, 14))}
+    inp = inputs(
+        daily,
+        radiators={"a": a},
+        rooms={"a": "salon"},
+        sample_stats={"a": {"temp_avg": 19.43, "setpoint_avg": 20.0, "heating_hours": 2.84}},
+    )
+    r = build_report(date(2025, 11, 1), date(2026, 11, 1), "month", inp)
+    assert (r["period"]["from"], r["period"]["to"]) == ("2026-10-01", "2026-11-01")
+    [row] = r["by_radiator"]
+    assert row["kwh"] == 13.0  # October only, though the window holds September too
+    assert row["room_id"] == "salon" and row["from"] == "2026-09-01"
+    assert (row["temp_avg"], row["setpoint_avg"], row["heating_hours"]) == (19.4, 20.0, 2.8)
+    assert r["radiators"] == [{"radiator_id": "a", "kwh": 43.0}]  # v1: the chart window
+
+
+def test_radiator_hc_hp_and_euros_add_up_per_bucket():
+    day = date(2026, 10, 6)
+    rd = RadiatorDay(4000.0, 1000.0, 3000.0, 1000 / 1000 * 0.2 + 3 * 0.3, False, True, True)
+    inp = inputs({day: 10_000}, t=tariff(), today=date(2026, 10, 7))
+    inp.radiators = {"a": {day: rd}}
+    inp.radiator_life = {"a": (day, None)}
+    [b] = build_report(day, day + timedelta(days=1), "day", inp)["buckets"]
+    assert b["radiators"] == {
+        "kwh": 4.0,
+        "hc_kwh": 1.0,
+        "hp_kwh": 3.0,
+        "eur": 1.1,
+        "interpolated": False,
+        "apportioned": True,
+        "coverage": 1.0,
+    }
+    assert b["rest_kwh"] == 6.0

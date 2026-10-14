@@ -378,6 +378,32 @@ class Recorder:
         ids = self.energy_radiator_ids() if radiator_ids is None else radiator_ids
         return {rid: self._buckets(rid, edges, [col])[0] for rid in ids}
 
+    def sample_stats(
+        self, radiator_ids: list[str], start: int, end: int
+    ) -> dict[str, dict[str, float | None]]:
+        """Per radiator over [start, end), from the 5-min samples (aggregated in SQL): the mean
+        temperature and effective setpoint, and the heating hours at full power
+        Σ(working_rate/100 × 5 min). Each is None below 50 % sample coverage."""
+        if not radiator_ids or end <= start:
+            return {}
+        marks = ",".join("?" * len(radiator_ids))
+        rows = self.db.query(
+            f"SELECT radiator_id, COUNT(temperature) AS nt, AVG(temperature) AS t,"
+            f" COUNT(effective_setpoint) AS ns, AVG(effective_setpoint) AS s,"
+            f" COUNT(working_rate) AS nw, SUM(working_rate) AS w FROM samples"
+            f" WHERE radiator_id IN ({marks}) AND ts >= ? AND ts < ? GROUP BY radiator_id",
+            (*radiator_ids, start, end),
+        )
+        need = 0.5 * (end - start) / SAMPLE_STEP_S
+        return {
+            r["radiator_id"]: {
+                "temp_avg": r["t"] if r["nt"] >= need else None,
+                "setpoint_avg": r["s"] if r["ns"] >= need else None,
+                "heating_hours": r["w"] / 100 * SAMPLE_STEP_S / 3600 if r["nw"] >= need else None,
+            }
+            for r in rows
+        }
+
     def _key(self, t: int, unit: Unit) -> str:
         dt = datetime.fromtimestamp(t, self.tz)
         if unit == "hour":

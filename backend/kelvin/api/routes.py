@@ -400,10 +400,8 @@ async def energy(
         _check_days(linky, focus)
         first = unit_start(focus, group)
         period = (first, next_unit(first, group))
-    radiator_ids = list(rt.house.radiators)
-    return await asyncio.to_thread(
-        linky.report, start, end, group, rt.recorder, radiator_ids, period
-    )
+    rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
+    return await asyncio.to_thread(linky.report, start, end, group, rt.recorder, rooms, period)
 
 
 @router.get("/linky/curve")

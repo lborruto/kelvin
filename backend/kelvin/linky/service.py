@@ -13,10 +13,11 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from kelvin.billing.costs import curve_complete
-from kelvin.billing.report import Group, ReportInputs, build_report
+from kelvin.billing.radiators import radiator_days
+from kelvin.billing.report import Group, ReportInputs, build_report, next_unit, unit_start
 from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
-from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource
+from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds, local_day
 from kelvin.linky.store import LinkyStore
 from kelvin.linky.sync import DAILY_BACKFILL_DAYS, DAILY_BUDGET, BudgetExceeded, LinkySync
 from kelvin.recorder.db import Database
@@ -159,36 +160,40 @@ class LinkyService:
         end: date,
         group: Group,
         recorder: Recorder,
-        radiator_ids: list[str],
+        rooms: dict[str, str],
         period: tuple[date, date] | None = None,
     ) -> dict[str, Any]:
-        edges = local_edges(start, end, "day", self.tz)
-        buckets = recorder.energy_buckets(edges, radiator_ids) if radiator_ids else {}
-        per_day: dict[date, float] = {}
-        per_id: dict[str, float] = {}
-        for rid, row in buckets.items():
-            for i, b in enumerate(row):
-                if b.wh is None:
-                    continue
-                d = start + timedelta(days=i)
-                per_day[d] = per_day.get(d, 0.0) + b.wh / 1000
-                per_id[rid] = per_id.get(rid, 0.0) + b.wh / 1000
-        first = recorder.first_energy_ts(radiator_ids)
-        radiators_from = (
-            datetime.fromtimestamp(first, self.tz).date() + timedelta(days=1)
-            if first is not None
-            else None
+        """`rooms`: the radiators in the house now → their room. Every radiator ever recorded
+        is reported (L8); those no longer in the house exist up to their last reading."""
+        if period is None:
+            last = self.store.last_day() or self.today() - timedelta(days=1)
+            first = unit_start(last, group)
+            period = (first, next_unit(first, group))
+        tariff = self.tariffs.get()
+        lo, hi = min(start, period[0]), max(end, period[1])
+        edges = local_edges(lo, hi, "halfhour", self.tz)
+        halfhours = recorder.energy_buckets(edges, recorder.energy_radiator_ids())
+        radiators = {
+            rid: radiator_days(row, edges, tariff, self.tz) for rid, row in halfhours.items()
+        }
+        life = {
+            rid: (local_day(a, self.tz), None if rid in rooms else local_day(b, self.tz))
+            for rid, (a, b) in recorder.energy_extent().items()
+        }
+        stats = recorder.sample_stats(
+            sorted(radiators), day_bounds(period[0], self.tz)[0], day_bounds(period[1], self.tz)[0]
         )
         inputs = ReportInputs(
             daily_wh=self.store.daily(),
             curve=self.store.curve(),
-            radiators_kwh=per_day,
-            radiators_by_id=per_id,
-            tariff=self.tariffs.get(),
+            tariff=tariff,
             tz=self.tz,
             today=self.today(),
             first_day=self.first_day(),
-            radiators_from=radiators_from,
+            radiators=radiators,
+            radiator_life=life,
+            rooms=rooms,
+            sample_stats=stats,
         )
         return build_report(start, end, group, inputs, period)
 

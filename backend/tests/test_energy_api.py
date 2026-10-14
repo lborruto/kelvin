@@ -466,3 +466,24 @@ async def test_an_invalid_selected_period_is_french(api, params):
     c, _, _, _ = api
     r = await c.get("/api/energy", params={"from": "2026-09-01", "to": "2026-10-01", **params})
     assert r.status_code == 422 and r.json()["detail"] == "Période invalide."
+
+
+async def test_by_radiator_covers_the_selected_period_with_rooms_and_room_stats(api):
+    c, _, rt, _ = api
+    day = today() - timedelta(days=2)
+    r = await c.get(
+        "/api/energy",
+        params={"from": str(day - timedelta(days=6)), "to": str(today()), "focus": str(day)},
+    )
+    body = r.json()
+    assert (body["period"]["from"], body["period"]["to"]) == (
+        str(day),
+        str(day + timedelta(days=1)),
+    )
+    rows = {x["radiator_id"]: x for x in body["by_radiator"]}
+    assert set(rows) == set(rt.house.radiators)
+    for rid, row in rows.items():
+        assert row["room_id"] == rt.house.radiators[rid].room_id
+        assert row["kwh"] is not None and row["coverage"] == 1.0
+        assert row["temp_avg"] is not None and row["heating_hours"] is not None
+    assert body["heating"]["days"] == 1 and body["heating"]["inconsistent"] is False
