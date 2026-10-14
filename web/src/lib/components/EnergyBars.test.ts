@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Inspection } from '$lib/inspector';
 import { announcer } from '$lib/stores/announcer.svelte';
@@ -132,7 +133,7 @@ describe('EnergyBars', () => {
     expect(container.querySelectorAll('line.gap')).toHaveLength(1);
   });
 
-  it('bars are a roving-tabindex group: arrows move, select and announce; Esc clears', async () => {
+  it('bars are a roving-tabindex group: arrows move and select, the focused name speaks once; Esc clears', async () => {
     const { container } = render(EnergyBars, three);
     const keys = screen.getAllByRole('button');
     expect(keys.map((k) => k.getAttribute('tabindex'))).toEqual(['-1', '-1', '0']);
@@ -142,7 +143,8 @@ describe('EnergyBars', () => {
     expect(document.activeElement).toBe(keys[1]);
     expect(keys[1]).toHaveAttribute('aria-pressed', 'true');
     expect(keys[1]).toHaveAttribute('tabindex', '0');
-    expect(announcer.polite).toBe('12 octobre, 12,00\u00a0kWh');
+    // One channel per move: the newly focused bar's name carries the values, so the live region stays quiet.
+    expect(announcer.polite).toBe('');
     const sheet = container.querySelector('.inspector.sheet')!;
     expect(sheet.querySelector('.title')).toHaveTextContent('12 octobre');
     expect(sheet.querySelector('dd')).toHaveTextContent('12,00 kWh');
@@ -215,6 +217,71 @@ describe('EnergyBars', () => {
     expect(ondrill).toHaveBeenLastCalledWith(0);
     expect(container.querySelector('.inspector.card .title')).toHaveTextContent('11 octobre');
     expect(screen.getAllByRole('button')[0]).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('a tap or click pins a bar and announces it (focus does not move, so the live region speaks)', async () => {
+    const { container } = render(EnergyBars, three);
+    const plot = container.querySelector('.plot')!;
+    await fireEvent.pointerDown(plot, { clientX: 290, clientY: 50, pointerType: 'touch' });
+    await fireEvent.pointerUp(plot, { clientX: 290, clientY: 50, pointerType: 'touch' });
+    expect(announcer.polite).toBe('12 octobre, 12,00\u00a0kWh');
+  });
+
+  it('desktop keyboard: Tab from a focused bar into its card keeps focus there; Tab again moves on, never to body', async () => {
+    media.desktop.matches = true;
+    const ondrill = vi.fn();
+    const { container } = render(EnergyBars, { ...three, ondrill, drillLabel: (i: number) => (i === 2 ? 'Voir la courbe du 13/10' : null) });
+    const after = document.createElement('button');
+    document.body.append(after);
+    const keys = screen.getAllByRole('button');
+    keys[2].focus();
+    await tick();
+    const action = screen.getByRole('button', { name: 'Voir la courbe du 13/10' });
+    action.focus(); // Tab: the card's action is the next tab stop
+    await tick();
+    expect(document.activeElement).toBe(action);
+    expect(container.querySelector('.inspector.card .title')).toHaveTextContent('13 octobre');
+    // The mouse crosses a bar with no drill action while focus is in the card: the card stays put.
+    await fireEvent.pointerMove(container.querySelector('.plot')!, { clientX: 100, pointerType: 'mouse' });
+    expect(document.activeElement).toBe(action);
+    expect(container.querySelector('.inspector.card .title')).toHaveTextContent('13 octobre');
+    await fireEvent.pointerLeave(container.querySelector('.plot')!);
+    after.focus(); // Tab again
+    await tick();
+    expect(document.activeElement).toBe(after);
+    expect(container.querySelector('.inspector')).toBeNull();
+    after.remove();
+  });
+
+  it('desktop, dense chart: once a bar is pinned, hover never moves the card, so the pointer can reach its action', async () => {
+    media.desktop.matches = true;
+    const ondrill = vi.fn();
+    const n = 30;
+    const groups = Array.from({ length: n }, (_, i) => ({ label: `d${i}`, parts: [{ key: 'home', value: 1 + (i % 5) }] }));
+    const details = groups.map((g) => ins(g.label, '1,00\u00a0kWh'));
+    const { container } = render(EnergyBars, {
+      groups, colors: { home: 'var(--series-1)' }, unit: 'kWh', label: 'Mois', details, ondrill, drillLabel: (i: number) => `Voir ${groups[i].label}`
+    });
+    const plot = container.querySelector('.plot')!;
+    // 600 px / 30 bars: step 20 px; d0's centre is about 12 px.
+    await fireEvent.pointerMove(plot, { clientX: 12, pointerType: 'mouse' });
+    await fireEvent.pointerDown(plot, { clientX: 12, pointerType: 'mouse' });
+    await fireEvent.pointerUp(plot, { clientX: 12, pointerType: 'mouse' });
+    const left = container.querySelector<HTMLElement>('.inspector.card')!.style.left;
+    // The pointer travels right across d1…d3 towards the card.
+    for (const x of [24, 40, 60, 80]) {
+      await fireEvent.pointerMove(plot, { clientX: x, pointerType: 'mouse' });
+      expect(container.querySelector('.inspector.card .title')).toHaveTextContent('d0');
+      expect(container.querySelector<HTMLElement>('.inspector.card')!.style.left).toBe(left);
+    }
+    // Hover still highlights the bar under the pointer.
+    expect(container.querySelector('rect.hov')).not.toBeNull();
+    const action = screen.getByRole('button', { name: 'Voir d0' });
+    await fireEvent.pointerMove(action, { clientX: 80, pointerType: 'mouse' });
+    await fireEvent.pointerDown(action, { clientX: 80, pointerType: 'mouse' });
+    await fireEvent.pointerUp(action, { clientX: 80, pointerType: 'mouse' });
+    await fireEvent.click(action);
+    expect(ondrill).toHaveBeenLastCalledWith(0);
   });
 
   it('the hidden table carries every inspector column', () => {

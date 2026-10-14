@@ -108,8 +108,13 @@
   let focused = $state(false);
   /** Esc hides the inspector of the focused bar until the next move. */
   let quiet = $state(false);
-  let stop = $derived(Math.min(focusIdx ?? groups.length - 1, groups.length - 1));
-  let active = $derived(details ? (hover ?? selected ?? (focused && !quiet ? stop : null)) : null);
+  /** The card's bar while keyboard focus is inside the card: it stays mounted and in place until focus leaves it. */
+  let held = $state<number | null>(null);
+  let stop = $derived(Math.min(selected ?? focusIdx ?? groups.length - 1, groups.length - 1));
+  // A pinned bar keeps the card (hover then only highlights), so the pointer can always travel to its action;
+  // with nothing pinned the card follows the hover, else the focused bar.
+  let active = $derived(details ? (held ?? selected ?? hover ?? (focused && !quiet ? stop : null)) : null);
+  let inspected = $derived(desktop.matches ? active : selected);
   let mode = $derived<'card' | 'sheet'>(desktop.matches ? 'card' : 'sheet');
   let table = $derived(details ? inspectionTable(groups.map((g, i) => ({ head: g.label, ins: details[i] }))) : null);
 
@@ -141,7 +146,10 @@
       }
     }
     const i = nearestIndex(centers, plotX(e));
-    if (i != null) choose(i);
+    if (i == null) return;
+    choose(i);
+    // Focus does not move on a tap or click, so the live region says what was pinned.
+    if (selected === i && details[i]) announcer.say(details[i].spoken);
   }
   /** Pin bar i, or unpin it when it already is (a second tap closes the sheet). */
   function choose(i: number) {
@@ -154,6 +162,7 @@
       if (selected != null || !quiet) {
         e.preventDefault();
         selected = null;
+        hover = null;
         quiet = true;
       }
       return;
@@ -170,8 +179,18 @@
     focusIdx = n;
     selected = n;
     quiet = false;
+    // The newly focused bar's name carries its values: one channel, no live-region echo.
     buttons[n]?.focus();
-    if (details?.[n]) announcer.say(details[n].spoken);
+  }
+  const inCard = (n: EventTarget | null) => n instanceof Element && !!n.closest('.inspector');
+  function onfocusin(e: FocusEvent) {
+    focused = true;
+    if (inCard(e.target) && held == null) held = active;
+  }
+  function onfocusout(e: FocusEvent) {
+    const to = e.relatedTarget as Node | null;
+    if (!plot?.contains(to)) focused = false;
+    if (!inCard(to)) held = null;
   }
   function actionFor(i: number | null) {
     if (i == null || !ondrill || !drillLabel) return null;
@@ -179,6 +198,13 @@
     return l ? { label: l, run: () => ondrill(i) } : null;
   }
 </script>
+
+{#snippet outline(i: number, cls: string)}
+  {@const g = groups[i]}
+  {@const top = Math.max(total(g), overlay?.values[i] ?? 0)}
+  <rect class={cls} x={(x(g.label) ?? 0) - 2} width={x.bandwidth() + 4}
+    y={top > 0 ? y(top) - 2 : H - PAD.bottom - 6} height={top > 0 ? H - PAD.bottom - y(top) + 4 : 8} rx="3" />
+{/snippet}
 
 {#if !groups.length}
   <p class="muted empty">{COPY.empty}</p>
@@ -193,7 +219,9 @@
     {onpointermove}
     {onpointerleave}
     {onpointerdown}
-    {onpointerup}>
+    {onpointerup}
+    {onfocusin}
+    {onfocusout}>
     <svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={label}>
       {#each y.ticks(4) as t (t)}
         <line class="grid" x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} />
@@ -218,22 +246,16 @@
         {/each}
       {/if}
       {#if active != null && groups[active]}
-        {@const g = groups[active]}
-        {@const top = Math.max(total(g), overlay?.values[active] ?? 0)}
-        <!-- The selected (or hovered, or focused) bar: a 1 px ink outline; a missing bar outlines its baseline. -->
-        <rect class="sel" x={(x(g.label) ?? 0) - 2} width={x.bandwidth() + 4}
-          y={top > 0 ? y(top) - 2 : H - PAD.bottom - 6} height={top > 0 ? H - PAD.bottom - y(top) + 4 : 8} rx="3" />
+        <!-- The inspected (pinned, hovered or focused) bar: a 1 px ink outline; a missing bar outlines its baseline. -->
+        {@render outline(active, 'sel')}
+      {/if}
+      {#if details && hover != null && hover !== active && groups[hover]}
+        <!-- While a bar is pinned, the hovered one is only highlighted (muted outline); the card stays. -->
+        {@render outline(hover, 'hov')}
       {/if}
     </svg>
     {#if details}
-      <div
-        class="keys"
-        role="group"
-        aria-label={COPY.bars(label)}
-        onfocusin={() => (focused = true)}
-        onfocusout={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) focused = false;
-        }}>
+      <div class="keys" role="group" aria-label={COPY.bars(label)}>
         {#each groups as g, i (g.label)}
           <button
             bind:this={buttons[i]}
@@ -244,7 +266,7 @@
             style:width="{(x.bandwidth() / W) * 100}%"
             aria-label={details[i]?.spoken ?? g.label}
             aria-pressed={selected === i}
-            aria-controls={active === i ? `${uid}-inspector` : undefined}
+            aria-controls={inspected === i ? `${uid}-inspector` : undefined}
             onclick={() => choose(i)}
             onkeydown={(e) => onkeydown(e, i)}></button>
         {/each}
@@ -347,11 +369,15 @@
     stroke-width: 1;
   }
   /* The selection outline: ink, 1 px, never animated (it follows the pointer). */
-  .sel {
+  .sel,
+  .hov {
     fill: none;
     stroke: var(--tx);
     stroke-width: 1;
     pointer-events: none;
+  }
+  .hov {
+    stroke: var(--mu);
   }
   /* The keyboard's bar buttons: invisible boxes over each bar, full column height. The pointer
      goes to the plot (nearest bar wins), so these never steal a tap. */
