@@ -50,6 +50,12 @@ depends on.
   (`backend/tests/test_packaging.py` checks).
 - **Web stack:** SvelteKit stays on 2.x (`@vite-pwa/sveltekit` does not support kit 3);
   Playwright uses `channel: 'chromium'`.
+- **UI rules** (details in DESIGN.md): motion uses the tokens in `app.css` and `$lib/motion`
+  (`dur()` returns 0 under reduced motion — pass it to every Svelte transition); a pending
+  control shows the shared dashed→solid edge; controls that can hold focus are paused with
+  `aria-disabled` and a guarded handler, never native `disabled`; every route shows skeletons
+  before data, never placeholder values; no horizontal scroll from 320 px and CLS < 0.05
+  (e2e checks both). Buttons use the global `.btn-*` classes.
 
 ## Checks
 
