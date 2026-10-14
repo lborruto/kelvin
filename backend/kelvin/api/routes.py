@@ -47,6 +47,7 @@ from kelvin.house.model import Radiator
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import BudgetExceeded
+from kelvin.overkiz.errors import GatewayError
 
 router = APIRouter(dependencies=[Depends(require_kelvin_header), Depends(require_session)])
 MAX_REPORT_DAYS = 4 * 366
@@ -99,6 +100,17 @@ async def status(request: Request) -> dict:
         "overkiz": rt.pump.status(),
         "linky": rt.linky.status()["state"] if rt.linky else None,
     }
+
+
+@router.get("/overkiz/quotas")
+async def overkiz_quotas(request: Request) -> dict:
+    """Remaining Overkiz quotas (`GET /setup/quotas`), read at most once an hour."""
+    rt = _rt(request)
+    assert rt.quotas is not None
+    try:
+        return await rt.quotas.get()
+    except GatewayError:
+        raise HTTPException(503, "Cozytouch injoignable, réessayez plus tard.") from None
 
 
 @router.get("/house")

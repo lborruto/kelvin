@@ -19,7 +19,7 @@ from kelvin.house.model import House, build_house
 from kelvin.linky.fake import DEMO_PRM, FakeLinkySource
 from kelvin.linky.models import LinkySource, day_bounds
 from kelvin.linky.service import LinkyService
-from kelvin.overkiz.budget import SetupReadGuard
+from kelvin.overkiz.budget import QuotaReadout, SetupReadGuard
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import device_from_dict, place_from_dict
@@ -47,6 +47,7 @@ class Runtime:
     closed: bool = False
     owns_db: bool = True
     linky: LinkyService | None = None
+    quotas: QuotaReadout | None = None
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -238,6 +239,7 @@ async def start_runtime(
             owns_db=owns_db,
             linky=linky_service,
         )
+        rt.quotas = QuotaReadout(lambda: gateway.quotas())  # lazy: stub gateways need no quotas()
         rt.published_overrides = overrides.active()
         runtime.append(rt)
     except BaseException:

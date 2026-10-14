@@ -115,6 +115,10 @@ class PyOverkizGateway:
         states = await self._call(self._c().get_state(device_url))
         return {s.name: s.value for s in states}
 
+    async def quotas(self) -> Any:
+        # pyoverkiz 2.2.2 has no wrapper for this endpoint; `_get` is its own GET helper.
+        return await self._call(self._c()._get("setup/quotas"))
+
     async def fetch_events(self) -> list[Event]:
         return to_events(await self._call(self._c().fetch_events()))
 

@@ -68,6 +68,7 @@ class FakeGateway:
         self.unresponsive = False
         self.snapshots = 0  # full setup reads served (quota guard tests)
         self.state_reads = 0  # per-device state reads served
+        self.quota_reads = 0
         self._scheduled: list[tuple[float, str, list[DeviceCommand]]] = []
         self._events: list[Event] = []
 
@@ -106,6 +107,16 @@ class FakeGateway:
             raise self.fail_states
         self.state_reads += 1
         return copy.deepcopy(self.devices[device_url].states)
+
+    async def quotas(self) -> Any:
+        self.quota_reads += 1
+        if self.fail_states is not None:
+            raise self.fail_states
+        # Invented values in an invented shape: the real one is recorded in overkiz-notes.
+        return [
+            {"name": "setup-bulk-load", "remaining": 2, "limit": 3, "gatewayId": "x"},
+            {"name": "exec", "remaining": 48, "limit": 50},
+        ]
 
     async def execute(self, commands: list[DeviceCommand], label: str) -> str:
         if self.fail_next_execute is not None:

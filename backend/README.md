@@ -52,6 +52,7 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 
 - `GET /api/health` and `/api/auth/*` are open; every other route needs the `kelvin_session` cookie and otherwise answers `401 {"detail": "Connexion requise.", "code": "login_required"}`.
 - `GET /api/health` → `{"status": "ok" | "degraded" | "setup" | "reauth" | "offline"}` only; `GET /api/status` (session) adds the Overkiz pump status (with `setup_reads_24h`, full setup reads in the last 24 h) and the Linky state.
+- `GET /api/overkiz/quotas` — remaining Overkiz quotas (`GET /setup/quotas`), read only when asked and cached for an hour; ids, URLs and account keys are dropped.
 - `POST /api/auth/login {email, password}` · `POST /api/auth/logout` · `GET /api/auth/me`
 - `GET /api/house`
 - `GET /api/stream` — SSE; events: `snapshot`, `house`, `pending`, `overrides`, `status`

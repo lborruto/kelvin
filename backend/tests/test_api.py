@@ -285,3 +285,22 @@ async def test_startup_makes_one_full_setup_read_and_reports_it(ctx):
     assert rt.gateway.snapshots == 1
     body = (await c.get("/api/status")).json()
     assert body["overkiz"]["setup_reads_24h"] == 1
+
+
+async def test_overkiz_quotas_are_read_on_demand_and_cached(ctx):
+    c, rt, _ = ctx
+    assert rt.gateway.quota_reads == 0  # nothing reads them unless asked
+    body = (await c.get("/api/overkiz/quotas")).json()
+    assert body["quotas"][0] == {"name": "setup-bulk-load", "remaining": 2, "limit": 3}
+    await c.get("/api/overkiz/quotas")
+    assert rt.gateway.quota_reads == 1
+
+
+async def test_overkiz_quotas_unreachable_is_a_french_503(ctx):
+    from kelvin.overkiz.errors import QuotaError
+
+    c, rt, _ = ctx
+    rt.gateway.fail_states = QuotaError("QUOTA_EXCEEDED")
+    r = await c.get("/api/overkiz/quotas")
+    assert r.status_code == 503
+    assert r.json()["detail"] == "Cozytouch injoignable, réessayez plus tard."
