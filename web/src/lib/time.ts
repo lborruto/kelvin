@@ -75,3 +75,26 @@ export function parisAt(midnightMs: number, minute: number): number {
     .sort((a, b) => a - b);
   return valid.length ? valid[0] : target - offA;
 }
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** Minutes east of UTC in Paris at `ms`: 60 in winter, 120 in summer. */
+export function parisOffsetMinutes(ms: number): number {
+  return Math.round(offsetMs(ms) / 60_000);
+}
+
+/** Paris wall clock with its offset, « 2026-10-25T02:30:00+01:00 », so DST rows stay unambiguous (CSV). */
+export function isoParis(ms: number): string {
+  const p = parisParts(ms);
+  const o = parisOffsetMinutes(ms);
+  const a = Math.abs(o);
+  return (
+    `${p.year}-${pad2(p.month)}-${pad2(p.day)}T${pad2(p.hour)}:${pad2(p.minute)}:${pad2(p.second)}` +
+    `${o >= 0 ? '+' : '-'}${pad2(Math.floor(a / 60))}:${pad2(a % 60)}`
+  );
+}
+
+/** Epoch ms of 00:00 Paris on the ISO day `iso` (YYYY-MM-DD). */
+export function parisDayStart(iso: string): number {
+  return parisMidnight(Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)), 12));
+}

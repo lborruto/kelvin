@@ -27,3 +27,21 @@ describe('Paris time', () => {
     expect(parisAt(autumn, 270)).toBe(Date.parse('2026-10-25T03:30:00Z'));
   });
 });
+
+import { isoParis, parisDayStart, parisOffsetMinutes } from './time';
+
+describe('Paris offsets (CSV timestamps, DST labels)', () => {
+  it('knows summer and winter time', () => {
+    expect(parisOffsetMinutes(Date.parse('2026-07-01T12:00:00Z'))).toBe(120);
+    expect(parisOffsetMinutes(Date.parse('2026-12-01T12:00:00Z'))).toBe(60);
+  });
+  it('writes the repeated autumn hour with two different offsets', () => {
+    expect(isoParis(Date.parse('2026-10-25T00:30:00Z'))).toBe('2026-10-25T02:30:00+02:00');
+    expect(isoParis(Date.parse('2026-10-25T01:30:00Z'))).toBe('2026-10-25T02:30:00+01:00');
+  });
+  it('finds a Paris midnight from an ISO day, DST days included', () => {
+    expect(parisDayStart('2026-10-25')).toBe(Date.parse('2026-10-24T22:00:00Z'));
+    expect(parisDayStart('2026-10-26')).toBe(Date.parse('2026-10-25T23:00:00Z'));
+    expect(parisDayStart('2026-03-29')).toBe(Date.parse('2026-03-28T23:00:00Z'));
+  });
+});

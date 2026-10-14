@@ -11,7 +11,7 @@
   import { plural } from '$lib/plural';
   import { house } from '$lib/stores/house.svelte';
 
-  const UNIT_WORD: Record<Period, string> = { day: 'jour', month: 'mois', year: 'année' };
+  const UNIT_WORD: Record<Period, string> = { day: 'jour', week: 'semaine', month: 'mois', year: 'année' };
   const NO_ROOM = 'sans-piece';
   // ApiError carries the backend's French detail when it sent one; anything else gets the generic copy.
   const errorText = (e: unknown, generic: string) =>

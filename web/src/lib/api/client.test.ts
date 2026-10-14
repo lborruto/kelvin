@@ -118,4 +118,15 @@ describe('api client', () => {
     expect(fn.mock.calls[4][1].method).toBe('PUT');
     expect(JSON.parse(fn.mock.calls[4][1].body).tariff.kva).toBe(12);
   });
+  it('asks for a selected period and for one day in detail', async () => {
+    const fn = mockFetch(200, {});
+    await api.energyReport('2026-10-01', '2026-11-01', 'day', { from: '2026-10-01', to: '2026-11-01' });
+    expect(fn.mock.calls[0][0]).toBe(
+      '/api/energy?from=2026-10-01&to=2026-11-01&group=day&period_from=2026-10-01&period_to=2026-11-01'
+    );
+    await api.energyDay('2026-10-13', 'p-salon');
+    expect(fn.mock.calls[1][0]).toBe('/api/energy/day?date=2026-10-13&room=p-salon');
+    await api.energyDay('2026-10-13');
+    expect(fn.mock.calls[2][0]).toBe('/api/energy/day?date=2026-10-13');
+  });
 });

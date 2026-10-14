@@ -2,6 +2,7 @@ import type {
   CommandResult,
   CurveDay,
   EnergyBucket,
+  EnergyDay,
   EnergyGroup,
   EnergyReport,
   HistoryPoint,
@@ -111,8 +112,14 @@ export const api = {
       `/energy/radiators?start=${start}&end=${end}&group=${group}` +
         (radiatorIds?.length ? `&radiators=${enc(radiatorIds.join(','))}` : '')
     ),
-  energyReport: (from: string, to: string, group: EnergyGroup) =>
-    call<EnergyReport>('GET', `/energy?from=${enc(from)}&to=${enc(to)}&group=${group}`),
+  energyReport: (from: string, to: string, group: EnergyGroup, period?: { from: string; to: string }) =>
+    call<EnergyReport>(
+      'GET',
+      `/energy?from=${enc(from)}&to=${enc(to)}&group=${group}` +
+        (period ? `&period_from=${enc(period.from)}&period_to=${enc(period.to)}` : '')
+    ),
+  energyDay: (date: string, room?: string | null) =>
+    call<EnergyDay>('GET', `/energy/day?date=${enc(date)}` + (room ? `&room=${enc(room)}` : '')),
   linkyCurve: (date: string) => call<CurveDay>('GET', `/linky/curve?date=${enc(date)}`),
   settings: () => call<SettingsView>('GET', '/settings'),
   putTariff: (tariff: TariffInput) => call<SettingsView>('PUT', '/settings', { tariff }),

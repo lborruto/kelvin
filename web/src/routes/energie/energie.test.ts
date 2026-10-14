@@ -20,7 +20,8 @@ vi.mock('$lib/api/client', () => ({
 
 const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({
   kwh: 300, hc_kwh: 120, hp_kwh: 180, radiators_kwh: 140, energy_eur: 70, subscription_eur: 15,
-  eur: 85, days: 30, missing_days: 0, estimated_split: false, ...o
+  eur: 85, days: 30, missing_days: 0, estimated_split: false, split_method: 'curve', prices: [], retro_priced: false,
+  present_days: 30, curve: null, radiators: null, rest_kwh: null, ...o
 });
 
 function report(o: Partial<EnergyReport> = {}): EnergyReport {
@@ -37,8 +38,19 @@ function report(o: Partial<EnergyReport> = {}): EnergyReport {
     linky_since: '2025-11-01',
     radiators: [{ radiator_id: 'a', kwh: 140 }],
     projection: {
-      month: { key: '2026-10', kwh: 310, eur: 120.5, actual_kwh: 120, actual_eur: 98.4, method: 'linear' },
-      year: { from: '2026-10', to: '2027-09', kwh: 3650, eur: 1234.4, method: 'linear', months: [] }
+      month: { key: '2026-10', kwh: 310, eur: 120.5, actual_kwh: 120, actual_eur: 98.4, actual_energy_eur: 92.1, filled_days: 0, method: 'linear' },
+      year: { from: '2026-10', to: '2027-09', kwh: 3650, eur: 1234.4, method: 'linear', months: [] },
+      rolling: { from: '2026-10-15', to: '2027-10-15', kwh: 3650, eur: 1234.4, per_day_kwh: 10, price_eur_kwh: 0.25, method: 'linear' }
+    },
+    period: { from: '2026-10-01', to: '2026-11-01', ...summary({ eur: 98.4 }) },
+    heating: { value: 0.47, days: 12, of_days: 12, since: '2026-10-01', inconsistent: false },
+    by_radiator: [],
+    comparison: { basis: 'unit', previous: null, last_year: null, avg4: null },
+    hc_lens: null,
+    boundary_prorated: false,
+    quality: {
+      fallback_share: null, fallback_method: null, estimated_days: 0, curve_vs_daily_pct: null, linky_since: '2025-11-01',
+      curve_since: null, radiators_since: null, retro_priced_days: 0
     },
     ...o
   };
