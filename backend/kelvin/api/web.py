@@ -22,10 +22,19 @@ ENCODINGS = (("br", ".br"), ("gzip", ".gz"))
 
 
 def _accepts(header: str, coding: str) -> bool:
+    """True when Accept-Encoding names `coding` with a non-zero q (names and q are case-blind)."""
     for part in header.split(","):
-        name, _, params = part.strip().partition(";")
-        if name.strip().lower() == coding:
-            return params.replace(" ", "") not in ("q=0", "q=0.0")
+        name, *params = part.split(";")
+        if name.strip().lower() != coding:
+            continue
+        for param in params:
+            key, _, value = param.strip().partition("=")
+            if key.strip().lower() == "q":
+                try:
+                    return float(value.strip()) > 0
+                except ValueError:
+                    return False
+        return True
     return False
 
 
@@ -59,6 +68,10 @@ def mount_web(app: FastAPI, web_dir: Path | None) -> None:
             except (OSError, ValueError):  # a NUL byte, a name too long
                 raise HTTPException(404, "Introuvable.") from None
             # Inside the build first, then the file: nothing outside the build is even stat'ed.
+            # The .br/.gz copies are only ever sent as an encoding of their original.
+            packed = candidate.suffix in (".br", ".gz")
+            if packed and candidate.is_file():
+                raise HTTPException(404, "Introuvable.")
             if candidate.is_relative_to(root) and candidate.is_file():
                 cache = IMMUTABLE if "/immutable/" in f"/{path}" else "no-cache"
                 return _file(candidate, request, cache)

@@ -235,3 +235,15 @@ async def test_precompressed_assets_follow_accept_encoding(tmp_path):
             # Without a compressed copy the file itself is sent.
             index = await c.get("/", headers={"Accept-Encoding": "br"})
             assert index.text == "<html>kelvin-index</html>"
+
+
+async def test_accept_encoding_q_values_and_packed_files(tmp_path):
+    app = _app(tmp_path, with_web=True)
+    imm = tmp_path / "web" / "_app" / "immutable"
+    (imm / "app.js.br").write_bytes(b"BR")
+    async with LifespanManager(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
+            for refused in ("BR;Q=0", "br;q=0.000", "br; q=0"):
+                r = await c.get("/_app/immutable/app.js", headers={"Accept-Encoding": refused})
+                assert "content-encoding" not in r.headers, refused
+            assert (await c.get("/_app/immutable/app.js.br")).status_code == 404
