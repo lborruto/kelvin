@@ -741,3 +741,25 @@ def test_m3_the_filled_month_pays_its_subscription_from_the_contract_start(contr
     assert month["filled_days"] == 0 and month["kwh"] == pytest.approx(26 * 20.0)
     # 8 measured + 18 remaining days at the trailing price, subscription for 6-31 Oct only
     assert month["eur"] == pytest.approx(26 * 20 * 0.25 + 15.0 * 26 / 31, abs=0.01)
+
+
+def test_final_i2_radiator_sums_count_exactly_the_days_coverage_counts():
+    """Final review I2: today's partial day is not in coverage, so it is not in the kWh."""
+    today = date(2026, 10, 14)
+    daily = {d: 10_000 for d in days(date(2026, 10, 1), today)}
+    per_day = {d: 5.0 for d in days(date(2026, 10, 1), today)}
+    rd = rad_days({**per_day, today: 1.2}, partial={today})
+    for d in per_day:
+        rd[d] = RadiatorDay(5000.0, 2000.0, 3000.0, 2 * 0.2 + 3 * 0.3, False, False, True)
+    rd[today] = RadiatorDay(1200.0, 600.0, 600.0, 0.6 * 0.2 + 0.6 * 0.3, False, False, False)
+    inp = inputs(daily, t=tariff(), today=today)
+    inp.radiators = {"a": rd}
+    inp.radiator_life = {"a": (date(2026, 10, 1), None)}
+    r = build_report(date(2026, 10, 1), date(2026, 11, 1), "month", inp)
+    [octo] = r["buckets"]
+    assert octo["radiators"]["coverage"] == 1.0
+    assert octo["radiators"]["kwh"] == 65.0 and octo["radiators_kwh"] == 65.0
+    assert (octo["radiators"]["hc_kwh"], octo["radiators"]["hp_kwh"]) == (26.0, 39.0)
+    assert octo["radiators"]["eur"] == round(13 * 1.3, 2)
+    assert (r["by_radiator"][0]["kwh"], r["by_radiator"][0]["coverage"]) == (65.0, 1.0)
+    assert r["radiators"] == [{"radiator_id": "a", "kwh": 65.0}]  # v1

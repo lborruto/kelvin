@@ -182,7 +182,11 @@ class _Energy:
 
     def _radiator_sum(self, ids: list[str], a: date, b: date) -> dict[str, Any] | None:
         """Radiator energy over [a, b): None when no radiator has energy there (unknown, never
-        0). coverage = radiator-days fully measured / radiator-days the radiators existed."""
+        0). coverage = radiator-days fully measured / radiator-days the radiators existed.
+
+        Every figure counts exactly the radiator-days coverage counts: a day `_known` leaves out
+        (today, which is still running, or outside the radiator's life) adds no kWh either, or
+        coverage 1.0 could vouch for a sum holding a partial day (final review I2)."""
         wh = hc = hp = eur = 0.0
         found = priced = False
         interp = appor = False
@@ -191,12 +195,14 @@ class _Energy:
             for rid in ids:
                 k = self._known(rid, d)
                 rd = self.inp.radiators.get(rid, {}).get(d)
-                known += k
+                if not k:
+                    continue
+                known += 1
                 if rd is None or rd.wh is None:
                     continue
                 found = True
                 wh += rd.wh
-                recorded += k and rd.complete
+                recorded += rd.complete
                 interp |= rd.interpolated
                 appor |= rd.apportioned
                 if rd.hc_wh is not None and rd.hp_wh is not None and rd.eur is not None:
