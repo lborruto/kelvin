@@ -578,3 +578,40 @@ async def test_last_year_counts_once_kelvin_has_stored_it(api):
     ).json()
     assert body["comparison"]["last_year"]["comparable"] is True
     assert body["linky_since"] == str(first)
+
+
+async def test_day_detail_of_a_simulated_day(api):
+    c, _, rt, _ = api
+    day = today() - timedelta(days=2)
+    salon = next(r.id for r in rt.house.rooms.values() if r.name == "Salon")
+    r = await c.get("/api/energy/day", params={"date": str(day), "room": salon})
+    body = r.json()
+    assert r.status_code == 200 and body["date"] == str(day) and body["complete"] is True
+    assert len(body["intervals"]) == body["points"] in (46, 48, 50)
+    t = body["totals"]
+    assert t["hc_kwh"] + t["hp_kwh"] == pytest.approx(t["daily_kwh"], abs=0.002)
+    assert any(i["radiators_wh"] for i in body["intervals"])
+    assert body["room"]["id"] == salon and body["room"]["samples"]
+    assert str(day) in body["available"]
+
+
+async def test_day_detail_of_an_unknown_room_is_404(api):
+    c, _, _, _ = api
+    r = await c.get("/api/energy/day", params={"date": str(today()), "room": "nope"})
+    assert r.status_code == 404
+
+
+async def test_m7_a_day_without_a_curve_splits_as_the_report_does(api):
+    """No complete curve within ±15 days: the day view uses the report's fallback share, so
+    the day's HC/HP is the one the report shows for it."""
+    c, _, rt, _ = api
+    day = today() - timedelta(days=60)
+    lo = day_bounds(day - timedelta(days=20), PARIS)[0]
+    hi = day_bounds(day + timedelta(days=20), PARIS)[0]
+    rt.db.execute("DELETE FROM linky_curve WHERE ts >= ? AND ts < ?", (lo, hi))
+    detail = (await c.get("/api/energy/day", params={"date": str(day)})).json()["totals"]
+    params = {"from": str(day), "to": str(day + timedelta(days=1)), "group": "day"}
+    [bucket] = (await c.get("/api/energy", params=params)).json()["buckets"]
+    assert detail["split_method"] == bucket["split_method"] != "curve"
+    assert (detail["hc_kwh"], detail["hp_kwh"]) == (bucket["hc_kwh"], bucket["hp_kwh"])
+    assert detail["curve_kwh"] is None

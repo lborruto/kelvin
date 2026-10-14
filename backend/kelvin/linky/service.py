@@ -13,7 +13,8 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from kelvin.billing.compare import minus_years
-from kelvin.billing.costs import curve_complete
+from kelvin.billing.costs import curve_complete, day_energy
+from kelvin.billing.day_detail import day_detail
 from kelvin.billing.radiators import radiator_days
 from kelvin.billing.report import (
     Group,
@@ -24,6 +25,7 @@ from kelvin.billing.report import (
     unit_start,
 )
 from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
+from kelvin.billing.split import FallbackShares, Share
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds, local_day
 from kelvin.linky.store import LinkyStore
@@ -228,6 +230,47 @@ class LinkyService:
             curve_since=self.store.first_curve_day(),
         )
         return build_report(start, end, group, inputs, period)
+
+    def day_detail(self, day: date, recorder: Recorder, rooms: dict[str, str]) -> dict[str, Any]:
+        """`GET /api/energy/day` without the room block (the route adds it). A day without a
+        complete curve splits by the fallback the report uses for that day alone (`report(day,
+        day + 1, "day")`): the same complete curve days, so the day has one HC/HP figure."""
+        nxt = day + timedelta(days=1)
+        today = self.today()
+        tariff = self.tariffs.get()
+        oldest = self.store.first_curve_day() or self.not_before() or today
+        # The report's look-back for that window (see `report`).
+        anchor = self.store.last_day() or today
+        lo = min(day, anchor) - timedelta(days=LOOKBACK_DAYS)
+        hi = max(nxt, today + timedelta(days=1))
+        # One bounded read: the fallback's look-back and the days the picker offers.
+        curves = self.store.curve(min(lo, oldest), hi)
+        full = {d: p for d, p in curves.items() if curve_complete(d, p, self.tz)}
+        points = curves.get(day, [])
+        complete = day in full
+        energy = None
+        daily = self.store.daily(day, nxt).get(day)
+        if daily is not None or complete:
+            ranges = tariff.ranges() if tariff else None
+            shares = (
+                FallbackShares({d: p for d, p in full.items() if lo <= d < hi}, ranges, self.tz)
+                if ranges
+                else None
+            )
+            energy = day_energy(
+                day,
+                daily,
+                points,
+                ranges,
+                self.tz,
+                shares.for_day(day) if shares else Share(0.0, "slots"),
+            )
+        edges = local_edges(day, nxt, "halfhour", self.tz)
+        radiators = recorder.energy_buckets(edges, recorder.energy_radiator_ids())
+        return {
+            **day_detail(day, points, energy, tariff, self.tz, radiators, edges, rooms, complete),
+            "available": [d.isoformat() for d in sorted(full) if oldest <= d < today],
+        }
 
     def curve_day(self, day: date) -> dict[str, Any]:
         points = self.store.curve(day, day + timedelta(days=1)).get(day, [])

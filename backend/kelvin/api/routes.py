@@ -46,7 +46,7 @@ from kelvin.commands.translate import (
     plan_setpoint,
 )
 from kelvin.house.model import Radiator
-from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled
+from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled, day_bounds
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import BudgetExceeded
 from kelvin.overkiz.budget import QuotasUnavailable
@@ -402,6 +402,42 @@ async def energy(
         period = (first, next_unit(first, group))
     rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
     return await asyncio.to_thread(linky.report, start, end, group, rt.recorder, rooms, period)
+
+
+@router.get("/energy/day")
+async def energy_day(
+    request: Request,
+    day: Annotated[date, Query(alias="date")],
+    room: str | None = None,
+) -> dict:
+    """One day: half-hours with power, price, € and radiator energy; reconciled totals (M7);
+    power figures; with `room`, that room's samples and current overrides."""
+    rt = _rt(request)
+    linky = _linky(rt)
+    _check_days(linky, day)
+    name, rads = _room_radiators(rt, room) if room is not None else ("", [])
+    rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
+    body = await asyncio.to_thread(linky.day_detail, day, rt.recorder, rooms)
+    body["room"] = None
+    if room is not None:
+        ids = [r.id for r in rads]
+        a, b = day_bounds(day, ZoneInfo(rt.settings.tz))
+        body["room"] = {
+            "id": room,
+            "name": name,
+            "samples": await asyncio.to_thread(rt.recorder.room_samples, ids, a, b),
+            "overrides": [
+                {
+                    "id": o["id"],
+                    "kind": o["kind"],
+                    "temperature": o["temperature"],
+                    "ends_at": o["ends_at"],
+                }
+                for o in rt.overrides.active()
+                if set(o["radiator_ids"]) & set(ids)
+            ],
+        }
+    return body
 
 
 @router.get("/linky/curve")

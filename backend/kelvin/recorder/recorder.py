@@ -404,6 +404,28 @@ class Recorder:
             for r in rows
         }
 
+    def room_samples(self, radiator_ids: list[str], start: int, end: int) -> list[dict[str, Any]]:
+        """The room's 5-min samples over [start, end), averaged over its radiators (one day at
+        most: the caller bounds it)."""
+        if not radiator_ids:
+            return []
+        marks = ",".join("?" * len(radiator_ids))
+        rows = self.db.query(
+            f"SELECT ts, AVG(temperature) AS t, AVG(effective_setpoint) AS s,"
+            f" AVG(working_rate) AS w FROM samples WHERE radiator_id IN ({marks})"
+            f" AND ts >= ? AND ts < ? GROUP BY ts ORDER BY ts",
+            (*radiator_ids, start, end),
+        )
+        return [
+            {
+                "ts": r["ts"],
+                "temperature": _r(r["t"]),
+                "setpoint": _r(r["s"]),
+                "working_rate": _r(r["w"]),
+            }
+            for r in rows
+        ]
+
     def _key(self, t: int, unit: Unit) -> str:
         dt = datetime.fromtimestamp(t, self.tz)
         if unit == "hour":
