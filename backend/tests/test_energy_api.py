@@ -487,3 +487,21 @@ async def test_by_radiator_covers_the_selected_period_with_rooms_and_room_stats(
         assert row["kwh"] is not None and row["coverage"] == 1.0
         assert row["temp_avg"] is not None and row["heating_hours"] is not None
     assert body["heating"]["days"] == 1 and body["heating"]["inconsistent"] is False
+
+
+async def test_the_report_loads_only_the_linky_rows_it_needs(api, monkeypatch):
+    """No unbounded query: the window, the period and 400 days of look-back at most."""
+    c, _, rt, _ = api
+    calls = []
+    for name in ("daily", "curve"):
+        original = getattr(rt.linky.store, name)
+
+        def spy(start=None, end=None, _original=original):
+            calls.append((start, end))
+            return _original(start, end)
+
+        monkeypatch.setattr(rt.linky.store, name, spy)
+    start = today() - timedelta(days=7)
+    await c.get("/api/energy", params={"from": str(start), "to": str(today())})
+    assert len(calls) == 2
+    assert all(a is not None and b is not None and (b - a).days <= 7 + 400 + 1 for a, b in calls)

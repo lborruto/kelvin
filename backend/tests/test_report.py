@@ -448,3 +448,82 @@ def test_radiator_hc_hp_and_euros_add_up_per_bucket():
         "coverage": 1.0,
     }
     assert b["rest_kwh"] == 6.0
+
+
+def test_l5_days_before_the_first_price_are_flagged():
+    daily = {d: 10_000 for d in days(date(2026, 9, 25), date(2026, 10, 5))}
+    t = tariff(Prices(date(2026, 10, 1), 15.0, 0.2, 0.3))
+    r = build_report(date(2026, 9, 25), date(2026, 10, 5), "month", inputs(daily, t=t))
+    sep, octo = r["buckets"]
+    assert sep["retro_priced"] is True and octo["retro_priced"] is False
+    assert r["quality"]["retro_priced_days"] == 6
+    assert sep["prices"] == [
+        {
+            "valid_from": "2026-10-01",
+            "subscription_eur_month": 15.0,
+            "rates": {"hc": 0.2, "hp": 0.3},
+        }
+    ]
+
+
+def test_prices_lists_each_row_a_bucket_used():
+    daily = {d: 10_000 for d in days(date(2026, 9, 1), date(2026, 10, 1))}
+    t = tariff(
+        Prices(date(2026, 1, 1), 15.0, 0.20, 0.30), Prices(date(2026, 9, 16), 16.0, 0.25, 0.35)
+    )
+    [sep] = build_report(date(2026, 9, 1), date(2026, 10, 1), "month", inputs(daily, t=t))[
+        "buckets"
+    ]
+    assert [p["valid_from"] for p in sep["prices"]] == ["2026-01-01", "2026-09-16"]
+
+
+def test_split_method_and_present_days_per_bucket():
+    day = date(2026, 10, 6)
+    daily = {day: 24_000, day + timedelta(days=1): 24_000}
+    curve = {day: flat(day, 24.0)}
+    r = build_report(day, day + timedelta(days=3), "day", inputs(daily, curve=curve, t=tariff()))
+    assert [b["split_method"] for b in r["buckets"]] == ["curve", "fallback_window", None]
+    assert [b["present_days"] for b in r["buckets"]] == [1, 1, 0]
+    both = build_report(
+        day, day + timedelta(days=2), "month", inputs(daily, curve=curve, t=tariff())
+    )
+    assert both["buckets"][0]["split_method"] == "mixed"
+
+
+def test_curve_figures_per_bucket_and_quality():
+    day = date(2026, 10, 6)
+    points = flat(day, 24.0)  # 500 Wh per half-hour = 1 000 W
+    points[38] = CurvePoint(points[38].ts, 30, 3000.0)  # 19:00–19:30 at 6 000 W
+    daily = {day: 26_000}  # the meter reads 500 Wh less than the curve's 26.5 kWh
+    r = build_report(day, day + timedelta(days=1), "day", inputs(daily, curve={day: points}))
+    [b] = r["buckets"]
+    assert b["curve"] == {
+        "complete_days": 1,
+        "kwh": 26.5,
+        "peak_w": 6000,
+        "peak_ts": points[38].ts,
+        "base_w_p10": 1000,
+        "night_min_w": 1000,
+    }
+    assert r["quality"]["curve_vs_daily_pct"] == pytest.approx(500 / 26_000 * 100, abs=0.01)
+    assert r["boundary_prorated"] is False
+
+
+def test_l11_slots_off_the_half_hour_are_flagged():
+    t = Tariff("hchp", 9, (Slot("00:50", "06:50"),), (Prices(date(2026, 1, 1), 15.0, 0.2, 0.3),))
+    r = build_report(date(2026, 10, 1), date(2026, 10, 2), "day", inputs({}, t=t))
+    assert r["boundary_prorated"] is True
+
+
+def test_the_hc_lens_states_facts_for_the_selected_period():
+    day = date(2026, 10, 6)
+    daily = {day: 24_000}
+    curve = {day: flat(day, 24.0)}  # HALF: half of every flat day is off-peak
+    r = build_report(day, day + timedelta(days=1), "day", inputs(daily, curve=curve, t=tariff()))
+    assert r["hc_lens"] == {
+        "hc_share": 0.5,
+        "slot_share": 0.5,
+        "avg_price": 0.25,
+        "delta_price": 0.1,
+    }
+    assert build_report(day, day + timedelta(days=1), "day", inputs(daily))["hc_lens"] is None

@@ -8,6 +8,7 @@ from datetime import date
 from zoneinfo import ZoneInfo
 
 from kelvin.billing.slots import Ranges, split_curve
+from kelvin.billing.split import Share
 from kelvin.billing.tariff import Prices
 from kelvin.linky.models import CurvePoint, curve_complete
 
@@ -28,6 +29,7 @@ class DayEnergy:
     hc_kwh: float | None  # None without a tariff (no slots, no split)
     hp_kwh: float | None
     estimated: bool  # split from the fallback HC share, not this day's curve
+    method: str | None = None  # "curve" or the fallback method (L6); None without a tariff
 
 
 def days_in_month(day: date) -> int:
@@ -40,7 +42,7 @@ def day_energy(
     points: list[CurvePoint] | None,
     ranges: Ranges | None,
     tz: ZoneInfo,
-    fallback_share: float,
+    fallback: Share,
 ) -> DayEnergy | None:
     """The daily total is the authority; a complete curve only decides how it splits."""
     complete = curve_complete(day, points, tz)
@@ -52,11 +54,16 @@ def day_energy(
         return DayEnergy(day, total_wh / 1000, None, None, False)
     if complete and points and curve_wh > 0:
         hc_wh, _ = split_curve(points, ranges, tz)
-        share, estimated = hc_wh / curve_wh, False
+        share, method = hc_wh / curve_wh, "curve"
     else:
-        share, estimated = fallback_share, True
+        share, method = fallback.value, fallback.method
     return DayEnergy(
-        day, total_wh / 1000, total_wh * share / 1000, total_wh * (1 - share) / 1000, estimated
+        day,
+        total_wh / 1000,
+        total_wh * share / 1000,
+        total_wh * (1 - share) / 1000,
+        method != "curve",
+        method,
     )
 
 

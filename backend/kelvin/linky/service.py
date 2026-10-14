@@ -27,6 +27,7 @@ from kelvin.recorder.recorder import Recorder
 log = logging.getLogger(__name__)
 
 SourceFactory = Callable[[str, str], LinkySource]
+LOOKBACK_DAYS = 400  # last year's period, the 30 trailing days and the ±15-day HC share
 # Simulator only: demo values so Énergie shows euros out of the box. Never a real installation.
 DEMO_TARIFF = Tariff(
     "hchp", 9, (Slot("22:00", "06:00"),), (Prices(date(2000, 1, 1), 15.0, 0.20, 0.27),)
@@ -171,6 +172,11 @@ class LinkyService:
             period = (first, next_unit(first, group))
         tariff = self.tariffs.get()
         lo, hi = min(start, period[0]), max(end, period[1])
+        # Linky rows are loaded for the window, the period and what the comparisons, the
+        # projection and the fallback HC share look back at: bounded, never the whole store.
+        anchor = self.store.last_day() or self.today()
+        load_lo = min(lo, anchor) - timedelta(days=LOOKBACK_DAYS)
+        load_hi = max(hi, self.today() + timedelta(days=1))
         edges = local_edges(lo, hi, "halfhour", self.tz)
         halfhours = recorder.energy_buckets(edges, recorder.energy_radiator_ids())
         radiators = {
@@ -184,8 +190,8 @@ class LinkyService:
             sorted(radiators), day_bounds(period[0], self.tz)[0], day_bounds(period[1], self.tz)[0]
         )
         inputs = ReportInputs(
-            daily_wh=self.store.daily(),
-            curve=self.store.curve(),
+            daily_wh=self.store.daily(load_lo, load_hi),
+            curve=self.store.curve(load_lo, load_hi),
             tariff=tariff,
             tz=self.tz,
             today=self.today(),
@@ -194,6 +200,8 @@ class LinkyService:
             radiator_life=life,
             rooms=rooms,
             sample_stats=stats,
+            linky_since=self.store.first_day(),
+            curve_since=self.store.first_curve_day(),
         )
         return build_report(start, end, group, inputs, period)
 

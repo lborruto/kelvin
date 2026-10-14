@@ -36,6 +36,10 @@ class LinkyStore:
         )
         return {date.fromisoformat(r["day"]): r["wh"] for r in rows}
 
+    def first_day(self) -> date | None:
+        row = self.db.query("SELECT MIN(day) AS d FROM linky_daily")[0]["d"]
+        return date.fromisoformat(row) if row else None
+
     def last_day(self) -> date | None:
         row = self.db.query("SELECT MAX(day) AS d FROM linky_daily")[0]["d"]
         return date.fromisoformat(row) if row else None
