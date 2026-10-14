@@ -25,6 +25,9 @@ updates:
       # SvelteKit stays on 2.x: @vite-pwa/sveltekit does not support kit 3.
       - dependency-name: "@sveltejs/kit"
         update-types: ["version-update:semver-major"]
+      # TypeScript 7 (the native compiler) is not supported by svelte-check yet.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       web:
         patterns: ["*"]
@@ -46,6 +49,10 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 14
+    ignore:
+      # Node majors are upgraded deliberately, LTS to LTS (odd majors are never LTS).
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
     groups:
       base-images:
         patterns: ["*"]
