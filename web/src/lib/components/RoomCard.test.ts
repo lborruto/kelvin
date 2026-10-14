@@ -96,7 +96,7 @@ describe('RoomCard', () => {
   });
 
   it('is a link to the room on desktop, marked current when it is the room shown', () => {
-    render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn(), navigates: true, selected: true });
+    render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn(), navigates: true, selected: true, current: true });
     const link = screen.getByRole('link', { name: /Salon/ });
     expect(link).toHaveAttribute('href', '/pieces/salon');
     expect(link).toHaveAttribute('aria-current', 'page');
@@ -104,6 +104,27 @@ describe('RoomCard', () => {
     // Focus stays on the card across the navigation (the list is not re-rendered).
     expect(link).toHaveAttribute('data-sveltekit-keepfocus');
     expect(screen.queryByRole('button', { name: /Salon/ })).toBeNull();
+  });
+
+  it('on "/" the chosen room is selected but not the current page', () => {
+    const { container } = render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn(), navigates: true, selected: true });
+    expect(screen.getByRole('link', { name: /Salon/ })).not.toHaveAttribute('aria-current');
+    expect(container.querySelector('.card')).toHaveClass('selected');
+  });
+
+  it('a requested comfort the radiators did not take disappears at once (no false « → value »)', () => {
+    house.applyPending({
+      id: 'p8', label: 'Salon : Confort', radiator_ids: ['a'], status: 'pending', error: null, created_at: 2,
+      expected: { a: { comfort: 23 } }
+    });
+    const { container } = render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn() });
+    expect(container.querySelector('.pending-sp')).toHaveTextContent('→ 23,0 °C');
+    house.applyPending({
+      id: 'p8', label: 'Salon : Confort', radiator_ids: ['a'], status: 'failed', error: 'x', created_at: 2,
+      expected: { a: { comfort: 23 } }
+    });
+    flushSync();
+    expect(container.querySelector('.pending-sp')).toBeNull();
   });
 
   it('underlines a pending comfort dashed, then closes it solid when the radiators report it', async () => {

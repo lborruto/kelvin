@@ -32,4 +32,13 @@ describe('Segmented', () => {
     await fireEvent.click(screen.getByRole('radio', { name: 'Année' }));
     expect(onchange).toHaveBeenLastCalledWith('year');
   });
+
+  it('a refused change (the value stays) keeps focus on the checked choice', async () => {
+    const opts = [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }];
+    render(Segmented, { options: opts, value: 'a', label: 'Choix', onchange: () => {} });
+    const a = screen.getByRole('radio', { name: 'A' });
+    a.focus();
+    await fireEvent.keyDown(a, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(a);
+  });
 });

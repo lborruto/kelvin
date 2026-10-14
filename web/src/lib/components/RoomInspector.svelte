@@ -24,7 +24,7 @@
   }
   let { roomId, level = 'h2' }: Props = $props();
   // On the phone room page the figure arrives from the card it was tapped on (view transition).
-  let vtName = $derived(level === 'h1' ? `temp-${roomId.replace(/[^a-zA-Z0-9_-]/g, '_')}` : undefined);
+  let vtName = $derived(level === 'h1' ? `temp-${house.rooms.findIndex((r) => r.id === roomId)}` : undefined);
 
   const RANGES = { day: { label: '24 h', days: 1, step: 900 }, week: { label: '7 j', days: 7, step: 3600 }, month: { label: '30 j', days: 30, step: 21600 } };
   type RangeKey = keyof typeof RANGES;
@@ -100,7 +100,7 @@
       {#if room.mode === 'mixed'}<p class="note">Mixte — les radiateurs n’ont pas le même mode</p>{/if}
       {#if mode === 'manual'}
         <div class="row"><span>Consigne</span>
-          <Stepper label="Consigne" value={expected.target ?? aTarget.value} min={7} max={maxT}
+          <Stepper label="Consigne" announce={false} value={expected.target ?? aTarget.value} min={7} max={maxT}
             disabled={!house.online} pending={expected.target !== undefined}
             onchange={(v) => run(() => api.roomSetpoint(roomId, 'manual', v))} />
           {#if aTarget.mixed && expected.target === undefined}<p class="note">Mixte (moyenne)</p>{/if}
@@ -108,12 +108,12 @@
       {/if}
       {#if mode !== 'off'}
         <div class="row"><span>Confort</span>
-          <Stepper label="Confort" value={expected.comfort ?? aComfort.value} min={12} max={maxT} disabled={!house.online}
+          <Stepper label="Confort" announce={false} value={expected.comfort ?? aComfort.value} min={12} max={maxT} disabled={!house.online}
             pending={expected.comfort !== undefined} onchange={(v) => run(() => api.roomSetpoint(roomId, 'comfort', v))} />
           {#if aComfort.mixed && expected.comfort === undefined}<p class="note">Mixte (moyenne)</p>{/if}
         </div>
         <div class="row"><span>Abaissement éco</span>
-          <Stepper label="Abaissement éco" value={expected.eco_delta ?? aEco.value} min={1} max={8}
+          <Stepper label="Abaissement éco" announce={false} value={expected.eco_delta ?? aEco.value} min={1} max={8}
             format={(v) => fmtDelta(v)} pending={expected.eco_delta !== undefined} disabled={!house.online}
             onchange={(v) => run(() => api.roomSetpoint(roomId, 'eco', v))} />
           {#if aEco.mixed && expected.eco_delta === undefined}<p class="note">Mixte (moyenne)</p>{/if}

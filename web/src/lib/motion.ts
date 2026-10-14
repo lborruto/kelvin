@@ -8,7 +8,7 @@
  */
 import type { TransitionConfig } from 'svelte/transition';
 
-export const T = { press: 100, state: 160, enter: 220, exit: 150, morph: 250, data: 360 } as const;
+export const T = { press: 100, state: 160, move: 200, enter: 220, exit: 150, morph: 250, data: 360 } as const;
 
 const REDUCE = '(prefers-reduced-motion: reduce)';
 

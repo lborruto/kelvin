@@ -1,4 +1,5 @@
 <script lang="ts" generics="T extends string">
+  import { flushSync } from 'svelte';
   interface Props {
     options: { value: T; label: string }[];
     value: T;
@@ -19,7 +20,9 @@
     if (next < 0) return;
     e.preventDefault();
     onchange(options[next].value);
-    buttons[next]?.focus();
+    flushSync();
+    // A refused change (Programme asks before dropping edits) keeps focus on the checked choice.
+    if (value === options[next].value) buttons[next]?.focus();
   }
 </script>
 

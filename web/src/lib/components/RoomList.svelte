@@ -12,8 +12,10 @@
 
   interface Props {
     selectedId?: string | null;
+    /** The selected room is the page's URL ("/pieces/[id]"), not the default of "/". */
+    selectedIsPage?: boolean;
   }
-  let { selectedId = null }: Props = $props();
+  let { selectedId = null, selectedIsPage = false }: Props = $props();
 
   let expanded = $state<string | null>(remembered ? remembered.id : null);
   let autoExpanded = false;
@@ -49,7 +51,8 @@
   {:else}
     {#each house.rooms as room (room.id)}
       <RoomCard {room} {now} expanded={!desktop.matches && expanded === room.id} points={history.data[key(room.id)] ?? []}
-        onselect={() => select(room.id)} navigates={desktop.matches} selected={selectedId === room.id} />
+        onselect={() => select(room.id)} navigates={desktop.matches} selected={selectedId === room.id}
+        current={selectedIsPage && selectedId === room.id} />
     {/each}
   {/if}
 </div>

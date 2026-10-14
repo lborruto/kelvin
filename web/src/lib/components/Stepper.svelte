@@ -15,12 +15,14 @@
     disabled?: boolean;
     debounceMs?: number;
     format?: (v: number | null) => string;
+    /** Announce each committed value; off where the command's own progress is announced. */
+    announce?: boolean;
     /** May return the send's promise: a `null` result (rejected send) drops the unsent value at once. */
     onchange: (v: number) => unknown;
   }
   let {
     value, min, max, step = 0.5, label, pending = false, disabled = false,
-    debounceMs = 600, format = (v) => fmtTemp(v), onchange
+    debounceMs = 600, format = (v) => fmtTemp(v), announce = true, onchange
   }: Props = $props();
 
   const FALLBACK_MS = 10_000;
@@ -94,7 +96,7 @@
 
   function commit() {
     // One announcement per settled choice, not per tap or hold step.
-    if (local !== null) announcer.say(`${label} : ${format(local)}`);
+    if (announce && local !== null) announcer.say(`${label} : ${format(local)}`);
     if (local !== null && local !== value) {
       committed = true;
       fallbackTimer = setTimeout(release, FALLBACK_MS);

@@ -119,6 +119,9 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
     es = null;
     disarm();
     store.connection = 'reconnecting';
+    // Should no « online » follow (some VPN and captive-portal transitions), keep trying slowly.
+    if (timer) cancel(timer);
+    timer = schedule(open, MAX_DELAY_MS);
   }
   function onOnline() {
     if (closed) return;

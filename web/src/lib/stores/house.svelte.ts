@@ -60,6 +60,9 @@ export class HouseStore {
   /** Announce the progress of a command sent from here (Envoi…, Confirmé, the failure). */
   watch(id: string): void {
     this.watched.add(id);
+    // The stream may have told us before the POST answered: announce what is already known.
+    const known = this.pending[id];
+    if (known) this.announce(undefined, known);
   }
 
   private announce(prev: Pending | undefined, next: Pending): void {

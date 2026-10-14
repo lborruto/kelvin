@@ -82,6 +82,15 @@ describe('Login', () => {
     expect(screen.getByRole('button', { name: 'Se connecter' })).not.toBeDisabled();
   });
 
+  it('a server failure is not blamed on the fields', async () => {
+    vi.mocked(api.login).mockRejectedValue(new ApiError(503, 'Cozytouch ne répond pas.'));
+    render(Page);
+    await fill('demo@kelvin.local', 'kelvin');
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('Email')).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByLabelText('Mot de passe')).not.toHaveAttribute('aria-invalid');
+  });
+
   it('never follows an outside next', async () => {
     url.current = new URL('http://kelvin.test/login?next=%2F%2Fevil.fr');
     vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });

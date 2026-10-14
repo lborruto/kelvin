@@ -128,6 +128,16 @@ test('phone room page: the room is the h1, and moving to another tab focuses its
   await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeFocused();
 });
 
+test('the toast live regions are rendered (not display: none) before any toast', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  const displays = await page
+    .locator('.toasts [aria-live]')
+    .evaluateAll((els) => els.map((e) => getComputedStyle(e).display));
+  expect(displays).toHaveLength(2);
+  expect(displays).not.toContain('none');
+});
+
 test('"/" opens a default room: inspector on desktop, expanded card on the phone', async ({ page, isMobile }) => {
   await page.goto('/');
   if (isMobile) {
@@ -177,6 +187,15 @@ test('a deep link registers the service worker at the root', async ({ page, isMo
   expect(new URL(reg.script!).pathname).toBe('/sw.js');
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/manifest.webmanifest');
   expect(errors.filter((e) => /MIME type/.test(e))).toEqual([]);
+});
+
+test('/maison#linky and #tarif land on their panel once it has loaded', async ({ page }) => {
+  for (const id of ['linky', 'tarif']) {
+    await page.goto(`/maison#${id}`);
+    await expect(page.locator(`#${id} h2`)).toBeVisible();
+    await expect(page.locator(`#${id}`).getByRole('button').first()).toBeVisible();
+    await expect(page.locator(`#${id} h2`)).toBeInViewport();
+  }
 });
 
 test('Réglages saves a tariff and shows the simulated Linky', async ({ page }) => {

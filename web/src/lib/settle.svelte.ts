@@ -10,7 +10,9 @@ export const SETTLE_MS = 250;
  * While `requested()` returns a value, the mark is pending (dashed). When it returns null again
  * (the command answered or failed), that value is held for `holdMs`: if the radiator now reports
  * exactly it, `confirmed` turns true and the window restarts, so the dash always closes in full.
- * A different reported value simply ends the hold: no morph, never a confirmation on a timer.
+ * If it never does within the window, the hold ends without a morph: `held` is still set during
+ * the window, so callers show the held value only while `confirmed`. Never a confirmation on a
+ * timer.
  *
  * Create it during component initialisation (it owns effects).
  */

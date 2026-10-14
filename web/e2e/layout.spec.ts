@@ -56,17 +56,18 @@ test.describe('layout', () => {
 
   for (const path of ['/maison', '/energie']) {
     test(`${path} loads without layout shift (CLS < 0.05)`, async ({ page }) => {
+      // Registered once: every navigation starts a fresh count.
+      await page.addInitScript(() => {
+        const w = window as unknown as { __cls: number };
+        w.__cls = 0;
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) {
+            if (!e.hadRecentInput) w.__cls += e.value;
+          }
+        }).observe({ type: 'layout-shift', buffered: true });
+      });
       for (const width of [390, 1280]) {
         await page.setViewportSize({ width, height: 900 });
-        await page.addInitScript(() => {
-          const w = window as unknown as { __cls: number };
-          w.__cls = 0;
-          new PerformanceObserver((list) => {
-            for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) {
-              if (!e.hadRecentInput) w.__cls += e.value;
-            }
-          }).observe({ type: 'layout-shift', buffered: true });
-        });
         // A cold load: the data arrives after the first paint, as on a real visit.
         await page.route('**/api/**', async (route) => {
           await new Promise((r) => setTimeout(r, 150));

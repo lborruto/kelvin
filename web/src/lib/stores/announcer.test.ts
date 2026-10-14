@@ -38,6 +38,14 @@ describe('command progress', () => {
     expect(announcer.assertive).toBe('Salon : Manuel — Pas de confirmation du radiateur.');
   });
 
+  it('announces Envoi… even when the stream reported the command before the POST answered', () => {
+    const store = new HouseStore(() => 0);
+    store.applyPending(pending('sending') as never);
+    expect(announcer.polite).toBe('');
+    store.watch('p1');
+    expect(announcer.polite).toBe('Salon : Manuel — envoi…');
+  });
+
   it('stays quiet about commands sent elsewhere', () => {
     const store = new HouseStore(() => 0);
     store.applyPending(pending('sending') as never);

@@ -30,11 +30,14 @@
     navigates?: boolean;
     /** The room shown in the inspector (desktop). */
     selected?: boolean;
+    /** This card's room is the page's URL (a room page, not "/"). */
+    current?: boolean;
   }
-  let { room, now, expanded, points, onselect, navigates = false, selected = false }: Props = $props();
+  let { room, now, expanded, points, onselect, navigates = false, selected = false, current = false }: Props = $props();
   const uid = $props.id();
   // The phone card's figure becomes the room page's figure (a shared-element view transition).
-  let vtName = $derived(navigates ? undefined : `temp-${room.id.replace(/[^a-zA-Z0-9_-]/g, '_')}`);
+  // Named by the room's position, which is unique whatever characters its id holds.
+  let vtName = $derived(navigates ? undefined : `temp-${house.rooms.findIndex((r) => r.id === room.id)}`);
 
   let radiators = $derived(house.roomRadiators(room.id));
   let first = $derived(radiators[0]);
@@ -52,7 +55,10 @@
   let level = $derived(room.mode === 'off' ? null : room.heating_level);
   // The comfort asked for, underlined dashed on the setpoint until the radiators report it.
   const comfortSettle = new Settle<number>(() => expected.comfort ?? null, () => aComfort.value);
-  let shownComfort = $derived(mode === 'program' ? (expected.comfort ?? comfortSettle.held?.v) : undefined);
+  // After the answer, the requested value stays only if the radiators confirmed it.
+  let shownComfort = $derived(
+    mode === 'program' ? (expected.comfort ?? (comfortSettle.confirmed ? comfortSettle.held?.v : undefined)) : undefined
+  );
 
   const setMode = (m: 'off' | 'manual' | 'program') => run(() => api.roomMode(room.id, m));
   const setTarget = (v: number) => run(() => api.roomSetpoint(room.id, 'manual', v));
@@ -77,7 +83,7 @@
 
 <article class="card" class:expanded class:selected class:link={navigates}>
   {#if navigates}
-    <a class="head" href="/pieces/{room.id}" aria-current={selected ? 'page' : undefined} data-sveltekit-keepfocus
+    <a class="head" href="/pieces/{room.id}" aria-current={current ? 'page' : undefined} data-sveltekit-keepfocus
       data-sveltekit-noscroll>{@render headInner()}</a>
   {:else}
     <button type="button" class="head" aria-expanded={expanded} aria-controls="{uid}-controls" onclick={onselect}>{@render headInner()}</button>
@@ -100,11 +106,11 @@
       <ModeSwitch value={room.mode} pending={expected.mode ?? null} compact disabled={!house.online} onchange={setMode} />
       {#if mode === 'manual'}
         <div class="row"><span class="label">Consigne{#if aTarget.mixed && expected.target === undefined}<span class="note">Mixte (moyenne)</span>{/if}</span>
-          <Stepper label="Consigne" value={expected.target ?? aTarget.value} min={7} max={maxT} disabled={!house.online}
+          <Stepper label="Consigne" announce={false} value={expected.target ?? aTarget.value} min={7} max={maxT} disabled={!house.online}
             pending={expected.target !== undefined} onchange={setTarget} /></div>
       {:else if mode === 'program'}
         <div class="row"><span class="label">Confort{#if aComfort.mixed && expected.comfort === undefined}<span class="note">Mixte (moyenne)</span>{/if}</span>
-          <Stepper label="Confort" value={expected.comfort ?? aComfort.value} min={12} max={maxT} disabled={!house.online}
+          <Stepper label="Confort" announce={false} value={expected.comfort ?? aComfort.value} min={12} max={maxT} disabled={!house.online}
             pending={expected.comfort !== undefined} onchange={setComfort} /></div>
       {/if}
     </div>

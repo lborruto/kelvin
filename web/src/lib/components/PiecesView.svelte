@@ -37,7 +37,7 @@
 {/if}
 
 <div class="cols">
-  {#if showList}<RoomList selectedId={desktop.matches ? roomId : null} />{/if}
+  {#if showList}<RoomList selectedId={desktop.matches ? roomId : null} selectedIsPage={!home} />{/if}
   {#if showInspector}<div class="detail"><RoomInspector roomId={roomId ?? ''} level={showList ? 'h2' : 'h1'} /></div>{/if}
 </div>
 

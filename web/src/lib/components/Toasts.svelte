@@ -17,7 +17,7 @@
         <!-- Pausing on hover is a reading aid, not an interaction: the close button is the control. -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="toast" class:error={t.kind === 'error'} in:rise={{ y: 12 }} out:fade={{ duration: dur(T.exit) }}
-          animate:flip={{ duration: dur(200), easing: easeOut }}
+          animate:flip={{ duration: dur(T.move), easing: easeOut }}
           onpointerenter={() => toasts.pause(t.id)} onpointerleave={() => toasts.resume(t.id)}
           onfocusin={() => toasts.pause(t.id)} onfocusout={() => toasts.resume(t.id)}>
           <span>{t.message}</span>

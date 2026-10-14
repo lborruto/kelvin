@@ -41,8 +41,9 @@
       await goto(safeNext(page.url.searchParams.get('next')), { replaceState: true });
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Erreur inattendue.';
-      // A refused account is about both fields; the password is the one to retype.
-      invalid = 'both';
+      // A refused account is about both fields (the password is the one to retype); a network or
+      // server failure is about neither.
+      invalid = err instanceof ApiError && (err.status === 401 || err.status === 403) ? 'both' : null;
       busy = false;
       await tick();
       passwordEl?.focus();

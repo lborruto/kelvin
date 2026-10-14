@@ -71,7 +71,7 @@
       <ModeSwitch label="Mode — {title}" value={radiator.mode} pending={expected.mode ?? null} compact
         disabled={!house.online} onchange={(m) => run(() => api.radiatorMode(radiator.id, m))} />
       {#if (expected.mode ?? radiator.mode) === 'manual'}
-        <Stepper label="Consigne {title}" value={expected.target ?? radiator.target} min={7}
+        <Stepper label="Consigne {title}" announce={false} value={expected.target ?? radiator.target} min={7}
           max={radiator.max_temperature} pending={expected.target !== undefined} disabled={!house.online}
           onchange={(v) => run(() => api.radiatorSetpoint(radiator.id, 'manual', v))} />
       {/if}
