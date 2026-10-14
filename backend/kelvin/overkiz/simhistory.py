@@ -135,7 +135,7 @@ def _energy_rows(
     r: Radiator, samples: list[tuple], hours: list[int], zone: ZoneInfo
 ) -> list[tuple]:
     end_counters = r.energy_wh
-    if r.power_w is None or end_counters is None:
+    if r.power_w is None or end_counters is None or None in end_counters.values():
         return []
     rate: dict[int, list[float]] = {}
     for s in samples:

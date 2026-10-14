@@ -31,7 +31,7 @@ export interface Radiator {
   window_detection: boolean;
   presence_detection: boolean;
   light: { on: boolean; intensity: number | null } | null;
-  energy_wh: { total: number; t1: number; t2: number } | null;
+  energy_wh: { total: number; t1: number | null; t2: number | null } | null;
   working_rate: number | null;
   rssi: number | null;
   program: WeekProgram;
@@ -113,8 +113,11 @@ export interface EnergyBucket {
   bucket: string;
   radiator_id: string;
   kwh: number;
-  t1_kwh: number;
-  t2_kwh: number;
+  t1_kwh: number | null;
+  t2_kwh: number | null;
+  interpolated: boolean;
+  apportioned: boolean;
+  complete: boolean;
 }
 
 export interface CommandResult {

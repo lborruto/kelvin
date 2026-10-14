@@ -14,6 +14,10 @@ from kelvin.overkiz.sample import SAMPLE_GATEWAY
 from tests.conftest import ManualClock
 
 
+async def _no_sleep(_seconds: float) -> None:
+    return None
+
+
 @pytest.fixture
 def env():
     clock = ManualClock()
@@ -29,6 +33,7 @@ def env():
         wall=clock,
         on_changed=changed.append,
         on_status=statuses.append,
+        sleep=_no_sleep,
     )
     pump.mark_ok()
     return clock, gw, house, svc, pump, changed, statuses
@@ -65,15 +70,104 @@ async def test_auth_error_triggers_login(env):
     assert gw.logins == 1
 
 
-async def test_periodic_refresh_catches_missed_changes(env):
+async def test_state_reads_in_turn_catch_missed_changes_without_a_full_setup_read(env):
     clock, gw, house, _, pump, changed, _ = env
     gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
     await pump.run_once()
     assert house.radiators["9312063"].temperature == 20.2
-    clock.advance(600)
-    await pump.run_once()
+    for _ in house.radiators:  # one radiator per 600 s, in turn
+        clock.advance(600)
+        await pump.run_once()
     assert house.radiators["9312063"].temperature == 22.0
     assert {"9312063"} in changed
+    assert gw.snapshots == 0
+
+
+async def test_a_day_of_polling_makes_no_full_setup_read(env):
+    """Ruling 8: GET /setup/devices and /setup/places are documented as 1 call a day."""
+    clock, gw, house, _, pump, _, _ = env
+    for _ in range(2880):  # 24 h of idle polls, every 30 s
+        clock.advance(30)
+        await pump.run_once()
+    assert gw.snapshots == 0
+    ids = sorted(house.radiators)
+    expected = sum(len(house.radiators[ids[k % len(ids)]].states) for k in range(144))
+    assert gw.state_reads == expected  # one radiator's devices every 10 min
+
+
+async def test_resync_beyond_the_daily_budget_reads_device_by_device(env):
+    _, gw, house, _, pump, changed, _ = env
+    for _ in range(pump.guard.limit):
+        pump.guard.record()
+    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
+    pauses: list[float] = []
+
+    async def record_pause(seconds: float) -> None:
+        pauses.append(seconds)
+
+    pump.sleep = record_pause
+    pump.request_resync()
+    await pump.run_once()
+    assert gw.snapshots == 0
+    assert gw.state_reads == len(house.device_urls())
+    assert pauses == [pump.device_pause] * (len(house.device_urls()) - 1)  # paced
+    assert house.radiators["9312063"].temperature == 22.0
+    assert {"9312063"} in changed
+
+
+async def test_a_failed_state_read_backs_off_and_retries_the_resync(env):
+    clock, gw, house, _, pump, _, _ = env
+    for _ in range(pump.guard.limit):
+        pump.guard.record()
+    pump.request_resync()
+    gw.fail_states = QuotaError("QUOTA_EXCEEDED")
+    assert await pump.run_once() == 30.0
+    assert pump.connected is False and pump._resync_due is True
+    gw.fail_states = None
+    clock.advance(30)
+    await pump.run_once()
+    assert pump.connected is True
+    assert gw.state_reads == 0  # after a quota answer, no burst of device reads
+    clock.advance(600)
+    await pump.run_once()
+    assert pump._resync_due is False
+    assert gw.state_reads == len(house.device_urls())
+    clock.advance(30)
+    await pump.run_once()
+    assert gw.state_reads == len(house.device_urls())  # recovery did not re-arm the resync
+
+
+async def test_a_quota_answer_to_a_state_read_does_not_arm_a_resync(env):
+    """Events were fetched first, so nothing was lost: no resync after recovery."""
+    clock, gw, _, _, pump, _, _ = env
+    clock.advance(600)
+    gw.fail_states = QuotaError("QUOTA_EXCEEDED")
+    await pump.run_once()
+    assert pump.connected is False and pump._resync_due is False
+    gw.fail_states = None
+    clock.advance(30)
+    await pump.run_once()
+    assert pump.connected is True and pump._resync_due is False
+    assert gw.snapshots == 0 and gw.state_reads == 0
+
+
+async def test_a_device_whose_state_read_always_fails_never_stalls_the_pump(env):
+    clock, gw, house, svc, pump, _, statuses = env
+    gw.broken_devices.update(house.device_urls())
+    r = house.radiators["9312063"]
+    p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
+    clock.advance(600)  # the rotation is due in the same poll as the confirmation
+    await pump.run_once()
+    assert p.status == "confirmed" and r.mode == "manual"
+    assert pump.connected is True and gw.failed_state_reads > 0
+    for _ in range(2880):  # a day of polls
+        clock.advance(30)
+        await pump.run_once()
+        assert pump.connected is True
+    assert statuses == []
+    assert gw.snapshots == 0 and pump._resync_due is False
+    # each broken device is retried less and less often (at most every 6 h in the end)
+    assert gw.failed_state_reads <= 10 * len(house.device_urls())
 
 
 async def test_outage_longer_than_timeout_fails_pending(env):
@@ -154,13 +248,13 @@ async def test_event_exception_does_not_skip_batch(env):
     assert house.radiators["9312063"].temperature == 21.0
 
 
-async def test_refresh_changes_emitted_when_fetch_fails(env):
+async def test_event_changes_emitted_when_a_state_read_fails(env):
     clock, gw, _, _, pump, changed, _ = env
-    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
+    gw.push_state(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
     clock.advance(600)
-    gw.fail_fetch = QuotaError("quota")
+    gw.fail_states = QuotaError("quota")
     await pump.run_once()
-    assert {"9312063"} in changed
+    assert {"9312063"} in changed and pump.connected is False
 
 
 async def test_backoff_exponent_capped(env):
@@ -170,14 +264,57 @@ async def test_backoff_exponent_capped(env):
     assert await pump.run_once() == 600.0
 
 
-async def test_reconnect_forces_full_refresh(env):
+async def test_reconnect_forces_one_full_setup_read(env):
     clock, gw, house, _, pump, changed, _ = env
     gw.fail_fetch = QuotaError("quota")
     await pump.run_once()
     await pump.run_once()
     gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
     gw.fail_fetch = None
-    await pump.run_once()  # reconnect
-    await pump.run_once()  # full refresh, no 600 s wait
+    await pump.run_once()  # reconnect: events, then the one full read, no 600 s wait
+    await pump.run_once()
     assert house.radiators["9312063"].temperature == 22.0
     assert {"9312063"} in changed
+    assert gw.snapshots == 1 and pump.status()["setup_reads_24h"] == 1
+
+
+async def test_an_outage_resync_never_takes_the_last_full_setup_read(env):
+    """Final review I1: a flaky outage must leave the last full read to a restart."""
+    _, gw, house, _, pump, _, _ = env
+    gw.fail_snapshot = QuotaError("flapping")
+    for _ in range(2 * pump.guard.limit):  # events fail, then the resync's full read fails
+        gw.fail_fetch = QuotaError("down")
+        await pump.run_once()
+        gw.fail_fetch = None
+        pump._quota_hold_until = float("-inf")
+        await pump.run_once()
+    assert pump.guard.used() == pump.guard.limit - 1 and pump.guard.allowed()
+    assert gw.snapshots == pump.guard.limit - 1
+
+
+async def test_a_resync_with_one_full_read_left_reads_device_by_device(env):
+    _, gw, house, _, pump, _, _ = env
+    for _ in range(pump.guard.limit - 1):
+        pump.guard.record()
+    pump.request_resync()
+    await pump.run_once()
+    assert gw.snapshots == 0 and gw.state_reads == len(house.device_urls())
+    assert pump.guard.used() == pump.guard.limit - 1
+
+
+async def test_a_resync_with_two_full_reads_left_takes_one(env):
+    _, gw, _, _, pump, _, _ = env
+    for _ in range(pump.guard.limit - 2):
+        pump.guard.record()
+    pump.request_resync()
+    await pump.run_once()
+    assert gw.snapshots == 1 and gw.state_reads == 0
+
+
+async def test_a_full_read_hands_the_setup_on_for_storage(env):
+    _, gw, _, _, pump, _, _ = env
+    seen = []
+    pump.on_setup = lambda root, devices: seen.append((root.oid, len(devices)))
+    pump.request_resync()
+    await pump.run_once()
+    assert seen == [(gw.root.oid, len(gw.devices))]

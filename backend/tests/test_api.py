@@ -278,3 +278,105 @@ async def test_snapshot_carries_recently_settled_commands(ctx):
     snap = (await c.get("/api/house")).json()
     assert pid not in [p["id"] for p in snap["pending"]]
     assert {p["id"]: p["status"] for p in snap["recent"]}[pid] in ("confirmed", "failed")
+
+
+async def test_startup_makes_one_full_setup_read_and_reports_it(ctx):
+    c, rt, _ = ctx
+    assert rt.gateway.snapshots == 1
+    body = (await c.get("/api/status")).json()
+    assert body["overkiz"]["setup_reads_24h"] == 1
+
+
+async def test_overkiz_quotas_are_read_on_demand_and_cached(ctx):
+    c, rt, _ = ctx
+    assert rt.gateway.quota_reads == 0  # nothing reads them unless asked
+    body = (await c.get("/api/overkiz/quotas")).json()
+    assert body["quotas"][0] == {"name": "setup-bulk-load", "remaining": 2, "limit": 3}
+    await c.get("/api/overkiz/quotas")
+    assert rt.gateway.quota_reads == 1
+
+
+async def test_overkiz_quotas_unreachable_is_a_french_503(ctx):
+    from kelvin.overkiz.errors import QuotaError
+
+    c, rt, _ = ctx
+    rt.gateway.fail_quotas = QuotaError("QUOTA_EXCEEDED")
+    r = await c.get("/api/overkiz/quotas")
+    assert r.status_code == 503
+    assert r.json()["detail"] == "Cozytouch injoignable, réessayez plus tard."
+    rt.quotas = None
+    r = await c.get("/api/overkiz/quotas")
+    assert r.status_code == 503
+    assert r.json()["detail"] == "Quotas indisponibles."
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"start": 0, "end": 3600},  # before 2000
+        {"start": 2_000_000_000, "end": 1_999_000_000},  # end before start
+        {"start": 1_000_000_000, "end": 1_000_000_000 + 5 * 366 * 86400},  # over 4 years
+        {"start": 1_700_000_000, "end": 1_700_000_000 + 300 * 10_001},  # 10 001 points
+    ],
+)
+async def test_history_windows_are_bounded(ctx, params):
+    c, _, _ = ctx
+    p = {"radiators": "9312063", **params}
+    r = await c.get("/api/history", params=p)
+    assert r.status_code == 422 and r.json()["detail"] == "Période invalide."
+
+
+async def test_too_many_or_malformed_radiator_ids_are_refused(ctx):
+    c, _, _ = ctx
+    now = time.time()
+    many = ",".join(f"r{i}" for i in range(51))
+    for path in ("/api/history", "/api/energy/radiators"):
+        r = await c.get(path, params={"radiators": many, "start": now - 3600, "end": now})
+        assert r.status_code == 422 and r.json()["detail"] == "Trop de radiateurs dans la demande."
+    r = await c.get(
+        "/api/energy/radiators", params={"radiators": "a/b", "start": now - 3600, "end": now}
+    )
+    assert r.status_code == 422 and r.json()["detail"] == "Radiateur inconnu."
+
+
+async def test_hourly_radiator_energy_is_capped_at_two_months(ctx):
+    c, _, _ = ctx
+    now = time.time()
+    p = {"start": now - 63 * 86400, "end": now, "group": "hour"}
+    assert (await c.get("/api/energy/radiators", params=p)).status_code == 422
+    p["group"] = "day"
+    assert (await c.get("/api/energy/radiators", params=p)).status_code == 200
+
+
+async def test_a_history_step_too_large_is_refused_not_a_crash(ctx):
+    c, _, _ = ctx
+    now = time.time()
+    for step in (10**19, 2**63):
+        p = {"radiators": "9312063", "start": now - 86400, "end": now, "step": step}
+        assert (await c.get("/api/history", params=p)).status_code == 422
+
+
+async def test_a_failing_energy_snapshot_never_suppresses_the_live_update(ctx, monkeypatch, caplog):
+    c, rt, _ = ctx
+
+    def broken(ids=None):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(rt.recorder, "snapshot_energy", broken)
+    q = rt.broadcaster.subscribe()
+    rt.pump.on_changed({"9312063"})
+    assert q.get_nowait()["event"] == "house"
+    assert "energy snapshot failed" in caplog.text
+    rt.broadcaster.unsubscribe(q)
+
+
+async def test_an_unexpected_quota_failure_is_a_french_503_not_a_500(ctx):
+    c, rt, _ = ctx
+
+    async def broken():
+        raise ValueError("unexpected payload")
+
+    rt.gateway.quotas = broken
+    rt.quotas = type(rt.quotas)(broken)
+    r = await c.get("/api/overkiz/quotas")
+    assert r.status_code == 503 and r.json()["detail"] == "Quotas indisponibles."

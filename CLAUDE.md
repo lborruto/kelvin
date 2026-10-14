@@ -33,6 +33,52 @@ depends on.
 
 - **Device state is the source of truth.** A command is done when the expected state arrives.
   Overkiz often reports `FAILED OVERRIDEMODE_ERROR` for commands that did apply.
+- **Overkiz quota:** never call `Gateway.snapshot()` (`GET /setup/places` + `/setup/devices`,
+  documented as one call a day) on a timer. Full setup reads go through the one stored
+  `SetupReadGuard` (`overkiz/budget.py`, at most 3 per 24 h, kept across restarts); reconcile
+  with `device_states(url)` instead (one radiator every 10 minutes). The poller never takes the
+  last read of the day; a start never waits for the budget (stored setup structure, else one
+  overdraft read a day). Never send `states/refresh`.
+- **Radiator energy:** a meter reading is a value at the time Kelvin learned it; rows are
+  written only when a counter changes, so an equal value is no reading and proves nothing
+  (Overkiz's value can lag the meter). Every radiator kWh comes from `recorder/energy.py`
+  (`clean_spans` → `apportion`) through `Recorder` (`energy_buckets`, `radiator_energy`);
+  never difference raw rows elsewhere. An absent counter is `NULL`, never 0. T1/T2 are the
+  radiator's registers, not HC/HP: radiator HC/HP come from Kelvin's slots per half-hour
+  (`billing/radiators.py`).
+- **Never invent energy.** `clean_spans` would rather leave a span unknown than count a kWh it
+  cannot prove: a jump above the radiator's power (+10 %, +1 min; `FALLBACK_POWER_W` = 5 kW
+  when the power is unknown, for plausibility only, never for weights) is skipped, never
+  adopted as consumption; a new level that persists is a rebase (never consumption); a large
+  increase after a quiet stretch (above 3 h of full power) is held until the next reading
+  confirms it, so the latest span may be `null`. The time after a counter's last change is
+  `null` until it changes again; once it does, the working-rate samples put the span's energy
+  in the heating hours, so idle days inside it read a measured 0.
+- **Same bucket, same figure.** Readings are cleaned in fixed, epoch-aligned 28-day chunks
+  (`CHUNK_S`), each replaying from 3 days before it (`LOOKBACK_S`), so a bucket's energy never
+  depends on the window asked; the hypothesis window property in `tests/test_recorder.py`
+  guards it. Keep any change to `clean_spans` or the chunking window-consistent.
+- **Report figures:** never pass a partial sum off as whole. In `/api/energy/day`, a
+  half-hour's radiator sum (and a room's) is `null` unless every radiator that existed then is
+  known (`radiators_known` / `radiators_total`). In the report, a radiator sum may be partial
+  and says so with `coverage` (radiator-days fully measured / radiator-days that existed, up to
+  yesterday); its kWh, HC/HP and € count exactly the days coverage counts (never today), it is
+  `null` only when nothing is known, and « Reste » is the meter minus the radiators only at
+  coverage 1 with every day of the bucket present. Coverage, room stats and comparisons count
+  only elapsed days; comparisons pair days with Linky data on both sides and give no `change`
+  above 20 % of pairs dropped (`comparison.basis` says whether a period is compared unit by
+  unit or by its length). No Linky figure, subscription or comparison counts a day before the
+  report's first day (the contract start, but not before the daily backfill window unless
+  Kelvin stored older days), in the report and in `/api/energy/day` alike; from it on, every
+  counted day pays its subscription, with or without data. Radiator figures come from the
+  radiators' own meters, not the contract: the report's radiator sums and `by_radiator` count
+  them on any day the radiator existed, while the day view shows no intervals before the first
+  day.
+- **Schema changes** go in `recorder/db.py` `MIGRATIONS`: idempotent, batched, recorded in the
+  `schema_version` setting.
+- **Bounded work:** API windows are bounded (`_check_span`, `_check_days`: 4 × 366 days at
+  most, 62 for hourly radiator buckets, `422 Période invalide.` otherwise), readings stream in pages (`PAGE_ROWS`), and loops
+  that delete or migrate work in fixed batches.
 - **Restore order:** a restore sets the previous target first, then the mode, in one action. In
   programme mode the target is the remembered manual setpoint.
 - **Language:** user-facing strings (errors, labels, UI) are French and follow DESIGN.md
@@ -60,5 +106,6 @@ depends on.
 ## Checks
 
 - backend: `cd backend && uv run pytest -q && uv run ruff check . && uv run ruff format --check .`
+- property tests use `hypothesis` (dev dependency); keep their example counts as written.
 - web: `cd web && npx vitest run && npm run check && npx playwright test`
 - image (Dockerfile, compose or launcher changes): `bash scripts/docker-smoke.sh`

@@ -6,16 +6,20 @@ import asyncio
 import contextlib
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from kelvin.commands.service import CommandService
 from kelvin.house.model import House
-from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError
+from kelvin.overkiz.budget import SetupReadGuard
+from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
 from kelvin.overkiz.gateway import Gateway
-from kelvin.overkiz.models import StateChange
+from kelvin.overkiz.models import RawDevice, RawPlace, StateChange
 
 log = logging.getLogger(__name__)
+
+DEVICE_BACKOFF_MAX_S = 6 * 3600.0  # a device whose state read fails is retried at most this rarely
+PUMP_RESERVE = 1  # full setup reads the pump leaves for a restart
 
 
 class EventPump:
@@ -31,8 +35,12 @@ class EventPump:
         wall: Callable[[], float] = time.time,
         idle_interval: float = 30.0,
         busy_interval: float = 2.0,
-        refresh_interval: float = 600.0,
+        state_interval: float = 600.0,
         max_backoff: float = 600.0,
+        guard: SetupReadGuard | None = None,
+        device_pause: float = 0.2,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        on_setup: Callable[[RawPlace, list[RawDevice]], None] | None = None,
     ) -> None:
         self.gateway = gateway
         self.house = house
@@ -43,12 +51,22 @@ class EventPump:
         self.wall = wall
         self.idle_interval = idle_interval
         self.busy_interval = busy_interval
-        self.refresh_interval = refresh_interval
+        self.state_interval = state_interval
         self.max_backoff = max_backoff
+        self.guard = guard or SetupReadGuard(wall=wall)
+        self.device_pause = device_pause  # between the reads of a device-by-device resync
+        self.sleep = sleep
+        self.on_setup = on_setup or (lambda root, devices: None)  # after each full read
         self.failures = 0
         self.last_ok_wall: float | None = None
         self.last_error: str | None = None
-        self._last_refresh = clock()
+        self._next_state_read = clock() + state_interval
+        self._rotation = 0
+        self._resync_due = False
+        # After a quota answer, no device-by-device reads until then (no burst on recovery).
+        self._quota_hold_until = float("-inf")
+        self._device_failures: dict[str, int] = {}
+        self._device_retry_at: dict[str, float] = {}
         self._wake = asyncio.Event()
         self.auth_rejected = False
         self._published: tuple[bool, bool] = (False, False)
@@ -63,6 +81,7 @@ class EventPump:
             "last_ok_at": self.last_ok_wall,
             "last_error": self.last_error,
             "auth_rejected": self.auth_rejected,
+            "setup_reads_24h": self.guard.used(),
         }
 
     def mark_ok(self) -> None:
@@ -83,8 +102,13 @@ class EventPump:
     def credentials_changed(self) -> None:
         """The home's account has a new, accepted password: resume and resync."""
         self.auth_rejected = False
-        self._last_refresh = float("-inf")
+        self.request_resync()
         self._notify_status()
+
+    def request_resync(self) -> None:
+        """Resynchronise the whole house on the next poll (a full setup read while at least two
+        are left in the budget, else one state read per device)."""
+        self._resync_due = True
         self.wake()
 
     def _safe(self, fn: Callable[..., Any], *args: Any) -> None:
@@ -111,18 +135,28 @@ class EventPump:
             self._safe(self.commands.tick)
             return self.max_backoff
         changed: set[str] = set()
+        events_ok = False
         try:
-            if self.clock() - self._last_refresh >= self.refresh_interval:
-                _, devices = await self.gateway.snapshot()
-                changed |= self.house.reload(devices)
-                self._last_refresh = self.clock()
-                self.commands.evaluate_all()
+            # Events first: a failing state read must never hold up commands and changes.
             for ev in await self.gateway.fetch_events():
                 self._handle(ev, changed)
+            events_ok = True
+            if self._resync_due:
+                if await self._resync(changed):
+                    self._resync_due = False
+            elif self.clock() >= self._next_state_read and self._may_read_devices():
+                await self._read_next_radiator(changed)
+                self._next_state_read = self.clock() + self.state_interval
         except GatewayError as e:
             self.failures += 1
             self.last_error = str(e) or type(e).__name__
             log.warning("overkiz poll failed (%s): %s", self.failures, self.last_error)
+            if not events_ok:
+                # Events may have been lost: resync once Overkiz answers again (§3.1). A state
+                # read failing after the events were fetched loses nothing.
+                self._resync_due = True
+            if isinstance(e, QuotaError):
+                self._quota_hold_until = self.clock() + self.state_interval
             self._safe(self.commands.tick)
             self._notify_status()
             if changed:
@@ -141,9 +175,6 @@ class EventPump:
         finally:
             # Idempotent; guarantees timeouts fire on the unexpected-exception path too.
             self._safe(self.commands.tick)
-        if self.failures > 0:
-            # Back after an outage: events may have been lost, resync on the next poll (§3.1).
-            self._last_refresh = float("-inf")
         self.failures = 0
         self.last_error = None
         self.last_ok_wall = self.wall()
@@ -151,6 +182,68 @@ class EventPump:
         if changed:
             self._safe(self.on_changed, changed)
         return self.busy_interval if self.commands.has_active else self.idle_interval
+
+    def _may_read_devices(self) -> bool:
+        return self.clock() >= self._quota_hold_until
+
+    async def _read_states(self, urls: list[str], changed: set[str], *, paced: bool) -> None:
+        """Read these devices' states. A device whose read fails is skipped and retried later
+        with its own backoff; only a quota or auth answer fails the poll."""
+        first = True
+        for url in urls:
+            if self.clock() < self._device_retry_at.get(url, float("-inf")):
+                continue
+            if paced and not first and self.device_pause > 0:
+                await self.sleep(self.device_pause)
+            first = False
+            try:
+                states = await self.gateway.device_states(url)
+            except (QuotaError, AuthError):
+                raise
+            except GatewayError as e:
+                n = self._device_failures.get(url, 0) + 1
+                self._device_failures[url] = n
+                backoff = min(self.state_interval * 2 ** min(n - 1, 16), DEVICE_BACKOFF_MAX_S)
+                self._device_retry_at[url] = self.clock() + backoff
+                log.warning("device state read failed (%s); skipping it", type(e).__name__)
+                continue
+            self._device_failures.pop(url, None)
+            self._device_retry_at.pop(url, None)
+            changed |= self.house.reload_device(url, states)
+
+    async def _resync(self, changed: set[str]) -> bool:
+        """Resynchronise the whole house; False when it has to wait (quota hold).
+
+        The pump never takes the last full read of the day: it can always resync device by
+        device, while a restart needs a full read (final review I1). Without this reserve, a
+        flaky outage (events fail, then the full read fails, again and again) spends the whole
+        budget in minutes and the next restart cannot read the setup for up to 24 h."""
+        if self.guard.remaining() >= PUMP_RESERVE + 1:
+            self.guard.record()
+            root, devices = await self.gateway.snapshot()
+            changed |= self.house.reload(devices)
+            self._safe(self.on_setup, root, devices)
+        elif not self._may_read_devices():
+            return False
+        else:
+            log.info("full setup read budget spent; resyncing device by device")
+            await self._read_states(self.house.device_urls(), changed, paced=True)
+        self._next_state_read = self.clock() + self.state_interval  # everything was just read
+        self.commands.evaluate_all()
+        return True
+
+    async def _read_next_radiator(self, changed: set[str]) -> None:
+        """Reconcile one radiator per state_interval, in turn: catches lost events without the
+        rate-limited full setup read."""
+        ids = sorted(self.house.radiators)
+        if not ids:
+            return
+        rid = ids[self._rotation % len(ids)]
+        self._rotation += 1
+        before = len(changed)
+        await self._read_states(sorted(self.house.radiators[rid].states), changed, paced=False)
+        if len(changed) != before:
+            self.commands.evaluate_all()
 
     async def run(self) -> None:
         while True:

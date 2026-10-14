@@ -19,6 +19,7 @@ dev = [
   "pytest-asyncio>=0.24",
   "asgi-lifespan>=2.1",
   "ruff>=0.7",
+  "hypothesis==6.168.3",
 ]
 
 [build-system]
@@ -32,6 +33,7 @@ packages = ["kelvin"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+markers = ["perf: a timing smoke test with a generous bound"]
 
 [tool.ruff]
 line-length = 100

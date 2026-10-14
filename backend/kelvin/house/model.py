@@ -152,14 +152,15 @@ class Radiator:
         return int(v) if v is not None else None
 
     @property
-    def energy_wh(self) -> dict[str, float] | None:
+    def energy_wh(self) -> dict[str, float | None] | None:
+        """Lifetime counters in Wh. An absent register is None, never 0 (audit H1)."""
         total = _num(self.get("energy", "core:ElectricEnergyConsumptionState"))
         if total is None:
             return None
         return {
             "total": total,
-            "t1": _num(self.get("energy", "core:ConsumptionTariff1State")) or 0.0,
-            "t2": _num(self.get("energy", "core:ConsumptionTariff2State")) or 0.0,
+            "t1": _num(self.get("energy", "core:ConsumptionTariff1State")),
+            "t2": _num(self.get("energy", "core:ConsumptionTariff2State")),
         }
 
     @property
@@ -263,6 +264,13 @@ class House:
                 if changed_rid:
                     changed.add(changed_rid)
         return changed
+
+    def device_urls(self) -> list[str]:
+        return sorted(self._by_url)
+
+    def reload_device(self, device_url: str, states: dict[str, Any]) -> set[str]:
+        """Replace one device's states with a fresh read (`GET /setup/devices/{url}/states`)."""
+        return self.reload([RawDevice(device_url, "", "", None, states)])
 
     def room_view(self, room_id: str) -> dict[str, Any]:
         room = self.rooms[room_id]

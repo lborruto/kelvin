@@ -350,8 +350,8 @@
               <td>{r.model ?? r.name}<span class="sub-room muted">{house.room(r.room_id)?.name ?? '—'}</span></td>
               <td class="room">{house.room(r.room_id)?.name ?? '—'}</td>
               <td class="r mono">{fmtKwh(r.energy_wh.total / 1000, false)}</td>
-              <td class="r mono opt">{fmtKwh(r.energy_wh.t1 / 1000, false)}</td>
-              <td class="r mono opt">{fmtKwh(r.energy_wh.t2 / 1000, false)}</td>
+              <td class="r mono opt">{fmtKwh(r.energy_wh.t1 == null ? null : r.energy_wh.t1 / 1000, false)}</td>
+              <td class="r mono opt">{fmtKwh(r.energy_wh.t2 == null ? null : r.energy_wh.t2 / 1000, false)}</td>
             </tr>
           {/if}
         {/each}

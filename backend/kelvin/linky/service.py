@@ -12,19 +12,33 @@ from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from kelvin.billing.costs import curve_complete
-from kelvin.billing.report import Group, ReportInputs, build_report
+from kelvin.billing.compare import minus_years
+from kelvin.billing.costs import curve_complete, day_energy
+from kelvin.billing.day_detail import day_detail
+from kelvin.billing.radiators import RadiatorDay, radiator_days
+from kelvin.billing.report import (
+    Group,
+    ReportInputs,
+    build_report,
+    default_period,
+    last_linky_day,
+    unit_start,
+)
 from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
+from kelvin.billing.split import FallbackShares, Share
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
-from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds
+from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds, local_day
 from kelvin.linky.store import LinkyStore
 from kelvin.linky.sync import DAILY_BACKFILL_DAYS, DAILY_BUDGET, BudgetExceeded, LinkySync
 from kelvin.recorder.db import Database
+from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
 
 log = logging.getLogger(__name__)
 
 SourceFactory = Callable[[str, str], LinkySource]
+LOOKBACK_DAYS = 400  # last year's period, the 30 trailing days and the ±15-day HC share
+AVG4_YEARS = 4  # the comparison with the mean of the four previous periods, by year
 # Simulator only: demo values so Énergie shows euros out of the box. Never a real installation.
 DEMO_TARIFF = Tariff(
     "hchp", 9, (Slot("22:00", "06:00"),), (Prices(date(2000, 1, 1), 15.0, 0.20, 0.27),)
@@ -65,11 +79,15 @@ class LinkyService:
     def first_day(self) -> date | None:
         """The first day the report counts: the contract start, but never before the daily
         backfill window (Kelvin never fetches older days, so they are not missing). Unknown
-        contract start: None, and the report starts at the earliest data."""
+        contract start: None, and the report starts at the earliest data. Days Kelvin did
+        store before the backfill window (it has run for over a year) are data: the window
+        never hides them, or last year's comparison would never find a day."""
         nb = self.not_before()
         if nb is None:
             return None
-        return max(nb, self.today() - timedelta(days=DAILY_BACKFILL_DAYS))
+        window = self.today() - timedelta(days=DAILY_BACKFILL_DAYS)
+        stored = self.store.first_day()
+        return max(nb, min(window, stored) if stored is not None else window)
 
     async def configure(self, prm: str, token: str) -> None:
         """Test a PDL/token (1 call), read the contract to prefill the tariff (1 call), then wake
@@ -153,35 +171,140 @@ class LinkyService:
         return {"tariff": tariff.view() if tariff else None, "prefill": self.tariffs.prefill()}
 
     def report(
-        self, start: date, end: date, group: Group, recorder: Recorder, radiator_ids: list[str]
+        self,
+        start: date,
+        end: date,
+        group: Group,
+        recorder: Recorder,
+        rooms: dict[str, str],
+        period: tuple[date, date] | None = None,
     ) -> dict[str, Any]:
-        a = day_bounds(start, self.tz)[0]
-        b = day_bounds(end, self.tz)[0]
-        rows = recorder.energy(radiator_ids, a, b - 1, "day") if radiator_ids else []
-        per_day: dict[date, float] = {}
-        per_id: dict[str, float] = {}
-        for r in rows:
-            d = date.fromisoformat(r["bucket"])
-            per_day[d] = per_day.get(d, 0.0) + r["kwh"]
-            per_id[r["radiator_id"]] = per_id.get(r["radiator_id"], 0.0) + r["kwh"]
-        first = recorder.first_energy_ts(radiator_ids)
-        radiators_from = (
-            datetime.fromtimestamp(first, self.tz).date() + timedelta(days=1)
-            if first is not None
-            else None
+        """`rooms`: the radiators in the house now → their room. Every radiator ever recorded
+        is reported (L8); those no longer in the house exist up to their last reading."""
+        today = self.today()
+        tariff = self.tariffs.get()
+        # Linky rows are loaded for the window, the period and what the comparisons, the
+        # projection and the fallback HC share look back at: bounded, never the whole store.
+        # A default period is the unit holding the last Linky day, so with daily rows it
+        # starts at or after the unit of the last daily day (a store with only an old curve is
+        # the exception: its period reads null).
+        anchor = self.store.last_day() or today
+        p_lo, p_hi = period or (unit_start(anchor, group), anchor)
+        load_lo = min(start, p_lo, anchor) - timedelta(days=LOOKBACK_DAYS)
+        load_hi = max(end, p_hi, today + timedelta(days=1))
+        # The year view's mean of the four previous years reaches four years back (kWh only:
+        # daily rows; their curves are not needed).
+        daily_lo = min(load_lo, minus_years(min(start, p_lo), AVG4_YEARS))
+        daily = self.store.daily(daily_lo if group == "year" else load_lo, load_hi)
+        curve = self.store.curve(load_lo, load_hi)
+        if period is None:  # the same rule and data as the report's own default
+            period = default_period(last_linky_day(daily, curve, self.tz), today, group)
+        # Radiator half-hours over the window and the period: one range when they overlap or
+        # touch, else each on its own, so the years between two far ranges are never bucketed
+        # (each range is bounded, their union is not). A day's figure does not depend on the
+        # range asked (window-consistent buckets), so the merge is exact.
+        ranges = sorted([(start, end), period])
+        if ranges[1][0] <= ranges[0][1]:
+            ranges = [(ranges[0][0], max(ranges[0][1], ranges[1][1]))]
+        ids = recorder.energy_radiator_ids()
+        radiators: dict[str, dict[date, RadiatorDay]] = {}
+        for lo, hi in ranges:
+            edges = local_edges(lo, hi, "halfhour", self.tz)
+            for rid, row in recorder.energy_buckets(edges, ids).items():
+                radiators.setdefault(rid, {}).update(radiator_days(row, edges, tariff, self.tz))
+        life = {
+            rid: (local_day(a, self.tz), None if rid in rooms else local_day(b, self.tz))
+            for rid, (a, b) in recorder.energy_extent().items()
+        }
+        # Room stats over the elapsed part of the period: its future has no samples yet.
+        stats_end = min(day_bounds(period[1], self.tz)[0], int(self.wall()))
+        stats = recorder.sample_stats(
+            sorted(radiators), day_bounds(period[0], self.tz)[0], stats_end
         )
+        first_day = self.first_day()
         inputs = ReportInputs(
-            daily_wh=self.store.daily(),
-            curve=self.store.curve(),
-            radiators_kwh=per_day,
-            radiators_by_id=per_id,
-            tariff=self.tariffs.get(),
+            daily_wh=daily,
+            curve=curve,
+            tariff=tariff,
             tz=self.tz,
-            today=self.today(),
-            first_day=self.first_day(),
-            radiators_from=radiators_from,
+            today=today,
+            first_day=first_day,
+            radiators=radiators,
+            radiator_life=life,
+            rooms=rooms,
+            sample_stats=stats,
+            linky_since=self.store.first_day(first_day),
+            curve_since=self.store.first_curve_day(),
         )
-        return build_report(start, end, group, inputs)
+        return build_report(start, end, group, inputs, period)
+
+    def day_detail(self, day: date, recorder: Recorder, rooms: dict[str, str]) -> dict[str, Any]:
+        """`GET /api/energy/day` without the room block (the route adds it). A day without a
+        complete curve splits by the fallback the report uses for that day alone (`report(day,
+        day + 1, "day")`): the same complete curve days, so the day has one HC/HP figure."""
+        nxt = day + timedelta(days=1)
+        today = self.today()
+        tariff = self.tariffs.get()
+        oldest = self.store.first_curve_day() or self.not_before() or today
+        # The report's look-back for that window (see `report`).
+        anchor = self.store.last_day() or today
+        lo = min(day, anchor) - timedelta(days=LOOKBACK_DAYS)
+        hi = max(nxt, today + timedelta(days=1))
+        # One bounded read: the fallback's look-back and the days the picker offers.
+        curves = self.store.curve(min(lo, oldest), hi)
+        full = {d: p for d, p in curves.items() if curve_complete(d, p, self.tz)}
+        # m-6: the report counts no day before its first day (it reads « — »): neither does
+        # the day view, so a day has one figure. Its Linky data (another contract's) is left out.
+        first = self.first_day()
+        counted = first is None or day >= first
+        points = curves.get(day, []) if counted else []
+        complete = counted and day in full
+        energy = None
+        daily = self.store.daily(day, nxt).get(day) if counted else None
+        if daily is not None or complete:
+            ranges = tariff.ranges() if tariff else None
+            shares = (
+                FallbackShares({d: p for d, p in full.items() if lo <= d < hi}, ranges, self.tz)
+                if ranges
+                else None
+            )
+            energy = day_energy(
+                day,
+                daily,
+                points,
+                ranges,
+                self.tz,
+                shares.for_day(day) if shares else Share(0.0, "slots"),
+            )
+        edges = local_edges(day, nxt, "halfhour", self.tz)
+        radiators = recorder.energy_buckets(edges, recorder.energy_radiator_ids())
+        # As in `report`: a radiator still in the house exists from its first reading on, one
+        # no longer in it up to its last.
+        life = {
+            rid: (a, None if rid in rooms else b)
+            for rid, (a, b) in recorder.energy_extent().items()
+        }
+        return {
+            **day_detail(
+                day,
+                points,
+                energy,
+                tariff,
+                self.tz,
+                radiators,
+                edges,
+                rooms,
+                complete,
+                life=life,
+            ),
+            "available": [
+                d.isoformat()
+                for d in sorted(full)
+                if oldest <= d < today and (first is None or d >= first)
+            ],
+            "counted_from": first.isoformat() if first else None,
+            "not_counted": None if counted else "before_first_day",
+        }
 
     def curve_day(self, day: date) -> dict[str, Any]:
         points = self.store.curve(day, day + timedelta(days=1)).get(day, [])

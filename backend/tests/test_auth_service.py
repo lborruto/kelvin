@@ -4,8 +4,8 @@ import stat
 import pytest
 
 from kelvin.account import Account, AccountStore
-from kelvin.api.context import boot, open_context, retry_start
-from kelvin.api.runtime import start_runtime
+from kelvin.api.context import SETUP_READS_KEY, boot, open_context, retry_start
+from kelvin.api.runtime import SETUP_KEY, start_runtime
 from kelvin.auth.service import (
     BAD_CREDENTIALS,
     UNREACHABLE,
@@ -14,6 +14,7 @@ from kelvin.auth.service import (
     login,
 )
 from kelvin.config import Settings
+from kelvin.overkiz.budget import DAY_S, FULL_READS_PER_DAY
 from kelvin.overkiz.errors import GatewayError, QuotaError
 from kelvin.overkiz.fake import DEMO_EMAIL, DEMO_PASSWORD, FakeGateway
 from kelvin.recorder.db import Database
@@ -523,5 +524,164 @@ async def test_a_login_while_offline_goes_to_cozytouch_and_clears_offline(tmp_pa
         assert ctx.mode == "running" and ctx.offline is False
         await asyncio.sleep(0)
         assert retry.cancelled()  # the background retry stops at once
+    finally:
+        await ctx.close()
+
+
+class _DayOver(Exception):
+    pass
+
+
+def _quota_ctx(tmp_path, clock):
+    """Logins work but every full setup read is refused with a quota answer."""
+    AccountStore(tmp_path).save(Account(DEMO_EMAIL, DEMO_PASSWORD))
+    gw = FakeGateway(clock=clock)
+    gw.fail_snapshot = QuotaError("QUOTA_EXCEEDED")
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    return open_context(settings, gw, start_tasks=False, wall=clock), gw
+
+
+async def test_retry_start_spends_at_most_the_daily_setup_read_budget(tmp_path):
+    """Ruling 8: a runtime that cannot start must not hammer GET /setup (1 call a day)."""
+    clock = ManualClock(0.0)
+    ctx, gw = _quota_ctx(tmp_path, clock)
+
+    async def fake_sleep(seconds: float) -> None:
+        if clock.t + seconds >= DAY_S:  # the boot read is still inside the rolling 24 h
+            raise _DayOver
+        clock.advance(seconds)
+
+    try:
+        await boot(ctx)
+        assert ctx.mode == "offline"
+        with pytest.raises(_DayOver):
+            await retry_start(ctx, sleep=fake_sleep)
+        # boot + retries, then the one startup overdraft (no stored setup), never more in 24 h
+        assert gw.snapshots == FULL_READS_PER_DAY + 1
+        logins = gw.logins
+        with pytest.raises(LoginRefused) as e:  # a login starting the runtime: same budget
+            await login(ctx, DEMO_EMAIL, DEMO_PASSWORD, IP)
+        assert (e.value.status, e.value.message) == (503, UNREACHABLE)
+        assert gw.snapshots == FULL_READS_PER_DAY + 1 and gw.logins == logins  # no call
+        assert not ctx.throttle._all and not ctx.throttle._ip  # a local refusal, not a guess
+    finally:
+        await ctx.close()
+
+
+async def test_the_setup_read_budget_survives_a_restart(tmp_path):
+    """A crash-looping container cannot reset the budget: the reads are stored."""
+    clock = ManualClock(0.0)
+    ctx, gw = _quota_ctx(tmp_path, clock)
+    try:
+        for _ in range(FULL_READS_PER_DAY):
+            await boot(ctx)
+            clock.advance(60)
+    finally:
+        await ctx.close()
+    ctx, gw = _quota_ctx(tmp_path, clock)
+    try:
+        await boot(ctx)  # no stored setup: the startup overdraft, refused too
+        assert gw.snapshots == 1 and ctx.mode == "offline"
+        await boot(ctx)
+        assert gw.snapshots == 1 and ctx.mode == "offline"
+        assert ctx.setup_reads.used() == FULL_READS_PER_DAY + 1
+        clock.t = DAY_S + 1  # the first stored read is a day old
+        gw.fail_snapshot = None
+        await boot(ctx)
+        assert ctx.mode == "running" and gw.snapshots == 2
+    finally:
+        await ctx.close()
+
+
+async def test_the_running_pump_spends_the_same_setup_read_budget(env):
+    ctx, _, _ = env
+    await _running(ctx)
+    assert ctx.rt.pump.guard is ctx.setup_reads
+    assert ctx.setup_reads.used() == 1
+
+
+async def test_the_simulator_does_not_store_its_setup_read_budget(tmp_path):
+    """Dev restarts of the simulator (no Overkiz call is ever made) must never go offline."""
+    AccountStore(tmp_path).save(Account(DEMO_EMAIL, DEMO_PASSWORD))
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    for _ in range(FULL_READS_PER_DAY + 2):
+        ctx = open_context(settings, start_tasks=False)  # the simulator's own FakeGateway
+        try:
+            await boot(ctx)
+            assert ctx.mode == "running"
+        finally:
+            await ctx.close()
+    assert Database(tmp_path / "kelvin.db").get_setting(SETUP_READS_KEY) is None
+
+
+def _stored_ctx(tmp_path, clock):
+    AccountStore(tmp_path).save(Account(DEMO_EMAIL, DEMO_PASSWORD))
+    gw = FakeGateway(clock=clock)
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    return open_context(settings, gw, start_tasks=False, wall=clock), gw
+
+
+async def test_a_spent_budget_starts_from_the_stored_setup_and_reads_device_by_device(tmp_path):
+    """Final review I1: a restart after the day's full reads were spent is not offline."""
+    clock = ManualClock(0.0)
+    ctx, gw = _stored_ctx(tmp_path, clock)
+    try:
+        await boot(ctx)
+        assert ctx.mode == "running" and gw.snapshots == 1
+        for _ in range(FULL_READS_PER_DAY - 1):
+            ctx.setup_reads.record()  # e.g. a flaky outage and a password change
+    finally:
+        await ctx.close()
+    stored = Database(tmp_path / "kelvin.db")
+    try:
+        setup = stored.get_setting(SETUP_KEY)
+    finally:
+        stored.close()
+    assert setup["devices"] and all(d["states"] == {} for d in setup["devices"])  # no states
+    clock.advance(60)
+    ctx, gw = _stored_ctx(tmp_path, clock)
+    gw.fail_snapshot = QuotaError("QUOTA_EXCEEDED")
+    gw.set_state_silently(next(iter(gw.devices)), "core:NameState", "Renamed")
+    try:
+        await boot(ctx)
+        assert ctx.mode == "running" and gw.snapshots == 0
+        house = ctx.rt.house
+        assert len(house.radiators) == 4
+        assert ctx.rt.pump.connected is False  # nothing read yet: no stale figure is recorded
+        assert all(r.energy_wh is None for r in house.radiators.values())
+        await ctx.rt.pump.run_once()  # reconcile device by device
+        assert gw.snapshots == 0 and gw.state_reads == len(house.device_urls())
+        assert ctx.rt.pump.connected is True
+        assert "Renamed" in {r.name for r in house.radiators.values()}
+        assert all(r.energy_wh is not None for r in house.radiators.values())
+    finally:
+        await ctx.close()
+
+
+async def test_a_spent_budget_without_a_stored_setup_reads_once_anyway(tmp_path, caplog):
+    """No stored setup: one read over the budget beats a day offline, never two."""
+    clock = ManualClock(0.0)
+    ctx, gw = _stored_ctx(tmp_path, clock)
+    try:
+        for _ in range(FULL_READS_PER_DAY):
+            ctx.setup_reads.record()
+        await boot(ctx)
+        assert ctx.mode == "running" and gw.snapshots == 1
+        assert "over the daily budget" in caplog.text
+        assert ctx.setup_reads.used() == FULL_READS_PER_DAY + 1
+    finally:
+        await ctx.close()
+
+
+async def test_the_startup_overdraft_is_once_a_day(tmp_path):
+    clock = ManualClock(0.0)
+    ctx, gw = _quota_ctx(tmp_path, clock)
+    try:
+        for _ in range(FULL_READS_PER_DAY):
+            ctx.setup_reads.record()
+        await boot(ctx)  # the overdraft read, refused
+        assert ctx.mode == "offline" and gw.snapshots == 1
+        await boot(ctx)
+        assert ctx.mode == "offline" and gw.snapshots == 1  # no second overdraft
     finally:
         await ctx.close()

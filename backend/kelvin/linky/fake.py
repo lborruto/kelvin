@@ -47,10 +47,10 @@ class FakeLinkySource:
         tz: str = "Europe/Paris",
         wall: Callable[[], float] = time.time,
         activation: date = date(2020, 1, 1),
-        radiators_wh: Callable[[date], float | None] | None = None,
+        radiators_halfhours: Callable[[date], list[float | None] | None] | None = None,
     ) -> None:
         self.tz = ZoneInfo(tz)
-        self.radiators_wh = radiators_wh
+        self.radiators_halfhours = radiators_halfhours
         self.wall = wall
         self.activation = activation
         self.calls: list[str] = []
@@ -64,17 +64,33 @@ class FakeLinkySource:
     def _today(self) -> date:
         return datetime.fromtimestamp(self.wall(), self.tz).date()
 
-    def day_wh(self, day: date) -> int:
-        """The meter sees the whole home: a household base (about 8 kWh in July to 11 kWh in
-        January) plus the heating. The heating is what the simulated radiators recorded that day
-        (`radiators_wh`); a day they did not record gets a seasonal estimate instead (about
-        30 kWh in mid-January, nothing in July). So the demo heating share stays below 100 %."""
+    def _parts(self, day: date) -> tuple[float, list[float] | None, float]:
+        """(household base Wh, the radiators' Wh per half-hour or None, heating Wh).
+
+        A half-hour no recorded radiator knows (m-9: one added part-way through the day, or
+        before the recorder's history) gets its share of the seasonal estimate instead."""
         winter = (1 + math.cos(2 * math.pi * (day.timetuple().tm_yday - 15) / 365.25)) / 2
         rng = random.Random(day.toordinal())
         base = 8000 + 3000 * winter + rng.uniform(-700, 700)
-        heating = self.radiators_wh(day) if self.radiators_wh is not None else None
-        if heating is None:
-            heating = 30000 * winter * rng.uniform(0.85, 1.15)
+        seasonal = 30000 * winter * rng.uniform(0.85, 1.15)
+        known = self.radiators_halfhours(day) if self.radiators_halfhours is not None else None
+        if known is None:
+            return base, None, seasonal
+        a, b = day_bounds(day, self.tz)
+        weights = [_weight(datetime.fromtimestamp(t, self.tz).hour) for t in range(a, b, 1800)]
+        total = sum(weights)
+        halves = [
+            h if h is not None else seasonal * w / total
+            for h, w in zip(known, weights, strict=True)
+        ]
+        return base, halves, sum(halves)
+
+    def day_wh(self, day: date) -> int:
+        """The meter sees the whole home: a household base (about 8 kWh in July to 11 kWh in
+        January) plus the heating. The heating is what the simulated radiators recorded that day
+        (`radiators_halfhours`); a day they did not record whole gets a seasonal estimate
+        instead (about 30 kWh in mid-January, nothing in July)."""
+        base, _, heating = self._parts(day)
         return round(base + heating)
 
     def _published(self, start: date, end: date) -> list[date]:
@@ -110,9 +126,12 @@ class FakeLinkySource:
             starts = list(range(a, b, 1800))
             weights = [_weight(datetime.fromtimestamp(s, self.tz).hour) for s in starts]
             total = sum(weights)
-            day_wh = self.day_wh(d)  # once per day: it may query the recorder
-            for s, w in zip(starts, weights, strict=True):
-                watts = day_wh * w / total * 2  # Wh over 30 min → mean W
+            base, halves, heating = self._parts(d)  # once per day: it may query the recorder
+            for i, (s, w) in enumerate(zip(starts, weights, strict=True)):
+                # L15: the house half-hour = a base shape + what the radiators drew in it, so
+                # the demo never shows radiators above the meter.
+                rad = halves[i] if halves is not None else heating * w / total
+                watts = (base * w / total + rad) * 2  # Wh over 30 min → mean W
                 end_stamp = datetime.fromtimestamp(s + 1800, self.tz).strftime("%Y-%m-%d %H:%M:%S")
                 items.append(
                     {

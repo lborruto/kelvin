@@ -18,12 +18,14 @@ from kelvin.billing.slots import (
     slot_ranges,
     split_curve,
 )
+from kelvin.billing.split import FallbackShares, Share
 from kelvin.billing.tariff import Prices, Tariff, TariffStore, TariffUpdate
 from kelvin.linky.models import Contract, CurvePoint, day_bounds
 from kelvin.recorder.db import Database
 
 PARIS = ZoneInfo("Europe/Paris")
 NIGHT = (Slot("22:00", "06:00"),)
+W = Share(0.4, "fallback_window")
 
 
 def flat(day: date, watts: float = 1000.0) -> list[CurvePoint]:
@@ -77,19 +79,44 @@ def test_split_curve_on_normal_and_dst_days(day, hc_kwh, hp_kwh):
 def test_day_energy_prefers_the_curve_split_scaled_to_the_daily_total():
     day = date(2026, 10, 6)
     ranges = slot_ranges(NIGHT)
-    e = day_energy(day, 30_000, flat(day), ranges, PARIS, 0.5)
-    assert (e.kwh, e.estimated) == (30.0, False)
+    e = day_energy(day, 30_000, flat(day), ranges, PARIS, Share(0.5, "fallback_all"))
+    assert (e.kwh, e.estimated, e.method) == (30.0, False, "curve")
     assert e.hc_kwh == pytest.approx(10.0) and e.hp_kwh == pytest.approx(20.0)  # 1/3 off-peak
     partial = flat(day)[:-1]
     assert not curve_complete(day, partial, PARIS)
-    e = day_energy(day, 30_000, partial, ranges, PARIS, 0.4)
-    assert e.estimated and e.hc_kwh == pytest.approx(12.0)
-    e = day_energy(day, None, flat(day), ranges, PARIS, 0.4)
+    e = day_energy(day, 30_000, partial, ranges, PARIS, W)
+    assert e.estimated and e.hc_kwh == pytest.approx(12.0) and e.method == "fallback_window"
+    e = day_energy(day, None, flat(day), ranges, PARIS, W)
     assert e.kwh == pytest.approx(24.0) and not e.estimated
-    assert day_energy(day, None, partial, ranges, PARIS, 0.4) is None
-    assert day_energy(day, None, None, ranges, PARIS, 0.4) is None
-    e = day_energy(day, 30_000, None, None, PARIS, 0.4)  # no tariff: kWh only
-    assert (e.kwh, e.hc_kwh, e.hp_kwh) == (30.0, None, None)
+    assert day_energy(day, None, partial, ranges, PARIS, W) is None
+    assert day_energy(day, None, None, ranges, PARIS, W) is None
+    e = day_energy(day, 30_000, None, None, PARIS, W)  # no tariff: kWh only
+    assert (e.kwh, e.hc_kwh, e.hp_kwh, e.method) == (30.0, None, None, None)
+
+
+def shaped(day: date, night_w: float, day_w: float) -> list[CurvePoint]:
+    a, b = day_bounds(day, PARIS)
+    out = []
+    for ts in range(a, b, 1800):
+        h = (ts - a) // 3600
+        out.append(CurvePoint(ts, 30, (night_w if h < 6 or h >= 22 else day_w) / 2))
+    return out
+
+
+def test_l6_the_fallback_share_is_seasonal_then_monthly_then_overall_then_slots():
+    ranges = slot_ranges(NIGHT)
+    winter = {date(2026, 1, d): shaped(date(2026, 1, d), 3000, 1000) for d in range(1, 11)}
+    summer = {date(2026, 7, d): shaped(date(2026, 7, d), 500, 1000) for d in range(1, 11)}
+    shares = FallbackShares({**winter, **summer}, ranges, PARIS)
+    w = shares.for_day(date(2026, 1, 20))
+    assert w.method == "fallback_window" and w.value == pytest.approx(24 / 40)
+    s = shares.for_day(date(2026, 7, 12))
+    assert s.method == "fallback_window" and s.value == pytest.approx(4 / 20)
+    assert shares.for_day(date(2027, 1, 30)).method == "fallback_month"
+    m = shares.for_day(date(2026, 4, 1))
+    assert m.method == "fallback_all" and m.value == pytest.approx(28 / 60)
+    none = FallbackShares({}, ranges, PARIS).for_day(date(2026, 4, 1))
+    assert none == Share(pytest.approx(1 / 3), "slots")
 
 
 def test_costs_per_day():

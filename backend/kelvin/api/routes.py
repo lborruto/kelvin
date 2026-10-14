@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import time
 from collections.abc import Callable
@@ -31,6 +32,7 @@ from kelvin.api.schemas import (
 )
 from kelvin.api.sse import event_stream
 from kelvin.auth.sessions import COOKIE_NAME
+from kelvin.billing.report import next_unit, unit_start
 from kelvin.commands.translate import (
     MODE_LABELS,
     CommandError,
@@ -44,12 +46,19 @@ from kelvin.commands.translate import (
     plan_setpoint,
 )
 from kelvin.house.model import Radiator
-from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled
+from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled, day_bounds
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import BudgetExceeded
+from kelvin.overkiz.budget import QuotasUnavailable
+from kelvin.overkiz.errors import GatewayError
 
 router = APIRouter(dependencies=[Depends(require_kelvin_header), Depends(require_session)])
 MAX_REPORT_DAYS = 4 * 366
+MAX_HOUR_DAYS = 62  # hourly radiator buckets: two months at most
+MAX_HISTORY_POINTS = 10_000  # per radiator
+MAX_RADIATORS = 50
+_RADIATOR_ID = re.compile(r"[A-Za-z0-9_.-]{1,64}")
+FIRST_TS = 946_684_800  # 2000-01-01T00:00:00Z
 _PRM = re.compile(r"[0-9]{14}")  # ASCII digits only
 FIRST_DAY = date(2000, 1, 1)
 KIND_LABELS = {"manual": "consigne", "comfort": "confort", "eco": "abaissement éco"}
@@ -99,6 +108,20 @@ async def status(request: Request) -> dict:
         "overkiz": rt.pump.status(),
         "linky": rt.linky.status()["state"] if rt.linky else None,
     }
+
+
+@router.get("/overkiz/quotas")
+async def overkiz_quotas(request: Request) -> dict:
+    """Remaining Overkiz quotas (`GET /setup/quotas`), read at most once an hour."""
+    rt = _rt(request)
+    if rt.quotas is None:
+        raise HTTPException(503, "Quotas indisponibles.")
+    try:
+        return await rt.quotas.get()
+    except GatewayError:
+        raise HTTPException(503, "Cozytouch injoignable, réessayez plus tard.") from None
+    except QuotasUnavailable:
+        raise HTTPException(503, "Quotas indisponibles.") from None
 
 
 @router.get("/house")
@@ -278,20 +301,40 @@ async def house_program(request: Request):
     )
 
 
+def _check_span(start: float, end: float, max_days: int = MAX_REPORT_DAYS) -> None:
+    """Epoch windows get the same bounds as the dated reports: from 2000-01-01 to two years
+    ahead, `end` after `start`, at most `max_days` long. Every query below is bounded."""
+    hi = time.time() + 2 * 366 * 86400
+    if not (FIRST_TS <= start < end <= hi) or end - start > max_days * 86400:
+        raise HTTPException(422, "Période invalide.")
+
+
+def _ids(raw: str | None) -> list[str]:
+    ids = list(dict.fromkeys(i for i in (raw or "").split(",") if i))
+    if len(ids) > MAX_RADIATORS:
+        raise HTTPException(422, "Trop de radiateurs dans la demande.")
+    if not all(_RADIATOR_ID.fullmatch(i) for i in ids):
+        raise HTTPException(422, "Radiateur inconnu.")
+    return ids
+
+
 @router.get("/history")
 async def history(
     request: Request,
     radiators: str,
     start: float | None = None,
     end: float | None = None,
-    step: int = Query(default=300, ge=300),
+    step: int = Query(default=300, ge=300, le=MAX_REPORT_DAYS * 86400),
 ) -> list[dict]:
     rt = _rt(request)
-    ids = [i for i in radiators.split(",") if i]
+    ids = _ids(radiators)
     for i in ids:
         _radiator(rt, i)
     end = end or time.time()
     start = start or end - 86400
+    _check_span(start, end)
+    if (end - start) / step > MAX_HISTORY_POINTS:
+        raise HTTPException(422, "Période invalide.")
     return rt.recorder.history(ids, start, end, step)
 
 
@@ -303,9 +346,12 @@ async def energy_radiators(
     group: str = Query(default="day", pattern="^(hour|day|month)$"),
     radiators: str | None = None,
 ) -> list[dict]:
+    """Radiators no longer in the house can be asked for by id: their history stays (L8)."""
     rt = _rt(request)
-    ids = [i for i in (radiators or "").split(",") if i] or list(rt.house.radiators)
-    return rt.recorder.energy(ids, start, end, group)
+    _check_span(start, end, MAX_HOUR_DAYS if group == "hour" else MAX_REPORT_DAYS)
+    ids = _ids(radiators) or list(rt.house.radiators)
+    # Off the event loop: years of readings take a moment to bucket.
+    return await asyncio.to_thread(rt.recorder.radiator_energy, ids, start, end, group)  # type: ignore[arg-type]
 
 
 def _linky(rt: Runtime) -> LinkyService:
@@ -330,14 +376,68 @@ async def energy(
     request: Request,
     start: Annotated[date, Query(alias="from")],
     end: Annotated[date, Query(alias="to")],
-    group: Literal["day", "month", "year"] = "day",
+    group: Literal["day", "week", "month", "year"] = "day",
+    focus: date | None = None,
+    period_from: date | None = None,
+    period_to: date | None = None,
 ) -> dict:
+    """`from`/`to`: the chart window. `focus` (a day inside the selected period) or
+    `period_from`/`period_to`: the period the hero and per-radiator figures describe."""
     rt = _rt(request)
     linky = _linky(rt)
     _check_days(linky, start, end)
     if end <= start or (end - start).days > MAX_REPORT_DAYS:
         raise HTTPException(422, "Période invalide.")
-    return linky.report(start, end, group, rt.recorder, list(rt.house.radiators))
+    period: tuple[date, date] | None = None
+    if period_from is not None or period_to is not None:
+        if period_from is None or period_to is None or focus is not None:
+            raise HTTPException(422, "Période invalide.")
+        _check_days(linky, period_from, period_to)
+        if period_to <= period_from or (period_to - period_from).days > MAX_REPORT_DAYS:
+            raise HTTPException(422, "Période invalide.")
+        period = (period_from, period_to)
+    elif focus is not None:
+        _check_days(linky, focus)
+        first = unit_start(focus, group)
+        period = (first, next_unit(first, group))
+    rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
+    return await asyncio.to_thread(linky.report, start, end, group, rt.recorder, rooms, period)
+
+
+@router.get("/energy/day")
+async def energy_day(
+    request: Request,
+    day: Annotated[date, Query(alias="date")],
+    room: str | None = None,
+) -> dict:
+    """One day: half-hours with power, price, € and radiator energy; reconciled totals (M7);
+    power figures; with `room`, that room's samples and current overrides."""
+    rt = _rt(request)
+    linky = _linky(rt)
+    _check_days(linky, day)
+    name, rads = _room_radiators(rt, room) if room is not None else ("", [])
+    rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
+    body = await asyncio.to_thread(linky.day_detail, day, rt.recorder, rooms)
+    body["room"] = None
+    if room is not None:
+        ids = [r.id for r in rads]
+        a, b = day_bounds(day, ZoneInfo(rt.settings.tz))
+        body["room"] = {
+            "id": room,
+            "name": name,
+            "samples": await asyncio.to_thread(rt.recorder.room_samples, ids, a, b),
+            "overrides": [
+                {
+                    "id": o["id"],
+                    "kind": o["kind"],
+                    "temperature": o["temperature"],
+                    "ends_at": o["ends_at"],
+                }
+                for o in rt.overrides.active()
+                if set(o["radiator_ids"]) & set(ids)
+            ],
+        }
+    return body
 
 
 @router.get("/linky/curve")

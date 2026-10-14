@@ -183,6 +183,20 @@ describe('Énergie', () => {
     expect([...container.querySelectorAll('th.opt')].map((t) => t.textContent)).toEqual(['Tarif 1 (kWh)', 'Tarif 2 (kWh)']);
   });
 
+  it('an absent meter register reads « — », never 0 kWh', async () => {
+    house.applySnapshot({
+      house: {
+        rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a'] }] as never,
+        radiators: [{ id: 'a', room_id: 'salon', energy_wh: { total: 1000, t1: null, t2: 600 }, model: 'HEKLA', name: 'R' }] as never
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
+    });
+    vi.mocked(api.energyReport).mockResolvedValue(report());
+    const { container } = render(Page);
+    await screen.findByRole('columnheader', { name: 'Depuis l’installation (kWh)' });
+    expect([...container.querySelectorAll('td.opt')].map((t) => t.textContent)).toEqual(['—', '0,6']);
+  });
+
   it('renders this home’s real shape: young history, no projection, no heating share', async () => {
     vi.mocked(api.energyReport).mockResolvedValue(
       report({
