@@ -615,3 +615,23 @@ async def test_m7_a_day_without_a_curve_splits_as_the_report_does(api):
     assert detail["split_method"] == bucket["split_method"] != "curve"
     assert (detail["hc_kwh"], detail["hp_kwh"]) == (bucket["hc_kwh"], bucket["hp_kwh"])
     assert detail["curve_kwh"] is None
+
+
+async def test_l15_the_simulated_meter_is_never_below_the_radiators(api):
+    c, _, _, _ = api
+    for back in range(2, 7):
+        day = today() - timedelta(days=back)
+        body = (await c.get("/api/energy/day", params={"date": str(day)})).json()
+        for i in body["intervals"]:
+            if i["radiators_wh"] is not None:
+                assert i["wh"] >= i["radiators_wh"] - 0.5, (day, i["ts"])
+
+
+async def test_l15_the_fake_curve_is_a_base_plus_the_radiator_half_hours():
+    day = date(2026, 1, 15)
+    halves = [0.0] * 40 + [1500.0] * 8  # the radiators heat from 20:00 to 24:00
+    src = FakeLinkySource(radiators_halfhours=lambda d: halves)
+    points = await src.fetch_curve(day, day + timedelta(days=1))
+    assert len(points) == 48
+    assert all(p.wh >= h - 0.5 for p, h in zip(points, halves, strict=True))
+    assert sum(p.wh for p in points) == pytest.approx(src.day_wh(day), abs=30)

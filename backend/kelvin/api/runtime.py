@@ -7,7 +7,7 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -17,7 +17,7 @@ from kelvin.commands.service import CommandService, Pending
 from kelvin.config import Settings
 from kelvin.house.model import House, build_house
 from kelvin.linky.fake import DEMO_PRM, FakeLinkySource
-from kelvin.linky.models import LinkySource, day_bounds
+from kelvin.linky.models import LinkySource
 from kelvin.linky.service import LinkyService
 from kelvin.overkiz.budget import QuotaReadout, SetupReadGuard
 from kelvin.overkiz.errors import SetupBudgetSpent
@@ -27,6 +27,7 @@ from kelvin.overkiz.models import device_from_dict, place_from_dict
 from kelvin.overkiz.poller import EventPump
 from kelvin.overkiz.simhistory import SIM_DB_KEY, seed_history
 from kelvin.recorder.db import Database
+from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
 
 log = logging.getLogger(__name__)
@@ -90,26 +91,34 @@ def make_gateway(settings: Settings, username: str, password: str) -> Gateway:
 
 
 def make_linky_source(
-    settings: Settings, *, radiators_wh: Callable[[date], float | None] | None = None
+    settings: Settings,
+    *,
+    radiators_halfhours: Callable[[date], list[float] | None] | None = None,
 ) -> Callable[[str, str], LinkySource]:
-    """`radiators_wh` (simulator only) lets the demo meter include what the radiators drew."""
+    """`radiators_halfhours` (simulator only): the demo meter includes what the radiators
+    drew, half-hour by half-hour (L15)."""
     if settings.kelvin_fake:  # the simulator never calls MyElectricalData
-        return lambda prm, token: FakeLinkySource(tz=settings.tz, radiators_wh=radiators_wh)
+        return lambda prm, token: FakeLinkySource(
+            tz=settings.tz, radiators_halfhours=radiators_halfhours
+        )
     from kelvin.linky.med import MedSource
 
     return lambda prm, token: MedSource(prm, token, base_url=settings.med_base_url, tz=settings.tz)
 
 
-def _recorded_wh(recorder: Recorder, house: House, tz: str) -> Callable[[date], float | None]:
-    """Whole-home radiator Wh Kelvin recorded on a local day, or None when it recorded none."""
-    ids = list(house.radiators)
+def _recorded_halfhours(recorder: Recorder, tz: str) -> Callable[[date], list[float] | None]:
+    """Whole-home radiator Wh per half-hour of a local day, or None unless every half-hour of
+    every recorded radiator is known (simulator only)."""
+    zone = ZoneInfo(tz)
 
-    def wh(day: date) -> float | None:
-        buckets = recorder.energy_buckets(list(day_bounds(day, ZoneInfo(tz))), ids)
-        known = [b[0].wh for b in buckets.values() if b[0].wh is not None]
-        return sum(known) if known else None
+    def halves(day: date) -> list[float] | None:
+        edges = local_edges(day, day + timedelta(days=1), "halfhour", zone)
+        rows = recorder.energy_buckets(edges).values()
+        if not rows or any(b.wh is None for row in rows for b in row):
+            return None
+        return [sum(row[i].wh or 0.0 for row in rows) for i in range(len(edges) - 1)]
 
-    return wh
+    return halves
 
 
 async def override_step(rt: Runtime) -> list[dict[str, Any]]:
@@ -234,7 +243,7 @@ async def start_runtime(
             db,
             tz=settings.tz,
             make_source=make_linky_source(
-                settings, radiators_wh=_recorded_wh(recorder, house, settings.tz)
+                settings, radiators_halfhours=_recorded_halfhours(recorder, settings.tz)
             ),
             credentials=credentials,
             simulator=settings.kelvin_fake,
