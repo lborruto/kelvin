@@ -156,7 +156,11 @@ export function inspectBucket(b: EnergySummary, ctx: BucketCtx): Inspection {
   if (rad && b.rest_kwh != null && kwh) add('part_rad', COPY.radShare, fmtPct1(rad.kwh / kwh), { est: radEst });
   if (b.eur != null) {
     const [energy, subscription] = shownParts(b.eur, [b.energy_eur, b.subscription_eur], 2);
-    add('cout', COPY.cost, fmtEurExact(matchParts(b.eur, [], 2).total), { est: split });
+    // Guard: with both lines known and not adding up to the total (they should, the backend sums the rounded
+    // lines), the cost is shown as the sum of the lines shown, so what is on screen always adds up.
+    const lines = energy != null && subscription != null ? Math.round((energy + subscription) * 100) / 100 : null;
+    const total = matchParts(b.eur, [], 2).total;
+    add('cout', COPY.cost, fmtEurExact(lines ?? total), { est: split });
     if (b.energy_eur != null) add('energie', COPY.energy, fmtEurExact(energy), { sub: true, est: split });
     if (b.subscription_eur != null) add('abonnement', COPY.subscription, fmtEurExact(subscription), { sub: true });
     if (b.prices.length) add('prix', COPY.prices, pricesText(b.prices));

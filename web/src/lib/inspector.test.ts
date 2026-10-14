@@ -286,3 +286,25 @@ describe('review fixes: shown sums add up, DST labels', () => {
     expect(spring.some((l) => l.includes('heure'))).toBe(false);
   });
 });
+
+describe('review fix round 2: € lines shaped like the backend’s (2 dp each)', () => {
+  const num = (s: string) => Number(s.replace(/[^\d,−-]/g, '').replace('−', '-').replace(',', '.'));
+  it('2 dp lines that add up to the total stay as they are', () => {
+    const v = values(inspectBucket(bucket({ energy_eur: 5.3, subscription_eur: 0.48, eur: 5.78 }), day).rows);
+    expect([v.energie, v.abonnement, v.cout]).toEqual([`5,30${NB}€`, `0,48${NB}€`, `5,78${NB}€`]);
+  });
+  it('guard: lines that do not add up to the total show Coût as the sum of the lines', () => {
+    const v = values(inspectBucket(bucket({ energy_eur: 5.3, subscription_eur: 0.48, eur: 5.79 }), day).rows);
+    expect([v.energie, v.abonnement, v.cout]).toEqual([`5,30${NB}€`, `0,48${NB}€`, `5,78${NB}€`]);
+  });
+  it('random 2 dp lines: the shown lines always add up to the shown Coût', () => {
+    let seed = 5;
+    const r = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
+    for (let n = 0; n < 500; n++) {
+      const en = Math.round(r() * 100000) / 100, sub = Math.round(r() * 5000) / 100;
+      const eur = Math.round((en + sub) * 100) / 100 + (r() < 0.3 ? 0.01 : 0);
+      const v = values(inspectBucket(bucket({ energy_eur: en, subscription_eur: sub, eur }), day).rows);
+      expect(Math.round((num(v.energie) + num(v.abonnement)) * 100)).toBe(Math.round(num(v.cout) * 100));
+    }
+  });
+});
