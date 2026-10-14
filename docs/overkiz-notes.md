@@ -54,7 +54,7 @@ Main session, read-only, on the owner's installation: `GET /setup/devices/{url}/
 the same state set as that device in `GET /setup/devices`: 38 of 38 states for the heater device,
 3 of 3 for the meter device. So `House.reload_device` can replace a device's states with that
 answer without dropping any. Kelvin uses it for the 10-minute reconciliation and for the
-device-by-device resync once the daily budget of full setup reads is spent.
+device-by-device resync once fewer than two of the day's full setup reads are left.
 
 ## Conclusions used by translate.py
 

@@ -69,6 +69,10 @@ class SetupReadGuard:
         self._trim()
         return len(self._reads)
 
+    def remaining(self) -> int:
+        """Full reads left in the rolling 24 h (negative after a startup overdraft)."""
+        return self.limit - self.used()
+
 
 QUOTA_CACHE_S = 3600.0
 QUOTA_ERROR_CACHE_S = 60.0

@@ -19,6 +19,7 @@ from kelvin.overkiz.models import StateChange
 log = logging.getLogger(__name__)
 
 DEVICE_BACKOFF_MAX_S = 6 * 3600.0  # a device whose state read fails is retried at most this rarely
+PUMP_RESERVE = 1  # full setup reads the pump leaves for a restart
 
 
 class EventPump:
@@ -103,8 +104,8 @@ class EventPump:
         self._notify_status()
 
     def request_resync(self) -> None:
-        """Resynchronise the whole house on the next poll (a full setup read if the budget
-        allows, else one state read per device)."""
+        """Resynchronise the whole house on the next poll (a full setup read while at least two
+        are left in the budget, else one state read per device)."""
         self._resync_due = True
         self.wake()
 
@@ -209,8 +210,13 @@ class EventPump:
             changed |= self.house.reload_device(url, states)
 
     async def _resync(self, changed: set[str]) -> bool:
-        """Resynchronise the whole house; False when it has to wait (quota hold)."""
-        if self.guard.allowed():
+        """Resynchronise the whole house; False when it has to wait (quota hold).
+
+        The pump never takes the last full read of the day: it can always resync device by
+        device, while a restart needs a full read (final review I1). Without this reserve, a
+        flaky outage (events fail, then the full read fails, again and again) spends the whole
+        budget in minutes and the next restart cannot read the setup for up to 24 h."""
+        if self.guard.remaining() >= PUMP_RESERVE + 1:
             self.guard.record()
             _, devices = await self.gateway.snapshot()
             changed |= self.house.reload(devices)

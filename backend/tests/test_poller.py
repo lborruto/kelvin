@@ -276,3 +276,36 @@ async def test_reconnect_forces_one_full_setup_read(env):
     assert house.radiators["9312063"].temperature == 22.0
     assert {"9312063"} in changed
     assert gw.snapshots == 1 and pump.status()["setup_reads_24h"] == 1
+
+
+async def test_an_outage_resync_never_takes_the_last_full_setup_read(env):
+    """Final review I1: a flaky outage must leave the last full read to a restart."""
+    _, gw, house, _, pump, _, _ = env
+    gw.fail_snapshot = QuotaError("flapping")
+    for _ in range(2 * pump.guard.limit):  # events fail, then the resync's full read fails
+        gw.fail_fetch = QuotaError("down")
+        await pump.run_once()
+        gw.fail_fetch = None
+        pump._quota_hold_until = float("-inf")
+        await pump.run_once()
+    assert pump.guard.used() == pump.guard.limit - 1 and pump.guard.allowed()
+    assert gw.snapshots == pump.guard.limit - 1
+
+
+async def test_a_resync_with_one_full_read_left_reads_device_by_device(env):
+    _, gw, house, _, pump, _, _ = env
+    for _ in range(pump.guard.limit - 1):
+        pump.guard.record()
+    pump.request_resync()
+    await pump.run_once()
+    assert gw.snapshots == 0 and gw.state_reads == len(house.device_urls())
+    assert pump.guard.used() == pump.guard.limit - 1
+
+
+async def test_a_resync_with_two_full_reads_left_takes_one(env):
+    _, gw, _, _, pump, _, _ = env
+    for _ in range(pump.guard.limit - 2):
+        pump.guard.record()
+    pump.request_resync()
+    await pump.run_once()
+    assert gw.snapshots == 1 and gw.state_reads == 0
