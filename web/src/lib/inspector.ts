@@ -31,6 +31,7 @@ export const COPY = {
   quality: 'Qualité',
   since: (day: string) => `depuis le ${day}${NB}: `,
   noLinkyDay: 'Aucune donnée Linky pour ce jour',
+  costUnknown: `aucune donnée Linky${NB}: énergie inconnue`,
   noLinkyPeriod: 'Aucune donnée Linky pour cette période',
   missing: (n: number) => plural(n, 'jour manquant', 'jours manquants'),
   notCounted: (n: number) => `énergie de ${plural(n, 'jour manquant', 'jours manquants')} non comptée`,
@@ -166,6 +167,11 @@ export function inspectBucket(b: EnergySummary, ctx: BucketCtx): Inspection {
     if (b.energy_eur != null) add('energie', COPY.energy, fmtEurExact(energy), { sub: true, est: split });
     if (b.subscription_eur != null) add('abonnement', COPY.subscription, fmtEurExact(subscription), { sub: true });
     if (b.prices.length) add('prix', COPY.prices, pricesText(b.prices));
+  } else if (b.subscription_eur != null) {
+    // A counted day pays its subscription even without Linky energy: the cost is unknown (never the subscription
+    // alone), and the subscription stays, so the « dont abonnement » column adds up to the period's.
+    add('cout', COPY.cost, '—', { note: COPY.costUnknown });
+    add('abonnement', COPY.subscription, fmtEurExact(b.subscription_eur), { sub: true });
   }
   if (kwh && b.energy_eur != null) add('prix_moyen', COPY.avgPrice, fmtPrice(b.energy_eur / kwh), { est: split });
   const per = ctx.period;

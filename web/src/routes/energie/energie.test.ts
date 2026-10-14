@@ -193,7 +193,9 @@ describe('Énergie', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Octobre 2026' })).toBeInTheDocument();
     expect(container.querySelector('.hero .big')).toHaveTextContent('98,40 €');
     expect(container.querySelector('.panels')).not.toHaveClass('busy');
+    announcer.clear();
     await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(announcer.polite).toBe('Septembre 2026'); // the period it asks for again is said
     expect(await screen.findByRole('heading', { level: 2, name: 'Septembre 2026' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
   });

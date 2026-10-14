@@ -223,7 +223,7 @@
   <p class="callout" class:bad={linkyNote.bad} role="status">{linkyNote.text}{#if linkyNote.link}&nbsp;<a href="/maison#linky">{linkyNote.link}</a>{/if}</p>
 {/if}
 {#if ready && main?.last_day}<p class="muted fresh">{COPY.fresh(fmtDay(main.last_day))}</p>{/if}
-{#if data.error}<p class="error" role="alert">{data.failed ? COPY.failedPeriod(periodTitle(data.failed.view, data.failed.period), data.error) : data.error} <button type="button" class="btn btn-sm" onclick={() => data.retry()}>{COPY.retry}</button></p>{/if}
+{#if data.error}<p class="error" role="alert">{data.failed ? COPY.failedPeriod(periodTitle(data.failed.view, data.failed.period), data.error) : data.error} <button type="button" class="btn btn-sm" onclick={() => navigate(() => data.retry())}>{COPY.retry}</button></p>{/if}
 
 {#if !ready}
   {#if !data.error}

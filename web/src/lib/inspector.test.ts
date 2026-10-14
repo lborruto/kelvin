@@ -40,12 +40,12 @@ describe('bucket inspector (spec §3.2.3)', () => {
     const none = bucket({ kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, eur: null, rest_kwh: null, present_days: 0, missing_days: 1, prices: [] });
     const ins = inspectBucket(none, day);
     expect(ins.empty).toBe('Aucune donnée Linky pour ce jour');
-    expect(ins.rows.map((r) => r.key)).toEqual(['radiateurs']);
+    expect(ins.rows.map((r) => r.key)).toEqual(['radiateurs', 'cout', 'abonnement']);
     expect(ins.notes).toEqual([]);
     expect(ins.spoken).toBe('13 octobre, radiateurs 14,20 kilowattheures');
     expect(inspectBucket(none, { group: 'month', span: bucketSpan('2026-10', 'month') }).empty).toBe('Aucune donnée Linky pour cette période');
     expect(inspectBucket(none, { ...day, linky: false }).empty).toBeNull();
-    const nothing = inspectBucket({ ...none, radiators: null }, day);
+    const nothing = inspectBucket({ ...none, radiators: null, subscription_eur: null }, day);
     expect(nothing.rows).toEqual([]);
     expect(nothing.spoken).toBe('13 octobre, aucune donnée Linky');
   });
@@ -128,8 +128,27 @@ describe('bucket inspector (spec §3.2.3)', () => {
       'Coût estimé', 'dont énergie', 'dont abonnement', 'Prix appliqués', 'Prix moyen', 'Qualité'
     ]);
     expect(t.rows[0].cells[1]).toBe(`8,98${NB}kWh est.`);
-    expect(t.rows[1].cells.slice(0, 12).every((c) => c === '—')).toBe(true);
-    expect(t.rows[1].cells[12]).toBe('Aucune donnée Linky pour ce jour');
+    // The day still pays its subscription: Coût « — » says why, and the abonnement column keeps it, so the column adds up.
+    const cells = Object.fromEntries(t.columns.map((c, i) => [c.key, t.rows[1].cells[i]]));
+    expect(cells.cout).toBe('— (aucune donnée Linky : énergie inconnue)'.replace(' : ', `${NB}: `));
+    expect(cells.abonnement).toBe(`0,48${NB}€`);
+    expect(t.columns.filter((c) => !['cout', 'abonnement', 'qualite'].includes(c.key)).every((c) => cells[c.key] === '—')).toBe(true);
+    expect(cells.qualite).toBe('Aucune donnée Linky pour ce jour');
+  });
+
+  it('a day with a subscription but no Linky energy: Coût « — » with its reason, and « dont abonnement » kept', () => {
+    const b = bucket({
+      kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, eur: null, rest_kwh: null, present_days: 0, missing_days: 1,
+      subscription_eur: 0.48
+    });
+    const ins = inspectBucket(b, day);
+    expect(ins.rows.find((r) => r.key === 'cout')).toMatchObject({ value: '—', note: `aucune donnée Linky${NB}: énergie inconnue` });
+    expect(ins.rows.find((r) => r.key === 'abonnement')).toMatchObject({ value: `0,48${NB}€`, sub: true });
+    expect(ins.rows.find((r) => r.key === 'energie')).toBeUndefined();
+    // No € in the bar's name: the day's cost is unknown.
+    expect(ins.spoken).toBe('13 octobre, radiateurs 14,20 kilowattheures');
+    // A day not counted (no subscription either) shows no cost rows at all.
+    expect(inspectBucket({ ...b, subscription_eur: null }, day).rows.map((r) => r.key)).toEqual(['radiateurs']);
   });
 });
 
