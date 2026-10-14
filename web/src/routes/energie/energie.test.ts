@@ -425,7 +425,7 @@ describe('Énergie', () => {
     const { container } = render(Page);
     await screen.findByRole('columnheader', { name: 'Depuis l’installation (kWh)' });
     expect([...container.querySelectorAll('th.opt')].map((t) => t.textContent)).toEqual(['Registre 1 (kWh)', 'Registre 2 (kWh)']);
-    expect([...container.querySelectorAll('td.mono')].map((t) => t.textContent)).toEqual(['1,0', '0,4', '0,6']);
+    expect([...container.querySelectorAll('.table-wrap td.mono')].map((t) => t.textContent)).toEqual(['1,0', '0,4', '0,6']);
   });
 
   it('an absent meter register reads « — », never 0 kWh', async () => {
@@ -447,6 +447,7 @@ describe('Énergie', () => {
     expect(await screen.findByRole('img', { name: 'Consommation de la maison par jour' })).toBeInTheDocument();
     expect(container.querySelector('.hero .big')).toHaveTextContent('€');
     expect(screen.getByRole('heading', { name: 'Compteurs des radiateurs' }).closest('section')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('heading', { name: 'Par pièce et par radiateur' }).closest('section')).toHaveAttribute('aria-busy', 'true');
     expect(container.querySelector('.table-wrap')).toBeNull();
   });
 

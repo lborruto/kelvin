@@ -8,9 +8,9 @@
   import HeatingPanel from '$lib/components/HeatingPanel.svelte';
   import PeriodNav from '$lib/components/PeriodNav.svelte';
   import PowerPanel from '$lib/components/PowerPanel.svelte';
-  import RoomTodayStrip from '$lib/components/RoomTodayStrip.svelte';
+  import RoomsEnergy from '$lib/components/RoomsEnergy.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
-  import { bucketLabel, bucketSpan, leadingMissing, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
+  import { addDays, bucketLabel, bucketSpan, dataSpan, leadingMissing, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
   import { fmtDateLong, fmtDay, fmtEur, fmtKwh, fmtTime, monthName, parisTodayIso } from '$lib/format';
   import { inspectBucket } from '$lib/inspector';
   import { reducedMotion } from '$lib/motion';
@@ -56,7 +56,6 @@
     register1: 'Registre 1 (kWh)',
     register2: 'Registre 2 (kWh)'
   } as const;
-  const NO_ROOM = 'sans-piece';
 
   const data = new EnergieData();
   let linky = $state<LinkyStatus | null>(null);
@@ -147,6 +146,8 @@
   let powerDay = $derived(loaded && (loaded.view !== 'day' || data.day?.date === loaded.period.from) ? data.day : null);
   // A period running into today counts its radiators up to yesterday.
   let running = $derived(!!loaded && loaded.period.to > parisTodayIso());
+  // The radiator figures and room stats count elapsed days only, up to yesterday (not up to the last Linky day).
+  let elapsed = $derived(loaded ? dataSpan(loaded.period, addDays(parisTodayIso(), -1)) : null);
 
   /** Runs a navigation and, when it changes the view or the period, says the new period once (all four ways in:
    * the views, ‹ ›, « Dernier jour », a bar drill). A failure is said by the error line (role alert). */
@@ -175,24 +176,6 @@
     if (loaded.view === 'day') return b.key === loaded.period.from ? null : COPY.drillDay;
     return COPY.drillCurve(fmtDay(b.key));
   }
-
-  // v1 Par pièce (replaced in Task 9). A room none of whose radiators Kelvin recorded has no figure.
-  let rooms = $derived.by(() => {
-    const byId = new Map((main?.radiators ?? []).map((r) => [r.radiator_id, r.kwh]));
-    const list: { id: string; name: string; kwh: number | null }[] = house.rooms.map((room) => {
-      const known = room.radiator_ids.filter((id) => byId.has(id));
-      return { id: room.id, name: room.name, kwh: known.length ? known.reduce((a, id) => a + byId.get(id)!, 0) : null };
-    });
-    const inRoom = new Set(house.rooms.flatMap((r) => r.radiator_ids));
-    const loose = [...byId].filter(([id]) => !inRoom.has(id));
-    if (loose.length) list.push({ id: NO_ROOM, name: 'Sans pièce', kwh: loose.reduce((a, [, v]) => a + v, 0) });
-    const sum = list.reduce((a, r) => a + (r.kwh ?? 0), 0);
-    return list.map((r) => ({
-      ...r,
-      share: sum && r.kwh != null ? r.kwh / sum : 0,
-      figure: r.kwh != null ? `${fmtKwh(r.kwh)} · ${Math.round((sum ? r.kwh / sum : 0) * 100)}\u00a0%` : '—'
-    }));
-  });
 
   /** The Linky line under the title, by state: progress is neutral and needs no link; only auth
    * and error are problems, with the way to fix them. */
@@ -331,23 +314,7 @@
     </section>
   {/if}
 
-  <section class="panel half" aria-busy={!house.loaded}>
-    <h2>Par pièce</h2>
-    {#if !house.loaded}
-      <div class="skeleton inset rooms-sk" aria-hidden="true"></div>
-    {:else}
-      <ul class="rooms">
-        {#each rooms as r (r.id)}
-          <li>
-            <span class="name">{r.name}</span>
-            <span class="strip">{#if r.id !== NO_ROOM}<RoomTodayStrip roomId={r.id} height={22} />{/if}</span>
-            <span class="num muted">{r.figure}</span>
-            <span class="meter thin" aria-hidden="true"><span style:transform="scaleX({r.share})" style:background={SERIES.radiators}></span></span>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </section>
+  <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="half" />
 
   <section class="panel wide" aria-busy={!house.loaded}>
     <h2>{COPY.counters}</h2>
@@ -514,32 +481,6 @@
     height: 2px;
     border-radius: 1px;
   }
-  .meter {
-    height: 6px;
-    margin-top: 10px;
-    background: var(--in);
-    border: 1px solid var(--line);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  .meter span {
-    display: block;
-    width: 100%;
-    height: 100%;
-    transform-origin: left;
-    transition: transform var(--t-data) var(--ease-out);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .meter span {
-      transition: none;
-    }
-  }
-  .meter.thin {
-    display: block;
-    height: 4px;
-    margin-top: 0;
-    border-radius: 2px;
-  }
   .proj {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -556,36 +497,8 @@
     font-weight: 600;
     text-align: right;
   }
-  .rooms-sk {
-    height: 120px;
-  }
   .counters-sk {
     height: 160px;
-  }
-  .rooms {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: grid;
-    gap: 12px;
-    font-size: 13px;
-    grid-template-columns: fit-content(14rem) minmax(0, 1fr) auto;
-    column-gap: 12px;
-  }
-  .rooms li {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: subgrid;
-    align-items: center;
-    row-gap: 6px;
-  }
-  .rooms .meter {
-    grid-column: 1 / -1;
-  }
-  .rooms .num {
-    justify-self: end;
-    text-align: right;
-    white-space: nowrap;
   }
   .table-wrap {
     overflow-x: auto;
@@ -623,12 +536,6 @@
     .sub-room {
       display: block;
       font-size: 12px;
-    }
-    .rooms {
-      grid-template-columns: minmax(0, 1fr) auto;
-    }
-    .rooms .strip {
-      display: none;
     }
   }
 </style>
