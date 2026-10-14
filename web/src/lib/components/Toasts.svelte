@@ -35,7 +35,6 @@
     bottom: calc(76px + env(safe-area-inset-bottom));
     transform: translateX(-50%);
     display: grid;
-    gap: 8px;
     z-index: 30;
     width: min(92vw, 420px);
     pointer-events: none;
@@ -45,8 +44,10 @@
     display: grid;
     gap: 8px;
   }
-  .stack:empty {
-    display: none;
+  /* Both live regions stay rendered while empty (an empty grid has no height): a region that
+     appears with its first toast is often not announced. */
+  .stack:not(:empty) + .stack:not(:empty) {
+    margin-top: 8px;
   }
   .toast {
     display: flex;
