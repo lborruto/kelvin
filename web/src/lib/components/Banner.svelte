@@ -12,7 +12,7 @@
   let rejected = $derived(connection === 'open' && !!status.auth_rejected);
   let message = $derived.by(() => {
     if (connection === 'reconnecting') return 'Reconnexion à Kelvin…';
-    if (rejected) return 'Mot de passe Cozytouch modifié : reconnectez-vous';
+    if (rejected) return 'Mot de passe Cozytouch modifié\u00a0: reconnectez-vous';
     if (connection === 'open' && !status.connected) {
       const age = status.last_ok_at ? ` — données ${fmtAgo(status.last_ok_at * 1000, now)}` : '';
       return `Cozytouch injoignable${age}`;
@@ -21,23 +21,50 @@
   });
 </script>
 
-<div class="banner" class:empty={!message} role="status">
-  {#if message}<Icon name="alert" size={16} />{message}{#if rejected}<a href="/login?reauth=1">Se reconnecter</a>{/if}{/if}
+<!-- The live region is always mounted (it announces); the strip opens by its grid row, never by a jump. -->
+<div class="wrap" class:banner-on={!!message}>
+  <div class="clip">
+    <div class="banner" role="status">
+      {#if message}<Icon name="alert" size={16} /><span>{message}</span>{#if rejected}<a href="/login?reauth=1">Se reconnecter</a>{/if}{/if}
+    </div>
+  </div>
 </div>
 
 <style>
+  /* Sticky: on a long phone page the state of the connection stays in view. */
+  .wrap {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--t-enter) var(--ease-out);
+    view-transition-name: banner;
+  }
+  .wrap.banner-on {
+    grid-template-rows: 1fr;
+  }
+  .clip {
+    min-height: 0;
+    overflow: hidden;
+  }
   .banner {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-height: 40px;
     padding: 10px 16px;
     background: color-mix(in srgb, var(--bad) 14%, var(--s1));
     border-bottom: 1px solid var(--line);
     font-size: 13px;
   }
+  .banner :global(svg) {
+    flex: none;
+  }
   a {
     margin-left: auto;
     min-height: 44px;
+    margin-block: -10px;
     display: inline-flex;
     align-items: center;
     color: var(--tx);
@@ -45,14 +72,14 @@
     text-decoration: underline;
     text-underline-offset: 3px;
   }
-  .empty {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    border: 0;
-    white-space: nowrap;
+  @media (min-width: 1024px) {
+    .banner {
+      padding: 10px 28px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wrap {
+      transition: none;
+    }
   }
 </style>

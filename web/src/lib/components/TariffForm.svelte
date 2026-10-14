@@ -52,6 +52,7 @@
 
   async function save(e: SubmitEvent) {
     e.preventDefault();
+    if (busy) return;
     error = null;
     saved = false;
     const s = parseDecimal(sub);
@@ -133,15 +134,15 @@
       <div class="slot">
         <label class="field"><span>Début de la plage {i + 1}</span><input type="time" step="600" bind:value={slot.start} /></label>
         <label class="field"><span>Fin de la plage {i + 1}</span><input type="time" step="600" bind:value={slot.end} /></label>
-        <button type="button" class="ghost" aria-label="Retirer la plage {i + 1}" disabled={slots.length === 1} onclick={() => removeSlot(i)}>Retirer</button>
+        <button type="button" class="btn btn-ghost" aria-label="Retirer la plage {i + 1}" disabled={slots.length === 1} onclick={() => removeSlot(i)}>Retirer</button>
       </div>
     {/each}
-    <button type="button" class="ghost" disabled={slots.length >= 3} onclick={addSlot}>Ajouter une plage</button>
+    <button type="button" class="btn btn-ghost add" aria-disabled={slots.length >= 3} onclick={addSlot}>Ajouter une plage</button>
   </fieldset>
 
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if saved}<p class="ok" role="status">Tarif enregistré.</p>{/if}
-  <button type="submit" class="primary" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer le tarif'}</button>
+  <button type="submit" class="btn btn-primary save" aria-disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer le tarif'}</button>
 
   {#if history.length}
     <!-- Units sit in the headers; below 600 px each price becomes a two-column list. -->
@@ -197,19 +198,6 @@
     font-size: 12px;
     color: var(--mu);
   }
-  input,
-  select {
-    min-height: 44px;
-    padding: 0 10px;
-    font: inherit;
-    font-size: 15px;
-    font-variant-numeric: tabular-nums;
-    background: var(--in);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--tx);
-    min-width: 0;
-  }
   fieldset {
     border: 0;
     border-top: 1px solid var(--line);
@@ -233,31 +221,9 @@
     align-items: end;
     gap: 10px;
   }
-  .ghost {
-    min-height: 44px;
-    padding: 0 12px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: none;
-    color: var(--mu);
-    font-size: 12px;
-    cursor: pointer;
+  .add,
+  .save {
     justify-self: start;
-  }
-  .primary {
-    min-height: 44px;
-    padding: 0 16px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--tx);
-    color: var(--bg);
-    font-weight: 600;
-    cursor: pointer;
-    justify-self: start;
-  }
-  button:disabled {
-    opacity: 0.55;
-    cursor: default;
   }
   .error {
     color: var(--bad);

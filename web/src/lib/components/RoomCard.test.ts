@@ -1,3 +1,4 @@
+import { flushSync } from 'svelte';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
@@ -82,16 +83,73 @@ describe('RoomCard', () => {
       expected: { a: { mode: 'manual' } }
     });
     render(RoomCard, { room, now, expanded: true, points: [], onselect: vi.fn() });
-    expect(screen.getByRole('radio', { name: 'Manuel' })).toHaveClass('pending');
+    expect(screen.getByRole('radio', { name: 'Manuel (en attente)' })).toHaveClass('pending');
     expect(screen.getByText('Envoi…')).toBeInTheDocument();
   });
 
-  it('exposes aria-expanded on phone but not when the click navigates', () => {
-    const { unmount } = render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn() });
-    expect(screen.getByRole('button', { name: /Salon/ })).toHaveAttribute('aria-expanded', 'false');
-    unmount();
-    render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn(), navigates: true });
-    expect(screen.getByRole('button', { name: /Salon/ })).not.toHaveAttribute('aria-expanded');
+  it('is an expanding button on the phone, wired to its controls', () => {
+    render(RoomCard, { room, now, expanded: true, points: [], onselect: vi.fn() });
+    const head = screen.getByRole('button', { name: /Salon/ });
+    expect(head).toHaveAttribute('aria-expanded', 'true');
+    const controls = document.getElementById(head.getAttribute('aria-controls')!);
+    expect(controls).toHaveClass('controls');
+  });
+
+  it('is a link to the room on desktop, marked current when it is the room shown', () => {
+    render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn(), navigates: true, selected: true, current: true });
+    const link = screen.getByRole('link', { name: /Salon/ });
+    expect(link).toHaveAttribute('href', '/pieces/salon');
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(link).not.toHaveAttribute('aria-expanded');
+    // Focus stays on the card across the navigation (the list is not re-rendered).
+    expect(link).toHaveAttribute('data-sveltekit-keepfocus');
+    expect(screen.queryByRole('button', { name: /Salon/ })).toBeNull();
+  });
+
+  it('on "/" the chosen room is selected but not the current page', () => {
+    const { container } = render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn(), navigates: true, selected: true });
+    expect(screen.getByRole('link', { name: /Salon/ })).not.toHaveAttribute('aria-current');
+    expect(container.querySelector('.card')).toHaveClass('selected');
+  });
+
+  it('a requested comfort the radiators did not take disappears at once (no false « → value »)', () => {
+    house.applyPending({
+      id: 'p8', label: 'Salon : Confort', radiator_ids: ['a'], status: 'pending', error: null, created_at: 2,
+      expected: { a: { comfort: 23 } }
+    });
+    const { container } = render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn() });
+    expect(container.querySelector('.pending-sp')).toHaveTextContent('→ 23,0 °C');
+    house.applyPending({
+      id: 'p8', label: 'Salon : Confort', radiator_ids: ['a'], status: 'failed', error: 'x', created_at: 2,
+      expected: { a: { comfort: 23 } }
+    });
+    flushSync();
+    expect(container.querySelector('.pending-sp')).toBeNull();
+  });
+
+  it('underlines a pending comfort dashed, then closes it solid when the radiators report it', async () => {
+    vi.useFakeTimers();
+    try {
+      house.applyPending({
+        id: 'p9', label: 'Salon : Confort', radiator_ids: ['a'], status: 'pending', error: null, created_at: 2,
+        expected: { a: { comfort: 21 } }
+      });
+      const { container } = render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn() });
+      const edge = () => container.querySelector('.pending-sp svg.edge');
+      expect(edge()).toHaveClass('pending');
+      house.applyHouse({ rooms: [], radiators: [{ ...radiator, comfort: 21 }] } as never);
+      house.applyPending({
+        id: 'p9', label: 'Salon : Confort', radiator_ids: ['a'], status: 'confirmed', error: null, created_at: 2,
+        expected: { a: { comfort: 21 } }
+      });
+      flushSync();
+      expect(edge()).toHaveClass('confirmed');
+      expect(container.querySelector('.pending-sp')).toHaveTextContent('→ 21,0 °C');
+      await vi.advanceTimersByTimeAsync(300);
+      expect(container.querySelector('.pending-sp')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('a pending comfort shows in the setpoint line', () => {

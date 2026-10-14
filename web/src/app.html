@@ -19,9 +19,25 @@
         }
       } catch {}
     </script>
+    <style>
+      /* First paint before the app loads (removed by the root layout): the page ground, the
+         wordmark and three card-sized blocks. A fixed overlay, so its removal moves nothing. */
+      #kv-shell { position: fixed; inset: 0; z-index: 100; background: #0f1115; color: #e8eaf0;
+        font: 700 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 20px 16px; }
+      #kv-shell i { display: block; height: 132px; margin-top: 10px; border-radius: 10px; background: #171a21; }
+      #kv-shell b { display: block; height: 22px; width: 7em; margin: 18px 0 14px; border-radius: 6px; background: #171a21; }
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme='dark']) #kv-shell { background: #f5f6f8; color: #14171f; }
+        :root:not([data-theme='dark']) #kv-shell :is(i, b) { background: #ffffff; }
+      }
+      :root[data-theme='light'] #kv-shell { background: #f5f6f8; color: #14171f; }
+      :root[data-theme='light'] #kv-shell :is(i, b) { background: #ffffff; }
+      @media (min-width: 1024px) { #kv-shell { padding: 20px 28px 0 260px; } #kv-shell i { max-width: 640px; } }
+    </style>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
+    <div id="kv-shell" aria-hidden="true">Kelvin<b></b><i></i><i></i><i></i></div>
     <div style="display: contents">%sveltekit.body%</div>
   </body>
 </html>

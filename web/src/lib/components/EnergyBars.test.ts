@@ -59,7 +59,7 @@ describe('EnergyBars', () => {
     const marks = container.querySelectorAll('line.mark');
     expect(marks).toHaveLength(1);
     expect(marks[0].getAttribute('style')).toContain('var(--series-3)');
-    const table = container.querySelector('table.visually-hidden')!;
+    const table = container.querySelector('.visually-hidden > table')!;
     expect(table.querySelector('caption')?.textContent).toBe('Consommation de la maison par mois');
     expect([...table.querySelectorAll('thead th')].map((t) => t.textContent)).toEqual([
       'Période', 'Heures creuses', 'Heures pleines', 'Radiateurs'
@@ -81,7 +81,7 @@ describe('EnergyBars', () => {
     });
     expect(container.querySelectorAll('rect.part')).toHaveLength(2);
     for (const r of container.querySelectorAll('rect.part')) expect(Number(r.getAttribute('height'))).not.toBeNaN();
-    const rows = container.querySelectorAll('table.visually-hidden tbody tr');
+    const rows = container.querySelectorAll('.visually-hidden > table tbody tr');
     expect([...rows[0].querySelectorAll('td')].map((td) => td.textContent)).toEqual(['—', '—']);
     expect(rows[1].textContent).toContain('2,0\u00a0kWh');
     expect(container.querySelectorAll('line.gap')).toHaveLength(0); // leading, not interior

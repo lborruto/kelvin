@@ -4,7 +4,6 @@
 </script>
 
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { desktop } from '$lib/media.svelte';
   import { history } from '$lib/stores/history.svelte';
   import { house } from '$lib/stores/house.svelte';
@@ -13,8 +12,10 @@
 
   interface Props {
     selectedId?: string | null;
+    /** The selected room is the page's URL ("/pieces/[id]"), not the default of "/". */
+    selectedIsPage?: boolean;
   }
-  let { selectedId = null }: Props = $props();
+  let { selectedId = null, selectedIsPage = false }: Props = $props();
 
   let expanded = $state<string | null>(remembered ? remembered.id : null);
   let autoExpanded = false;
@@ -37,11 +38,8 @@
     for (const r of house.rooms) history.load(key(r.id), r.radiator_ids, start, Math.min(end, now), 900);
   });
 
+  // Phone only: on desktop the card is a link to the room.
   function select(id: string) {
-    if (desktop.matches) {
-      goto(`/pieces/${id}`);
-      return;
-    }
     expanded = expanded === id ? null : id;
     remembered = { id: expanded };
   }
@@ -49,13 +47,12 @@
 
 <div class="list">
   {#if !house.loaded}
-    {#each [0, 1, 2] as i (i)}<div class="skeleton" aria-hidden="true"></div>{/each}
+    {#each [0, 1, 2] as i (i)}<div class="skeleton card-sk" aria-hidden="true"></div>{/each}
   {:else}
     {#each house.rooms as room (room.id)}
-      <div class:selected={selectedId === room.id}>
-        <RoomCard {room} {now} expanded={!desktop.matches && expanded === room.id} points={history.data[key(room.id)] ?? []}
-          onselect={() => select(room.id)} navigates={desktop.matches} />
-      </div>
+      <RoomCard {room} {now} expanded={!desktop.matches && expanded === room.id} points={history.data[key(room.id)] ?? []}
+        onselect={() => select(room.id)} navigates={desktop.matches} selected={selectedId === room.id}
+        current={selectedIsPage && selectedId === room.id} />
     {/each}
   {/if}
 </div>
@@ -65,19 +62,7 @@
     display: grid;
     gap: 10px;
   }
-  .selected :global(.card) {
-    border-color: var(--mu);
-  }
-  .skeleton {
+  .card-sk {
     height: 132px;
-    border-radius: var(--radius);
-    background: linear-gradient(90deg, var(--s1), var(--s2), var(--s1));
-    background-size: 200% 100%;
-    animation: shimmer 1.4s ease infinite;
-  }
-  @keyframes shimmer {
-    to {
-      background-position: -200% 0;
-    }
   }
 </style>

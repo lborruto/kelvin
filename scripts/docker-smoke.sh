@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Build the image, run it with the simulator (KELVIN_FAKE=1) under the compose hardening,
 # then prove: healthy, uid 10001, private /data, login through the real flow, forwarded
-# headers ignored, the SPA served, and nothing private (.env, account.json, node_modules,
+# headers ignored, the SPA served (precompressed), the image running the current backend
+# sources, and nothing private (.env, account.json, node_modules,
 # tests, design or agent material, captures) and no world-writable file baked into the
 # image. Cleans up on exit, anonymous /data volume included.
 #
@@ -57,6 +58,20 @@ $leaks" ;;
 esac
 docker rm -fv "$SNAP" >/dev/null
 
+# The image runs this checkout's backend, not a stale build from a cache: one hash over every
+# kelvin/**/*.py (relative path + bytes), computed the same way here and in the image.
+TREE_HASH='import hashlib, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+h = hashlib.sha256()
+for p in sorted(root.rglob("*.py")):
+    h.update(p.relative_to(root).as_posix().encode() + b"\0" + p.read_bytes() + b"\0")
+print(h.hexdigest())'
+local_hash="$(python3 -c "$TREE_HASH" "$ROOT/backend/kelvin")" || fail "could not hash backend/kelvin"
+image_hash="$(docker run --rm -i --network none --entrypoint python "$IMAGE" -c \
+  "import pathlib, kelvin, sys; sys.argv = ['', str(pathlib.Path(kelvin.__file__).parent)]; exec(sys.stdin.read())" \
+  <<<"$TREE_HASH")" || fail "could not hash the image's kelvin package"
+[[ "$local_hash" == "$image_hash" ]] || fail "the image's kelvin package differs from backend/kelvin (stale build?)"
+
 # No world-writable file anywhere in the image (searched as root, so no directory is skipped).
 writable="$(docker run --rm -u 0 --network none --entrypoint find "$IMAGE" / -xdev -type f -perm -0002)" \
   || fail "could not search the image for world-writable files"
@@ -101,6 +116,10 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE/api/house")"
 [[ "$code" == 200 ]] || fail "/api/house with the session answered $code"
 page="$(curl -fsS "$BASE/")" || fail "GET / failed"
 grep -q '<title>Kelvin</title>' <<<"$page" || fail "the web app is not served"
+# Precompressed assets are sent as such (adapter-static precompress + kelvin/api/web.py).
+enc="$(curl -sS -D - -o /dev/null -H 'Accept-Encoding: br, gzip' "$BASE/")"
+grep -qi '^content-encoding: br' <<<"$enc" || fail "GET / with Accept-Encoding: br was not sent brotli"
+grep -qi '^vary: accept-encoding' <<<"$enc" || fail "GET / is missing Vary: Accept-Encoding"
 
 [[ "$(docker exec "$NAME" stat -c '%a' /data/account.json)" == 600 ]] \
   || fail "/data/account.json is not mode 600"

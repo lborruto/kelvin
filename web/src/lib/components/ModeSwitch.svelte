@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { Mode, RoomMode, SettableMode } from '$lib/api/types';
+  import { Settle } from '$lib/settle.svelte';
+  import PendingEdge from './PendingEdge.svelte';
 
   interface Props {
     value: RoomMode | null;
@@ -16,6 +18,9 @@
     { v: 'program' as const, l: compact ? 'Prog.' : 'Programme' }
   ]);
   let current = $derived(pending ?? value);
+  let waiting = $derived(pending !== null && pending !== value);
+  // Dashed while the radiator has not reported the requested mode; closes solid when it does.
+  const settle = new Settle<Mode>(() => (waiting ? pending : null), () => value as Mode | null);
   let tabStop = $derived(options.some((o) => o.v === current) ? current : options[0].v);
   let buttons: HTMLButtonElement[] = [];
 
@@ -29,12 +34,16 @@
   }
 </script>
 
-<div class="seg" role="radiogroup" aria-label={label}>
+<div class="seg" role="radiogroup" aria-label={label} aria-busy={waiting}>
   {#each options as o, i (o.v)}
-    <button type="button" role="radio" aria-checked={current === o.v} aria-label={o.v === 'program' ? 'Programme' : o.l}
+    {@const on = current === o.v}
+    {@const isPending = waiting && pending === o.v}
+    <button type="button" role="radio" aria-checked={on}
+      aria-label="{o.v === 'program' ? 'Programme' : o.l}{isPending ? ' (en attente)' : ''}"
       bind:this={buttons[i]} tabindex={tabStop === o.v ? 0 : -1} onkeydown={(e) => key(e, i)}
-      class:on={current === o.v} class:pending={pending === o.v && pending !== value} {disabled}
-      onclick={() => current !== o.v && onchange(o.v)}>{o.l}</button>
+      class:on class:pending={isPending} aria-disabled={disabled}
+      onclick={() => !disabled && current !== o.v && onchange(o.v)}>{o.l}{#if on}<PendingEdge shape="rect" rx={6.5} pending={isPending}
+          confirmed={settle.confirmed && settle.held?.v === o.v} />{/if}</button>
   {/each}
 </div>
 
@@ -49,27 +58,36 @@
     border-radius: var(--radius);
   }
   button {
+    position: relative;
     min-height: 44px;
-    border: 1px solid transparent;
+    border: 0;
     border-radius: calc(var(--radius) - 3px);
     background: transparent;
     color: var(--mu);
     font-weight: 600;
     font-size: 13px;
     cursor: pointer;
-    transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+    touch-action: manipulation;
+    transition: background-color var(--t-state) ease, color var(--t-state) ease;
   }
+  @media (hover: hover) {
+    button:not(.on, [aria-disabled='true']):hover {
+      color: var(--tx);
+    }
+  }
+  /* The selected segment: s2 with ink, edged in muted (3:1 against the well, WCAG 1.4.11). The edge
+     is the signature mark: dashed while the mode is requested, closing solid when confirmed. */
   button.on {
     background: var(--s2);
     color: var(--tx);
-    border-color: var(--line);
+    --edge-rest: var(--mu);
   }
-  button.pending {
-    border-style: dashed;
-    border-color: var(--mu);
-  }
-  button:disabled {
+  /* aria-disabled, never disabled: a focused segment keeps focus when commands pause. */
+  button[aria-disabled='true'] {
     cursor: default;
-    opacity: 0.6;
+    color: var(--fa);
+  }
+  button.on[aria-disabled='true'] {
+    color: var(--mu);
   }
 </style>

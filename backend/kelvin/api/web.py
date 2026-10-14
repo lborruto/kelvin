@@ -1,5 +1,6 @@
 """Serve the built SvelteKit SPA (adapter-static) from KELVIN_WEB, next to the API."""
 
+import mimetypes
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -13,6 +14,40 @@ METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 def _is_api(path: str) -> bool:
     return path == "api" or path.startswith("api/")
+
+
+# adapter-static writes .br and .gz next to each text asset (precompress): send the smallest one
+# the browser accepts, never decompressing on the fly.
+ENCODINGS = (("br", ".br"), ("gzip", ".gz"))
+
+
+def _accepts(header: str, coding: str) -> bool:
+    """True when Accept-Encoding names `coding` with a non-zero q (names and q are case-blind)."""
+    for part in header.split(","):
+        name, *params = part.split(";")
+        if name.strip().lower() != coding:
+            continue
+        for param in params:
+            key, _, value = param.strip().partition("=")
+            if key.strip().lower() == "q":
+                try:
+                    return float(value.strip()) > 0
+                except ValueError:
+                    return False
+        return True
+    return False
+
+
+def _file(path: Path, request: Request, cache: str) -> FileResponse:
+    media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    headers = {"Cache-Control": cache, "Vary": "Accept-Encoding"}
+    accept = request.headers.get("accept-encoding", "")
+    for coding, suffix in ENCODINGS:
+        packed = path.with_name(path.name + suffix)
+        if _accepts(accept, coding) and packed.is_file():
+            headers["Content-Encoding"] = coding
+            return FileResponse(packed, media_type=media_type, headers=headers)
+    return FileResponse(path, media_type=media_type, headers=headers)
 
 
 def mount_web(app: FastAPI, web_dir: Path | None) -> None:
@@ -33,7 +68,11 @@ def mount_web(app: FastAPI, web_dir: Path | None) -> None:
             except (OSError, ValueError):  # a NUL byte, a name too long
                 raise HTTPException(404, "Introuvable.") from None
             # Inside the build first, then the file: nothing outside the build is even stat'ed.
+            # The .br/.gz copies are only ever sent as an encoding of their original.
+            packed = candidate.suffix in (".br", ".gz")
+            if packed and candidate.is_file():
+                raise HTTPException(404, "Introuvable.")
             if candidate.is_relative_to(root) and candidate.is_file():
                 cache = IMMUTABLE if "/immutable/" in f"/{path}" else "no-cache"
-                return FileResponse(candidate, headers={"Cache-Control": cache})
-        return FileResponse(index, headers={"Cache-Control": "no-cache"})
+                return _file(candidate, request, cache)
+        return _file(index, request, "no-cache")

@@ -53,6 +53,26 @@ describe('PiecesView on the phone', () => {
     render(PiecesView, { roomId: 'salon' });
     expect(screen.getByRole('link', { name: 'Pièces' })).toHaveAttribute('href', '/');
     expect(screen.queryByRole('heading', { name: 'Pièces', level: 1 })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Salon', level: 2 })).toBeInTheDocument();
+    // The room is the phone page's title.
+    expect(screen.getByRole('heading', { name: 'Salon', level: 1 })).toBeInTheDocument();
+  });
+});
+
+describe('PiecesView before the house is known', () => {
+  it('shows skeletons, never « 0 pièce » or « Pièce introuvable »', () => {
+    house.reset();
+    for (const d of [true, false]) {
+      media.desktop.matches = d;
+      const v = render(PiecesView, d ? { roomId: null, home: true } : { roomId: 'salon' });
+      expect(document.body.textContent).not.toMatch(/0 pièce|Pièce introuvable|en chauffe/);
+      expect(v.container.querySelectorAll('.skeleton').length).toBeGreaterThan(d ? 3 : 2);
+      v.unmount();
+    }
+  });
+
+  it('says « Pièce introuvable » only once the house is loaded', () => {
+    media.desktop.matches = false;
+    render(PiecesView, { roomId: 'nope' });
+    expect(screen.getByText('Pièce introuvable.')).toBeInTheDocument();
   });
 });

@@ -63,6 +63,34 @@ describe('Login', () => {
     expect(api.login).not.toHaveBeenCalled();
   });
 
+  it('marks and focuses the missing field, linked to the error', async () => {
+    render(Page);
+    await fill('demo@kelvin.local', '');
+    const pw = screen.getByLabelText('Mot de passe');
+    await waitFor(() => expect(document.activeElement).toBe(pw));
+    expect(pw).toHaveAttribute('aria-invalid', 'true');
+    expect(pw).toHaveAccessibleDescription('Saisissez l’email et le mot de passe Cozytouch.');
+    expect(screen.getByLabelText('Email')).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('a refused login keeps focus in the form (the password, selected), never on <body>', async () => {
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.'));
+    render(Page);
+    await fill('demo@kelvin.local', 'nope');
+    await screen.findByRole('alert');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Mot de passe')));
+    expect(screen.getByRole('button', { name: 'Se connecter' })).not.toBeDisabled();
+  });
+
+  it('a server failure is not blamed on the fields', async () => {
+    vi.mocked(api.login).mockRejectedValue(new ApiError(503, 'Cozytouch ne répond pas.'));
+    render(Page);
+    await fill('demo@kelvin.local', 'kelvin');
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('Email')).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByLabelText('Mot de passe')).not.toHaveAttribute('aria-invalid');
+  });
+
   it('never follows an outside next', async () => {
     url.current = new URL('http://kelvin.test/login?next=%2F%2Fevil.fr');
     vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });

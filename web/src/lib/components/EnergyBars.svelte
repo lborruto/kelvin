@@ -29,7 +29,9 @@
   }
   let { groups, colors, unit, label, names = {}, overlay = null }: Props = $props();
 
-  const W = 600;
+  /** Drawn at its measured width, so bars keep their height and corners on a phone. */
+  let width = $state(0);
+  let W = $derived(width > 0 ? width : 600);
   const H = 160;
   const PAD = { top: 8, right: 0, bottom: 2, left: 0 };
 
@@ -66,13 +68,14 @@
 {#if !groups.length}
   <p class="muted empty">Pas encore de données.</p>
 {:else}
-  <svg viewBox="0 0 {W} {H}" role="img" aria-label={label}>
+  <div class="plot" bind:clientWidth={width}>
+  <svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={label}>
     {#each y.ticks(4) as t (t)}
       <line class="grid" x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} />
     {/each}
-    {#each groups as g (g.label)}
+    {#each groups as g, gi (g.label)}
       {#each stacks(g) as s (s.key)}
-        <rect class="part" x={x(g.label)} width={x.bandwidth()} y={y(s.y1)} height={Math.max(0, y(s.y0) - y(s.y1))}
+        <rect class="part" style:--i={gi} x={x(g.label)} width={x.bandwidth()} y={y(s.y1)} height={Math.max(0, y(s.y0) - y(s.y1))}
           style:fill={colors[s.key] ?? 'var(--mu)'} rx="2">
           <title>{g.label} · {names[s.key] ? `${names[s.key]} ` : ''}{fmt(s.value)}</title>
         </rect>
@@ -87,6 +90,8 @@
       {#each groups as g, i (g.label)}
         {@const v = overlay.values[i]}
         {#if v != null && v > 0}
+          <!-- A knockout under the mark keeps it legible on any bar colour. -->
+          <line class="knock" x1={x(g.label)} x2={(x(g.label) ?? 0) + x.bandwidth()} y1={y(v)} y2={y(v)} />
           <line class="mark" x1={x(g.label)} x2={(x(g.label) ?? 0) + x.bandwidth()} y1={y(v)} y2={y(v)} style:stroke={overlay.color}>
             <title>{g.label} · {overlay.label} {fmt(v)}</title>
           </line>
@@ -94,12 +99,14 @@
       {/each}
     {/if}
   </svg>
+  </div>
   <div class="axis" bind:clientWidth={axisWidth} style:grid-template-columns="repeat({groups.length}, 1fr)" aria-hidden="true">
     {#each groups as g, gi (g.label)}
       <span class="cell">{#if gi % every === 0}<span class="tick">{g.label}</span>{/if}</span>
     {/each}
   </div>
-  <table class="visually-hidden">
+  <!-- A table cannot shrink to 1 px: the wrapper hides it without widening or lengthening the page. -->
+  <div class="visually-hidden"><table>
     <caption>{label}</caption>
     <thead>
       <tr>
@@ -117,14 +124,43 @@
         </tr>
       {/each}
     </tbody>
-  </table>
+  </table></div>
 {/if}
 
 <style>
+  .plot {
+    min-width: 0;
+  }
   svg {
-    width: 100%;
-    height: auto;
     display: block;
+    max-width: 100%;
+    overflow: visible;
+  }
+  /* Bars grow from the baseline on first draw and on each period change (new keys). */
+  .part {
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: kv-grow var(--t-data) var(--ease-out) both;
+    animation-delay: min(calc(var(--i) * 12ms), 180ms);
+  }
+  .mark,
+  .knock {
+    animation: kv-fade-in var(--t-state) ease both;
+    animation-delay: 200ms;
+  }
+  .knock {
+    stroke: var(--s1);
+    stroke-width: 4;
+    stroke-linecap: round;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .part {
+      animation: kv-fade-in var(--t-exit) linear both;
+    }
+    .mark,
+    .knock {
+      animation: none;
+    }
   }
   .grid {
     stroke: var(--line);
@@ -151,7 +187,7 @@
     stroke-dasharray: 3 3;
   }
   .mark {
-    stroke-width: 2;
+    stroke-width: 2.5;
     stroke-linecap: round;
   }
   .empty {

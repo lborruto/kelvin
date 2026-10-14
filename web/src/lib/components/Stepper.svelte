@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
   import { fmtTemp } from '$lib/format';
+  import { Settle } from '$lib/settle.svelte';
+  import { announcer } from '$lib/stores/announcer.svelte';
   import Icon from './Icon.svelte';
+  import PendingEdge from './PendingEdge.svelte';
 
   interface Props {
     value: number | null;
@@ -13,32 +15,25 @@
     disabled?: boolean;
     debounceMs?: number;
     format?: (v: number | null) => string;
+    /** Announce each committed value; off where the command's own progress is announced. */
+    announce?: boolean;
     /** May return the send's promise: a `null` result (rejected send) drops the unsent value at once. */
     onchange: (v: number) => unknown;
   }
   let {
     value, min, max, step = 0.5, label, pending = false, disabled = false,
-    debounceMs = 600, format = (v) => fmtTemp(v), onchange
+    debounceMs = 600, format = (v) => fmtTemp(v), announce = true, onchange
   }: Props = $props();
 
   const FALLBACK_MS = 10_000;
-  /** How long the underline takes to morph from dashed to solid once the radiator confirms. */
-  const SETTLE_MS = 250;
-  let lastSent = $state<number | null>(null);
-  let settling = $state(false);
-  let settleTimer: ReturnType<typeof setTimeout> | undefined;
-  const settle = () => {
-    clearTimeout(settleTimer);
-    settleTimer = setTimeout(() => (settling = false), SETTLE_MS);
-  };
-  // Confirmed only when the radiator now reports the value that was sent; a failure stays plain.
-  let confirmed = $derived(settling && lastSent !== null && value === lastSent);
-  $effect(() => {
-    if (confirmed) untrack(settle);
-  });
   let local = $state<number | null>(null);
   let committed = false;
   let shown = $derived(local ?? value);
+  // The value the radiator was asked for; confirmed when it reports exactly that (shared rule).
+  const settle = new Settle(() => (pending ? (local ?? value) : null), () => value);
+  // At a bound the button stays focusable (aria-disabled): a disabled button would drop focus to <body>.
+  let atMin = $derived(disabled || shown === null || shown <= min);
+  let atMax = $derived(disabled || shown === null || shown >= max);
   let commitTimer: ReturnType<typeof setTimeout> | undefined;
   let holdTimer: ReturnType<typeof setTimeout> | undefined;
   let repeatTimer: ReturnType<typeof setInterval> | undefined;
@@ -62,10 +57,6 @@
   let prevPending = false;
   $effect(() => {
     const p = pending;
-    if (prevPending && !p) {
-      settling = true;
-      settle();
-    }
     if (prevPending && !p && committed) release();
     prevPending = p;
   });
@@ -73,7 +64,6 @@
   $effect(() => () => {
     clearTimeout(commitTimer);
     clearTimeout(fallbackTimer);
-    clearTimeout(settleTimer);
     stopHold();
   });
 
@@ -82,6 +72,10 @@
   }
 
   function bump(dir: 1 | -1) {
+    if (disabled) {
+      stopHold();
+      return;
+    }
     // No known value (e.g. radiators disagree and nothing aggregated it): nothing to step from.
     const base = local ?? value;
     if (base === null) {
@@ -89,7 +83,7 @@
       return;
     }
     const next = clamp(base + dir * step);
-    if (next === local) {
+    if (next === base || next === local) {
       stopHold();
       return;
     }
@@ -101,9 +95,10 @@
   }
 
   function commit() {
+    // One announcement per settled choice, not per tap or hold step.
+    if (announce && local !== null) announcer.say(`${label} : ${format(local)}`);
     if (local !== null && local !== value) {
       committed = true;
-      lastSent = local;
       fallbackTimer = setTimeout(release, FALLBACK_MS);
       const sent = local;
       const r = onchange(sent);
@@ -143,12 +138,11 @@
 </script>
 
 <div class="stepper" class:pending role="group" aria-label={label}>
-  <button type="button" aria-label="Diminuer {label}" disabled={disabled || shown === null || shown <= min}
+  <button type="button" aria-label="Diminuer {label}" aria-disabled={atMin}
     onpointerdown={(e) => startHold(e, -1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
     onkeydown={(e) => key(e, -1)}><Icon name="minus" /></button>
-  <output class="num" aria-live="polite"><span class="val">{format(shown)}<svg class="ul" aria-hidden="true"><line
-        x1="0" x2="100%" y1="1" y2="1" class:confirmed /></svg></span></output>
-  <button type="button" aria-label="Augmenter {label}" disabled={disabled || shown === null || shown >= max}
+  <output class="num"><span class="val">{format(shown)}<PendingEdge {pending} confirmed={settle.confirmed} /></span></output>
+  <button type="button" aria-label="Augmenter {label}" aria-disabled={atMax}
     onpointerdown={(e) => startHold(e, 1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
     onkeydown={(e) => key(e, 1)}><Icon name="plus" /></button>
 </div>
@@ -158,8 +152,9 @@
     display: inline-grid;
     grid-template-columns: 44px minmax(5.5ch, auto) 44px;
     align-items: center;
+    flex: none;
     background: var(--in);
-    border: 1px solid var(--line);
+    border: 1px solid var(--field-line);
     border-radius: var(--radius);
     overflow: hidden;
   }
@@ -172,11 +167,17 @@
     cursor: pointer;
     touch-action: manipulation;
     user-select: none;
+    transition: background-color var(--t-state) ease, color var(--t-state) ease;
   }
-  button:hover:not(:disabled) {
+  @media (hover: hover) {
+    button:hover:not([aria-disabled='true']) {
+      background: var(--s2);
+    }
+  }
+  button:active:not([aria-disabled='true']) {
     background: var(--s2);
   }
-  button:disabled {
+  button[aria-disabled='true'] {
     color: var(--fa);
     cursor: default;
   }
@@ -186,39 +187,12 @@
     font-weight: 600;
     padding: 0 6px;
   }
-  /* The underline belongs to the value, so it is as wide as the figure, not the control. */
+  /* The underline belongs to the value, so it is as wide as the figure, not the control: a hairline
+     at rest, dashed while pending, closing solid on confirmation (PendingEdge). */
   .val {
     position: relative;
     display: inline-block;
     padding-bottom: 2px;
-  }
-  /* Drawn underline: dashed while pending, morphing to solid on confirmation (same move as the strip). */
-  .ul {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    height: 2px;
-    overflow: visible;
-  }
-  .ul line {
-    stroke: var(--line);
-    stroke-width: 2;
-  }
-  .pending .ul line {
-    stroke: var(--mu);
-    stroke-dasharray: 4 3;
-  }
-  .ul line.confirmed {
-    stroke: var(--mu);
-    animation: solidify 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-  @keyframes solidify {
-    from {
-      stroke-dasharray: 4 3;
-    }
-    to {
-      stroke-dasharray: 8 0;
-    }
+    --edge-rest: var(--line);
   }
 </style>

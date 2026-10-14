@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { Settle, SETTLE_MS } from '$lib/settle.svelte';
+  import PendingEdge from './PendingEdge.svelte';
+
   interface Props {
     checked: boolean;
     label: string;
@@ -7,12 +10,28 @@
     onchange: (v: boolean) => void;
   }
   let { checked, label, pending = false, disabled = false, onchange }: Props = $props();
+
+  // The state this toggle asked for: dashed around the track until the radiator reports it.
+  let sent = $state<boolean | null>(null);
+  // Held a little longer than the morph, so the solid outline is seen before it fades.
+  const settle = new Settle<boolean>(() => (pending ? sent : null), () => checked, SETTLE_MS + 150);
+
+  function click() {
+    if (disabled) return;
+    sent = !checked;
+    onchange(!checked);
+  }
 </script>
 
-<button type="button" role="switch" aria-checked={checked} class="toggle" class:pending {disabled}
-  onclick={() => onchange(!checked)}>
+<button type="button" role="switch" aria-checked={checked} aria-busy={pending} class="toggle" class:pending aria-disabled={disabled}
+  onclick={click}>
   <span class="label">{label}</span>
-  <span class="track" aria-hidden="true"><span class="knob"></span></span>
+  <span class="track" aria-hidden="true">
+    <span class="knob"></span>
+    {#if pending || settle.confirmed}
+      <span class="ring" class:settled={settle.confirmed}><PendingEdge shape="rect" rx={12.5} {pending} confirmed={settle.confirmed} /></span>
+    {/if}
+  </span>
 </button>
 
 <style>
@@ -28,6 +47,7 @@
     border: 0;
     cursor: pointer;
     text-align: left;
+    touch-action: manipulation;
   }
   .track {
     width: 38px;
@@ -35,7 +55,7 @@
     border-radius: 11px;
     background: var(--fa);
     position: relative;
-    transition: background 160ms ease;
+    transition: background-color var(--t-state) ease;
     flex: none;
   }
   .knob {
@@ -46,7 +66,7 @@
     height: 16px;
     border-radius: 50%;
     background: var(--bg);
-    transition: transform 160ms ease;
+    transition: transform var(--t-state) var(--ease-out);
   }
   /* Heat colours only mean heat: "on" is the foreground, not blue. */
   [aria-checked='true'] .track {
@@ -55,12 +75,29 @@
   [aria-checked='true'] .knob {
     transform: translateX(16px);
   }
-  .pending .track {
-    outline: 1px dashed var(--mu);
-    outline-offset: 2px;
+  /* The pending outline sits 2 px around the track (a 42 × 26 box): the shared dashed → solid mark. */
+  .ring {
+    position: absolute;
+    inset: -2px;
   }
-  .toggle:disabled {
-    opacity: 0.6;
+  .ring.settled {
+    animation: ring-out var(--t-exit) ease var(--t-morph) forwards;
+  }
+  @keyframes ring-out {
+    to {
+      opacity: 0;
+    }
+  }
+  .toggle[aria-disabled='true'] {
     cursor: default;
+    color: var(--fa);
+  }
+  .toggle[aria-disabled='true'] .track {
+    opacity: 0.6;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .knob {
+      transition: none;
+    }
   }
 </style>

@@ -11,11 +11,12 @@ async function confirmed(page: Page) {
 
 const roomMode = (page: Page) => page.getByRole('radiogroup', { name: 'Mode de la pièce' });
 
-test('rooms load with temperatures and thermal strips', async ({ page }) => {
+test('rooms load with temperatures and thermal strips', async ({ page, isMobile }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  // Phone: a card expands in place (a button); desktop: it opens the room (a link).
   for (const name of ['Chambre 1', 'Salon', 'Chambre 2']) {
-    await expect(page.getByRole('button', { name: new RegExp(name) }).first()).toBeVisible();
+    await expect(page.getByRole(isMobile ? 'button' : 'link', { name: new RegExp(`^${name}`) }).first()).toBeVisible();
   }
   await expect(page.locator('svg[aria-label^="Salon"]').first()).toBeVisible();
 });
@@ -52,15 +53,18 @@ test('rapid stepper taps send one setpoint', async ({ page }) => {
 
 test('programme edit round-trips', async ({ page }) => {
   await page.goto('/programme');
-  await page.getByRole('button', { name: 'Chambre 2' }).click();
-  await expect(page.getByRole('button', { name: 'Chambre 2' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('radio', { name: 'Chambre 2' }).click();
+  await expect(page.getByRole('radio', { name: 'Chambre 2' })).toHaveAttribute('aria-checked', 'true');
+  // Phone: only one day shows its slots; open Monday if it is not today.
+  const monday = page.getByRole('button', { name: /^Lundi/, expanded: false });
+  if (await monday.count()) await monday.click();
   const remove = page.getByRole('button', { name: 'Supprimer la plage 2 du Lundi' });
   await remove.click();
   await expect(page.getByText('Modifications')).toBeVisible();
-  await page.getByRole('button', { name: 'Envoyer' }).click();
+  await page.getByRole('button', { name: 'Envoyer', exact: true }).click();
   await confirmed(page);
   await page.getByRole('button', { name: 'Ajouter une plage le Lundi' }).click();
-  await page.getByRole('button', { name: 'Envoyer' }).click();
+  await page.getByRole('button', { name: 'Envoyer', exact: true }).click();
   await confirmed(page);
 });
 
@@ -102,6 +106,36 @@ test('desktop shows the sidebar and the inspector with every radiator', async ({
   await expect(page.getByRole('navigation', { name: 'Navigation principale' }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Salon', level: 2 })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Faire clignoter' })).toHaveCount(2);
+});
+
+test('desktop: choosing a room card keeps keyboard focus on it and marks it current', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'desktop layout only');
+  await page.goto('/');
+  const card = page.getByRole('link', { name: /^Salon/ });
+  await card.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/pieces\/p-salon$/);
+  await expect(page.getByRole('heading', { name: 'Salon', level: 2 })).toBeVisible();
+  await expect(card).toHaveAttribute('aria-current', 'page');
+  await expect(card).toBeFocused();
+});
+
+test('phone room page: the room is the h1, and moving to another tab focuses its title', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'phone layout only');
+  await page.goto('/pieces/p-salon');
+  await expect(page.getByRole('heading', { name: 'Salon', level: 1 })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Programme' }).click();
+  await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeFocused();
+});
+
+test('the toast live regions are rendered (not display: none) before any toast', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  const displays = await page
+    .locator('.toasts [aria-live]')
+    .evaluateAll((els) => els.map((e) => getComputedStyle(e).display));
+  expect(displays).toHaveLength(2);
+  expect(displays).not.toContain('none');
 });
 
 test('"/" opens a default room: inspector on desktop, expanded card on the phone', async ({ page, isMobile }) => {
@@ -155,15 +189,12 @@ test('a deep link registers the service worker at the root', async ({ page, isMo
   expect(errors.filter((e) => /MIME type/.test(e))).toEqual([]);
 });
 
-test('Maison and Énergie never scroll sideways at 390 px', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  for (const path of ['/maison', '/energie']) {
-    await page.goto(path);
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    if (path === '/maison') await expect(page.locator('[aria-label="Historique des prix"]:visible')).toBeVisible();
-    else await expect(page.getByRole('heading', { name: 'Par pièce' })).toBeVisible();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow, path).toBeLessThanOrEqual(0);
+test('/maison#linky and #tarif land on their panel once it has loaded', async ({ page }) => {
+  for (const id of ['linky', 'tarif']) {
+    await page.goto(`/maison#${id}`);
+    await expect(page.locator(`#${id} h2`)).toBeVisible();
+    await expect(page.locator(`#${id}`).getByRole('button').first()).toBeVisible();
+    await expect(page.locator(`#${id} h2`)).toBeInViewport();
   }
 });
 

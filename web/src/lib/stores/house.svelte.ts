@@ -1,4 +1,5 @@
 import type { Expected, HouseView, Override, Pending, Radiator, Room, Snapshot, Status } from '$lib/api/types';
+import { announcer } from './announcer.svelte';
 import { toasts } from './toasts.svelte';
 
 type Scheduler = (fn: () => void, ms: number) => unknown;
@@ -29,6 +30,8 @@ export class HouseStore {
   /** The last house-wide command (Tout éteindre, Tout remettre en programme), shown by every HouseActions. */
   houseCommandId = $state<string | null>(null);
   schedule: Scheduler;
+  /** Commands sent from this browser: their progress is announced to screen readers. */
+  private watched = new Set<string>();
 
   constructor(schedule: Scheduler = (fn, ms) => setTimeout(fn, ms)) {
     this.schedule = schedule;
@@ -44,6 +47,33 @@ export class HouseStore {
     this.connection = 'connecting';
     this.loaded = false;
     this.houseCommandId = null;
+    this.watched.clear();
+  }
+
+  /** True when commands can be sent and their answer will arrive: the stream is up, or a loaded
+   * house is only refreshing it (a phone back from the background), whose snapshot answers any
+   * command sent meanwhile. False while reconnecting after a failure (the banner says so). */
+  get online(): boolean {
+    return this.connection === 'open' || (this.connection === 'connecting' && this.loaded);
+  }
+
+  /** Announce the progress of a command sent from here (Envoi…, Confirmé, the failure). */
+  watch(id: string): void {
+    this.watched.add(id);
+    // The stream may have told us before the POST answered: announce what is already known.
+    const known = this.pending[id];
+    if (known) this.announce(undefined, known);
+  }
+
+  private announce(prev: Pending | undefined, next: Pending): void {
+    if (!this.watched.has(next.id)) return;
+    const was = prev ? (ACTIVE.has(prev.status) ? 'active' : prev.status) : null;
+    const now = ACTIVE.has(next.status) ? 'active' : next.status;
+    if (was === now) return;
+    if (now === 'active') announcer.say(`${next.label} — envoi…`);
+    else if (now === 'confirmed') announcer.say(`${next.label} — confirmé`);
+    else if (now === 'failed') announcer.say(`${next.label} — ${next.error ?? 'échec de la commande.'}`, true);
+    if (now !== 'active') this.watched.delete(next.id);
   }
 
   applySnapshot(s: Snapshot): void {
@@ -73,10 +103,14 @@ export class HouseStore {
     }
     for (const p of s.pending) next[p.id] = p;
     for (const p of s.pending) if (ACTIVE.has(p.status)) this.retireCovered(next, p);
+    const before = this.pending;
+    for (const p of Object.values(next)) this.announce(before[p.id], p);
     this.pending = next;
     this.overrides = s.overrides;
     this.status = s.status;
     this.loaded = true;
+    // A snapshot only ever arrives over an open stream.
+    this.connection = 'open';
     for (const p of unknown) toasts.push(`${p.label} : résultat inconnu — vérifiez.`);
   }
 
@@ -128,6 +162,7 @@ export class HouseStore {
     }
     const prev = this.pending[p.id];
     if (prev && !ACTIVE.has(prev.status) && ACTIVE.has(p.status)) return;
+    this.announce(prev, p);
     this.pending[p.id] = p;
     if (!prev && ACTIVE.has(p.status)) this.retireCovered(this.pending, p);
     if (p.status === 'confirmed') this.lingerThenDrop(p.id);

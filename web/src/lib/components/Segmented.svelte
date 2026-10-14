@@ -1,4 +1,5 @@
 <script lang="ts" generics="T extends string">
+  import { flushSync } from 'svelte';
   interface Props {
     options: { value: T; label: string }[];
     value: T;
@@ -19,7 +20,9 @@
     if (next < 0) return;
     e.preventDefault();
     onchange(options[next].value);
-    buttons[next]?.focus();
+    flushSync();
+    // A refused change (Programme asks before dropping edits) keeps focus on the checked choice.
+    if (value === options[next].value) buttons[next]?.focus();
   }
 </script>
 
@@ -55,12 +58,23 @@
     font: inherit;
     font-size: 13px;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
-    transition: background 160ms ease, color 160ms ease;
+    touch-action: manipulation;
+    transition:
+      background-color var(--t-state) ease,
+      border-color var(--t-state) ease,
+      color var(--t-state) ease;
   }
+  @media (hover: hover) {
+    button[aria-checked='false']:hover {
+      color: var(--tx);
+    }
+  }
+  /* The checked segment is edged in muted: 3:1 against the well (WCAG 1.4.11), not just a tone. */
   button[aria-checked='true'] {
     background: var(--s2);
-    border-color: var(--line);
+    border-color: var(--mu);
     color: var(--tx);
   }
 </style>

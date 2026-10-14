@@ -50,11 +50,11 @@
     {#if renaming}
       <form onsubmit={submitRename}>
         <input aria-label="Nom du radiateur" maxlength="32" bind:value={draft} />
-        <button type="submit">OK</button>
+        <button type="submit" class="btn btn-sm">OK</button>
       </form>
     {:else}
       <h4>{title}</h4>
-      <button type="button" class="icon" aria-label="Renommer" onclick={startRename}><Icon name="edit" size={16} /></button>
+      <button type="button" class="btn btn-icon" aria-label="Renommer" onclick={startRename}><Icon name="edit" size={16} /></button>
     {/if}
     <span class="temp num" style:color={heatColor(radiator.temperature)}>{fmtTemp(radiator.temperature)}</span>
   </header>
@@ -63,32 +63,33 @@
     <dt>Mode</dt><dd>{MODE_LABEL[radiator.mode]}</dd>
     <dt>Consigne active</dt><dd class="num">{fmtTemp(radiator.effective_setpoint)}</dd>
     {#if radiator.energy_wh}<dt>Consommation totale</dt><dd class="num">{fmtKwh(radiator.energy_wh.total / 1000)}</dd>{/if}
-    {#if radiator.rssi != null}<dt>Signal</dt><dd class="num">{Math.round(radiator.rssi)} %</dd>{/if}
+    {#if radiator.rssi != null}<dt>Signal</dt><dd class="num">{Math.round(radiator.rssi)}&nbsp;%</dd>{/if}
   </dl>
 
   {#if showControls}
     <div class="controls">
       <ModeSwitch label="Mode — {title}" value={radiator.mode} pending={expected.mode ?? null} compact
-        onchange={(m) => run(() => api.radiatorMode(radiator.id, m))} />
+        disabled={!house.online} onchange={(m) => run(() => api.radiatorMode(radiator.id, m))} />
       {#if (expected.mode ?? radiator.mode) === 'manual'}
-        <Stepper label="Consigne {title}" value={expected.target ?? radiator.target} min={7}
-          max={radiator.max_temperature} pending={expected.target !== undefined}
+        <Stepper label="Consigne {title}" announce={false} value={expected.target ?? radiator.target} min={7}
+          max={radiator.max_temperature} pending={expected.target !== undefined} disabled={!house.online}
           onchange={(v) => run(() => api.radiatorSetpoint(radiator.id, 'manual', v))} />
       {/if}
     </div>
   {/if}
 
   <div class="switches">
-    <Toggle label="Détection de fenêtre ouverte" checked={radiator.window_detection} pending={busy('window')}
+    <Toggle label="Détection de fenêtre ouverte" checked={radiator.window_detection} pending={busy('window')} disabled={!house.online}
       onchange={(v) => toggle('window', () => api.radiatorFeatures(radiator.id, { window_detection: v }))} />
-    <Toggle label="Détection de présence" checked={radiator.presence_detection} pending={busy('presence')}
+    <Toggle label="Détection de présence" checked={radiator.presence_detection} pending={busy('presence')} disabled={!house.online}
       onchange={(v) => toggle('presence', () => api.radiatorFeatures(radiator.id, { presence_detection: v }))} />
     {#if radiator.light}
-      <Toggle label="Veilleuse" checked={radiator.light.on} pending={busy('light')}
+      <Toggle label="Veilleuse" checked={radiator.light.on} pending={busy('light')} disabled={!house.online}
         onchange={(v) => toggle('light', () => api.radiatorLight(radiator.id, v))} />
     {/if}
   </div>
-  <button type="button" class="ghost" onclick={() => run(() => api.identify(radiator.id))}>Faire clignoter</button>
+  <button type="button" class="btn btn-ghost identify" aria-disabled={!house.online}
+    onclick={() => house.online && run(() => api.identify(radiator.id))}>Faire clignoter</button>
 </section>
 
 <style>
@@ -106,12 +107,18 @@
     align-items: center;
     gap: 4px;
   }
+  header .btn-icon {
+    flex: none;
+  }
   h4 {
     margin: 0;
+    min-width: 0;
     font-size: 14px;
+    overflow-wrap: anywhere;
   }
   .temp {
     margin-left: auto;
+    flex: none;
     font-weight: 600;
   }
   .facts {
@@ -137,46 +144,16 @@
     display: grid;
     gap: 8px;
   }
-  .icon {
-    display: inline-grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    border: 0;
-    border-radius: 8px;
-    background: none;
-    color: var(--mu);
-    cursor: pointer;
-  }
-  .icon:hover {
-    color: var(--tx);
-    background: var(--s2);
-  }
-  .ghost {
-    background: none;
-    color: var(--mu);
-    font-size: 12px;
-    cursor: pointer;
+  .identify {
     justify-self: start;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 0 12px;
-    min-height: 44px;
   }
   form {
     display: flex;
+    flex: 1;
+    min-width: 0;
     gap: 6px;
   }
-  form button {
-    min-height: 44px;
-    padding: 0 14px;
-  }
   input {
-    min-height: 44px;
-    padding: 0 8px;
-    background: var(--in);
-    border: 1px solid var(--line);
-    border-radius: 8px;
+    flex: 1;
   }
 </style>

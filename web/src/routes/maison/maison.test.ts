@@ -79,19 +79,19 @@ describe('Maison', () => {
     const btn = screen.getByRole('button', { name: 'Tout remettre en programme' });
     await fireEvent.click(btn);
     expect(await screen.findByText('Envoi…')).toBeInTheDocument();
-    expect(btn).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Tout éteindre' })).toBeDisabled();
+    expect(btn).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Tout éteindre' })).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('shows the Cozytouch status', () => {
+  it('shows the Cozytouch status', async () => {
     render(Page);
-    expect(screen.getByText('Connecté')).toBeInTheDocument();
+    expect(await screen.findByText('Connecté')).toBeInTheDocument();
   });
 
   it('shows the account and logs out to the login screen', async () => {
     auth.email = 'demo@kelvin.local';
     render(Page);
-    expect(screen.getByText('demo@kelvin.local')).toBeInTheDocument();
+    expect(await screen.findByText('demo@kelvin.local')).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
     expect(api.logout).toHaveBeenCalled();
     await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replaceState: true }));
@@ -101,11 +101,11 @@ describe('Maison', () => {
     auth.email = 'demo@kelvin.local';
     vi.mocked(api.logout).mockRejectedValueOnce(new Error('network'));
     render(Page);
-    await fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
     await vi.waitFor(() => expect(toasts.items.map((t) => t.message)).toContain('Déconnexion impossible. Réessayez.'));
     expect(goto).not.toHaveBeenCalled();
     expect(auth.email).toBe('demo@kelvin.local');
-    expect(screen.getByRole('button', { name: 'Se déconnecter' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Se déconnecter' })).toHaveAttribute('aria-disabled', 'false');
   });
 
   it('empties the house and history stores on logout', async () => {
@@ -113,7 +113,7 @@ describe('Maison', () => {
     history.data = { k: [{ t: 1, v: 20, s: 17 }] };
     render(Page);
     expect(house.overrides).toHaveLength(1);
-    await fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
     await vi.waitFor(() => expect(goto).toHaveBeenCalled());
     expect(house.overrides).toEqual([]);
     expect(house.rooms).toEqual([]);
@@ -131,9 +131,39 @@ describe('Maison', () => {
 
   it('the theme switch follows the radio keyboard model', async () => {
     render(Page);
-    const group = screen.getByRole('radiogroup', { name: 'Thème' });
+    const group = await screen.findByRole('radiogroup', { name: 'Thème' });
     const checked = group.querySelector('[aria-checked="true"]') as HTMLElement;
     await fireEvent.keyDown(checked, { key: 'End' });
     expect(screen.getByRole('radio', { name: 'Clair' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('shows skeletons, not « Aucun forçage », before the house and settings are known', () => {
+    house.reset();
+    const { container } = render(Page);
+    expect(screen.queryByText('Aucun forçage ni absence.')).toBeNull();
+    expect(container.querySelectorAll('.skeleton').length).toBe(3);
+    expect(screen.queryByText('Chargement…')).toBeNull();
+  });
+
+  it('a failed tariff load says so inside its panel, with Réessayer', async () => {
+    vi.mocked(api.settings).mockRejectedValueOnce(new Error('x'));
+    render(Page);
+    const retry = await screen.findByRole('button', { name: 'Réessayer' });
+    expect(retry.closest('#tarif')).not.toBeNull();
+    expect(screen.getByText(/Impossible de charger le tarif/)).toBeInTheDocument();
+    await fireEvent.click(retry);
+    expect(await screen.findByRole('button', { name: 'Enregistrer le tarif' })).toBeInTheDocument();
+  });
+
+  it('does not offer « Absence… » on the page that holds the Absence panel', () => {
+    render(Page);
+    expect(screen.queryByRole('link', { name: 'Absence…' })).toBeNull();
+  });
+
+  it('the Tarif and Linky anchors exist from the first render, skeleton included', () => {
+    vi.mocked(api.settings).mockReturnValueOnce(new Promise(() => {}));
+    render(Page);
+    expect(document.getElementById('tarif')).toHaveAttribute('aria-busy', 'true');
+    expect(document.getElementById('linky')).toBeInTheDocument();
   });
 });

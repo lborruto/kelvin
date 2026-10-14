@@ -77,3 +77,20 @@ describe('series tokens', () => {
     }
   });
 });
+
+describe('field boundary token', () => {
+  it('--field-line reaches 3:1 against every ground a field can sit on, in both themes (WCAG 1.4.11)', () => {
+    for (const [t, theme] of [[tokens(':root'), 'dark'], [tokens(":root[data-theme='light']"), 'light']] as const) {
+      expect(t['--field-line'], theme).toMatch(/^#[0-9a-f]{6}$/);
+      for (const s of ['--in', '--s1', '--s2', '--bg']) {
+        expect(contrast(t['--field-line'], t[s]), `${theme} field-line on ${s}`).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+  it('the selected segment border (muted) reaches 3:1 against the well', () => {
+    for (const t of [tokens(':root'), tokens(":root[data-theme='light']")]) {
+      expect(contrast(t['--mu'], t['--in'])).toBeGreaterThanOrEqual(3);
+      expect(contrast(t['--mu'], t['--s2'])).toBeGreaterThanOrEqual(3);
+    }
+  });
+});

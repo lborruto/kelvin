@@ -1,8 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import { house } from '$lib/stores/house.svelte';
 import RadiatorPanel from './RadiatorPanel.svelte';
+
+// Commands are possible: the stream is up.
+beforeEach(() => {
+  house.connection = 'open';
+});
 
 vi.mock('$lib/api/client', () => ({
   api: {
@@ -72,7 +77,7 @@ describe('RadiatorPanel', () => {
     const b = screen.getByRole('button', { name: 'Renommer' });
     expect(b.querySelector('svg')).not.toBeNull();
     expect(b.textContent?.trim()).toBe('');
-    expect(b).toHaveClass('icon');
+    expect(b).toHaveClass('btn-icon');
   });
 
   it('a toggle shows its own command as pending until the radiator answers', async () => {

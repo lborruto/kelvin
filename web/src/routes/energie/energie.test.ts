@@ -46,7 +46,7 @@ function report(o: Partial<EnergyReport> = {}): EnergyReport {
 
 /** The cells of one row of a chart's visually hidden data table. */
 function cells(container: HTMLElement, caption: string, row: string): string[] {
-  const table = [...container.querySelectorAll('table.visually-hidden')].find((t) => t.querySelector('caption')?.textContent === caption)!;
+  const table = [...container.querySelectorAll('.visually-hidden > table')].find((t) => t.querySelector('caption')?.textContent === caption)!;
   const tr = [...table.querySelectorAll('tbody tr')].find((r) => r.querySelector('th')?.textContent === row)!;
   return [...tr.querySelectorAll('td')].map((td) => td.textContent ?? '');
 }
@@ -142,7 +142,7 @@ describe('Énergie', () => {
     expect(container.querySelector('ul.rooms .swatch')).toBeNull();
     const bar = container.querySelector<HTMLElement>('ul.rooms .meter span')!;
     expect(bar.getAttribute('style')).toContain('var(--series-3)');
-    expect(bar.style.width).toBe('100%');
+    expect(bar.style.transform).toBe('scaleX(1)');
   });
 
   it('without Linky: a way to connect it, and the radiators alone', async () => {
@@ -162,7 +162,7 @@ describe('Énergie', () => {
     render(Page);
     await waitFor(() => expect(api.linkyCurve).toHaveBeenCalledWith('2026-10-12'));
     expect(await screen.findByRole('heading', { name: 'Courbe du 12 octobre 2026' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Jour suivant' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Jour suivant' })).toHaveAttribute('aria-disabled', 'true');
     await fireEvent.click(screen.getByRole('button', { name: 'Jour précédent' }));
     await waitFor(() => expect(api.linkyCurve).toHaveBeenLastCalledWith('2026-10-11'));
   });
@@ -179,8 +179,8 @@ describe('Énergie', () => {
   it('keeps the meter table phone-sized: tariff columns are optional', async () => {
     vi.mocked(api.energyReport).mockResolvedValue(report());
     const { container } = render(Page);
-    await screen.findByRole('columnheader', { name: 'Depuis l’installation' });
-    expect([...container.querySelectorAll('th.opt')].map((t) => t.textContent)).toEqual(['Tarif 1', 'Tarif 2']);
+    await screen.findByRole('columnheader', { name: 'Depuis l’installation (kWh)' });
+    expect([...container.querySelectorAll('th.opt')].map((t) => t.textContent)).toEqual(['Tarif 1 (kWh)', 'Tarif 2 (kWh)']);
   });
 
   it('renders this home’s real shape: young history, no projection, no heating share', async () => {
@@ -270,7 +270,7 @@ describe('Énergie', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Jour précédent' }));
     expect(await screen.findByText('Impossible de charger la courbe.')).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Jour précédent' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Jour précédent' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('button', { name: 'Jour suivant' })).toBeEnabled();
     await fireEvent.click(screen.getByRole('button', { name: 'Jour suivant' }));
     await waitFor(() => expect(api.linkyCurve).toHaveBeenLastCalledWith('2026-10-11'));
@@ -369,5 +369,57 @@ describe('Énergie', () => {
     expect(container.querySelector('.hero .big')).not.toHaveTextContent('15');
     expect(screen.queryByText('estimation')).toBeNull();
     expect(screen.getByText('Données manquantes pour cette période.')).toBeInTheDocument();
+  });
+
+  it('first load shows panel skeletons, then everything at once', async () => {
+    let resolve!: (r: EnergyReport) => void;
+    vi.mocked(api.energyReport).mockReturnValue(new Promise((r) => (resolve = r)));
+    const { container } = render(Page);
+    expect(container.querySelectorAll('.skeleton').length).toBe(4);
+    expect(screen.queryByText('Chargement…')).toBeNull();
+    // The counters wait for the rest, so nothing on screen moves when the report arrives.
+    expect(screen.queryByRole('heading', { name: 'Compteurs des radiateurs' })).toBeNull();
+    resolve(report());
+    expect(await screen.findByRole('heading', { name: 'Compteurs des radiateurs' })).toBeInTheDocument();
+    expect(container.querySelectorAll('.skeleton')).toHaveLength(0);
+  });
+
+  it('switching period keeps the previous report on screen, busy, until the new one arrives', async () => {
+    vi.mocked(api.energyReport).mockResolvedValueOnce(report());
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par mois' });
+    vi.mocked(api.energyReport).mockReturnValueOnce(new Promise(() => {}));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    expect(container.querySelector('.panels')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('img', { name: 'Consommation de la maison par mois' })).toBeInTheDocument();
+  });
+
+  it('a failed report offers Réessayer, which fetches again', async () => {
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(report());
+    render(Page);
+    const retry = await screen.findByRole('button', { name: 'Réessayer' });
+    await fireEvent.click(retry);
+    expect(await screen.findByRole('img', { name: 'Consommation de la maison par mois' })).toBeInTheDocument();
+    expect(api.energyReport).toHaveBeenCalledTimes(2);
+  });
+
+  it('meter cells are bare figures under a unit header', async () => {
+    vi.mocked(api.energyReport).mockResolvedValue(report());
+    const { container } = render(Page);
+    await screen.findByRole('heading', { name: 'Compteurs des radiateurs' });
+    const cells = [...container.querySelectorAll('td.mono')].map((t) => t.textContent);
+    expect(cells).toEqual(['1,0', '0,4', '0,6']);
+  });
+
+  it('shows the report as soon as it arrives, even before the live stream; house parts wait in their own slots', async () => {
+    house.reset();
+    vi.mocked(api.energyReport).mockResolvedValue(report());
+    const { container } = render(Page);
+    expect(await screen.findByRole('img', { name: 'Consommation de la maison par mois' })).toBeInTheDocument();
+    expect(container.querySelector('.hero .big')).toHaveTextContent('€');
+    // Par pièce and the counters need the rooms and radiators: they hold a skeleton meanwhile.
+    expect(screen.getByRole('heading', { name: 'Par pièce' }).closest('section')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('heading', { name: 'Compteurs des radiateurs' }).closest('section')).toHaveAttribute('aria-busy', 'true');
+    expect(container.querySelector('.table-wrap')).toBeNull();
   });
 });
