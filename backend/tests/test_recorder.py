@@ -527,10 +527,11 @@ def _chunk_start():
 
 
 @pytest.mark.parametrize("rid", ["9312063", "g"])  # 1500 W, power unknown
-@pytest.mark.parametrize("glitch", ["zero", "70pct"])
-def test_a_glitch_at_the_chunk_anchor_changes_nothing(rid, glitch):
-    """The last reading before a chunk's replay start is a glitch: the chunk's days read the
-    same as without it (not unknown, not inflated)."""
+@pytest.mark.parametrize("factor", [0.0, 0.7, 1.2, 1000.0])
+@pytest.mark.parametrize("pos", [0, -1, 1], ids=["anchor", "change-before", "first-after"])
+def test_a_glitch_at_the_chunk_anchor_changes_nothing(rid, factor, pos):
+    """One reading around a chunk's replay start is a glitch (the anchor, the reading before
+    the anchor's run, the first after): the chunk's days read the same as without it."""
     g = _chunk_start()
     anchor = g - recorder_module.LOOKBACK_S
 
@@ -542,8 +543,8 @@ def test_a_glitch_at_the_chunk_anchor_changes_nothing(rid, glitch):
             for i, t in enumerate(range(g - 40 * 86400, g + 40 * 86400, 1800))
         ]
         if glitched:
-            k = max(i for i, (t, _) in enumerate(rows) if t < anchor)
-            rows[k][1] = 0.0 if glitch == "zero" else rows[k][1] * 0.7
+            k = max(i for i, (t, _) in enumerate(rows) if t < anchor) + pos
+            rows[k][1] *= factor
         db.executemany(
             "INSERT INTO energy VALUES (?,?,?,?,?)", [(t, rid, v, None, None) for t, v in rows]
         )

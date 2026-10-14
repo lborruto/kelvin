@@ -4,7 +4,15 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from kelvin.recorder.energy import MAX_GAP_S, Reading, Span, clean_spans
+from kelvin.recorder.energy import (
+    FALLBACK_POWER_W,
+    MAX_GAP_S,
+    POWER_MARGIN,
+    POWER_SLACK_S,
+    Reading,
+    Span,
+    clean_spans,
+)
 
 
 def spans_of(readings, **kw) -> list[Span]:
@@ -90,9 +98,12 @@ def test_a_reset_is_confirmed_by_the_next_different_reading_only():
     assert spans_of(readings) == [Span(0, 3600, 100.0, False), Span(3600, 7200, 200.0, False)]
 
 
-def test_without_a_known_power_there_is_no_cap():
-    spans = spans_of([Reading(0, 10_000), Reading(3600, 60_000)], power_w=None)
-    assert total(spans) == 50_000
+def test_without_a_known_power_the_fallback_ceiling_applies():
+    """FALLBACK_POWER_W (5 kW, above any Sauter heater) bounds plausibility, nothing else."""
+    assert spans_of([Reading(0, 10_000), Reading(3600, 60_000)], power_w=None) == []
+    cap = FALLBACK_POWER_W * POWER_MARGIN * (3600 + POWER_SLACK_S) / 3600
+    spans = spans_of([Reading(0, 10_000), Reading(3600, 10_000 + int(cap))], power_w=None)
+    assert total(spans) == int(cap)
 
 
 def test_a_reading_not_newer_than_the_reference_is_skipped():
@@ -113,7 +124,7 @@ def blipped_series(draw):
     readings: list[Reading] = []
     t = 0
     for i, v in enumerate(truth):
-        t += draw(st.integers(1, 7200))
+        t += draw(st.integers(1800, 7200))  # ≤ 2 kWh in ≥ 30 min: under the 5 kW ceiling
         readings.append(Reading(t, v))
         if i and i < len(truth) - 1:
             kind = draw(st.sampled_from(["none", "minus1", "older", "absent", "dup", "zero"]))
@@ -155,3 +166,81 @@ def test_a_glitched_first_reference_is_rebased_by_the_persisting_level():
     counted, and not blocked for ever either."""
     readings = [Reading(0, 0.0), Reading(3600, 3_000_000), Reading(7200, 3_000_300)]
     assert spans_of(readings, power_w=1500) == [Span(3600, 7200, 300.0, False)]
+
+
+def test_a_first_reference_glitched_up_is_rebased_down_by_the_persisting_level():
+    """The first reading is 20 % too high (power known): the real level below it persists, so
+    counting goes on from there instead of waiting months for the counter to catch up."""
+    readings = [Reading(0, 3_600_000), Reading(1800, 3_000_300), Reading(3600, 3_000_600)]
+    readings.append(Reading(5400, 3_000_900))
+    spans = spans_of(readings, power_w=1500)
+    assert spans == [Span(1800, 3600, 300.0, False), Span(3600, 5400, 300.0, False)]
+
+
+def test_a_confirmed_reference_still_skips_a_lower_reading_as_a_glitch():
+    """Once a span was accepted from it, the reference is the high-water mark (audit H1)."""
+    readings = [Reading(0, 1_000_000), Reading(1800, 1_000_300), Reading(3600, 999_000)]
+    readings += [Reading(5400, 999_300), Reading(7200, 1_000_600)]
+    assert spans_of(readings, power_w=1500) == [
+        Span(0, 1800, 300.0, False),
+        Span(1800, 7200, 300.0, False),
+    ]
+
+
+def test_an_unknown_power_twenty_percent_glitch_is_neither_counted_nor_blocking():
+    readings = [Reading(0, 3_000_000), Reading(1800, 3_600_000), Reading(3600, 3_000_600)]
+    assert spans_of(readings) == [Span(0, 3600, 600.0, False)]
+
+
+def test_an_unknown_power_first_reading_of_zero_is_not_a_lifetime():
+    readings = [Reading(0, 0.0), Reading(3600, 3_000_000), Reading(7200, 3_000_300)]
+    assert spans_of(readings) == [Span(3600, 7200, 300.0, False)]
+
+
+def test_after_an_upward_rebase_a_lower_persisting_level_rebases_back():
+    """A +20 % offset seen twice is rebased (that is the rule); the real level below it then
+    persists, so counting recovers instead of stopping for months."""
+    readings = [Reading(0, 3_000_000), Reading(1800, 3_000_300), Reading(3600, 3_600_000)]
+    readings += [Reading(5400, 3_600_100), Reading(7200, 3_000_900), Reading(9000, 3_001_200)]
+    spans = spans_of(readings, power_w=1500)
+    assert spans[-1] == Span(7200, 9000, 300.0, False)
+
+
+@settings(max_examples=500, deadline=None)
+@given(
+    st.lists(
+        st.tuples(
+            st.integers(1, 20_000),
+            st.one_of(
+                st.none(),
+                st.sampled_from([0.0, 1.0, 999.0, 2000.0, 1e7, 1e7 + 1]),
+                st.floats(0, 1e7),
+            ),
+        ),
+        max_size=40,
+    ),
+    st.sampled_from([None, 1000.0, 1500.0]),
+)
+def test_property_any_readings_give_ordered_disjoint_spans(steps, power_w):
+    """Whatever the counter does (resets, spikes, rebases up or down), spans never overlap,
+    never go back in time and never hold negative energy."""
+    t, readings = 0, []
+    for gap, v in steps:
+        t += gap
+        readings.append(Reading(t, v))
+    spans = spans_of(readings, power_w=power_w)
+    for s in spans:
+        assert s.end > s.start and s.wh >= 0
+    for a, b in zip(spans, spans[1:], strict=False):
+        assert a.end <= b.start
+
+
+def test_a_spike_before_a_reset_cannot_rebase_after_it():
+    """Found by the window property: a spike rejected before a confirmed reset was later taken
+    as a persisting level, and the rebase moved the span start back in time (overlap)."""
+    readings = [Reading(0, 2000.0), Reading(10_000, 0.0), Reading(20_000, 1e7)]
+    readings += [Reading(90_000, 1.0), Reading(160_000, 0.0), Reading(170_000, 1.0)]
+    readings.append(Reading(240_000, 1e7 + 1))
+    spans = spans_of(readings, power_w=1500)
+    for a, b in zip(spans, spans[1:], strict=False):
+        assert a.end <= b.start

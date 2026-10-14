@@ -24,6 +24,9 @@ RESET_RATIO = 0.5  # a reading at or below half the previous one is a counter re
 RESET_MIN_WH = 1000.0  # ...if the previous one was above 1 kWh
 POWER_MARGIN = 1.1  # a span may not exceed the nominal power by more than 10 %
 POWER_SLACK_S = 60  # ...over its length plus a minute (a reading learned late)
+# Plausibility ceiling when a radiator's power is unknown (one no longer in the house): above
+# any Sauter heater. It only bounds what a span may hold; it never weighs the spreading.
+FALLBACK_POWER_W = 5000.0
 MAX_GAP_S = 3 * 3600  # longer spans are flagged "interpolated"
 
 MIN_WEIGHT_COVERAGE = 0.8  # working-rate weights need samples over 80 % of the span
@@ -95,9 +98,11 @@ def clean_spans(
     """
     ref: float | None = None
     t0 = 0
+    confirmed = False  # a span was accepted from the reference (it is no glitch)
     cand: tuple[int, float] | None = None  # an unconfirmed reset: (ts, value)
     jump: tuple[int, float] | None = None  # a rejected spike that may be a new level
-    cap = power_w * POWER_MARGIN / 3600 if power_w else 0.0  # Wh per second, 0: no cap
+    low: tuple[int, float] | None = None  # a reading below an unconfirmed reference
+    cap = (power_w or FALLBACK_POWER_W) * POWER_MARGIN / 3600  # Wh per second
     span = tuple.__new__  # Span(...) without the NamedTuple constructor's call overhead
     for ts, c in readings:
         if c is None:
@@ -110,11 +115,12 @@ def clean_spans(
                 continue
             if c < reset_ratio * ref:  # the counter stayed low: a true reset
                 ts_c, v_c = cand
-                if not cap or v_c <= cap * (ts_c - t0 + POWER_SLACK_S):
+                if v_c <= cap * (ts_c - t0 + POWER_SLACK_S):
                     yield span(Span, (t0, ts_c, v_c, ts_c - t0 > max_gap_s))
                     if stop_at is not None and ts_c >= stop_at:
                         return
                 ref, t0 = v_c, ts_c  # the new counter is the reference either way
+                confirmed, jump, low = False, None, None
             else:
                 log.info("energy counter drop skipped: it recovered at the next reading")
             cand = None
@@ -123,7 +129,8 @@ def clean_spans(
         d = c - ref
         if d > 0:
             dt = ts - t0
-            if cap and d > cap * (dt + POWER_SLACK_S):
+            rebased = False
+            if d > cap * (dt + POWER_SLACK_S):
                 if jump is None or c < jump[1]:
                     jump = (ts, c)
                     log.warning("energy spike skipped: %.0f Wh in %d s exceeds the power", d, dt)
@@ -134,15 +141,27 @@ def clean_spans(
                     jump = (ts, c)  # implausible from the jump too: this is the candidate now
                     continue
                 log.info("energy counter rebased: a new level persisted")
-                ref, t0 = jump[1], jump[0]
+                ref, t0, rebased = jump[1], jump[0], True
                 d, dt = c - ref, ts - t0
-            jump = None
+            jump = low = None
             yield span(Span, (t0, ts, d, dt > max_gap_s))
             if stop_at is not None and ts >= stop_at:
                 return
-            ref, t0 = c, ts
+            ref, t0, confirmed = c, ts, not rebased
         elif c <= reset_ratio * ref and ref > reset_min_wh:
             cand = (ts, c)
+        elif not confirmed:
+            # Readings below a reference no span confirmed: it may be the glitch. A lower level
+            # that persists (the next reading moves on from it plausibly) becomes the reference.
+            if low is not None and c > low[1] and c - low[1] <= cap * (ts - low[0] + POWER_SLACK_S):
+                log.info("energy counter rebased: a lower level persisted")
+                jump = None
+                yield span(Span, (low[0], ts, c - low[1], ts - low[0] > max_gap_s))
+                if stop_at is not None and ts >= stop_at:
+                    return
+                ref, t0, confirmed, low = c, ts, True, None
+            elif low is None or c != low[1]:
+                low = (ts, c)
         else:
             log.info("energy counter glitch skipped (%.0f Wh below the reference)", -d)
 
