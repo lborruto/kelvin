@@ -390,7 +390,7 @@ async def energy(
         raise HTTPException(422, "Période invalide.")
     period: tuple[date, date] | None = None
     if period_from is not None or period_to is not None:
-        if period_from is None or period_to is None:
+        if period_from is None or period_to is None or focus is not None:
             raise HTTPException(422, "Période invalide.")
         _check_days(linky, period_from, period_to)
         if period_to <= period_from or (period_to - period_from).days > MAX_REPORT_DAYS:

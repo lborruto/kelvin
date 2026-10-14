@@ -527,3 +527,50 @@ def test_the_hc_lens_states_facts_for_the_selected_period():
         "delta_price": 0.1,
     }
     assert build_report(day, day + timedelta(days=1), "day", inputs(daily))["hc_lens"] is None
+
+
+def test_i1_days_after_today_are_not_expected_radiator_days():
+    """Batch-3 review I-1: a current month measured every elapsed day reads 100 %, as the hero
+    does, not 13/31."""
+    daily = {d: 10_000 for d in days(date(2026, 10, 1), date(2026, 10, 14))}
+    a = {d: 2.0 for d in days(date(2026, 10, 1), date(2026, 10, 14))}
+    r = build_report(
+        date(2026, 10, 1), date(2026, 11, 1), "month", inputs(daily, radiators={"a": a})
+    )
+    [octo] = r["buckets"]
+    assert octo["radiators"]["coverage"] == 1.0
+    assert r["by_radiator"][0]["coverage"] == 1.0
+
+
+def test_i3_the_hc_lens_divides_unrounded_figures():
+    """Review I-3: 1.234 kWh, half off-peak at 0.1952 / 0.2516 €/kWh: the mean price is
+    0.2234, not 0.28 € (rounded) / 1.234 kWh = 0.2269."""
+    day = date(2026, 10, 6)
+    t = tariff(Prices(date(2026, 1, 1), 15.0, 0.1952, 0.2516))
+    inp = inputs({day: 1234}, curve={day: flat(day, 1.234)}, t=t, today=date(2026, 10, 7))
+    lens = build_report(day, day + timedelta(days=1), "day", inp)["hc_lens"]
+    assert lens["avg_price"] == pytest.approx(0.2234, abs=1e-4)
+    assert lens["hc_share"] == 0.5
+
+
+def test_i4_linky_since_is_never_before_the_first_counted_day():
+    """Review I-4: the store keeps days older than the report counts (first_day caps them):
+    `linky_since` names the first day the report shows, in v1 and in `quality`."""
+    daily = {d: 10_000 for d in days(date(2026, 3, 1), date(2026, 10, 14))}
+    inp = inputs(daily, linky_since=date(2026, 3, 1))
+    inp.first_day = date(2026, 6, 1)
+    r = build_report(date(2026, 1, 1), date(2027, 1, 1), "month", inp)
+    assert r["linky_since"] == "2026-06-01" and r["quality"]["linky_since"] == "2026-06-01"
+    inp = inputs({d: v for d, v in daily.items() if d >= date(2026, 9, 1)})
+    inp.linky_since = date(2026, 3, 1)  # unknown contract: the store's first day (not loaded)
+    r = build_report(date(2026, 9, 1), date(2026, 10, 1), "month", inp)
+    assert r["linky_since"] == "2026-03-01"
+
+
+def test_curve_figures_only_on_days_the_report_counts():
+    """Review M-3: a complete curve day before first_day gives no `curve` block either."""
+    day = date(2026, 9, 6)
+    inp = inputs({day: 24_000}, curve={day: flat(day, 24.0)})
+    inp.first_day = date(2026, 10, 1)
+    [b] = build_report(day, day + timedelta(days=1), "day", inp)["buckets"]
+    assert b["kwh"] is None and b["curve"] is None

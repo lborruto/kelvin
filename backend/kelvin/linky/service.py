@@ -14,7 +14,13 @@ from zoneinfo import ZoneInfo
 
 from kelvin.billing.costs import curve_complete
 from kelvin.billing.radiators import radiator_days
-from kelvin.billing.report import Group, ReportInputs, build_report, next_unit, unit_start
+from kelvin.billing.report import (
+    Group,
+    ReportInputs,
+    build_report,
+    default_period,
+    last_linky_day,
+)
 from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds, local_day
@@ -166,17 +172,21 @@ class LinkyService:
     ) -> dict[str, Any]:
         """`rooms`: the radiators in the house now → their room. Every radiator ever recorded
         is reported (L8); those no longer in the house exist up to their last reading."""
-        if period is None:
-            last = self.store.last_day() or self.today() - timedelta(days=1)
-            first = unit_start(last, group)
-            period = (first, next_unit(first, group))
+        today = self.today()
         tariff = self.tariffs.get()
-        lo, hi = min(start, period[0]), max(end, period[1])
         # Linky rows are loaded for the window, the period and what the comparisons, the
         # projection and the fallback HC share look back at: bounded, never the whole store.
-        anchor = self.store.last_day() or self.today()
-        load_lo = min(lo, anchor) - timedelta(days=LOOKBACK_DAYS)
-        load_hi = max(hi, self.today() + timedelta(days=1))
+        # A default period holds the last Linky day, so with daily rows it lies within the
+        # look-back (a store with only an old curve is the exception: its period reads null).
+        anchor = self.store.last_day() or today
+        p_lo, p_hi = period or (anchor, anchor)
+        load_lo = min(start, p_lo, anchor) - timedelta(days=LOOKBACK_DAYS)
+        load_hi = max(end, p_hi, today + timedelta(days=1))
+        daily = self.store.daily(load_lo, load_hi)
+        curve = self.store.curve(load_lo, load_hi)
+        if period is None:  # the same rule and data as the report's own default
+            period = default_period(last_linky_day(daily, curve, self.tz), today, group)
+        lo, hi = min(start, period[0]), max(end, period[1])
         edges = local_edges(lo, hi, "halfhour", self.tz)
         halfhours = recorder.energy_buckets(edges, recorder.energy_radiator_ids())
         radiators = {
@@ -186,15 +196,17 @@ class LinkyService:
             rid: (local_day(a, self.tz), None if rid in rooms else local_day(b, self.tz))
             for rid, (a, b) in recorder.energy_extent().items()
         }
+        # Room stats over the elapsed part of the period: its future has no samples yet.
+        stats_end = min(day_bounds(period[1], self.tz)[0], int(self.wall()))
         stats = recorder.sample_stats(
-            sorted(radiators), day_bounds(period[0], self.tz)[0], day_bounds(period[1], self.tz)[0]
+            sorted(radiators), day_bounds(period[0], self.tz)[0], stats_end
         )
         inputs = ReportInputs(
-            daily_wh=self.store.daily(load_lo, load_hi),
-            curve=self.store.curve(load_lo, load_hi),
+            daily_wh=daily,
+            curve=curve,
             tariff=tariff,
             tz=self.tz,
-            today=self.today(),
+            today=today,
             first_day=self.first_day(),
             radiators=radiators,
             radiator_life=life,

@@ -104,6 +104,21 @@ def bucket_key(day: date, group: Group) -> str:
     return f"{day.year:04d}"
 
 
+def default_period(last: date | None, today: date, group: Group) -> tuple[date, date]:
+    """The selected period when none is asked: the unit of `group` holding the last Linky day
+    (daily or complete curve), else yesterday. The hero's current period starts there too."""
+    first = unit_start(last or (today - ONE), group)
+    return first, next_unit(first, group)
+
+
+def last_linky_day(
+    daily_wh: dict[date, int], curve: dict[date, list[CurvePoint]], tz: ZoneInfo
+) -> date | None:
+    """The newest day with a daily total or a complete curve."""
+    complete = (d for d, p in curve.items() if curve_complete(d, p, tz))
+    return max([*daily_wh, *complete], default=None)
+
+
 def minus_year(day: date) -> date:
     try:
         return day.replace(year=day.year - 1)
@@ -123,13 +138,17 @@ class _Energy:
         self.ranges = inp.tariff.ranges() if inp.tariff else None
         complete = {d: p for d, p in inp.curve.items() if curve_complete(d, p, inp.tz)}
         known = [*inp.daily_wh, *complete]
-        self.last: date | None = max(known, default=None)
+        self.last: date | None = max(known, default=None)  # as `last_linky_day`
         self.first: date | None = inp.first_day or min(known, default=None)
         # The first day Linky actually returned data for (the contract may start earlier).
         self.first_data: date | None = min(
             (d for d in known if self.first is None or d >= self.first), default=None
         )
         self.complete = complete
+        # The first day the report shows Linky data: the store's first day when the loaded
+        # rows may not reach it (no contract start), never a day before the counted range.
+        since = inp.linky_since if inp.first_day is None else None
+        self.since: date | None = since or self.first_data
         self.shares = FallbackShares(complete, self.ranges, inp.tz) if self.ranges else None
         self.share = self.shares.overall().value if self.shares else 0.0
         self._cache: dict[date, DayEnergy | None] = {}
@@ -149,6 +168,9 @@ class _Energy:
         return self._cache[d]
 
     def _known(self, rid: str, d: date) -> bool:
+        """The radiator existed on d and d can have been measured (it is before today)."""
+        if d >= self.inp.today:
+            return False
         life = self.inp.radiator_life.get(rid)
         if life is None:
             days = self.inp.radiators.get(rid) or {}
@@ -247,14 +269,18 @@ class _Energy:
             )
         return out
 
-    def summary(self, a: date, b: date) -> dict[str, Any]:
-        tariff = self.inp.tariff
+    def _present(self, a: date, b: date) -> tuple[list[date], list[DayEnergy]]:
+        """The days of [a, b) the report counts, and those of them Linky has."""
         counted = [
             d
             for d in _days(a, b)
             if self.last is not None and self.first is not None and self.first <= d <= self.last
         ]
-        present = [e for d in counted if (e := self.day(d)) is not None]
+        return counted, [e for d in counted if (e := self.day(d)) is not None]
+
+    def summary(self, a: date, b: date) -> dict[str, Any]:
+        tariff = self.inp.tariff
+        counted, present = self._present(a, b)
         kwh = sum(e.kwh for e in present) if present else None
         split = bool(present) and self.ranges is not None
         hc = sum(e.hc_kwh or 0.0 for e in present) if split else None
@@ -281,7 +307,7 @@ class _Energy:
             if tariff
             else []
         )
-        curve_days = [d for d in _days(a, b) if d in self.complete]
+        curve_days = [d for d in _days(a, b) if d in self.complete and self.day(d) is not None]
         return {
             "kwh": _r(kwh),
             "hc_kwh": _r(hc),
@@ -295,7 +321,7 @@ class _Energy:
                 }
                 for p in used
             ],
-            "retro_priced": first_price is not None and any(d < first_price for d in counted),
+            "retro_priced": first_price is not None and any(e.day < first_price for e in present),
             "present_days": len(present),
             "curve": self._curve(curve_days),
             "radiators_kwh": rad["kwh"] if rad else None,
@@ -315,15 +341,15 @@ class _Energy:
         tariff = self.inp.tariff
         if tariff is None or self.ranges is None:
             return None
-        s = self.summary(a, b)
+        _, present = self._present(a, b)  # unrounded: only the ratios are rounded
+        kwh = sum(e.kwh for e in present)
+        hc = sum(e.hc_kwh or 0.0 for e in present)
+        energy = sum(energy_eur(e, tariff.prices_on(e.day)) or 0.0 for e in present)
         p = tariff.prices_on(self.inp.today)
-        kwh = s["kwh"]
         return {
-            "hc_share": _r(s["hc_kwh"] / kwh, 4) if kwh else None,
+            "hc_share": _r(hc / kwh, 4) if kwh else None,
             "slot_share": _r(offpeak_share_of_day(self.ranges), 4),
-            "avg_price": _r(s["energy_eur"] / kwh, 4)
-            if kwh and s["energy_eur"] is not None
-            else None,
+            "avg_price": _r(energy / kwh, 4) if kwh else None,
             "delta_price": _r(p.hp_eur_kwh - p.hc_eur_kwh, 4),
         }
 
@@ -354,7 +380,7 @@ class _Energy:
             "fallback_method": overall.method if overall else None,
             "estimated_days": sum(e.estimated for e in present),
             "curve_vs_daily_pct": _r(sum(gaps) / len(gaps), 2) if gaps else None,
-            "linky_since": self.inp.linky_since.isoformat() if self.inp.linky_since else None,
+            "linky_since": self.since.isoformat() if self.since else None,
             "curve_since": self.inp.curve_since.isoformat() if self.inp.curve_since else None,
             "radiators_since": min(lives).isoformat() if lives else None,
             "retro_priced_days": sum(
@@ -464,7 +490,7 @@ def build_report(
         d = nxt
     anchor = en.last or (inp.today - ONE)
     if period is None:
-        period = (unit_start(anchor, group), next_unit(unit_start(anchor, group), group))
+        period = default_period(en.last, inp.today, group)
     p_from, p_to = period
     cur_start = unit_start(anchor, group)
     cur_end = anchor + ONE
@@ -481,9 +507,7 @@ def build_report(
         "from": start.isoformat(),
         "to": end.isoformat(),
         "last_day": en.last.isoformat() if en.last else None,
-        "linky_since": (inp.linky_since or en.first_data).isoformat()
-        if (inp.linky_since or en.first_data)
-        else None,
+        "linky_since": en.since.isoformat() if en.since else None,
         "linky": en.last is not None,
         "tariff": inp.tariff is not None,
         "buckets": buckets,

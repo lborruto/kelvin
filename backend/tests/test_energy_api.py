@@ -460,7 +460,11 @@ async def test_energy_accepts_week_and_a_selected_period(api):
 
 @pytest.mark.parametrize(
     "params",
-    [{"period_from": "2026-10-01"}, {"period_from": "2026-10-05", "period_to": "2026-10-01"}],
+    [
+        {"period_from": "2026-10-01"},
+        {"period_from": "2026-10-05", "period_to": "2026-10-01"},
+        {"focus": "2026-09-10", "period_from": "2026-09-01", "period_to": "2026-09-30"},
+    ],
 )
 async def test_an_invalid_selected_period_is_french(api, params):
     c, _, _, _ = api
@@ -505,3 +509,34 @@ async def test_the_report_loads_only_the_linky_rows_it_needs(api, monkeypatch):
     await c.get("/api/energy", params={"from": str(start), "to": str(today())})
     assert len(calls) == 2
     assert all(a is not None and b is not None and (b - a).days <= 7 + 400 + 1 for a, b in calls)
+
+
+async def test_room_stats_of_a_current_period_use_its_elapsed_part(api):
+    """Review I-2: a period running into the future is judged on its elapsed part: 50 % of a
+    week that is two days old would leave the stats null for days."""
+    c, _, rt, _ = api
+    start = today() - timedelta(days=2)
+    r = await c.get(
+        "/api/energy",
+        params={
+            "from": str(start),
+            "to": str(today()),
+            "period_from": str(start),
+            "period_to": str(start + timedelta(days=7)),
+        },
+    )
+    rows = r.json()["by_radiator"]
+    assert rows and all(x["temp_avg"] is not None for x in rows)
+    assert all(x["heating_hours"] is not None for x in rows)
+    assert all(x["coverage"] == 1.0 for x in rows)
+
+
+async def test_the_default_period_is_the_unit_of_the_last_linky_day(api):
+    """Review M-1: one definition of the default period, the same as the hero's."""
+    c, _, _, _ = api
+    r = await c.get(
+        "/api/energy",
+        params={"from": str(today() - timedelta(days=40)), "to": str(today()), "group": "week"},
+    )
+    body = r.json()
+    assert body["period"]["from"] == body["hero"]["current"]["from"]
