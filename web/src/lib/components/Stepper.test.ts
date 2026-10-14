@@ -47,7 +47,37 @@ describe('Stepper', () => {
 
   it('clamps and disables at the bounds', async () => {
     render(Stepper, { value: 28, min: 7, max: 28, label: 'Consigne', onchange: vi.fn() });
-    expect(screen.getByRole('button', { name: 'Augmenter Consigne' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Augmenter Consigne' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('keeps keyboard focus on the button that reaches a bound', async () => {
+    const onchange = vi.fn();
+    render(Stepper, { value: 7.5, min: 7, max: 28, label: 'Absence', debounceMs: 0, onchange });
+    const minus = screen.getByRole('button', { name: 'Diminuer Absence' });
+    minus.focus();
+    await fireEvent.keyDown(minus, { key: 'Enter' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(screen.getByRole('status')).toHaveTextContent('7,0');
+    expect(minus).toHaveAttribute('aria-disabled', 'true');
+    expect(minus).not.toBeDisabled();
+    expect(document.activeElement).toBe(minus);
+    // A press at the bound does nothing.
+    await fireEvent.keyDown(minus, { key: 'Enter' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onchange).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces the committed value once, not every step', async () => {
+    const { announcer } = await import('$lib/stores/announcer.svelte');
+    announcer.clear();
+    render(Stepper, { value: 20, min: 7, max: 28, label: 'Confort', onchange: vi.fn() });
+    const plus = screen.getByRole('button', { name: 'Augmenter Confort' });
+    await tap(plus);
+    await tap(plus);
+    expect(announcer.polite).toBe('');
+    await vi.advanceTimersByTimeAsync(600);
+    expect(announcer.polite).toBe('Confort : 21,0\u00a0°C');
+    expect(screen.getByRole('status')).not.toHaveAttribute('aria-live');
   });
 
   it('keyboard Enter steps once', async () => {
@@ -69,8 +99,8 @@ describe('Stepper', () => {
     render(Stepper, { value: null, min: 7, max: 28, label: 'Consigne', onchange });
     const minus = screen.getByRole('button', { name: 'Diminuer Consigne' });
     const plus = screen.getByRole('button', { name: 'Augmenter Consigne' });
-    expect(minus).toBeDisabled();
-    expect(plus).toBeDisabled();
+    expect(minus).toHaveAttribute('aria-disabled', 'true');
+    expect(plus).toHaveAttribute('aria-disabled', 'true');
     await fireEvent.keyDown(minus, { key: 'Enter' });
     await tap(plus);
     await vi.advanceTimersByTimeAsync(600);
@@ -157,7 +187,7 @@ describe('Stepper', () => {
 
   it('the dashed pending underline morphs to solid when the radiator confirms the sent value', async () => {
     const r = render(Stepper, { props: { value: 20, min: 7, max: 28, label: 'Consigne', onchange: vi.fn() } });
-    const line = () => r.container.querySelector('.ul line')!;
+    const line = () => r.container.querySelector('.val svg.edge')!;
     await tap(screen.getByRole('button', { name: 'Augmenter Consigne' }));
     await vi.advanceTimersByTimeAsync(600);
     await r.rerender({ pending: true });
@@ -176,13 +206,13 @@ describe('Stepper', () => {
     await r.rerender({ pending: true });
     await r.rerender({ pending: false });
     flushSync();
-    expect(r.container.querySelector('.ul line')).not.toHaveClass('confirmed');
+    expect(r.container.querySelector('.val svg.edge')).not.toHaveClass('confirmed');
   });
 
   it('sizes the underline to the value, not the whole control', () => {
     const { container } = render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange: vi.fn() });
     const val = container.querySelector('output .val')!;
     expect(val).toHaveTextContent('20,0');
-    expect(val.querySelector('svg.ul')).not.toBeNull();
+    expect(val.querySelector('svg.edge')).not.toBeNull();
   });
 });

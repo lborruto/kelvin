@@ -1,3 +1,4 @@
+import { flushSync } from 'svelte';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import ModeSwitch from './ModeSwitch.svelte';
@@ -15,9 +16,31 @@ describe('ModeSwitch', () => {
 
   it('shows a pending mode as checked and dashed', () => {
     render(ModeSwitch, { value: 'program', pending: 'manual', onchange: vi.fn() });
-    const manual = screen.getByRole('radio', { name: 'Manuel' });
+    const manual = screen.getByRole('radio', { name: 'Manuel (en attente)' });
     expect(manual).toHaveAttribute('aria-checked', 'true');
     expect(manual).toHaveClass('pending');
+    expect(manual.querySelector('svg.edge')).toHaveClass('pending');
+    expect(screen.getByRole('radiogroup')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('closes the dashed edge solid when the radiator reports the requested mode', async () => {
+    vi.useFakeTimers();
+    const r = render(ModeSwitch, { value: 'program', pending: 'manual', onchange: vi.fn() });
+    await r.rerender({ value: 'manual', pending: null });
+    flushSync();
+    const edge = () => screen.getByRole('radio', { name: 'Manuel' }).querySelector('svg.edge')!;
+    expect(edge()).toHaveClass('confirmed');
+    expect(screen.getByRole('radiogroup')).toHaveAttribute('aria-busy', 'false');
+    await vi.advanceTimersByTimeAsync(250);
+    expect(edge()).not.toHaveClass('confirmed');
+    vi.useRealTimers();
+  });
+
+  it('a mode the radiator did not take never closes solid', async () => {
+    const r = render(ModeSwitch, { value: 'program', pending: 'manual', onchange: vi.fn() });
+    await r.rerender({ value: 'program', pending: null });
+    flushSync();
+    expect(screen.getByRole('radio', { name: 'Programme' }).querySelector('svg.edge')).not.toHaveClass('confirmed');
   });
 
   it('mixed rooms check nothing', () => {
