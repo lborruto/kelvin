@@ -246,10 +246,14 @@ class LinkyService:
         # One bounded read: the fallback's look-back and the days the picker offers.
         curves = self.store.curve(min(lo, oldest), hi)
         full = {d: p for d, p in curves.items() if curve_complete(d, p, self.tz)}
-        points = curves.get(day, [])
-        complete = day in full
+        # m-6: the report counts no day before its first day (it reads « — »): neither does
+        # the day view, so a day has one figure. Its Linky data (another contract's) is left out.
+        first = self.first_day()
+        counted = first is None or day >= first
+        points = curves.get(day, []) if counted else []
+        complete = counted and day in full
         energy = None
-        daily = self.store.daily(day, nxt).get(day)
+        daily = self.store.daily(day, nxt).get(day) if counted else None
         if daily is not None or complete:
             ranges = tariff.ranges() if tariff else None
             shares = (
@@ -286,7 +290,13 @@ class LinkyService:
                 complete,
                 life=life,
             ),
-            "available": [d.isoformat() for d in sorted(full) if oldest <= d < today],
+            "available": [
+                d.isoformat()
+                for d in sorted(full)
+                if oldest <= d < today and (first is None or d >= first)
+            ],
+            "counted_from": first.isoformat() if first else None,
+            "not_counted": None if counted else "before_first_day",
         }
 
     def curve_day(self, day: date) -> dict[str, Any]:

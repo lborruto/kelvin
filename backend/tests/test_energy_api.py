@@ -635,3 +635,26 @@ async def test_l15_the_fake_curve_is_a_base_plus_the_radiator_half_hours():
     assert len(points) == 48
     assert all(p.wh >= h - 0.5 for p, h in zip(points, halves, strict=True))
     assert sum(p.wh for p in points) == pytest.approx(src.day_wh(day), abs=30)
+
+
+async def test_m6_a_day_before_the_contract_start_reads_null_with_its_reason(api):
+    """Batch-4 review m-6: the report counts no day before its first day (« — »); the day view
+    applies the same cut instead of showing another contract's figures."""
+    c, _, rt, _ = api
+    start = today() - timedelta(days=10)
+    rt.linky.sync.set_not_before(start)
+    before = await c.get("/api/energy/day", params={"date": str(start - timedelta(days=2))})
+    body = before.json()
+    assert before.status_code == 200
+    assert set(body["totals"].values()) == {None}
+    assert body["intervals"] == [] and body["points"] == 0 and body["complete"] is False
+    assert body["counted_from"] == str(start) and body["not_counted"] == "before_first_day"
+    assert body["power"]["peak_w"] is None
+    assert all(d >= str(start) for d in body["available"])
+    params = {"from": str(start - timedelta(days=2)), "to": str(start), "group": "day"}
+    assert [b["kwh"] for b in (await c.get("/api/energy", params=params)).json()["buckets"]] == [
+        None,
+        None,
+    ]
+    after = (await c.get("/api/energy/day", params={"date": str(start)})).json()
+    assert after["not_counted"] is None and after["totals"]["daily_kwh"] is not None
