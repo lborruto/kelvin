@@ -41,8 +41,8 @@
     <button type="button" role="radio" aria-checked={on}
       aria-label="{o.v === 'program' ? 'Programme' : o.l}{isPending ? ' (en attente)' : ''}"
       bind:this={buttons[i]} tabindex={tabStop === o.v ? 0 : -1} onkeydown={(e) => key(e, i)}
-      class:on class:pending={isPending} {disabled}
-      onclick={() => current !== o.v && onchange(o.v)}>{o.l}{#if on}<PendingEdge shape="rect" rx={6.5} pending={isPending}
+      class:on class:pending={isPending} aria-disabled={disabled}
+      onclick={() => !disabled && current !== o.v && onchange(o.v)}>{o.l}{#if on}<PendingEdge shape="rect" rx={6.5} pending={isPending}
           confirmed={settle.confirmed && settle.held?.v === o.v} />{/if}</button>
   {/each}
 </div>
@@ -71,7 +71,7 @@
     transition: background-color var(--t-state) ease, color var(--t-state) ease;
   }
   @media (hover: hover) {
-    button:not(.on, :disabled):hover {
+    button:not(.on, [aria-disabled='true']):hover {
       color: var(--tx);
     }
   }
@@ -82,11 +82,12 @@
     color: var(--tx);
     --edge-rest: var(--mu);
   }
-  button:disabled {
+  /* aria-disabled, never disabled: a focused segment keeps focus when commands pause. */
+  button[aria-disabled='true'] {
     cursor: default;
     color: var(--fa);
   }
-  button.on:disabled {
+  button.on[aria-disabled='true'] {
     color: var(--mu);
   }
 </style>

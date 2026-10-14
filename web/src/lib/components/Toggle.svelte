@@ -17,12 +17,13 @@
   const settle = new Settle<boolean>(() => (pending ? sent : null), () => checked, SETTLE_MS + 150);
 
   function click() {
+    if (disabled) return;
     sent = !checked;
     onchange(!checked);
   }
 </script>
 
-<button type="button" role="switch" aria-checked={checked} aria-busy={pending} class="toggle" class:pending {disabled}
+<button type="button" role="switch" aria-checked={checked} aria-busy={pending} class="toggle" class:pending aria-disabled={disabled}
   onclick={click}>
   <span class="label">{label}</span>
   <span class="track" aria-hidden="true">
@@ -87,11 +88,11 @@
       opacity: 0;
     }
   }
-  .toggle:disabled {
+  .toggle[aria-disabled='true'] {
     cursor: default;
     color: var(--fa);
   }
-  .toggle:disabled .track {
+  .toggle[aria-disabled='true'] .track {
     opacity: 0.6;
   }
   @media (prefers-reduced-motion: reduce) {

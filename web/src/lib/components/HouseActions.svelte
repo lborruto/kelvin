@@ -21,9 +21,11 @@
   let pending = $derived(house.houseCommand);
   let busy = $derived(pending?.status === 'sending' || pending?.status === 'pending');
   // Nothing to switch off before the house is known, and no answer could arrive while disconnected.
+  // aria-disabled, never disabled: the button that was just pressed keeps keyboard focus.
   let blocked = $derived(busy || !house.online);
   let cancel = $state<HTMLButtonElement>();
   function ask() {
+    if (blocked) return;
     dialog?.showModal();
     // The safe choice takes focus.
     cancel?.focus();
@@ -36,9 +38,9 @@
 
 <div class="wrap" class:stacked>
   <div class="actions" class:stacked>
-    <button type="button" class="btn btn-sm" disabled={blocked} onclick={ask}><Icon name="power" size={16} />Tout éteindre</button>
+    <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={ask}><Icon name="power" size={16} />Tout éteindre</button>
     {#if program}
-      <button type="button" class="btn btn-sm" disabled={blocked} onclick={() => runHouse(() => api.houseProgram())}>Tout remettre en programme</button>
+      <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={() => !blocked && runHouse(() => api.houseProgram())}>Tout remettre en programme</button>
     {/if}
     {#if away}<a class="btn btn-sm" href="/maison#absence"><Icon name="away" size={16} />Absence…</a>{/if}
   </div>

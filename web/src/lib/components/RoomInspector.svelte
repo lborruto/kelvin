@@ -64,7 +64,7 @@
     if (room) history.load(key, room.radiator_ids, start, Math.min(end, now), RANGES[range].step);
   });
 
-  const boost = () => run(() => api.roomBoost(roomId, boostTemp, boostHours * 60));
+  const boost = () => !busy && house.online && run(() => api.roomBoost(roomId, boostTemp, boostHours * 60));
 </script>
 
 {#if !house.loaded}
@@ -125,7 +125,8 @@
       <h3>Forcer temporairement</h3>
       {#if override?.kind === 'boost'}
         <p>Forcé à {fmtTemp(override.temperature)} jusqu’à {fmtTime(override.ends_at * 1000)}.</p>
-        <button type="button" class="btn secondary" disabled={!house.online} onclick={() => run(() => api.cancelOverride(override!.id))}>Annuler le forçage</button>
+        <button type="button" class="btn secondary" aria-disabled={!house.online}
+          onclick={() => house.online && run(() => api.cancelOverride(override!.id))}>Annuler le forçage</button>
       {:else}
         <div class="row">
           <Stepper label="Température forcée" value={boostTemp} min={7} max={maxT} debounceMs={0} onchange={(v) => (boostTemp = v)} />
@@ -134,7 +135,7 @@
               <option value={1}>1 h</option><option value={2}>2 h</option><option value={4}>4 h</option><option value={8}>8 h</option>
             </select>
           </label>
-          <button type="button" class="btn btn-primary" disabled={busy || !house.online} onclick={boost}>Forcer</button>
+          <button type="button" class="btn btn-primary" aria-disabled={busy || !house.online} onclick={boost}>Forcer</button>
         </div>
       {/if}
     </section>

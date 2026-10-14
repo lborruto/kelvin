@@ -72,4 +72,17 @@ describe('ModeSwitch', () => {
     render(ModeSwitch, { value: 'mixed', onchange: vi.fn() });
     expect(screen.getByRole('radio', { name: 'Arrêt' })).toHaveAttribute('tabindex', '0');
   });
+
+  it('paused (disconnected): segments are aria-disabled, keep focus and send nothing', async () => {
+    const onchange = vi.fn();
+    const r = render(ModeSwitch, { value: 'off', onchange });
+    const manual = screen.getByRole('radio', { name: 'Manuel' });
+    manual.focus();
+    await r.rerender({ disabled: true });
+    expect(manual).toHaveAttribute('aria-disabled', 'true');
+    expect(manual).not.toBeDisabled();
+    expect(document.activeElement).toBe(manual);
+    await fireEvent.click(manual);
+    expect(onchange).not.toHaveBeenCalled();
+  });
 });

@@ -87,7 +87,7 @@ describe('ProgramDay', () => {
       segs: [{ start: 0, end: 60 }, { start: 100, end: 200 }, { start: 150, end: 300 }],
       onchange: vi.fn()
     });
-    expect(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('alert')).toHaveTextContent('Des plages se chevauchent.');
   });
 });

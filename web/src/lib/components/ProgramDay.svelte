@@ -67,7 +67,7 @@
     if (next) onchange(next);
   }
   function addFirstFree() {
-    if (pending) return;
+    if (pending || segs.length >= 3) return;
     for (const m of [420, 1080, 720, 0, 60, 180, 300, 540, 840, 960, 1200, 1320]) {
       const next = addSlot(segs, m);
       if (next) return onchange(next);
@@ -141,7 +141,7 @@
         </li>
       {/each}
       <li>
-        <button type="button" class="btn btn-sm add" disabled={pending || segs.length >= 3} aria-label="Ajouter une plage le {label}"
+        <button type="button" class="btn btn-sm add" aria-disabled={pending || segs.length >= 3} aria-label="Ajouter une plage le {label}"
           onclick={addFirstFree}><Icon name="plus" size={16} />Plage</button>
       </li>
     </ul>

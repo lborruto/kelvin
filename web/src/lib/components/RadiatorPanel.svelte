@@ -88,7 +88,8 @@
         onchange={(v) => toggle('light', () => api.radiatorLight(radiator.id, v))} />
     {/if}
   </div>
-  <button type="button" class="btn btn-ghost identify" disabled={!house.online} onclick={() => run(() => api.identify(radiator.id))}>Faire clignoter</button>
+  <button type="button" class="btn btn-ghost identify" aria-disabled={!house.online}
+    onclick={() => house.online && run(() => api.identify(radiator.id))}>Faire clignoter</button>
 </section>
 
 <style>

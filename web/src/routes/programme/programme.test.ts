@@ -194,7 +194,7 @@ describe('/programme', () => {
     let resolve!: (v: unknown) => void;
     vi.mocked(api.roomProgram).mockReturnValue(new Promise((r) => (resolve = r)) as never);
     await editAndSend();
-    expect(screen.getByRole('button', { name: 'Envoyer' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Envoyer' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByLabelText('Lundi, plage 1, début')).toBeDisabled();
     await fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
     expect(api.roomProgram).toHaveBeenCalledTimes(1);

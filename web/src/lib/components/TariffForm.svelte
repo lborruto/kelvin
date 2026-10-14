@@ -52,6 +52,7 @@
 
   async function save(e: SubmitEvent) {
     e.preventDefault();
+    if (busy) return;
     error = null;
     saved = false;
     const s = parseDecimal(sub);
@@ -136,12 +137,12 @@
         <button type="button" class="btn btn-ghost" aria-label="Retirer la plage {i + 1}" disabled={slots.length === 1} onclick={() => removeSlot(i)}>Retirer</button>
       </div>
     {/each}
-    <button type="button" class="btn btn-ghost add" disabled={slots.length >= 3} onclick={addSlot}>Ajouter une plage</button>
+    <button type="button" class="btn btn-ghost add" aria-disabled={slots.length >= 3} onclick={addSlot}>Ajouter une plage</button>
   </fieldset>
 
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if saved}<p class="ok" role="status">Tarif enregistré.</p>{/if}
-  <button type="submit" class="btn btn-primary save" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer le tarif'}</button>
+  <button type="submit" class="btn btn-primary save" aria-disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer le tarif'}</button>
 
   {#if history.length}
     <!-- Units sit in the headers; below 600 px each price becomes a two-column list. -->

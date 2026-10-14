@@ -50,9 +50,11 @@ export class HouseStore {
     this.watched.clear();
   }
 
-  /** True when the live stream is up: commands can be sent and their answer will arrive. */
+  /** True when commands can be sent and their answer will arrive: the stream is up, or a loaded
+   * house is only refreshing it (a phone back from the background), whose snapshot answers any
+   * command sent meanwhile. False while reconnecting after a failure (the banner says so). */
   get online(): boolean {
-    return this.connection === 'open';
+    return this.connection === 'open' || (this.connection === 'connecting' && this.loaded);
   }
 
   /** Announce the progress of a command sent from here (Envoi…, Confirmé, the failure). */

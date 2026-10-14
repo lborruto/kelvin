@@ -103,6 +103,8 @@
   let changes = $derived(draft && baseline ? changedDays(baseline, draft) : []);
   let invalid = $derived(draft ? DAYS.some((d) => validateDay(draft![d]) !== null) : true);
   let today = $derived(parisParts(now).weekday);
+  // aria-disabled, never disabled: Envoyer keeps focus through the send.
+  let canSend = $derived(!busy && (changes.length > 0 || alsoRooms.length > 0) && !invalid && house.online);
   let roomName = (id: string) => house.room(id)?.name ?? id;
   let roomOptions = $derived(house.rooms.map((r) => ({ value: r.id, label: r.name })));
   // Phone: one day open at a time (today first), the others show only their bar.
@@ -139,7 +141,7 @@
     alsoRooms = [];
   }
   function applyCopy() {
-    if (!draft) return;
+    if (!draft || busy || !copyTo.length) return;
     const src = draft[copyFrom];
     const next = { ...draft };
     for (const d of copyTo) next[d] = src.map((s) => ({ ...s }));
@@ -147,7 +149,7 @@
     copyTo = [];
   }
   async function send() {
-    if (!draft || !roomId || busy) return;
+    if (!draft || !roomId || !canSend) return;
     const week = draft;
     const payload = toWeekProgram(week);
     const ids = [roomId, ...alsoRooms];
@@ -227,7 +229,7 @@
           <label class="chip"><input class="visually-hidden" type="checkbox" value={d} bind:group={copyTo} disabled={busy} /><span
               aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{DAY_SHORT[d]}</label>
         {/each}
-        <button type="button" class="btn btn-sm" disabled={busy || !copyTo.length} onclick={applyCopy}>Copier</button>
+        <button type="button" class="btn btn-sm" aria-disabled={busy || !copyTo.length} onclick={applyCopy}>Copier</button>
       </div>
       {#if house.rooms.length > 1}
         <h2 class="also">Envoyer aussi à</h2>
@@ -273,8 +275,8 @@
       <div class="sendbar" transition:fly={{ y: 8, duration: dur(T.enter), easing: easeOut }}>
         <span class="bar-text" class:muted={busy}>{barText}</span>
         <div class="bar-actions">
-          <button type="button" class="btn" disabled={busy || !changes.length} onclick={() => (draft = baseline)}>Annuler</button>
-          <button type="button" class="btn btn-primary" disabled={busy || (!changes.length && !alsoRooms.length) || invalid || !house.online}
+          <button type="button" class="btn" aria-disabled={busy || !changes.length} onclick={() => !busy && changes.length && (draft = baseline)}>Annuler</button>
+          <button type="button" class="btn btn-primary" aria-disabled={!canSend}
             onclick={send}>Envoyer</button>
         </div>
       </div>

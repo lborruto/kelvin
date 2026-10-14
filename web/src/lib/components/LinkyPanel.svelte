@@ -40,6 +40,7 @@
 
   async function save(e: SubmitEvent) {
     e.preventDefault();
+    if (busy) return;
     error = null;
     if (!/^\d{14}$/.test(prm.trim())) {
       error = 'Le PDL compte 14 chiffres.';
@@ -91,7 +92,7 @@
     {#if status.token_set}<span class="hint" id="{uid}-keep">Laissez vide pour garder le jeton.</span>{/if}
     </div>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <button type="submit" class="btn btn-primary" disabled={busy}>{busy ? 'Test en cours…' : 'Enregistrer et tester'}</button>
+    <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? 'Test en cours…' : 'Enregistrer et tester'}</button>
   </form>
   <p class="muted small">
     Le PDL figure sur la facture (14 chiffres). Le jeton s’obtient sur

@@ -79,8 +79,8 @@ describe('Maison', () => {
     const btn = screen.getByRole('button', { name: 'Tout remettre en programme' });
     await fireEvent.click(btn);
     expect(await screen.findByText('Envoi…')).toBeInTheDocument();
-    expect(btn).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Tout éteindre' })).toBeDisabled();
+    expect(btn).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Tout éteindre' })).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('shows the Cozytouch status', async () => {
@@ -105,7 +105,7 @@ describe('Maison', () => {
     await vi.waitFor(() => expect(toasts.items.map((t) => t.message)).toContain('Déconnexion impossible. Réessayez.'));
     expect(goto).not.toHaveBeenCalled();
     expect(auth.email).toBe('demo@kelvin.local');
-    expect(screen.getByRole('button', { name: 'Se déconnecter' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Se déconnecter' })).toHaveAttribute('aria-disabled', 'false');
   });
 
   it('empties the house and history stores on logout', async () => {

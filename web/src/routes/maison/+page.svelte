@@ -34,6 +34,7 @@
   let minUntil = $state(nowLocal());
 
   function startAway() {
+    if (!house.online) return;
     if (!until || new Date(until).getTime() <= Date.now()) {
       untilError = 'La fin doit être dans le futur.';
       return;
@@ -55,6 +56,7 @@
 
   let loggingOut = $state(false);
   async function logout() {
+    if (loggingOut) return;
     loggingOut = true;
     try {
       await auth.logout();
@@ -117,7 +119,7 @@
     <div class="field"><span>Température</span>
       <Stepper label="Température d’absence" value={awayTemp} min={7} max={19} debounceMs={0} onchange={(v) => (awayTemp = v)} />
     </div>
-    <button type="button" class="btn btn-primary" disabled={!until || !house.online} onclick={startAway}>Activer l’absence</button>
+    <button type="button" class="btn btn-primary" aria-disabled={!until || !house.online} onclick={startAway}>Activer l’absence</button>
   </div>
   {#if untilError}<p class="error" role="alert">{untilError}</p>{/if}
 </section>
@@ -135,7 +137,7 @@
             <div class="muted small">{o.restoring ? 'Rétablissement en cours…' : `jusqu’au ${fmtDateTime(o.ends_at * 1000)}`}</div>
           </div>
           <button type="button" class="btn btn-sm" aria-label="Annuler {kindLabel[o.kind]} — {roomsOf(o.radiator_ids)}"
-            disabled={!house.online} onclick={() => run(() => api.cancelOverride(o.id))}>Annuler</button>
+            aria-disabled={!house.online} onclick={() => house.online && run(() => api.cancelOverride(o.id))}>Annuler</button>
         </li>
       {/each}
     </ul>
@@ -181,7 +183,7 @@
         <dt>Compte</dt>
         <dd class="account">
           <span class="email">{auth.email ?? '—'}</span>
-          <button type="button" class="btn btn-sm" disabled={loggingOut} onclick={logout}>Se déconnecter</button>
+          <button type="button" class="btn btn-sm" aria-disabled={loggingOut} onclick={logout}>Se déconnecter</button>
         </dd>
       </div>
       <div class="item">

@@ -66,7 +66,7 @@ describe('TariffForm', () => {
     const add = screen.getByRole('button', { name: 'Ajouter une plage' });
     await fireEvent.click(add);
     expect(screen.getByLabelText('Début de la plage 3')).toBeInTheDocument();
-    expect(add).toBeDisabled();
+    expect(add).toHaveAttribute('aria-disabled', 'true');
     await fireEvent.click(screen.getByRole('button', { name: 'Retirer la plage 1' }));
     expect(screen.getByLabelText('Début de la plage 1')).toHaveValue('12:30');
   });

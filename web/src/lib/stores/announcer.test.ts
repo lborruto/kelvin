@@ -45,3 +45,18 @@ describe('command progress', () => {
     expect(announcer.polite).toBe('');
   });
 });
+
+describe('online', () => {
+  it('stays usable while a loaded house refreshes its stream; blocks while reconnecting', () => {
+    const store = new HouseStore(() => 0);
+    expect(store.online).toBe(false); // nothing loaded yet
+    store.applySnapshot({ house: { rooms: [], radiators: [] }, pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null } } as never);
+    expect(store.online).toBe(true);
+    // A phone coming back after 10 s hidden re-opens the stream: the data on screen is still good.
+    store.connection = 'connecting';
+    expect(store.online).toBe(true);
+    // A real outage (the banner says so): no answer could arrive.
+    store.connection = 'reconnecting';
+    expect(store.online).toBe(false);
+  });
+});
