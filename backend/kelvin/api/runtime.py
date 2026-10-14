@@ -93,7 +93,7 @@ def make_gateway(settings: Settings, username: str, password: str) -> Gateway:
 def make_linky_source(
     settings: Settings,
     *,
-    radiators_halfhours: Callable[[date], list[float] | None] | None = None,
+    radiators_halfhours: Callable[[date], list[float | None] | None] | None = None,
 ) -> Callable[[str, str], LinkySource]:
     """`radiators_halfhours` (simulator only): the demo meter includes what the radiators
     drew, half-hour by half-hour (L15)."""
@@ -106,17 +106,19 @@ def make_linky_source(
     return lambda prm, token: MedSource(prm, token, base_url=settings.med_base_url, tz=settings.tz)
 
 
-def _recorded_halfhours(recorder: Recorder, tz: str) -> Callable[[date], list[float] | None]:
-    """Whole-home radiator Wh per half-hour of a local day, or None unless every half-hour of
-    every recorded radiator is known (simulator only)."""
+def _recorded_halfhours(recorder: Recorder, tz: str) -> Callable[[date], list[float | None] | None]:
+    """Radiator Wh per half-hour of a local day, summed over the radiators that know it; None
+    for a half-hour none knows, and None for a day none knows at all (simulator only)."""
     zone = ZoneInfo(tz)
 
-    def halves(day: date) -> list[float] | None:
+    def halves(day: date) -> list[float | None] | None:
         edges = local_edges(day, day + timedelta(days=1), "halfhour", zone)
-        rows = recorder.energy_buckets(edges).values()
-        if not rows or any(b.wh is None for row in rows for b in row):
-            return None
-        return [sum(row[i].wh or 0.0 for row in rows) for i in range(len(edges) - 1)]
+        rows = list(recorder.energy_buckets(edges).values())
+        out: list[float | None] = []
+        for i in range(len(edges) - 1):
+            known = [wh for row in rows if (wh := row[i].wh) is not None]
+            out.append(sum(known) if known else None)
+        return out if any(h is not None for h in out) else None
 
     return halves
 

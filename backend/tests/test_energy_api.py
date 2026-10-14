@@ -658,3 +658,27 @@ async def test_m6_a_day_before_the_contract_start_reads_null_with_its_reason(api
     ]
     after = (await c.get("/api/energy/day", params={"date": str(start)})).json()
     assert after["not_counted"] is None and after["totals"]["daily_kwh"] is not None
+
+
+async def test_m9_a_radiator_added_mid_day_keeps_the_meter_above_the_known_radiators():
+    """Batch-4 review m-9: one radiator unknown for part of the day no longer sends the whole
+    day back to the seasonal shape: every half-hour some radiator knows holds what they drew."""
+    from kelvin.api.runtime import _recorded_halfhours
+    from kelvin.house.model import build_house
+    from kelvin.overkiz.sample import sample_house
+    from kelvin.recorder.db import Database
+    from kelvin.recorder.recorder import Recorder
+
+    day = date(2026, 1, 15)
+    a = day_bounds(day, PARIS)[0]
+    db = Database(":memory:")
+    rows = [(a + i * 1800, "x", 750.0 * i) for i in range(49)]  # x all day
+    rows += [(a + 24 * 1800, "y", 10_000.0), (a + 30 * 1800, "y", 13_000.0)]  # y from noon
+    db.executemany("INSERT INTO energy VALUES (?,?,?,NULL,NULL)", rows)
+    halves = _recorded_halfhours(Recorder(db, build_house(*sample_house())), "Europe/Paris")(day)
+    assert halves is not None and len(halves) == 48
+    assert halves[:24] == [750.0] * 24 and halves[24:30] == [1250.0] * 6
+    src = FakeLinkySource(radiators_halfhours=lambda d: halves)
+    points = await src.fetch_curve(day, day + timedelta(days=1))
+    assert all(p.wh >= h - 0.5 for p, h in zip(points, halves, strict=True) if h is not None)
+    assert sum(p.wh for p in points) == pytest.approx(src.day_wh(day), abs=30)

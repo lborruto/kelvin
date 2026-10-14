@@ -47,7 +47,7 @@ class FakeLinkySource:
         tz: str = "Europe/Paris",
         wall: Callable[[], float] = time.time,
         activation: date = date(2020, 1, 1),
-        radiators_halfhours: Callable[[date], list[float] | None] | None = None,
+        radiators_halfhours: Callable[[date], list[float | None] | None] | None = None,
     ) -> None:
         self.tz = ZoneInfo(tz)
         self.radiators_halfhours = radiators_halfhours
@@ -65,14 +65,25 @@ class FakeLinkySource:
         return datetime.fromtimestamp(self.wall(), self.tz).date()
 
     def _parts(self, day: date) -> tuple[float, list[float] | None, float]:
-        """(household base Wh, the radiators' Wh per half-hour or None, heating Wh)."""
+        """(household base Wh, the radiators' Wh per half-hour or None, heating Wh).
+
+        A half-hour no recorded radiator knows (m-9: one added part-way through the day, or
+        before the recorder's history) gets its share of the seasonal estimate instead."""
         winter = (1 + math.cos(2 * math.pi * (day.timetuple().tm_yday - 15) / 365.25)) / 2
         rng = random.Random(day.toordinal())
         base = 8000 + 3000 * winter + rng.uniform(-700, 700)
-        halves = self.radiators_halfhours(day) if self.radiators_halfhours is not None else None
-        if halves is not None:
-            return base, halves, sum(halves)
-        return base, None, 30000 * winter * rng.uniform(0.85, 1.15)
+        seasonal = 30000 * winter * rng.uniform(0.85, 1.15)
+        known = self.radiators_halfhours(day) if self.radiators_halfhours is not None else None
+        if known is None:
+            return base, None, seasonal
+        a, b = day_bounds(day, self.tz)
+        weights = [_weight(datetime.fromtimestamp(t, self.tz).hour) for t in range(a, b, 1800)]
+        total = sum(weights)
+        halves = [
+            h if h is not None else seasonal * w / total
+            for h, w in zip(known, weights, strict=True)
+        ]
+        return base, halves, sum(halves)
 
     def day_wh(self, day: date) -> int:
         """The meter sees the whole home: a household base (about 8 kWh in July to 11 kWh in
