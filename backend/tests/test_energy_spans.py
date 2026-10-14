@@ -5,6 +5,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from kelvin.recorder.energy import (
+    CONFIRM_ABOVE_S,
     FALLBACK_POWER_W,
     MAX_GAP_S,
     POWER_MARGIN,
@@ -282,3 +283,43 @@ def test_a_reading_below_a_pending_spike_still_counts_from_the_reference():
         Span(0, 1800, 300.0, False),
         Span(1800, 5400, 600.0, False),
     ]
+
+
+DAY = 86400
+
+
+def test_an_upward_glitch_after_a_quiet_stretch_is_not_counted():
+    """Batch-2 re-review: 1 500 W, a 3 MWh counter idle for 3 days, then one reading 2 % too
+    high. The cap over 3 days would allow its 60 kWh, but the readings after it fall back to
+    the real level: it was a glitch. Neither is the next 100 h of real heating lost."""
+    readings = [Reading(0, 3_000_000.0), Reading(3 * DAY, 3_060_000.0)]
+    readings += [Reading(3 * DAY + 1800 * k, 3_000_000.0 + 300 * k) for k in range(1, 201)]
+    spans = spans_of(readings, power_w=1500)
+    assert total(spans) == pytest.approx(200 * 300)
+    assert spans[0] == Span(0, 3 * DAY + 1800, 300.0, True)  # nothing invented in the idle days
+    assert all(s.wh <= 300 for s in spans)
+
+
+def test_a_large_increase_after_a_long_gap_waits_for_the_next_reading():
+    """20 kWh after 3 days is plausible (a recorder down while it heated) but more than the
+    radiator draws in CONFIRM_ABOVE_S: it stays pending (unknown, never 0) until the next
+    reading moves on from it plausibly, then it counts whole."""
+    readings = [Reading(0, 3_000_000.0), Reading(3 * DAY, 3_020_000.0)]
+    assert spans_of(readings, power_w=1500) == []
+    readings.append(Reading(3 * DAY + 1800, 3_020_300.0))
+    assert spans_of(readings, power_w=1500) == [
+        Span(0, 3 * DAY, 20_000.0, True),
+        Span(3 * DAY, 3 * DAY + 1800, 300.0, False),
+    ]
+
+
+def test_a_repeat_of_a_pending_increase_does_not_confirm_it():
+    readings = [Reading(0, 3_000_000.0)]
+    readings += [Reading(3 * DAY + 3600 * k, 3_020_000.0) for k in range(5)]
+    assert spans_of(readings, power_w=1500) == []
+
+
+def test_an_increase_within_confirm_above_s_of_full_power_counts_at_once():
+    cap = 1500 * POWER_MARGIN * (CONFIRM_ABOVE_S + POWER_SLACK_S) / 3600
+    readings = [Reading(0, 3_000_000.0), Reading(3 * DAY, 3_000_000.0 + int(cap))]
+    assert spans_of(readings, power_w=1500) == [Span(0, 3 * DAY, int(cap), True)]

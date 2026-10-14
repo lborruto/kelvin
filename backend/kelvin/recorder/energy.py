@@ -28,6 +28,12 @@ POWER_SLACK_S = 60  # ...over its length plus a minute (a reading learned late)
 # any Sauter heater. It only bounds what a span may hold; it never weighs the spreading.
 FALLBACK_POWER_W = 5000.0
 MAX_GAP_S = 3 * 3600  # longer spans are flagged "interpolated"
+# An increase above what the radiator draws at full power in this long waits for the next
+# reading to confirm it. After a quiet stretch the cap over the whole elapsed time would let a
+# glitch of days of full power through (and the real readings below it would then be skipped as
+# glitches until the counter caught up); a real increase after a long gap (the recorder down
+# while it heated) is confirmed by the next reading moving on from it.
+CONFIRM_ABOVE_S = MAX_GAP_S
 
 MIN_WEIGHT_COVERAGE = 0.8  # working-rate weights need samples over 80 % of the span
 SAMPLE_STEP_S = 300  # a 5-min sample stands for at most the next 5 minutes
@@ -95,6 +101,12 @@ def clean_spans(
       first reading of 0). That jump is a rebase, never consumption; its time stays unknown.
       While a jump is pending, a reading at or above it is judged against the jump, not the
       reference, however late it comes: elapsed time must never turn a jump into consumption.
+    - A plausible increase above power_w × (min(Δt, CONFIRM_ABOVE_S) + POWER_SLACK_S) ×
+      POWER_MARGIN (days of full power after a quiet stretch) is held: the next reading with
+      another value decides. Above it and plausible from it → the increase is consumption over
+      its own span, and counting goes on. Otherwise it was a glitch: discarded, and that reading
+      is judged from the reference as if the held one never came, so it invents no energy and
+      blocks none. The last reading of a series may stay held (its span unknown, never 0).
 
     With `stop_at`, the generator ends after the first span that reaches it (end >= stop_at).
     """
@@ -104,7 +116,9 @@ def clean_spans(
     cand: tuple[int, float] | None = None  # an unconfirmed reset: (ts, value)
     jump: tuple[int, float] | None = None  # a rejected spike that may be a new level
     low: tuple[int, float] | None = None  # a reading below an unconfirmed reference
+    held: tuple[int, float] | None = None  # a large increase waiting for confirmation
     cap = (power_w or FALLBACK_POWER_W) * POWER_MARGIN / 3600  # Wh per second
+    quick = cap * (CONFIRM_ABOVE_S + POWER_SLACK_S)  # Wh counted without confirmation
     span = tuple.__new__  # Span(...) without the NamedTuple constructor's call overhead
     for ts, c in readings:
         if c is None:
@@ -126,6 +140,18 @@ def clean_spans(
             else:
                 log.info("energy counter drop skipped: it recovered at the next reading")
             cand = None
+        if held is not None:
+            if ts <= held[0] or c == held[1]:
+                continue  # a repeat is no news: the increase is not confirmed yet
+            if c > held[1] and c - held[1] <= cap * (ts - held[0] + POWER_SLACK_S):
+                yield span(Span, (t0, held[0], held[1] - ref, held[0] - t0 > max_gap_s))
+                if stop_at is not None and held[0] >= stop_at:
+                    return
+                ref, t0, confirmed = held[1], held[0], True
+                jump = low = None
+            else:
+                log.info("energy counter glitch skipped: a large increase was not confirmed")
+            held = None
         if ts <= t0 or c == ref:
             continue
         d = c - ref
@@ -154,6 +180,9 @@ def clean_spans(
             elif d > cap * (dt + POWER_SLACK_S):
                 jump = (ts, c)  # below any pending jump: the lower one is the candidate
                 log.warning("energy spike skipped: %.0f Wh in %d s exceeds the power", d, dt)
+                continue
+            elif d > quick:
+                held = (ts, c)  # plausible over the gap, but too much to take on one reading
                 continue
             jump = low = None
             yield span(Span, (t0, ts, d, dt > max_gap_s))

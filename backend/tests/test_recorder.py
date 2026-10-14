@@ -182,7 +182,10 @@ def test_legacy_hourly_rows_then_change_only_rows_give_the_true_days(env):
         (int(ts(2026, 10, 13, 0, 30)), "9312063", 34_000.0, None, None),
     )
     rec = Recorder(db, house, wall=clock)
-    record(house, clock, rec, [(ts(2026, 10, 13, 6), 40_000), (ts(2026, 10, 14), 58_000)])
+    # 18 kWh in one 18 h step is more than CONFIRM_ABOVE_S of full power: the reading after it
+    # (on the next day, outside the window) confirms it.
+    readings = [(ts(2026, 10, 13, 6), 40_000), (ts(2026, 10, 14), 58_000)]
+    record(house, clock, rec, [*readings, (ts(2026, 10, 14, 0, 30), 58_500)])
     got = day_kwh(rec, ["9312063"], date(2026, 10, 12), date(2026, 10, 14))["9312063"]
     assert got == [24.0, 24.0]
 
