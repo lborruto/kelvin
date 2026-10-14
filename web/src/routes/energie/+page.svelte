@@ -303,7 +303,11 @@
         {#if curveError}
           <p class="error small" role="status">{curveError} <button type="button" class="btn btn-sm" onclick={() => curveAttempt++}>Réessayer</button></p>
         {:else if curve && curve.date === curveDate}
-          <CurveChart points={curve.points} split={report.tariff} label="Consommation par demi-heure le {fmtDateLong(curve.date)}" />
+          <CurveChart
+            intervals={curve.points.map((p) => ({ ...p, w: Math.round((p.wh * 60) / p.minutes), boundary: false, price: null, eur: null,
+              radiators_wh: null, radiators_known: 0, radiators_total: 0, radiators_interp: false, radiators_apportioned: false, by_room: {} }))}
+            split={report.tariff}
+            label="Consommation par demi-heure le {fmtDateLong(curve.date)}" />
           {#if curve.hc_kwh != null && curve.hp_kwh != null}
             <p class="muted small num">HC {fmtKwh(curve.hc_kwh)} · HP {fmtKwh(curve.hp_kwh)}</p>
           {/if}
