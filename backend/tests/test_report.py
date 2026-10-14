@@ -2,10 +2,18 @@ from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from kelvin.billing.costs import days_in_month
 from kelvin.billing.radiators import RadiatorDay
-from kelvin.billing.report import ReportInputs, build_report, minus_year
+from kelvin.billing.report import (
+    ReportInputs,
+    build_report,
+    minus_year,
+    next_unit,
+    unit_start,
+)
 from kelvin.billing.slots import Slot
 from kelvin.billing.tariff import Prices, Tariff
 from kelvin.linky.models import CurvePoint, day_bounds
@@ -812,3 +820,45 @@ def test_bucket_euros_add_up_to_the_period(start, end, group):
             if a is not None:
                 exact = t.prices_on(a).subscription_eur_month / days_in_month(a)
                 assert abs(b["subscription_eur"] - exact) < 0.01 + 1e-9
+
+
+_SPAN = (date(2025, 11, 20), date(2026, 2, 10))  # across a new year and a price change
+_DAILY = {d: 9_000 + (i * 7_919) % 13_001 for i, d in enumerate(days(*_SPAN))}
+_TARIFF = tariff(
+    Prices(date(2025, 1, 1), 15.0, 0.2068, 0.27), Prices(date(2026, 1, 15), 16.37, 0.2101, 0.2733)
+)
+
+
+def _euros(s: dict) -> tuple:
+    return (s["energy_eur"], s["subscription_eur"], s["eur"])
+
+
+@settings(max_examples=40, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    a=st.integers(0, 75),
+    n=st.integers(1, 60),
+    group=st.sampled_from(["day", "week", "month"]),
+)
+def test_a_bucket_reads_the_same_euros_in_any_window_and_the_buckets_sum_to_the_period(a, n, group):
+    """Same bucket, same figure: a bucket's € do not depend on the window asked (a day reads the
+    same in Jour, Semaine, Mois and Année), and any window's buckets add up to its period."""
+    start = _SPAN[0] + timedelta(days=a)
+    end = min(start + timedelta(days=n), _SPAN[1] + timedelta(days=5))
+    inp = inputs(_DAILY, t=_TARIFF, today=date(2026, 2, 15))
+    r = build_report(start, end, group, inp, period=(start, end))
+    d = start
+    for b in r["buckets"]:
+        nxt = min(next_unit(unit_start(d, group), group), end)
+        alone = build_report(d, nxt, "day", inp, period=(d, nxt))["period"]
+        assert _euros(b) == _euros(alone), (b["key"], start, end)
+        d = nxt
+    cents = lambda v: round(v * 100)  # noqa: E731
+    p = r["period"]
+    for i in range(2):
+        shown = [_euros(b)[i] for b in r["buckets"] if _euros(b)[i] is not None]
+        assert (sum(cents(v) for v in shown) if shown else None) == (
+            cents(_euros(p)[i]) if _euros(p)[i] is not None else None
+        )
+    for s in (*r["buckets"], p):
+        if s["eur"] is not None:
+            assert cents(s["eur"]) == cents(s["energy_eur"]) + cents(s["subscription_eur"])

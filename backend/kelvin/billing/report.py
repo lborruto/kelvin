@@ -5,7 +5,6 @@ Pure: the caller gathers Linky days, curves, radiator energy and the tariff into
 
 from __future__ import annotations
 
-import math
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -156,6 +155,7 @@ class _Energy:
         self.shares = FallbackShares(complete, self.ranges, inp.tz) if self.ranges else None
         self.share = self.shares.overall().value if self.shares else 0.0
         self._cache: dict[date, DayEnergy | None] = {}
+        self._years: dict[int, dict[date, tuple[float, float]]] = {}
 
     def day(self, d: date) -> DayEnergy | None:
         if self.first is not None and d < self.first:
@@ -288,18 +288,49 @@ class _Energy:
         ]
         return counted, [e for d in counted if (e := self.day(d)) is not None]
 
+    def _year(self, year: int) -> dict[date, tuple[float, float]]:
+        """The exact energy € and subscription € of the counted days from 1 January of `year`
+        up to each day (excluded), summed day by day in order; the next 1 January closes it."""
+        if year not in self._years:
+            tariff = self.inp.tariff
+            assert tariff is not None
+            e = s = 0.0
+            cum: dict[date, tuple[float, float]] = {}
+            for d in _days(date(year, 1, 1), date(year + 1, 1, 1)):
+                cum[d] = (e, s)
+                if (
+                    self.last is not None
+                    and self.first is not None
+                    and self.first <= d <= self.last
+                ):
+                    s += subscription_eur(d, tariff.prices_on(d))
+                    if (x := self.day(d)) is not None:
+                        e += energy_eur(x, tariff.prices_on(d)) or 0.0
+            cum[date(year + 1, 1, 1)] = (e, s)
+            self._years[year] = cum
+        return self._years[year]
+
     def costs(self, a: date, b: date) -> tuple[float | None, float | None]:
-        """The unrounded energy € and subscription € of [a, b): None without a tariff or a counted
-        day (subscription), or without a Linky day (energy). Summed day by day, in order."""
+        """The energy € and subscription € of [a, b), to the cent: None without a tariff or a
+        counted day (subscription), or without a Linky day (energy).
+
+        Cents come from running sums anchored on 1 January (a fixed origin, never the window):
+        a span's cents are round(cum(to)) − round(cum(from)), split at each new year. So a day
+        or a bucket reads the same € in every view, any window's buckets add up to the period
+        exactly, and each stays within a cent of its exact figure."""
         tariff = self.inp.tariff
         counted, present = self._present(a, b)
         if tariff is None or not counted:
             return None, None
-        sub = sum(subscription_eur(d, tariff.prices_on(d)) for d in counted)
-        energy = (
-            sum(energy_eur(e, tariff.prices_on(e.day)) or 0.0 for e in present) if present else None
-        )
-        return energy, sub
+        cents = [0, 0]
+        x = a
+        while x < b:
+            y = min(b, date(x.year + 1, 1, 1))
+            cum = self._year(x.year)
+            for i in range(2):
+                cents[i] += round(cum[y][i] * 100) - round(cum[x][i] * 100)
+            x = y
+        return (cents[0] / 100 if present else None), cents[1] / 100
 
     def summary(self, a: date, b: date) -> dict[str, Any]:
         tariff = self.inp.tariff
@@ -312,7 +343,7 @@ class _Energy:
         # An invoice's rule: the total is the sum of the two rounded lines, so they add up.
         eur = None
         if energy is not None and sub is not None:
-            eur = round(round(energy, 2) + round(sub, 2), 2)
+            eur = round(energy + sub, 2)
         rad = self.radiators(a, b)
         rest = None
         if (
@@ -550,39 +581,6 @@ def _comparison(en: _Energy, group: Group, p_from: date, p_to: date) -> dict[str
     }
 
 
-def _apportion_cents(values: list[float | None], total: float) -> list[float | None]:
-    """`values` rounded to the cent so that they sum to `total` rounded to the cent: each is
-    the floor or the ceiling of its exact cents, the largest remainders rounding up (None stays
-    None)."""
-    exact = [v * 100 for v in values if v is not None]
-    base = [math.floor(x) for x in exact]
-    left = round(round(total, 2) * 100) - sum(base)
-    order = sorted(range(len(exact)), key=lambda i: exact[i] - base[i], reverse=True)
-    for i in order[: max(0, min(left, len(exact)))]:
-        base[i] += 1
-    it = iter(base)
-    return [None if v is None else next(it) / 100 for v in values]
-
-
-def _match_cents(
-    buckets: list[dict[str, Any]],
-    raw: list[tuple[float | None, float | None]],
-    total: tuple[float | None, float | None],
-) -> None:
-    """Shown sums add up (spec §9.1): the buckets' energy and subscription € are apportioned so
-    they sum to the window's rounded figures to the cent (the period's, when the window is the
-    period), and each bucket keeps the invoice rule eur = energy + subscription."""
-    for i, key in enumerate(("energy_eur", "subscription_eur")):
-        t = total[i]
-        if t is None:
-            continue
-        for b, v in zip(buckets, _apportion_cents([r[i] for r in raw], t), strict=True):
-            b[key] = v
-    for b in buckets:
-        if b["eur"] is not None:
-            b["eur"] = round(b["energy_eur"] + b["subscription_eur"], 2)
-
-
 def build_report(
     start: date,
     end: date,
@@ -595,14 +593,11 @@ def build_report(
     holds the last Linky day (or yesterday)."""
     en = _Energy(inp)
     buckets = []
-    raw = []
     d = start
     while d < end:
         nxt = min(next_unit(unit_start(d, group), group), end)
         buckets.append({"key": bucket_key(d, group), **en.summary(d, nxt)})
-        raw.append(en.costs(d, nxt))
         d = nxt
-    _match_cents(buckets, raw, en.costs(start, end))
     anchor = en.last or (inp.today - ONE)
     if period is None:
         period = default_period(en.last, inp.today, group)
