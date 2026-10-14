@@ -63,8 +63,11 @@ class FakeGateway:
         self.executed: list[list[DeviceCommand]] = []
         self.fail_next_execute: Exception | None = None
         self.fail_fetch: Exception | None = None
+        self.fail_states: Exception | None = None
         self.silent = False
         self.unresponsive = False
+        self.snapshots = 0  # full setup reads served (quota guard tests)
+        self.state_reads = 0  # per-device state reads served
         self._scheduled: list[tuple[float, str, list[DeviceCommand]]] = []
         self._events: list[Event] = []
 
@@ -95,7 +98,14 @@ class FakeGateway:
         return None
 
     async def snapshot(self) -> tuple[RawPlace, list[RawDevice]]:
+        self.snapshots += 1
         return self.root, copy.deepcopy(list(self.devices.values()))
+
+    async def device_states(self, device_url: str) -> dict[str, Any]:
+        if self.fail_states is not None:
+            raise self.fail_states
+        self.state_reads += 1
+        return copy.deepcopy(self.devices[device_url].states)
 
     async def execute(self, commands: list[DeviceCommand], label: str) -> str:
         if self.fail_next_execute is not None:

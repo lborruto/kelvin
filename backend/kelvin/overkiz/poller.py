@@ -11,6 +11,7 @@ from typing import Any
 
 from kelvin.commands.service import CommandService
 from kelvin.house.model import House
+from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import StateChange
@@ -31,8 +32,9 @@ class EventPump:
         wall: Callable[[], float] = time.time,
         idle_interval: float = 30.0,
         busy_interval: float = 2.0,
-        refresh_interval: float = 600.0,
+        state_interval: float = 600.0,
         max_backoff: float = 600.0,
+        guard: SetupReadGuard | None = None,
     ) -> None:
         self.gateway = gateway
         self.house = house
@@ -43,12 +45,15 @@ class EventPump:
         self.wall = wall
         self.idle_interval = idle_interval
         self.busy_interval = busy_interval
-        self.refresh_interval = refresh_interval
+        self.state_interval = state_interval
         self.max_backoff = max_backoff
+        self.guard = guard or SetupReadGuard(wall=wall)
         self.failures = 0
         self.last_ok_wall: float | None = None
         self.last_error: str | None = None
-        self._last_refresh = clock()
+        self._next_state_read = clock() + state_interval
+        self._rotation = 0
+        self._resync_due = False
         self._wake = asyncio.Event()
         self.auth_rejected = False
         self._published: tuple[bool, bool] = (False, False)
@@ -63,6 +68,7 @@ class EventPump:
             "last_ok_at": self.last_ok_wall,
             "last_error": self.last_error,
             "auth_rejected": self.auth_rejected,
+            "setup_reads_24h": self.guard.used(),
         }
 
     def mark_ok(self) -> None:
@@ -83,8 +89,13 @@ class EventPump:
     def credentials_changed(self) -> None:
         """The home's account has a new, accepted password: resume and resync."""
         self.auth_rejected = False
-        self._last_refresh = float("-inf")
+        self.request_resync()
         self._notify_status()
+
+    def request_resync(self) -> None:
+        """Resynchronise the whole house on the next poll (a full setup read if the budget
+        allows, else one state read per device)."""
+        self._resync_due = True
         self.wake()
 
     def _safe(self, fn: Callable[..., Any], *args: Any) -> None:
@@ -112,11 +123,12 @@ class EventPump:
             return self.max_backoff
         changed: set[str] = set()
         try:
-            if self.clock() - self._last_refresh >= self.refresh_interval:
-                _, devices = await self.gateway.snapshot()
-                changed |= self.house.reload(devices)
-                self._last_refresh = self.clock()
-                self.commands.evaluate_all()
+            if self._resync_due:
+                await self._resync(changed)
+                self._resync_due = False
+            elif self.clock() >= self._next_state_read:
+                await self._read_next_radiator(changed)
+                self._next_state_read = self.clock() + self.state_interval
             for ev in await self.gateway.fetch_events():
                 self._handle(ev, changed)
         except GatewayError as e:
@@ -143,7 +155,7 @@ class EventPump:
             self._safe(self.commands.tick)
         if self.failures > 0:
             # Back after an outage: events may have been lost, resync on the next poll (§3.1).
-            self._last_refresh = float("-inf")
+            self._resync_due = True
         self.failures = 0
         self.last_error = None
         self.last_ok_wall = self.wall()
@@ -151,6 +163,34 @@ class EventPump:
         if changed:
             self._safe(self.on_changed, changed)
         return self.busy_interval if self.commands.has_active else self.idle_interval
+
+    async def _read_states(self, urls: list[str], changed: set[str]) -> None:
+        for url in urls:
+            states = await self.gateway.device_states(url)
+            changed |= self.house.reload_device(url, states)
+
+    async def _resync(self, changed: set[str]) -> None:
+        if self.guard.allowed():
+            self.guard.record()
+            _, devices = await self.gateway.snapshot()
+            changed |= self.house.reload(devices)
+        else:
+            log.info("full setup read budget spent; resyncing device by device")
+            await self._read_states(self.house.device_urls(), changed)
+        self.commands.evaluate_all()
+
+    async def _read_next_radiator(self, changed: set[str]) -> None:
+        """Reconcile one radiator per state_interval, in turn: catches lost events without the
+        rate-limited full setup read."""
+        ids = sorted(self.house.radiators)
+        if not ids:
+            return
+        rid = ids[self._rotation % len(ids)]
+        self._rotation += 1
+        before = len(changed)
+        await self._read_states(sorted(self.house.radiators[rid].states), changed)
+        if len(changed) != before:
+            self.commands.evaluate_all()
 
     async def run(self) -> None:
         while True:

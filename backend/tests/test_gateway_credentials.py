@@ -77,3 +77,12 @@ async def test_credentials_changed_resumes_the_pump():
     assert statuses[-1]["auth_rejected"] is False
     assert await pump.run_once() == pump.idle_interval
     assert pump.connected is True
+
+
+async def test_credentials_changed_resyncs_once_within_the_budget():
+    gw, pump, _ = _pump()
+    pump.credentials_changed()
+    await pump.run_once()
+    assert gw.snapshots == 1
+    await pump.run_once()
+    assert gw.snapshots == 1

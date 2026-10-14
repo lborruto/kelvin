@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Any, Protocol
 
 from kelvin.overkiz.models import DeviceCommand, Event, RawDevice, RawPlace
 
@@ -15,7 +15,13 @@ class Gateway(Protocol):
         Raises BadCredentialsError if Cozytouch refuses them, GatewayError if unreachable."""
         ...
 
-    async def snapshot(self) -> tuple[RawPlace, list[RawDevice]]: ...
+    async def snapshot(self) -> tuple[RawPlace, list[RawDevice]]:
+        """The whole setup (places + devices). Rate-limited by Overkiz: see SetupReadGuard."""
+        ...
+
+    async def device_states(self, device_url: str) -> dict[str, Any]:
+        """The current states of one device (`GET /setup/devices/{url}/states`)."""
+        ...
 
     async def fetch_events(self) -> list[Event]: ...
 

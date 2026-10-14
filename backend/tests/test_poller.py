@@ -65,15 +65,57 @@ async def test_auth_error_triggers_login(env):
     assert gw.logins == 1
 
 
-async def test_periodic_refresh_catches_missed_changes(env):
+async def test_state_reads_in_turn_catch_missed_changes_without_a_full_setup_read(env):
     clock, gw, house, _, pump, changed, _ = env
     gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
     await pump.run_once()
     assert house.radiators["9312063"].temperature == 20.2
-    clock.advance(600)
-    await pump.run_once()
+    for _ in house.radiators:  # one radiator per 600 s, in turn
+        clock.advance(600)
+        await pump.run_once()
     assert house.radiators["9312063"].temperature == 22.0
     assert {"9312063"} in changed
+    assert gw.snapshots == 0
+
+
+async def test_a_day_of_polling_makes_no_full_setup_read(env):
+    """Ruling 8: GET /setup/devices and /setup/places are documented as 1 call a day."""
+    clock, gw, house, _, pump, _, _ = env
+    for _ in range(2880):  # 24 h of idle polls, every 30 s
+        clock.advance(30)
+        await pump.run_once()
+    assert gw.snapshots == 0
+    ids = sorted(house.radiators)
+    expected = sum(len(house.radiators[ids[k % len(ids)]].states) for k in range(144))
+    assert gw.state_reads == expected  # one radiator's devices every 10 min
+
+
+async def test_resync_beyond_the_daily_budget_reads_device_by_device(env):
+    _, gw, house, _, pump, changed, _ = env
+    for _ in range(pump.guard.limit):
+        pump.guard.record()
+    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
+    pump.request_resync()
+    await pump.run_once()
+    assert gw.snapshots == 0
+    assert gw.state_reads == len(house.device_urls())
+    assert house.radiators["9312063"].temperature == 22.0
+    assert {"9312063"} in changed
+
+
+async def test_a_failed_state_read_backs_off_and_retries_the_resync(env):
+    _, gw, _, _, pump, _, _ = env
+    for _ in range(pump.guard.limit):
+        pump.guard.record()
+    pump.request_resync()
+    gw.fail_states = QuotaError("QUOTA_EXCEEDED")
+    assert await pump.run_once() == 30.0
+    assert pump.connected is False
+    gw.fail_states = None
+    await pump.run_once()
+    assert pump.connected is True and pump._resync_due is True  # back after an outage
+    await pump.run_once()
+    assert pump._resync_due is False
 
 
 async def test_outage_longer_than_timeout_fails_pending(env):
@@ -154,13 +196,15 @@ async def test_event_exception_does_not_skip_batch(env):
     assert house.radiators["9312063"].temperature == 21.0
 
 
-async def test_refresh_changes_emitted_when_fetch_fails(env):
-    clock, gw, _, _, pump, changed, _ = env
-    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
+async def test_state_read_changes_emitted_when_fetch_fails(env):
+    clock, gw, house, _, pump, changed, _ = env
+    first = sorted(house.radiators)[0]
+    url = next(u for u in house.radiators[first].states if u.endswith("#2"))
+    gw.set_state_silently(url, "core:TemperatureState", 22.0)
     clock.advance(600)
     gw.fail_fetch = QuotaError("quota")
     await pump.run_once()
-    assert {"9312063"} in changed
+    assert {first} in changed
 
 
 async def test_backoff_exponent_capped(env):
@@ -170,7 +214,7 @@ async def test_backoff_exponent_capped(env):
     assert await pump.run_once() == 600.0
 
 
-async def test_reconnect_forces_full_refresh(env):
+async def test_reconnect_forces_one_full_setup_read(env):
     clock, gw, house, _, pump, changed, _ = env
     gw.fail_fetch = QuotaError("quota")
     await pump.run_once()
@@ -178,6 +222,7 @@ async def test_reconnect_forces_full_refresh(env):
     gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
     gw.fail_fetch = None
     await pump.run_once()  # reconnect
-    await pump.run_once()  # full refresh, no 600 s wait
+    await pump.run_once()  # full read, no 600 s wait
     assert house.radiators["9312063"].temperature == 22.0
     assert {"9312063"} in changed
+    assert gw.snapshots == 1 and pump.status()["setup_reads_24h"] == 1

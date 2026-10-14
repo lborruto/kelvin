@@ -278,3 +278,10 @@ async def test_snapshot_carries_recently_settled_commands(ctx):
     snap = (await c.get("/api/house")).json()
     assert pid not in [p["id"] for p in snap["pending"]]
     assert {p["id"]: p["status"] for p in snap["recent"]}[pid] in ("confirmed", "failed")
+
+
+async def test_startup_makes_one_full_setup_read_and_reports_it(ctx):
+    c, rt, _ = ctx
+    assert rt.gateway.snapshots == 1
+    body = (await c.get("/api/status")).json()
+    assert body["overkiz"]["setup_reads_24h"] == 1

@@ -111,6 +111,10 @@ class PyOverkizGateway:
         devices = await self._call(self._c().get_devices(refresh=True))
         return to_raw_place(places), [to_raw_device(d) for d in devices]
 
+    async def device_states(self, device_url: str) -> dict[str, Any]:
+        states = await self._call(self._c().get_state(device_url))
+        return {s.name: s.value for s in states}
+
     async def fetch_events(self) -> list[Event]:
         return to_events(await self._call(self._c().fetch_events()))
 
