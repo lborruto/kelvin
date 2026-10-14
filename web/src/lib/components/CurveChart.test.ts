@@ -48,13 +48,13 @@ describe('CurveChart', () => {
     const { container } = render(CurveChart, { intervals: four, label: 'Courbe' });
     const s = screen.getByRole('slider', { name: 'Parcourir la courbe, demi-heure par demi-heure' });
     expect(container.querySelector('.readout .when')).toHaveTextContent('Survolez ou touchez la courbe');
-    expect([...container.querySelectorAll('.readout .field dd')].every((d) => d.textContent === '—')).toBe(true);
+    expect([...container.querySelectorAll('.readout .field dd .cur')].every((d) => d.textContent === '—')).toBe(true);
     expect(container.querySelector('line.cross')).toBeNull();
     await fireEvent.keyDown(s, { key: 'ArrowRight' });
     expect(container.querySelector('.readout .when')).toHaveTextContent('00:00–00:30');
     expect(s.getAttribute('aria-valuetext')).toBe(`00:00–00:30, 3,00${NB}kW, 1\u202f500${NB}Wh`);
     const fields = Object.fromEntries(
-      [...container.querySelectorAll('.readout .field')].map((f) => [f.querySelector('dt')!.textContent, f.querySelector('dd')!.textContent])
+      [...container.querySelectorAll('.readout .field')].map((f) => [f.querySelector('dt')!.textContent, f.querySelector('dd .cur')!.textContent])
     );
     expect(fields).toEqual({
       'Puissance moyenne': `3,00${NB}kW`, Énergie: `1\u202f500${NB}Wh`, Tarif: 'Heures creuses', Prix: `0,2500${NB}€/kWh`, Coût: `0,375${NB}€`
@@ -80,59 +80,46 @@ describe('CurveChart', () => {
     await fireEvent.keyDown(s, { key: 'ArrowRight' });
     await fireEvent.keyDown(s, { key: 'ArrowRight' });
     const rad = [...container.querySelectorAll('.readout .field')].find((f) => f.querySelector('dt')!.textContent === 'Radiateurs')!;
-    expect(rad.querySelector('dd')).toHaveTextContent('—');
-    expect(rad.querySelector('.why')).toHaveTextContent('1 sur 2 radiateurs mesurés');
+    expect(rad.querySelector('dd .cur .val')).toHaveTextContent('—');
+    expect(rad.querySelector('dd .cur .why')).toHaveTextContent('1 sur 2 radiateurs mesurés');
   });
 
-  it('reserves the reason line on the fields that can have one, so scrubbing never reflows (R2)', async () => {
-    const withRad = four.map((p, i) => ({ ...p, radiators_wh: i === 1 ? null : 100, radiators_known: i === 1 ? 1 : 2, radiators_total: 2 }));
-    const { container } = render(CurveChart, { intervals: withRad, label: 'Courbe' });
-    const why = () =>
-      [...container.querySelectorAll('.readout .field')].map((f) => [f.querySelector('dt')!.textContent, f.querySelector('.why')?.textContent ?? null]);
-    const idle = why();
-    expect(idle.filter(([, w]) => w != null)).toEqual([['Radiateurs', '']]);
-    const s = screen.getByRole('slider');
-    await fireEvent.keyDown(s, { key: 'ArrowRight' });
-    expect(why()).toEqual(idle);
-    await fireEvent.keyDown(s, { key: 'ArrowRight' });
-    expect(why().find(([k]) => k === 'Radiateurs')![1]).toBe('1 sur 2 radiateurs mesurés');
-  });
-
-  it('sizes every field for the longest text of its day, never for the scrubbed half-hour (R2)', async () => {
-    const width = (c: Element, label: string) => {
-      const f = [...c.querySelectorAll<HTMLElement>('.readout .field')].find((x) => x.querySelector('dt')!.textContent === label)!;
-      return parseFloat(f.style.width.replace('min(100%, ', ''));
+  /** Each field's stacked texts: every distinct text it takes that day, and which one is shown. */
+  const stack = (c: Element, label: string) => {
+    const f = [...c.querySelectorAll('.readout .field')].find((x) => x.querySelector('dt')!.textContent === label)!;
+    const vs = [...f.querySelectorAll('dd > .v')];
+    return {
+      texts: vs.map((v) => v.textContent),
+      shown: vs.filter((v) => v.classList.contains('cur')).map((v) => v.textContent),
+      hidden: vs.filter((v) => !v.classList.contains('cur')).every((v) => v.getAttribute('aria-hidden') === 'true')
     };
+  };
+
+  it('stacks every text a field takes that day in one cell, so the browser sizes it and scrubbing never reflows (R2)', async () => {
     const withRad = four.map((p, i) => ({ ...p, radiators_wh: i === 1 ? null : 100, radiators_known: i === 1 ? 10 : 12, radiators_total: 12 }));
     const { container } = render(CurveChart, { intervals: withRad, label: 'Courbe' });
-    // « 10 sur 12 radiateurs mesurés »: 28 characters at 11 px fit on the field's one reserved line.
-    expect(width(container, 'Radiateurs')).toBeGreaterThanOrEqual(28 * 11 * 0.6);
-    expect(width(container, 'Énergie')).toBeLessThan(width(container, 'Radiateurs'));
-    const before = [...container.querySelectorAll<HTMLElement>('.readout .field')].map((f) => f.style.width);
+    const idle = stack(container, 'Radiateurs');
+    // Idle « — », 100 Wh, and « — » with its reason: the widest and tallest is always laid out, only one is visible.
+    expect(idle.texts).toEqual(['—', `100${NB}Wh`, '—10 sur 12 radiateurs mesurés']);
+    expect(idle.shown).toEqual(['—']);
+    expect(idle.hidden).toBe(true);
+    const all = () => [...container.querySelectorAll('.readout .field')].map((f) => f.querySelectorAll('dd > .v').length);
+    const counts = all();
     const s = screen.getByRole('slider');
     await fireEvent.keyDown(s, { key: 'ArrowRight' });
     await fireEvent.keyDown(s, { key: 'ArrowRight' });
-    expect([...container.querySelectorAll<HTMLElement>('.readout .field')].map((f) => f.style.width)).toEqual(before);
+    expect(stack(container, 'Radiateurs')).toEqual({ ...idle, shown: ['—10 sur 12 radiateurs mesurés'] });
+    expect(all()).toEqual(counts);
   });
 
-  it('an estimated value reserves the whole « est. » beside it (4 px gap and 4 characters at 12 px), not a scaled-down share', () => {
-    const width = (c: Element, label: string) => {
-      const f = [...c.querySelectorAll<HTMLElement>('.readout .field')].find((x) => x.querySelector('dt')!.textContent === label)!;
-      return parseFloat(f.style.width.replace('min(100%, ', ''));
-    };
-    // « 110 Wh est. » measured 75 px in Chromium's UI face; the field was sized 71 px and clipped it.
+  it('an estimated value and a long reason are in the stack, so their field is as wide as they are', () => {
     const interp = four.map((p) => ({ ...p, wh: 400, radiators_wh: 110, radiators_known: 1, radiators_total: 1, radiators_interp: true }));
     const { container } = render(CurveChart, { intervals: interp, label: 'Courbe' });
-    const value = `110${NB}Wh`.length * 13 * 0.6;
-    expect(width(container, 'Reste')).toBeGreaterThanOrEqual(value + 4 + 4 * 12 * 0.6);
-  });
-
-  it('a reason too long for a phone line reserves two lines', () => {
+    expect(stack(container, 'Reste').texts).toContain(`290${NB}Whest.`);
     // Radiators above the meter: « Radiateurs au-dessus du compteur : écart de mesure ».
     const above = four.map((p, i) => ({ ...p, radiators_wh: i === 0 ? p.wh + 200 : 100, radiators_known: 2, radiators_total: 2 }));
-    const { container } = render(CurveChart, { intervals: above, label: 'Courbe' });
-    const reste = [...container.querySelectorAll('.readout .field')].find((f) => f.querySelector('dt')!.textContent === 'Reste')!;
-    expect(reste.querySelector('.why')).toHaveClass('two');
+    const r = render(CurveChart, { intervals: above, label: 'Courbe' });
+    expect(stack(r.container, 'Reste').texts).toContain(`—Radiateurs au-dessus du compteur${NB}: écart de mesure`);
   });
 
   it('the idle prompt is one short line (the keyboard hint only where there is room)', () => {

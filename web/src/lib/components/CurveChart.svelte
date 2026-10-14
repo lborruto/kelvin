@@ -4,7 +4,7 @@
   import type { EnergyInterval, RoomSample } from '$lib/api/types';
   import { SERIES } from '$lib/energy';
   import { fmtTime, fmtWh } from '$lib/format';
-  import { inspectionTable, intervalLabel, READOUT_ORDER, readInterval } from '$lib/inspector';
+  import { inspectionTable, intervalLabel, READOUT_ORDER, readInterval, type Row } from '$lib/inspector';
 
   const COPY = {
     empty: 'Pas de courbe pour ce jour.',
@@ -72,30 +72,21 @@
   let readout = $derived(readInterval(current, ctx));
   let readings = $derived(intervals.map((p) => readInterval(p, ctx)));
   let table = $derived(inspectionTable(intervals.map((p, i) => ({ head: intervalLabel(p, intervals), ins: readings[i] })), READOUT_ORDER));
-  /** Fields that say why they read « — » on some half-hour of the day: their reason line is always reserved, so scrubbing never reflows (R2). */
-  let reasoned = $derived(new Set(readings.flatMap((r) => r.rows.filter((x) => x.note).map((x) => x.key))));
   /**
-   * Each field's width for the day: the longest text it shows over all half-hours (label 12 px, value 13 px plus « est. »,
-   * reason 11 px) at 0.6 em a character, above the UI face's average. A reason too long for one line on a phone gets two
-   * reserved lines and half the width. Widths depend on the day only, never on the scrubbed half-hour, so the row never
-   * reflows (R2); the field is capped at the row's width.
+   * Every text each field takes over the day (idle included): all are laid out in one grid cell, only the current one
+   * visible. The browser sizes each field to its widest and tallest text in the real font, at any zoom or fallback, and
+   * that size depends on the day only, so scrubbing never reflows the row (R2).
    */
-  const CH = 0.6;
-  const ONE_LINE = 200;
-  /** « est. » after a value: its 4 px gap plus four characters at 12 px (sized in px, not as a share of the value). */
-  const EST = 4 + CH * 4 * 12;
-  let fields = $derived.by(() => {
-    const m = new Map<string, { w: number; two: boolean }>();
-    for (const r of [readout, ...readings]) {
+  const variantId = (x: Row) => `${x.value}\u0001${x.est ? 1 : 0}\u0001${x.note ?? ''}`;
+  let variants = $derived.by(() => {
+    const m = new Map<string, Map<string, Row>>();
+    for (const r of [readInterval(null, ctx), ...readings]) {
       for (const x of r.rows) {
-        const base = Math.max(CH * x.label.length * 12, CH * x.value.length * 13 + (x.est ? EST : 0));
-        const note = CH * (x.note?.length ?? 0) * 11;
-        const f = m.get(x.key) ?? { w: 0, two: false };
-        const two = f.two || note > ONE_LINE;
-        m.set(x.key, { two, w: Math.max(f.w, base, two ? note * 0.55 : note) });
+        const vs = m.get(x.key) ?? new Map<string, Row>();
+        if (!vs.has(variantId(x))) vs.set(variantId(x), x);
+        m.set(x.key, vs);
       }
     }
-    for (const [k, f] of m) if (f.two) m.set(k, { ...f, w: Math.max(f.w, ONE_LINE * 0.55) });
     return m;
   });
 </script>
@@ -110,10 +101,16 @@
       <dd class="num">{#if current}{readout.title}{:else}{COPY.idle}<span class="wide">{COPY.idleKeys}</span>{/if}</dd>
     </div>
     {#each readout.rows as r (r.key)}
-      {@const f = fields.get(r.key)}
-      <div class="field" style:width="min(100%, {Math.ceil(f?.w ?? 0)}px)">
+      {@const cur = variantId(r)}
+      <div class="field">
         <dt>{r.label}</dt>
-        <dd class="num">{r.value}{#if r.est}<span class="est">{COPY.est}</span>{/if}{#if r.note || reasoned.has(r.key)}<span class="why" class:two={f?.two}>{r.note ?? ''}</span>{/if}</dd>
+        <dd class="num">
+          {#each variants.get(r.key) ?? [] as [id, v] (id)}
+            <span class="v" class:cur={id === cur} aria-hidden={id === cur ? undefined : 'true'}>
+              <span class="val">{v.value}{#if v.est}<span class="est">{COPY.est}</span>{/if}</span>{#if v.note}<span class="why">{v.note}</span>{/if}
+            </span>
+          {/each}
+        </dd>
       </div>
     {/each}
   </dl>
@@ -195,9 +192,7 @@
     font-size: 13px;
     font-weight: 600;
   }
-  /* One line each, whatever is scrubbed: the field widths above fit the day's longest text; the ellipsis is a last guard
-     (the hidden table and the slider's value text keep every word). */
-  .readout dd {
+  .when dd {
     min-height: 1lh;
     white-space: nowrap;
     overflow: hidden;
@@ -212,9 +207,11 @@
       display: inline;
     }
   }
+  /* A field is as wide as its widest text of the day, capped at the row (a long reason then wraps, in every variant). */
   .field {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
     min-width: 0;
+    max-width: 100%;
   }
   .field dt {
     white-space: nowrap;
@@ -224,26 +221,32 @@
     margin: 0;
   }
   .field dd {
+    display: grid;
     font-size: 13px;
+  }
+  /* Every text of the day in the same cell; only the current one is seen. */
+  .v {
+    grid-area: 1 / 1;
+    min-width: 0;
+    visibility: hidden;
+  }
+  .v.cur {
+    visibility: visible;
+  }
+  .val {
+    display: block;
+    white-space: nowrap;
   }
   .est {
     margin-left: 4px;
     font-size: 12px;
     color: var(--mu);
   }
-  /* Why a field reads « — » (e.g. « 2 sur 3 radiateurs mesurés »): one line, reserved even when empty (R2). */
+  /* Why a field reads « — » (e.g. « 2 sur 3 radiateurs mesurés »). */
   .why {
     display: block;
-    min-height: 1lh;
-    overflow: hidden;
-    text-overflow: ellipsis;
     font-size: 11px;
     color: var(--mu);
-  }
-  /* A reason too long for one line on a phone: two lines, always reserved. */
-  .why.two {
-    min-height: 2lh;
-    white-space: normal;
   }
   .plot {
     position: relative;
