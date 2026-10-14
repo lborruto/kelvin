@@ -8,6 +8,7 @@
   import HeatingPanel from '$lib/components/HeatingPanel.svelte';
   import PeriodNav from '$lib/components/PeriodNav.svelte';
   import PowerPanel from '$lib/components/PowerPanel.svelte';
+  import RoomDayPanel from '$lib/components/RoomDayPanel.svelte';
   import RoomsEnergy from '$lib/components/RoomsEnergy.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
   import { addDays, bucketLabel, bucketSpan, dataSpan, leadingMissing, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
@@ -76,7 +77,9 @@
         data.start(null);
       });
   });
-  // The day detail carries the selected room's samples (readout « Température », Task 10's chart).
+  // The day detail carries the selected room's samples (the Courbe's « Température », Température et chauffe).
+  // The default room is the first one Pièces lists (the house's own order, the order of every room picker), chosen
+  // once: it never follows the period, so the panel does not jump from room to room.
   $effect(() => {
     if (house.loaded && data.room == null && house.rooms.length) data.setRoom(house.rooms[0].id);
   });
@@ -135,6 +138,9 @@
       : []
   );
 
+  // Température et chauffe is for Jour and Semaine (one day at a time, the Courbe's day): full width, under the Courbe
+  // whose scrubber it shares. It holds its place (a skeleton) until the house is known, so nothing below moves.
+  let roomDay = $derived(!!loaded && loaded.main.linky && (loaded.view === 'day' || loaded.view === 'week'));
   // Puissance (Jour, Semaine), HC/HP and Chauffage sit three abreast; with fewer, they share the row.
   let trio = $derived.by(() => {
     if (!loaded || !loaded.main.linky) return { power: '', hchp: '', heating: '' };
@@ -291,6 +297,17 @@
       curveSince={main.quality.curve_since}
       quota={linky?.state === 'quota'}
       bind:index={scrub} />
+  {/if}
+  {#if roomDay && data.dayIso}
+    <RoomDayPanel
+      day={data.day}
+      dayIso={data.dayIso}
+      room={data.room}
+      onroom={(id) => data.setRoom(id)}
+      error={data.dayError}
+      onretry={() => data.retryDay()}
+      bind:index={scrub}
+      class="wide" />
   {/if}
 
   {#if main.linky}

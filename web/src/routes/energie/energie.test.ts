@@ -460,4 +460,35 @@ describe('Énergie', () => {
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
     expect(await screen.findByRole('heading', { name: 'Puissance' })).toBeInTheDocument();
   });
+  it('Jour shows Température et chauffe under the Courbe for a room, and another room re-reads the day', async () => {
+    house.applySnapshot({
+      house: {
+        rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a'] }, { id: 'chambre', name: 'Chambre', radiator_ids: ['b'] }] as never,
+        radiators: [{ id: 'a', room_id: 'salon', energy_wh: null, model: 'HEKLA', name: 'R' }] as never
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
+    });
+    vi.mocked(api.energyDay).mockImplementation(async (d: string, room?: string | null) =>
+      energyDay(d, { room: room ? { id: room, name: room === 'salon' ? 'Salon' : 'Chambre', samples: [], overrides: [] } : null })
+    );
+    const { container } = render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    // Mois: the Courbe, but one day at a time is Jour's and Semaine's.
+    expect(screen.queryByRole('heading', { name: 'Température et chauffe' })).toBeNull();
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    const h = await screen.findByRole('heading', { name: 'Température et chauffe' });
+    // Full width, straight under the Courbe whose scrubber it shares.
+    const panel = h.closest('section')!;
+    expect(panel).toHaveClass('wide');
+    expect(panel.previousElementSibling).toHaveAttribute('id', 'courbe');
+    // The first room in the Pièces order.
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'salon'));
+    // The half-hour scrubbed on one chart is the other's.
+    await fireEvent.keyDown(await screen.findByRole('slider', { name: 'Parcourir la journée de la pièce, demi-heure par demi-heure' }), { key: 'ArrowRight' });
+    expect(container.querySelector('#courbe .readout .when')).toHaveTextContent('00:00–00:30');
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Pièce' }), { target: { value: 'chambre' } });
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'chambre'));
+    // Chambre's radiator has no figure that day: said, never a flat zero.
+    expect(await screen.findByText('Pas de relevé pour cette pièce ce jour-là.')).toBeInTheDocument();
+  });
 });

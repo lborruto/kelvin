@@ -83,6 +83,36 @@ test.describe('layout', () => {
     }
   });
 
+  test('Température et chauffe keeps its readout height while scrubbing, on the half-hour it shares with the Courbe', async ({ page }) => {
+    for (const width of [320, 390, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/energie');
+      await settled(page);
+      await page.getByRole('radio', { name: 'Jour', exact: true }).click();
+      const panel = page.locator('section.panel', { has: page.getByRole('heading', { name: 'Température et chauffe' }) });
+      await expect(panel).toHaveAttribute('aria-busy', 'false');
+      const body = panel.locator('.body');
+      const readout = panel.locator('.readout');
+      const slider = panel.getByRole('slider');
+      const idle = (await readout.boundingBox())!.height;
+      const tall = (await body.boundingBox())!.height;
+      // The reserved height is the chart's own: the skeleton before it held the same place.
+      expect(await body.evaluate((el) => parseFloat(getComputedStyle(el).minHeight)), `reserved at ${width} px`).toBeGreaterThanOrEqual(tall - 16);
+      const heights = new Set<number>();
+      await slider.focus();
+      await page.keyboard.press('Home');
+      const n = Number(await slider.getAttribute('aria-valuemax')) + 1;
+      for (let i = 0; i < n; i += 3) {
+        heights.add((await readout.boundingBox())!.height);
+        for (let k = 0; k < 3; k++) await page.keyboard.press('ArrowRight');
+      }
+      expect([...heights], `room readout at ${width} px`).toEqual([idle]);
+      // The Courbe shows the same half-hour.
+      const when = (await panel.locator('.readout .when dd').textContent())!.trim();
+      await expect(page.locator('#courbe .readout .when dd')).toHaveText(when);
+    }
+  });
+
   for (const path of ['/maison', '/energie']) {
     test(`${path} loads without layout shift (CLS < 0.05)`, async ({ page }) => {
       // Registered once: every navigation starts a fresh count.
