@@ -271,8 +271,14 @@ describe('Énergie', () => {
     r.quality = { ...r.quality, curve_since: '2026-10-20' };
     vi.mocked(api.energyReport).mockResolvedValue(r);
     render(Page);
-    expect(await screen.findByText('Pas de courbe pour ce jour : antérieure à l’historique de courbe (depuis le 20/10).')).toBeInTheDocument();
+    expect(await screen.findByText('Pas de courbe pour ce jour : antérieure à l’historique de courbe (depuis le 20 octobre 2026).')).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
+  });
+
+  it('a day with no curve and no known cause still says why', async () => {
+    vi.mocked(api.energyDay).mockImplementation(async (d: string) => energyDay(d, { complete: false, points: 0, intervals: [], available: [] }));
+    render(Page);
+    expect(await screen.findByText('Pas de courbe pour ce jour : pas de données Linky pour ce jour.')).toBeInTheDocument();
   });
 
   it('a day before the first counted day says so, with no figure', async () => {
@@ -284,7 +290,7 @@ describe('Énergie', () => {
       })
     );
     render(Page);
-    expect(await screen.findByText('Pas de courbe pour ce jour : antérieure au premier jour compté (depuis le 13/10).')).toBeInTheDocument();
+    expect(await screen.findByText('Pas de courbe pour ce jour : antérieure au premier jour compté (depuis le 13 octobre 2026).')).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
   });
 

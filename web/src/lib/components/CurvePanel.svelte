@@ -3,7 +3,7 @@
   import Icon from './Icon.svelte';
   import type { EnergyDay } from '$lib/api/types';
   import { halfHoursIn, type View } from '$lib/energy';
-  import { fmtDateLong, fmtDay, fmtKwhExact, fmtPct1 } from '$lib/format';
+  import { fmtDateLong, fmtKwhExact, fmtPct1 } from '$lib/format';
 
   const COPY = {
     heading: (d: string) => `Courbe du ${d}`,
@@ -11,7 +11,7 @@
     prev: 'Jour précédent',
     next: 'Jour suivant',
     retry: 'Réessayer',
-    empty: 'Pas de courbe pour ce jour',
+    noLinky: 'pas de données Linky pour ce jour',
     emptyWhy: (why: string) => `Pas de courbe pour ce jour\u00a0: ${why}.`,
     beforeHistory: (d: string) => `antérieure à l’historique de courbe (depuis le ${d})`,
     beforeCounted: (d: string) => `antérieure au premier jour compté (depuis le ${d})`,
@@ -47,9 +47,9 @@
   // A day before the report's first counted day has no figure at all (`not_counted`), whatever Linky holds.
   let why = $derived(
     shown?.not_counted === 'before_first_day' && shown.counted_from
-      ? COPY.beforeCounted(fmtDay(shown.counted_from))
+      ? COPY.beforeCounted(fmtDateLong(shown.counted_from))
       : curveSince && dayIso < curveSince
-        ? COPY.beforeHistory(fmtDay(curveSince))
+        ? COPY.beforeHistory(fmtDateLong(curveSince))
         : quota
           ? COPY.quota
           : null
@@ -88,7 +88,7 @@
       <p class="error" role="status">{error} <button type="button" class="btn btn-sm" onclick={onretry}>{COPY.retry}</button></p>
     {:else if shown}
       {#if shown.points === 0}
-        <p class="muted note">{why ? COPY.emptyWhy(why) : `${COPY.empty}.`}</p>
+        <p class="muted note">{COPY.emptyWhy(why ?? COPY.noLinky)}</p>
       {:else}
         <CurveChart
           intervals={shown.intervals}
