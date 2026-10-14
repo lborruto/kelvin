@@ -1,0 +1,51 @@
+version: 2
+# Weekly, grouped, and only for releases at least 14 days old (cooldown), matching the rule for
+# pinned actions. uv reads backend/uv.lock.
+updates:
+  - package-ecosystem: "uv"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    groups:
+      backend:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    ignore:
+      # SvelteKit stays on 2.x: @vite-pwa/sveltekit does not support kit 3.
+      - dependency-name: "@sveltejs/kit"
+        update-types: ["version-update:semver-major"]
+    groups:
+      web:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 14
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 14
+    groups:
+      base-images:
+        patterns: ["*"]

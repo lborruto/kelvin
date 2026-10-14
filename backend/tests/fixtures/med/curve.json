@@ -1,0 +1,595 @@
+{
+  "status": 200,
+  "request": "consumption_load_curve/12345678901234/start/2026-10-12/end/2026-10-14",
+  "body": {
+    "meter_reading": {
+      "usage_point_id": "12345678901234",
+      "start": "2026-10-12",
+      "end": "2026-10-14",
+      "quality": "BRUT",
+      "reading_type": {
+        "measurement_kind": "power",
+        "unit": "W",
+        "aggregate": "average"
+      },
+      "interval_reading": [
+        {
+          "value": "267",
+          "date": "2026-10-12 00:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "289",
+          "date": "2026-10-12 01:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "208",
+          "date": "2026-10-12 01:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "242",
+          "date": "2026-10-12 02:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "202",
+          "date": "2026-10-12 02:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "221",
+          "date": "2026-10-12 03:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "250",
+          "date": "2026-10-12 03:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "202",
+          "date": "2026-10-12 04:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "220",
+          "date": "2026-10-12 04:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "266",
+          "date": "2026-10-12 05:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "265",
+          "date": "2026-10-12 05:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "259",
+          "date": "2026-10-12 06:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "381",
+          "date": "2026-10-12 06:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "547",
+          "date": "2026-10-12 07:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "469",
+          "date": "2026-10-12 07:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "656",
+          "date": "2026-10-12 08:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "525",
+          "date": "2026-10-12 08:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "344",
+          "date": "2026-10-12 09:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "251",
+          "date": "2026-10-12 09:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "308",
+          "date": "2026-10-12 10:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "235",
+          "date": "2026-10-12 10:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "209",
+          "date": "2026-10-12 11:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "209",
+          "date": "2026-10-12 11:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "284",
+          "date": "2026-10-12 12:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "260",
+          "date": "2026-10-12 12:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "280",
+          "date": "2026-10-12 13:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "273",
+          "date": "2026-10-12 13:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "253",
+          "date": "2026-10-12 14:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "298",
+          "date": "2026-10-12 14:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "239",
+          "date": "2026-10-12 15:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "261",
+          "date": "2026-10-12 15:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "303",
+          "date": "2026-10-12 16:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "306",
+          "date": "2026-10-12 16:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "389",
+          "date": "2026-10-12 17:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "432",
+          "date": "2026-10-12 17:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "572",
+          "date": "2026-10-12 18:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "536",
+          "date": "2026-10-12 18:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "687",
+          "date": "2026-10-12 19:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "769",
+          "date": "2026-10-12 19:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "699",
+          "date": "2026-10-12 20:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "688",
+          "date": "2026-10-12 20:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "551",
+          "date": "2026-10-12 21:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "482",
+          "date": "2026-10-12 21:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "441",
+          "date": "2026-10-12 22:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "322",
+          "date": "2026-10-12 22:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "277",
+          "date": "2026-10-12 23:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "236",
+          "date": "2026-10-12 23:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "232",
+          "date": "2026-10-13 00:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "293",
+          "date": "2026-10-13 00:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "264",
+          "date": "2026-10-13 01:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "260",
+          "date": "2026-10-13 01:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "217",
+          "date": "2026-10-13 02:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "272",
+          "date": "2026-10-13 02:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "216",
+          "date": "2026-10-13 03:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "237",
+          "date": "2026-10-13 03:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "298",
+          "date": "2026-10-13 04:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "264",
+          "date": "2026-10-13 04:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "257",
+          "date": "2026-10-13 05:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "279",
+          "date": "2026-10-13 05:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "331",
+          "date": "2026-10-13 06:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "408",
+          "date": "2026-10-13 06:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "434",
+          "date": "2026-10-13 07:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "475",
+          "date": "2026-10-13 07:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "541",
+          "date": "2026-10-13 08:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "441",
+          "date": "2026-10-13 08:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "325",
+          "date": "2026-10-13 09:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "343",
+          "date": "2026-10-13 09:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "299",
+          "date": "2026-10-13 10:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "233",
+          "date": "2026-10-13 10:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "265",
+          "date": "2026-10-13 11:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "239",
+          "date": "2026-10-13 11:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "291",
+          "date": "2026-10-13 12:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "245",
+          "date": "2026-10-13 12:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "226",
+          "date": "2026-10-13 13:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "224",
+          "date": "2026-10-13 13:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "256",
+          "date": "2026-10-13 14:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "226",
+          "date": "2026-10-13 14:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "260",
+          "date": "2026-10-13 15:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "297",
+          "date": "2026-10-13 15:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "257",
+          "date": "2026-10-13 16:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "259",
+          "date": "2026-10-13 16:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "408",
+          "date": "2026-10-13 17:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "420",
+          "date": "2026-10-13 17:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "442",
+          "date": "2026-10-13 18:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "537",
+          "date": "2026-10-13 18:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "650",
+          "date": "2026-10-13 19:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "883",
+          "date": "2026-10-13 19:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "938",
+          "date": "2026-10-13 20:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "747",
+          "date": "2026-10-13 20:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "541",
+          "date": "2026-10-13 21:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "503",
+          "date": "2026-10-13 21:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "502",
+          "date": "2026-10-13 22:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "344",
+          "date": "2026-10-13 22:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "347",
+          "date": "2026-10-13 23:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "306",
+          "date": "2026-10-13 23:30:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        },
+        {
+          "value": "206",
+          "date": "2026-10-14 00:00:00",
+          "interval_length": "PT30M",
+          "measure_type": "B"
+        }
+      ]
+    }
+  }
+}

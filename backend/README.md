@@ -1,0 +1,100 @@
+# Kelvin backend
+
+FastAPI service that mirrors Sauter Cozytouch radiators (Overkiz cloud) and exposes REST + SSE.
+
+## Develop
+
+    cd backend
+    uv sync
+    uv run pytest
+    KELVIN_FAKE=1 uv run uvicorn --factory kelvin.api.app:create_app --reload --port 8000
+
+`KELVIN_FAKE=1` runs a simulator of a home (no Overkiz or MyElectricalData calls); log in with
+`demo@kelvin.local` / `kelvin`. To simulate another layout, copy `tests/fixtures/home_dump.json`
+(or your own `captures/home_dump.json`) to `$KELVIN_DATA/fake_home.json`.
+
+## Run it like production
+
+    KELVIN_DATA=./data uv run python -m kelvin
+
+`python -m kelvin` is what the Docker image runs. It binds `KELVIN_HOST:KELVIN_PORT`
+(default `127.0.0.1:8000`) and ignores forwarded headers unless `KELVIN_TRUSTED_PROXIES` is
+set. It keeps every file it creates private (umask 077). If `KELVIN_DATA` is not writable, or
+`account.json` cannot be read, it stops with a one-line message.
+
+Settings come from the environment only. To use a `.env` file (never committed), load it in
+the shell:
+
+    set -a && . ../.env && set +a && KELVIN_DATA=./data uv run python -m kelvin
+
+`COZY_USER`/`COZY_PASS` are optional: they create `$KELVIN_DATA/account.json` on the first
+start. Without them Kelvin starts in setup mode, and the first login in the browser with the
+home's Cozytouch account starts it. If Cozytouch is unreachable at startup, Kelvin serves the
+app in mode `offline` and retries in the background (15 s, doubling to 5 min).
+
+## Environment
+
+| Variable | Default | Meaning |
+|---|---|---|
+| COZY_USER / COZY_PASS | — | Optional bootstrap of the account file |
+| MED_PRM / MED_TOKEN | — | Optional fallback for the Linky PDL and token |
+| MED_BASE_URL | https://www.myelectricaldata.fr | MyElectricalData API base |
+| KELVIN_DATA | ./data | SQLite and runtime files |
+| KELVIN_WEB | — | Built SPA directory to serve |
+| KELVIN_FAKE | false | Use the simulator |
+| KELVIN_DEBUG | false | `1` serves the API docs (`/docs`, `/redoc`, `/openapi.json`), off otherwise |
+| KELVIN_HOST / KELVIN_PORT | 127.0.0.1 / 8000 | Bind address of `python -m kelvin` |
+| KELVIN_ALLOWED_HOSTS | — | Comma-separated Host allowlist (localhost always passes) |
+| KELVIN_TRUSTED_PROXIES | — | Only behind a trusted reverse proxy: its addresses; `*` is refused |
+| TZ | Europe/Paris | Time zone for energy buckets and the Linky sync |
+
+## API
+
+- `GET /api/health` and `/api/auth/*` are open; every other route needs the `kelvin_session` cookie and otherwise answers `401 {"detail": "Connexion requise.", "code": "login_required"}`.
+- `GET /api/health` → `{"status": "ok" | "degraded" | "setup" | "reauth" | "offline"}` only; `GET /api/status` (session) adds the Overkiz pump status and the Linky state.
+- `POST /api/auth/login {email, password}` · `POST /api/auth/logout` · `GET /api/auth/me`
+- `GET /api/house`
+- `GET /api/stream` — SSE; events: `snapshot`, `house`, `pending`, `overrides`, `status`
+- `POST /api/rooms/{room}/mode` · `POST /api/rooms/{room}/setpoint` · `POST /api/rooms/{room}/boost`
+- `PUT /api/rooms/{room}/program`
+- `POST /api/radiators/{id}/mode` · `POST /api/radiators/{id}/setpoint` · `POST /api/radiators/{id}/light` · `POST /api/radiators/{id}/identify`
+- `PUT /api/radiators/{id}/program`
+- `PATCH /api/radiators/{id}/features`
+- `POST /api/house/off` · `POST /api/house/away`
+- `DELETE /api/overrides/{id}`
+- `GET /api/history`
+- `GET /api/energy/radiators?start=&end=&group=hour|day|month` — radiator meters only (epoch seconds)
+- `GET /api/energy?from=YYYY-MM-DD&to=YYYY-MM-DD&group=day|month|year` — Linky + € + projection + heating share (`to` exclusive)
+- `GET /api/linky/curve?date=YYYY-MM-DD` — 30-min curve with the off-peak share of each interval
+- `GET /api/settings` · `PUT /api/settings {tariff}` — tariff with price history (`valid_from`)
+- `GET /api/settings/linky` · `PUT /api/settings/linky {prm, token?}` — the token is write-only
+
+Every mutating request (POST, PUT, PATCH, DELETE) must send the header `X-Kelvin: 1`, otherwise
+it gets `403 {"detail": "En-tête X-Kelvin manquant."}`. This blocks cross-site form posts. GET
+routes and the SSE stream do not need it. Every response carries `X-Content-Type-Options:
+nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`.
+
+Commands return `202 {"pending": …}` and resolve over SSE (`pending` and `house` events). Errors return `422 {"detail": "<French message>"}`.
+`DELETE /api/overrides/{id}` may return `202 {"pending": null}` when there is nothing to restore.
+An ended boost or away stays listed with `"restoring": true` until the device confirms the restore;
+a restore the device does not confirm is retried after 30 s, then less and less often, at most every 30 min.
+
+## Linky (MyElectricalData)
+
+Enter the PDL and the MyElectricalData token in Réglages (or set `MED_PRM`/`MED_TOKEN`). Kelvin
+syncs at 08:00 and 14:00 (Europe/Paris), backfills a year of daily data and 30 days of 30-min
+curve, then extends the curve back to the contract start (at most 24 months) with spare calls,
+and never spends more than 10 calls a day (MyElectricalData allows 50), the PDL/token checks
+included. The simulator uses a synthetic Linky and a demo tariff. Verified behaviour:
+[`docs/linky-notes.md`](../docs/linky-notes.md).
+
+## Data
+
+`KELVIN_DATA` holds `account.json` (0600) and `kelvin.db`: samples (kept 400 days), radiator
+meter readings (kept), Linky data, tariffs, sessions, overrides and the command log (90 days).
+
+## Notes
+
+- Commands are confirmed by device state, not by Overkiz execution status (see [`docs/overkiz-notes.md`](../docs/overkiz-notes.md)). Every Overkiz call times out after 30 s.
+- Boost and away are managed by Kelvin and stored in SQLite; they survive restarts.
+- Scripts in `scripts/` talk to a live installation and write only to `captures/` (gitignored): `capture_fixture.py` is read-only, `med_capture.py` reads MyElectricalData, `overkiz_try.py` executes commands.

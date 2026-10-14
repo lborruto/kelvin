@@ -1,0 +1,100 @@
+name: Release
+
+# A v* tag publishes the multi-arch image to GHCR (job `publish`, the only one that may write
+# packages), once CI (ci.yml, job `checks`) has passed on the tagged commit. A manual run is a
+# dry run (job `dry-run`): it builds both architectures, pushes nothing and holds no write
+# permission.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Every action is pinned to the commit of a release at least two weeks old (resolved from its
+# tag on 2026-10-14); the comment names the release, and the date it was published when added
+# by hand. Dependabot updates the version but not the date; its 14-day cooldown keeps the age
+# rule. No Actions cache feeds these builds: the published image is built from scratch.
+jobs:
+  checks:
+    name: CI on the tagged commit
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Multi-arch image to GHCR
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-07-20)
+        with:
+          persist-credentials: false
+      - name: The tag matches the backend and web versions
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          backend="$(sed -n 's/^version = "\(.*\)"$/\1/p' backend/pyproject.toml | head -n 1)"
+          web="$(node -p "require('./web/package.json').version")"
+          if [ "$tag" != "$backend" ] || [ "$tag" != "$web" ]; then
+            echo "::error::tag v$tag does not match backend $backend / web $web"
+            exit 1
+          fi
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0 (2026-09-15)
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1 (2026-09-16)
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0 (2026-07-02)
+        env:
+          # Annotate the image index too, not only each platform's manifest.
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/kelvin
+          # {X.Y.Z, X.Y, sha-…}; `latest` follows the newest semver tag (flavor latest=auto).
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+          labels: |
+            org.opencontainers.image.title=Kelvin
+            org.opencontainers.image.description=Self-hosted control for Sauter Cozytouch radiators (Overkiz), with Linky energy
+            org.opencontainers.image.licenses=MIT
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0 (2026-07-29)
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0 (2026-09-15)
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: mode=max
+          sbom: true
+
+  dry-run:
+    name: Multi-arch build (dry run, nothing pushed)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-07-20)
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0 (2026-09-15)
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1 (2026-09-16)
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0 (2026-09-15)
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          provenance: mode=max
+          sbom: true

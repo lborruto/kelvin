@@ -1,0 +1,27 @@
+{
+  "status": 200,
+  "request": "contracts/12345678901234",
+  "body": {
+    "customer": {
+      "customer_id": "0000000000",
+      "usage_points": [
+        {
+          "usage_point": {
+            "usage_point_id": "12345678901234",
+            "usage_point_status": "com",
+            "meter_type": "AMM"
+          },
+          "contracts": {
+            "segment": "C5",
+            "subscribed_power": "9 kVA",
+            "last_activation_date": "2025-01-15+01:00",
+            "distribution_tariff": "BTINFMU4",
+            "offpeak_hours": "HC (22H00-6H00)",
+            "contract_status": "SERVC",
+            "last_distribution_tariff_change_date": "2025-01-15+01:00"
+          }
+        }
+      ]
+    }
+  }
+}

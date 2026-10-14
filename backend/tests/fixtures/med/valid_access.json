@@ -1,0 +1,15 @@
+{
+  "status": 200,
+  "request": "valid_access/12345678901234",
+  "body": {
+    "valid": true,
+    "information": "",
+    "consent_expiration_date": "2029-01-15T12:00:00",
+    "call_number": 1,
+    "quota_reached": false,
+    "quota_limit": 50,
+    "quota_reset_at": "2026-10-14T23:59:59.999999",
+    "last_call": "2026-10-14T08:00:00.000000",
+    "ban": false
+  }
+}

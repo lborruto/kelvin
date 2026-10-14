@@ -1,0 +1,29 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+account.json
+
+# Runtime data (KELVIN_DATA) and SQLite files
+/data/
+/backend/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Captures from a live installation (backend/scripts write here): never committed
+backend/captures/
+
+# Private working material: design exploration and agent plans
+.impeccable/
+.superpowers/
+docs/superpowers/
+
+# Tooling
+node_modules/
+__pycache__/
+.venv/
+.DS_Store
+
+# Backups of the data volume (they hold the Cozytouch password)
+*.tgz

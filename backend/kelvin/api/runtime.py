@@ -1,0 +1,273 @@
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import json
+import logging
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Any
+from zoneinfo import ZoneInfo
+
+from kelvin.api.sse import Broadcaster
+from kelvin.commands.overrides import OverrideManager
+from kelvin.commands.service import CommandService, Pending
+from kelvin.config import Settings
+from kelvin.house.model import House, build_house
+from kelvin.linky.fake import DEMO_PRM, FakeLinkySource
+from kelvin.linky.models import LinkySource, day_bounds
+from kelvin.linky.service import LinkyService
+from kelvin.overkiz.fake import FakeGateway
+from kelvin.overkiz.gateway import Gateway
+from kelvin.overkiz.models import device_from_dict, place_from_dict
+from kelvin.overkiz.poller import EventPump
+from kelvin.overkiz.simhistory import SIM_DB_KEY, seed_history
+from kelvin.recorder.db import Database
+from kelvin.recorder.recorder import Recorder
+
+log = logging.getLogger(__name__)
+
+
+@dataclass
+class Runtime:
+    settings: Settings
+    gateway: Gateway
+    house: House
+    db: Database
+    broadcaster: Broadcaster
+    commands: CommandService
+    pump: EventPump
+    recorder: Recorder
+    overrides: OverrideManager
+    tasks: list[asyncio.Task] = field(default_factory=list)
+    published_overrides: list[dict[str, Any]] | None = None
+    closed: bool = False
+    owns_db: bool = True
+    linky: LinkyService | None = None
+
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "house": self.house.view(),
+            "pending": [p.view() for p in self.commands.active()],
+            # Settled lately: lets a client that missed the outcome (asleep) use the real status.
+            "recent": [p.view() for p in self.commands.recent()],
+            "overrides": self.overrides.active(),
+            "status": self.pump.status(),
+        }
+
+    def publish_overrides(self) -> None:
+        self.published_overrides = self.overrides.active()
+        self.broadcaster.publish("overrides", self.published_overrides)
+
+    def sync_overrides(self) -> None:
+        """Publish the overrides when they differ from what clients last received."""
+        if self.closed:  # a sync scheduled by a late command update after shutdown
+            return
+        if self.overrides.active() != self.published_overrides:
+            self.publish_overrides()
+
+
+def make_gateway(settings: Settings, username: str, password: str) -> Gateway:
+    if settings.kelvin_fake:
+        fixture = settings.kelvin_data / "fake_home.json"
+        if fixture.exists():
+            data = json.loads(fixture.read_text())
+            return FakeGateway(
+                place_from_dict(data["places"]),
+                [device_from_dict(d) for d in data["devices"]],
+                username=username,
+                password=password,
+            )
+        return FakeGateway(username=username, password=password)
+    from kelvin.overkiz.real import PyOverkizGateway
+
+    return PyOverkizGateway(username, password)
+
+
+def make_linky_source(
+    settings: Settings, *, radiators_wh: Callable[[date], float | None] | None = None
+) -> Callable[[str, str], LinkySource]:
+    """`radiators_wh` (simulator only) lets the demo meter include what the radiators drew."""
+    if settings.kelvin_fake:  # the simulator never calls MyElectricalData
+        return lambda prm, token: FakeLinkySource(tz=settings.tz, radiators_wh=radiators_wh)
+    from kelvin.linky.med import MedSource
+
+    return lambda prm, token: MedSource(prm, token, base_url=settings.med_base_url, tz=settings.tz)
+
+
+def _recorded_wh(recorder: Recorder, house: House, tz: str) -> Callable[[date], float | None]:
+    """Whole-home radiator Wh Kelvin recorded on a local day, or None when it recorded none."""
+    ids = list(house.radiators)
+
+    def wh(day: date) -> float | None:
+        a, b = day_bounds(day, ZoneInfo(tz))
+        rows = recorder.energy(ids, a, b - 1, "day")
+        return sum(r["kwh"] for r in rows) * 1000 if rows else None
+
+    return wh
+
+
+async def override_step(rt: Runtime) -> list[dict[str, Any]]:
+    """One override tick; publishes the list when it changed (restore sent, confirmed, dropped).
+
+    Compared with what was last published, not with the previous tick: an override started and
+    cancelled between two ticks would otherwise never be published as gone.
+    """
+    await rt.overrides.tick()
+    rt.sync_overrides()
+    return rt.overrides.active()
+
+
+async def _override_loop(rt: Runtime) -> None:
+    while True:
+        try:
+            await override_step(rt)
+        except Exception:
+            log.exception("override tick failed")
+        await asyncio.sleep(30)
+
+
+async def start_runtime(
+    settings: Settings,
+    gateway: Gateway | None = None,
+    *,
+    start_tasks: bool = True,
+    db: Database | None = None,
+    linky: tuple[str, str] | None = None,
+) -> Runtime:
+    gateway = gateway or make_gateway(
+        settings, settings.cozy_user, settings.cozy_pass.get_secret_value()
+    )
+    owns_db = db is None
+    opened: Database | None = None
+    linky_service: LinkyService | None = None
+    try:
+        await gateway.login()
+        root, devices = await gateway.snapshot()
+        house = build_house(root, devices)
+        if db is None:
+            settings.kelvin_data.mkdir(parents=True, exist_ok=True)
+            db = opened = Database(settings.kelvin_data / "kelvin.db")
+        is_sim = isinstance(gateway, FakeGateway)
+        if not is_sim and db.get_setting(SIM_DB_KEY) is True:
+            raise RuntimeError(
+                "KELVIN_DATA contient des données du simulateur ; "
+                "utilisez un autre dossier pour la maison réelle."
+            )
+        if settings.kelvin_fake and is_sim:  # simulator only, never a real installation
+            seeded = seed_history(db, house, time.time(), tz=settings.tz)
+            if seeded:
+                log.info("simulator: seeded %d synthetic history rows", seeded)
+        bc = Broadcaster()
+        runtime: list[Runtime] = []
+
+        def on_update(p: Pending) -> None:
+            bc.publish("pending", p.view())
+            if p.status in ("confirmed", "failed", "superseded"):
+                # A settled restore ends its override: tell clients now, not at the next tick.
+                # Deferred, so the override manager is never re-entered mid-operation.
+                if runtime:
+                    asyncio.get_running_loop().call_soon(runtime[0].sync_overrides)
+                db.log_command(
+                    p.view(),
+                    [
+                        {
+                            "device_url": c.device_url,
+                            "name": c.name,
+                            "parameters": list(c.parameters),
+                        }
+                        for c in p.planned.commands
+                    ],
+                )
+
+        commands = CommandService(gateway, house, on_update=on_update)
+
+        def on_changed(ids: set[str]) -> None:
+            room_ids = {house.radiators[i].room_id for i in ids}
+            bc.publish(
+                "house",
+                {
+                    "rooms": [house.room_view(r) for r in house.rooms if r in room_ids],
+                    "radiators": [house.radiators[i].view() for i in sorted(ids)],
+                },
+            )
+
+        pump = EventPump(
+            gateway,
+            house,
+            commands,
+            on_changed=on_changed,
+            on_status=lambda s: bc.publish("status", s),
+        )
+        pump.mark_ok()
+        commands.on_sent = pump.wake
+        recorder = Recorder(db, house, is_fresh=lambda: pump.connected, tz=settings.tz)
+        overrides = OverrideManager(
+            db, house, commands, wall=time.time, is_connected=lambda: pump.connected
+        )
+        credentials = linky
+        if settings.kelvin_fake and is_sim and credentials is None:
+            credentials = (DEMO_PRM, "simulator")  # the simulator's Linky is always connected
+        linky_service = LinkyService(
+            db,
+            tz=settings.tz,
+            make_source=make_linky_source(
+                settings, radiators_wh=_recorded_wh(recorder, house, settings.tz)
+            ),
+            credentials=credentials,
+            simulator=settings.kelvin_fake,
+        )
+        if settings.kelvin_fake and is_sim:
+            linky_service.seed_demo_tariff()
+        rt = Runtime(
+            settings,
+            gateway,
+            house,
+            db,
+            bc,
+            commands,
+            pump,
+            recorder,
+            overrides,
+            owns_db=owns_db,
+            linky=linky_service,
+        )
+        rt.published_overrides = overrides.active()
+        runtime.append(rt)
+    except BaseException:
+        try:
+            if linky_service is not None:
+                await linky_service.close()
+        finally:
+            if opened is not None:
+                opened.close()
+            await gateway.close()
+        raise
+    if start_tasks:
+        rt.tasks = [
+            asyncio.create_task(pump.run()),
+            asyncio.create_task(recorder.run()),
+            asyncio.create_task(_override_loop(rt)),
+            asyncio.create_task(linky_service.run()),
+        ]
+    return rt
+
+
+async def stop_runtime(rt: Runtime) -> None:
+    rt.closed = True
+    for t in rt.tasks:
+        t.cancel()
+    for t in rt.tasks:
+        with contextlib.suppress(asyncio.CancelledError):
+            await t
+    try:
+        try:
+            if rt.linky is not None:
+                await rt.linky.close()
+        finally:
+            await rt.gateway.close()
+    finally:
+        if rt.owns_db:
+            rt.db.close()

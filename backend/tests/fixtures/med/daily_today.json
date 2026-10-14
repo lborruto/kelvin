@@ -1,0 +1,24 @@
+{
+  "status": 200,
+  "request": "daily_consumption/12345678901234/start/2026-10-14/end/2026-10-15",
+  "body": {
+    "meter_reading": {
+      "usage_point_id": "12345678901234",
+      "start": "2026-10-13",
+      "end": "2026-10-14",
+      "quality": "BRUT",
+      "reading_type": {
+        "measurement_kind": "energy",
+        "measuring_period": "P1D",
+        "unit": "Wh",
+        "aggregate": "sum"
+      },
+      "interval_reading": [
+        {
+          "value": "9839",
+          "date": "2026-10-13"
+        }
+      ]
+    }
+  }
+}

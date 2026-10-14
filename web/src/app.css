@@ -1,0 +1,138 @@
+@import '@fontsource-variable/onest';
+@import '@fontsource/jetbrains-mono/400.css';
+
+:root {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --s1: #171a21;
+  --s2: #1d212a;
+  --in: #13161c;
+  --line: #262a33;
+  --tx: #e8eaf0;
+  --mu: #9aa1ae;
+  --fa: #8a91a0;
+  --cool: #4c9bf5;
+  --neutral: #c8ccd6;
+  --warm: #f2793f;
+  --ok: #3dd68c;
+  --bad: #ff6b6b;
+  /* chart series: never heat colours (no orange, no blue) */
+  --series-1: #b48cf2;
+  --series-2: #2fc4b2;
+  --series-3: #e5c14b;
+  --series-4: #e87bb5;
+  --radius: 10px;
+  --font: 'Onest Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f5f6f8;
+  --s1: #ffffff;
+  --s2: #eef0f3;
+  --in: #ffffff;
+  --line: #dfe2e8;
+  --tx: #14171f;
+  --mu: #555d6b;
+  --fa: #5f6775;
+  --cool: #1f6fd1;
+  --neutral: #5d6573;
+  --warm: #b84a16;
+  --ok: #0f7a47;
+  --bad: #c62828;
+  --series-1: #7b4fd0;
+  --series-2: #0f8577;
+  --series-3: #8f6d00;
+  --series-4: #b8327a;
+}
+
+/* keep in sync with :root[data-theme='light'] above */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --bg: #f5f6f8;
+    --s1: #ffffff;
+    --s2: #eef0f3;
+    --in: #ffffff;
+    --line: #dfe2e8;
+    --tx: #14171f;
+    --mu: #555d6b;
+    --fa: #5f6775;
+    --cool: #1f6fd1;
+    --neutral: #5d6573;
+    --warm: #b84a16;
+    --ok: #0f7a47;
+    --bad: #c62828;
+    --series-1: #7b4fd0;
+    --series-2: #0f8577;
+    --series-3: #8f6d00;
+    --series-4: #b8327a;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--tx);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  min-height: 100dvh;
+}
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+input,
+select {
+  accent-color: var(--tx);
+}
+a {
+  color: inherit;
+}
+:focus-visible {
+  outline: 2px solid var(--tx);
+  outline-offset: 2px;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.muted {
+  color: var(--mu);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+/* A table ignores width: 1px under auto layout and would widen the page on a phone. */
+table.visually-hidden {
+  table-layout: fixed;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

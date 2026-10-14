@@ -1,0 +1,875 @@
+{
+  "places": {
+    "oid": "p-house",
+    "label": "All House",
+    "children": [
+      {
+        "oid": "p-ch1",
+        "label": "Chambre 1 ",
+        "children": []
+      },
+      {
+        "oid": "p-salon",
+        "label": "Salon",
+        "children": []
+      },
+      {
+        "oid": "p-ch2",
+        "label": "Chambre 2 ",
+        "children": []
+      }
+    ]
+  },
+  "devices": [
+    {
+      "device_url": "io://1234-5678-9012/14172536#1",
+      "label": "Radiateur",
+      "widget": "AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint",
+      "place_oid": "p-salon",
+      "states": {
+        "core:NameState": "Radiateur",
+        "core:ManufacturerNameState": "Sauter",
+        "core:StatusState": "available",
+        "io:ModelState": "HEKLA V",
+        "io:PowerState": 2000,
+        "core:OperatingModeState": "internal",
+        "core:TargetTemperatureState": 20.0,
+        "core:ComfortRoomTemperatureState": 20.0,
+        "core:EcoRoomTemperatureState": 3.0,
+        "io:TargetHeatingLevelState": "eco",
+        "io:EffectiveTemperatureSetpointState": 17.0,
+        "core:MaximumHeatingTargetTemperatureState": 28.0,
+        "core:OpenWindowDetectionActivationState": "active",
+        "core:OccupancyActivationState": "inactive",
+        "io:CurrentWorkingRateState": 0.0,
+        "core:RSSILevelState": 100.0,
+        "core:TimeProgramState": [
+          {
+            "monday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "tuesday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "wednesday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "thursday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "friday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "saturday": [
+              {
+                "start": "08:30",
+                "end": "22:45"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "sunday": [
+              {
+                "start": "08:30",
+                "end": "22:45"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          }
+        ]
+      },
+      "commands": [
+        "setOperatingMode",
+        "setTargetTemperature",
+        "setComfortTemperature",
+        "setEcoTemperature",
+        "setTimeProgram",
+        "setOpenWindowDetectionActivation",
+        "setOccupancyActivation",
+        "setName",
+        "identify",
+        "wink"
+      ]
+    },
+    {
+      "device_url": "io://1234-5678-9012/14172536#2",
+      "label": "IO (14172536#2)",
+      "widget": "TemperatureSensor",
+      "place_oid": "p-salon",
+      "states": {
+        "core:TemperatureState": 21.4,
+        "core:StatusState": "available"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/14172536#3",
+      "label": "IO (14172536#3)",
+      "widget": "ContactSensor",
+      "place_oid": "p-salon",
+      "states": {
+        "core:ContactState": "closed"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/14172536#4",
+      "label": "IO (14172536#4)",
+      "widget": "OccupancySensor",
+      "place_oid": "p-salon",
+      "states": {
+        "core:OccupancyState": "noPersonInside"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/14172536#5",
+      "label": "IO (14172536#5)",
+      "widget": "CumulativeElectricPowerConsumptionSensor",
+      "place_oid": "p-salon",
+      "states": {
+        "core:ElectricEnergyConsumptionState": 5250000,
+        "core:ConsumptionTariff1State": 1050000,
+        "core:ConsumptionTariff2State": 4200000
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/14172536#6",
+      "label": "IO (14172536#6)",
+      "widget": "DimmerLight",
+      "place_oid": "p-salon",
+      "states": {
+        "core:OnOffState": "off",
+        "core:LightState": "off",
+        "core:LightIntensityState": 1
+      },
+      "commands": [
+        "on",
+        "off",
+        "setIntensity",
+        "setOnOff"
+      ]
+    },
+    {
+      "device_url": "io://1234-5678-9012/9312063#1",
+      "label": "Radiateur",
+      "widget": "AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint",
+      "place_oid": "p-salon",
+      "states": {
+        "core:NameState": "Radiateur",
+        "core:ManufacturerNameState": "Sauter",
+        "core:StatusState": "available",
+        "io:ModelState": "HEKLA P",
+        "io:PowerState": 1500,
+        "core:OperatingModeState": "internal",
+        "core:TargetTemperatureState": 20.0,
+        "core:ComfortRoomTemperatureState": 20.0,
+        "core:EcoRoomTemperatureState": 3.0,
+        "io:TargetHeatingLevelState": "eco",
+        "io:EffectiveTemperatureSetpointState": 17.0,
+        "core:MaximumHeatingTargetTemperatureState": 28.0,
+        "core:OpenWindowDetectionActivationState": "active",
+        "core:OccupancyActivationState": "inactive",
+        "io:CurrentWorkingRateState": 0.0,
+        "core:RSSILevelState": 100.0,
+        "core:TimeProgramState": [
+          {
+            "monday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "tuesday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "wednesday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "thursday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "friday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "saturday": [
+              {
+                "start": "08:30",
+                "end": "22:45"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "sunday": [
+              {
+                "start": "08:30",
+                "end": "22:45"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          }
+        ]
+      },
+      "commands": [
+        "setOperatingMode",
+        "setTargetTemperature",
+        "setComfortTemperature",
+        "setEcoTemperature",
+        "setTimeProgram",
+        "setOpenWindowDetectionActivation",
+        "setOccupancyActivation",
+        "setName",
+        "identify",
+        "wink"
+      ]
+    },
+    {
+      "device_url": "io://1234-5678-9012/9312063#2",
+      "label": "IO (9312063#2)",
+      "widget": "TemperatureSensor",
+      "place_oid": "p-salon",
+      "states": {
+        "core:TemperatureState": 20.2,
+        "core:StatusState": "available"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/9312063#3",
+      "label": "IO (9312063#3)",
+      "widget": "ContactSensor",
+      "place_oid": "p-salon",
+      "states": {
+        "core:ContactState": "closed"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/9312063#4",
+      "label": "IO (9312063#4)",
+      "widget": "OccupancySensor",
+      "place_oid": "p-salon",
+      "states": {
+        "core:OccupancyState": "noPersonInside"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/9312063#5",
+      "label": "IO (9312063#5)",
+      "widget": "CumulativeElectricPowerConsumptionSensor",
+      "place_oid": "p-salon",
+      "states": {
+        "core:ElectricEnergyConsumptionState": 2400000,
+        "core:ConsumptionTariff1State": 500000,
+        "core:ConsumptionTariff2State": 1900000
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/9312063#6",
+      "label": "IO (9312063#6)",
+      "widget": "DimmerLight",
+      "place_oid": "p-salon",
+      "states": {
+        "core:OnOffState": "off",
+        "core:LightState": "off",
+        "core:LightIntensityState": 1
+      },
+      "commands": [
+        "on",
+        "off",
+        "setIntensity",
+        "setOnOff"
+      ]
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370011#1",
+      "label": "Radiateur",
+      "widget": "AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint",
+      "place_oid": "p-ch1",
+      "states": {
+        "core:NameState": "Radiateur",
+        "core:ManufacturerNameState": "Sauter",
+        "core:StatusState": "available",
+        "io:ModelState": "IPALA H BLC",
+        "io:PowerState": 1000,
+        "core:OperatingModeState": "internal",
+        "core:TargetTemperatureState": 19.0,
+        "core:ComfortRoomTemperatureState": 19.0,
+        "core:EcoRoomTemperatureState": 3.5,
+        "io:TargetHeatingLevelState": "off",
+        "io:EffectiveTemperatureSetpointState": 19.0,
+        "core:MaximumHeatingTargetTemperatureState": 28.0,
+        "core:OpenWindowDetectionActivationState": "active",
+        "core:OccupancyActivationState": "inactive",
+        "io:CurrentWorkingRateState": 0.0,
+        "core:RSSILevelState": 100.0,
+        "core:TimeProgramState": [
+          {
+            "monday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "tuesday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "wednesday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "thursday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "friday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "saturday": [
+              {
+                "start": "08:30",
+                "end": "22:45"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "sunday": [
+              {
+                "start": "08:30",
+                "end": "22:45"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          }
+        ]
+      },
+      "commands": [
+        "setOperatingMode",
+        "setTargetTemperature",
+        "setComfortTemperature",
+        "setEcoTemperature",
+        "setTimeProgram",
+        "setOpenWindowDetectionActivation",
+        "setOccupancyActivation",
+        "setName",
+        "identify",
+        "wink"
+      ]
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370011#2",
+      "label": "IO (8370011#2)",
+      "widget": "TemperatureSensor",
+      "place_oid": "p-ch1",
+      "states": {
+        "core:TemperatureState": 18.9,
+        "core:StatusState": "available"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370011#3",
+      "label": "IO (8370011#3)",
+      "widget": "ContactSensor",
+      "place_oid": "p-ch1",
+      "states": {
+        "core:ContactState": "closed"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370011#4",
+      "label": "IO (8370011#4)",
+      "widget": "OccupancySensor",
+      "place_oid": "p-ch1",
+      "states": {
+        "core:OccupancyState": "noPersonInside"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370011#5",
+      "label": "IO (8370011#5)",
+      "widget": "CumulativeElectricPowerConsumptionSensor",
+      "place_oid": "p-ch1",
+      "states": {
+        "core:ElectricEnergyConsumptionState": 2050000,
+        "core:ConsumptionTariff1State": 950000,
+        "core:ConsumptionTariff2State": 1100000
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370011#6",
+      "label": "IO (8370011#6)",
+      "widget": "DimmerLight",
+      "place_oid": "p-ch1",
+      "states": {
+        "core:OnOffState": "off",
+        "core:LightState": "off",
+        "core:LightIntensityState": 1
+      },
+      "commands": [
+        "on",
+        "off",
+        "setIntensity",
+        "setOnOff"
+      ]
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370022#1",
+      "label": "Radiateur",
+      "widget": "AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint",
+      "place_oid": "p-ch2",
+      "states": {
+        "core:NameState": "Radiateur",
+        "core:ManufacturerNameState": "Sauter",
+        "core:StatusState": "available",
+        "io:ModelState": "IPALA H BLC",
+        "io:PowerState": 1000,
+        "core:OperatingModeState": "internal",
+        "core:TargetTemperatureState": 18.0,
+        "core:ComfortRoomTemperatureState": 18.0,
+        "core:EcoRoomTemperatureState": 3.5,
+        "io:TargetHeatingLevelState": "eco",
+        "io:EffectiveTemperatureSetpointState": 14.5,
+        "core:MaximumHeatingTargetTemperatureState": 28.0,
+        "core:OpenWindowDetectionActivationState": "active",
+        "core:OccupancyActivationState": "inactive",
+        "io:CurrentWorkingRateState": 0.0,
+        "core:RSSILevelState": 100.0,
+        "core:TimeProgramState": [
+          {
+            "monday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "tuesday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "wednesday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "thursday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "friday": [
+              {
+                "start": "06:15",
+                "end": "08:00"
+              },
+              {
+                "start": "17:30",
+                "end": "22:30"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "saturday": [
+              {
+                "start": "08:30",
+                "end": "22:45"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "sunday": [
+              {
+                "start": "08:30",
+                "end": "22:45"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          }
+        ]
+      },
+      "commands": [
+        "setOperatingMode",
+        "setTargetTemperature",
+        "setComfortTemperature",
+        "setEcoTemperature",
+        "setTimeProgram",
+        "setOpenWindowDetectionActivation",
+        "setOccupancyActivation",
+        "setName",
+        "identify",
+        "wink"
+      ]
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370022#2",
+      "label": "IO (8370022#2)",
+      "widget": "TemperatureSensor",
+      "place_oid": "p-ch2",
+      "states": {
+        "core:TemperatureState": 16.6,
+        "core:StatusState": "available"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370022#3",
+      "label": "IO (8370022#3)",
+      "widget": "ContactSensor",
+      "place_oid": "p-ch2",
+      "states": {
+        "core:ContactState": "closed"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370022#4",
+      "label": "IO (8370022#4)",
+      "widget": "OccupancySensor",
+      "place_oid": "p-ch2",
+      "states": {
+        "core:OccupancyState": "noPersonInside"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370022#5",
+      "label": "IO (8370022#5)",
+      "widget": "CumulativeElectricPowerConsumptionSensor",
+      "place_oid": "p-ch2",
+      "states": {
+        "core:ElectricEnergyConsumptionState": 1800000,
+        "core:ConsumptionTariff1State": 800000,
+        "core:ConsumptionTariff2State": 1000000
+      },
+      "commands": []
+    },
+    {
+      "device_url": "io://1234-5678-9012/8370022#6",
+      "label": "IO (8370022#6)",
+      "widget": "DimmerLight",
+      "place_oid": "p-ch2",
+      "states": {
+        "core:OnOffState": "off",
+        "core:LightState": "off",
+        "core:LightIntensityState": 1
+      },
+      "commands": [
+        "on",
+        "off",
+        "setIntensity",
+        "setOnOff"
+      ]
+    },
+    {
+      "device_url": "io://1234-5678-9012/1698997",
+      "label": "IO (1698997)",
+      "widget": "IOStack",
+      "place_oid": "p-house",
+      "states": {},
+      "commands": [
+        "discoverActuators"
+      ]
+    }
+  ]
+}

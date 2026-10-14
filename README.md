@@ -1,0 +1,183 @@
+# Kelvin
+
+Self-hosted heating control for Sauter radiators on Cozytouch (the Overkiz cloud). Kelvin is a
+fast, clear web app in French for phone and desktop: rooms, schedules, boost and away, a
+temperature history, and an electricity-bill estimate from your Linky meter.
+
+Kelvin is an independent project, not affiliated with or endorsed by the makers of the
+devices and services it works with (see [the note at the end](#not-affiliated)).
+
+## Features
+
+- **Rooms first.** Cozytouch places become rooms; a room with two radiators acts as one, and
+  the detail shows each radiator.
+- **Truthful commands.** A change counts as done only when the radiator reports the new state.
+  Pending, confirmed and failed are shown as such, including Overkiz's misleading
+  `OVERRIDEMODE_ERROR` on commands that did apply.
+- **Control:** off, manual, programme; setpoint; the weekly programme editor (the radiators'
+  own three slots a day); boost a room for a few hours; away for the whole house. Boost and away
+  restore what was there before.
+- **History:** temperature and setpoint per room, a 24-hour thermal strip, radiator energy from
+  their own meters.
+- **Énergie:** whole-home consumption from Linky (through MyElectricalData), an HC/HP bill
+  estimate with price history, comparisons, a month projection and the heating share.
+- **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets.
+- **A simulator** of a whole home and a synthetic Linky, for trying Kelvin and for every test.
+
+## Security model — read this before installing
+
+- **Login is your home's Cozytouch account.** Kelvin has no users of its own: it checks the
+  email and password against Cozytouch. The first login on a fresh install decides which
+  account the install belongs to. Anyone who can log in to Cozytouch with that account can log
+  in to Kelvin. Logins are throttled per client (5 failures per 15 min) and overall.
+- **Kelvin stores that password** in `/data/account.json` (mode 0600), because it must
+  re-login to Cozytouch unattended. Protect and back up the data volume like a password store.
+- **Keep it on your LAN or a VPN** such as Tailscale or WireGuard. Kelvin serves plain HTTP.
+  **Never expose it directly to the internet** or forward a router port to it.
+- **Reverse proxy:** `X-Forwarded-*` headers are ignored by default. Only behind a reverse
+  proxy you control, set `KELVIN_TRUSTED_PROXIES` to that proxy's exact address. `*` and
+  wildcard-sized networks are refused: they would let any client fake its IP (dodging the login
+  throttle) and HTTPS.
+- **Host allowlist (recommended):** set `KELVIN_ALLOWED_HOSTS` in `.env` to the host names and
+  addresses you use to reach Kelvin (for example `kelvin.lan,192.168.1.10`), before the first
+  login. Kelvin then refuses requests for any other host name. This blocks DNS rebinding, where
+  a hostile web page you visit reaches Kelvin through your browser (to try logins or, on a
+  fresh install, to claim it). `localhost` and `127.0.0.1` always pass.
+- The image runs as uid 10001; the example compose file adds a read-only root filesystem, no
+  capabilities and `no-new-privileges`.
+- Report vulnerabilities privately: see [SECURITY.md](SECURITY.md).
+
+## Quick start (Docker Compose)
+
+You need Docker with Compose v2 on an amd64 or arm64 host, and a Cozytouch account with Sauter
+radiators.
+
+    git clone https://github.com/lborruto/kelvin.git
+    cd kelvin
+    cp .env.example .env        # then set KELVIN_ALLOWED_HOSTS; every other value may stay empty
+    docker compose up -d --build
+    docker compose ps           # wait for "healthy"
+
+The compose file builds the image from this repository (`build: .`). Open
+`http://<your-server>:8070`. Once a release is published, you can pull the image instead of
+building it: in `docker-compose.yml`, replace `build: .` with the commented
+`image: ghcr.io/lborruto/kelvin:latest` line.
+
+### First login
+
+Log in with the email and password of the home's Cozytouch account (the one the Cozytouch app
+uses). Kelvin checks them with Cozytouch, stores them, and loads your rooms and radiators.
+Anyone in the household logs in with the same account. If the Cozytouch password changes,
+Kelvin shows « Mot de passe Cozytouch modifié : reconnectez-vous »; log in once with the new one.
+
+### Connect Linky (optional)
+
+1. Create a MyElectricalData account and give it access to your meter's data (Enedis consent).
+   It gives you a token; your PDL is the 14-digit number on your contract or meter.
+2. In Kelvin, open **Maison › Réglages**, enter the PDL and the token, and the tariff (HC/HP
+   prices and off-peak hours).
+3. Kelvin syncs at 08:00 and 14:00 (Europe/Paris), backfills a year of daily data and 30 days
+   of 30-minute curve, and never spends more than 10 of MyElectricalData's 50 daily calls.
+
+### Try the simulator
+
+    docker build -t kelvin .
+    docker run --rm -p 8070:8080 -e KELVIN_FAKE=1 kelvin
+
+Open http://localhost:8070 and log in with `demo@kelvin.local` / `kelvin`. Nothing talks to
+Cozytouch or Linky. Do not reuse a simulator's data volume for your home: Kelvin refuses to
+connect a Cozytouch account to a data directory that holds simulator data.
+
+### Upgrade, back up and restore
+
+    git pull && docker compose up -d --build
+
+The data volume holds your Cozytouch password and Linky token: treat a backup like a password
+store. This writes it to your home directory, outside the checkout (so `git add` can never pick
+it up), readable only by you:
+
+    backup="kelvin-backup-$(date +%F).tgz"
+    docker compose stop
+    docker run --rm -v kelvin_data:/data:ro -v "$HOME":/backup busybox:1.37 \
+      sh -c "umask 077 && tar czf /backup/$backup -C /data . && chown $(id -u):$(id -g) /backup/$backup"
+    docker compose start
+
+With rootless Docker, drop the `&& chown …` part: the container's root already maps to your
+user, and the chown would hand the file to a sub-uid you cannot read.
+
+To restore, set `backup` to the archive's name in your home directory, then stop Kelvin,
+replace the volume's content and give it back to Kelvin's user (uid 10001). On a new host, run
+`docker compose create` first so the volume exists.
+
+    backup="kelvin-backup-2026-10-14.tgz"
+    docker compose stop
+    docker run --rm -v kelvin_data:/data -v "$HOME":/backup:ro busybox:1.37 \
+      sh -c "rm -rf /data/* /data/.[!.]* && tar xzf /backup/$backup -C /data && chown -R 10001:10001 /data && chmod 700 /data"
+    docker compose start
+
+## Configuration
+
+All settings are environment variables, and every one is optional. `.env.example` lists them.
+The compose file passes `TZ` and `KELVIN_ALLOWED_HOSTS` from `.env`; add any other one to
+`environment:` in `docker-compose.yml`. No password or token belongs in the compose file or in
+`.env`: you log in with the Cozytouch account in the browser and connect Linky in Réglages, and
+Kelvin keeps both in `account.json` (0600) in its data volume.
+
+| Variable | Default in the image | Meaning |
+|---|---|---|
+| `TZ` | `Europe/Paris` | Time zone for schedules, energy days and the Linky sync |
+| `COZY_USER`, `COZY_PASS` | — | Advanced, unattended setup only: create the account file on the first start instead of the first login (Compose interpolates `$`: write it as `$$`) |
+| `MED_PRM`, `MED_TOKEN` | — | Advanced: fallback Linky PDL and token; Réglages wins |
+| `KELVIN_DATA` | `/data` | SQLite database and `account.json` |
+| `KELVIN_WEB` | `/app/web` | The built web app served next to the API |
+| `KELVIN_HOST`, `KELVIN_PORT` | `0.0.0.0`, `8080` | Bind address (outside Docker: `127.0.0.1`, `8000`) |
+| `KELVIN_ALLOWED_HOSTS` | — | Comma-separated Host allowlist; `localhost` always passes |
+| `KELVIN_TRUSTED_PROXIES` | — | **Only behind a trusted reverse proxy:** its exact addresses |
+| `KELVIN_FAKE` | `0` | `1` runs the simulator |
+| `KELVIN_DEBUG` | `0` | `1` serves the API docs at `/docs` |
+| `MED_BASE_URL` | `https://www.myelectricaldata.fr` | MyElectricalData API base |
+
+`GET /api/health` (open, used by the healthcheck) answers `{"status": …}`:
+- `ok`: running;
+- `degraded`: Cozytouch is not answering right now;
+- `setup`: waiting for the first login;
+- `reauth`: the stored password was refused;
+- `offline`: Cozytouch was unreachable at startup, and Kelvin retries every 15 s to 5 min.
+
+## How it works
+
+- **Backend** (`backend/`, Python, FastAPI): it talks to Overkiz through
+  [pyoverkiz](https://github.com/iMicknl/python-overkiz-api). It keeps a model of the house
+  from the device events, confirms each command by the state the radiator reports, and records
+  samples and meter readings in SQLite. It runs boost and away itself, syncs Linky within its
+  quota, and serves a REST API with server-sent events. See [backend/README.md](backend/README.md).
+- **Web** (`web/`, SvelteKit, Svelte 5): a static PWA served by the backend. See
+  [web/README.md](web/README.md).
+- **Device facts** verified on Sauter radiators: [docs/overkiz-notes.md](docs/overkiz-notes.md);
+  MyElectricalData: [docs/linky-notes.md](docs/linky-notes.md).
+- **Product and design:** [PRODUCT.md](PRODUCT.md) and the design system,
+  [DESIGN.md](DESIGN.md).
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). In short: `KELVIN_FAKE=1` runs everything against the
+simulator, and every test uses it.
+
+## Project status
+
+Early (0.x). Kelvin is developed against one installation: Sauter IPALA H and HEKLA radiators
+on io-homecontrol, with a Cozytouch bridge. Other heaters on the Atlantic group's Cozytouch
+server may work but are untested. The UI is French only. The Linky bill estimate supports the
+HC/HP option.
+
+## Licence
+
+MIT, see [LICENSE](LICENSE). Bundled fonts (Onest, JetBrains Mono) are under the SIL Open Font
+License 1.1; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Not affiliated
+
+Kelvin is an independent, unofficial project. It is not made, endorsed or supported by
+Atlantic, Sauter, Cozytouch, Overkiz, Enedis or MyElectricalData. Atlantic, Sauter, Cozytouch,
+Overkiz, Enedis, Linky and MyElectricalData are trademarks of their respective owners; they are
+named here only to say what Kelvin works with.

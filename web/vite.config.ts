@@ -1,0 +1,57 @@
+import { readFileSync } from 'node:fs';
+import { sveltekit } from '@sveltejs/kit/vite';
+import { SvelteKitPWA } from '@vite-pwa/sveltekit';
+import { svelteTesting } from '@testing-library/svelte/vite';
+import { defineConfig } from 'vitest/config';
+
+const api = process.env.KELVIN_API ?? 'http://127.0.0.1:8000';
+const proxy = { '/api': { target: api, changeOrigin: false } };
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+  version: string;
+};
+
+export default defineConfig({
+  define: { __KELVIN_VERSION__: JSON.stringify(pkg.version) },
+  plugins: [
+    sveltekit(),
+    SvelteKitPWA({
+      // SvelteKit builds with a relative base ('./'): without an absolute base the app registers
+      // './sw.js' and links './manifest.webmanifest', which break on deep links like /pieces/x.
+      base: '/',
+      scope: '/',
+      registerType: 'autoUpdate',
+      kit: { adapterFallback: 'index.html', spa: true },
+      manifest: {
+        // A stable identity: the installed PWA stays the same app if start_url ever changes.
+        id: '/',
+        name: 'Kelvin',
+        short_name: 'Kelvin',
+        description: 'Le chauffage de la maison',
+        lang: 'fr',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        background_color: '#0F1115',
+        theme_color: '#0F1115',
+        icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+        ]
+      },
+      workbox: {
+        globPatterns: ['client/**/*.{js,css,html,svg,png,woff2}'],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//]
+      }
+    }),
+    ...(process.env.VITEST ? [svelteTesting()] : [])],
+  server: { port: 5173, proxy },
+  preview: { port: 4173, proxy },
+  test: {
+    include: ['src/**/*.test.ts'],
+    environment: 'jsdom',
+    setupFiles: ['src/test-setup.ts']
+  }
+});

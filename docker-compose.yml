@@ -1,0 +1,41 @@
+# Kelvin — an example stack.
+#
+#   cp .env.example .env    # optional: every value may stay empty; keep .env out of git
+#   docker compose up -d --build
+#
+# The image is built from this repository (`build: .`), natively for the host (amd64 or
+# arm64). Open http://<this-host>:8070 and log in with the home's Cozytouch account: the
+# first login decides which account this Kelvin belongs to. Then connect Linky in
+# Maison › Réglages. No password or token belongs in this file or in .env. Keep Kelvin on your
+# LAN or behind a VPN (Tailscale, WireGuard…); never publish this port on the internet.
+#
+# KELVIN_ALLOWED_HOSTS (recommended): the host names you use to reach Kelvin.
+name: kelvin
+
+services:
+  kelvin:
+    build: .
+    # To pull the published image instead of building, replace `build: .` with:
+    # image: ghcr.io/lborruto/kelvin:latest
+    restart: unless-stopped
+    ports:
+      - "8070:8080"
+    environment:
+      KELVIN_ALLOWED_HOSTS: ${KELVIN_ALLOWED_HOSTS:-}
+      KELVIN_DATA: /data
+      TZ: ${TZ:-Europe/Paris}
+    volumes:
+      # Kelvin runs as uid 10001: a bind mount, or a volume created by something else, must be owned by it (`docker run --rm -u 0 -v kelvin_data:/data <image> chown -R 10001:10001 /data`).
+      - data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+
+volumes:
+  data:
+    name: kelvin_data

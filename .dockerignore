@@ -1,0 +1,24 @@
+# An allowlist: the context holds only what the Dockerfile copies. The repo root may hold a
+# real .env, data and captures; none of it may reach the build.
+**
+!backend/pyproject.toml
+!backend/uv.lock
+!backend/kelvin/
+!web/package.json
+!web/package-lock.json
+!web/svelte.config.js
+!web/vite.config.ts
+!web/tsconfig.json
+!web/src/
+!web/static/
+!LICENSE
+!THIRD_PARTY_NOTICES.md
+# Re-excluded inside the allowed directories (later lines win):
+**/.env
+**/.env.*
+**/account.json
+**/*.db
+**/node_modules
+**/__pycache__
+**/*.test.ts
+web/src/test-setup.ts
