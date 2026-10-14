@@ -6,10 +6,10 @@
 import type { EnergyGroup, EnergyInterval, EnergySummary, PriceRow, RoomSample } from './api/types';
 import { periodTitle, spokenTitle, type Span } from './energy';
 import {
-  fmtAmount, fmtDay, fmtEurExact, fmtEurHalfHour, fmtKwhExact, fmtPct1, fmtPrice, fmtTemp, fmtTime, fmtW, fmtWh
+  fmtAmount, fmtDay, fmtEurExact, fmtEurHalfHour, fmtKwhExact, fmtPct1, fmtPrice, fmtTemp, fmtW, fmtWh, matchParts
 } from './format';
 import { plural } from './plural';
-import { parisOffsetMinutes } from './time';
+import { parisOffsetMinutes, parisParts } from './time';
 
 const NB = '\u00a0';
 
@@ -128,6 +128,10 @@ export function pricesText(prices: PriceRow[]): string {
 const inside = (a: Span, b: Span) => a.from >= b.from && a.to <= b.to;
 const same = (a: Span, b: Span) => a.from === b.from && a.to === b.to;
 
+/** The parts as they are shown: matched to the shown total so they add up (L1), or alone without a total. */
+const shownParts = (total: number | null, parts: (number | null)[], digits: number): (number | null)[] =>
+  total == null ? parts : matchParts(total, parts, digits).parts;
+
 export function inspectBucket(b: EnergySummary, ctx: BucketCtx): Inspection {
   const rows: Row[] = [];
   const add = (key: string, label: string, value: string, extra: Partial<Row> = {}) => rows.push({ key, label, value, ...extra });
@@ -135,23 +139,26 @@ export function inspectBucket(b: EnergySummary, ctx: BucketCtx): Inspection {
   const rad = b.radiators;
   const radEst = !!rad && (rad.interpolated || rad.apportioned);
   const split = b.estimated_split;
-  if (kwh != null) add('maison', COPY.home, fmtKwhExact(kwh));
-  if (b.hc_kwh != null) add('hc', COPY.hc, fmtKwhExact(b.hc_kwh), { est: split });
-  if (b.hp_kwh != null) add('hp', COPY.hp, fmtKwhExact(b.hp_kwh), { est: split });
+  if (kwh != null) add('maison', COPY.home, fmtKwhExact(matchParts(kwh, [], 2).total));
+  const [hc, hp] = shownParts(kwh, [b.hc_kwh, b.hp_kwh], 2);
+  if (b.hc_kwh != null) add('hc', COPY.hc, fmtKwhExact(hc), { est: split });
+  if (b.hp_kwh != null) add('hp', COPY.hp, fmtKwhExact(hp), { est: split });
   if (kwh && b.hc_kwh != null) add('hc_share', COPY.hcShare, fmtPct1(b.hc_kwh / kwh), { sub: true, est: split });
   // Radiator sums count elapsed days only (never today); null means nothing is known there yet.
   const running = !!ctx.today && ctx.span.from <= ctx.today && ctx.today < ctx.span.to;
-  if (rad) add('radiateurs', COPY.radiators, fmtKwhExact(rad.kwh), { est: radEst });
+  const [radShown, restShown] = shownParts(kwh, [rad?.kwh ?? null, b.rest_kwh], 2);
+  if (rad) add('radiateurs', COPY.radiators, fmtKwhExact(radShown), { est: radEst });
   else if (ctx.radiators && !(ctx.today && ctx.span.from > ctx.today)) {
     add('radiateurs', COPY.radiators, '—', { note: running ? COPY.radToday : COPY.radNone });
   }
-  if (b.rest_kwh != null) add('reste', COPY.rest, fmtKwhExact(b.rest_kwh), { est: radEst });
+  if (b.rest_kwh != null) add('reste', COPY.rest, fmtKwhExact(restShown), { est: radEst });
   // Only when every radiator was measured over every day: then the common days are all the days.
   if (rad && b.rest_kwh != null && kwh) add('part_rad', COPY.radShare, fmtPct1(rad.kwh / kwh), { est: radEst });
   if (b.eur != null) {
-    add('cout', COPY.cost, fmtEurExact(b.eur), { est: split });
-    if (b.energy_eur != null) add('energie', COPY.energy, fmtEurExact(b.energy_eur), { sub: true, est: split });
-    if (b.subscription_eur != null) add('abonnement', COPY.subscription, fmtEurExact(b.subscription_eur), { sub: true });
+    const [energy, subscription] = shownParts(b.eur, [b.energy_eur, b.subscription_eur], 2);
+    add('cout', COPY.cost, fmtEurExact(matchParts(b.eur, [], 2).total), { est: split });
+    if (b.energy_eur != null) add('energie', COPY.energy, fmtEurExact(energy), { sub: true, est: split });
+    if (b.subscription_eur != null) add('abonnement', COPY.subscription, fmtEurExact(subscription), { sub: true });
     if (b.prices.length) add('prix', COPY.prices, pricesText(b.prices));
   }
   if (kwh && b.energy_eur != null) add('prix_moyen', COPY.avgPrice, fmtPrice(b.energy_eur / kwh), { est: split });
@@ -208,11 +215,24 @@ export function inspectionTable(items: { head: string; ins: Inspection }[], orde
   };
 }
 
-/** « 18:30–19:00 »; on the repeated autumn hour, « 02:00–02:30 (heure d’été) » then « (heure d’hiver) ». */
+const clock = (minuteOfDay: number) => {
+  const m = ((minuteOfDay % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+};
+const startMinute = (ms: number) => {
+  const p = parisParts(ms);
+  return p.hour * 60 + p.minute;
+};
+
+/**
+ * « 18:30–19:00 ». The end is the start plus `minutes` on the start's own wall clock, so a half-hour never
+ * reads backwards. On the repeated autumn hour only, a suffix names the offset of that interval:
+ * « 02:30–03:00 (heure d’été) » then « 02:00–02:30 (heure d’hiver) ».
+ */
 export function intervalLabel(iv: EnergyInterval, all: EnergyInterval[]): string {
-  const start = fmtTime(iv.ts * 1000);
-  const label = `${start}–${fmtTime((iv.ts + iv.minutes * 60) * 1000)}`;
-  const repeated = all.some((o) => o.ts !== iv.ts && fmtTime(o.ts * 1000) === start);
+  const from = startMinute(iv.ts * 1000);
+  const label = `${clock(from)}–${clock(from + iv.minutes)}`;
+  const repeated = all.some((o) => o.ts !== iv.ts && startMinute(o.ts * 1000) === from);
   if (!repeated) return label;
   return `${label} ${parisOffsetMinutes(iv.ts * 1000) === 120 ? COPY.summer : COPY.winter}`;
 }
@@ -265,7 +285,7 @@ export function readInterval(iv: EnergyInterval | null, ctx: ReadoutCtx): Inspec
     const note = iv && r == null && iv.radiators_total > 0 ? COPY.radMeasured(iv.radiators_known, iv.radiators_total) : undefined;
     rows.push(
       { key: 'radiateurs', label: COPY.radiators, value: fmtWh(r), est, note },
-      { key: 'reste', label: COPY.restShort, value: iv && r != null && iv.wh - r >= 0 ? fmtWh(iv.wh - r) : '—', est }
+      { key: 'reste', label: COPY.restShort, value: iv && r != null && Math.round(iv.wh) - Math.round(r) >= 0 ? fmtWh(Math.round(iv.wh) - Math.round(r)) : '—', est }
     );
   }
   if (ctx.samples?.length) {

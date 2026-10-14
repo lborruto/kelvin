@@ -411,7 +411,7 @@ export interface EnergyDay {
   available: string[];
   /** The report's first counted day (contract start, not before the backfill window); null when unknown. */
   counted_from: string | null;
-  /** A day before `counted_from`: no intervals, `totals` and `power` all null. */
+  /** A day before `counted_from`: no intervals, `totals` null and `power` null but for `kva` (the tariff's). */
   not_counted: 'before_first_day' | null;
   room: {
     id: string;

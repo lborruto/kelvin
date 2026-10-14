@@ -90,7 +90,7 @@ describe('energy formats', () => {
 
 import {
   fmtChangeShare, fmtEurExact, fmtEurHalfHour, fmtEurHero, fmtHours, fmtKwhExact, fmtKwhHero, fmtKwhParts,
-  fmtPct1, fmtShares, fmtSigned, fmtSignedPrice, fmtW, kwhDigits, largestRemainder
+  fmtPct1, fmtShares, fmtSigned, fmtSignedPrice, fmtW, kwhDigits, largestRemainder, matchParts
 } from './format';
 
 /** A small seeded generator (mulberry32): random cases that replay identically. */
@@ -195,6 +195,66 @@ describe('Énergie precision (spec §3.2.1)', () => {
         const out = largestRemainder(values, units) as number[];
         expect(out.reduce((a, b) => a + b, 0)).toBe(units);
         out.forEach((u, i) => expect(Math.abs(u - (values[i] / values.reduce((a, b) => a + b, 0)) * units)).toBeLessThan(1));
+      }
+    }
+  });
+});
+
+describe('review fixes: signs, ties, digits, parts', () => {
+  it('signed formatters round the magnitude: ties are symmetric', () => {
+    expect(fmtChangeShare(0.125)).toBe(`+13${NBSP}%`);
+    expect(fmtChangeShare(-0.125)).toBe(`−13${NBSP}%`);
+    expect(fmtSigned(0.125, '€')).toBe(`+0,13${NBSP}€`);
+    expect(fmtSigned(-0.125, '€')).toBe(`−0,13${NBSP}€`);
+    expect(fmtSignedPrice(0.00005)).toBe(`+0,0001${NBSP}€/kWh`);
+    expect(fmtSignedPrice(-0.00005)).toBe(`−0,0001${NBSP}€/kWh`);
+  });
+
+  it('every displayed negative uses the true minus, and never reads −0', () => {
+    expect(fmtKwhExact(-0.125)).toBe(`−0,13${NBSP}kWh`);
+    expect(fmtKwhExact(-0.001)).toBe(`0,00${NBSP}kWh`);
+    expect(fmtKwhHero(-12.34)).toBe(`−12,3${NBSP}kWh`);
+    expect(fmtEurExact(-5.5)).toBe(`−5,50${NBSP}€`);
+    expect(fmtEurHero(-0.001)).toBe(`0,00${NBSP}€`);
+    expect(fmtEurHalfHour(-0.0004)).toBe(`0,000${NBSP}€`);
+    expect(fmtPct1(-0.0123)).toBe(`−1,2${NBSP}%`);
+    expect(fmtHours(-1.5)).toBe(`−1,5${NBSP}h`);
+    expect(fmtW(-1500)).toBe(`−1,50${NBSP}kW`);
+  });
+
+  it('the digits follow the rounded value: 999,96 kWh reads 1 000 kWh', () => {
+    expect(fmtKwhHero(999.96)).toBe(`1${NNBSP}000${NBSP}kWh`);
+    expect(fmtEurHero(999.996)).toBe(`1${NNBSP}000${NBSP}€`);
+    expect(fmtKwhHero(999.94)).toBe(`999,9${NBSP}kWh`);
+  });
+
+  it('shares of nothing are unknown, not 0 % totalling 0', () => {
+    expect(fmtShares([0, 0])).toEqual(['—', '—']);
+  });
+
+  it('matchParts: parts add up to the total at any precision', () => {
+    for (const parts of [[8.975, 13.065], [14.205, 7.835]]) {
+      const m = matchParts(22.04, parts, 2);
+      expect(m.total).toBe(22.04);
+      expect(Math.round((m.parts as number[]).reduce((a, b) => a + b, 0) * 100)).toBe(2204);
+    }
+    expect(matchParts(734, [400.5, 333.5], 0)).toEqual({ total: 734, parts: [401, 333] });
+    expect(matchParts(5.79, [5.31, 0.48], 2)).toEqual({ total: 5.79, parts: [5.31, 0.48] });
+    // Parts that do not make the total (a missing one) are rounded on their own.
+    expect(matchParts(10, [3.336, null], 2)).toEqual({ total: 10, parts: [3.34, null] });
+    expect(matchParts(null, [1], 2)).toEqual({ total: null, parts: [null] });
+  });
+
+  it('matchParts: random realistic parts always add up (kWh, €, Wh)', () => {
+    const r = rng(11);
+    for (const digits of [0, 1, 2]) {
+      const k = 10 ** digits;
+      for (let n = 0; n < 500; n++) {
+        const parts = Array.from({ length: 2 + Math.floor(r() * 2) }, () => Math.round(r() * 40_000) / 1000);
+        const total = Math.round(parts.reduce((a, b) => a + b, 0) * 1000) / 1000;
+        const m = matchParts(total, parts, digits);
+        const sum = (m.parts as number[]).reduce((a, b) => a + b, 0);
+        expect(Math.round(sum * k)).toBe(Math.round((m.total as number) * k));
       }
     }
   });

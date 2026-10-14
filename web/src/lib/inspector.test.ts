@@ -204,3 +204,85 @@ describe('half-hour readout (spec §3.2.4)', () => {
     expect(r.rows.at(-1)).toMatchObject({ key: 'temperature', value: `19,3${NB}°C · consigne 20,0${NB}°C` });
   });
 });
+
+describe('review fixes: shown sums add up, DST labels', () => {
+  const num = (s: string) => Number(s.replace(/[^\d,−-]/g, '').replace('−', '-').replace(',', '.'));
+
+  it('backend-realistic 3 dp inputs: HC + HP = Maison, Radiateurs + Reste = Maison, énergie + abonnement = Coût', () => {
+    const ins = inspectBucket(
+      bucket({
+        kwh: 22.04, hc_kwh: 8.975, hp_kwh: 13.065, radiators_kwh: 14.205, rest_kwh: 7.835, energy_eur: 5.305, subscription_eur: 0.485, eur: 5.79,
+        radiators: { kwh: 14.205, hc_kwh: 6, hp_kwh: 8.2, eur: 3.4, interpolated: false, apportioned: false, coverage: 1 }
+      }),
+      day
+    );
+    const v = values(ins.rows);
+    expect(num(v.hc) + num(v.hp)).toBeCloseTo(num(v.maison), 6);
+    expect(num(v.radiateurs) + num(v.reste)).toBeCloseTo(num(v.maison), 6);
+    expect(num(v.energie) + num(v.abonnement)).toBeCloseTo(num(v.cout), 6);
+  });
+
+  it('random realistic buckets: displayed parts always sum to the displayed total', () => {
+    let seed = 99;
+    const r = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
+    const r3 = (x: number) => Math.round(x * 1000) / 1000;
+    for (let n = 0; n < 500; n++) {
+      const hc = r3(r() * 400), hp = r3(r() * 800), rad = r3(r() * (hc + hp));
+      const kwh = r3(hc + hp);
+      const en = Math.round(r() * 50000) / 1000, sub = Math.round(r() * 3000) / 1000;
+      const ins = inspectBucket(
+        bucket({
+          kwh, hc_kwh: hc, hp_kwh: hp, radiators_kwh: rad, rest_kwh: r3(kwh - rad), energy_eur: en, subscription_eur: sub,
+          eur: Math.round((en + sub) * 100) / 100,
+          radiators: { kwh: rad, hc_kwh: null, hp_kwh: null, eur: null, interpolated: false, apportioned: false, coverage: 1 }
+        }),
+        { group: 'month', span: bucketSpan('2026-09', 'month') }
+      );
+      const v = values(ins.rows);
+      expect(Math.round((num(v.hc) + num(v.hp)) * 100)).toBe(Math.round(num(v.maison) * 100));
+      expect(Math.round((num(v.radiateurs) + num(v.reste)) * 100)).toBe(Math.round(num(v.maison) * 100));
+      // The rounded cost is a 2 dp figure of its own; the parts are matched to it.
+      expect(Math.round((num(v.energie) + num(v.abonnement)) * 100)).toBe(Math.round(num(v.cout) * 100));
+    }
+  });
+
+  it('the readout’s Reste is round(wh) − round(radiators_wh)', () => {
+    const all = dayOf('2026-10-14');
+    all[5] = iv(all[5].ts, { wh: 734, radiators_wh: 400.5 });
+    const v = values(readInterval(all[5], { intervals: all, tariff: true }).rows);
+    expect(num(v.radiateurs) + num(v.reste)).toBe(num(v.energie));
+    for (const [wh, rad] of [[734.4, 400.5], [100.5, 20.5], [333.3, 111.6]]) {
+      all[6] = iv(all[6].ts, { wh, radiators_wh: rad });
+      const w = values(readInterval(all[6], { intervals: all, tariff: true }).rows);
+      expect(num(w.radiateurs) + num(w.reste)).toBe(num(w.energie));
+    }
+  });
+
+  const shape = /^(\d\d):(\d\d)–(\d\d):(\d\d)( \(heure d’(été|hiver)\))?$/;
+  const minutes = (h: string, m: string) => Number(h) * 60 + Number(m);
+
+  it('every half-hour of both DST days reads start–end on the start’s own clock', () => {
+    for (const [d, count] of [['2026-10-25', 50], ['2026-03-29', 46], ['2026-10-14', 48]] as const) {
+      const all = dayOf(d);
+      expect(all).toHaveLength(count);
+      const labels = all.map((x) => intervalLabel(x, all));
+      expect(new Set(labels).size).toBe(count);
+      labels.forEach((l) => {
+        const m = shape.exec(l)!;
+        expect(m, l).not.toBeNull();
+        const len = (minutes(m[3], m[4]) - minutes(m[1], m[2]) + 1440) % 1440;
+        expect(len, l).toBe(30);
+      });
+    }
+    const autumn = dayOf('2026-10-25').map((x, _, all) => intervalLabel(x, all));
+    expect(autumn.slice(3, 9)).toEqual([
+      '01:30–02:00', '02:00–02:30 (heure d’été)', '02:30–03:00 (heure d’été)', '02:00–02:30 (heure d’hiver)',
+      '02:30–03:00 (heure d’hiver)', '03:00–03:30'
+    ]);
+    expect(autumn.filter((l) => l.includes('heure'))).toHaveLength(4);
+    expect(autumn.at(-1)).toBe('23:30–00:00');
+    const spring = dayOf('2026-03-29').map((x, _, all) => intervalLabel(x, all));
+    expect(spring.slice(2, 6)).toEqual(['01:00–01:30', '01:30–02:00', '03:00–03:30', '03:30–04:00']);
+    expect(spring.some((l) => l.includes('heure'))).toBe(false);
+  });
+});
