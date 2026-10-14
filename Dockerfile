@@ -27,8 +27,11 @@ WORKDIR /src
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-install-project
 COPY backend/kelvin ./kelvin
+# --reinstall-package: uv caches the wheel it builds from this local project keyed on
+# pyproject.toml, not on the sources, so a warm cache mount would install stale Kelvin code.
+# Dependencies keep the cache; only the project is rebuilt from the copied sources.
 # uv leaves its lock file world-writable (0666): it has no use at runtime.
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-editable \
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-editable --reinstall-package kelvin \
  && rm -f /app/.venv/.lock
 
 # --- runtime ------------------------------------------------------------------------------
