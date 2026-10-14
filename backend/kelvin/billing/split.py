@@ -6,9 +6,11 @@ calendar month from 35 days before the day on ("fallback_month"), else every com
 35 days before the day on ("fallback_all"), else the slot length's share of the day ("slots").
 
 The 35-day floor keeps a day's share independent of the window asked: the service loads curves
-from 400 days before the window and every curve after it, and a day it splits is at most 365
-days before the window (the running € sums start on 1 January), so the curves from 35 days
-before that day on are always loaded, whatever older history some windows also load.
+from 400 days before the window and every curve after it, and a day of the running € sums is at
+most 365 days before the window (they start on 1 January), so the curves from 35 days before it
+on are always loaded, whatever older history some windows also load. A comparison day of last
+year can be 366 days back in a leap year; its floor's first day may then be unloaded, which
+changes nothing between windows (the selected period, not the window, sets that look-back).
 """
 
 from __future__ import annotations
