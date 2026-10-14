@@ -8,6 +8,8 @@
   --s2: #1d212a;
   --in: #13161c;
   --line: #262a33;
+  /* the boundary of a field, stepper or day bar: >= 3:1 against in, s1, s2 and bg (WCAG 1.4.11) */
+  --field-line: #666d7c;
   --tx: #e8eaf0;
   --mu: #9aa1ae;
   --fa: #8a91a0;
@@ -22,6 +24,17 @@
   --series-3: #e5c14b;
   --series-4: #e87bb5;
   --radius: 10px;
+  /* motion: one curve, exits about 30 % faster than entrances */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --t-press: 100ms;
+  --t-state: 160ms;
+  --t-enter: 220ms;
+  --t-exit: 150ms;
+  --t-morph: 250ms;
+  --t-data: 360ms;
+  /* iOS zooms into any field under 16 px: phones get 16, desktop the 15 px body */
+  --fs-field: 15px;
   --font: 'Onest Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
 }
@@ -33,6 +46,7 @@
   --s2: #eef0f3;
   --in: #ffffff;
   --line: #dfe2e8;
+  --field-line: #838a97;
   --tx: #14171f;
   --mu: #555d6b;
   --fa: #5f6775;
@@ -56,6 +70,7 @@
     --s2: #eef0f3;
     --in: #ffffff;
     --line: #dfe2e8;
+    --field-line: #838a97;
     --tx: #14171f;
     --mu: #555d6b;
     --fa: #5f6775;
@@ -86,18 +101,57 @@ body {
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
+/* Browser surfaces carry the palette too: scrollbars, selection, caret. Selection is ink, never heat. */
+html {
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+  -webkit-tap-highlight-color: transparent;
+}
+::selection {
+  background: color-mix(in srgb, var(--tx) 22%, transparent);
+  color: var(--tx);
+}
 body {
   min-height: 100dvh;
 }
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
   color: inherit;
 }
 input,
-select {
+select,
+textarea {
   accent-color: var(--tx);
+  caret-color: var(--tx);
+}
+::placeholder {
+  color: var(--mu);
+  opacity: 1;
+}
+::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+  cursor: pointer;
+}
+/* Form fields (DESIGN Form fields): a 44 px well with a 3:1 boundary. Components only add layout. */
+input:not([type='checkbox'], [type='radio']),
+select {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 10px;
+  background: var(--in);
+  border: 1px solid var(--field-line);
+  border-radius: 8px;
+  color: var(--tx);
+  font-size: var(--fs-field);
+  font-variant-numeric: tabular-nums;
+}
+input:disabled,
+select:disabled {
+  color: var(--fa);
+  cursor: default;
 }
 a {
   color: inherit;
@@ -105,6 +159,10 @@ a {
 :focus-visible {
   outline: 2px solid var(--tx);
   outline-offset: 2px;
+}
+/* A heading that receives focus after a navigation is a starting point, not a control. */
+h1[tabindex='-1']:focus {
+  outline: none;
 }
 .num {
   font-variant-numeric: tabular-nums;
@@ -116,23 +174,203 @@ a {
 .muted {
   color: var(--mu);
 }
+/* Wrap tables in a div with this class: a table cannot be shorter or narrower than its rows. */
 .visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
-/* A table ignores width: 1px under auto layout and would widen the page on a phone. */
-table.visually-hidden {
-  table-layout: fixed;
+
+/* Buttons (DESIGN Buttons): one system, every state. Disabled keeps its fill and reads faint. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--s2);
+  color: var(--tx);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color var(--t-state) ease,
+    border-color var(--t-state) ease,
+    color var(--t-state) ease,
+    transform var(--t-press) ease;
 }
+.btn-primary {
+  background: var(--tx);
+  border-color: var(--tx);
+  color: var(--bg);
+}
+.btn-ghost {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+}
+.btn-icon {
+  width: 44px;
+  padding: 0;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mu);
+}
+.btn-sm {
+  padding: 0 12px;
+  font-size: 13px;
+}
+.btn-danger {
+  background: color-mix(in srgb, var(--bad) 25%, var(--s2));
+}
+@media (hover: hover) {
+  .btn:not(:disabled, [aria-disabled='true']):hover {
+    border-color: var(--fa);
+  }
+  .btn-primary:not(:disabled, [aria-disabled='true']):hover {
+    border-color: var(--tx);
+    background: color-mix(in srgb, var(--tx) 88%, var(--bg));
+  }
+  .btn-ghost:not(:disabled, [aria-disabled='true']):hover,
+  .btn-icon:not(:disabled, [aria-disabled='true']):hover {
+    background: var(--s2);
+    color: var(--tx);
+  }
+  .btn-icon:not(:disabled, [aria-disabled='true']):hover {
+    border-color: transparent;
+  }
+}
+.btn:not(:disabled, [aria-disabled='true']):active {
+  transform: scale(0.98);
+}
+.btn:is(:disabled, [aria-disabled='true']) {
+  color: var(--fa);
+  cursor: default;
+}
+.btn-primary:is(:disabled, [aria-disabled='true']) {
+  background: var(--s2);
+  border-color: var(--line);
+}
+
+/* Skeleton: the shape of what is coming, at its final height. The shimmer is compositor-only and
+   stops after about 10 s; a skeleton inside a panel sits one tone up (.inset). */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--sk-base, var(--s1));
+}
+.skeleton.inset {
+  --sk-base: var(--s2);
+  --sk-hi: color-mix(in srgb, var(--s2) 55%, var(--line));
+  border-radius: 6px;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--sk-hi, var(--s2)), transparent);
+  transform: translateX(-100%);
+  animation: kv-shimmer 1.4s ease-in-out 7;
+}
+@keyframes kv-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* The signature: a dash closing into a solid line. */
+@keyframes kv-solidify {
+  from {
+    stroke-dasharray: 4 3;
+  }
+  to {
+    stroke-dasharray: 8 0;
+  }
+}
+/* Reduced motion: no dash travel; the solid mark fades in instead. */
+@keyframes kv-solidify-rm {
+  from {
+    stroke-dasharray: none;
+    opacity: 0.35;
+  }
+  to {
+    stroke-dasharray: none;
+    opacity: 1;
+  }
+}
+@keyframes kv-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes kv-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Page changes: the chrome stays still, the page fades out quickly and settles in. */
+::view-transition-old(root) {
+  animation: var(--t-exit) var(--ease-in) both kv-vt-out;
+}
+::view-transition-new(root) {
+  animation: var(--t-enter) var(--ease-out) both kv-vt-in;
+}
+::view-transition-group(*) {
+  animation-duration: var(--t-enter);
+  animation-timing-function: var(--ease-out);
+}
+@keyframes kv-vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes kv-vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Phone: focus and anchors never land under the fixed tab bar (or the Programme send bar). */
+@media (max-width: 1023px) {
+  :root {
+    --fs-field: 16px;
+  }
+  html {
+    scroll-padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+  html:has(.sendbar) {
+    scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  }
+}
+html:has(.banner-on) {
+  scroll-padding-top: 56px;
+}
+
+/* Reduced motion: no travel, no scaling, no looping; state changes stay visible as opacity or colour. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+  .skeleton::after {
+    animation: none;
+    display: none;
+  }
+  .btn:not(:disabled, [aria-disabled='true']):active {
+    transform: none;
   }
 }

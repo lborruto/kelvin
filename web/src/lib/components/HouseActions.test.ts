@@ -18,16 +18,42 @@ beforeEach(() => {
   vi.clearAllMocks();
   house.pending = {};
   house.houseCommandId = null;
+  house.connection = 'open';
   // jsdom lacks the modal dialog API.
   HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.open = true; };
   HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) { this.open = false; };
 });
 
-it('names the confirmation dialog by its question', () => {
+it('names the confirmation dialog by its question and says what happens', () => {
   render(HouseActions);
   const dialog = document.querySelector('dialog')!;
   const id = dialog.getAttribute('aria-labelledby')!;
-  expect(document.getElementById(id)).toHaveTextContent('Mettre tous les radiateurs à l’arrêt ?');
+  expect(document.getElementById(id)).toHaveTextContent('Tout éteindre ?');
+  expect(document.getElementById(id)!.tagName).toBe('H2');
+  expect(document.getElementById(dialog.getAttribute('aria-describedby')!)).toHaveTextContent(
+    'Les radiateurs passent à l’arrêt. Vous pourrez les remettre en programme depuis Maison.'
+  );
+});
+
+it('focuses Annuler, the safe choice, when the dialog opens', async () => {
+  render(HouseActions);
+  await fireEvent.click(screen.getByRole('button', { name: 'Tout éteindre' }));
+  expect(document.activeElement).toHaveTextContent('Annuler');
+});
+
+it('is disabled while Kelvin is disconnected', () => {
+  house.connection = 'reconnecting';
+  render(HouseActions, { program: true });
+  expect(screen.getByRole('button', { name: 'Tout éteindre' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Tout remettre en programme' })).toBeDisabled();
+});
+
+it('offers « Absence… » except where the Absence panel already is', () => {
+  const a = render(HouseActions);
+  expect(screen.getByRole('link', { name: 'Absence…' })).toHaveAttribute('href', '/maison#absence');
+  a.unmount();
+  render(HouseActions, { away: false });
+  expect(screen.queryByRole('link', { name: 'Absence…' })).toBeNull();
 });
 
 it('gives each mounted instance its own dialog title id', () => {

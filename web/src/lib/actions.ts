@@ -11,6 +11,7 @@ export async function run(fn: () => Promise<CommandResult>): Promise<Pending | n
   try {
     const { pending } = await fn();
     if (pending) {
+      house.watch(pending.id);
       house.applyPending(pending);
       replays.set(pending.id, fn);
       if (replays.size > MAX_REPLAYS) replays.delete(replays.keys().next().value as string);

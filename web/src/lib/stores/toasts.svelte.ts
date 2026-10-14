@@ -5,18 +5,41 @@ export interface Toast {
 }
 
 let seq = 0;
+/** Errors stay long enough to be read twice (WCAG 2.2.1); info leaves sooner. */
+export const TTL = { error: 10_000, info: 6000 } as const;
 
 class Toasts {
   items = $state<Toast[]>([]);
+  #timers = new Map<number, { handle: ReturnType<typeof setTimeout> | null; left: number; since: number }>();
 
-  push(message: string, kind: Toast['kind'] = 'error', ttlMs = 6000): void {
+  push(message: string, kind: Toast['kind'] = 'error', ttlMs: number = TTL[kind]): void {
     const id = ++seq;
     this.items = [...this.items, { id, message, kind }];
-    setTimeout(() => this.remove(id), ttlMs);
+    this.#timers.set(id, { handle: null, left: ttlMs, since: 0 });
+    this.resume(id);
+  }
+
+  /** Hovered or focused: the toast waits for the reader. */
+  pause(id: number): void {
+    const t = this.#timers.get(id);
+    if (!t?.handle) return;
+    clearTimeout(t.handle);
+    t.handle = null;
+    t.left = Math.max(1000, t.left - (Date.now() - t.since));
+  }
+
+  resume(id: number): void {
+    const t = this.#timers.get(id);
+    if (!t || t.handle) return;
+    t.since = Date.now();
+    t.handle = setTimeout(() => this.remove(id), t.left);
   }
 
   remove(id: number): void {
-    this.items = this.items.filter((t) => t.id !== id);
+    const t = this.#timers.get(id);
+    if (t?.handle) clearTimeout(t.handle);
+    this.#timers.delete(id);
+    this.items = this.items.filter((x) => x.id !== id);
   }
 }
 

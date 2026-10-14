@@ -8,6 +8,8 @@ export interface StreamOptions {
   schedule?: (fn: () => void, ms: number) => unknown;
   cancel?: (handle: unknown) => void;
   doc?: Document;
+  /** Where `online`/`offline` events come from (the window). */
+  win?: Pick<Window, 'addEventListener' | 'removeEventListener'>;
   now?: () => number;
   staleAfterMs?: number;
   /** Reconnect when nothing (not even the server's 15 s ping) arrived for this long. */
@@ -22,6 +24,7 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
   const schedule = opts.schedule ?? ((fn: () => void, ms: number) => setTimeout(fn, ms));
   const cancel = opts.cancel ?? ((h: unknown) => clearTimeout(h as ReturnType<typeof setTimeout>));
   const doc = opts.doc ?? (typeof document === 'undefined' ? undefined : document);
+  const win = opts.win ?? (typeof window === 'undefined' ? undefined : window);
 
   const now = opts.now ?? (() => Date.now());
   const staleAfterMs = opts.staleAfterMs ?? 10_000;
@@ -109,7 +112,24 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
     open();
   }
 
+  // The browser knows at once when the network is gone; the liveness timer would take 45 s.
+  function onOffline() {
+    if (closed) return;
+    es?.close();
+    es = null;
+    disarm();
+    store.connection = 'reconnecting';
+  }
+  function onOnline() {
+    if (closed) return;
+    if (timer) cancel(timer);
+    attempts = 0;
+    open();
+  }
+
   doc?.addEventListener('visibilitychange', onVisibility);
+  win?.addEventListener('offline', onOffline);
+  win?.addEventListener('online', onOnline);
   open();
 
   return () => {
@@ -118,5 +138,7 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
     disarm();
     es?.close();
     doc?.removeEventListener('visibilitychange', onVisibility);
+    win?.removeEventListener('offline', onOffline);
+    win?.removeEventListener('online', onOnline);
   };
 }

@@ -122,4 +122,27 @@ describe('connectStream', () => {
     FakeES.all[1].onerror!();
     expect(onError).toHaveBeenCalledTimes(2);
   });
+
+  it('goes to reconnecting the moment the browser goes offline, and reopens when it is back', () => {
+    FakeES.all = [];
+    const win = new EventTarget();
+    const store = new HouseStore();
+    const stop = connectStream(store, {
+      EventSourceImpl: FakeES as unknown as typeof EventSource,
+      schedule: () => 0,
+      cancel: () => {},
+      doc: new EventTarget() as unknown as Document,
+      win: win as unknown as Window
+    });
+    FakeES.all[0].emit('snapshot', snapshot);
+    expect(store.connection).toBe('open');
+    win.dispatchEvent(new Event('offline'));
+    expect(store.connection).toBe('reconnecting');
+    expect(FakeES.all[0].closed).toBe(true);
+    win.dispatchEvent(new Event('online'));
+    expect(FakeES.all).toHaveLength(2);
+    FakeES.all[1].emit('snapshot', snapshot);
+    expect(store.connection).toBe('open');
+    stop();
+  });
 });

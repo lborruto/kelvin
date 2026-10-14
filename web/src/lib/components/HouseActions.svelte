@@ -10,14 +10,24 @@
     stacked?: boolean;
     /** Also offer "Tout remettre en programme" (Maison). */
     program?: boolean;
+    /** The « Absence… » link (not on Maison, where the Absence panel is the page itself). */
+    away?: boolean;
   }
-  let { stacked = false, program = false }: Props = $props();
+  let { stacked = false, program = false, away = true }: Props = $props();
   // Mounted several times at once (sidebar, phone header, Maison): ids must be unique.
   const uid = $props.id();
 
   let dialog = $state<HTMLDialogElement>();
   let pending = $derived(house.houseCommand);
   let busy = $derived(pending?.status === 'sending' || pending?.status === 'pending');
+  // Nothing to switch off before the house is known, and no answer could arrive while disconnected.
+  let blocked = $derived(busy || !house.online);
+  let cancel = $state<HTMLButtonElement>();
+  function ask() {
+    dialog?.showModal();
+    // The safe choice takes focus.
+    cancel?.focus();
+  }
   async function allOff() {
     dialog?.close();
     await runHouse(() => api.houseOff());
@@ -26,20 +36,21 @@
 
 <div class="wrap" class:stacked>
   <div class="actions" class:stacked>
-    <button type="button" disabled={busy} onclick={() => dialog?.showModal()}><Icon name="power" size={16} />Tout éteindre</button>
+    <button type="button" class="btn btn-sm" disabled={blocked} onclick={ask}><Icon name="power" size={16} />Tout éteindre</button>
     {#if program}
-      <button type="button" disabled={busy} onclick={() => runHouse(() => api.houseProgram())}>Tout remettre en programme</button>
+      <button type="button" class="btn btn-sm" disabled={blocked} onclick={() => runHouse(() => api.houseProgram())}>Tout remettre en programme</button>
     {/if}
-    <a href="/maison#absence"><Icon name="away" size={16} />Absence…</a>
+    {#if away}<a class="btn btn-sm" href="/maison#absence"><Icon name="away" size={16} />Absence…</a>{/if}
   </div>
   <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
 </div>
 
-<dialog bind:this={dialog} aria-labelledby="{uid}-all-off-title">
-  <p id="{uid}-all-off-title">Mettre tous les radiateurs à l’arrêt ?</p>
+<dialog bind:this={dialog} aria-labelledby="{uid}-all-off-title" aria-describedby="{uid}-all-off-body">
+  <h2 id="{uid}-all-off-title">Tout éteindre&nbsp;?</h2>
+  <p id="{uid}-all-off-body">Les radiateurs passent à l’arrêt. Vous pourrez les remettre en programme depuis Maison.</p>
   <div class="row">
-    <button type="button" onclick={() => dialog?.close()}>Annuler</button>
-    <button type="button" class="danger" onclick={allOff}>Tout éteindre</button>
+    <button type="button" class="btn" bind:this={cancel} onclick={() => dialog?.close()}>Annuler</button>
+    <button type="button" class="btn btn-danger" onclick={allOff}>Tout éteindre</button>
   </div>
 </dialog>
 
@@ -54,10 +65,6 @@
     flex-direction: column;
     align-items: stretch;
   }
-  .actions > :disabled {
-    cursor: default;
-    opacity: 0.6;
-  }
   .actions {
     display: flex;
     gap: 8px;
@@ -68,46 +75,70 @@
   }
   .stacked > * {
     width: 100%;
+    justify-content: flex-start;
   }
-  .actions > * {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 44px;
-    padding: 0 12px;
-    border-radius: var(--radius);
-    border: 1px solid var(--line);
-    background: var(--s1);
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-    cursor: pointer;
-  }
+  /* Enter: fade and settle from 8 px below; exit faster, the backdrop fading with it. */
   dialog {
     background: var(--s1);
     color: var(--tx);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     padding: 20px;
-    max-width: 340px;
+    width: min(340px, calc(100vw - 32px));
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    transition:
+      opacity var(--t-exit) var(--ease-in),
+      transform var(--t-exit) var(--ease-in),
+      overlay var(--t-exit) allow-discrete,
+      display var(--t-exit) allow-discrete;
+  }
+  dialog[open] {
+    opacity: 1;
+    transform: none;
+    transition-duration: 200ms;
+    transition-timing-function: var(--ease-out);
+  }
+  @starting-style {
+    dialog[open] {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
   }
   dialog::backdrop {
-    background: rgb(0 0 0 / 0.5);
+    background: transparent;
+    transition:
+      background-color var(--t-exit) ease,
+      overlay var(--t-exit) allow-discrete,
+      display var(--t-exit) allow-discrete;
+  }
+  dialog[open]::backdrop {
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
+  }
+  @starting-style {
+    dialog[open]::backdrop {
+      background: transparent;
+    }
+  }
+  h2 {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  dialog p {
+    margin: 0 0 18px;
+    font-size: 13px;
+    color: var(--mu);
   }
   .row {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
   }
-  .row button {
-    min-height: 44px;
-    padding: 0 14px;
-    border-radius: var(--radius);
-    border: 1px solid var(--line);
-    background: var(--s2);
-    cursor: pointer;
-  }
-  .danger {
-    background: color-mix(in srgb, var(--bad) 25%, var(--s2)) !important;
+  @media (prefers-reduced-motion: reduce) {
+    dialog,
+    dialog[open] {
+      transform: none;
+    }
   }
 </style>
