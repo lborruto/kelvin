@@ -1,0 +1,203 @@
+<script lang="ts">
+  import type { EnergyGroup, EnergyReport, Quality, SplitMethod } from '$lib/api/types';
+  import { bucketLabel, bucketSpan } from '$lib/energy';
+  import { fmtDateLong, fmtPct1 } from '$lib/format';
+  import { plural } from '$lib/plural';
+
+  type Mark = 'full' | 'partial' | 'missing' | 'none';
+  const COPY = {
+    title: 'Qualité des données',
+    rows: { linky: 'Linky journalier', curve: 'Courbe', radiators: 'Radiateurs' },
+    period: 'Période',
+    mark: { full: 'complet', partial: 'partiel', missing: 'manquant', none: '—' } as Record<Mark, string>,
+    partialPct: (pct: string) => `partiel (${pct})`,
+    legend: { full: 'complet', partial: 'partiel', missing: 'manquant' },
+    curveSince: (d: string) => `Courbe disponible depuis le ${d}`,
+    radiatorsSince: (d: string) => `Radiateurs enregistrés depuis le ${d}`,
+    linkySince: (d: string) => `Linky depuis le ${d}`,
+    estimated: (n: number, share: string, method: string) => `Jours HC/HP estimés\u00a0: ${n} (part de repli ${share}, méthode\u00a0: ${method})`,
+    gap: (pct: string) => `Écart moyen courbe / relevé\u00a0: ${pct}`,
+    retro: (n: number) => `Prix du premier tarif appliqué à ${plural(n, 'jour antérieur', 'jours antérieurs')}`,
+    est: '« est. » marque une estimation\u00a0: répartition HC/HP sans courbe complète, énergie des radiateurs répartie entre deux relevés, projection.',
+    method: {
+      curve: 'courbe', fallback_window: '±15 jours', fallback_month: 'même mois', fallback_all: 'tout l’historique',
+      slots: 'durée des heures creuses', mixed: 'mixte'
+    } as Record<SplitMethod, string>
+  } as const;
+
+  interface Props {
+    /** The chart's buckets: one strip cell each. */
+    buckets: EnergyReport['buckets'];
+    group: EnergyGroup;
+    /** The selected period's quality block. */
+    quality: Quality;
+    class?: string;
+  }
+  let { buckets, group, quality, class: cls = '' }: Props = $props();
+  let open = $state(false);
+
+  // Opened by a link to #qualite (the « est. » footnotes) or a page reached at that anchor.
+  $effect(() => {
+    const check = () => {
+      if (location.hash === '#qualite') open = true;
+    };
+    const onclick = (e: MouseEvent) => {
+      if ((e.target as Element | null)?.closest?.('a[href="#qualite"]')) open = true;
+    };
+    check();
+    window.addEventListener('hashchange', check);
+    window.addEventListener('click', onclick, true);
+    return () => {
+      window.removeEventListener('hashchange', check);
+      window.removeEventListener('click', onclick, true);
+    };
+  });
+
+  type Bucket = EnergyReport['buckets'][number];
+  /** Nothing was expected (not yet published, before the history): no mark rather than a false gap. */
+  const expected = (b: Bucket) => b.present_days > 0 || b.missing_days > 0;
+  const linky = (b: Bucket): Mark => (!expected(b) ? 'none' : b.present_days >= b.days ? 'full' : b.present_days > 0 ? 'partial' : 'missing');
+  const curve = (b: Bucket): Mark => {
+    if (!expected(b)) return 'none';
+    const n = b.curve?.complete_days ?? 0;
+    return n >= b.days ? 'full' : n > 0 ? 'partial' : 'missing';
+  };
+  // Radiators were expected from their first recording on (`radiators_since`); before it a bucket stays blank.
+  // A bucket holding only today has `radiators: null` (counted once the day is over) and is not expected yet either.
+  const radiators = (b: Bucket): Mark => {
+    const since = quality.radiators_since;
+    if (!b.radiators) return expected(b) && since != null && bucketSpan(b.key, group).to > since ? 'missing' : 'none';
+    return b.radiators.coverage == null || b.radiators.coverage >= 1 ? 'full' : 'partial';
+  };
+  const word = (m: Mark, b: Bucket) => (m === 'partial' && b.radiators?.coverage != null ? COPY.partialPct(fmtPct1(b.radiators.coverage)) : COPY.mark[m]);
+  let strip = $derived([
+    { label: COPY.rows.linky, marks: buckets.map(linky) },
+    { label: COPY.rows.curve, marks: buckets.map(curve) },
+    { label: COPY.rows.radiators, marks: buckets.map(radiators) }
+  ]);
+  let facts = $derived(
+    [
+      quality.linky_since ? COPY.linkySince(fmtDateLong(quality.linky_since)) : null,
+      quality.curve_since ? COPY.curveSince(fmtDateLong(quality.curve_since)) : null,
+      quality.radiators_since ? COPY.radiatorsSince(fmtDateLong(quality.radiators_since)) : null,
+      quality.estimated_days > 0 && quality.fallback_method
+        ? COPY.estimated(quality.estimated_days, fmtPct1(quality.fallback_share), COPY.method[quality.fallback_method])
+        : null,
+      quality.curve_vs_daily_pct != null ? COPY.gap(fmtPct1(quality.curve_vs_daily_pct / 100)) : null,
+      quality.retro_priced_days > 0 ? COPY.retro(quality.retro_priced_days) : null
+    ].filter((x): x is string => !!x)
+  );
+</script>
+
+<details id="qualite" class="panel {cls}" bind:open>
+  <summary><h2>{COPY.title}</h2></summary>
+  <div class="strip" aria-hidden="true" style:--n={buckets.length}>
+    {#each strip as row (row.label)}
+      <div class="row">
+        <span class="label">{row.label}</span>
+        <span class="cells">{#each row.marks as m, i (i)}<span class="cell {m}"></span>{/each}</span>
+      </div>
+    {/each}
+  </div>
+  <ul class="legend" aria-hidden="true">
+    <li><span class="cell full"></span>{COPY.legend.full}</li>
+    <li><span class="cell partial"></span>{COPY.legend.partial}</li>
+    <li><span class="cell missing"></span>{COPY.legend.missing}</li>
+  </ul>
+  <div class="visually-hidden"><table>
+    <caption>{COPY.title}</caption>
+    <thead>
+      <tr><th scope="col">{COPY.period}</th><th scope="col">{COPY.rows.linky}</th><th scope="col">{COPY.rows.curve}</th><th scope="col">{COPY.rows.radiators}</th></tr>
+    </thead>
+    <tbody>
+      {#each buckets as b, i (b.key)}
+        <tr>
+          <th scope="row">{bucketLabel(b.key, group)}</th>
+          <td>{COPY.mark[strip[0].marks[i]]}</td>
+          <td>{COPY.mark[strip[1].marks[i]]}</td>
+          <td>{word(strip[2].marks[i], b)}</td>
+        </tr>
+      {/each}
+    </tbody>
+  </table></div>
+  <ul class="facts">{#each facts as f (f)}<li>{f}</li>{/each}</ul>
+  <p class="muted note">{COPY.est}</p>
+</details>
+
+<style>
+  summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    list-style-position: inside;
+  }
+  summary h2 {
+    display: inline;
+    margin: 0;
+  }
+  .strip {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--mu);
+  }
+  .cells {
+    display: grid;
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+    gap: 2px;
+  }
+  .cell {
+    display: block;
+    height: 10px;
+    border-radius: 2px;
+  }
+  /* Full / partial / missing as ink / faint / dashed; « none » (nothing expected) is blank. */
+  .cell.full {
+    background: var(--tx);
+  }
+  .cell.partial {
+    background: var(--fa);
+  }
+  .cell.missing {
+    border: 1px dashed var(--fa);
+  }
+  .legend {
+    list-style: none;
+    display: flex;
+    gap: 14px;
+    padding: 0;
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--mu);
+  }
+  .legend li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend .cell {
+    width: 10px;
+  }
+  .facts {
+    margin: 12px 0 0;
+    padding-left: 18px;
+    font-size: 13px;
+  }
+  .note {
+    font-size: 12px;
+    margin: 8px 0 0;
+  }
+  @media (max-width: 599px) {
+    .row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

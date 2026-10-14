@@ -5,11 +5,13 @@
   import CurvePanel from '$lib/components/CurvePanel.svelte';
   import EnergyBars from '$lib/components/EnergyBars.svelte';
   import EnergyHero from '$lib/components/EnergyHero.svelte';
+  import ExportPanel from '$lib/components/ExportPanel.svelte';
   import HcHpPanel from '$lib/components/HcHpPanel.svelte';
   import HeatingPanel from '$lib/components/HeatingPanel.svelte';
   import PeriodNav from '$lib/components/PeriodNav.svelte';
   import PowerPanel from '$lib/components/PowerPanel.svelte';
   import ProjectionPanel from '$lib/components/ProjectionPanel.svelte';
+  import QualityPanel from '$lib/components/QualityPanel.svelte';
   import RoomDayPanel from '$lib/components/RoomDayPanel.svelte';
   import RoomsEnergy from '$lib/components/RoomsEnergy.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
@@ -329,6 +331,11 @@
 
   <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="wide" />
 
+  <!-- Collapsed: where every estimate comes from, opened by the « est. » links (#qualite). -->
+  {#if main.linky}
+    <QualityPanel buckets={bars} group={chart.group} quality={main.quality} class="wide" />
+  {/if}
+
   <section class="panel wide" aria-busy={!house.loaded}>
     <h2>{COPY.counters}</h2>
     {#if !house.loaded}
@@ -359,6 +366,8 @@
       </div>
     {/if}
   </section>
+
+  <ExportPanel {chart} {main} period={loaded.period} roomSpan={elapsed ?? loaded.period} day={data.day} class="wide" />
 </div>
 </div>
 {/if}

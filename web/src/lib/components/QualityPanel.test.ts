@@ -1,0 +1,65 @@
+import { render, screen } from '@testing-library/svelte';
+import { describe, expect, it } from 'vitest';
+import type { EnergyReport, Quality } from '$lib/api/types';
+import QualityPanel from './QualityPanel.svelte';
+
+const b = (key: string, o: Record<string, unknown>) => ({ key, days: 1, present_days: 1, missing_days: 0, curve: { complete_days: 1 }, radiators: { coverage: 1 }, ...o });
+const buckets = [
+  b('2026-10-10', {}),
+  b('2026-10-11', { curve: null, radiators: { coverage: 0.5 } }),
+  b('2026-10-12', { present_days: 0, missing_days: 1, curve: null, radiators: null }),
+  b('2026-10-13', { present_days: 0, missing_days: 0, curve: null, radiators: null }) // not yet published: no mark
+] as unknown as EnergyReport['buckets'];
+const quality: Quality = {
+  fallback_share: 0.362, fallback_method: 'fallback_window', estimated_days: 3, curve_vs_daily_pct: 1.4,
+  linky_since: '2025-11-01', curve_since: '2026-01-15', radiators_since: '2026-09-01', retro_priced_days: 6
+};
+
+describe('QualityPanel', () => {
+  it('is collapsed, with a coverage strip per bucket and row: full, partial, missing', () => {
+    const { container } = render(QualityPanel, { buckets, group: 'day', quality });
+    expect(container.querySelector('details#qualite')).not.toHaveAttribute('open');
+    expect(screen.getByRole('heading', { name: 'Qualité des données' })).toBeInTheDocument();
+    const MARKS = ['full', 'partial', 'missing', 'none'];
+    const row = (i: number) =>
+      [...container.querySelectorAll('.strip .row')[i].querySelectorAll('.cell')].map((c) => [...c.classList].find((x) => MARKS.includes(x)));
+    expect(row(0)).toEqual(['full', 'full', 'missing', 'none']);
+    expect(row(1)).toEqual(['full', 'missing', 'missing', 'none']);
+    expect(row(2)).toEqual(['full', 'partial', 'missing', 'none']);
+    const cells = [...container.querySelectorAll('.visually-hidden tbody tr')[1].querySelectorAll('td')].map((t) => t.textContent);
+    expect(cells).toEqual(['complet', 'manquant', 'partiel (50,0\u00a0%)']);
+  });
+
+  it('radiators are not « missing » before they were first recorded', () => {
+    const { container } = render(QualityPanel, { buckets, group: 'day', quality: { ...quality, radiators_since: '2026-10-13' } });
+    const cells = [...container.querySelectorAll('.strip .row')[2].querySelectorAll('.cell')];
+    expect(cells[2]).toHaveClass('none');
+  });
+
+  it('says where every estimate comes from', () => {
+    const { container } = render(QualityPanel, { buckets, group: 'day', quality });
+    const t = container.textContent!.replace(/\s+/g, ' ');
+    expect(t).toContain('Courbe disponible depuis le 15 janvier 2026');
+    expect(t).toContain('Radiateurs enregistrés depuis le 1 septembre 2026');
+    expect(t).toContain('Jours HC/HP estimés : 3 (part de repli 36,2 %, méthode : ±15 jours)');
+    expect(t).toContain('Écart moyen courbe / relevé : 1,4 %');
+    expect(t).toContain('Prix du premier tarif appliqué à 6 jours antérieurs');
+  });
+
+  it('opens when the page is reached at #qualite', () => {
+    window.location.hash = '#qualite';
+    const { container } = render(QualityPanel, { buckets, group: 'day', quality });
+    expect(container.querySelector('details#qualite')).toHaveAttribute('open');
+    window.location.hash = '';
+  });
+
+  it('opens when an « est. » link to #qualite is followed', async () => {
+    const link = document.body.appendChild(Object.assign(document.createElement('a'), { href: '#qualite', textContent: 'est.' }));
+    const { container } = render(QualityPanel, { buckets, group: 'day', quality });
+    link.click();
+    await Promise.resolve();
+    expect(container.querySelector('details#qualite')).toHaveAttribute('open');
+    link.remove();
+    window.location.hash = '';
+  });
+});

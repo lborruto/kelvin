@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '$lib/api/client';
 import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus } from '$lib/api/types';
+import { download } from '$lib/csv';
 import { addDays } from '$lib/energy';
 import { fmtTime } from '$lib/format';
 import { announcer } from '$lib/stores/announcer.svelte';
@@ -9,6 +10,7 @@ import { house } from '$lib/stores/house.svelte';
 import { parisDayStart } from '$lib/time';
 import Page from './+page.svelte';
 
+vi.mock('$lib/csv', async (orig) => ({ ...(await orig<typeof import('$lib/csv')>()), download: vi.fn() }));
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
 vi.mock('$lib/api/client', () => ({
   api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]) },
@@ -522,5 +524,23 @@ describe('Énergie', () => {
     vi.mocked(api.energyReport).mockResolvedValue(report({ projection: null, last_day: '2026-10-01' }));
     render(Page);
     expect(await screen.findByText(/^Relevés Linky en retard \(dernier jour le 1 octobre 2026\)/)).toBeInTheDocument();
+  });
+
+  it('Qualité des données is collapsed under the panels, and Exporter, the last panel, exports the period shown', async () => {
+    const { container } = render(Page);
+    const quality = (await screen.findByRole('heading', { name: 'Qualité des données' })).closest('details')!;
+    expect(quality).toHaveAttribute('id', 'qualite');
+    expect(quality).not.toHaveAttribute('open');
+    const exporter = screen.getByRole('heading', { name: 'Exporter' }).closest('section')!;
+    expect([...container.querySelectorAll('.panels > *')].at(-1)).toBe(exporter);
+    await fireEvent.click(screen.getByRole('button', { name: 'Exporter la période (CSV)' }));
+    const file = vi.mocked(download).mock.calls[0][0];
+    expect(file.name).toBe('energie_2026-10-01_2026-11-01_day.csv');
+    const rows = file.text.slice(1).split('\r\n');
+    expect(rows).toHaveLength(31 + 2 + 1); // header, 31 days, total, the final CRLF
+    // The total row is the hero's period: 412,6 kWh, 98,40 €.
+    expect(rows[32].split(';').slice(0, 4).join(';')).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;412.640');
+    expect(rows[32].split(';')[12]).toBe('98.40');
+    expect(await screen.findByRole('button', { name: /^Exporter la courbe du / })).toBeInTheDocument();
   });
 });
