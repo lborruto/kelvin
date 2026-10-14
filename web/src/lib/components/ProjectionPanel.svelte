@@ -2,38 +2,55 @@
   import { scaleLinear } from 'd3-scale';
   import type { Projection } from '$lib/api/types';
   import { addDays, SERIES } from '$lib/energy';
-  import { fmtDay, fmtEurHero, fmtKwhExact, fmtKwhHero, fmtPrice, monthName } from '$lib/format';
+  import { fmtDateLong, fmtDay, fmtEurHero, fmtKwhExact, fmtKwhHero, fmtPrice, monthName } from '$lib/format';
   import { plural } from '$lib/plural';
 
   const COPY = {
     title: 'Projection',
+    /** Always shown: the projection follows the latest Linky day, not the period on screen. */
+    covers: 'Mois en cours et 365 prochains jours',
     month: (m: string) => `${m}, mois complet`,
     measured: (v: string) => `dont ${v} mesurés`,
     filled: (n: number) => plural(n, 'jour manquant estimé', 'jours manquants estimés'),
     rolling: '365 prochains jours',
     range: (a: string, b: string) => `${a} – ${b}`,
     approx: (v: string) => `≈ ${v}`,
-    estimate: 'Estimation, à consommation et prix d’aujourd’hui.',
+    estimate: 'Estimation, au rythme récent et aux prix d’aujourd’hui.',
     how: 'Comment c’est calculé',
-    perDay: (v: string) => `Base : ${v} par jour`,
-    price: (p: string, d: string) => `prix moyen ${p} au ${d}`,
+    // The backend's formula (report.py `_projection`), step by step.
+    base: (v: string, to: string | null) =>
+      `Base : ${v} par jour, moyenne des jours relevés parmi les 30 jours ${to ? `jusqu’au ${to}` : 'les plus récents'} (7 au moins)`,
     method: {
-      seasonal: 'ajusté selon les mêmes mois de l’an dernier',
-      linear: 'd’après les 30 derniers jours (pas encore un an d’historique)',
-      mixed: 'ajusté selon l’an dernier quand le mois est connu, sinon d’après les 30 derniers jours'
+      linear: 'appliquée telle quelle à chaque jour à venir (pas encore un an d’historique)',
+      seasonal: 'ajustée chaque mois selon le même mois de l’an dernier, rapporté aux mêmes 30 jours de l’an dernier',
+      mixed: 'ajustée selon le même mois de l’an dernier quand il est connu, telle quelle sinon'
     },
+    price: (p: string, d: string) => `Prix moyen ${p} : prix du ${d} pondérés par votre part d’heures creuses sur ces 30 jours`,
+    monthHow: 'Mois en cours : jours mesurés, plus la base pour chaque jour restant ou manquant',
     subscription: 'Abonnement compris, au tarif d’aujourd’hui.',
     none: 'Pas encore assez de jours relevés pour une projection.',
+    late: (d: string) => `Relevés Linky en retard (dernier jour le ${d}) : pas de projection.`,
     monthsCaption: 'Projection des 12 prochains mois (estimation)',
     monthCol: 'Mois',
     value: 'Estimation'
   } as const;
 
+  /** Beyond this many days behind today, the backend gives no projection (report.py `STALE_DAYS`). */
+  const STALE_DAYS = 3;
+
   interface Props {
     projection: Projection | null;
+    /** The report's last day with Linky data: the 30-day base ends there, and too old a day means no projection. */
+    last: string | null;
+    /** Today in Paris (ISO). */
+    today: string;
     class?: string;
   }
-  let { projection, class: cls = '' }: Props = $props();
+  let { projection, last, today, class: cls = '' }: Props = $props();
+
+  const dayNo = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))) / 86_400_000;
+  // No projection: Linky is late (the backend's reason when its last day is too old), else too few days.
+  let why = $derived(last && dayNo(today) - dayNo(last) > STALE_DAYS ? COPY.late(fmtDateLong(last)) : COPY.none);
 
   const short = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric', timeZone: 'UTC' });
   const monthShort = (key: string) => short.format(new Date(`${key}-01T12:00:00Z`));
@@ -52,8 +69,9 @@
 
 <section class="panel {cls}">
   <h2>{COPY.title}</h2>
+  <p class="muted covers">{COPY.covers}</p>
   {#if !projection}
-    <p class="muted note">{COPY.none}</p>
+    <p class="muted note">{why}</p>
   {:else}
     {@const m = projection.month}
     {@const r = projection.rolling}
@@ -73,7 +91,7 @@
       <div class="muted note num">{COPY.range(dmy(r.from), dmy(addDays(r.to, -1)))}</div>
     </div>
     {#if months.length}
-      <!-- Dashed: every point is an estimate. The values are in the table below. -->
+      <!-- Dashed: every month is projected (the current one partly measured, still ≈). The values are in the table below. -->
       <div class="spark" bind:clientWidth={width}>
         <svg viewBox="0 0 {SW} {SH}" width={SW} height={SH} aria-hidden="true">
           <!-- The scale starts at zero: the baseline says so, so a level year reads level. -->
@@ -96,8 +114,9 @@
     <details>
       <summary>{COPY.how}</summary>
       <ul>
-        <li class="num">{COPY.perDay(fmtKwhExact(r.per_day_kwh))}, {COPY.method[r.method]}</li>
-        {#if r.price_eur_kwh != null}<li class="num">{COPY.price(fmtPrice(r.price_eur_kwh), fmtDay(addDays(r.from, -1)))}</li>{/if}
+        <li class="num">{COPY.base(fmtKwhExact(r.per_day_kwh), last ? fmtDay(last) : null)}, {COPY.method[r.method]}.</li>
+        {#if r.price_eur_kwh != null}<li class="num">{COPY.price(fmtPrice(r.price_eur_kwh), fmtDay(addDays(r.from, -1)))}.</li>{/if}
+        <li>{COPY.monthHow}.</li>
         {#if r.eur != null}<li>{COPY.subscription}</li>{/if}
       </ul>
     </details>
@@ -105,6 +124,10 @@
 </section>
 
 <style>
+  .covers {
+    font-size: 12px;
+    margin: -4px 0 10px;
+  }
   .row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;

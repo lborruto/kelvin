@@ -78,6 +78,24 @@ describe('RoomDayPanel', () => {
     expect(container.querySelector('section')).toHaveAttribute('aria-busy', 'false');
   });
 
+  it('lists only rooms with a radiator', () => {
+    house.applySnapshot({
+      house: { rooms: [{ id: 'hall', name: 'Entrée', radiator_ids: [] }, { id: 'salon', name: 'Salon', radiator_ids: ['a'] }] as never, radiators: [] as never },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
+    });
+    render(RoomDayPanel, { ...base, day: day('salon'), room: 'salon', onroom: vi.fn() });
+    expect([...screen.getByRole('combobox', { name: 'Pièce' }).querySelectorAll('option')].map((o) => o.textContent)).toEqual(['Salon']);
+  });
+
+  it('a day before the first counted day, or without a curve, says why there is no chart', () => {
+    const before = { ...day('salon'), intervals: [], points: 0, counted_from: '2026-10-20', not_counted: 'before_first_day' as const };
+    const { unmount, container } = render(RoomDayPanel, { ...base, day: before, room: 'salon', onroom: vi.fn() });
+    expect(container.querySelector('.body .note')).toHaveTextContent('Pas de données pour ce jour : antérieur au premier jour compté (depuis le 20 octobre 2026).');
+    unmount();
+    const r = render(RoomDayPanel, { ...base, day: { ...day('salon'), intervals: [], points: 0 }, room: 'salon', onroom: vi.fn() });
+    expect(r.container.querySelector('.body .note')).toHaveTextContent('Pas de courbe Linky pour ce jour : les demi-heures de la pièce sont celles de la courbe.');
+  });
+
   it('a failed day says so, with Réessayer', async () => {
     const onretry = vi.fn();
     render(RoomDayPanel, { ...base, day: null, room: 'salon', onroom: vi.fn(), error: 'Impossible de charger la courbe.', onretry });

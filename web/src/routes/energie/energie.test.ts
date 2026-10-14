@@ -504,4 +504,23 @@ describe('Énergie', () => {
     expect(screen.getByText('Comment c’est calculé')).toBeInTheDocument();
     expect(container.textContent).not.toContain('12 prochains mois');
   });
+  it('the default room is the first, in the Pièces order, that has a radiator', async () => {
+    house.applySnapshot({
+      house: {
+        rooms: [{ id: 'hall', name: 'Entrée', radiator_ids: [] }, { id: 'salon', name: 'Salon', radiator_ids: ['a'] }] as never,
+        radiators: [{ id: 'a', room_id: 'salon', energy_wh: null, model: 'HEKLA', name: 'R' }] as never
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
+    });
+    render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith(expect.any(String), 'salon'));
+    expect(api.energyDay).not.toHaveBeenCalledWith(expect.any(String), 'hall');
+  });
+
+  it('the Projection says it is late when Linky is', async () => {
+    vi.mocked(api.energyReport).mockResolvedValue(report({ projection: null, last_day: '2026-10-01' }));
+    render(Page);
+    expect(await screen.findByText(/^Relevés Linky en retard \(dernier jour le 1 octobre 2026\)/)).toBeInTheDocument();
+  });
 });

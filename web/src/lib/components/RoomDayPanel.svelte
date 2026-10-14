@@ -17,6 +17,8 @@
     temperature: 'Température',
     setpoint: 'Consigne',
     noRooms: 'Aucune pièce avec un radiateur.',
+    beforeCounted: (d: string) => `Pas de données pour ce jour\u00a0: antérieur au premier jour compté (depuis le ${d}).`,
+    noCurve: 'Pas de courbe Linky pour ce jour\u00a0: les demi-heures de la pièce sont celles de la courbe.',
     retry: 'Réessayer'
   } as const;
 
@@ -34,8 +36,8 @@
   }
   let { day, dayIso, room, onroom, error, onretry, index = $bindable(null), class: cls = '' }: Props = $props();
   const uid = $props.id();
-  // The rooms in the Pièces order (the house's own order, as listed on Pièces and Programme).
-  let options = $derived(house.rooms.map((r) => ({ value: r.id, label: r.name })));
+  // The rooms with a radiator (temperature and setpoint come from them), in the Pièces order.
+  let options = $derived(house.rooms.filter((r) => r.radiator_ids.length > 0).map((r) => ({ value: r.id, label: r.name })));
   let ofDay = $derived(day && day.date === dayIso && day.room ? day : null);
   // The chosen room's answer for the Courbe's day. Another room on its way keeps the previous one on screen,
   // dimmed and busy (as a period switch does), so the panel never jumps; another day shows a skeleton.
@@ -73,6 +75,11 @@
     <div class="body" class:stale={!!stale}>
       {#if error && !shown}
         <p class="error" role="status">{error} <button type="button" class="btn btn-sm" onclick={onretry}>{COPY.retry}</button></p>
+      {:else if view?.not_counted === 'before_first_day' && view.counted_from}
+        <p class="muted note">{COPY.beforeCounted(fmtDateLong(view.counted_from))}</p>
+      {:else if view?.room && !view.intervals.length}
+        <!-- The room's half-hours are the curve's: without a curve there are none to show. -->
+        <p class="muted note">{COPY.noCurve}</p>
       {:else if view?.room}
         <RoomDayChart
           intervals={view.intervals}

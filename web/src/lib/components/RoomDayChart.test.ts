@@ -47,6 +47,22 @@ describe('RoomDayChart', () => {
     expect(container.querySelector('path.set')!.getAttribute('d')!.match(/M/g)).toHaveLength(1);
   });
 
+  it('an isolated measured half-hour is drawn as a dot; the setpoint stays inside the plot', () => {
+    // Samples only in the first half-hour and the third: two runs of one.
+    const lone: RoomSample[] = [0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17].map((k) => ({ ts: t0 + k * 300, temperature: 19, setpoint: 20, working_rate: 0 }));
+    const { container } = render(RoomDayChart, { ...props, samples: lone });
+    expect(container.querySelectorAll('circle.temp-dot')).toHaveLength(2);
+    expect(container.querySelector('path.temp')).toBeNull();
+    const ends = [...container.querySelector('path.set')!.getAttribute('d')!.matchAll(/H([\d.]+)/g)].map((m) => Number(m[1]));
+    const w = Number(container.querySelector('svg')!.getAttribute('width'));
+    expect(Math.max(...ends)).toBeLessThanOrEqual(w - 34);
+  });
+
+  it('draws no grid that would belong to one axis only', () => {
+    const { container } = render(RoomDayChart, props);
+    expect(container.querySelector('line.grid')).toBeNull();
+  });
+
   it('scrubs by keyboard: the readout fields and the crosshair follow', async () => {
     const { container } = render(RoomDayChart, props);
     expect(container.querySelector('.readout .when')).toHaveTextContent('Survolez ou touchez le graphique');

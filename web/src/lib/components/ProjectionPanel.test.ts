@@ -18,26 +18,29 @@ const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
 
 describe('ProjectionPanel (M4, M5)', () => {
   it('the month in full with what is measured, and the next 365 days with their dates', () => {
-    const { container } = render(ProjectionPanel, { projection });
+    const { container } = render(ProjectionPanel, { projection, last: '2026-10-14', today: '2026-10-15' });
     const rows = [...container.querySelectorAll('.row')];
     expect(text(rows[0])).toBe('Octobre 2026, mois complet ≈ 412,40 € dont 268,20 € mesurés · 3 jours manquants estimés');
     expect(text(rows[1])).toBe('365 prochains jours ≈ 2 141 € 15/10/2026 – 14/10/2027');
-    expect(container.querySelector('.est')).toHaveTextContent('Estimation, à consommation et prix d’aujourd’hui.');
+    expect(container.querySelector('.est')).toHaveTextContent('Estimation, au rythme récent et aux prix d’aujourd’hui.');
     expect(container.textContent).not.toMatch(/économ/i);
   });
 
   it('says how it is computed', async () => {
-    const { container } = render(ProjectionPanel, { projection });
+    const { container } = render(ProjectionPanel, { projection, last: '2026-10-14', today: '2026-10-15' });
     await fireEvent.click(screen.getByText('Comment c’est calculé'));
     const d = text(container.querySelector('details')!);
     expect(d).toContain('20,00 kWh par jour');
-    expect(d).toContain('prix moyen 0,2437 €/kWh au 14/10');
-    expect(d).toContain('d’après les 30 derniers jours (pas encore un an d’historique)');
+    expect(d).toContain('Base : 20,00 kWh par jour, moyenne des jours relevés parmi les 30 jours jusqu’au 14/10');
+    expect(d).toContain('appliquée telle quelle à chaque jour à venir (pas encore un an d’historique)');
+    expect(d).toContain('Prix moyen 0,2437 €/kWh : prix du 14/10 pondérés par votre part d’heures creuses sur ces 30 jours');
+    expect(d).toContain('Mois en cours : jours mesurés, plus la base pour chaque jour restant ou manquant');
+    expect(d).not.toContain('consommation d’aujourd’hui');
     expect(d).toContain('Abonnement compris');
   });
 
   it('draws the 12 projected months as a dashed line, with their values in a hidden table', () => {
-    const { container } = render(ProjectionPanel, { projection });
+    const { container } = render(ProjectionPanel, { projection, last: '2026-10-14', today: '2026-10-15' });
     expect(container.querySelector('svg polyline.proj')!.getAttribute('points')!.split(' ')).toHaveLength(12);
     expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
     expect([...container.querySelectorAll('.spark-ends span')].map((s) => s.textContent)).toEqual(['oct. 2026', 'sept. 2027']);
@@ -54,11 +57,45 @@ describe('ProjectionPanel (M4, M5)', () => {
       year: { ...projection.year, eur: null, months: months.map((m) => ({ ...m, eur: null })) },
       rolling: { ...projection.rolling, eur: null, price_eur_kwh: null }
     };
-    const { container, unmount } = render(ProjectionPanel, { projection: plain });
+    const { container, unmount } = render(ProjectionPanel, { projection: plain, last: '2026-10-14', today: '2026-10-15' });
     expect(text(container.querySelector('.row')!)).toBe('Octobre 2026, mois complet ≈ 620,0 kWh dont 200,0 kWh mesurés');
     expect(container.querySelector('.visually-hidden tbody td')!.textContent).toBe('≈\u00a0400,0\u00a0kWh');
     unmount();
-    render(ProjectionPanel, { projection: null });
+    render(ProjectionPanel, { projection: null, last: '2026-10-14', today: '2026-10-15' });
     expect(screen.getByText('Pas encore assez de jours relevés pour une projection.')).toBeInTheDocument();
+  });
+
+  it('without a projection because Linky is late, says so with the last day', () => {
+    const { container, unmount } = render(ProjectionPanel, { projection: null, last: '2026-10-11', today: '2026-10-15' });
+    expect(text(container.querySelector('.note')!)).toBe('Relevés Linky en retard (dernier jour le 11 octobre 2026) : pas de projection.');
+    unmount();
+    // Three days late is still on time (the backend's STALE_DAYS).
+    render(ProjectionPanel, { projection: null, last: '2026-10-12', today: '2026-10-15' });
+    expect(screen.getByText('Pas encore assez de jours relevés pour une projection.')).toBeInTheDocument();
+  });
+
+  it('always says what it covers, whatever period is shown', () => {
+    for (const p of [projection, null]) {
+      const { unmount } = render(ProjectionPanel, { projection: p, last: '2026-10-14', today: '2026-10-15' });
+      expect(screen.getByText('Mois en cours et 365 prochains jours')).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('the seasonal and mixed methods say how the 30-day base is adjusted', async () => {
+    for (const [method, phrase] of [
+      ['seasonal', 'ajustée chaque mois selon le même mois de l’an dernier'],
+      ['mixed', 'ajustée selon le même mois de l’an dernier quand il est connu, telle quelle sinon']
+    ] as const) {
+      const { container, unmount } = render(ProjectionPanel, {
+        projection: { ...projection, rolling: { ...projection.rolling, method } },
+        last: '2026-10-14',
+        today: '2026-10-15'
+      });
+      const d = text(container.querySelector('details')!);
+      expect(d).toContain('moyenne des jours relevés parmi les 30 jours jusqu’au 14/10');
+      expect(d).toContain(phrase);
+      unmount();
+    }
   });
 });

@@ -80,10 +80,11 @@
       });
   });
   // The day detail carries the selected room's samples (the Courbe's « Température », Température et chauffe).
-  // The default room is the first one Pièces lists (the house's own order, the order of every room picker), chosen
-  // once: it never follows the period, so the panel does not jump from room to room.
+  // The default room is the first one Pièces lists (the house's own order, the order of every room picker) that has a
+  // radiator, chosen once: it never follows the period, so the panel does not jump from room to room.
   $effect(() => {
-    if (house.loaded && data.room == null && house.rooms.length) data.setRoom(house.rooms[0].id);
+    const first = house.rooms.find((r) => r.radiator_ids.length > 0);
+    if (house.loaded && data.room == null && first) data.setRoom(first.id);
   });
   // A new period or a new day: nothing stays selected from the previous one.
   $effect.pre(() => {
@@ -323,7 +324,7 @@
   {#if main.linky}
     <!-- A pair in every view, so neither sits alone beside an empty half. -->
     <ComparePanel comparison={main.comparison} view={loaded.view} tariff={main.tariff} class="half" />
-    <ProjectionPanel projection={main.projection} class="half" />
+    <ProjectionPanel projection={main.projection} last={main.last_day} today={parisTodayIso()} class="half" />
   {/if}
 
   <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="wide" />

@@ -86,16 +86,19 @@
   });
   let yT = $derived(scaleLinear().domain(tDomain).nice().range([BASE, TOP]));
   let centers = $derived(intervals.map((_, i) => (x(i) ?? 0) + x.bandwidth() / 2));
-  /** The temperature through the interval centres; a missing value breaks the line. */
-  let tempPath = $derived.by(() => {
+  /** The temperature through the interval centres; a missing value breaks the line. A run of one half-hour is a dot
+   * (a lone `M` draws nothing). */
+  let temps = $derived.by(() => {
     let d = '';
-    let open = false;
+    const dots: { i: number; t: number }[] = [];
     rows.forEach((r, i) => {
-      if (r.temperature == null) return void (open = false);
-      d += `${open ? 'L' : 'M'}${centers[i]},${yT(r.temperature)}`;
-      open = true;
+      if (r.temperature == null) return;
+      const before = rows[i - 1]?.temperature != null;
+      const after = rows[i + 1]?.temperature != null;
+      if (!before && !after) return void dots.push({ i, t: r.temperature });
+      d += `${before ? 'L' : 'M'}${centers[i]},${yT(r.temperature)}`;
     });
-    return d;
+    return { d, dots };
   });
   /** The setpoint as a step line across each half-hour; a missing value breaks it. */
   let setPath = $derived.by(() => {
@@ -104,7 +107,8 @@
     rows.forEach((r, i) => {
       if (r.setpoint == null) return void (open = false);
       const x0 = x(i) ?? 0;
-      d += `${open ? 'L' : 'M'}${x0},${yT(r.setpoint)}H${x0 + x.step()}`;
+      // The last step ends at the plot's edge, never in the °C gutter.
+      d += `${open ? 'L' : 'M'}${x0},${yT(r.setpoint)}H${Math.min(x0 + x.step(), W - AXIS)}`;
       open = true;
     });
     return d;
@@ -175,7 +179,6 @@
         </linearGradient>
       </defs>
       {#each yW.ticks(3) as t (t)}
-        <line class="grid" x1={AXIS} x2={W - AXIS} y1={yW(t)} y2={yW(t)} />
         <text class="tick-w" x={AXIS - 6} y={yW(t)} dy="0.32em">{whole.format(t)}</text>
       {/each}
       {#each yT.ticks(3) as t (t)}
@@ -187,7 +190,8 @@
         {/if}
       {/each}
       {#if setPath}<path class="set" d={setPath} />{/if}
-      {#if tempPath}<path class="temp" d={tempPath} stroke="url(#{uid}-heat)" />{/if}
+      {#if temps.d}<path class="temp" d={temps.d} stroke="url(#{uid}-heat)" />{/if}
+      {#each temps.dots as p (p.i)}<circle class="temp-dot" cx={centers[p.i]} cy={yT(p.t)} r="2.5" style:fill={heatColor(p.t)} />{/each}
       {#if current != null}<line class="cross" x1={centers[current]} x2={centers[current]} y1="0" y2={H} />{/if}
     </svg>
     <Scrubber {centers} {W} index={current} label={COPY.scrub} idle={COPY.idleShort} valuetext={said} onchange={(i) => (index = i)} />
@@ -289,10 +293,6 @@
     display: block;
     max-width: 100%;
     overflow: visible;
-  }
-  .grid {
-    stroke: var(--line);
-    stroke-width: 1;
   }
   .tick-w,
   .tick-t {
