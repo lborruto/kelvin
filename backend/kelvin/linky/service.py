@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from kelvin.billing.compare import minus_years
 from kelvin.billing.costs import curve_complete, day_energy
 from kelvin.billing.day_detail import day_detail
-from kelvin.billing.radiators import radiator_days
+from kelvin.billing.radiators import RadiatorDay, radiator_days
 from kelvin.billing.report import (
     Group,
     ReportInputs,
@@ -199,12 +199,19 @@ class LinkyService:
         curve = self.store.curve(load_lo, load_hi)
         if period is None:  # the same rule and data as the report's own default
             period = default_period(last_linky_day(daily, curve, self.tz), today, group)
-        lo, hi = min(start, period[0]), max(end, period[1])
-        edges = local_edges(lo, hi, "halfhour", self.tz)
-        halfhours = recorder.energy_buckets(edges, recorder.energy_radiator_ids())
-        radiators = {
-            rid: radiator_days(row, edges, tariff, self.tz) for rid, row in halfhours.items()
-        }
+        # Radiator half-hours over the window and the period: one range when they overlap or
+        # touch, else each on its own, so the years between two far ranges are never bucketed
+        # (each range is bounded, their union is not). A day's figure does not depend on the
+        # range asked (window-consistent buckets), so the merge is exact.
+        ranges = sorted([(start, end), period])
+        if ranges[1][0] <= ranges[0][1]:
+            ranges = [(ranges[0][0], max(ranges[0][1], ranges[1][1]))]
+        ids = recorder.energy_radiator_ids()
+        radiators: dict[str, dict[date, RadiatorDay]] = {}
+        for lo, hi in ranges:
+            edges = local_edges(lo, hi, "halfhour", self.tz)
+            for rid, row in recorder.energy_buckets(edges, ids).items():
+                radiators.setdefault(rid, {}).update(radiator_days(row, edges, tariff, self.tz))
         life = {
             rid: (local_day(a, self.tz), None if rid in rooms else local_day(b, self.tz))
             for rid, (a, b) in recorder.energy_extent().items()

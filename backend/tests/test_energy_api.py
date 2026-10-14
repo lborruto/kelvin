@@ -682,3 +682,33 @@ async def test_m9_a_radiator_added_mid_day_keeps_the_meter_above_the_known_radia
     points = await src.fetch_curve(day, day + timedelta(days=1))
     assert all(p.wh >= h - 0.5 for p, h in zip(points, halves, strict=True) if h is not None)
     assert sum(p.wh for p in points) == pytest.approx(src.day_wh(day), abs=30)
+
+
+async def test_m1_a_far_window_and_period_bucket_radiators_separately(api, monkeypatch):
+    """Final review m1: each range is bounded, so the radiator half-hours must be too, never
+    the years between a window and a period far apart."""
+    c, _, rt, _ = api
+    spans = []
+    original = rt.recorder.energy_buckets
+
+    def spy(edges, *args, **kwargs):
+        spans.append((edges[-1] - edges[0]) / 86400)
+        return original(edges, *args, **kwargs)
+
+    monkeypatch.setattr(rt.recorder, "energy_buckets", spy)
+    start = today() - timedelta(days=13)
+    params = {
+        "from": "2000-01-01",
+        "to": "2004-01-01",
+        "group": "year",
+        "period_from": str(start),
+        "period_to": str(today() + timedelta(days=1)),
+    }
+    r = await c.get("/api/energy", params=params)
+    assert r.status_code == 200
+    assert spans and max(spans) <= 4 * 366 + 1
+    near = await c.get(
+        "/api/energy",
+        params={**params, "from": str(start), "to": str(today() + timedelta(days=1))},
+    )
+    assert r.json()["by_radiator"] == near.json()["by_radiator"]  # the same period figures
