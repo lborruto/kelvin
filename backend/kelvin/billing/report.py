@@ -447,9 +447,9 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
             eur = (
                 (actual["energy_eur"] or 0.0)
                 + (remaining + filled) * per_day * price
-                + sum(
+                + sum(  # m-3: from the contract start (the first counted day) on
                     subscription_eur(d, tariff.prices_on(d))
-                    for d in _days(first, next_unit(first, "month"))
+                    for d in _days(max(first, en.first or first), next_unit(first, "month"))
                 )
                 if price is not None and tariff is not None
                 else None

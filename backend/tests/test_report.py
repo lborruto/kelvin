@@ -729,3 +729,15 @@ def test_i3_avg4_compares_the_same_days_on_both_sides():
         "change": 0.0,
     }
     assert r["comparison"]["previous"]["change"] == 0.0
+
+
+@pytest.mark.parametrize("contract_start", [date(2026, 10, 6), None])
+def test_m3_the_filled_month_pays_its_subscription_from_the_contract_start(contract_start):
+    """Batch-4 review m-3: in the contract's first month, the days before it start pay no
+    subscription (the counted days start there; unknown start: the first data day)."""
+    daily = {d: 20_000 for d in days(date(2026, 10, 6), date(2026, 10, 14))}
+    inp = inputs(daily, t=tariff(), first_day=contract_start)
+    month = build_report(date(2026, 10, 1), date(2026, 11, 1), "month", inp)["projection"]["month"]
+    assert month["filled_days"] == 0 and month["kwh"] == pytest.approx(26 * 20.0)
+    # 8 measured + 18 remaining days at the trailing price, subscription for 6-31 Oct only
+    assert month["eur"] == pytest.approx(26 * 20 * 0.25 + 15.0 * 26 / 31, abs=0.01)
