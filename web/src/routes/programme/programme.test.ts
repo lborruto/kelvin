@@ -6,6 +6,8 @@ import Page from './+page.svelte';
 
 const nav = vi.hoisted(() => ({ guard: null as null | ((n: { willUnload: boolean; cancel: () => void }) => void) }));
 vi.mock('$app/navigation', () => ({ beforeNavigate: (fn: never) => (nav.guard = fn) }));
+const media = vi.hoisted(() => ({ desktop: { matches: true } }));
+vi.mock('$lib/media.svelte', () => media);
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
 vi.mock('$lib/api/client', () => ({
   api: { roomProgram: vi.fn() },
@@ -29,6 +31,7 @@ beforeEach(() => {
   vi.mocked(api.roomProgram).mockReset();
   vi.restoreAllMocks();
   nav.guard = null;
+  media.desktop.matches = true;
   house.pending = {};
   house.applySnapshot({
     house: {
@@ -95,15 +98,15 @@ describe('/programme', () => {
     } as never);
     vi.mocked(api.roomProgram).mockResolvedValue({ pending: { ...pending('pending'), radiator_ids: ['b'] } as never });
     render(Page);
-    await fireEvent.click(await screen.findByRole('button', { name: 'Chambre 2' }));
+    await fireEvent.click(await screen.findByRole('radio', { name: 'Chambre 2' }));
     await fireEvent.click(await screen.findByRole('button', { name: 'Ajouter une plage le Lundi' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
     await screen.findByText('Envoi en cours…');
-    await fireEvent.click(screen.getByRole('button', { name: 'Salon' }));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Salon' }));
     expect(await screen.findByLabelText('Lundi, plage 1, début')).toHaveValue('07:00');
     expect(screen.getByLabelText('Lundi, plage 1, début')).not.toBeDisabled();
     expect(screen.queryByLabelText('Lundi, plage 2, début')).toBeNull();
-    await fireEvent.click(screen.getByRole('button', { name: 'Chambre 2' }));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Chambre 2' }));
     expect(screen.getByLabelText('Lundi, plage 2, début')).toBeDisabled();
     expect(screen.getByText('Envoi en cours…')).toBeInTheDocument();
   });
@@ -177,13 +180,13 @@ describe('/programme', () => {
     render(Page);
     const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
     await fireEvent.click(await screen.findByRole('button', { name: 'Ajouter une plage le Lundi' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Chambre 2' }));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Chambre 2' }));
     expect(ask).toHaveBeenCalledWith('Abandonner les modifications non envoyées ?');
-    expect(screen.getByRole('button', { name: 'Salon' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: 'Salon' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByText('Modifications')).toBeInTheDocument();
     ask.mockReturnValue(true);
-    await fireEvent.click(screen.getByRole('button', { name: 'Chambre 2' }));
-    expect(screen.getByRole('button', { name: 'Chambre 2' })).toHaveAttribute('aria-pressed', 'true');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Chambre 2' }));
+    expect(screen.getByRole('radio', { name: 'Chambre 2' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.queryByText('Modifications')).toBeNull();
   });
 
@@ -213,5 +216,37 @@ describe('/programme', () => {
     expect(screen.getByText('Modifications')).toBeInTheDocument();
     expect(screen.getByText(/résultat inconnu/i)).toBeInTheDocument();
     expect(screen.getByLabelText('Lundi, plage 1, début')).not.toBeDisabled();
+  });
+
+  it('shows the editor skeleton, not an empty page, before the house is known', () => {
+    house.reset();
+    const { container } = render(Page);
+    expect(container.querySelectorAll('.skeleton').length).toBeGreaterThanOrEqual(8);
+    expect(screen.queryByRole('radiogroup', { name: 'Pièce' })).toBeNull();
+  });
+
+  it('keeps Annuler and Envoyer in a sticky bar that counts the modified days', async () => {
+    render(Page);
+    expect(document.querySelector('.sendbar')).toBeNull();
+    await fireEvent.click(await screen.findByRole('button', { name: 'Ajouter une plage le Lundi' }));
+    const bar = document.querySelector('.sendbar')!;
+    expect(bar).toHaveTextContent('1 jour modifié');
+    expect(bar.querySelector('.btn-primary')).toHaveTextContent('Envoyer');
+  });
+
+  it('on the phone shows the slots of one day at a time; a day label opens its day', async () => {
+    media.desktop.matches = false;
+    render(Page);
+    const heads = await screen.findAllByRole('button', { expanded: false });
+    // Six closed days, today open.
+    expect(heads).toHaveLength(6);
+    expect(screen.getAllByRole('button', { expanded: true })).toHaveLength(1);
+    const lundi = screen.queryByRole('button', { name: /^Lundi/, expanded: false });
+    if (lundi) {
+      expect(screen.queryByRole('button', { name: 'Ajouter une plage le Lundi' })).toBeNull();
+      await fireEvent.click(lundi);
+    }
+    expect(screen.getByRole('button', { name: /^Lundi/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' })).toBeInTheDocument();
   });
 });

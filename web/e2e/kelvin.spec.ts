@@ -53,15 +53,18 @@ test('rapid stepper taps send one setpoint', async ({ page }) => {
 
 test('programme edit round-trips', async ({ page }) => {
   await page.goto('/programme');
-  await page.getByRole('button', { name: 'Chambre 2' }).click();
-  await expect(page.getByRole('button', { name: 'Chambre 2' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('radio', { name: 'Chambre 2' }).click();
+  await expect(page.getByRole('radio', { name: 'Chambre 2' })).toHaveAttribute('aria-checked', 'true');
+  // Phone: only one day shows its slots; open Monday if it is not today.
+  const monday = page.getByRole('button', { name: /^Lundi/, expanded: false });
+  if (await monday.count()) await monday.click();
   const remove = page.getByRole('button', { name: 'Supprimer la plage 2 du Lundi' });
   await remove.click();
   await expect(page.getByText('Modifications')).toBeVisible();
-  await page.getByRole('button', { name: 'Envoyer' }).click();
+  await page.getByRole('button', { name: 'Envoyer', exact: true }).click();
   await confirmed(page);
   await page.getByRole('button', { name: 'Ajouter une plage le Lundi' }).click();
-  await page.getByRole('button', { name: 'Envoyer' }).click();
+  await page.getByRole('button', { name: 'Envoyer', exact: true }).click();
   await confirmed(page);
 });
 
