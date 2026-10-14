@@ -1,8 +1,12 @@
 import json
+import logging
 import sqlite3
 import threading
+import time
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS samples (
@@ -50,9 +54,10 @@ def _v1_energy_counters(conn: sqlite3.Connection) -> None:
 
     Before v1, `House` wrote 0.0 when a register state was absent, and the energy pipeline read
     that 0 as a counter reset (audit H1 case E). A legacy 0 becomes NULL (absent) when that
-    radiator's register reads above 0 elsewhere: the register is in use, so 0 is not a real
-    reading of it, and a true reset is still counted from the next reading. A register that was
-    always 0 keeps its zeros, and the total counter (never coerced) is untouched.
+    radiator's register read above 0 earlier: the register is in use, so 0 is not a real
+    reading of it, and a true reset is still counted from the next reading. Zeros before the
+    register's first positive reading are real (the tariff was not used yet) and stay, as do the
+    zeros of a register that was always 0; the total counter (never coerced) is untouched.
 
     Every step works in batches of MIGRATION_BATCH rows, one transaction each, and is
     idempotent, so a crash part-way is finished by the next start: first an untouched copy of
@@ -61,6 +66,10 @@ def _v1_energy_counters(conn: sqlite3.Connection) -> None:
     top = conn.execute("SELECT MAX(rowid) FROM energy").fetchone()[0]
     if top is None:
         return
+    started = time.monotonic()
+    total = conn.execute("SELECT COUNT(*) FROM energy").fetchone()[0]
+    log.info("schema v1: %d energy rows; copying them to energy_v0, then nulling", total)
+    nulled = 0
     conn.execute(
         "CREATE TABLE IF NOT EXISTS energy_v0 ("
         " ts INTEGER NOT NULL, radiator_id TEXT NOT NULL, total_wh REAL, t1_wh REAL, t2_wh REAL,"
@@ -74,20 +83,26 @@ def _v1_energy_counters(conn: sqlite3.Connection) -> None:
             (lo, lo + MIGRATION_BATCH),
         )
     for col in ("t1_wh", "t2_wh"):
-        in_use = [
-            r[0] for r in conn.execute(f"SELECT DISTINCT radiator_id FROM energy WHERE {col} > 0")
-        ]
-        for rid in in_use:
-            while (
-                _in_transaction(
+        # A register reads 0 until its tariff is first used: only later zeros are coerced.
+        first_use = conn.execute(
+            f"SELECT radiator_id, MIN(ts) FROM energy WHERE {col} > 0 GROUP BY radiator_id"
+        ).fetchall()
+        for rid, first_ts in first_use:
+            while True:
+                n = _in_transaction(
                     conn,
                     f"UPDATE energy SET {col} = NULL WHERE rowid IN (SELECT rowid FROM energy"
-                    f" WHERE radiator_id = ? AND {col} = 0 LIMIT ?)",
-                    (rid, MIGRATION_BATCH),
+                    f" WHERE radiator_id = ? AND ts > ? AND {col} = 0 LIMIT ?)",
+                    (rid, first_ts, MIGRATION_BATCH),
                 )
-                == MIGRATION_BATCH
-            ):
-                pass
+                nulled += n
+                if n < MIGRATION_BATCH:
+                    break
+    log.info(
+        "schema v1 done: %d register readings set to NULL in %.1f s",
+        nulled,
+        time.monotonic() - started,
+    )
 
 
 MIGRATIONS = {1: _v1_energy_counters}
@@ -123,7 +138,11 @@ class Database:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.executescript(SCHEMA)
-        migrate(self.conn)
+        try:
+            migrate(self.conn)
+        except BaseException:
+            self.conn.close()  # an interrupted migration is finished by the next start
+            raise
         self._lock = threading.Lock()
         self.closed = False
 

@@ -20,6 +20,7 @@ from kelvin.linky.fake import DEMO_PRM, FakeLinkySource
 from kelvin.linky.models import LinkySource, day_bounds
 from kelvin.linky.service import LinkyService
 from kelvin.overkiz.budget import QuotaReadout, SetupReadGuard
+from kelvin.overkiz.errors import SetupBudgetSpent
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import device_from_dict, place_from_dict
@@ -138,16 +139,22 @@ async def start_runtime(
     start_tasks: bool = True,
     db: Database | None = None,
     linky: tuple[str, str] | None = None,
+    guard: SetupReadGuard | None = None,
 ) -> Runtime:
+    """Log in, read the whole setup once and start the runtime. `guard` is the process's
+    budget of full setup reads (spec ruling 8); a spent budget raises SetupBudgetSpent before
+    any Overkiz call."""
     gateway = gateway or make_gateway(
         settings, settings.cozy_user, settings.cozy_pass.get_secret_value()
     )
     owns_db = db is None
     opened: Database | None = None
     linky_service: LinkyService | None = None
+    guard = guard or SetupReadGuard()
     try:
+        if not guard.allowed():
+            raise SetupBudgetSpent("full setup read budget spent")
         await gateway.login()
-        guard = SetupReadGuard()
         guard.record()  # the one full setup read of this start
         root, devices = await gateway.snapshot()
         house = build_house(root, devices)

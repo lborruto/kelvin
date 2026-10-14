@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Literal
@@ -18,6 +19,7 @@ from kelvin.api.runtime import Runtime, make_gateway, start_runtime, stop_runtim
 from kelvin.auth.sessions import SessionStore
 from kelvin.auth.throttle import LoginThrottle
 from kelvin.config import Settings
+from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import BadCredentialsError, GatewayError
 from kelvin.overkiz.gateway import Gateway
 from kelvin.recorder.db import Database
@@ -29,6 +31,8 @@ Mode = Literal["setup", "reauth", "offline", "running"]
 # Startup while Cozytouch is down: retry after 15 s, then 30, 60, … at most every 5 minutes.
 START_RETRY_FIRST_S = 15.0
 START_RETRY_MAX_S = 300.0
+# The times of the last full setup reads (spec ruling 8), so a restart cannot reset the budget.
+SETUP_READS_KEY = "overkiz_setup_reads"
 
 
 @dataclass
@@ -39,6 +43,8 @@ class AppContext:
     sessions: SessionStore
     throttle: LoginThrottle
     make_gateway: Callable[[str, str], Awaitable[Gateway]]
+    # One budget of full setup reads for the whole process: boot, retries, logins and the pump.
+    setup_reads: SetupReadGuard
     start_tasks: bool = True
     account: Account | None = None
     rt: Runtime | None = None
@@ -64,6 +70,7 @@ class AppContext:
             start_tasks=self.start_tasks,
             db=self.db,
             linky=linky_credentials(account, self.settings),
+            guard=self.setup_reads,
         )
         return self.rt
 
@@ -82,10 +89,20 @@ class AppContext:
 
 
 def open_context(
-    settings: Settings, gateway: Gateway | None = None, *, start_tasks: bool = True
+    settings: Settings,
+    gateway: Gateway | None = None,
+    *,
+    start_tasks: bool = True,
+    wall: Callable[[], float] = time.time,
 ) -> AppContext:
     settings.kelvin_data.mkdir(parents=True, exist_ok=True)
     db = Database(settings.kelvin_data / "kelvin.db")
+    stored = db.get_setting(SETUP_READS_KEY, [])
+    setup_reads = SetupReadGuard(
+        wall=wall,
+        reads=stored if isinstance(stored, list) else [],
+        on_record=lambda reads: db.set_setting(SETUP_READS_KEY, reads),
+    )
 
     async def factory(username: str, password: str) -> Gateway:
         if gateway is not None:  # injected (tests): the same fake, given these credentials
@@ -100,6 +117,7 @@ def open_context(
         sessions=SessionStore(db),
         throttle=LoginThrottle(),
         make_gateway=factory,
+        setup_reads=setup_reads,
         start_tasks=start_tasks,
     )
 
@@ -147,6 +165,11 @@ async def retry_start(
             if ctx.rt is not None or ctx.account is None:
                 ctx.offline = False
                 return
+            if not ctx.setup_reads.allowed():
+                # Starting reads the whole setup: wait for the daily budget (ruling 8).
+                log.info("full setup read budget spent; next try in %d s", int(next_delay))
+                delay = next_delay
+                continue
             try:
                 await ctx.start(ctx.account)
             except BadCredentialsError:

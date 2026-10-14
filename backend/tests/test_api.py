@@ -300,10 +300,14 @@ async def test_overkiz_quotas_unreachable_is_a_french_503(ctx):
     from kelvin.overkiz.errors import QuotaError
 
     c, rt, _ = ctx
-    rt.gateway.fail_states = QuotaError("QUOTA_EXCEEDED")
+    rt.gateway.fail_quotas = QuotaError("QUOTA_EXCEEDED")
     r = await c.get("/api/overkiz/quotas")
     assert r.status_code == 503
     assert r.json()["detail"] == "Cozytouch injoignable, réessayez plus tard."
+    rt.quotas = None
+    r = await c.get("/api/overkiz/quotas")
+    assert r.status_code == 503
+    assert r.json()["detail"] == "Quotas indisponibles."
 
 
 @pytest.mark.parametrize(

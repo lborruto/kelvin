@@ -14,6 +14,7 @@ from kelvin.auth.service import (
     login,
 )
 from kelvin.config import Settings
+from kelvin.overkiz.budget import DAY_S, FULL_READS_PER_DAY
 from kelvin.overkiz.errors import GatewayError, QuotaError
 from kelvin.overkiz.fake import DEMO_EMAIL, DEMO_PASSWORD, FakeGateway
 from kelvin.recorder.db import Database
@@ -525,3 +526,72 @@ async def test_a_login_while_offline_goes_to_cozytouch_and_clears_offline(tmp_pa
         assert retry.cancelled()  # the background retry stops at once
     finally:
         await ctx.close()
+
+
+class _DayOver(Exception):
+    pass
+
+
+def _quota_ctx(tmp_path, clock):
+    """Logins work but every full setup read is refused with a quota answer."""
+    AccountStore(tmp_path).save(Account(DEMO_EMAIL, DEMO_PASSWORD))
+    gw = FakeGateway(clock=clock)
+    gw.fail_snapshot = QuotaError("QUOTA_EXCEEDED")
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    return open_context(settings, gw, start_tasks=False, wall=clock), gw
+
+
+async def test_retry_start_spends_at_most_the_daily_setup_read_budget(tmp_path):
+    """Ruling 8: a runtime that cannot start must not hammer GET /setup (1 call a day)."""
+    clock = ManualClock(0.0)
+    ctx, gw = _quota_ctx(tmp_path, clock)
+
+    async def fake_sleep(seconds: float) -> None:
+        if clock.t + seconds >= DAY_S:  # the boot read is still inside the rolling 24 h
+            raise _DayOver
+        clock.advance(seconds)
+
+    try:
+        await boot(ctx)
+        assert ctx.mode == "offline"
+        with pytest.raises(_DayOver):
+            await retry_start(ctx, sleep=fake_sleep)
+        assert gw.snapshots == FULL_READS_PER_DAY  # boot + retries, never more in 24 h
+        logins = gw.logins
+        with pytest.raises(LoginRefused) as e:  # a login starting the runtime: same budget
+            await login(ctx, DEMO_EMAIL, DEMO_PASSWORD, IP)
+        assert (e.value.status, e.value.message) == (503, UNREACHABLE)
+        assert gw.snapshots == FULL_READS_PER_DAY and gw.logins == logins  # no Overkiz call
+        assert not ctx.throttle._all and not ctx.throttle._ip  # a local refusal, not a guess
+    finally:
+        await ctx.close()
+
+
+async def test_the_setup_read_budget_survives_a_restart(tmp_path):
+    """A crash-looping container cannot reset the budget: the reads are stored."""
+    clock = ManualClock(0.0)
+    ctx, gw = _quota_ctx(tmp_path, clock)
+    try:
+        for _ in range(FULL_READS_PER_DAY):
+            await boot(ctx)
+            clock.advance(60)
+    finally:
+        await ctx.close()
+    ctx, gw = _quota_ctx(tmp_path, clock)
+    try:
+        await boot(ctx)
+        assert gw.snapshots == 0 and ctx.mode == "offline"
+        assert ctx.setup_reads.used() == FULL_READS_PER_DAY
+        clock.t = DAY_S + 1  # the first stored read is a day old
+        gw.fail_snapshot = None
+        await boot(ctx)
+        assert ctx.mode == "running" and gw.snapshots == 1
+    finally:
+        await ctx.close()
+
+
+async def test_the_running_pump_spends_the_same_setup_read_budget(env):
+    ctx, _, _ = env
+    await _running(ctx)
+    assert ctx.rt.pump.guard is ctx.setup_reads
+    assert ctx.setup_reads.used() == 1

@@ -111,7 +111,8 @@ async def status(request: Request) -> dict:
 async def overkiz_quotas(request: Request) -> dict:
     """Remaining Overkiz quotas (`GET /setup/quotas`), read at most once an hour."""
     rt = _rt(request)
-    assert rt.quotas is not None
+    if rt.quotas is None:
+        raise HTTPException(503, "Quotas indisponibles.")
     try:
         return await rt.quotas.get()
     except GatewayError:

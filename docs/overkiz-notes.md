@@ -48,6 +48,14 @@ ORIG, sent to revert; the observed state was identical, and it is also the value
 [{"monday": [{"start": "06:15", "end": "08:00"}, {"start": "17:30", "end": "22:30"}, {"start": "00:00", "end": "00:00"}]}, {"tuesday": [{"start": "06:15", "end": "08:00"}, {"start": "17:30", "end": "22:30"}, {"start": "00:00", "end": "00:00"}]}, {"wednesday": [{"start": "06:15", "end": "08:00"}, {"start": "17:30", "end": "22:30"}, {"start": "00:00", "end": "00:00"}]}, {"thursday": [{"start": "06:15", "end": "08:00"}, {"start": "17:30", "end": "22:30"}, {"start": "00:00", "end": "00:00"}]}, {"friday": [{"start": "06:15", "end": "08:00"}, {"start": "17:30", "end": "22:30"}, {"start": "00:00", "end": "00:00"}]}, {"saturday": [{"start": "08:30", "end": "22:45"}, {"start": "00:00", "end": "00:00"}, {"start": "00:00", "end": "00:00"}]}, {"sunday": [{"start": "08:30", "end": "22:45"}, {"start": "00:00", "end": "00:00"}, {"start": "00:00", "end": "00:00"}]}]
 ```
 
+## Per-device state reads (verified 2026-10-14, read-only)
+
+Main session, read-only, on the owner's installation: `GET /setup/devices/{url}/states` returns
+the same state set as that device in `GET /setup/devices`: 38 of 38 states for the heater device,
+3 of 3 for the meter device. So `House.reload_device` can replace a device's states with that
+answer without dropping any. Kelvin uses it for the 10-minute reconciliation and for the
+device-by-device resync once the daily budget of full setup reads is spent.
+
 ## Conclusions used by translate.py
 
 - The **eco value is a delta** below comfort. The evidence is two observations of the HEKLA P with comfort 20 and eco 3:

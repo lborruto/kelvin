@@ -52,7 +52,7 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 
 - `GET /api/health` and `/api/auth/*` are open; every other route needs the `kelvin_session` cookie and otherwise answers `401 {"detail": "Connexion requise.", "code": "login_required"}`.
 - `GET /api/health` → `{"status": "ok" | "degraded" | "setup" | "reauth" | "offline"}` only; `GET /api/status` (session) adds the Overkiz pump status (with `setup_reads_24h`, full setup reads in the last 24 h) and the Linky state.
-- `GET /api/overkiz/quotas` — remaining Overkiz quotas (`GET /setup/quotas`), read only when asked and cached for an hour; ids, URLs and account keys are dropped.
+- `GET /api/overkiz/quotas` — remaining Overkiz quotas (`GET /setup/quotas`), read only when asked, one read at a time, and cached for an hour (a failure for a minute); ids, URLs, emails and account keys are dropped. `503` « Cozytouch injoignable, réessayez plus tard. » or « Quotas indisponibles. ».
 - `POST /api/auth/login {email, password}` · `POST /api/auth/logout` · `GET /api/auth/me`
 - `GET /api/house`
 - `GET /api/stream` — SSE; events: `snapshot`, `house`, `pending`, `overrides`, `status`
@@ -99,6 +99,6 @@ Meter readings are written when a counter changes, at the time Kelvin learns it 
 ## Notes
 
 - Commands are confirmed by device state, not by Overkiz execution status (see [`docs/overkiz-notes.md`](../docs/overkiz-notes.md)). Every Overkiz call times out after 30 s.
-- Kelvin reads the whole Cozytouch setup (`GET /setup/places`, `/setup/devices`, documented as one call a day) only at startup, after an outage and when the password changes, at most 3 times in 24 h; between those it follows events and re-reads one radiator's device states every 10 minutes.
+- Kelvin reads the whole Cozytouch setup (`GET /setup/places`, `/setup/devices`, documented as one call a day) only at startup, after an outage and when the password changes, at most 3 times in any 24 h. One budget covers startup, background retries, logins and the poller, and its times are stored in the `overkiz_setup_reads` setting, so a restart cannot reset it. Between those reads Kelvin follows events and re-reads one radiator's device states every 10 minutes. A device whose state read fails is skipped and retried less and less often, at most every 6 h; it never holds up the events.
 - Boost and away are managed by Kelvin and stored in SQLite; they survive restarts.
 - Scripts in `scripts/` talk to a live installation and write only to `captures/` (gitignored): `capture_fixture.py` is read-only, `med_capture.py` reads MyElectricalData, `overkiz_try.py` executes commands.

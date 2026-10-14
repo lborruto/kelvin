@@ -12,3 +12,7 @@ class AuthError(GatewayError):
 
 class BadCredentialsError(AuthError):
     """Cozytouch refused the email or password (not a mere expired session)."""
+
+
+class SetupBudgetSpent(GatewayError):
+    """Kelvin's own daily budget of full setup reads is spent (no call was made)."""

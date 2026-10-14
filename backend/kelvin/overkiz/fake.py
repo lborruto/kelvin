@@ -8,7 +8,7 @@ from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
-from kelvin.overkiz.errors import BadCredentialsError
+from kelvin.overkiz.errors import BadCredentialsError, GatewayError
 from kelvin.overkiz.models import DeviceCommand, Event, ExecUpdate, RawDevice, RawPlace, StateChange
 from kelvin.overkiz.sample import sample_house
 
@@ -64,11 +64,15 @@ class FakeGateway:
         self.fail_next_execute: Exception | None = None
         self.fail_fetch: Exception | None = None
         self.fail_states: Exception | None = None
+        self.fail_snapshot: Exception | None = None
+        self.fail_quotas: Exception | None = None
+        self.broken_devices: set[str] = set()  # their state reads always fail
         self.silent = False
         self.unresponsive = False
         self.snapshots = 0  # full setup reads served (quota guard tests)
         self.state_reads = 0  # per-device state reads served
         self.quota_reads = 0
+        self.failed_state_reads = 0
         self._scheduled: list[tuple[float, str, list[DeviceCommand]]] = []
         self._events: list[Event] = []
 
@@ -99,19 +103,24 @@ class FakeGateway:
         return None
 
     async def snapshot(self) -> tuple[RawPlace, list[RawDevice]]:
-        self.snapshots += 1
+        self.snapshots += 1  # counts attempts: a refused call may still count upstream
+        if self.fail_snapshot is not None:
+            raise self.fail_snapshot
         return self.root, copy.deepcopy(list(self.devices.values()))
 
     async def device_states(self, device_url: str) -> dict[str, Any]:
         if self.fail_states is not None:
             raise self.fail_states
+        if device_url in self.broken_devices:
+            self.failed_state_reads += 1
+            raise GatewayError("device unavailable")
         self.state_reads += 1
         return copy.deepcopy(self.devices[device_url].states)
 
     async def quotas(self) -> Any:
         self.quota_reads += 1
-        if self.fail_states is not None:
-            raise self.fail_states
+        if self.fail_quotas is not None:
+            raise self.fail_quotas
         # Invented values in an invented shape: the real one is recorded in overkiz-notes.
         return [
             {"name": "setup-bulk-load", "remaining": 2, "limit": 3, "gatewayId": "x"},

@@ -83,3 +83,71 @@ def test_v1_in_small_batches_and_run_twice_gives_the_same_table(tmp_path, monkey
     db = Database(small)  # ...so the next start runs v1 again, whole
     assert rows(db) == expected
     assert len(db.query("SELECT * FROM energy_v0")) == 5
+
+
+def test_v1_keeps_the_zeros_before_a_register_first_counted(tmp_path):
+    """A register reads 0 until its tariff is first used: those leading zeros are real."""
+    path = tmp_path / "k.db"
+    conn = sqlite3.connect(path)
+    conn.executescript(SCHEMA)
+    conn.executemany(
+        "INSERT INTO energy VALUES (?,?,?,?,?)",
+        [
+            (0, "c", 100.0, 0.0, 100.0),
+            (3600, "c", 150.0, 0.0, 150.0),
+            (7200, "c", 200.0, 50.0, 150.0),
+            (10800, "c", 250.0, 0.0, 200.0),  # absent after first use: coerced
+        ],
+    )
+    conn.commit()
+    conn.close()
+    db = Database(path)
+    assert [r[3] for r in rows(db)] == [0.0, 0.0, 50.0, None]
+
+
+def test_an_interrupted_v1_is_finished_by_the_next_start(tmp_path, monkeypatch):
+    import pytest
+
+    import kelvin.recorder.db as db_module
+
+    path = tmp_path / "k.db"
+    legacy_db(path)
+    monkeypatch.setattr(db_module, "MIGRATION_BATCH", 1)
+    real = db_module._in_transaction
+    nulled = 0
+
+    def crash_after_the_first_null_batch(conn, sql, params=()):
+        nonlocal nulled
+        n = real(conn, sql, params)
+        if sql.startswith("UPDATE"):
+            nulled += 1
+            if nulled == 1:
+                raise RuntimeError("power cut")
+        return n
+
+    monkeypatch.setattr(db_module, "_in_transaction", crash_after_the_first_null_batch)
+    with pytest.raises(RuntimeError):
+        Database(path)
+    monkeypatch.setattr(db_module, "_in_transaction", real)
+    conn = sqlite3.connect(path)
+    assert (
+        conn.execute("SELECT value FROM settings WHERE key = 'schema_version'").fetchone() is None
+    )
+    conn.close()
+    db = Database(path)  # the next start
+    assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION
+    assert rows(db)[1] == ("a", 3600, 1_501_000.0, None, 0.0)
+    assert len(db.query("SELECT * FROM energy_v0")) == 5
+    assert db.query("SELECT t1_wh FROM energy_v0 WHERE radiator_id = 'a' AND ts = 3600") == [
+        {"t1_wh": 0.0}
+    ]
+
+
+def test_v1_logs_its_start_and_finish_without_ids(tmp_path, caplog):
+    path = tmp_path / "k.db"
+    legacy_db(path)
+    with caplog.at_level("INFO", logger="kelvin.recorder.db"):
+        Database(path).close()
+    text = caplog.text
+    assert "schema v1: 5 energy rows" in text and "schema v1 done" in text
+    assert "'a'" not in text and " a " not in text
