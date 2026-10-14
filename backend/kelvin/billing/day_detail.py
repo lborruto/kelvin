@@ -42,9 +42,21 @@ def day_detail(
     edges: list[int],
     rooms: dict[str, str],
     complete: bool,
+    *,
+    life: dict[str, tuple[int, int | None]] | None = None,
 ) -> dict[str, Any]:
     """`radiators`: half-hour buckets per radiator over `edges` (the day's half-hours);
-    `rooms`: radiator id → current room (radiators no longer in the house have none)."""
+    `rooms`: radiator id → current room (radiators no longer in the house have none);
+    `life`: radiator id → (first reading ts, last reading ts, or None while in the house).
+
+    A radiator exists in an interval from its first reading to its last; without `life`,
+    always. When one that exists has no figure for an interval, the radiators' sum (and its
+    room's) is null, never partial (review I-4): « Reste » is the meter minus a whole sum."""
+
+    def exists(rid: str, t: int) -> bool:
+        span = (life or {}).get(rid)
+        return span is None or (span[0] <= t and (span[1] is None or t < span[1]))
+
     index = {t: i for i, t in enumerate(edges[:-1])}
     prices = tariff.prices_on(day) if tariff else None
     intervals = []
@@ -56,14 +68,20 @@ def day_detail(
             else None
         )
         i = index.get(p.ts) if p.minutes == 30 else None
-        rad = [b[i] for b in radiators.values()] if i is not None else []
-        known = [b for b in rad if b.wh is not None]
-        by_room: dict[str, float] = {}
+        known: list[Bucket] = []
+        total = 0
+        rooms_wh: dict[str, float | None] = {}
         if i is not None:
             for rid, row in radiators.items():
-                room = rooms.get(rid)
-                if room is not None and row[i].wh is not None:
-                    by_room[room] = by_room.get(room, 0.0) + row[i].wh  # type: ignore[operator]
+                b, room = row[i], rooms.get(rid)
+                there = exists(rid, p.ts) or b.wh is not None
+                total += there
+                if b.wh is not None:
+                    known.append(b)
+                if room is None or not there:
+                    continue
+                prev = rooms_wh.get(room, 0.0)
+                rooms_wh[room] = None if prev is None or b.wh is None else prev + b.wh
         intervals.append(
             {
                 "ts": p.ts,
@@ -74,10 +92,14 @@ def day_detail(
                 "boundary": bool(tariff) and boundary_inside(p.ts, p.minutes, tariff, tz),
                 "price": _r(price, 4),
                 "eur": _r(p.wh / 1000 * price, 4) if price is not None else None,
-                "radiators_wh": _r(sum(b.wh for b in known), 1) if known else None,  # type: ignore[misc]
+                "radiators_wh": _r(sum(b.wh for b in known), 1)  # type: ignore[misc]
+                if known and len(known) == total
+                else None,
+                "radiators_known": len(known),
+                "radiators_total": total,
                 "radiators_interp": any(b.interpolated for b in known),
                 "radiators_apportioned": any(b.apportioned for b in known),
-                "by_room": {k: round(v, 1) for k, v in sorted(by_room.items())},
+                "by_room": {k: _r(v, 1) for k, v in sorted(rooms_wh.items())},
             }
         )
     curve_wh = sum(p.wh for p in points)

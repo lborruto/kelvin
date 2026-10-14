@@ -36,8 +36,11 @@ def minus_years(day: date, k: int) -> date:
         return day.replace(year=day.year - k, day=28)
 
 
-def mapper(group: str, k: int = 1) -> Mapper:
-    """The k-th previous period's counterpart of a day, for a period of `group`."""
+def mapper(group: str, k: int = 1, days: int | None = None) -> Mapper:
+    """The k-th previous period's counterpart of a day, for a period of `group`. With `days`
+    (a custom period of that many days), the k-th run of `days` days before it."""
+    if days is not None:
+        return lambda d: d - timedelta(days=days * k)
     if group == "day":
         return lambda d: d - timedelta(days=k)
     if group == "week":
@@ -110,23 +113,31 @@ def compare(
 
 
 def average_of_four(
-    days: list[date], group: str, day: DayFn, tariff: Tariff | None
+    days: list[date],
+    group: str,
+    day: DayFn,
+    tariff: Tariff | None = None,
+    *,
+    period_days: int | None = None,
 ) -> dict[str, Any] | None:
-    """« Moyenne des 4 dernières … »: kWh per paired day now against the mean, over the four
-    previous periods that are comparable, of their kWh per paired day."""
-    present = [e for d in days if (e := day(d)) is not None]
-    if not present:
+    """« Moyenne des 4 dernières … »: over the four previous periods that are comparable, the
+    mean kWh per day of the current days paired with each of them against the mean kWh per day
+    of their paired days, so both sides are measured on the same days (review I-3). Energy
+    only: `tariff` is not used. `period_days`: see `mapper`."""
+    if not any(day(d) is not None for d in days):
         return None
-    per_day = []
+    cur_per_day: list[float] = []
+    prev_per_day: list[float] = []
     for k in range(1, 5):
-        pairs, others = _paired(days, mapper(group, k), day)
-        if others and _comparable(len(pairs), len(others)):
-            per_day.append(sum(p.kwh for _, p in pairs) / len(pairs))  # unrounded
-    cur = sum(e.kwh for e in present) / len(present)
-    avg = sum(per_day) / len(per_day) if per_day else None
+        pairs, others = _paired(days, mapper(group, k, period_days), day)
+        if others and _comparable(len(pairs), len(others)):  # unrounded sums
+            cur_per_day.append(sum(c.kwh for c, _ in pairs) / len(pairs))
+            prev_per_day.append(sum(p.kwh for _, p in pairs) / len(pairs))
+    cur = sum(cur_per_day) / len(cur_per_day) if cur_per_day else None
+    avg = sum(prev_per_day) / len(prev_per_day) if prev_per_day else None
     return {
-        "units": len(per_day),
+        "units": len(prev_per_day),
         "cur_kwh_per_day": _r(cur),
         "prev_kwh_per_day": _r(avg),
-        "change": _r(cur / avg - 1, 4) if avg else None,
+        "change": _r(cur / avg - 1, 4) if cur is not None and avg else None,
     }

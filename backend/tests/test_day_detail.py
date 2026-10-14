@@ -22,12 +22,21 @@ def curve(day: date, wh: float = 500.0) -> list[CurvePoint]:
     return [CurvePoint(ts, 30, wh) for ts in range(a, b, 1800)]
 
 
-def detail(day, points, daily_wh, tariff=NIGHT, radiators=None, rooms=None):
+def detail(day, points, daily_wh, tariff=NIGHT, radiators=None, rooms=None, life=None):
     edges = local_edges(day, day + timedelta(days=1), "halfhour", PARIS)
     ranges = tariff.ranges() if tariff else None
     e = day_energy(day, daily_wh, points, ranges, PARIS, Share(0.3, "fallback_all"))
     return day_detail(
-        day, points, e, tariff, PARIS, radiators or {}, edges, rooms or {}, len(points) >= 46
+        day,
+        points,
+        e,
+        tariff,
+        PARIS,
+        radiators or {},
+        edges,
+        rooms or {},
+        len(points) >= 46,
+        life=life,
     )
 
 
@@ -76,20 +85,58 @@ def test_l11_slots_off_the_half_hour_mark_two_intervals_a_day():
 def test_radiators_per_interval_and_per_room():
     day = date(2026, 10, 14)
     n = 48
+    a0 = day_bounds(day, PARIS)[0]
     radiators = {
         "a": [Bucket(100.0, 1800, False, False)] * n,
         "b": [Bucket(None, 0, False, False)] * 10 + [Bucket(50.0, 1800, True, True)] * (n - 10),
         "gone": [Bucket(20.0, 1800, False, False)] * n,
     }
-    d = detail(day, curve(day), 24_000, radiators=radiators, rooms={"a": "salon", "b": "salon"})
+    # "b" was first read at 05:00: before, it did not exist yet; "gone" was removed later on.
+    life = {"a": (a0 - 86400, None), "b": (a0 + 10 * 1800, None), "gone": (a0 - 86400, a0 + 86400)}
+    d = detail(
+        day,
+        curve(day),
+        24_000,
+        radiators=radiators,
+        rooms={"a": "salon", "b": "salon"},
+        life=life,
+    )
     first, late = d["intervals"][0], d["intervals"][20]
     assert (first["radiators_wh"], first["radiators_interp"]) == (120.0, False)
+    assert (first["radiators_known"], first["radiators_total"]) == (2, 2)
     assert first["by_room"] == {"salon": 100.0}  # "gone" has no room any more
     assert (late["radiators_wh"], late["radiators_interp"], late["radiators_apportioned"]) == (
         170.0,
         True,
         True,
     )
+    assert (late["radiators_known"], late["radiators_total"]) == (3, 3)
+
+
+def test_i4_a_radiator_unknown_in_an_interval_makes_the_sum_null_not_partial():
+    """Review I-4: « Reste » = Wh − radiators must never come from a partial sum."""
+    day = date(2026, 10, 14)
+    n = 48
+    a0 = day_bounds(day, PARIS)[0]
+    radiators = {
+        "a": [Bucket(100.0, 1800, False, False)] * n,
+        "b": [Bucket(None, 0, False, False)] * 10 + [Bucket(50.0, 1800, True, True)] * (n - 10),
+        "c": [Bucket(30.0, 1800, False, False)] * n,
+    }
+    life = {rid: (a0 - 86400, None) for rid in radiators}  # all three in the house all day
+    d = detail(
+        day,
+        curve(day),
+        24_000,
+        radiators=radiators,
+        rooms={"a": "salon", "b": "salon", "c": "bureau"},
+        life=life,
+    )
+    first, late = d["intervals"][0], d["intervals"][20]
+    assert first["radiators_wh"] is None
+    assert (first["radiators_known"], first["radiators_total"]) == (2, 3)
+    assert first["by_room"] == {"bureau": 30.0, "salon": None}
+    assert late["radiators_wh"] == 180.0 and late["by_room"] == {"bureau": 30.0, "salon": 150.0}
 
 
 def test_an_incomplete_day_has_no_power_figures_and_no_tariff_no_prices():

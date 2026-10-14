@@ -267,8 +267,25 @@ class LinkyService:
             )
         edges = local_edges(day, nxt, "halfhour", self.tz)
         radiators = recorder.energy_buckets(edges, recorder.energy_radiator_ids())
+        # As in `report`: a radiator still in the house exists from its first reading on, one
+        # no longer in it up to its last.
+        life = {
+            rid: (a, None if rid in rooms else b)
+            for rid, (a, b) in recorder.energy_extent().items()
+        }
         return {
-            **day_detail(day, points, energy, tariff, self.tz, radiators, edges, rooms, complete),
+            **day_detail(
+                day,
+                points,
+                energy,
+                tariff,
+                self.tz,
+                radiators,
+                edges,
+                rooms,
+                complete,
+                life=life,
+            ),
             "available": [d.isoformat() for d in sorted(full) if oldest <= d < today],
         }
 

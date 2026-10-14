@@ -659,3 +659,73 @@ def test_the_mean_of_the_four_previous_weeks():
         "prev_kwh_per_day": 10.0,
         "change": 0.2,
     }
+
+
+def test_i1_the_rolling_year_takes_its_last_weeks_from_last_year():
+    """Review I-1: from the 21st, the rolling year's tail month (October next year) is scaled
+    by last October, not by the current, partly elapsed October."""
+    daily = {d: 10_000 for d in days(date(2025, 9, 1), date(2026, 10, 1))}
+    for d in days(date(2026, 10, 1), date(2026, 10, 28)):
+        daily[d] = 20_000  # a cold October: 27 days, above MIN_MONTH_DAYS
+    r = build_report(
+        date(2026, 10, 1), date(2026, 11, 1), "month", inputs(daily, today=date(2026, 10, 28))
+    )
+    rolling = r["projection"]["rolling"]
+    assert rolling["per_day_kwh"] == 19.0 and rolling["method"] == "seasonal"
+    assert rolling["kwh"] == pytest.approx(365 * 19.0)
+
+
+@pytest.mark.parametrize("group", ["day", "week", "month"])
+def test_i2_a_custom_period_is_compared_with_the_days_just_before_it(group):
+    """Review I-2: a period of ten days is compared with the ten days before it (and avg4 with
+    the four previous runs of ten days), whatever the grouping, never with itself."""
+    daily = {d: 10_000 for d in days(date(2026, 9, 1), date(2026, 10, 1))}
+    for d in days(date(2026, 10, 1), date(2026, 10, 11)):
+        daily[d] = 20_000
+    r = build_report(
+        date(2026, 9, 1),
+        date(2026, 10, 12),
+        group,
+        inputs(daily),
+        period=(date(2026, 10, 1), date(2026, 10, 11)),
+    )
+    comparison = r["comparison"]
+    assert comparison["basis"] == "days"
+    prev = comparison["previous"]
+    assert (prev["from"], prev["to"], prev["pairs"], prev["of"]) == (
+        "2026-09-21",
+        "2026-10-01",
+        10,
+        10,
+    )
+    assert prev["change"] == 1.0
+    avg4 = comparison["avg4"]  # 21–30 Sep, 11–20 Sep, 1–10 Sep; 22–31 Aug has no data
+    assert (avg4["units"], avg4["change"]) == (3, 1.0)
+
+
+def test_i2_a_whole_unit_is_compared_unit_by_unit():
+    daily = {d: 10_000 for d in days(date(2026, 9, 1), date(2026, 10, 14))}
+    r = build_report(date(2026, 9, 1), date(2026, 11, 1), "month", inputs(daily))
+    assert r["comparison"]["basis"] == "unit"
+    assert r["comparison"]["previous"]["from"] == "2026-09-01"
+
+
+def test_i3_avg4_compares_the_same_days_on_both_sides():
+    """Review I-3: the four previous weeks lack their Sundays (the costly day); the current
+    week is measured on the days paired with them, so an unchanged home shows no change."""
+    daily = {}
+    for d in days(date(2026, 9, 7), date(2026, 10, 12)):
+        if d.weekday() == 6:
+            if d >= date(2026, 10, 5):
+                daily[d] = 30_000
+        else:
+            daily[d] = 10_000
+    r = build_report(date(2026, 9, 7), date(2026, 10, 12), "week", inputs(daily))
+    avg4 = r["comparison"]["avg4"]
+    assert avg4 == {
+        "units": 4,
+        "cur_kwh_per_day": 10.0,
+        "prev_kwh_per_day": 10.0,
+        "change": 0.0,
+    }
+    assert r["comparison"]["previous"]["change"] == 0.0

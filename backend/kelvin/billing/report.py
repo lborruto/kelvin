@@ -470,11 +470,16 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
     year_eur = sum(x["eur"] for x in months) if price is not None else None
     # M5: the next 365 days from tomorrow, day by day (first and last months prorated).
     r_from = inp.today + ONE
+    first_next_year = minus_years(first, -1)
     r_to = r_from + 365 * ONE
     r_kwh = r_eur = 0.0
     r_methods = set()
     for d in _days(r_from, r_to):
-        f = factor(d.replace(day=1))
+        # I-1: each day's reference month lies in the year before the anchor's month: from
+        # the anchor's month next year on, that is the month a year earlier, never the
+        # current, partly elapsed one.
+        month = d.replace(day=1)
+        f = factor(month if month < first_next_year else minus_years(month, 1))
         r_methods.add("seasonal" if f is not None else "linear")
         k = avg * (f if f is not None else 1.0)
         r_kwh += k
@@ -510,14 +515,19 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
 
 def _comparison(en: _Energy, group: Group, p_from: date, p_to: date) -> dict[str, Any]:
     """M3/L4: the selected period's elapsed days against the previous period, the same dates
-    last year, and the mean of the four previous periods."""
+    last year, and the mean of the four previous periods. A period that is not one unit of
+    `group` (a custom range) is compared with the runs of as many days just before it (review
+    I-2): never with an overlapping range."""
     last = en.last
     days = [d for d in _days(p_from, p_to) if last is not None and d <= last]
     tariff = en.inp.tariff
+    unit = p_from == unit_start(p_from, group) and p_to == next_unit(p_from, group)
+    length = None if unit else (p_to - p_from).days
     return {
-        "previous": compare(days, mapper(group), en.day, tariff),
+        "basis": "unit" if unit else "days",
+        "previous": compare(days, mapper(group, 1, length), en.day, tariff),
         "last_year": compare(days, lambda d: minus_years(d, 1), en.day, tariff),
-        "avg4": average_of_four(days, group, en.day, tariff),
+        "avg4": average_of_four(days, group, en.day, tariff, period_days=length),
     }
 
 
