@@ -113,8 +113,11 @@ export interface EnergyBucket {
   bucket: string;
   radiator_id: string;
   kwh: number;
-  t1_kwh: number;
-  t2_kwh: number;
+  t1_kwh: number | null;
+  t2_kwh: number | null;
+  interpolated: boolean;
+  apportioned: boolean;
+  complete: boolean;
 }
 
 export interface CommandResult {
