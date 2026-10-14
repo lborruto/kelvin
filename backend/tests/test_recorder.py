@@ -617,3 +617,35 @@ def test_a_holiday_after_a_glitch_before_the_anchor_is_not_phantom_energy():
     full = [b.wh for b in apportion(clean_spans([tuple(r) for r in rows], power_w=1500), edges)]
     assert sum(x or 0.0 for x in chunked) == pytest.approx(300 * (len(rows) - 1))
     assert chunked == pytest.approx(full)
+
+
+def test_an_off_season_reads_0_once_a_change_closes_it_and_null_until_then(env):
+    """Final-review question: radiators off for weeks keep their counters flat. Overkiz
+    reports a counter only when it moves, so an equal value read again is no news (Kelvin
+    writes no row for it) and proves nothing on its own: the reported value can lag the meter
+    (plan ruling 1, audit M1). The idle weeks are known once the next change closes the span:
+    the working-rate samples (0 throughout, then heating) put all of its energy in the heating
+    hours, so each idle day is a measured 0 Wh, not null. After the last change nothing is
+    known yet: null, never 0."""
+    db, house, clock, rec = env
+    a, heat = int(ts(2026, 9, 1)), int(ts(2026, 10, 10, 18))
+    rows = [
+        (
+            t,
+            "9312063",
+            20.0,
+            20.0,
+            17.0,
+            "internal",
+            "eco",
+            100.0 if heat <= t < heat + 3 * 3600 else 0.0,
+            0,
+            0,
+        )
+        for t in range(a, int(ts(2026, 10, 13)), 300)
+    ]
+    db.executemany("INSERT INTO samples VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+    record(house, clock, rec, [(a, 100_000), (heat + 3 * 3600, 104_000)])  # 4 kWh at 1.5 kW
+    got = day_kwh(rec, ["9312063"], date(2026, 9, 1), date(2026, 10, 13))["9312063"]
+    assert got[:39] == [0.0] * 39  # 1 Sep – 9 Oct, across a 28-day chunk edge
+    assert got[39:] == [4.0, None, None]  # nothing is known after 21:00 on 10 Oct
