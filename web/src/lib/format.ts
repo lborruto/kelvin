@@ -25,9 +25,11 @@ export function fmtDelta(v: number | null | undefined): string {
   return `${a === 0 ? '' : '−'}${one.format(a)}${NB}°C`;
 }
 
-export function fmtKwh(v: number | null | undefined): string {
+/** "2 050 kWh", "12,5 kWh"; `unit: false` for a column whose header carries the unit. */
+export function fmtKwh(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
-  return `${v >= 100 ? whole.format(v) : one.format(v)}${NB}kWh`;
+  const s = v >= 100 ? whole.format(v) : one.format(v);
+  return unit ? `${s}${NB}kWh` : s;
 }
 
 export function fmtWh(v: number | null | undefined): string {

@@ -31,6 +31,9 @@
   // The days with a complete curve, kept from the last answer so stepping still works after a failure.
   let curveDays = $state<string[]>([]);
   let curveSeq = 0;
+  // Bumped by « Réessayer » to fetch the same period again.
+  let attempt = $state(0);
+  let curveAttempt = $state(0);
 
   $effect(() => {
     api
@@ -41,9 +44,10 @@
 
   $effect(() => {
     const p = period;
+    void attempt;
     const w = periodWindow(p);
     const mine = ++seq;
-    data = null;
+    // The previous report stays on screen, dimmed (aria-busy), until the new one arrives.
     error = null;
     loading = true;
     api
@@ -63,6 +67,7 @@
 
   $effect(() => {
     const d = curveDate;
+    void curveAttempt;
     if (!d) return;
     const mine = ++curveSeq;
     // Clear the previous day at once: the heading must never sit over another day's bars.
@@ -81,6 +86,8 @@
   });
 
   let report = $derived(data?.report ?? null);
+  // Everything below the header renders at once, so nothing already on screen moves (no CLS).
+  let ready = $derived(!!report && house.loaded && (!!linky || linkyFailed));
   let shown = $derived(data?.period ?? period);
   let cur = $derived(report?.hero.current ?? null);
   let prev = $derived(report?.hero.previous ?? null);
@@ -150,6 +157,7 @@
   let canPrev = $derived(dayIndex > 0 || (dayIndex < 0 && curveDays.length > 0));
   let canNext = $derived(dayIndex >= 0 && dayIndex < curveDays.length - 1);
   function stepDay(d: -1 | 1) {
+    if (d < 0 ? !canPrev : !canNext) return;
     const i = curveDays.indexOf(curveDate ?? '');
     const next = i < 0 ? (d < 0 ? curveDays.at(-1) : undefined) : curveDays[i + d];
     if (next) curveDate = next;
@@ -188,18 +196,25 @@
   <Segmented options={PERIODS} value={period} label="Période" onchange={(v) => (period = v)} />
 </header>
 
-{#if linky?.state === 'off'}
+{#if !ready}{:else if linky?.state === 'off'}
   <p class="callout">Reliez le compteur Linky pour voir la consommation de toute la maison et son coût. <a href="/maison#linky">Réglages</a></p>
 {:else if linkyNote}
   <p class="callout" class:bad={linkyNote.bad} role="status">{linkyNote.text}{#if linkyNote.link}&nbsp;<a href="/maison#linky">{linkyNote.link}</a>{/if}</p>
 {/if}
-{#if report?.last_day}<p class="muted fresh">Linky&nbsp;: données jusqu’au {fmtDay(report.last_day)}</p>{/if}
-{#if error}<p class="error" role="alert">{error}</p>{/if}
+{#if ready && report?.last_day}<p class="muted fresh">Linky&nbsp;: données jusqu’au {fmtDay(report.last_day)}</p>{/if}
+{#if error}<p class="error" role="alert">{error} <button type="button" class="btn btn-sm" onclick={() => attempt++}>Réessayer</button></p>{/if}
 
-{#if loading}
-  <section class="panel"><p class="muted" role="status">Chargement…</p></section>
-{:else if report && cur && prev}
-  <section class="panel hero" aria-labelledby="hero-title">
+{#if !ready}
+  {#if !error}
+    <!-- First load: panels in their final shape (hero, chart, two short panels). -->
+    <div class="panels" aria-hidden="true">
+      {#each [150, 262, 92, 92] as h, i (i)}<div class="skeleton panel-sk" class:wide={i < 2} style:height="{h}px"></div>{/each}
+    </div>
+  {/if}
+{:else}
+<div class="panels" class:busy={loading} aria-busy={loading}>
+{#if report && cur && prev}
+  <section class="panel hero wide" aria-labelledby="hero-title">
     <h2 id="hero-title" class="hero-title">{heroTitle(shown, cur)}</h2>
     {#if report.tariff && cur.eur != null}
       <p class="big num">{fmtEur(cur.eur)}<span class="tag">estimation</span></p>
@@ -216,7 +231,7 @@
     {#if report.linky && !report.tariff}<p class="muted small"><a href="/maison#tarif">Renseignez le tarif</a> pour voir le coût.</p>{/if}
   </section>
 
-  <section class="panel">
+  <section class="panel wide">
     {#if report.linky}
       <h2>Consommation de la maison</h2>
       <EnergyBars {groups} {colors} {names} {overlay} unit="kWh" label="Consommation de la maison par {UNIT_WORD[shown]}" />
@@ -268,28 +283,31 @@
   {/if}
 
   {#if report.linky && curveDate}
-    <section class="panel">
+    <section class="panel wide">
       <div class="curve-head">
         <h2>Courbe du {fmtDateLong(curveDate)}</h2>
+        <!-- aria-disabled at the ends: the focused button stays focused. -->
         <div class="nav">
-          <button type="button" class="icon" aria-label="Jour précédent" disabled={!canPrev} onclick={() => stepDay(-1)}>
+          <button type="button" class="btn btn-icon edged" aria-label="Jour précédent" aria-disabled={!canPrev} onclick={() => stepDay(-1)}>
             <span class="flip"><Icon name="chevron" /></span>
           </button>
-          <button type="button" class="icon" aria-label="Jour suivant" disabled={!canNext} onclick={() => stepDay(1)}>
+          <button type="button" class="btn btn-icon edged" aria-label="Jour suivant" aria-disabled={!canNext} onclick={() => stepDay(1)}>
             <Icon name="chevron" />
           </button>
         </div>
       </div>
-      {#if curveError}
-        <p class="error small" role="status">{curveError}</p>
-      {:else if curve && curve.date === curveDate}
-        <CurveChart points={curve.points} split={report.tariff} label="Consommation par demi-heure le {fmtDateLong(curve.date)}" />
-        {#if curve.hc_kwh != null && curve.hp_kwh != null}
-          <p class="muted small num">HC {fmtKwh(curve.hc_kwh)} · HP {fmtKwh(curve.hp_kwh)}</p>
+      <div class="curve-body">
+        {#if curveError}
+          <p class="error small" role="status">{curveError} <button type="button" class="btn btn-sm" onclick={() => curveAttempt++}>Réessayer</button></p>
+        {:else if curve && curve.date === curveDate}
+          <CurveChart points={curve.points} split={report.tariff} label="Consommation par demi-heure le {fmtDateLong(curve.date)}" />
+          {#if curve.hc_kwh != null && curve.hp_kwh != null}
+            <p class="muted small num">HC {fmtKwh(curve.hc_kwh)} · HP {fmtKwh(curve.hp_kwh)}</p>
+          {/if}
+        {:else}
+          <div class="skeleton inset curve-sk" aria-hidden="true"></div>
         {/if}
-      {:else}
-        <p class="muted">Chargement…</p>
-      {/if}
+      </div>
     </section>
   {/if}
 
@@ -313,7 +331,7 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Radiateur</th><th class="room">Pièce</th><th class="r">Depuis l’installation</th><th class="r opt">Tarif 1</th><th class="r opt">Tarif 2</th></tr>
+        <tr><th>Radiateur</th><th class="room">Pièce</th><th class="r">Depuis l’installation (kWh)</th><th class="r opt">Tarif 1 (kWh)</th><th class="r opt">Tarif 2 (kWh)</th></tr>
       </thead>
       <tbody>
         {#each Object.values(house.radiators) as r (r.id)}
@@ -321,9 +339,9 @@
             <tr>
               <td>{r.model ?? r.name}<span class="sub-room muted">{house.room(r.room_id)?.name ?? '—'}</span></td>
               <td class="room">{house.room(r.room_id)?.name ?? '—'}</td>
-              <td class="r mono">{fmtKwh(r.energy_wh.total / 1000)}</td>
-              <td class="r mono opt">{fmtKwh(r.energy_wh.t1 / 1000)}</td>
-              <td class="r mono opt">{fmtKwh(r.energy_wh.t2 / 1000)}</td>
+              <td class="r mono">{fmtKwh(r.energy_wh.total / 1000, false)}</td>
+              <td class="r mono opt">{fmtKwh(r.energy_wh.t1 / 1000, false)}</td>
+              <td class="r mono opt">{fmtKwh(r.energy_wh.t2 / 1000, false)}</td>
             </tr>
           {/if}
         {/each}
@@ -331,6 +349,8 @@
     </table>
   </div>
 </section>
+</div>
+{/if}
 
 <style>
   .top {
@@ -369,14 +389,58 @@
   }
   .error {
     color: var(--bad);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    font-size: 13px;
+  }
+  .error .btn {
+    color: var(--tx);
+  }
+  /* One column up to 1280 px, then two: the hero, the charts and the curve span both. */
+  .panels {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+    max-width: 900px;
+  }
+  .panels > :global(*) {
+    min-width: 0;
+    transition: opacity var(--t-state) ease;
+  }
+  /* A new period is on its way: the old one stays, dimmed, instead of a blank « Chargement… ». */
+  .panels.busy > :global(*) {
+    opacity: 0.55;
+  }
+  @media (min-width: 1280px) {
+    .top {
+      max-width: 1180px;
+    }
+    .panels {
+      max-width: 1180px;
+      grid-template-columns: 1fr 1fr;
+      align-items: start;
+    }
+    .panels > :global(.wide) {
+      grid-column: 1 / -1;
+    }
   }
   .panel {
     padding: 14px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--s1);
-    margin: 14px 0 0;
-    max-width: 900px;
+  }
+  .panel-sk {
+    border: 1px solid var(--line);
+  }
+  .curve-body {
+    min-height: 184px;
+  }
+  .curve-sk {
+    height: 140px;
+    margin-bottom: 20px;
   }
   .hero-title {
     text-transform: none;
@@ -452,6 +516,7 @@
   .meter span {
     display: block;
     height: 100%;
+    transition: width var(--t-data) var(--ease-out);
   }
   .meter.thin {
     display: block;
@@ -484,24 +549,8 @@
     display: flex;
     gap: 4px;
   }
-  .icon {
-    width: 44px;
-    height: 44px;
-    display: grid;
-    place-items: center;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: none;
-    color: var(--mu);
-    cursor: pointer;
-  }
-  .icon:hover:not(:disabled) {
-    background: var(--s2);
-    color: var(--tx);
-  }
-  .icon:disabled {
-    opacity: 0.5;
-    cursor: default;
+  .edged {
+    border-color: var(--line);
   }
   .flip {
     display: grid;
@@ -517,18 +566,21 @@
   }
   .rooms li {
     display: grid;
-    grid-template-columns: 6.5rem minmax(0, 1fr) 8.5rem;
+    grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr) auto;
     align-items: center;
-    gap: 6px 10px;
+    gap: 6px 12px;
+  }
+  .rooms .name {
+    text-wrap: balance;
+    overflow-wrap: anywhere;
   }
   .rooms .meter {
     grid-column: 1 / -1;
   }
-  .rooms .strip {
-    max-width: 220px;
-  }
   .rooms .num {
     justify-self: end;
+    min-width: 9.5rem;
+    text-align: right;
     white-space: nowrap;
   }
   .table-wrap {
@@ -570,6 +622,9 @@
     }
     .rooms li {
       grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .rooms .num {
+      min-width: 0;
     }
     .rooms .strip {
       display: none;

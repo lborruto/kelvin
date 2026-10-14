@@ -12,7 +12,8 @@
   }
   let { points, label, split = true }: Props = $props();
 
-  const W = 600;
+  let width = $state(0);
+  let W = $derived(width > 0 ? width : 600);
   const H = 140;
   const BASE = H - 1;
   let x = $derived(scaleBand<number>().domain(points.map((_, i) => i)).range([0, W]).paddingInner(0.15));
@@ -30,11 +31,12 @@
 {#if !points.length}
   <p class="muted empty">Pas de courbe pour ce jour.</p>
 {:else}
-  <svg viewBox="0 0 {W} {H}" role="img" aria-label={label}>
+  <div class="plot" bind:clientWidth={width}>
+  <svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={label}>
     {#each points as p, i (p.ts)}
       {@const top = y(p.wh)}
       {@const cut = top + (BASE - top) * (1 - p.offpeak)}
-      <g>
+      <g style:--i={i}>
         <title>{fmtTime(p.ts * 1000)} · {fmtWh(p.wh)}{split ? ` · ${kind(p.offpeak)}` : ''}</title>
         {#if !split}
           <rect class="all" x={x(i)} width={x.bandwidth()} y={top} height={Math.max(0, BASE - top)} style:fill={SERIES.home} rx="1" />
@@ -49,11 +51,12 @@
       </g>
     {/each}
   </svg>
+  </div>
   <div class="curve-axis" aria-hidden="true">
     {#each ticks as t (t.i)}<span class="curve-tick" style:left="{((x(t.i) ?? 0) / W) * 100}%">{t.text}</span>{/each}
     <span class="curve-tick end">24</span>
   </div>
-  <table class="visually-hidden">
+  <div class="visually-hidden"><table>
     <caption>{label}</caption>
     <thead>
       <tr><th scope="col">Heure</th><th scope="col">Énergie</th>{#if split}<th scope="col">Heures creuses</th>{/if}</tr>
@@ -63,14 +66,27 @@
         <tr><th scope="row">{fmtTime(p.ts * 1000)}</th><td>{fmtWh(p.wh)}</td>{#if split}<td>{fmtPct(p.offpeak)}</td>{/if}</tr>
       {/each}
     </tbody>
-  </table>
+  </table></div>
 {/if}
 
 <style>
+  .plot {
+    min-width: 0;
+  }
   svg {
-    width: 100%;
-    height: auto;
     display: block;
+    max-width: 100%;
+  }
+  g {
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: kv-grow var(--t-data) var(--ease-out) both;
+    animation-delay: min(calc(var(--i) * 4ms), 180ms);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    g {
+      animation: kv-fade-in var(--t-exit) linear both;
+    }
   }
   .curve-axis {
     position: relative;

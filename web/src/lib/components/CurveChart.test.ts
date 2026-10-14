@@ -18,8 +18,8 @@ describe('CurveChart', () => {
     expect(container.querySelector('rect.hc')!.getAttribute('style')).toContain('var(--series-1)');
     expect(container.querySelector('rect.hp')!.getAttribute('style')).toContain('var(--series-2)');
     expect(container.querySelector('g title')?.textContent).toBe('00:00 · 1\u202f500\u00a0Wh · heures creuses');
-    expect(container.querySelector('table.visually-hidden tbody td')?.textContent).toBe('1\u202f500\u00a0Wh');
-    expect(container.querySelectorAll('table.visually-hidden tbody tr')).toHaveLength(4);
+    expect(container.querySelector('.visually-hidden > table tbody td')?.textContent).toBe('1\u202f500\u00a0Wh');
+    expect(container.querySelectorAll('.visually-hidden > table tbody tr')).toHaveLength(4);
     expect(container.querySelector('svg')).toHaveAttribute('aria-label', 'Courbe');
     expect(container.querySelector('.curve-axis .curve-tick')?.textContent).toBe('00');
     expect(container.querySelector('.axis')).toBeNull();
