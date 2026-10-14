@@ -87,3 +87,115 @@ describe('energy formats', () => {
     expect(monthName('2026-10-01')).toBe('Octobre 2026');
   });
 });
+
+import {
+  fmtChangeShare, fmtEurExact, fmtEurHalfHour, fmtEurHero, fmtHours, fmtKwhExact, fmtKwhHero, fmtKwhParts,
+  fmtPct1, fmtShares, fmtSigned, fmtSignedPrice, fmtW, kwhDigits, largestRemainder
+} from './format';
+
+/** A small seeded generator (mulberry32): random cases that replay identically. */
+function rng(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const NBSP = '\u00a0';
+const NNBSP = '\u202f'; // fr-FR groups thousands with a narrow no-break space
+
+describe('Énergie precision (spec §3.2.1)', () => {
+  it('kWh in a hero: 1 decimal below 1 000, none above; exact: 2 decimals', () => {
+    expect(kwhDigits(999.9)).toBe(1);
+    expect(kwhDigits(1000)).toBe(0);
+    expect(fmtKwhHero(412.64)).toBe(`412,6${NBSP}kWh`);
+    expect(fmtKwhHero(2050.4)).toBe(`2${NNBSP}050${NBSP}kWh`);
+    expect(fmtKwhHero(null)).toBe('—');
+    expect(fmtKwhExact(22.041)).toBe(`22,04${NBSP}kWh`);
+    expect(fmtKwhExact(1234.5, false)).toBe(`1${NNBSP}234,50`);
+    expect(fmtKwhExact(undefined)).toBe('—');
+  });
+
+  it('L1: the parts use the total’s decimals and add up to it', () => {
+    expect(fmtKwhParts(200.4, [42.2, 158.2])).toEqual({
+      total: `200,4${NBSP}kWh`,
+      parts: [`42,2${NBSP}kWh`, `158,2${NBSP}kWh`]
+    });
+    // Rounded one by one these would read 3,4 + 3,4 + 3,4 = 10,2 under a 10,1 total.
+    expect(fmtKwhParts(10.1, [3.36, 3.36, 3.38]).parts).toEqual([`3,4${NBSP}kWh`, `3,3${NBSP}kWh`, `3,4${NBSP}kWh`]);
+    // 400 + 804 would read 1 204 under a 1 205 total: the part with the larger remainder takes the unit.
+    expect(fmtKwhParts(1204.6, [400.4, 804.2])).toEqual({
+      total: `1${NNBSP}205${NBSP}kWh`,
+      parts: [`401${NBSP}kWh`, `804${NBSP}kWh`]
+    });
+    expect(fmtKwhParts(null, [1, 2])).toEqual({ total: '—', parts: ['—', '—'] });
+    expect(fmtKwhParts(5, [null, 2]).parts).toEqual(['—', `2,0${NBSP}kWh`]);
+  });
+
+  it('L1: random parts always add up to the shown total', () => {
+    const r = rng(42);
+    for (let n = 0; n < 500; n++) {
+      const parts = Array.from({ length: 2 + Math.floor(r() * 2) }, () => Math.round(r() * 5000) / 1000);
+      const total = parts.reduce((a, b) => a + b, 0);
+      const shown = fmtKwhParts(total, parts);
+      const num = (s: string) => Number(s.replace(/[^\d,]/g, '').replace(',', '.'));
+      const sum = shown.parts.reduce((a, s) => a + num(s), 0);
+      expect(Math.round(sum * 10)).toBe(Math.round(num(shown.total) * 10));
+    }
+  });
+
+  it('power: whole watts below 1 kW, then kW with 2 decimals', () => {
+    expect(fmtW(734.4)).toBe(`734${NBSP}W`);
+    expect(fmtW(999.6)).toBe(`1,00${NBSP}kW`); // rounds to 1 000 W, so it reads in kW
+    expect(fmtW(3420)).toBe(`3,42${NBSP}kW`);
+    expect(fmtW(null)).toBe('—');
+  });
+
+  it('euros: compact in a hero, exact in tooltips, 3 decimals for a half-hour', () => {
+    expect(fmtEurHero(96.414)).toBe(`96,41${NBSP}€`);
+    expect(fmtEurHero(1234.56)).toBe(`1${NNBSP}235${NBSP}€`);
+    expect(fmtEurExact(1234.56)).toBe(`1${NNBSP}234,56${NBSP}€`);
+    expect(fmtEurExact(5.31, false)).toBe('5,31');
+    expect(fmtEurHalfHour(0.15204)).toBe(`0,152${NBSP}€`);
+    expect(fmtEurHero(undefined)).toBe('—');
+  });
+
+  it('percentages with one decimal, and changes with a sign and the true minus', () => {
+    expect(fmtPct1(0.384)).toBe(`38,4${NBSP}%`);
+    expect(fmtPct1(null)).toBe('—');
+    expect(fmtChangeShare(0.12)).toBe(`+12${NBSP}%`);
+    expect(fmtChangeShare(-0.0849)).toBe(`−8${NBSP}%`);
+    expect(fmtChangeShare(0.004)).toBe(`0${NBSP}%`);
+    expect(fmtChangeShare(null)).toBeNull();
+    expect(fmtSigned(-14.2, 'kWh')).toBe(`−14,20${NBSP}kWh`);
+    expect(fmtSigned(3.614, '€')).toBe(`+3,61${NBSP}€`);
+    expect(fmtSigned(0.001, '€')).toBe(`0,00${NBSP}€`);
+    expect(fmtSigned(null, '€')).toBe('—');
+    expect(fmtSignedPrice(-0.0632)).toBe(`−0,0632${NBSP}€/kWh`);
+    expect(fmtHours(2.84)).toBe(`2,8${NBSP}h`);
+    expect(fmtHours(2.84, false)).toBe('2,8');
+  });
+
+  it('L3: largest remainder keeps nulls and sums to the units', () => {
+    expect(largestRemainder([1, 1, 1], 100)).toEqual([34, 33, 33]);
+    expect(largestRemainder([2, null, 1], 1000)).toEqual([667, null, 333]);
+    expect(largestRemainder([0, 0], 100)).toEqual([0, 0]);
+    expect(fmtShares([1, 1, 1])).toEqual([`34${NBSP}%`, `33${NBSP}%`, `33${NBSP}%`]);
+    expect(fmtShares([1, 2], 1)).toEqual([`33,3${NBSP}%`, `66,7${NBSP}%`]);
+    expect(fmtShares([null, 3])).toEqual(['—', `100${NBSP}%`]);
+  });
+
+  it('L3: random sets of shares always total 100', () => {
+    const r = rng(7);
+    for (let n = 0; n < 500; n++) {
+      const values = Array.from({ length: 1 + Math.floor(r() * 8) }, () => r() * 100);
+      for (const units of [100, 1000]) {
+        const out = largestRemainder(values, units) as number[];
+        expect(out.reduce((a, b) => a + b, 0)).toBe(units);
+        out.forEach((u, i) => expect(Math.abs(u - (values[i] / values.reduce((a, b) => a + b, 0)) * units)).toBeLessThan(1));
+      }
+    }
+  });
+});
