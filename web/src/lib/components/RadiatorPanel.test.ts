@@ -72,7 +72,7 @@ describe('RadiatorPanel', () => {
     const b = screen.getByRole('button', { name: 'Renommer' });
     expect(b.querySelector('svg')).not.toBeNull();
     expect(b.textContent?.trim()).toBe('');
-    expect(b).toHaveClass('icon');
+    expect(b).toHaveClass('btn-icon');
   });
 
   it('a toggle shows its own command as pending until the radiator answers', async () => {

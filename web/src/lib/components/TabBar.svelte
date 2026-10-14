@@ -30,7 +30,14 @@
     border-top: 1px solid var(--line);
     z-index: 20;
   }
+  @media (prefers-reduced-transparency: reduce) {
+    .tabbar {
+      background: var(--bg);
+      backdrop-filter: none;
+    }
+  }
   a {
+    position: relative;
     display: grid;
     justify-items: center;
     gap: 2px;
@@ -39,9 +46,26 @@
     color: var(--fa);
     text-decoration: none;
     font-size: 11px;
+    font-weight: 500;
+    touch-action: manipulation;
+    transition: color var(--t-state) ease;
+  }
+  /* The current tab: ink, heavier, and a short ink bar on top (not colour alone). */
+  a[aria-current='page'] {
+    color: var(--tx);
     font-weight: 600;
   }
-  a[aria-current='page'] {
+  a[aria-current='page']::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: calc(50% - 10px);
+    width: 20px;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: var(--tx);
+  }
+  a:active {
     color: var(--tx);
   }
 </style>

@@ -3,6 +3,7 @@
   import { api } from '$lib/api/client';
   import { fmtDelta, fmtTemp, fmtTime, LEVEL_LABEL } from '$lib/format';
   import { heatColor } from '$lib/heat';
+  import { flash } from '$lib/motion';
   import { fmtNextChange, nextChange } from '$lib/program';
   import { history } from '$lib/stores/history.svelte';
   import { agg } from '$lib/room';
@@ -18,8 +19,12 @@
 
   interface Props {
     roomId: string;
+    /** h1 on the phone room page (it is the page's title); h2 in the desktop inspector. */
+    level?: 'h1' | 'h2';
   }
-  let { roomId }: Props = $props();
+  let { roomId, level = 'h2' }: Props = $props();
+  // On the phone room page the figure arrives from the card it was tapped on (view transition).
+  let vtName = $derived(level === 'h1' ? `temp-${roomId.replace(/[^a-zA-Z0-9_-]/g, '_')}` : undefined);
 
   const RANGES = { day: { label: '24 h', days: 1, step: 900 }, week: { label: '7 j', days: 7, step: 3600 }, month: { label: '30 j', days: 30, step: 21600 } };
   type RangeKey = keyof typeof RANGES;
@@ -62,20 +67,28 @@
   const boost = () => run(() => api.roomBoost(roomId, boostTemp, boostHours * 60));
 </script>
 
-{#if !room}
+{#if !house.loaded}
+  <!-- The shape of the inspector until the house is known: never « Pièce introuvable » before data. -->
+  <div class="inspector" aria-hidden="true">
+    <div class="sk-head"><div class="skeleton" class:inset={level === 'h2'} style:height="26px" style:width="45%"></div>
+      <div class="skeleton" class:inset={level === 'h2'} style:height="38px" style:width="6.5rem"></div></div>
+    {#each [150, 96, 150] as h, i (i)}<div class="skeleton" class:inset={level === 'h2'} style:height="{h}px"></div>{/each}
+  </div>
+{:else if !room}
   <p class="muted">Pièce introuvable.</p>
 {:else}
   <div class="inspector">
     <header>
-      <div>
-        <h2>{room.name}</h2>
+      <div class="title">
+        <svelte:element this={level} class="name">{room.name}</svelte:element>
         <p class="muted">
           {radiators.length} radiateur{radiators.length > 1 ? 's' : ''}
           {#if room.heating_level && LEVEL_LABEL[room.heating_level]} · {LEVEL_LABEL[room.heating_level]}{/if}
           {#if mode === 'program' && !sameProgram} · Programmes différents selon les radiateurs{:else if change} · <span class="nowrap">{fmtNextChange(change, now)}</span>{/if}
         </p>
       </div>
-      <span class="temp num" style:color={heatColor(room.temperature)}>{fmtTemp(room.temperature)}</span>
+      <span class="temp num" style:view-transition-name={vtName}>{#key room.temperature}<span class="fig"
+          style:color={heatColor(room.temperature)} in:flash>{fmtTemp(room.temperature)}</span>{/key}</span>
     </header>
     {#if override || pending}
       <div class="status"><OverrideBadge {override} /><PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} /></div>
@@ -83,24 +96,25 @@
 
     <section>
       <h3>Commande</h3>
-      <ModeSwitch label="Mode de la pièce" value={room.mode} pending={expected.mode ?? null} onchange={(m) => run(() => api.roomMode(roomId, m))} />
+      <ModeSwitch label="Mode de la pièce" disabled={!house.online} value={room.mode} pending={expected.mode ?? null} onchange={(m) => run(() => api.roomMode(roomId, m))} />
       {#if room.mode === 'mixed'}<p class="note">Mixte — les radiateurs n’ont pas le même mode</p>{/if}
       {#if mode === 'manual'}
         <div class="row"><span>Consigne</span>
           <Stepper label="Consigne" value={expected.target ?? aTarget.value} min={7} max={maxT}
-            pending={expected.target !== undefined} onchange={(v) => run(() => api.roomSetpoint(roomId, 'manual', v))} />
+            disabled={!house.online} pending={expected.target !== undefined}
+            onchange={(v) => run(() => api.roomSetpoint(roomId, 'manual', v))} />
           {#if aTarget.mixed && expected.target === undefined}<p class="note">Mixte (moyenne)</p>{/if}
         </div>
       {/if}
       {#if mode !== 'off'}
         <div class="row"><span>Confort</span>
-          <Stepper label="Confort" value={expected.comfort ?? aComfort.value} min={12} max={maxT}
+          <Stepper label="Confort" value={expected.comfort ?? aComfort.value} min={12} max={maxT} disabled={!house.online}
             pending={expected.comfort !== undefined} onchange={(v) => run(() => api.roomSetpoint(roomId, 'comfort', v))} />
           {#if aComfort.mixed && expected.comfort === undefined}<p class="note">Mixte (moyenne)</p>{/if}
         </div>
         <div class="row"><span>Abaissement éco</span>
           <Stepper label="Abaissement éco" value={expected.eco_delta ?? aEco.value} min={1} max={8}
-            format={(v) => fmtDelta(v)} pending={expected.eco_delta !== undefined}
+            format={(v) => fmtDelta(v)} pending={expected.eco_delta !== undefined} disabled={!house.online}
             onchange={(v) => run(() => api.roomSetpoint(roomId, 'eco', v))} />
           {#if aEco.mixed && expected.eco_delta === undefined}<p class="note">Mixte (moyenne)</p>{/if}
         </div>
@@ -111,7 +125,7 @@
       <h3>Forcer temporairement</h3>
       {#if override?.kind === 'boost'}
         <p>Forcé à {fmtTemp(override.temperature)} jusqu’à {fmtTime(override.ends_at * 1000)}.</p>
-        <button type="button" class="secondary" onclick={() => run(() => api.cancelOverride(override!.id))}>Annuler le forçage</button>
+        <button type="button" class="btn secondary" disabled={!house.online} onclick={() => run(() => api.cancelOverride(override!.id))}>Annuler le forçage</button>
       {:else}
         <div class="row">
           <Stepper label="Température forcée" value={boostTemp} min={7} max={maxT} debounceMs={0} onchange={(v) => (boostTemp = v)} />
@@ -120,7 +134,7 @@
               <option value={1}>1 h</option><option value={2}>2 h</option><option value={4}>4 h</option><option value={8}>8 h</option>
             </select>
           </label>
-          <button type="button" class="primary" disabled={busy} onclick={boost}>Forcer</button>
+          <button type="button" class="btn btn-primary" disabled={busy || !house.online} onclick={boost}>Forcer</button>
         </div>
       {/if}
     </section>
@@ -157,18 +171,38 @@
     align-items: baseline;
     gap: 12px;
   }
-  h2 {
+  .title {
+    min-width: 0;
+  }
+  .name {
     margin: 0;
     font-size: 20px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+  /* The phone room page: the room is the page title (Headline). */
+  h1.name {
+    font-size: 22px;
+    letter-spacing: -0.01em;
   }
   header p {
     margin: 2px 0 0;
     font-size: 13px;
   }
   .temp {
+    flex: none;
     font-size: 32px;
     font-weight: 600;
     letter-spacing: -0.02em;
+  }
+  .fig {
+    display: inline-block;
+  }
+  .sk-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
   }
   .status {
     display: flex;
@@ -200,34 +234,22 @@
     gap: 10px;
     flex-wrap: wrap;
   }
-  select {
-    min-height: 44px;
-    padding: 0 10px;
-    background: var(--in);
-    border: 1px solid var(--line);
-    border-radius: 8px; /* every input and select: DESIGN.md form fields */
+  /* A wrapped row keeps its stepper on the right, like the rows that fit. */
+  .row > span {
+    flex: 1 1 8rem;
   }
-  .primary,
-  .secondary {
-    min-height: 44px;
-    padding: 0 16px;
-    border-radius: var(--radius);
-    border: 1px solid var(--line);
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .primary {
-    background: var(--tx);
-    color: var(--bg);
+  .row > span + :global(.stepper) {
+    margin-left: auto;
   }
   .secondary {
-    background: var(--s2);
     justify-self: start;
   }
   .hist-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .note {
     margin: 0;
@@ -240,10 +262,6 @@
     align-items: center;
     gap: 6px;
     font-size: 13px;
-  }
-  .primary:disabled {
-    opacity: 0.5;
-    cursor: default;
   }
   .rads {
     display: grid;

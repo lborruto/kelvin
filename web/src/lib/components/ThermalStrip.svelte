@@ -3,7 +3,7 @@
   import { scaleLinear } from 'd3-scale';
   import { curveMonotoneX, curveStepAfter, line } from 'd3-shape';
   import type { RoomMode, WeekProgram } from '$lib/api/types';
-  import { fmtTime } from '$lib/format';
+  import { fmtTemp, fmtTime } from '$lib/format';
   import { heatColor } from '$lib/heat';
   import { comfortBands } from '$lib/program';
   import type { StripPoint } from '$lib/stores/history.svelte';
@@ -117,6 +117,19 @@
   );
   let nowX = $derived(Math.max(0, Math.min(W, x(now))));
 
+  // The chart in words (DESIGN: every chart has a text equivalent): range, latest reading, plan.
+  let summary = $derived.by(() => {
+    const vs = points.filter((p) => p.t <= now && p.v != null).map((p) => p.v as number);
+    const parts = vs.length
+      ? [`de ${fmtTemp(Math.min(...vs))} à ${fmtTemp(Math.max(...vs))}`, `dernière mesure ${fmtTemp(vs.at(-1))}`]
+      : ['pas encore de mesure'];
+    if (mode === 'manual' && target != null) parts.push(`consigne ${fmtTemp(target)}`);
+    else if (mode === 'program' && comfort != null && eco != null) parts.push(`confort ${fmtTemp(comfort)}, éco ${fmtTemp(eco)}`);
+    if (shownTarget != null) parts.push(`consigne demandée ${fmtTemp(shownTarget)}, en attente`);
+    else if (shownComfort != null) parts.push(`confort demandé ${fmtTemp(shownComfort)}, en attente`);
+    return `${parts.join(' ; ')}.`;
+  });
+
   const HOURS = [0, 6, 12, 18, 24];
   let nowPct = $derived((nowX / W) * 100);
   let nowIn = $derived(now >= start && now <= end);
@@ -128,7 +141,8 @@
 </script>
 
 <div class="strip">
-  <svg viewBox="0 0 {W} {height}" preserveAspectRatio="none" role="img" aria-label={label} style:height="{height}px">
+  <svg viewBox="0 0 {W} {height}" preserveAspectRatio="none" role="img" aria-label={label} aria-describedby="{uid}d"
+    style:height="{height}px">
     <defs>
       <linearGradient id={uid} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1={y(25)} y2={y(15)}>
         <stop offset="0" style:stop-color={heatColor(25)} />
@@ -139,6 +153,7 @@
     </defs>
     {#each bands as b, i (i)}
       <rect class="band" x={x(b.start)} y="0" width={Math.max(0.5, x(b.end) - x(b.start))} {height} />
+      <line class="band-edge" x1={x(b.start)} x2={x(b.end)} y1="0.5" y2="0.5" vector-effect="non-scaling-stroke" />
     {/each}
     {#if setpointPath}<path class="setpoint" d={setpointPath} vector-effect="non-scaling-stroke" />{/if}
     {#if pendingComfortPath}
@@ -151,6 +166,7 @@
     <path class="temp" d={tempPath} stroke="url(#{uid})" vector-effect="non-scaling-stroke" />
     <line class="now" x1={nowX} x2={nowX} y1="0" y2={height} vector-effect="non-scaling-stroke" />
   </svg>
+  <p class="visually-hidden" id="{uid}d">{summary}</p>
   {#if axis}
     <div class="axis" aria-hidden="true">
       {#each ticks as t (t.h)}
@@ -163,6 +179,7 @@
 
 <style>
   .strip {
+    position: relative;
     min-width: 0;
   }
   svg {
@@ -170,9 +187,15 @@
     width: 100%;
     overflow: visible;
   }
+  /* Comfort periods: a warm wash with a firmer top edge, so the plan reads on the card. */
   .band {
     fill: var(--warm);
-    opacity: 0.1;
+    opacity: 0.16;
+  }
+  .band-edge {
+    stroke: var(--warm);
+    stroke-width: 1;
+    opacity: 0.4;
   }
   .setpoint {
     fill: none;
@@ -188,14 +211,11 @@
     stroke-dasharray: 4 3;
   }
   .confirmed {
-    animation: solidify 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: kv-solidify var(--t-morph) var(--ease-out) forwards;
   }
-  @keyframes solidify {
-    from {
-      stroke-dasharray: 4 3;
-    }
-    to {
-      stroke-dasharray: 8 0;
+  @media (prefers-reduced-motion: reduce) {
+    .confirmed {
+      animation: kv-solidify-rm var(--t-exit) linear forwards;
     }
   }
   .temp {

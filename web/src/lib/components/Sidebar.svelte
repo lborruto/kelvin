@@ -44,13 +44,26 @@
     gap: 10px;
     min-height: 44px;
     padding: 0 10px;
+    border: 1px solid transparent;
     border-radius: 8px;
     color: var(--mu);
     text-decoration: none;
     font-weight: 500;
+    transition:
+      background-color var(--t-state) ease,
+      border-color var(--t-state) ease,
+      color var(--t-state) ease;
   }
+  @media (hover: hover) {
+    a:not([aria-current='page']):hover {
+      color: var(--tx);
+      background: color-mix(in srgb, var(--s1) 60%, transparent);
+    }
+  }
+  /* The current page: raised and edged, so it reads in the light theme too (s1 on bg alone does not). */
   a[aria-current='page'] {
     background: var(--s1);
+    border-color: var(--line);
     color: var(--tx);
   }
   .foot {

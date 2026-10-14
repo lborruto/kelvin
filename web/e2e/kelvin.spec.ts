@@ -11,11 +11,12 @@ async function confirmed(page: Page) {
 
 const roomMode = (page: Page) => page.getByRole('radiogroup', { name: 'Mode de la pièce' });
 
-test('rooms load with temperatures and thermal strips', async ({ page }) => {
+test('rooms load with temperatures and thermal strips', async ({ page, isMobile }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  // Phone: a card expands in place (a button); desktop: it opens the room (a link).
   for (const name of ['Chambre 1', 'Salon', 'Chambre 2']) {
-    await expect(page.getByRole('button', { name: new RegExp(name) }).first()).toBeVisible();
+    await expect(page.getByRole(isMobile ? 'button' : 'link', { name: new RegExp(`^${name}`) }).first()).toBeVisible();
   }
   await expect(page.locator('svg[aria-label^="Salon"]').first()).toBeVisible();
 });
@@ -102,6 +103,26 @@ test('desktop shows the sidebar and the inspector with every radiator', async ({
   await expect(page.getByRole('navigation', { name: 'Navigation principale' }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Salon', level: 2 })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Faire clignoter' })).toHaveCount(2);
+});
+
+test('desktop: choosing a room card keeps keyboard focus on it and marks it current', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'desktop layout only');
+  await page.goto('/');
+  const card = page.getByRole('link', { name: /^Salon/ });
+  await card.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/pieces\/p-salon$/);
+  await expect(page.getByRole('heading', { name: 'Salon', level: 2 })).toBeVisible();
+  await expect(card).toHaveAttribute('aria-current', 'page');
+  await expect(card).toBeFocused();
+});
+
+test('phone room page: the room is the h1, and moving to another tab focuses its title', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'phone layout only');
+  await page.goto('/pieces/p-salon');
+  await expect(page.getByRole('heading', { name: 'Salon', level: 1 })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Programme' }).click();
+  await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeFocused();
 });
 
 test('"/" opens a default room: inspector on desktop, expanded card on the phone', async ({ page, isMobile }) => {
