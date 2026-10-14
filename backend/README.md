@@ -92,7 +92,7 @@ included. The simulator uses a synthetic Linky and a demo tariff. Verified behav
 ## Data
 
 `KELVIN_DATA` holds `account.json` (0600) and `kelvin.db`: samples (kept 400 days), radiator
-meter readings (kept), Linky data, tariffs, sessions, overrides and the command log (90 days).
+meter readings (kept), Linky data, tariffs, sessions, overrides and the command log (90 days). The schema version is the `schema_version` setting; migrations run at startup in batches and are idempotent. v1 (Plan 5) stores an absent meter register as `NULL` and keeps the readings as they were in `energy_v0`.
 
 ## Notes
 

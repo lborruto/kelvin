@@ -31,7 +31,7 @@ export interface Radiator {
   window_detection: boolean;
   presence_detection: boolean;
   light: { on: boolean; intensity: number | null } | null;
-  energy_wh: { total: number; t1: number; t2: number } | null;
+  energy_wh: { total: number; t1: number | null; t2: number | null } | null;
   working_rate: number | null;
   rssi: number | null;
   program: WeekProgram;

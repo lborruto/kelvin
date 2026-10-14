@@ -27,6 +27,89 @@ CREATE TABLE IF NOT EXISTS linky_curve (
   ts INTEGER PRIMARY KEY, minutes INTEGER NOT NULL, wh REAL NOT NULL);
 """
 
+SCHEMA_VERSION_KEY = "schema_version"
+SCHEMA_VERSION = 1
+
+
+MIGRATION_BATCH = 5000  # rows per transaction: the write lock is never held for long
+
+
+def _in_transaction(conn: sqlite3.Connection, sql: str, params: tuple = ()) -> int:
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        n = conn.execute(sql, params).rowcount
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    return n
+
+
+def _v1_energy_counters(conn: sqlite3.Connection) -> None:
+    """v1 (Plan 5): readings no longer store an absent T1/T2 register as 0.
+
+    Before v1, `House` wrote 0.0 when a register state was absent, and the energy pipeline read
+    that 0 as a counter reset (audit H1 case E). A legacy 0 becomes NULL (absent) when that
+    radiator's register reads above 0 elsewhere: the register is in use, so 0 is not a real
+    reading of it, and a true reset is still counted from the next reading. A register that was
+    always 0 keeps its zeros, and the total counter (never coerced) is untouched.
+
+    Every step works in batches of MIGRATION_BATCH rows, one transaction each, and is
+    idempotent, so a crash part-way is finished by the next start: first an untouched copy of
+    the table in `energy_v0` (INSERT OR IGNORE), then the NULLs.
+    """
+    top = conn.execute("SELECT MAX(rowid) FROM energy").fetchone()[0]
+    if top is None:
+        return
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS energy_v0 ("
+        " ts INTEGER NOT NULL, radiator_id TEXT NOT NULL, total_wh REAL, t1_wh REAL, t2_wh REAL,"
+        " PRIMARY KEY (radiator_id, ts))"
+    )
+    for lo in range(0, top, MIGRATION_BATCH):
+        _in_transaction(
+            conn,
+            "INSERT OR IGNORE INTO energy_v0 SELECT ts, radiator_id, total_wh, t1_wh, t2_wh"
+            " FROM energy WHERE rowid > ? AND rowid <= ?",
+            (lo, lo + MIGRATION_BATCH),
+        )
+    for col in ("t1_wh", "t2_wh"):
+        in_use = [
+            r[0] for r in conn.execute(f"SELECT DISTINCT radiator_id FROM energy WHERE {col} > 0")
+        ]
+        for rid in in_use:
+            while (
+                _in_transaction(
+                    conn,
+                    f"UPDATE energy SET {col} = NULL WHERE rowid IN (SELECT rowid FROM energy"
+                    f" WHERE radiator_id = ? AND {col} = 0 LIMIT ?)",
+                    (rid, MIGRATION_BATCH),
+                )
+                == MIGRATION_BATCH
+            ):
+                pass
+
+
+MIGRATIONS = {1: _v1_energy_counters}
+
+
+def migrate(conn: sqlite3.Connection) -> int:
+    """Run the pending migrations in order; returns the schema version.
+
+    Each migration is idempotent and commits its own batches; the version is recorded only once
+    it finished, so an interrupted migration runs again, whole, at the next start."""
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (SCHEMA_VERSION_KEY,)).fetchone()
+    version = json.loads(row[0]) if row else 0
+    for target in sorted(v for v in MIGRATIONS if v > version):
+        MIGRATIONS[target](conn)
+        _in_transaction(
+            conn,
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            (SCHEMA_VERSION_KEY, json.dumps(target)),
+        )
+        version = target
+    return version
+
 
 class DatabaseClosed(sqlite3.ProgrammingError):
     """A statement reached the database after close() (a background task during shutdown)."""
@@ -40,6 +123,7 @@ class Database:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.executescript(SCHEMA)
+        migrate(self.conn)
         self._lock = threading.Lock()
         self.closed = False
 

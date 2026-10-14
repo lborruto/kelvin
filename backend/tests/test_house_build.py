@@ -89,6 +89,15 @@ def test_radiator_without_light_or_energy_still_renders():
     json.dumps(house.view())
 
 
+def test_an_absent_register_is_none_not_zero():
+    """Audit H1 case E: an absent T1/T2 state must not read as a 0 Wh counter."""
+    root, devices = sample_house()
+    meter = next(d for d in devices if d.device_url.endswith("9312063#5"))
+    del meter.states["core:ConsumptionTariff1State"]
+    r = build_house(root, devices).radiators["9312063"]
+    assert r.energy_wh == {"total": 2_400_000, "t1": None, "t2": 1_900_000}
+
+
 @pytest.mark.skipif(not DUMP.exists(), reason="dump fixture missing")
 def test_home_dump_fixture_builds():
     data = json.loads(DUMP.read_text())
