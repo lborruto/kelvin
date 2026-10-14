@@ -36,7 +36,9 @@ depends on.
 - **Overkiz quota:** never call `Gateway.snapshot()` (`GET /setup/places` + `/setup/devices`,
   documented as one call a day) on a timer. Full setup reads go through the one stored
   `SetupReadGuard` (`overkiz/budget.py`, at most 3 per 24 h, kept across restarts); reconcile
-  with `device_states(url)` instead (one radiator every 10 minutes). Never send `states/refresh`.
+  with `device_states(url)` instead (one radiator every 10 minutes). The poller never takes the
+  last read of the day; a start never waits for the budget (stored setup structure, else one
+  overdraft read a day). Never send `states/refresh`.
 - **Radiator energy:** a meter reading is a value at the time Kelvin learned it; rows are
   written only when a counter changes, so an equal value is no reading and proves nothing
   (Overkiz's value can lag the meter). Every radiator kWh comes from `recorder/energy.py`

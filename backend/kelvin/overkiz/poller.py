@@ -14,7 +14,7 @@ from kelvin.house.model import House
 from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
 from kelvin.overkiz.gateway import Gateway
-from kelvin.overkiz.models import StateChange
+from kelvin.overkiz.models import RawDevice, RawPlace, StateChange
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ class EventPump:
         guard: SetupReadGuard | None = None,
         device_pause: float = 0.2,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        on_setup: Callable[[RawPlace, list[RawDevice]], None] | None = None,
     ) -> None:
         self.gateway = gateway
         self.house = house
@@ -55,6 +56,7 @@ class EventPump:
         self.guard = guard or SetupReadGuard(wall=wall)
         self.device_pause = device_pause  # between the reads of a device-by-device resync
         self.sleep = sleep
+        self.on_setup = on_setup or (lambda root, devices: None)  # after each full read
         self.failures = 0
         self.last_ok_wall: float | None = None
         self.last_error: str | None = None
@@ -218,8 +220,9 @@ class EventPump:
         budget in minutes and the next restart cannot read the setup for up to 24 h."""
         if self.guard.remaining() >= PUMP_RESERVE + 1:
             self.guard.record()
-            _, devices = await self.gateway.snapshot()
+            root, devices = await self.gateway.snapshot()
             changed |= self.house.reload(devices)
+            self._safe(self.on_setup, root, devices)
         elif not self._may_read_devices():
             return False
         else:

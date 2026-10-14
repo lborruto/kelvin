@@ -15,7 +15,13 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from kelvin.account import Account, AccountStore, bootstrap_account, linky_credentials
-from kelvin.api.runtime import Runtime, make_gateway, start_runtime, stop_runtime
+from kelvin.api.runtime import (
+    Runtime,
+    make_gateway,
+    start_allowed,
+    start_runtime,
+    stop_runtime,
+)
 from kelvin.auth.sessions import SessionStore
 from kelvin.auth.throttle import LoginThrottle
 from kelvin.config import Settings
@@ -170,8 +176,8 @@ async def retry_start(
             if ctx.rt is not None or ctx.account is None:
                 ctx.offline = False
                 return
-            if not ctx.setup_reads.allowed():
-                # Starting reads the whole setup: wait for the daily budget (ruling 8).
+            if not start_allowed(ctx.setup_reads, ctx.db):
+                # No stored setup and the startup overdraft is spent: wait (ruling 8).
                 log.info("full setup read budget spent; next try in %d s", int(next_delay))
                 delay = next_delay
                 continue

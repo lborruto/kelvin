@@ -309,3 +309,12 @@ async def test_a_resync_with_two_full_reads_left_takes_one(env):
     pump.request_resync()
     await pump.run_once()
     assert gw.snapshots == 1 and gw.state_reads == 0
+
+
+async def test_a_full_read_hands_the_setup_on_for_storage(env):
+    _, gw, _, _, pump, _, _ = env
+    seen = []
+    pump.on_setup = lambda root, devices: seen.append((root.oid, len(devices)))
+    pump.request_resync()
+    await pump.run_once()
+    assert seen == [(gw.root.oid, len(gw.devices))]

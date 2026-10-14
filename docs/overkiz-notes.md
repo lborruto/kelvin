@@ -76,7 +76,10 @@ The end-user API documentation lists `GET /setup`, `/setup/devices`, `/setup/pla
 and `GET /setup/quotas` have no printed limit. Kelvin reads the whole setup at startup, after an
 outage and on a password change (at most 3 times in any 24 h, one `SetupReadGuard` whose times
 are stored, so a restart does not reset it) and otherwise re-reads one radiator's device states
-every 10 minutes. It never sends `states/refresh`: that is a radio action on the radiators.
+every 10 minutes. The poller leaves the day's last full read to a restart (it resyncs device
+by device instead), and a start with the budget spent builds the house from the stored
+structure of the last full read and reads each device's states; with nothing stored it reads
+the setup once over the budget (at most once per 24 h). It never sends `states/refresh`: that is a radio action on the radiators.
 `GET /api/overkiz/quotas` reads `GET /setup/quotas` only when asked (cached for an hour).
 
 ## Energy counters: cadence (main-session observation)

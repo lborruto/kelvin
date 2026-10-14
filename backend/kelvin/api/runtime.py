@@ -6,7 +6,7 @@ import json
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -23,7 +23,14 @@ from kelvin.overkiz.budget import QuotaReadout, SetupReadGuard
 from kelvin.overkiz.errors import SetupBudgetSpent
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.overkiz.gateway import Gateway
-from kelvin.overkiz.models import device_from_dict, place_from_dict
+from kelvin.overkiz.models import (
+    RawDevice,
+    RawPlace,
+    device_from_dict,
+    device_to_dict,
+    place_from_dict,
+    place_to_dict,
+)
 from kelvin.overkiz.poller import EventPump
 from kelvin.overkiz.simhistory import SIM_DB_KEY, seed_history
 from kelvin.recorder.db import Database
@@ -31,6 +38,10 @@ from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
 
 log = logging.getLogger(__name__)
+
+# The structure of the last full setup read (places, devices without their states), so a
+# start with the day's full reads spent can still build the house (final review I1).
+SETUP_KEY = "overkiz_setup"
 
 
 @dataclass
@@ -123,6 +134,35 @@ def _recorded_halfhours(recorder: Recorder, tz: str) -> Callable[[date], list[fl
     return halves
 
 
+def store_setup(db: Database, root: RawPlace, devices: list[RawDevice]) -> None:
+    """Keep the structure of a full setup read: places and devices, without their states (no
+    stale counter or setpoint can come back from it, and it holds no secret)."""
+    db.set_setting(
+        SETUP_KEY,
+        {
+            "places": place_to_dict(root),
+            "devices": [device_to_dict(replace(d, states={})) for d in devices],
+        },
+    )
+
+
+def stored_setup(db: Database) -> tuple[RawPlace, list[RawDevice]] | None:
+    try:
+        data = db.get_setting(SETUP_KEY)
+        if not data:
+            return None
+        return place_from_dict(data["places"]), [device_from_dict(d) for d in data["devices"]]
+    except Exception as e:  # noqa: BLE001 — an unreadable copy is no copy
+        log.warning("stored setup unreadable (%s)", type(e).__name__)
+        return None
+
+
+def start_allowed(guard: SetupReadGuard, db: Database) -> bool:
+    """Whether a start may run now (see start_runtime): a stored setup, else one full read
+    within the budget plus one startup overdraft per 24 h."""
+    return guard.remaining() >= 0 or stored_setup(db) is not None
+
+
 async def override_step(rt: Runtime) -> list[dict[str, Any]]:
     """One override tick; publishes the list when it changed (restore sent, confirmed, dropped).
 
@@ -153,8 +193,14 @@ async def start_runtime(
     guard: SetupReadGuard | None = None,
 ) -> Runtime:
     """Log in, read the whole setup once and start the runtime. `guard` is the process's
-    budget of full setup reads (spec ruling 8); a spent budget raises SetupBudgetSpent before
-    any Overkiz call."""
+    budget of full setup reads (spec ruling 8).
+
+    A start is never held up for a day by the budget (final review I1). When it is spent, the
+    house is built from the stored structure of the last full read and every device's states
+    are read one by one (the pump's first poll); with no stored structure (first start, or a
+    wiped DB), the setup is read anyway, once per 24 h at most, with a warning: one call over
+    a documented daily limit is better than a home without heating control for up to 24 h.
+    Beyond that overdraft, SetupBudgetSpent is raised before any Overkiz call."""
     gateway = gateway or make_gateway(
         settings, settings.cozy_user, settings.cozy_pass.get_secret_value()
     )
@@ -163,15 +209,25 @@ async def start_runtime(
     linky_service: LinkyService | None = None
     guard = guard or SetupReadGuard()
     try:
-        if not guard.allowed():
-            raise SetupBudgetSpent("full setup read budget spent")
-        await gateway.login()
-        guard.record()  # the one full setup read of this start
-        root, devices = await gateway.snapshot()
-        house = build_house(root, devices)
         if db is None:
             settings.kelvin_data.mkdir(parents=True, exist_ok=True)
             db = opened = Database(settings.kelvin_data / "kelvin.db")
+        stored = None
+        if not guard.allowed():
+            stored = stored_setup(db)
+            if stored is None:
+                if guard.remaining() < 0:  # the day's overdraft is spent too
+                    raise SetupBudgetSpent("full setup read budget spent")
+                log.warning("no stored setup: reading the whole setup over the daily budget")
+        await gateway.login()
+        if stored is None:
+            guard.record()  # the one full setup read of this start
+            root, devices = await gateway.snapshot()
+            store_setup(db, root, devices)
+        else:
+            log.info("full setup read budget spent: starting from the stored setup")
+            root, devices = stored
+        house = build_house(root, devices)
         is_sim = isinstance(gateway, FakeGateway)
         if not is_sim and db.get_setting(SIM_DB_KEY) is True:
             raise RuntimeError(
@@ -230,8 +286,12 @@ async def start_runtime(
             on_changed=on_changed,
             on_status=lambda s: bc.publish("status", s),
             guard=guard,
+            on_setup=lambda r, d: store_setup(db, r, d),
         )
-        pump.mark_ok()
+        if stored is None:
+            pump.mark_ok()
+        else:  # no state known yet: not connected (nothing recorded) until the reads are in
+            pump.request_resync()
         commands.on_sent = pump.wake
         recorder = Recorder(db, house, is_fresh=lambda: pump.connected, tz=settings.tz)
         recorder_ref.append(recorder)
