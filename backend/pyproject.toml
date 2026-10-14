@@ -5,7 +5,7 @@ description = "Kelvin — home heating control for Sauter Cozytouch radiators"
 requires-python = ">=3.13"
 dependencies = [
   "fastapi>=0.115",
-  "uvicorn[standard]>=0.32",
+  "uvicorn[standard]>=0.54.0",
   "pyoverkiz==2.2.2",
   "certifi>=2024.8.30",
   "pydantic-settings>=2.6",
