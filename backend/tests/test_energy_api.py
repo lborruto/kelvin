@@ -540,3 +540,41 @@ async def test_the_default_period_is_the_unit_of_the_last_linky_day(api):
     )
     body = r.json()
     assert body["period"]["from"] == body["hero"]["current"]["from"]
+
+
+async def test_comparisons_load_the_years_they_compare_with(api):
+    """The default year period starts on 1 January: last year and the four previous years
+    are further back than the projection's look-back, and must be loaded all the same."""
+    c, _, rt, _ = api
+    rt.linky.sync.set_not_before(None)
+    first = today().replace(month=1, day=1).replace(year=today().year - 4)
+    n = (today() - first).days
+    rt.linky.store.upsert_daily([DailyReading(first + timedelta(days=i), 10_000) for i in range(n)])
+    body = (
+        await c.get(
+            "/api/energy",
+            params={"from": str(today() - timedelta(days=7)), "to": str(today()), "group": "year"},
+        )
+    ).json()
+    comparison = body["comparison"]
+    assert comparison["last_year"]["comparable"] is True
+    assert comparison["avg4"]["units"] == 4
+
+
+async def test_last_year_counts_once_kelvin_has_stored_it(api):
+    """After a year of running, the store holds days older than the backfill window: they are
+    data (Kelvin fetched them), so last year's comparison and the seasonal projection use them."""
+    c, _, rt, _ = api
+    rt.linky.sync.set_not_before(today() - timedelta(days=900))
+    first = today() - timedelta(days=500)
+    rt.linky.store.upsert_daily(
+        [DailyReading(first + timedelta(days=i), 10_000) for i in range(140)]
+    )
+    body = (
+        await c.get(
+            "/api/energy",
+            params={"from": str(today() - timedelta(days=7)), "to": str(today()), "group": "month"},
+        )
+    ).json()
+    assert body["comparison"]["last_year"]["comparable"] is True
+    assert body["linky_since"] == str(first)

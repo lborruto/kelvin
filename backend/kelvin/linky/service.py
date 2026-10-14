@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from kelvin.billing.compare import minus_years
 from kelvin.billing.costs import curve_complete
 from kelvin.billing.radiators import radiator_days
 from kelvin.billing.report import (
@@ -20,6 +21,7 @@ from kelvin.billing.report import (
     build_report,
     default_period,
     last_linky_day,
+    unit_start,
 )
 from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
@@ -34,6 +36,7 @@ log = logging.getLogger(__name__)
 
 SourceFactory = Callable[[str, str], LinkySource]
 LOOKBACK_DAYS = 400  # last year's period, the 30 trailing days and the ±15-day HC share
+AVG4_YEARS = 4  # the comparison with the mean of the four previous periods, by year
 # Simulator only: demo values so Énergie shows euros out of the box. Never a real installation.
 DEMO_TARIFF = Tariff(
     "hchp", 9, (Slot("22:00", "06:00"),), (Prices(date(2000, 1, 1), 15.0, 0.20, 0.27),)
@@ -74,11 +77,15 @@ class LinkyService:
     def first_day(self) -> date | None:
         """The first day the report counts: the contract start, but never before the daily
         backfill window (Kelvin never fetches older days, so they are not missing). Unknown
-        contract start: None, and the report starts at the earliest data."""
+        contract start: None, and the report starts at the earliest data. Days Kelvin did
+        store before the backfill window (it has run for over a year) are data: the window
+        never hides them, or last year's comparison would never find a day."""
         nb = self.not_before()
         if nb is None:
             return None
-        return max(nb, self.today() - timedelta(days=DAILY_BACKFILL_DAYS))
+        window = self.today() - timedelta(days=DAILY_BACKFILL_DAYS)
+        stored = self.store.first_day()
+        return max(nb, min(window, stored) if stored is not None else window)
 
     async def configure(self, prm: str, token: str) -> None:
         """Test a PDL/token (1 call), read the contract to prefill the tariff (1 call), then wake
@@ -176,13 +183,17 @@ class LinkyService:
         tariff = self.tariffs.get()
         # Linky rows are loaded for the window, the period and what the comparisons, the
         # projection and the fallback HC share look back at: bounded, never the whole store.
-        # A default period holds the last Linky day, so with daily rows it lies within the
-        # look-back (a store with only an old curve is the exception: its period reads null).
+        # A default period is the unit holding the last Linky day, so with daily rows it
+        # starts at or after the unit of the last daily day (a store with only an old curve is
+        # the exception: its period reads null).
         anchor = self.store.last_day() or today
-        p_lo, p_hi = period or (anchor, anchor)
+        p_lo, p_hi = period or (unit_start(anchor, group), anchor)
         load_lo = min(start, p_lo, anchor) - timedelta(days=LOOKBACK_DAYS)
         load_hi = max(end, p_hi, today + timedelta(days=1))
-        daily = self.store.daily(load_lo, load_hi)
+        # The year view's mean of the four previous years reaches four years back (kWh only:
+        # daily rows; their curves are not needed).
+        daily_lo = min(load_lo, minus_years(min(start, p_lo), AVG4_YEARS))
+        daily = self.store.daily(daily_lo if group == "year" else load_lo, load_hi)
         curve = self.store.curve(load_lo, load_hi)
         if period is None:  # the same rule and data as the report's own default
             period = default_period(last_linky_day(daily, curve, self.tz), today, group)
@@ -201,18 +212,19 @@ class LinkyService:
         stats = recorder.sample_stats(
             sorted(radiators), day_bounds(period[0], self.tz)[0], stats_end
         )
+        first_day = self.first_day()
         inputs = ReportInputs(
             daily_wh=daily,
             curve=curve,
             tariff=tariff,
             tz=self.tz,
             today=today,
-            first_day=self.first_day(),
+            first_day=first_day,
             radiators=radiators,
             radiator_life=life,
             rooms=rooms,
             sample_stats=stats,
-            linky_since=self.store.first_day(),
+            linky_since=self.store.first_day(first_day),
             curve_since=self.store.first_curve_day(),
         )
         return build_report(start, end, group, inputs, period)

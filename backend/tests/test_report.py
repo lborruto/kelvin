@@ -574,3 +574,88 @@ def test_curve_figures_only_on_days_the_report_counts():
     inp.first_day = date(2026, 10, 1)
     [b] = build_report(day, day + timedelta(days=1), "day", inp)["buckets"]
     assert b["kwh"] is None and b["curve"] is None
+
+
+def audit_b():
+    """Audit case B: 20 kWh every day from 1 September, 5–7 October missing, today 14 Oct."""
+    daily = {d: 20_000 for d in days(date(2026, 9, 1), date(2026, 10, 14))}
+    for d in (date(2026, 10, 5), date(2026, 10, 6), date(2026, 10, 7)):
+        del daily[d]
+    return daily
+
+
+def test_m3_the_comparison_pairs_days_present_on_both_sides():
+    daily = audit_b()
+    daily[date(2026, 10, 7)] = 20_000  # two missing days: 11 pairs of 13
+    r = build_report(date(2025, 11, 1), date(2026, 11, 1), "month", inputs(daily, t=tariff()))
+    prev = r["comparison"]["previous"]
+    assert (prev["from"], prev["to"]) == ("2026-09-01", "2026-09-14")
+    assert (prev["pairs"], prev["of"], prev["comparable"]) == (11, 13, True)
+    assert prev["cur_kwh"] == prev["prev_kwh"] == 220.0
+    assert prev["change"] == 0.0 and prev["change_energy_eur"] == 0.0
+    # The v1 hero still compares unpaired sums (audit M3); Plan 6 shows the pairs instead.
+    assert (r["hero"]["current"]["kwh"], r["hero"]["previous"]["kwh"]) == (220.0, 260.0)
+
+
+def test_m3_more_than_20_percent_of_pairs_dropped_gives_no_change():
+    """The audit's case B drops 3 pairs of 13 (23 %): the sums match, but no change is shown."""
+    r = build_report(date(2025, 11, 1), date(2026, 11, 1), "month", inputs(audit_b()))
+    prev = r["comparison"]["previous"]
+    assert (prev["pairs"], prev["of"], prev["comparable"]) == (10, 13, False)
+    assert prev["cur_kwh"] == prev["prev_kwh"] == 200.0
+    assert prev["change"] is None
+    assert r["comparison"]["last_year"]["pairs"] == 0
+    assert r["comparison"]["last_year"]["change"] is None
+
+
+def test_m4_the_month_projection_fills_missing_elapsed_days():
+    r = build_report(date(2025, 11, 1), date(2026, 11, 1), "month", inputs(audit_b(), t=tariff()))
+    month = r["projection"]["month"]
+    assert month["kwh"] == pytest.approx(620.0) and month["filled_days"] == 3
+    # energy of the 10 measured days + 21 estimated days at the trailing price + 15 € of
+    # subscription for the whole month
+    assert month["eur"] == pytest.approx(200 * 0.25 + 21 * 20 * 0.25 + 15.0, abs=0.01)
+
+
+def test_m5_the_rolling_year_starts_tomorrow_and_lasts_365_days():
+    r = build_report(date(2025, 11, 1), date(2026, 11, 1), "month", inputs(audit_b(), t=tariff()))
+    rolling = r["projection"]["rolling"]
+    assert (rolling["from"], rolling["to"]) == ("2026-10-15", "2027-10-15")
+    assert rolling["kwh"] == pytest.approx(365 * 20.0)
+    assert rolling["eur"] == pytest.approx(365 * 20 * 0.25 + 15.0 * 12, abs=0.6)
+    assert rolling["method"] == "linear"
+
+
+def test_l4_year_comparisons_use_calendar_dates_across_29_february():
+    daily = {d: 10_000 for d in days(date(2027, 1, 1), date(2028, 3, 11))}
+    r = build_report(
+        date(2027, 1, 1), date(2029, 1, 1), "year", inputs(daily, today=date(2028, 3, 11))
+    )
+    prev = r["comparison"]["previous"]
+    assert (prev["from"], prev["to"]) == ("2027-01-01", "2027-03-11")  # not 03-10
+    assert (prev["pairs"], prev["of"], prev["change"]) == (70, 70, 0.0)
+
+
+def test_month_counterparts_that_do_not_exist_are_not_pairs():
+    daily = {d: 10_000 for d in days(date(2026, 9, 1), date(2026, 11, 1))}
+    r = build_report(
+        date(2026, 10, 1),
+        date(2026, 11, 1),
+        "month",
+        inputs(daily, today=date(2026, 11, 2)),
+    )
+    assert r["comparison"]["previous"]["of"] == 30  # 31 October has no 31 September
+
+
+def test_the_mean_of_the_four_previous_weeks():
+    daily = {d: 10_000 for d in days(date(2026, 9, 7), date(2026, 10, 12))}
+    for d in days(date(2026, 10, 12), date(2026, 10, 14)):
+        daily[d] = 12_000
+    r = build_report(date(2026, 9, 7), date(2026, 10, 19), "week", inputs(daily))
+    avg4 = r["comparison"]["avg4"]
+    assert avg4 == {
+        "units": 4,
+        "cur_kwh_per_day": 12.0,
+        "prev_kwh_per_day": 10.0,
+        "change": 0.2,
+    }

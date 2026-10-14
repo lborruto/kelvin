@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
+from kelvin.billing.compare import average_of_four, compare, mapper, minus_years
 from kelvin.billing.costs import (
     DayEnergy,
     curve_complete,
@@ -120,10 +121,7 @@ def last_linky_day(
 
 
 def minus_year(day: date) -> date:
-    try:
-        return day.replace(year=day.year - 1)
-    except ValueError:  # 29 February
-        return day.replace(year=day.year - 1, day=28)
+    return minus_years(day, 1)
 
 
 def _r(v: float | None, n: int = 3) -> float | None:
@@ -145,10 +143,15 @@ class _Energy:
             (d for d in known if self.first is None or d >= self.first), default=None
         )
         self.complete = complete
-        # The first day the report shows Linky data: the store's first day when the loaded
-        # rows may not reach it (no contract start), never a day before the counted range.
-        since = inp.linky_since if inp.first_day is None else None
-        self.since: date | None = since or self.first_data
+        # The first day the report shows Linky data: the loaded rows may not reach the store's
+        # first day, so `linky_since` (the store's first daily day) counts too, but never a day
+        # before the counted range.
+        since = [
+            d
+            for d in (self.first_data, inp.linky_since)
+            if d is not None and (inp.first_day is None or d >= inp.first_day)
+        ]
+        self.since: date | None = min(since, default=None)
         self.shares = FallbackShares(complete, self.ranges, inp.tz) if self.ranges else None
         self.share = self.shares.overall().value if self.shares else 0.0
         self._cache: dict[date, DayEnergy | None] = {}
@@ -404,15 +407,19 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
     shifted_avg = (
         sum(e.kwh for e in shifted) / len(shifted) if len(shifted) >= MIN_TRAILING_DAYS else None
     )
+    factors: dict[date, float | None] = {}
 
     def factor(month: date) -> float | None:
-        if not shifted_avg:
-            return None
-        ly = date(month.year - 1, month.month, 1)
-        ly_days = [e for d in _days(ly, next_unit(ly, "month")) if (e := en.day(d)) is not None]
-        if len(ly_days) < MIN_MONTH_DAYS:
-            return None
-        return (sum(e.kwh for e in ly_days) / len(ly_days)) / shifted_avg
+        if month not in factors:
+            factors[month] = None
+            if shifted_avg:
+                ly = date(month.year - 1, month.month, 1)
+                ly_days = [
+                    e for d in _days(ly, next_unit(ly, "month")) if (e := en.day(d)) is not None
+                ]
+                if len(ly_days) >= MIN_MONTH_DAYS:
+                    factors[month] = (sum(e.kwh for e in ly_days) / len(ly_days)) / shifted_avg
+        return factors[month]
 
     tariff = inp.tariff
     price = sub_month = None
@@ -433,11 +440,18 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
         f = factor(m)
         per_day = avg * (f if f is not None else 1.0)
         if i == 0:
+            # M4: elapsed days without Linky data are estimated at the same rate, not 0 kWh.
+            filled = actual["missing_days"]
             remaining = (next_unit(first, "month") - (anchor + ONE)).days
-            kwh = (actual["kwh"] or 0.0) + remaining * per_day
+            kwh = (actual["kwh"] or 0.0) + (remaining + filled) * per_day
             eur = (
-                (actual["eur"] or 0.0) + remaining * per_day * price + sub_month * remaining / dim
-                if price is not None and sub_month is not None
+                (actual["energy_eur"] or 0.0)
+                + (remaining + filled) * per_day * price
+                + sum(
+                    subscription_eur(d, tariff.prices_on(d))
+                    for d in _days(first, next_unit(first, "month"))
+                )
+                if price is not None and tariff is not None
                 else None
             )
         else:
@@ -454,11 +468,25 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
         m = next_unit(m, "month")
     methods = {x["method"] for x in months}
     year_eur = sum(x["eur"] for x in months) if price is not None else None
+    # M5: the next 365 days from tomorrow, day by day (first and last months prorated).
+    r_from = inp.today + ONE
+    r_to = r_from + 365 * ONE
+    r_kwh = r_eur = 0.0
+    r_methods = set()
+    for d in _days(r_from, r_to):
+        f = factor(d.replace(day=1))
+        r_methods.add("seasonal" if f is not None else "linear")
+        k = avg * (f if f is not None else 1.0)
+        r_kwh += k
+        if price is not None and tariff is not None:
+            r_eur += k * price + subscription_eur(d, tariff.prices_on(inp.today))
     return {
         "month": {
             **months[0],
             "actual_kwh": actual["kwh"],
             "actual_eur": actual["eur"],
+            "actual_energy_eur": actual["energy_eur"],
+            "filled_days": actual["missing_days"],
         },
         "year": {
             "from": months[0]["key"],
@@ -468,6 +496,28 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
             "method": methods.pop() if len(methods) == 1 else "mixed",
             "months": months,
         },
+        "rolling": {
+            "from": r_from.isoformat(),
+            "to": r_to.isoformat(),
+            "kwh": _r(r_kwh),
+            "eur": _r(r_eur, 2) if price is not None else None,
+            "per_day_kwh": _r(avg),
+            "price_eur_kwh": _r(price, 4),
+            "method": r_methods.pop() if len(r_methods) == 1 else "mixed",
+        },
+    }
+
+
+def _comparison(en: _Energy, group: Group, p_from: date, p_to: date) -> dict[str, Any]:
+    """M3/L4: the selected period's elapsed days against the previous period, the same dates
+    last year, and the mean of the four previous periods."""
+    last = en.last
+    days = [d for d in _days(p_from, p_to) if last is not None and d <= last]
+    tariff = en.inp.tariff
+    return {
+        "previous": compare(days, mapper(group), en.day, tariff),
+        "last_year": compare(days, lambda d: minus_years(d, 1), en.day, tariff),
+        "avg4": average_of_four(days, group, en.day, tariff),
     }
 
 
@@ -523,6 +573,7 @@ def build_report(
         "radiators": [{"radiator_id": rid, "kwh": v} for rid, v in by_id.items()],
         # v2, over the selected period.
         "heating": en.heating(p_from, p_to),
+        "comparison": _comparison(en, group, p_from, p_to),
         "boundary_prorated": bool(inp.tariff)
         and any(to_minutes(t) % 30 for s in inp.tariff.hc_slots for t in (s.start, s.end)),
         "quality": en.quality(start, end),
