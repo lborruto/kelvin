@@ -140,6 +140,7 @@ input:not([type='checkbox'], [type='radio']),
 select {
   min-height: 44px;
   min-width: 0;
+  max-width: 100%;
   padding: 0 10px;
   background: var(--in);
   border: 1px solid var(--field-line);

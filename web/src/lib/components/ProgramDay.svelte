@@ -275,11 +275,17 @@
     align-items: center;
   }
   .slots li {
-    display: flex;
+    /* A grid, not a flex row: the time inputs can shrink, so a row never pushes the page wider
+       than the screen (Chromium's intrinsic time-input width varies by platform and fonts). */
+    display: grid;
+    grid-template-columns: minmax(0, 7.5rem) auto minmax(0, 7.5rem) auto;
     align-items: center;
     gap: 4px;
+    max-width: 100%;
   }
   input {
+    min-width: 0;
+    width: 100%;
     padding: 0 6px;
     border-radius: 6px;
   }
