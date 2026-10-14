@@ -474,16 +474,6 @@ class Recorder:
                 )
         return out
 
-    def first_energy_ts(self, radiator_ids: list[str]) -> int | None:
-        """When the first energy reading of these radiators was taken, or None."""
-        if not radiator_ids:
-            return None
-        marks = ",".join("?" * len(radiator_ids))
-        rows = self.db.query(
-            f"SELECT MIN(ts) AS ts FROM energy WHERE radiator_id IN ({marks})", tuple(radiator_ids)
-        )
-        return rows[0]["ts"] if rows else None
-
     async def run(self, sample_every: float = 300.0) -> None:
         while True:
             try:

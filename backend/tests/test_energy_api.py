@@ -349,7 +349,7 @@ async def test_simulator_demo_is_plausible_over_the_seeded_week(api):
     r = await c.get("/api/energy", params={"from": str(start), "to": str(end), "group": "day"})
     body = r.json()
     assert 0.4 < body["heating_share"] < 0.85
-    first = rt.recorder.first_energy_ts(list(rt.house.radiators))
+    first = min(a for a, _ in rt.recorder.energy_extent().values())
     first_day = datetime.fromtimestamp(first, PARIS).date()
     assert body["heating_share_since"] == str(first_day + timedelta(days=1))  # whole days only
     assert (

@@ -32,7 +32,6 @@ CREATE TABLE IF NOT EXISTS linky_curve (
 """
 
 SCHEMA_VERSION_KEY = "schema_version"
-SCHEMA_VERSION = 1
 
 
 MIGRATION_BATCH = 5000  # rows per transaction: the write lock is never held for long
@@ -106,6 +105,7 @@ def _v1_energy_counters(conn: sqlite3.Connection) -> None:
 
 
 MIGRATIONS = {1: _v1_energy_counters}
+SCHEMA_VERSION = max(MIGRATIONS)  # a new migration is the new version
 
 
 def migrate(conn: sqlite3.Connection) -> int:
