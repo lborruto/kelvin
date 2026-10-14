@@ -438,7 +438,8 @@ class Recorder:
         self, radiator_ids: list[str], start: float, end: float, unit: Unit
     ) -> list[dict[str, Any]]:
         """`GET /api/energy/radiators`: per radiator, the local hours, days or months that
-        overlap [start, end), with the energy apportioned to each (unknown buckets omitted)."""
+        overlap [start, end), with the energy apportioned to each (unknown buckets omitted) and
+        whether measured spans cover it whole (`complete`)."""
         if not radiator_ids or end <= start:
             return []
         first = datetime.fromtimestamp(start, self.tz).date()
@@ -466,6 +467,9 @@ class Recorder:
                         "t2_kwh": None if t2 is None else round(t2 / 1000, 3),
                         "interpolated": b.interpolated,
                         "apportioned": b.apportioned,
+                        # Spans cover the whole bucket: false for the bucket a counter's last
+                        # change cuts in two (the time after it is unknown) and for a running one.
+                        "complete": b.covered_s >= edges[i + 1] - edges[i],
                     }
                 )
         return out

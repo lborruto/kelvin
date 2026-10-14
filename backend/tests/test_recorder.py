@@ -649,3 +649,20 @@ def test_an_off_season_reads_0_once_a_change_closes_it_and_null_until_then(env):
     got = day_kwh(rec, ["9312063"], date(2026, 9, 1), date(2026, 10, 13))["9312063"]
     assert got[:39] == [0.0] * 39  # 1 Sep – 9 Oct, across a 28-day chunk edge
     assert got[39:] == [4.0, None, None]  # nothing is known after 21:00 on 10 Oct
+
+
+def test_m2_radiator_energy_says_whether_a_bucket_is_covered_whole(env):
+    """Final review m2: the day the counter's last change cuts in two is no whole day."""
+    _, house, clock, rec = env
+    record(
+        house,
+        clock,
+        rec,
+        [(ts(2026, 10, 11), 1000.0), (ts(2026, 10, 12, 12), 2000.0), (ts(2026, 10, 13, 6), 3000.0)],
+    )
+    rows = rec.radiator_energy(["9312063"], ts(2026, 10, 11), ts(2026, 10, 14), "day")
+    assert [(r["bucket"], r["complete"]) for r in rows] == [
+        ("2026-10-11", True),
+        ("2026-10-12", True),
+        ("2026-10-13", False),
+    ]

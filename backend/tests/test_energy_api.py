@@ -406,6 +406,7 @@ async def test_radiator_energy_keeps_its_shape_and_adds_the_flags(api):
         "t2_kwh",
         "interpolated",
         "apportioned",
+        "complete",
     }
     assert {x["radiator_id"] for x in rows} <= set(rt.house.radiators)
     assert all(x["kwh"] >= 0 for x in rows)
