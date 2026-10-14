@@ -86,8 +86,10 @@
   });
 
   let report = $derived(data?.report ?? null);
-  // Everything below the header renders at once, so nothing already on screen moves (no CLS).
-  let ready = $derived(!!report && house.loaded && (!!linky || linkyFailed));
+  // The report renders with the Linky line as soon as both answers are in, so nothing above it
+  // moves (no CLS). It never waits on the live stream: only the parts built from the rooms and
+  // radiators (Par pièce, the counters) hold their own skeleton until the snapshot arrives.
+  let ready = $derived(!!report && (!!linky || linkyFailed));
   let shown = $derived(data?.period ?? period);
   let cur = $derived(report?.hero.current ?? null);
   let prev = $derived(report?.hero.previous ?? null);
@@ -212,7 +214,8 @@
     </div>
   {/if}
 {:else}
-<div class="panels" class:busy={loading} aria-busy={loading}>
+<!-- Dimmed while a new period loads, and while a failed one leaves the previous period shown. -->
+<div class="panels" class:busy={loading || (!!error && data?.period !== period)} aria-busy={loading}>
 {#if report && cur && prev}
   <section class="panel hero wide" aria-labelledby="hero-title">
     <h2 id="hero-title" class="hero-title">{heroTitle(shown, cur)}</h2>
@@ -260,7 +263,7 @@
     <section class="panel">
       <h2>Chauffage</h2>
       <p class="share-line"><strong class="num share">{fmtPct(report.heating_share)}</strong> de la consommation de la maison {report.heating_share_since ? `depuis le ${fmtDay(report.heating_share_since)}` : 'sur la période'} vient des radiateurs.</p>
-      <div class="meter" aria-hidden="true"><span style:width="{Math.min(100, report.heating_share * 100)}%" style:background={SERIES.radiators}></span></div>
+      <div class="meter" aria-hidden="true"><span style:transform="scaleX({Math.min(1, report.heating_share)})" style:background={SERIES.radiators}></span></div>
     </section>
   {/if}
 
@@ -311,23 +314,30 @@
     </section>
   {/if}
 
-  <section class="panel">
+  <section class="panel" aria-busy={!house.loaded}>
     <h2>Par pièce</h2>
+    {#if !house.loaded}
+      <div class="skeleton inset rooms-sk" aria-hidden="true"></div>
+    {:else}
     <ul class="rooms">
       {#each rooms as r (r.id)}
         <li>
           <span class="name">{r.name}</span>
           <span class="strip">{#if r.id !== NO_ROOM}<RoomTodayStrip roomId={r.id} height={22} />{/if}</span>
           <span class="num muted">{r.figure}</span>
-          <span class="meter thin" aria-hidden="true"><span style:width="{r.share * 100}%" style:background={SERIES.radiators}></span></span>
+          <span class="meter thin" aria-hidden="true"><span style:transform="scaleX({r.share})" style:background={SERIES.radiators}></span></span>
         </li>
       {/each}
     </ul>
+    {/if}
   </section>
 {/if}
 
-<section class="panel">
+<section class="panel" aria-busy={!house.loaded}>
   <h2>Compteurs des radiateurs</h2>
+  {#if !house.loaded}
+    <div class="skeleton inset counters-sk" aria-hidden="true"></div>
+  {:else}
   <div class="table-wrap">
     <table>
       <thead>
@@ -348,6 +358,7 @@
       </tbody>
     </table>
   </div>
+  {/if}
 </section>
 </div>
 {/if}
@@ -420,7 +431,6 @@
     .panels {
       max-width: 1180px;
       grid-template-columns: 1fr 1fr;
-      align-items: start;
     }
     .panels > :global(.wide) {
       grid-column: 1 / -1;
@@ -513,10 +523,24 @@
     border-radius: 3px;
     overflow: hidden;
   }
+  /* The fill is scaled, not sized: a compositor-only move, and none under reduced motion. */
   .meter span {
     display: block;
+    width: 100%;
     height: 100%;
-    transition: width var(--t-data) var(--ease-out);
+    transform-origin: left;
+    transition: transform var(--t-data) var(--ease-out);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .meter span {
+      transition: none;
+    }
+  }
+  .rooms-sk {
+    height: 120px;
+  }
+  .counters-sk {
+    height: 160px;
   }
   .meter.thin {
     display: block;

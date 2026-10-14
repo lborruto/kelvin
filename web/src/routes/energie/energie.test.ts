@@ -142,7 +142,7 @@ describe('Énergie', () => {
     expect(container.querySelector('ul.rooms .swatch')).toBeNull();
     const bar = container.querySelector<HTMLElement>('ul.rooms .meter span')!;
     expect(bar.getAttribute('style')).toContain('var(--series-3)');
-    expect(bar.style.width).toBe('100%');
+    expect(bar.style.transform).toBe('scaleX(1)');
   });
 
   it('without Linky: a way to connect it, and the radiators alone', async () => {
@@ -409,5 +409,17 @@ describe('Énergie', () => {
     await screen.findByRole('heading', { name: 'Compteurs des radiateurs' });
     const cells = [...container.querySelectorAll('td.mono')].map((t) => t.textContent);
     expect(cells).toEqual(['1,0', '0,4', '0,6']);
+  });
+
+  it('shows the report as soon as it arrives, even before the live stream; house parts wait in their own slots', async () => {
+    house.reset();
+    vi.mocked(api.energyReport).mockResolvedValue(report());
+    const { container } = render(Page);
+    expect(await screen.findByRole('img', { name: 'Consommation de la maison par mois' })).toBeInTheDocument();
+    expect(container.querySelector('.hero .big')).toHaveTextContent('€');
+    // Par pièce and the counters need the rooms and radiators: they hold a skeleton meanwhile.
+    expect(screen.getByRole('heading', { name: 'Par pièce' }).closest('section')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('heading', { name: 'Compteurs des radiateurs' }).closest('section')).toHaveAttribute('aria-busy', 'true');
+    expect(container.querySelector('.table-wrap')).toBeNull();
   });
 });
