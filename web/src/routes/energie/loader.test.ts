@@ -199,4 +199,76 @@ describe('EnergieData', () => {
     d.stepDay(1);
     expect(d.dayIso).toBe('2026-10-12');
   });
+  it('L9 survives a room chosen while the auto day is on its way: the incomplete newest day still falls back', async () => {
+    // A cold load: the report lands, the auto request for its last day starts, then the house snapshot picks a room.
+    let late!: (x: EnergyDay) => void;
+    vi.mocked(api.energyDay)
+      .mockImplementationOnce(() => new Promise((r) => (late = r)))
+      .mockImplementation(async (date: string) => dayOf(date, date !== '2026-10-12', ['2026-10-09', '2026-10-10']));
+    const d = new EnergieData(NOW);
+    d.start('2026-10-12');
+    await flush();
+    expect(api.energyDay).toHaveBeenCalledTimes(1);
+    d.setRoom('p-salon');
+    await flush();
+    await flush();
+    late(dayOf('2026-10-12', false, ['2026-10-09', '2026-10-10'])); // dropped: superseded
+    await flush();
+    expect(vi.mocked(api.energyDay).mock.calls).toEqual([
+      ['2026-10-12', null],
+      ['2026-10-12', 'p-salon'],
+      ['2026-10-10', 'p-salon']
+    ]);
+    expect(d.dayIso).toBe('2026-10-10');
+    expect(d.day?.date).toBe('2026-10-10');
+  });
+
+  it('L9 survives a retry after a failed auto day', async () => {
+    vi.mocked(api.energyDay)
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockImplementation(async (date: string) => dayOf(date, date !== '2026-10-12', ['2026-10-10']));
+    const d = new EnergieData(NOW);
+    d.start('2026-10-12');
+    await flush();
+    await flush();
+    expect(d.dayError).toBe('Impossible de charger la courbe.');
+    d.retryDay();
+    await flush();
+    await flush();
+    expect(d.dayIso).toBe('2026-10-10');
+    // A day the user chose is never replaced, complete or not.
+    vi.mocked(api.energyDay).mockImplementation(async (date: string) => dayOf(date, false, ['2026-10-10']));
+    d.showDay('2026-10-12');
+    d.setRoom('p-salon');
+    await flush();
+    await flush();
+    expect(d.dayIso).toBe('2026-10-12');
+  });
+
+  it('a failed period change goes back to the period on screen; retry asks for the failed one again', async () => {
+    const d = new EnergieData(NOW);
+    d.start('2026-10-12');
+    await flush();
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    d.step(-1);
+    expect(d.period?.from).toBe('2026-09-01'); // asked for at once
+    await flush();
+    // The navigator, the hero and the panels describe the same period: the one still on screen.
+    expect(d.period).toEqual({ from: '2026-10-01', to: '2026-11-01' });
+    expect(d.data?.period.from).toBe('2026-10-01');
+    expect(d.error).toBe('Impossible de charger la consommation.');
+    expect(d.failed).toEqual({ view: 'month', period: { from: '2026-09-01', to: '2026-10-01' } });
+    d.retry();
+    expect(d.period?.from).toBe('2026-09-01');
+    await flush();
+    expect(d.data?.period.from).toBe('2026-09-01');
+    expect([d.error, d.failed]).toEqual([null, null]);
+    // A view change that fails rolls the view back too.
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    d.setView('year');
+    await flush();
+    expect([d.view, d.period?.from]).toEqual(['month', '2026-09-01']);
+    expect(d.failed?.view).toBe('year');
+  });
 });
+

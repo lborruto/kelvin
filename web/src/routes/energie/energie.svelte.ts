@@ -48,7 +48,12 @@ export class EnergieData {
   /** Days with a complete curve, kept from the last answer so stepping still works after a failure. */
   available = $state<string[]>([]);
   room = $state<string | null>(null);
+  /** The view and period whose report failed while another stayed on screen: « Réessayer » asks for it again. */
+  failed = $state<{ view: View; period: Span } | null>(null);
   private seq = 0;
+  /** The Courbe's day was picked by the page (L9), not by the user: an incomplete answer still falls back to an
+   * older complete day, even when the same day is asked again meanwhile (a room change, a retry). */
+  private autoDay = false;
   private daySeq = 0;
   private readonly now: () => number;
 
@@ -109,6 +114,10 @@ export class EnergieData {
   }
 
   retry(): void {
+    if (this.failed) {
+      this.view = this.failed.view;
+      this.period = this.failed.period;
+    }
     if (this.period) void this.load();
   }
 
@@ -129,7 +138,8 @@ export class EnergieData {
 
   showDay(iso: string, auto = false): void {
     this.dayIso = iso;
-    void this.loadDay(auto);
+    this.autoDay = auto;
+    void this.loadDay();
   }
 
   stepDay(delta: -1 | 1): void {
@@ -143,11 +153,11 @@ export class EnergieData {
   setRoom(id: string | null): void {
     if (id === this.room) return;
     this.room = id;
-    if (this.dayIso) void this.loadDay(false);
+    if (this.dayIso) void this.loadDay();
   }
 
   retryDay(): void {
-    if (this.dayIso) void this.loadDay(false);
+    if (this.dayIso) void this.loadDay();
   }
 
   private focusDay(p: Span): string {
@@ -176,6 +186,7 @@ export class EnergieData {
       const [chart, main] = await Promise.all([chartReq, mainReq]);
       if (mine !== this.seq) return;
       this.data = { view: v, period: p, chart, main };
+      this.failed = null;
       this.loading = false;
       if (main.last_day) this.last = main.last_day;
       this.first = earliest(main.linky_since, main.quality?.radiators_since);
@@ -184,6 +195,13 @@ export class EnergieData {
       if (mine !== this.seq) return;
       this.error = errorText(e, COPY.reportFailed);
       this.loading = false;
+      // The navigator, the hero and the panels must describe the same period: go back to the one on screen.
+      const shown = this.data;
+      if (shown && (shown.view !== v || shown.period !== p)) {
+        this.failed = { view: v, period: p };
+        this.view = shown.view;
+        this.period = shown.period;
+      }
     }
   }
 
@@ -198,7 +216,7 @@ export class EnergieData {
     this.showDay(this.dayChoices.at(-1) ?? this.lastIn(p), true);
   }
 
-  private async loadDay(auto: boolean): Promise<void> {
+  private async loadDay(): Promise<void> {
     const d = this.dayIso!;
     const mine = ++this.daySeq;
     // Another day: its heading must never sit over the previous day's bars. The same day (a room
@@ -209,12 +227,14 @@ export class EnergieData {
       const r = await api.energyDay(d, this.room);
       if (mine !== this.daySeq) return;
       this.available = r.available;
+      const auto = this.autoDay;
+      this.autoDay = false;
       if (auto && !r.complete) {
         const p = this.period;
         const older = r.available.filter((x) => x < d && (!p || x >= p.from)).at(-1);
         if (older) {
           this.dayIso = older;
-          void this.loadDay(false);
+          void this.loadDay();
           return;
         }
       }

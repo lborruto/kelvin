@@ -184,6 +184,38 @@ describe('Énergie', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' })).toBeInTheDocument();
   });
 
+  it('a failed period change keeps the heading on the period shown, and names the one that failed', async () => {
+    const { container } = render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Période précédente' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Septembre 2026 : Impossible de charger la consommation.');
+    expect(screen.getByRole('heading', { level: 2, name: 'Octobre 2026' })).toBeInTheDocument();
+    expect(container.querySelector('.hero .big')).toHaveTextContent('98,40 €');
+    expect(container.querySelector('.panels')).not.toHaveClass('busy');
+    await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Septembre 2026' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('every period change is announced once: a view, a bar drill, ‹ ›, « Dernier jour »', async () => {
+    const say = vi.spyOn(announcer, 'say');
+    render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    expect(say.mock.calls).toEqual([['Lundi 12 octobre 2026']]);
+    expect(await screen.findByRole('heading', { level: 2, name: 'Lundi 12 octobre 2026' })).toBeInTheDocument();
+    // Jour: a bar for another day opens that day.
+    await fireEvent.keyDown(await screen.findByRole('button', { name: /^11 octobre, / }), { key: 'Enter' });
+    expect(say.mock.calls.at(-1)).toEqual(['Dimanche 11 octobre 2026']);
+    await fireEvent.click(screen.getByRole('button', { name: 'Dernier jour' }));
+    expect(say.mock.calls.at(-1)).toEqual(['Lundi 12 octobre 2026']);
+    await fireEvent.click(screen.getByRole('button', { name: 'Période précédente' }));
+    expect(say.mock.calls.at(-1)).toEqual(['Dimanche 11 octobre 2026']);
+    expect(say).toHaveBeenCalledTimes(4);
+    say.mockRestore();
+  });
+
   it('stacks HC and HP in series 1 and 2, radiators as series-3 marks; Enter on a day opens its Courbe', async () => {
     const { container } = render(Page);
     await screen.findByRole('img', { name: 'Consommation de la maison par jour' });

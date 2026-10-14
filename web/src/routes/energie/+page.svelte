@@ -34,6 +34,7 @@
     drillCurve: (d: string) => `Voir la courbe du ${d}`,
     curveShown: (d: string) => `Courbe du ${d}`,
     retry: 'Réessayer',
+    failedPeriod: (period: string, error: string) => `${period}\u00a0: ${error}`,
     fresh: (d: string) => `Linky\u00a0: données jusqu’au ${d}`,
     connect: 'Reliez le compteur Linky pour voir la consommation de toute la maison et son coût.',
     settings: 'Réglages',
@@ -132,20 +133,21 @@
       : []
   );
 
-  function step(d: -1 | 1) {
-    const before = data.period;
-    data.step(d);
-    if (data.period && data.period !== before) announcer.say(periodTitle(data.view, data.period));
+  /** Runs a navigation and, when it changes the view or the period, says the new period once (all four ways in:
+   * the views, ‹ ›, « Dernier jour », a bar drill). A failure is said by the error line (role alert). */
+  function navigate(run: () => void) {
+    const key = () => (data.period ? `${data.view} ${data.period.from} ${data.period.to}` : '');
+    const before = key();
+    run();
+    if (data.period && key() !== before) announcer.say(periodTitle(data.view, data.period));
   }
-  function toLatest() {
-    data.toLatest();
-    if (data.period) announcer.say(periodTitle(data.view, data.period));
-  }
+  const step = (d: -1 | 1) => navigate(() => data.step(d));
+  const toLatest = () => navigate(() => data.toLatest());
   function drill(i: number) {
     const b = bars[i];
     if (!b || !loaded) return;
     const opensCurve = group === 'day' && loaded.view !== 'day';
-    data.drill(b.key);
+    navigate(() => data.drill(b.key));
     if (opensCurve) {
       announcer.say(COPY.curveShown(fmtDateLong(b.key)));
       document.getElementById('courbe')?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
@@ -201,7 +203,7 @@
 
 <header class="top">
   <h1>{COPY.title}</h1>
-  <Segmented options={VIEWS} value={data.view} label={COPY.views} onchange={(v) => data.setView(v)} />
+  <Segmented options={VIEWS} value={data.view} label={COPY.views} onchange={(v) => navigate(() => data.setView(v))} />
 </header>
 {#if data.period}
   <PeriodNav
@@ -221,7 +223,7 @@
   <p class="callout" class:bad={linkyNote.bad} role="status">{linkyNote.text}{#if linkyNote.link}&nbsp;<a href="/maison#linky">{linkyNote.link}</a>{/if}</p>
 {/if}
 {#if ready && main?.last_day}<p class="muted fresh">{COPY.fresh(fmtDay(main.last_day))}</p>{/if}
-{#if data.error}<p class="error" role="alert">{data.error} <button type="button" class="btn btn-sm" onclick={() => data.retry()}>{COPY.retry}</button></p>{/if}
+{#if data.error}<p class="error" role="alert">{data.failed ? COPY.failedPeriod(periodTitle(data.failed.view, data.failed.period), data.error) : data.error} <button type="button" class="btn btn-sm" onclick={() => data.retry()}>{COPY.retry}</button></p>{/if}
 
 {#if !ready}
   {#if !data.error}
