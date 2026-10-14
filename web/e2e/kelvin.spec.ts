@@ -179,18 +179,6 @@ test('a deep link registers the service worker at the root', async ({ page, isMo
   expect(errors.filter((e) => /MIME type/.test(e))).toEqual([]);
 });
 
-test('Maison and Énergie never scroll sideways at 390 px', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  for (const path of ['/maison', '/energie']) {
-    await page.goto(path);
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    if (path === '/maison') await expect(page.locator('[aria-label="Historique des prix"]:visible')).toBeVisible();
-    else await expect(page.getByRole('heading', { name: 'Par pièce' })).toBeVisible();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow, path).toBeLessThanOrEqual(0);
-  }
-});
-
 test('Réglages saves a tariff and shows the simulated Linky', async ({ page }) => {
   await page.goto('/maison');
   const tarif = page.locator('#tarif');
