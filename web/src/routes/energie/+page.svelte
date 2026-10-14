@@ -564,11 +564,17 @@
     gap: 12px;
     font-size: 13px;
   }
+  /* One set of columns for every room (subgrid): names fit up to 14rem, strips line up and fill. */
+  .rooms {
+    grid-template-columns: fit-content(14rem) minmax(0, 1fr) auto;
+    column-gap: 12px;
+  }
   .rooms li {
+    grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr) auto;
+    grid-template-columns: subgrid;
     align-items: center;
-    gap: 6px 12px;
+    row-gap: 6px;
   }
   .rooms .name {
     text-wrap: balance;
@@ -620,7 +626,7 @@
       display: block;
       font-size: 12px;
     }
-    .rooms li {
+    .rooms {
       grid-template-columns: minmax(0, 1fr) auto;
     }
     .rooms .num {
