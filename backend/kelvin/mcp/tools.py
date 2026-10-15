@@ -4,17 +4,20 @@ Builders take the AppContext and return an envelope; the Runner wraps every call
 from __future__ import annotations
 
 import asyncio
+from collections import Counter
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
+from pydantic import Field
 
-from kelvin.api import views
+from kelvin.api import bounds, views
 from kelvin.api.auth_routes import status_word
 from kelvin.api.runtime import sources
 from kelvin.billing.overlap import day_ranges, week_overlap
+from kelvin.errors import UserError
 from kelvin.house.model import DAY_ORDER
 from kelvin.mcp import shape
 from kelvin.mcp.runner import Runner
@@ -285,6 +288,155 @@ async def programmes(ctx: Any, room_id: str | None) -> dict[str, Any]:
     )
 
 
+MAX_MCP_POINTS = 2000  # per radiator: a result an agent can read (Decision 9)
+MAX_GRID_DAYS = 366
+
+
+def _local_ts(value: datetime, tz: str) -> float:
+    return (value if value.tzinfo else value.replace(tzinfo=ZoneInfo(tz))).timestamp()
+
+
+async def history(
+    ctx: Any,
+    start: datetime,
+    end: datetime,
+    room_id: str | None,
+    radiator_ids: list[str] | None,
+    step_minutes: int,
+) -> dict[str, Any]:
+    rt, tz = ctx.rt, ctx.settings.tz
+    a, b = _local_ts(start, tz), _local_ts(end, tz)
+    if room_id:
+        ids = [r.id for r in views.room_radiators(rt, room_id)[1]]
+    else:
+        ids = bounds.check_ids(radiator_ids or [])
+        for i in ids:
+            views.radiator(rt, i)
+    if not ids:
+        raise UserError("radiator_unknown")
+    bounds.check_span(a, b)
+    step = step_minutes * 60
+    if (b - a) / step > MAX_MCP_POINTS:
+        raise UserError("period_invalid")
+    rows = await asyncio.to_thread(rt.recorder.history, ids, a, b, step)
+    series: dict[str, list[list[Any]]] = {i: [] for i in ids}
+    for x in rows:
+        series[x["radiator_id"]].append(
+            [shape.iso(x["ts"], tz), x["temperature"], x["setpoint"], x["target"]]
+        )
+    data = {
+        "from_at": shape.iso(a, tz),
+        "to_at": shape.iso(b, tz),
+        "step_minutes": step_minutes,
+        "columns": ["at", "temperature_c", "effective_setpoint_c", "target_c"],
+        "series": [
+            {"radiator_id": i, "name": rt.house.radiators[i].name, "rows": series[i]} for i in ids
+        ],
+    }
+    return shape.envelope(
+        "get_temperature_history",
+        data,
+        ctx=ctx,
+        sources=["recorder"],
+        basis="measured",
+        notes=["each row is the mean over its step; a step without samples is absent"],
+    )
+
+
+async def alerts(ctx: Any, state: str) -> dict[str, Any]:
+    rt, tz = ctx.rt, ctx.settings.tz
+    rows = rt.alerts.store.listing(state) if rt.alerts else []
+    data = {
+        "state": state,
+        "alerts": [
+            {
+                "alert_id": a["id"],
+                "kind": a["kind"],
+                "severity": a["severity"],
+                "params": a["params"],
+                "first_seen_at": shape.iso(a["first_seen"], tz),
+                "last_seen_at": shape.iso(a["last_seen"], tz),
+                "resolved_at": shape.iso(a["resolved_at"], tz),
+                "dismissed": a["dismissed"],
+            }
+            for a in rows
+        ],
+    }
+    return shape.envelope(
+        "get_alerts",
+        data,
+        ctx=ctx,
+        sources=["kelvin"],
+        basis="measured",
+        notes=[
+            "kinds are stable codes (backend/README.md); params name Kelvin's room and radiator ids"
+        ],
+    )
+
+
+async def grid_signals(ctx: Any, start: date | None, end: date | None) -> dict[str, Any]:
+    rt = ctx.rt
+    today = _today(ctx)
+    a = start or today - timedelta(days=30)
+    b = end or today + timedelta(days=2)
+    if not bounds.FIRST_DAY <= a < b or (b - a).days > MAX_GRID_DAYS:
+        raise UserError("period_invalid")
+    tariff = rt.linky.tariffs.get() if rt.linky else None
+    tempo = tariff is not None and "tempo" in tariff.options()
+    colours = rt.grid.store.tempo_colours(a, b) if rt.grid is not None and tempo else {}
+    eco = rt.grid.store.ecowatt(a, b) if rt.grid is not None else {}
+    view = rt.grid.view() if rt.grid is not None else None
+    counts = Counter(colours.values())
+    data = {
+        "from_date": a.isoformat(),
+        "to_date_exclusive": b.isoformat(),
+        "tempo_tariff": tempo,
+        "tempo_today_tomorrow": view["tempo"] if view else None,
+        "tempo_days": [{"date": d.isoformat(), "colour": c} for d, c in sorted(colours.items())],
+        "tempo_counts": {k: counts[k] for k in ("blue", "white", "red")} if tempo else None,
+        "ecowatt_days": [{"date": d.isoformat(), "level": e.level} for d, e in sorted(eco.items())],
+        "ecowatt_upcoming": view["ecowatt"]["days"] if view else [],
+    }
+    return shape.envelope(
+        "get_grid_signals",
+        data,
+        ctx=ctx,
+        sources=["grid"],
+        basis="measured",
+        notes=[
+            "Tempo colours are listed only when the tariff has a Tempo row",
+            "a Tempo day runs from 06:00 to 06:00 the next day",
+            "EcoWatt days are kept 30 days; level 1 normal, 2 strained, 3 cut risk",
+        ],
+    )
+
+
+async def tariff_view(ctx: Any) -> dict[str, Any]:
+    rt, tz = ctx.rt, ctx.settings.tz
+    t = rt.linky.tariffs.get() if rt.linky else None
+    contract = rt.linky.tariffs.contract_last() if rt.linky else None
+    data = {
+        "configured": t is not None,
+        "option_today": t.option_on(_today(ctx)) if t else None,
+        "tariff": t.view() if t else None,
+        "contract": None
+        if contract is None
+        else {
+            "subscribed_kva": contract["kva"],
+            "offpeak_hours": contract["offpeak"],
+            "read_at": shape.iso(contract["fetched_at"], tz),
+        },
+    }
+    return shape.envelope(
+        "get_tariff",
+        shape.neutral(data),
+        ctx=ctx,
+        sources=["tariff", "enedis_contract"],
+        basis="static",
+        notes=["prices are as the owner entered them, incl. VAT; each row applies from valid_from"],
+    )
+
+
 def register_tools(server: MCPServer, run: Runner) -> None:
     @server.tool(
         annotations=READ_ONLY,
@@ -331,3 +483,70 @@ def register_tools(server: MCPServer, run: Runner) -> None:
         return await run(
             "tool", "get_programmes", {"room_id": room_id}, lambda c: programmes(c, room_id)
         )
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "Temperature, effective setpoint and target per radiator over a period, as means per"
+            " step. Give room_id or radiator_ids; start/end are local ISO date-times; at most 2000"
+            " points per radiator."
+        ),
+    )
+    async def get_temperature_history(
+        start: datetime,
+        end: datetime,
+        room_id: str | None = None,
+        radiator_ids: list[str] | None = None,
+        step_minutes: Annotated[int, Field(ge=5, le=1440)] = 60,
+    ) -> dict[str, Any]:
+        args = {
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "room_id": room_id,
+            "radiator_ids": radiator_ids,
+            "step_minutes": step_minutes,
+        }
+        return await run(
+            "tool",
+            "get_temperature_history",
+            args,
+            lambda c: history(c, start, end, room_id, radiator_ids, step_minutes),
+        )
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "Kelvin's alerts (unreachable radiator, failed command, Linky stalled, Tempo red"
+            " tomorrow,"
+            " EcoWatt, price change, consent expiring, off-peak hours changed): active or all."
+        ),
+    )
+    async def get_alerts(state: Literal["active", "all"] = "active") -> dict[str, Any]:
+        return await run("tool", "get_alerts", {"state": state}, lambda c: alerts(c, state))
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "Tempo colours (when the tariff has a Tempo row) and EcoWatt levels stored by Kelvin"
+            " for"
+            " a date window (default: the last 30 days to tomorrow), with today's and tomorrow's"
+            " signals. Never fetches anything."
+        ),
+    )
+    async def get_grid_signals(
+        start: date | None = None, end: date | None = None
+    ) -> dict[str, Any]:
+        args = {"start": start and start.isoformat(), "end": end and end.isoformat()}
+        return await run("tool", "get_grid_signals", args, lambda c: grid_signals(c, start, end))
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "The electricity tariff: price rows by date (option base, offpeak/peak or tempo;"
+            " subscription and per-kWh prices), off-peak schedules, Tempo hours, and the last"
+            " contract"
+            " read from Enedis (subscribed kVA, off-peak hours)."
+        ),
+    )
+    async def get_tariff() -> dict[str, Any]:
+        return await run("tool", "get_tariff", {}, tariff_view)
