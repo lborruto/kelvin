@@ -7,8 +7,8 @@ import pytest
 
 from kelvin.billing.costs import day_energy
 from kelvin.billing.day_detail import day_detail
+from kelvin.billing.pricing import Pricing
 from kelvin.billing.slots import Slot
-from kelvin.billing.split import Share
 from kelvin.billing.tariff import Prices, Tariff
 from kelvin.linky.models import CurvePoint, day_bounds
 from kelvin.recorder.energy import Bucket, local_edges
@@ -24,8 +24,8 @@ def curve(day: date, wh: float = 500.0) -> list[CurvePoint]:
 
 def detail(day, points, daily_wh, tariff=NIGHT, radiators=None, rooms=None, life=None):
     edges = local_edges(day, day + timedelta(days=1), "halfhour", PARIS)
-    ranges = tariff.ranges() if tariff else None
-    e = day_energy(day, daily_wh, points, ranges, PARIS, Share(0.3, "fallback_all"))
+    pricing = Pricing(tariff, PARIS) if tariff else None
+    e = day_energy(day, daily_wh, points, pricing, PARIS, None)
     return day_detail(
         day,
         points,

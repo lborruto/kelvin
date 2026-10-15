@@ -973,3 +973,36 @@ def test_period_quality_describes_the_selected_period_not_the_window():
     )
     assert other["period"]["quality"]["estimated_days"] == 1
     assert other["period"]["quality"]["curve_vs_daily_pct"] is None
+
+
+def test_the_projection_reprices_the_trailing_rate_mix_at_today_s_row():
+    from kelvin.billing.costs import DayEnergy
+    from kelvin.billing.report import _projected_price
+    from kelvin.billing.tariff import PriceRow
+
+    tempo = {
+        "blue_hc": 0.1,
+        "blue_hp": 0.2,
+        "white_hc": 0.1,
+        "white_hp": 0.3,
+        "red_hc": 0.1,
+        "red_hp": 0.8,
+    }
+    row = PriceRow.make(date(2026, 1, 1), "tempo", 15.0, tempo)
+    days_ = [
+        DayEnergy(
+            date(2026, 10, i),
+            10.0,
+            4.0,
+            6.0,
+            False,
+            "curve",
+            (("blue_hc", 4.0), ("blue_hp", 6.0)),
+            1.6,
+        )
+        for i in range(1, 4)
+    ]
+    assert _projected_price(days_, row) == pytest.approx((4 * 0.1 + 6 * 0.2) / 10)
+    other = PriceRow.make(date(2026, 1, 1), "base", 15.0, {"base": 0.19})
+    assert _projected_price(days_, other) == pytest.approx(1.6 / 10)  # keys differ: mean price paid
+    assert _projected_price([], row) is None

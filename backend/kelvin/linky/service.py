@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from kelvin.billing.compare import minus_years
 from kelvin.billing.costs import curve_complete, day_energy
 from kelvin.billing.day_detail import day_detail
+from kelvin.billing.pricing import Pricing
 from kelvin.billing.radiators import RadiatorDay
 from kelvin.billing.report import (
     Group,
@@ -26,7 +27,7 @@ from kelvin.billing.report import (
 )
 from kelvin.billing.room_energy import room_energy
 from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
-from kelvin.billing.split import FallbackShares, Share
+from kelvin.billing.split import FallbackShares
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds, local_day
 from kelvin.linky.radiator_cache import RadiatorDayCache
@@ -78,6 +79,8 @@ class LinkyService:
         self.wall = wall
         self.store = LinkyStore(db, tz)
         self.tariffs = TariffStore(db)
+        # Tempo colour per Tempo day for [start, end): the grid store's, set by the runtime.
+        self.colours: Callable[[date, date], dict[date, str]] = lambda start, end: {}
         self.make_source = make_source
         self.simulator = simulator
         self.prm = credentials[0] if credentials else None
@@ -252,6 +255,7 @@ class LinkyService:
             sample_stats=stats,
             linky_since=self.store.first_day(first_day),
             curve_since=self.store.first_curve_day(),
+            colours=self.colours(load_lo, load_hi),
         )
         return build_report(start, end, group, inputs, period)
 
@@ -305,20 +309,11 @@ class LinkyService:
         energy = None
         daily = self.store.daily(day, nxt).get(day) if counted else None
         if daily is not None or complete:
-            ranges = tariff.ranges() if tariff else None
-            shares = (
-                FallbackShares({d: p for d, p in full.items() if lo <= d < hi}, ranges, self.tz)
-                if ranges
-                else None
-            )
-            energy = day_energy(
-                day,
-                daily,
-                points,
-                ranges,
-                self.tz,
-                shares.for_day(day) if shares else Share(0.0, "slots"),
-            )
+            colours = self.colours(day - timedelta(days=1), nxt)
+            pricing = Pricing(tariff, self.tz, colours) if tariff else None
+            # The same pool as the report's for that window (`lo`/`hi`): one figure per day.
+            pool = FallbackShares({d: p for d, p in full.items() if lo <= d < hi}, self.tz)
+            energy = day_energy(day, daily, points, pricing, self.tz, pool.for_day(day))
         edges = local_edges(day, nxt, "halfhour", self.tz)
         radiators = recorder.energy_buckets(edges, recorder.energy_radiator_ids())
         # As in `report`: a radiator still in the house exists from its first reading on, one

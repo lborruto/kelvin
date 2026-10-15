@@ -1,29 +1,27 @@
-"""The HC share of a day without a complete curve (spec §3.1 L6). Pure.
+"""How a day's energy spreads over its half-hours when it has no complete curve (spec §3.1 L6,
+§2.2 « day cost without a curve »). Pure.
 
-A day with a complete load curve splits by its own curve. Any other day uses, in order:
-complete curve days within ±15 days ("fallback_window"), else complete days of the same
-calendar month from 35 days before the day on ("fallback_month"), else every complete day from
-35 days before the day on ("fallback_all"), else the slot length's share of the day ("slots").
-
-The 35-day floor keeps a day's share independent of the window asked: the service loads curves
-from 400 days before the window and every curve after it, and a day of the running € sums is at
-most 365 days before the window (they start on 1 January), so the curves from 35 days before it
-on are always loaded, whatever older history some windows also load. A comparison day of last
-year can be 366 days back in a leap year; its floor's first day may then be unloaded, which
-changes nothing between windows (the selected period, not the window, sets that look-back).
+A day with a complete load curve uses its own curve. Any other day uses a fallback **profile**:
+the share of a day's energy in each local half-hour, pooled (energy-weighted) over complete curve
+days within ±15 days ("fallback_window"), else complete days of the same calendar month
+("fallback_month"), else every complete day ("fallback_all") — the last two from 35 days before
+the day on (spec §2.2: the pool never depends on the window asked; the service loads curves from
+400 days before the window, so day − 35 is always loaded) — else an even spread over the day's
+real half-hours ("slots"). Priced by the day's own tariff, a profile gives the seasonal HC share
+under HC/HP and the three Tempo windows (00:00–06:00 on the previous day's colour, 06:00–22:00 HP,
+22:00–24:00 HC), on 23 h and 25 h days alike.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from kelvin.billing.slots import Ranges, offpeak_share_of_day, split_curve
 from kelvin.linky.models import CurvePoint
 
 WINDOW_DAYS = 15
-FLOOR_DAYS = 35  # the month and all-days fallbacks read curves from day − 35 days on
+FLOOR_DAYS = 35  # the month and all-days pools read curves from day − 35 days on (Plan 5, kept)
 
 
 @dataclass(frozen=True)
@@ -32,24 +30,43 @@ class Share:
     method: str  # curve | fallback_window | fallback_month | fallback_all | slots
 
 
+@dataclass(frozen=True)
+class Profile:
+    weights: tuple[tuple[int, float], ...]  # half-hour start minute → share of the energy
+    method: str  # fallback_window | fallback_month | fallback_all | slots (weights empty)
+
+
+def half_hour_key(ts: int, tz: ZoneInfo) -> int:
+    """The local start minute of the half-hour holding `ts` (the repeated autumn hour shares
+    its keys with the first one)."""
+    local = datetime.fromtimestamp(ts, tz)
+    return (local.hour * 60 + local.minute) // 30 * 30
+
+
 class FallbackShares:
-    def __init__(
-        self, complete: dict[date, list[CurvePoint]], ranges: Ranges, tz: ZoneInfo
-    ) -> None:
-        self.ranges = ranges
-        self.days: dict[date, tuple[float, float]] = {}
+    def __init__(self, complete: dict[date, list[CurvePoint]], tz: ZoneInfo) -> None:
+        self.days: dict[date, dict[int, float]] = {}
         for d, points in complete.items():
-            hc, hp = split_curve(points, ranges, tz)
-            if hc + hp > 0:
-                self.days[d] = (hc, hc + hp)
-        self._cache: dict[date, Share] = {}
+            acc: dict[int, float] = {}
+            for p in points:
+                k = half_hour_key(p.ts, tz)
+                acc[k] = acc.get(k, 0.0) + p.wh
+            if sum(acc.values()) > 0:
+                self.days[d] = acc
+        self._cache: dict[date, Profile] = {}
 
     @staticmethod
-    def _share(pairs: list[tuple[float, float]]) -> float | None:
-        total = sum(t for _, t in pairs)
-        return sum(h for h, _ in pairs) / total if total > 0 else None
+    def _pool(days: list[dict[int, float]]) -> tuple[tuple[int, float], ...] | None:
+        total = sum(sum(d.values()) for d in days)
+        if total <= 0:
+            return None
+        acc: dict[int, float] = {}
+        for d in days:
+            for k, v in d.items():
+                acc[k] = acc.get(k, 0.0) + v
+        return tuple(sorted((k, v / total) for k, v in acc.items()))
 
-    def for_day(self, day: date) -> Share:
+    def for_day(self, day: date) -> Profile:
         if day not in self._cache:
             near = [
                 v
@@ -57,24 +74,22 @@ class FallbackShares:
                 if (v := self.days.get(day + timedelta(days=i))) is not None
             ]
             floor = day - timedelta(days=FLOOR_DAYS)
-            later = [(d, v) for d, v in self.days.items() if d >= floor]
-            month = [v for d, v in later if d.month == day.month]
-            for pairs, method in (
+            later = [v for d, v in self.days.items() if d >= floor]
+            month = [v for d, v in self.days.items() if d >= floor and d.month == day.month]
+            for pool, method in (
                 (near, "fallback_window"),
                 (month, "fallback_month"),
-                ([v for _, v in later], "fallback_all"),
+                (later, "fallback_all"),
             ):
-                value = self._share(pairs)
-                if value is not None:
-                    self._cache[day] = Share(value, method)
+                weights = self._pool(pool)
+                if weights is not None:
+                    self._cache[day] = Profile(weights, method)
                     break
             else:
-                self._cache[day] = Share(offpeak_share_of_day(self.ranges), "slots")
+                self._cache[day] = Profile((), "slots")
         return self._cache[day]
 
-    def overall(self) -> Share:
-        """The all-loaded-days share, for the projection and the quality block."""
-        value = self._share(list(self.days.values()))
-        if value is None:
-            return Share(offpeak_share_of_day(self.ranges), "slots")
-        return Share(value, "fallback_all")
+    def overall(self) -> Profile:
+        """Every loaded complete day: the projection and the quality block."""
+        weights = self._pool(list(self.days.values()))
+        return Profile(weights, "fallback_all") if weights is not None else Profile((), "slots")
