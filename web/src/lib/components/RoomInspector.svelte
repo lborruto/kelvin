@@ -108,7 +108,7 @@
           {m.room.radiatorCount(radiators.length)}
           {#if levelLabel(room.heating_level)} · {levelLabel(room.heating_level)}{/if}
           {#if mode === 'program' && !sameProgram} · {m.room.programsDiffer}{:else if change} · <span class="nowrap">{fmtNextChange(change, now)}</span>{/if}
-          {#if presenceText} · <span class="nowrap">{presenceText}</span>{/if}{#if dutyEntry} · <span
+          {#if presenceText} · <span class="nowrap">{presenceText}</span>{/if}{#if dutyEntry}{' · '}<span
               title={m.room.dutyHint}>{dutyText(dutyEntry.value?.rooms[roomId]?.duty)}</span>{/if}
         </p>
       </div>

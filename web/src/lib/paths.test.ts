@@ -12,7 +12,7 @@ describe('ROUTES', () => {
     ]);
     expect(ROUTES.room('p-salon')).toBe('/rooms/p-salon');
     expect(ROUTES.room('a/b c')).toBe('/rooms/a%2Fb%20c');
-    expect(ANCHORS).toEqual({ away: 'away', tariff: 'tariff', linky: 'linky', quality: 'quality', curve: 'curve' });
+    expect(ANCHORS).toEqual({ away: 'away', tariff: 'tariff', linky: 'linky', quality: 'quality', curve: 'curve', alerts: 'alerts', sessions: 'sessions' });
     expect(NAV.map((n) => n.href)).toEqual(['/', '/schedule', '/energy', '/home']);
   });
 });

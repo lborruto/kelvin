@@ -67,6 +67,10 @@
   // Days no radiator of the room may have edited (QW8): shown read-only, never in the payload.
   let dayLocks = $derived(lockedDays(radiators));
   let lockedList = $derived(Object.keys(dayLocks) as Day[]);
+  // « Du » never rests on a locked day (it is not in the list): the first unlocked day takes over.
+  $effect(() => {
+    if (dayLocks[copyFrom]) copyFrom = DAYS.find((d) => !dayLocks[d]) ?? copyFrom;
+  });
   let mismatch = $derived(radiators.some((r) => JSON.stringify(r.program) !== JSON.stringify(radiators[0]?.program)));
   let dirty = $derived(!!draft && !!baseline && changedDays(baseline, draft).length > 0);
 

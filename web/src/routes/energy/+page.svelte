@@ -82,7 +82,12 @@
   let chart = $derived(loaded?.chart ?? null);
   // The report renders with the Linky line as soon as both answers are in, so nothing above it
   // moves (no CLS). It never waits on the live stream.
-  let ready = $derived(!!loaded && (!!linky || linkyFailed));
+  // The alerts answer with the rest: their callouts then come in the same frame as the panels they sit
+  // above, replacing the skeleton instead of pushing drawn panels down (CLS).
+  $effect(() => {
+    if (auth.loggedIn !== false && alerts.list === null) void alerts.load(); // load() settles the list on failure too
+  });
+  let ready = $derived(!!loaded && (!!linky || linkyFailed) && alerts.list !== null);
   let busy = $derived(data.loading || (!!data.error && loaded?.period !== data.period));
   let group = $derived(chart?.group ?? 'day');
   let unitWord = $derived(m.energyPage.unit[group]);
@@ -215,7 +220,7 @@
 {:else if linkyNote}
   <p class="callout" class:bad={linkyNote.bad} role="status">{linkyNote.text}{#if linkyNote.link}&nbsp;<a href="{ROUTES.home}#{ANCHORS.linky}">{linkyNote.link}</a>{/if}</p>
 {/if}
-{#each alerts.of(['price_change', 'consent_expiring', 'linky_stalled']) as a (a.id)}<AlertCallout alert={a} />{/each}
+{#if ready}{#each alerts.of(['price_change', 'consent_expiring', 'linky_stalled']) as a (a.id)}<AlertCallout alert={a} />{/each}{/if}
 {#if ready && main?.last_day}<p class="muted fresh">{m.energyPage.fresh(fmtDay(main.last_day))}</p>{/if}
 {#if data.error}<p class="error" role="alert">{data.failed ? m.energyPage.failedPeriod(periodTitle(data.failed.view, data.failed.period), data.error()) : data.error()} <button type="button" class="btn btn-sm" onclick={() => navigate(() => data.retry())}>{m.energyPage.retry}</button></p>{/if}
 

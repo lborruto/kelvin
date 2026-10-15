@@ -19,6 +19,8 @@
 
   let expanded = $state<string | null>(remembered ? remembered.id : null);
   let autoExpanded = false;
+  // The default opening is not animated (cards below would slide down: CLS); the user's own taps are.
+  let animate = $state(false);
   // Phone: open the room that needs attention (else the first) in place once the house is known.
   $effect(() => {
     if (remembered || autoExpanded || !house.loaded || desktop.matches) return;
@@ -40,6 +42,7 @@
 
   // Phone only: on desktop the card is a link to the room.
   function select(id: string) {
+    animate = true;
     expanded = expanded === id ? null : id;
     remembered = { id: expanded };
   }
@@ -51,7 +54,7 @@
   {:else}
     {#each house.rooms as room (room.id)}
       <RoomCard {room} {now} expanded={!desktop.matches && expanded === room.id} points={history.data[key(room.id)] ?? []}
-        onselect={() => select(room.id)} navigates={desktop.matches} selected={selectedId === room.id}
+        onselect={() => select(room.id)} navigates={desktop.matches} {animate} selected={selectedId === room.id}
         current={selectedIsPage && selectedId === room.id} />
     {/each}
   {/if}

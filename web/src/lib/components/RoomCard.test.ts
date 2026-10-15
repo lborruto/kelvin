@@ -54,10 +54,13 @@ describe('RoomCard', () => {
     expect(screen.getByRole('group', { name: 'Confort' })).toBeInTheDocument();
   });
 
-  it('collapses the empty footer of an off room', () => {
+  it('keeps the footer line of an off room: the duty line has its room from the first paint, as a skeleton', () => {
     const off = { ...room, mode: 'off' as const };
     const { container } = render(RoomCard, { room: off, now, expanded: false, points: [], onselect: vi.fn() });
-    expect(container.querySelector('.foot')).toBeNull();
+    const foot = container.querySelector('.foot')!;
+    expect(foot).not.toBeNull();
+    // The duty line is the skeleton until /rooms/duty answers, then the figure: never a placeholder value.
+    expect(foot.querySelector('.duty-sk') ?? foot.querySelector('[title]')).not.toBeNull();
   });
 
   it('expanded: the footer carries Détails at its right and the card ends on a labelled stepper row', () => {

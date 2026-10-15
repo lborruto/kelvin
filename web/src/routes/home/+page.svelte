@@ -13,6 +13,7 @@
   import { fmtAgo, fmtDateTime, fmtTemp } from '$lib/format';
   import { apiMessage, LOCALE_NAMES, LOCALES, locale, m, setLocale, statusError } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
+  import { alerts } from '$lib/stores/alerts.svelte';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
@@ -89,8 +90,9 @@
     loadTariff();
     loadLinky();
   });
-  // Tarif, Linky and Réglages appear together, once both answers are in: nothing on screen moves.
-  let settled = $derived((!!settingsView || !!tariffError) && (!!linkyStatus || !!linkyError));
+  // Tarif, Linky and Réglages appear together, once both answers are in: nothing on screen moves. The
+  // alerts' answer is one of them: their panel (above) takes its real height in that same frame.
+  let settled = $derived((!!settingsView || !!tariffError) && (!!linkyStatus || !!linkyError) && alerts.list !== null);
   // The real panels are taller than their skeletons: once they render, land on the anchor again.
   let landed = false;
   $effect(() => {
@@ -154,16 +156,17 @@
   {/if}
 </section>
 
-<section id="alerts" class="panel">
-  <h2>{m.alerts.title}</h2>
-  <AlertList />
-</section>
-
 <section class="panel">
   <h2>Actions</h2>
   <div class="row">
     <HouseActions program away={false} />
   </div>
+</section>
+
+<!-- Below the always-drawn panels, so the alerts' arrival moves nothing that is already there. -->
+<section id={ANCHORS.alerts} class="panel">
+  <h2>{m.alerts.title}</h2>
+  <AlertList hold={!settled} />
 </section>
 
 {#if !settled}
@@ -230,7 +233,7 @@
   </section>
 {/if}
 
-<section id="sessions" class="panel">
+<section id={ANCHORS.sessions} class="panel">
   <h2>{m.sessions.title}</h2>
   <SessionsPanel />
 </section>

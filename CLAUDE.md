@@ -113,7 +113,7 @@ depends on.
   third-party text (a gateway's message) goes through `errors.scrub` before any API body, SSE
   or log.
 - **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`; anchors
-  `#away`, `#tariff`, `#linky`, `#quality`, `#curve`) and come from `web/src/lib/paths.ts`. Old
+  `#away`, `#tariff`, `#linky`, `#quality`, `#curve`, `#alerts`, `#sessions`) and come from `web/src/lib/paths.ts`. Old
   French paths are redirected only by its legacy table and the marked block in `app.html` (a test
   keeps them equal; `scripts/check-paths.mjs` fails on a French path anywhere else).
 - **API header:** mutating API routes require the header `X-Kelvin: 1`.

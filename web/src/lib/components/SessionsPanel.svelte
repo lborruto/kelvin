@@ -77,9 +77,11 @@
 
 <p class="muted intro">{m.sessions.intro}</p>
 {#if list === null && !failed}
-  <ul class="list" aria-hidden="true">
-    {#each [0, 1] as i (i)}<li class="row"><span class="skeleton inset" style:height="40px"></span></li>{/each}
-  </ul>
+  <div class="sk" aria-hidden="true">
+    <ul class="list">
+      {#each [0, 1] as i (i)}<li class="row"><span class="skeleton inset"></span></li>{/each}
+    </ul>
+  </div>
 {:else if failed && list === null}
   <p class="error" role="alert">{m.sessions.loadError} <button type="button" class="btn btn-sm" onclick={load}>{m.sessions.retry}</button></p>
 {:else if list}
@@ -135,9 +137,19 @@
   .row:first-child {
     border-top: 0;
   }
+  /* The real row's height: name + two 12 px lines (and the sign-out button beside them, which wraps them on a phone). */
+  .sk {
+    container-type: inline-size;
+  }
   .row .skeleton {
     display: block;
     width: 100%;
+    height: 56px;
+  }
+  @container (max-width: 280px) {
+    .row:nth-child(2) .skeleton {
+      height: 91px;
+    }
   }
   .who {
     display: grid;

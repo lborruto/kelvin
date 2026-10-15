@@ -32,12 +32,14 @@
     onselect: () => void;
     /** Desktop: the card is a link to the room (its inspector); phone: a button that expands it. */
     navigates?: boolean;
+    /** False for the card opened by default: it is simply there, not slid open under the cards below it. */
+    animate?: boolean;
     /** The room shown in the inspector (desktop). */
     selected?: boolean;
     /** This card's room is the page's URL (a room page, not "/"). */
     current?: boolean;
   }
-  let { room, now, expanded, points, onselect, navigates = false, selected = false, current = false }: Props = $props();
+  let { room, now, expanded, points, onselect, navigates = false, animate = true, selected = false, current = false }: Props = $props();
   const uid = $props.id();
   // The phone card's figure becomes the room page's figure (a shared-element view transition).
   // Named by the room's position, which is unique whatever characters its id holds.
@@ -110,17 +112,17 @@
     eco={room.eco} target={room.target} pendingTarget={expected.target ?? null} pendingComfort={expected.comfort ?? null}
     axis={expanded} label={m.room.todayLabel(room.name)} {activity} />
 
-  {#if change || pending || expanded || dutyEntry}
-    <div class="foot">
-      <span class="muted next">{#if change}{fmtNextChange(change, now)}{/if}{#if change && dutyEntry} · {/if}{#if dutyEntry}<span
-          title={m.room.dutyHint}>{dutyText(duty)}</span>{/if}</span>
-      <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
-      {#if expanded}<a class="details" href={ROUTES.room(room.id)} in:fade={{ duration: dur(T.state) }}>{m.room.details}<Icon name="chevron" size={14} /></a>{/if}
-    </div>
-  {/if}
+  <div class="foot">
+    <!-- The duty line's room is reserved from the first paint: a skeleton of its size until /rooms/duty answers. -->
+    <span class="muted next">{#if change}{fmtNextChange(change, now)}{/if}{#if dutyEntry}<span
+        title={m.room.dutyHint}>{change ? ' · ' : ''}{dutyText(duty)}</span>{:else}<span aria-hidden="true">{change ? ' · ' : ''}<span
+          class="skeleton duty-sk"></span></span>{/if}</span>
+    <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
+    {#if expanded}<a class="details" href={ROUTES.room(room.id)} in:fade={{ duration: dur(T.state) }}>{m.room.details}<Icon name="chevron" size={14} /></a>{/if}
+  </div>
 
   {#if expanded}
-    <div class="controls" id="{uid}-controls" transition:slide={{ duration: dur(T.enter), easing: easeOut }}>
+    <div class="controls" id="{uid}-controls" transition:slide={{ duration: animate ? dur(T.enter) : 0, easing: easeOut }}>
       <ModeSwitch value={room.mode} pending={expected.mode ?? null} compact disabled={!house.online} onchange={setMode} />
       {#if mode === 'manual'}
         <div class="row"><span class="label">{m.room.setpoint}{#if aTarget.mixed && expected.target === undefined}<span class="note">{m.room.mixedMean}</span>{/if}</span>
@@ -248,6 +250,14 @@
   .next {
     flex: 1;
     min-width: 0;
+  }
+  /* About the width of « chauffe 14 % sur 24 h » at the line's height, so the text lands in place. */
+  .duty-sk {
+    display: inline-block;
+    width: 20ch;
+    max-width: 100%;
+    height: 1em;
+    vertical-align: -0.15em;
   }
   /* The 44 px link target spills into the gaps around the row instead of adding height. */
   .expanded .foot {
