@@ -17,8 +17,16 @@ async function settled(page: Page) {
   await page.waitForFunction(() => !document.querySelector('.skeleton') && !document.querySelector('[aria-busy="true"]'), null, {
     timeout: 15_000
   });
-  // Let the entrance motion finish (bars grow in 360 ms).
-  await page.waitForTimeout(500);
+  // The entrance motion is over (bars grow in 360 ms): no finite CSS or Web animation still running, whatever the
+  // machine's speed.
+  await page.waitForFunction(
+    () =>
+      document
+        .getAnimations()
+        .every((a) => a.playState !== 'running' || a.effect?.getComputedTiming().endTime === Infinity),
+    null,
+    { timeout: 15_000 }
+  );
 }
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 /** A figure as the page shows it: « 1 412,6 kWh » → « 1412.6 » (its own decimals, no grouping). */
