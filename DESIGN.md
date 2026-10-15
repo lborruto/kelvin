@@ -44,6 +44,10 @@ colors:
   tempo-blue-light: "#3355cc"
   tempo-white-light: "#ffffff"
   tempo-red-light: "#c2185b"
+  hc: "#a6d8ff"
+  hp: "#3567d6"
+  hc-light: "#2b8ad4"
+  hp-light: "#0a2a6e"
 typography:
   display:
     fontFamily: "'Onest Variable', system-ui, -apple-system, 'Segoe UI', sans-serif"
@@ -134,46 +138,52 @@ components:
     backgroundColor: "{colors.in}"
     textColor: "{colors.tx}"
     typography: "{typography.value}"
-    rounded: "{rounded.base}"
-    height: "44px"
+    rounded: "{rounded.control}"
+    height: "36px"
   segmented:
     backgroundColor: "{colors.in}"
     textColor: "{colors.mu}"
-    rounded: "{rounded.base}"
-    padding: "2px"
+    rounded: "{rounded.control}"
+    padding: "1px"
   segmented-on:
     backgroundColor: "{colors.s2}"
     textColor: "{colors.tx}"
-    rounded: "{rounded.inner}"
-    padding: "0 14px"
-    height: "44px"
+    rounded: "{rounded.chip}"
+    padding: "0 12px"
+    height: "36px"
   mode-switch:
     backgroundColor: "{colors.in}"
     textColor: "{colors.mu}"
-    rounded: "{rounded.base}"
-    padding: "2px"
+    rounded: "{rounded.control}"
+    padding: "1px"
   mode-switch-on:
     backgroundColor: "{colors.s2}"
     textColor: "{colors.tx}"
-    rounded: "{rounded.inner}"
-    height: "44px"
+    rounded: "{rounded.chip}"
+    height: "36px"
   button-primary:
     backgroundColor: "{colors.tx}"
     textColor: "{colors.bg}"
-    rounded: "{rounded.base}"
+    rounded: "{rounded.control}"
+    padding: "0 14px"
+    height: "36px"
+  button-large:
+    backgroundColor: "{colors.tx}"
+    textColor: "{colors.bg}"
+    rounded: "{rounded.control}"
     padding: "0 16px"
     height: "44px"
   button-secondary:
     backgroundColor: "{colors.s2}"
     textColor: "{colors.tx}"
-    rounded: "{rounded.base}"
-    padding: "0 16px"
-    height: "44px"
+    rounded: "{rounded.control}"
+    padding: "0 14px"
+    height: "36px"
   button-ghost:
     textColor: "{colors.tx}"
     rounded: "{rounded.control}"
     padding: "0 12px"
-    height: "44px"
+    height: "36px"
   chip:
     textColor: "{colors.mu}"
     typography: "{typography.label}"
@@ -195,22 +205,22 @@ components:
     typography: "{typography.body}"
     rounded: "{rounded.control}"
     padding: "0 10px"
-    height: "44px"
+    height: "36px"
   select:
     backgroundColor: "{colors.in}"
     textColor: "{colors.tx}"
     typography: "{typography.body}"
     rounded: "{rounded.control}"
     padding: "0 10px"
-    height: "44px"
+    height: "36px"
   field-label:
     textColor: "{colors.mu}"
     typography: "{typography.label}"
   button-icon:
     textColor: "{colors.mu}"
     rounded: "{rounded.control}"
-    width: "44px"
-    height: "44px"
+    width: "36px"
+    height: "36px"
   panel:
     backgroundColor: "{colors.s1}"
     rounded: "{rounded.base}"
@@ -262,7 +272,7 @@ The system is honest about delay. A command to a radiator takes seconds, so ever
 - The thermal strip repeats on room cards and the inspector. Programme draws the week as its own bar picture.
 - Every chart has a visually hidden data table behind it; a missing value is « — », never a zero.
 - Pending is dashed, confirmed is solid; a failure stays plain and says so.
-- 44 px touch targets everywhere, WCAG AA in both themes, copy in French (default) and English, each with its own typography.
+- Compact controls (36 px painted) with 44 px touch targets everywhere (the hit area, not the paint), WCAG AA in both themes, copy in French (default) and English, each with its own typography.
 
 ## Colors
 
@@ -272,11 +282,15 @@ A near-monochrome graphite world where the only saturated colours are the heat r
 - **Heat Ramp: Cool Blue / Neutral Grey / Warm Orange** (cool, neutral, warm; light: cool-light, neutral-light, warm-light): the three stops of the single temperature ramp in `web/src/lib/heat.ts`. Domain 15 °C → 20 °C → 25 °C; between stops the colour is a linear sRGB `color-mix` of the two neighbouring stops; outside the domain it clamps; an unknown reading falls back to faint (fa). Used for the thermal strip's temperature line only (a vertical gradient through the three stops, where an axis gives it meaning); room and radiator readings are ink (an absolute ramp made a room at its target read « cold » and a stale reading « hot »). The warm and cool stops also carry the two heating states: warm for heating (« ● En chauffe », the « Chauffe temporaire » lead), cool for « Absence »; and, at low opacity, heat-related fills: programme comfort bands on the strip (warm at 16 % with a 40 % top edge), comfort blocks in the programme editor (warm at 75 % over the well, 3:1), the boost override badge (warm at 18 %) and the away override badge (cool at 18 %). Every stop passes AA (4.5:1) on both bg and s1 in both themes, enforced by `tokens.test.ts`.
 
 ### Secondary
-- **Chart Series: Violet, Teal, Ochre, Rose** (series-1 … series-4; light variants): categorical colours for Énergie, assigned by meaning in `SERIES` (`web/src/lib/energy.ts`) and drawn only through it. Violet is off-peak (heures creuses), and also the single whole-home series when no tariff splits the day; teal is peak (heures pleines); ochre is the radiators (the overlay mark on the house chart, the Courbe's step line, Température et chauffe's bars, the radiator-only chart without Linky, the heating-share meter and the per-room share bars). Rose is held in reserve. They are deliberately free of blue and orange so a chart can never be misread as temperature.
+- **Tariff Blues: Light Blue (HC) / Dark Blue (HP)** (hc, hp; light: hc-light, hp-light; owner ruling 2026-10-15): heures creuses light blue, heures pleines dark blue, app-wide. HC is the lighter of the two in both themes (3.42:1 dark, 3.63:1 light; each ≥ 3:1 on bg, s1 and s2; `tokens.test.ts`), so the pair reads by luminance in greyscale and for every colour-vision deficiency, and HC always carries the **hatch** (`--hc-hatch` in HTML; the SVG pattern `#hc-hatch` from `ChartDefs.svelte`, mounted once in the layout: 1 px lines of the ground at 35 % every 4 px at 45°); HP is solid. Stacks keep HC at the base with a 1 px knockout between the parts. Used by EnergyBars, the Courbe halves, the Heures creuses meter, legends (`Swatch`) and the tariff form's price captions (an 8 px swatch). Legends and readouts always write the words (« Heures creuses », “Off-peak”).
+- **Chart Series: Violet, Teal, Ochre, Rose** (series-1 … series-4; light variants): categorical colours for Énergie, assigned by meaning in `SERIES` (`web/src/lib/energy.ts`) and drawn only through it. Violet is the single whole-home series when no tariff splits the day; teal is in reserve; ochre is the radiators (the overlay mark on the house chart, the Courbe's step line, Température et chauffe's bars, the radiator-only chart without Linky, the heating-share meter and the per-room share bars). Rose is held in reserve. They are deliberately free of blue and orange so a chart can never be misread as temperature.
 
 ### Tertiary
 - **State Green** (ok): confirmation only: the "Confirmé" pending tag and a saved form (« Tarif enregistré. »).
 - **State Red** (bad): only what the user must fix: the failed-command tag, error text, an open window (the status lead « Fenêtre ouverte » and its notice), the disconnection banner (bad at 14 % over s1), the error toast's border (bad at 60 % over line), and the Énergie Linky callout when the token is refused or sync fails. Progress states are never red, and neither is an offline radiator: switched off at the mains is a normal state here, so « Hors ligne » is muted everywhere (card, panel, Infos, the `radiator_unreachable` callout).
+
+### Tariff Blues (named exception)
+Heures creuses / pleines are a tariff, not heat, yet they are blue by the owner's ruling. They appear only on Énergie, the tariff (Maison › Tarif) and the tariff form, never on a room surface (where blue is `cool`, away). They are never round dots (10 px square swatches with a 3 px radius, 8 px in field captions, or bar fills): round dots belong to Tempo days, and HP vs Tempo Bleu (1.7:1) is told apart by that shape and by the words. `--tempo-*` never colours a bar.
 
 ### Tempo Day Chip (named exception)
 The Tempo days are named after colours, so their chip carries the colour: an 8 px dot (blue, white with a field-line ring, red) always beside the colour's name. Only `TempoDot` uses the `tempo-*` tokens (`tokens.test.ts` checks, contrast 3:1 in both themes); they never colour a chart, a series or anything else. A day whose colour is not published yet shows a dashed dot. EcoWatt has no colour of its own: orange is neutral text with the alert glyph, red uses State Red.
@@ -293,11 +307,11 @@ The Tempo days are named after colours, so their chip carries the colour: an 8 p
 - **Faint** (fa): axis ticks, inactive tab-bar items, the "off" toggle track, the text of disabled controls (which keep their fill), unknown temperatures.
 
 ### Named Rules
-**The Heat Means Heat Rule.** (The one exception is the Tempo day chip, whose colours name a tariff day, never a temperature.) One meaning per hue. Warm encodes **heating** (« ● En chauffe », comfort periods, « Chauffe temporaire »); cool encodes **away** only; temperature is told by ink figures and by the strip's ramp line against its axis. An "on" switch is ink, not blue; a chart series is violet, never orange. A temperature figure is never coloured.
+**The Heat Means Heat Rule.** (Two named exceptions: the Tempo day chip, whose colours name a tariff day, and the Tariff blues, whose two blues name the hours of the tariff; neither is ever a temperature.) One meaning per hue. Warm encodes **heating** (« ● En chauffe », comfort periods, « Chauffe temporaire »); cool encodes **away** only; temperature is told by ink figures and by the strip's ramp line against its axis. An "on" switch is ink, not blue; a chart series is violet, never orange. A temperature figure is never coloured.
 
 **The One Ramp Rule.** Every heat colour is computed by `heatColor()` from the three theme tokens. Never hard-code a heat hex, never add a second scale, and never interpolate in another space; the ramp then follows the active theme for free.
 
-**The Series Rule.** Categorical data uses series-1 … series-4, each with one fixed meaning: HC is series-1 (violet), HP is series-2 (teal), radiators are series-3 (ochre); an unsplit whole-home series takes series-1. A meaning keeps its colour on every chart, legend and meter (the curve's HC/HP halves match the monthly bars). Radiators are drawn as a line mark, never a stacked part, so a reader can see they are a share of the house rather than added to it. A fifth series may be added only if it stays out of the blue and orange hues and passes AA in both themes.
+**The Series Rule.** Categorical data uses `SERIES`, each key with one fixed meaning: HC is `--hc` (light blue, always hatched: `SERIES_HATCH`), HP is `--hp` (dark blue), radiators are series-3 (ochre); an unsplit whole-home series takes series-1 (violet); series-2 is in reserve. Never series-1/series-2 for HC/HP. A meaning keeps its colour on every chart, legend and meter (the curve's HC/HP halves match the monthly bars). Radiators are drawn as a line mark, never a stacked part, so a reader can see they are a share of the house rather than added to it. A fifth series may be added only if it stays out of the blue and orange hues and passes AA in both themes.
 
 ## Typography
 
@@ -366,19 +380,19 @@ The room's day on one line: an SVG sparkline of the measured temperature (2 px, 
 - Reused on room cards and the inspector. Énergie's Température et chauffe draws a room's day with the same heat-ramp line and muted setpoint, at its own scale.
 
 ### Stepper
-A 44 px × value × 44 px well (in, field-line edge, 10 px) with − and + icon buttons and a 16 px tabular value. Press-and-hold repeats after 400 ms every 120 ms; changes commit after a 600 ms debounce. An underline under the value is the pending signal (PendingEdge): hairline at rest, muted 4/3 dashes while pending, morphing solid in 250 ms on matching confirmation; an unconfirmed optimistic value is released after 10 s. At min/max a button is `aria-disabled` (faint, inert) rather than `disabled`, so keyboard focus stays on it; hover and press fill s2. The value is not a live region: each committed value is announced once (« Confort : 20,5 °C »).
+A 36 px well (`--ctl-h`; in, field-line edge, 8 px): 36 px − and + icon buttons whose hit area reaches 44 px (`.hit`), around a 64 px value (16 px tabular): 136 px in all (`--w-temp`). The well does not clip, so the hit areas reach past its edge. Press-and-hold repeats after 400 ms every 120 ms; changes commit after a 600 ms debounce. An underline under the value is the pending signal (PendingEdge): hairline at rest, muted 4/3 dashes while pending, morphing solid in 250 ms on matching confirmation; an unconfirmed optimistic value is released after 10 s. At min/max a button is `aria-disabled` (faint, inert) rather than `disabled`, so keyboard focus stays on it; hover and press fill s2. The value is not a live region: each committed value is announced once (« Confort : 20,5 °C »).
 
 ### ModeSwitch
-A three-way radiogroup (Arrêt / Manuel / Programme, "Prog." when compact) in a well with 2 px padding and gap. Segments are 44 px tall, 13 px 600 muted (ink on hover); the current segment is s2 with ink text and a muted edge (3:1 against the well). That edge is the signature mark (PendingEdge, an SVG rect): dashed while the mode is requested, closing solid when the radiator reports it. While pending the group is `aria-busy` and the segment is named « Manuel (en attente) ». Keyboard is **manual activation**, because a mode is a device command: roving tabindex (the current mode is the tab stop), arrows only move focus (wrapping), and Enter/Space sends. Choosing the current mode again sends nothing. Transitions 160 ms ease.
+A three-way radiogroup (Arrêt / Manuel / Programme, "Prog." when compact) in a 40 px well (8 px radius, 1 px inset, 2 px gap). Segments are 36 px tall (6 px radius, concentric) with a 44 px hit area (`.hit`), 13 px 600 muted (ink on hover); the current segment is s2 with ink text and a muted edge (3:1 against the well). That edge is the signature mark (PendingEdge, an SVG rect): dashed while the mode is requested, closing solid when the radiator reports it. While pending the group is `aria-busy` and the segment is named « Manuel (en attente) ». Keyboard is **manual activation**, because a mode is a device command: roving tabindex (the current mode is the tab stop), arrows only move focus (wrapping), and Enter/Space sends. Choosing the current mode again sends nothing. Transitions 160 ms ease.
 
 ### CommandSwitch
-The mode switch's look and behaviour for any device command with a few values (Plan 12): a pilot-wire heater's « Allure » (Confort, Confort −1, Confort −2, Éco, Hors-gel, Arrêt; 2 or 3 per row, six as 3 + 3, four as 2 + 2) and a towel dryer's « Normal | Boost | Séchage ». Same well, 44 px segments and 13 px 600 labels. Manual activation (arrows move focus, Enter/Space sends), the dashed → solid edge (PendingEdge) while the device has not reported the value, nothing checked when the reported value is unknown (the fact reads « — »). Only the values the device allows are offered.
+The mode switch's look and behaviour for any device command with a few values (Plan 12): a pilot-wire heater's « Allure » (Confort, Confort −1, Confort −2, Éco, Hors-gel, Arrêt; 2 or 3 per row, six as 3 + 3, four as 2 + 2) and a towel dryer's « Normal | Boost | Séchage ». Same well, 36 px segments (44 px hit) and 13 px 600 labels; rows of segments sit 8 px apart so the hit areas never overlap. Manual activation (arrows move focus, Enter/Space sends), the dashed → solid edge (PendingEdge) while the device has not reported the value, nothing checked when the reported value is unknown (the fact reads « — »). Only the values the device allows are offered.
 
 ### Support chip
 How far Kelvin vouches for a device (Plan 12): 11 px / 600, `--mu` text, 1 px `--line` border, radius 6 px, beside the radiator's or device's name. « Devrait fonctionner », « Expérimental », « Lecture seule » (on `--s2`); none for tested hardware. A read-only radiator shows the chip and one muted line saying Kelvin does not drive it, then its facts; no control. A control a radiator cannot take is absent, never shown disabled.
 
 ### Segmented
-The view-only sibling of ModeSwitch for choices that change what is shown, never a device: Énergie's Jour / Semaine / Mois / Année, the inspector's 24 h / 7 j / 30 j, Réglages' Système / Sombre / Clair and Langue (« Français » / “English”, each option named in its own language with its `lang`, never translated). An option may carry `lang` and an `ariaLabel` (its accessible name when the visible label is short, as on Login). Same well (in, hairline, 10 px, 2 px padding and gap) and the same 7 px segments, but inline-width with 14 px side padding; 44 px, 13 px 600 muted (ink on hover), the checked segment s2 with ink and a muted border (3:1 against the well). It also picks the room on Programme, scrolling inside itself when the rooms are wider than the page; an option may carry a `hint`, a muted 12 px 500 word after its label that is part of its name (an offline room: « Chambre 2 hors ligne »). A WAI-ARIA radiogroup with roving tabindex, and **automatic activation**: arrows (and Home/End) move focus and select at once. No pending state; nothing waits on a device.
+The view-only sibling of ModeSwitch for choices that change what is shown, never a device: Énergie's Jour / Semaine / Mois / Année, the inspector's 24 h / 7 j / 30 j, Réglages' Système / Sombre / Clair and Langue (« Français » / “English”, each option named in its own language with its `lang`, never translated). An option may carry `lang` and an `ariaLabel` (its accessible name when the visible label is short, as on Login). Same 40 px well (in, hairline, 8 px, 1 px inset, 2 px gap) and the same 6 px segments, but inline-width with 12 px side padding; 36 px painted with a 44 px hit area, 13 px 600 muted (ink on hover), the checked segment s2 with ink and a muted border (3:1 against the well). It also picks the room on Programme, scrolling inside itself when the rooms are wider than the page; an option may carry a `hint`, a muted 12 px 500 word after its label that is part of its name (an offline room: « Chambre 2 hors ligne »). A WAI-ARIA radiogroup with roving tabindex, and **automatic activation**: arrows (and Home/End) move focus and select at once. No pending state; nothing waits on a device.
 
 **The Command Keyboard Rule.** If a choice sends a command to a radiator, arrows move focus and only Enter/Space sends (ModeSwitch). If it only changes the view, arrows select (Segmented). Both look the same; the keyboard tells them apart.
 
@@ -420,13 +434,13 @@ The week is a picture, the day is the form. Under the h1 and the room picker:
 A s1 panel (hairline, 10 px) with an hour scale and seven rows. It is a container (`container-type: inline-size`): at 560 px and wider a row is `92 px | bar | 176 px` (day name with « aujourd’hui » under it; a 28 px bar; the times right-aligned, two periods per line at most) and the scale is 00 · 03 · … · 24 with matching gridlines every 3 h; narrower (a phone, a small desktop column) the name and times share the first line, a 24 px bar sits under them and the scale is every 6 h. The bar is the editor's well (in, field-line edge, 6 px) with 35 % field-line gridlines, comfort blocks warm at 75 % (4 px), the 2 px ink now-marker on today. An edited, unsent day carries « ● modifié » (ink, 12 px 600) above its times. A locked day is hatched (its blocks warm at 45 %) with its reason on its own 12 px muted line with the lock glyph; an unrecognised day draws no block. Each row is a button named as a sentence (« Jeudi, aujourd’hui, 06:30–08:00 et 17:00–23:00, 7 h 30 confort, modifié »); beside the editor the selected row is `aria-pressed` (s2, muted inset edge), a roving tab stop, and the arrows (Home/End) move and select; on a phone the arrows move focus and a tap opens the day. An offline room's week is read-only: rows are plain, each with its sentence as hidden text. While a send is pending the blocks are dashed muted outlines.
 
 ### DayEditor
-The one day being edited: a s1 panel (on a phone, the page itself). Header: 44 px edged « Jour précédent » / « Jour suivant » icon buttons around the day name (h2, 20 px 700; h1 in the phone day view) and a reserved 12 px muted line « aujourd’hui · modifié ». Then the ProgramDay bar, the periods as rows « [swatch] Plage 1 [06:30] → [08:00] [×] » (44 px time inputs, `minmax(0, 1fr)` each; the phone shows the number only), the summary « **Confort 8 h** · éco le reste du temps » (or « Éco toute la journée »), validation errors (bad, `role="alert"`), and « Ajouter une plage » + « Copier vers… » (`.btn-sm`). At three periods « Ajouter une plage » is `aria-disabled` and described by « 3 plages au maximum ». While a send is pending the fields stay focusable but are `readonly` + `aria-disabled` and every handler is guarded. A locked day shows its hatched bar, its periods as text and its reason; no field, no add, no copy.
+The one day being edited: a s1 panel (on a phone, the page itself). Header: 36 px edged « Jour précédent » / « Jour suivant » icon buttons (44 px hit) around the day name (h2, 20 px 700; h1 in the phone day view) and a reserved 12 px muted line « aujourd’hui · modifié ». Then the ProgramDay bar, the periods as rows « [swatch] Plage 1 [06:30] → [08:00] [×] » (36 px time fields as wide as « 22:00 » (`--w-time`, shrinking a little on the narrowest phones), the remove button a 36 px `.btn-icon` with a 44 px hit; one period per line from 320 px; the phone shows the number only), the summary « **Confort 8 h** · éco le reste du temps » (or « Éco toute la journée »), validation errors (bad, `role="alert"`), and « Ajouter une plage » + « Copier vers… » (`.btn-sm`). At three periods « Ajouter une plage » is `aria-disabled` and described by « 3 plages au maximum ». While a send is pending the fields stay focusable but are `readonly` + `aria-disabled` and every handler is guarded. A locked day shows its hatched bar, its periods as text and its reason; no field, no add, no copy.
 
 ### ProgramDay
 The editor's bar: 48 px well (field-line edge, 10 px) with gridlines and hour labels under it every 3 h (6 h on a phone), comfort blocks (warm at 75 %, 6 px) that drag and resize by edge handles with a wider invisible grip; the grips (3 × 16 px dark marks) show on the hovered, focused or dragged block. A block wide enough (≥ 76 px) writes its times inside in 11 px 600 dark ink, on a halo of the block's fill above the now-marker, so the marker never cuts them. A tap on the empty bar adds a period there. Blocks are `aria-roledescription="plage"` with a hidden hint (arrows move by 15 min, Suppr removes). The page does not scroll under a finger while a block is dragged. While pending, blocks become dashed muted outlines and lock.
 
 ### Copy sheet (CopyDays, ChoiceSheet)
-« Copier vers… » opens a native modal `<dialog>` (focus stays inside, Esc and the scrim close it, focus returns to the trigger): a centred s1 popover (≤ 400 px, fades in 160 ms) on desktop, a bottom sheet (top corners 10 px, grab bar, rises in 220 ms) below 1024 px; reduced motion drops the travel. Title « Copier jeudi vers… », shortcut chips « Jours de semaine », « Week-end », « Tous les jours » (`aria-pressed` when the choice matches), then 44 px day chips in four columns (the source day dashed and inert, locked days absent), a full-width primary « Copier sur 4 jours » (`aria-disabled` « Choisissez des jours » at none) and « Rien n’est envoyé avant « Envoyer ». ». A copy changes only the draft; the copied rows pulse once and the copy is announced. « Aussi pour… » uses the same sheet for the other rooms (offline rooms are not offered).
+« Copier vers… » opens a native modal `<dialog>` (focus stays inside, Esc and the scrim close it, focus returns to the trigger): a centred s1 popover (≤ 400 px, fades in 160 ms) on desktop, a bottom sheet (top corners 10 px, grab bar, rises in 220 ms) below 1024 px; reduced motion drops the travel. Title « Copier jeudi vers… », shortcut chips « Jours de semaine », « Week-end », « Tous les jours » (`aria-pressed` when the choice matches), then 36 px day chips (44 px hit) in four columns (the source day dashed and inert, locked days absent), a full-width large primary (`.btn-lg`, 44 px) « Copier sur 4 jours » (`aria-disabled` « Choisissez des jours » at none) and « Rien n’est envoyé avant « Envoyer ». ». A copy changes only the draft; the copied rows pulse once and the copy is announced. « Aussi pour… » uses the same sheet for the other rooms (offline rooms are not offered).
 
 ### Offline room (Programme)
 A calm notice, never red: s2 at 60 %, hairline, the plug-off glyph, « Chambre 2 est hors ligne » (14 px 600 ink) and « Le programme affiché est le dernier connu. Il pourra être modifié quand le radiateur sera rallumé. » (13 px muted), `role="status"`. The picker suffixes the room « hors ligne ». The week stays visible read-only; no editor, no Envoyer.
@@ -453,10 +467,10 @@ Rows of 56 px: the device in 600, « dernière activité … » muted; « Décon
 On Maison › Pièces et appareils, after the rooms (Plan 12): an « Autres appareils » panel built like the bridge panel (s1, hairline, 14 px padding, 12 px uppercase muted title) for every device that is neither a radiator's nor a bridge (water heaters, heat pumps, devices that do not heat), with its 12 px muted read-only note and one device row each carrying the support chip. Never hidden; no action. On an experimental server the room and device actions (create, rename, move, tidy) are absent: Kelvin changes the setup on the Cozytouch servers only.
 
 ### EnergyBars
-Stacked SVG bars, drawn at the measured width and a fixed 160 px height (so a phone keeps tall bars and true corners); bars grow from the baseline (360 ms, 12 ms stagger capped at 180 ms) on first draw and on each period change, one series colour per part (2 px corners), hairline grid at four ticks, micro faint axis labels thinned so each keeps 44 px. The radiators are an **overlay mark**: a 2.5 px round-capped line across the bar at its value, in series-3, over a 4 px s1 knockout so it reads on any bar; the y-scale includes it. Missing parts are never drawn as zero: an interior bucket with no data (data on both sides) gets a faint 2 px dashed (3/3) baseline tick; leading and trailing empties stay blank. With `details` the bars are inspectable: the whole plot is the hit area and the nearest bar wins; a mouse hover shows its ChartInspector, a click or tap pins it, a second tap unpins; while a bar is pinned, hovering another only gives it a muted outline and the card stays. A horizontal touch swipe of 48 px (at least twice its vertical travel) steps the period instead. Each bar has an invisible full-height button in a roving-tabindex group (« Barres du graphique : … ») whose name carries its values: `←`/`→`/`Home`/`End` move and pin, `Enter` drills down (a month opens Mois, a day its Courbe, another day of Jour its own Jour) or, with nothing to drill, pins the bar, and `Esc` clears; Esc inside the card closes it and puts focus back on its bar. The inspected bar takes a 1 px ink outline, never animated. No SVG `<title>`. Empty: « Pas encore de données. » The legend below uses 10 px swatches (3 px) for stacked series and a 14 × 2 px line for the radiator mark.
+Stacked SVG bars, drawn at the measured width and a fixed 160 px height (so a phone keeps tall bars and true corners); bars grow from the baseline (360 ms, 12 ms stagger capped at 180 ms) on first draw and on each period change, one series colour per part (2 px corners; HC hatched over its blue, a 1 px knockout between stacked parts), hairline grid at four ticks, micro faint axis labels thinned so each keeps 44 px. The radiators are an **overlay mark**: a 2.5 px round-capped line across the bar at its value, in series-3, over a 4 px s1 knockout so it reads on any bar; the y-scale includes it. Missing parts are never drawn as zero: an interior bucket with no data (data on both sides) gets a faint 2 px dashed (3/3) baseline tick; leading and trailing empties stay blank. With `details` the bars are inspectable: the whole plot is the hit area and the nearest bar wins; a mouse hover shows its ChartInspector, a click or tap pins it, a second tap unpins; while a bar is pinned, hovering another only gives it a muted outline and the card stays. A horizontal touch swipe of 48 px (at least twice its vertical travel) steps the period instead. Each bar has an invisible full-height button in a roving-tabindex group (« Barres du graphique : … ») whose name carries its values: `←`/`→`/`Home`/`End` move and pin, `Enter` drills down (a month opens Mois, a day its Courbe, another day of Jour its own Jour) or, with nothing to drill, pins the bar, and `Esc` clears; Esc inside the card closes it and puts focus back on its bar. The inspected bar takes a 1 px ink outline, never animated. No SVG `<title>`. Empty: « Pas encore de données. » The legend below uses `Swatch`: 10 px squares (3 px radius, HC hatched) for stacked series and a 14 × 2 px line for the radiator mark.
 
 ### CurveChart
-One day of half-hours (46, 48 or 50) at the measured width and a fixed 140 px height, 1 px-rounded bars with 15 % inner padding, split HC (series-1, at the base) under HP (series-2) by their off-peak fraction, or the single home series without a tariff. The radiators are a 2 px series-3 step line over a 4 px s1 knockout, broken where a half-hour is unknown; the subscribed power (kVA × 1000 × 0.5 Wh) is a faint 1 px dashed line when it is within 2× the data, else a muted sentence states it. Axis 00 · 06 · 12 · 18 on the matching half-hours (so DST days stay true), then 24 at the right edge, micro faint. A 1 px ink crosshair marks the scrubbed half-hour (see Scrubber).
+One day of half-hours (46, 48 or 50) at the measured width and a fixed 140 px height, 1 px-rounded bars with 15 % inner padding, split HC (`--hc` hatched, at the base) under HP (`--hp`) by their off-peak fraction, a 1 px knockout between them, or the single home series without a tariff. The radiators are a 2 px series-3 step line over a 4 px s1 knockout, broken where a half-hour is unknown; the subscribed power (kVA × 1000 × 0.5 Wh) is a faint 1 px dashed line when it is within 2× the data, else a muted sentence states it. Axis 00 · 06 · 12 · 18 on the matching half-hours (so DST days stay true), then 24 at the right edge, micro faint. A 1 px ink crosshair marks the scrubbed half-hour (see Scrubber).
 - **Readout:** a fixed row above the chart, so nothing covers the bars: « 18:30–19:00 » (the repeated autumn hour says « (heure d’été) » / « (heure d’hiver) »), then Puissance moyenne, Énergie, Tarif, Prix, Coût, Radiateurs, Reste, Température, as the day has them. Its fields are fixed for the day and read « — » with their reason where a half-hour lacks a value. It **never reflows**: every text a field takes over the day (idle included) is stacked in one grid cell and only the current one is visible, so the browser sizes each field to its widest and tallest text in the real font, at any zoom, and scrubbing moves nothing.
 - Empty: « Pas de courbe pour ce jour. »
 
@@ -520,7 +534,7 @@ An estimate (a fallback HC/HP split, radiator energy spread between readings, a 
 One status, two places (the Énergie callout and the Linky panel on Maison). Progress is neutral and offers no link, because there is nothing to fix: never synced (« première synchronisation en attente »), quota (« historique en cours de récupération, la suite arrive demain ») and throttled (« Enedis limite les requêtes, nouvel essai à 14:30 ») read as plain or muted text. Only `auth` (« MyElectricalData refuse le jeton Linky. » with « Renouveler le jeton ») and `error` (with « Réglages ») use the bad colour and an alert role. Not connected at all is a neutral invitation with a « Réglages » link. In the panel the good state reads « Relié · données jusqu’au 13/10 · synchro il y a 5 min ».
 
 ### Form fields
-A field is a label wrapping its control: a 12 px muted caption, 4 px, then a 44 px well (in, field-line edge, 8 px, 0 × 10 px padding) set in 15 px body with tabular figures, 16 px below 1024 px so iOS never zooms on focus (`--fs-field`). The base style is global in `app.css`; components add only layout. Selects share the input's exact geometry. Placeholders are muted (never the browser grey) and never carry the only instruction: a hint is a 12 px muted caption under the field, linked with `aria-describedby` (Linky: « Enregistré », then « Laissez vide pour garder le jeton. »). An invalid field is `aria-invalid`, edged in bad, linked to its error and focused. Units live in the caption, never in the field: « Abonnement (€/mois) », « Prix heures creuses (€/kWh) ». Decimal fields accept a comma or a point. Groups of fields auto-fit in a grid; a repeated group (Heures creuses slots) sits in a hairline-topped fieldset whose legend is a section label, with ghost « Retirer » / « Ajouter une plage » buttons. Errors follow in 13 px bad (alert), success in 13 px ok (status), then one primary button, left-aligned.
+A field is a label wrapping its control: a 12 px muted caption, 4 px, then a 36 px well (`--ctl-h`; in, field-line edge, 8 px, 0 × 10 px padding; owner ruling: fields were « gros ») set in 15 px body with tabular figures, 16 px below 1024 px so iOS never zooms on focus (`--fs-field`). The base style is global in `app.css`; components add only layout. Selects share the input's exact geometry. Placeholders are muted (never the browser grey) and never carry the only instruction: a hint is a 12 px muted caption under the field, linked with `aria-describedby` (Linky: « Enregistré », then « Laissez vide pour garder le jeton. »). An invalid field is `aria-invalid`, edged in bad, linked to its error and focused. Units live in the caption, never in the field: « Abonnement (€/mois) », « Prix heures creuses (€/kWh) ». Decimal fields accept a comma or a point. **Width is intrinsic**, never a stretched column for a short value: time fields `--w-time` (6.5 rem), dates `--w-date` (10 rem), prices `.w-price` (7.5 rem), kVA `.w-kva` (8 rem), text fields `.w-text` (`min(100 %, 22 rem)`), the PDL 14 digits; groups wrap (`flex-wrap`, 12 px × 16 px gaps) instead of grid columns. The caption wraps the field, so the tap area is caption plus field. A repeated group (Heures creuses slots) sits in a hairline-topped fieldset whose legend is a section label, with each slot on one line « [22:00] → [06:00] [Retirer] » (the captions « Début / Fin de la plage n » stay as the fields' hidden names) and a ghost « Ajouter une plage ». Errors follow in 13 px bad (alert), success in 13 px ok (status), then one primary button, left-aligned.
 
 ### Grid strip
 One 13 px line under the page header on Rooms and Energy, wrapping on a phone: the Tempo pair « Aujourd’hui : ● Bleu · Demain : ● Rouge » (only while the price row in force is Tempo; « Demain : couleur pas encore publiée (vers 11:00) » before publication, « couleur inconnue » when a day has none), then « EcoWatt orange demain, 18:00–20:00 » with the alert glyph (muted; red in State Red; the hours dated by their own timestamps), then the muted source « RTE via MyElectricalData · 11:20 ». Nothing when there is nothing to say (EcoWatt green, no Tempo). It arrives with the snapshot and is updated by the SSE `grid` event. Its height is known only then, so no skeleton can hold it: on Rooms the skeleton columns are replaced as a whole by the loaded ones, strip included, in one frame; on Energy it waits for the report. Either way it never shifts the page (`layout.spec.ts` measures `/` under HC/HP and Tempo).
@@ -529,22 +543,23 @@ One 13 px line under the page header on Rooms and Energy, wrapping on a phone: t
 Réglages › Sources: one row per grid source (« à jour, relevé à 11:20 · prochain relevé 17:15 », « indisponible depuis 08:15 » in State Red text, « quota du jour atteint, reprise demain »), then the muted MyElectricalData calls line (« … : 6 sur 10 (dont 2 pour Tempo et EcoWatt) »). The Tempo row appears only with a Tempo tariff.
 
 ### Tariff form
-The option Segmented (Base · HC/HP · Tempo) heads the form; the fields follow the option: one price, two, or six in a two-column grid (each colour's off-peak then peak). HC/HP has its own « Applicable à partir du » and an optional season split: each season is a hairline-topped block with twelve 44 px month chips (copy-chip style) and up to three slots. Tempo has its two hour fields and the note on the 06:00 day; « Préremplir avec les prix Tempo publiés » is a ghost button whose result states its source and date (the Paris day) and saves nothing. Enedis' new off-peak hours appear as a calm callout inside the HC section with a date and « Ajouter ces heures creuses à partir du … ». Both time fields stay whole at 320 px.
+The option Segmented (Base · HC/HP · Tempo) heads the form; the fields follow the option at their intrinsic widths: one price, two (each caption starting with its 8 px tariff-blue swatch, HC hatched), or six in a two-column grid (each colour's off-peak then peak; the caption carries the TempoDot for the day colour **and** the swatch for the hour type). HC/HP has its own « Applicable à partir du » and an optional season split: each season is a hairline-topped block with twelve 36 px month chips (copy-chip style, 44 px hit, 8 px apart) and up to three slots. Tempo has its two hour fields and the note on the 06:00 day; « Préremplir avec les prix Tempo publiés » is a ghost button whose result states its source and date (the Paris day) and saves nothing. Enedis' new off-peak hours appear as a calm callout inside the HC section with a date and « Ajouter ces heures creuses à partir du … ». Both time fields stay whole at 320 px.
 
 ### Price history (Tarif)
 A 13 px table under the form: « Depuis » (long date), « Option », « Abonnement (€/mois) » and « Prix (€/kWh) » (the row's rates, « HC 0,2068 · HP 0,2700 », « Bleu HC … »), the units in the headers so the mono cells are bare figures (« 15,00 »); below, « Heures creuses successives », one line per schedule with its seasons. Headers muted 500, hairline rows, cells never wrap, the wrapper scrolls inside the panel rather than the page. Below 600 px it is replaced by a list, one hairline-separated entry per price with the same labels on the left and mono values on the right.
 
 ### Login
-Outside the shell, one centred 360 px column: the « Kelvin » brand (700), « Connexion » as a headline, a 13 px muted lead « Utilisez le compte Cozytouch de la maison. », two labelled 44 px fields (Email, Mot de passe), the error line when there is one, then a full-width ink primary « Se connecter » (« Connexion… » while busy). With the simulator a 12 px muted line gives the demo account. After a password change the screen adds a neutral note (s1, hairline, 10 px, 13 px, role status) « Reconnectez-vous avec le compte Cozytouch. »: being asked to sign in again is not an error. At the bottom of the column, centred, a compact « FR | EN » Segmented (each option with its `lang`, named « Français » / “English” by `ariaLabel`, the group named by the current language's « Langue » / “Language”) switches the language before signing in, without a reload; the choice is remembered on the device. In English the screen reads “Sign in”, “Use the home’s Cozytouch account.”, “Email”, “Password”.
+Outside the shell, one centred 360 px column: the « Kelvin » brand (700), « Connexion » as a headline, a 13 px muted lead « Utilisez le compte Cozytouch de la maison. », two labelled 36 px fields (Email, Mot de passe), the error line when there is one, then a full-width large ink primary (`.btn-lg`, 44 px) « Se connecter » (« Connexion… » while busy). With the simulator a 12 px muted line gives the demo account. After a password change the screen adds a neutral note (s1, hairline, 10 px, 13 px, role status) « Reconnectez-vous avec le compte Cozytouch. »: being asked to sign in again is not an error. At the bottom of the column, centred, a compact « FR | EN » Segmented (each option with its `lang`, named « Français » / “English” by `ariaLabel`, the group named by the current language's « Langue » / “Language”) switches the language before signing in, without a reload; the choice is remembered on the device. In English the screen reads “Sign in”, “Use the home’s Cozytouch account.”, “Email”, “Password”.
 
 Plan 12: a « Serveur » select comes first (a « Cozytouch » group, then « Expérimental — chauffage seulement »), Sauter preselected; « Se connecter » waits until the list is read, and a failed read shows an alert with « Réessayer ». Choosing an experimental server adds the experimental note in the reauth note's box (linked by `aria-describedby`). Once the home is claimed, one muted line names its server (« Serveur : … ») instead of the field. Server names are product names, never translated.
 
 ### Buttons
 One system in `app.css`: `.btn` plus a variant; components never restyle a button.
-- **`.btn` (secondary):** s2 fill, ink text, 600, 44 px, 10 px, hairline. `.btn-sm` is 13 px with 12 px sides (house actions, inline actions).
+- **Size (owner ruling):** every button is painted at `--ctl-h` (36 px, 8 px radius, 14 px sides) and its `::before` extends the hit area to 44 px (`--ctl-hit`). **`.btn-lg`** (44 px painted, 16 px sides) is the one primary action of a page or sheet on phone: « Se connecter », Programme « Envoyer » below 1024 px, « Copier sur n jours ».
+- **`.btn` (secondary):** s2 fill, ink text, 600, hairline. `.btn-sm` is 13 px with 12 px sides (house actions, inline actions).
 - **`.btn-primary`:** ink fill and edge, bg text. One per section at most.
 - **`.btn-ghost`:** transparent, ink 13 px 500, hairline, 8 px.
-- **`.btn-icon`:** 44 px square, muted, no edge, 8 px.
+- **`.btn-icon`:** 36 px square (44 × 44 hit area), muted, no edge, 8 px.
 - **`.btn-danger`:** bad at 25 % over s2 (the « Tout éteindre » confirmation).
 - **States:** hover (pointer devices only) firms the edge to faint, lifts ghost and icon to ink on s2, and lightens primary to 88 % ink; press scales to 0.98 (100 ms, not under reduced motion); every change eases over 160 ms. Disabled keeps its fill and turns its text faint (a disabled primary becomes s2 with faint text), never a translucent slab. A button that must keep focus while inert (stepper bounds, curve day at an end, login while busy) uses `aria-disabled` with the same look.
 
@@ -552,7 +567,7 @@ One system in `app.css`: `.btn` plus a variant; components never restyle a butto
 A full-width status strip atop the main column when Kelvin reconnects (immediately when the browser goes offline), Cozytouch is unreachable, or the Cozytouch password changed: bad at 14 % over s1, hairline below, 13 px with an alert icon and the data age, 28 px side padding on desktop to align with the page; a rejected password adds an underlined 44 px « Se reconnecter » link at the end. Sticky at the top, it opens and closes by its grid row (0fr → 1fr, 220 ms) instead of jumping. The live region is always mounted. While reconnecting after a failure (the state this banner names), command controls and the house actions are inert (`aria-disabled`, focus kept); a loaded house that is only refreshing its stream (a phone back from the background) keeps them usable, since the new snapshot answers anything sent meanwhile (`house.online`).
 
 ### Toasts
-Stacked bottom-centre: s2, hairline (red-tinted for errors), 10 px, 13 px, 44 px close button. They rise 12 px into place (220 ms), fade out (150 ms) and the rest reflow (200 ms). Errors stay 10 s, information 6 s, and the timer pauses while the toast is hovered or holds focus. Errors sit in an always-present assertive region, information in a polite one.
+Stacked bottom-centre: s2, hairline (red-tinted for errors), 10 px, 13 px, a close icon button (36 px, 44 px hit). They rise 12 px into place (220 ms), fade out (150 ms) and the rest reflow (200 ms). Errors stay 10 s, information 6 s, and the timer pauses while the toast is hovered or holds focus. Errors sit in an always-present assertive region, information in a polite one.
 
 ### Dialog
 « Tout éteindre » asks first: s1, hairline, 10 px, 20 px padding, at most 340 px; an h2 (16/600) « Tout éteindre ? », a 13 px muted line « Les radiateurs passent à l’arrêt. Vous pourrez les remettre en programme depuis Maison. », then « Annuler » (focused) and the danger button. It fades and settles from 8 px below (200 ms, `@starting-style`) and leaves faster (150 ms); the scrim is bg at 72 %, so the light theme is not a black veil.
@@ -569,7 +584,7 @@ Every route shows the shape of what is coming before data, never a word like « 
 ### Sidebar / TabBar
 - **Sidebar (desktop):** "Kelvin" wordmark (700), four links (icon + label, 44 px, 8 px radius, muted 500, ink on a faint s1 wash on hover); the current page is s1 with ink text and a hairline edge (a transparent edge at rest, so nothing shifts). House actions pinned at the bottom.
 - **TabBar (phone):** four equal items, 20 px icon over an 11 px label, faint 500; current is ink 600 with a 2 × 20 px ink bar at the top. Same four destinations: Pièces, Programme, Énergie, Maison. Opaque under `prefers-reduced-transparency`.
-- **Programme send bar:** while there are unsent edits (or a send is on its way) a bar holds « 3 jours modifiés » (or « Envoi en cours… », 14 px 600) over a dotted « Aussi pour… » (« Aussi pour : Chambre 1 » once chosen; it opens the room choice sheet), then Annuler and Envoyer (`.btn-sm`), and a « Voir les modifications » disclosure listing each changed day before/after: s2, hairline, 10 px, 8 × 14 px padding. On a phone it is sticky 64 px above the bottom (clear of the tab bar); on desktop it sits under the day editor. It rises in over 220 ms. The conflict notice and the per-room send status sit just above it. An offline room's Envoyer is `aria-disabled` with its reason. Day and room choices are 44 px chips (8 px, hairline, 13 px 600 muted; checked: s2, muted edge, ink, an ink box).
+- **Programme send bar:** while there are unsent edits (or a send is on its way) a bar holds « 3 jours modifiés » (or « Envoi en cours… », 14 px 600) over a dotted « Aussi pour… » (« Aussi pour : Chambre 1 » once chosen; it opens the room choice sheet), then Annuler and Envoyer (`.btn-sm`), and a « Voir les modifications » disclosure listing each changed day before/after: s2, hairline, 10 px, 8 × 14 px padding. On a phone it is sticky 64 px above the bottom (clear of the tab bar); on desktop it sits under the day editor. It rises in over 220 ms. The conflict notice and the per-room send status sit just above it. An offline room's Envoyer is `aria-disabled` with its reason. Day and room choices are 36 px chips with a 44 px hit area (8 px, hairline, 13 px 600 muted; checked: s2, muted edge, ink, an ink box).
 
 ### Motion
 One curve and a few durations, as tokens in `app.css` and as `T`/`easeOut` in `$lib/motion.ts`: `--ease-out` `cubic-bezier(0.16, 1, 0.3, 1)` for arrivals, `--ease-in` for exits; `--t-press` 100 ms, `--t-state` 160 ms (colour and state), `--t-enter` 220 ms (things arriving, expanding, page entry), `--t-exit` 150 ms, `--t-morph` 250 ms (the dashed → solid signature, the authored moment), `--t-data` 360 ms (bars and meters).
@@ -613,14 +628,15 @@ never reloads. URL paths are English in both languages (`/rooms`, `/schedule`, `
 
 ### Do:
 - **Do** write temperatures in ink; keep `heatColor()` for the strip's temperature line, warm for heating and cool for away.
-- **Do** colour Énergie data through `SERIES`: HC series-1, HP series-2, radiators series-3, and keep each meaning on the same colour everywhere.
+- **Do** colour Énergie data through `SERIES`: HC `--hc` (hatched), HP `--hp`, an unsplit home series-1, radiators series-3, and keep each meaning on the same colour everywhere; draw keys with `Swatch`.
+- **Do** paint controls at `--ctl-h` (36 px) with a 44 px hit area (`.hit`, or the `.btn` `::before`), size short values with the `--w-*` widths, and keep ≥ 8 px between neighbouring controls.
 - **Do** put a visually hidden data table behind every chart, with « — » for missing cells.
 - **Do** put units in field captions and table headers, not repeated in every cell.
 - **Do** say what a comparison compares with and over how many days (« sur 12 jours comparables »).
 - **Do** format every Énergie figure through the precision functions in `$lib/format.ts`, and build every inspector, readout, hidden table and announcement from `$lib/inspector.ts`, so a value reads the same everywhere.
 - **Do** make shown parts add up to their shown total (`matchParts`), and give every « — » its reason.
 - **Do** show every sent command as dashed until the radiator reports the matching value, then morph solid in 250 ms; show a failure plainly with "Réessayer".
-- **Do** keep every interactive target at least 44 px (tab-bar items 56 px) and keep text and heat colours at WCAG AA (4.5:1) on bg and s1 in both themes, and component boundaries (fields, the selected segment, programme blocks) at 3:1; extend `tokens.test.ts` for any new token.
+- **Do** keep every interactive hit area at least 44 px (tab-bar items 56 px; the paint may be 36 px) and keep text and heat colours at WCAG AA (4.5:1) on bg and s1 in both themes, and component boundaries (fields, the selected segment, programme blocks) at 3:1; extend `tokens.test.ts` for any new token.
 - **Do** use `.btn-*` for every button, `.skeleton` for every loading state, `dur()` for every Svelte transition and the shared Settle/PendingEdge for every pending mark.
 - **Do** keep the light block and the `prefers-color-scheme: light` block in `app.css` identical.
 - **Do** focus with a 2 px ink outline, 2 px offset.

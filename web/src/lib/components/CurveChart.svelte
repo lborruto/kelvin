@@ -1,6 +1,7 @@
 <script lang="ts">
   import { scaleBand, scaleLinear } from 'd3-scale';
   import Scrubber from './Scrubber.svelte';
+  import Swatch from './Swatch.svelte';
   import type { EnergyInterval, RoomSample } from '$lib/api/types';
   import { SERIES } from '$lib/energy';
   import { fmtTime, fmtWh } from '$lib/format';
@@ -57,6 +58,8 @@
     });
     return d;
   });
+  /** HC/HP halves are drawn (a tariff splits the day and some half-hour has its off-peak fraction). */
+  let hasSplit = $derived(split && intervals.some((p) => p.offpeak != null));
   let ctx = $derived({ intervals, samples, room, tariff: split });
   let current = $derived(index != null && intervals[index] ? intervals[index] : null);
   let readout = $derived(readInterval(current, ctx));
@@ -115,10 +118,12 @@
             <rect class="all" x={x(i)} width={x.bandwidth()} y={top} height={Math.max(0, BASE - top)} style:fill={SERIES.home} rx="1" />
           {:else}
             {#if f < 1}
-              <rect class="hp" x={x(i)} width={x.bandwidth()} y={top} height={Math.max(0, cut - top)} style:fill={SERIES.hp} rx="1" />
+              <!-- 1 px knockout above the HC part, so the two blues never touch. -->
+              <rect class="hp" x={x(i)} width={x.bandwidth()} y={top} height={Math.max(0, cut - top - (f > 0 ? 1 : 0))} style:fill={SERIES.hp} rx="1" />
             {/if}
             {#if f > 0}
               <rect class="hc" x={x(i)} width={x.bandwidth()} y={cut} height={Math.max(0, BASE - cut)} style:fill={SERIES.hc} rx="1" />
+              <rect class="hc hatch" x={x(i)} width={x.bandwidth()} y={cut} height={Math.max(0, BASE - cut)} fill="url(#hc-hatch)" rx="1" />
             {/if}
           {/if}
         </g>
@@ -148,9 +153,13 @@
     <span class="curve-tick end">24</span>
   </div>
   <!-- A legend only for what is drawn: no empty list when the subscribed power is only stated. -->
-  {#if radPath || (kvaShown && kva != null)}
+  {#if radPath || (kvaShown && kva != null) || hasSplit}
     <ul class="legend">
-      {#if radPath}<li><span class="line" style:background={SERIES.radiators}></span>{m.curve.radiators}</li>{/if}
+      {#if hasSplit}
+        <li><Swatch series="hc" />{m.energyPage.hc}</li>
+        <li><Swatch series="hp" />{m.energyPage.hp}</li>
+      {/if}
+      {#if radPath}<li><Swatch series="radiators" line />{m.curve.radiators}</li>{/if}
       {#if kvaShown && kva != null}<li><span class="dash"></span>{m.curve.kva(kva)}</li>{/if}
     </ul>
   {/if}
@@ -310,11 +319,6 @@
     display: flex;
     align-items: center;
     gap: 6px;
-  }
-  .line {
-    width: 14px;
-    height: 2px;
-    border-radius: 1px;
   }
   .dash {
     width: 14px;

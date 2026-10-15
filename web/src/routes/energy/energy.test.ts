@@ -268,12 +268,14 @@ describe('Énergie', () => {
     say.mockRestore();
   });
 
-  it('stacks HC and HP in series 1 and 2, radiators as series-3 marks; Enter on a day opens its Courbe', async () => {
+  it('stacks HC (light blue, hatched) and HP (dark blue), radiators as series-3 marks; Enter on a day opens its Courbe', async () => {
     const { container } = render(Page);
     await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
-    const fills = [...container.querySelectorAll('rect.part')].map((r) => r.getAttribute('style'));
-    expect(fills.filter((f) => f?.includes('var(--series-1)'))).toHaveLength(12);
-    expect(fills.filter((f) => f?.includes('var(--series-2)'))).toHaveLength(12);
+    const fills = [...container.querySelectorAll('rect.part:not(.hatch)')].map((r) => r.getAttribute('style'));
+    expect(fills.filter((f) => f?.includes('var(--hc)'))).toHaveLength(12);
+    expect(fills.filter((f) => f?.includes('var(--hp)'))).toHaveLength(12);
+    expect(container.querySelectorAll('rect.part.hatch')).toHaveLength(12);
+    expect(fills.some((f) => f?.includes('var(--series-1)') || f?.includes('var(--series-2)'))).toBe(false);
     expect(container.querySelector('line.mark')!.getAttribute('style')).toContain('var(--series-3)');
     const bar = screen.getByRole('button', { name: /^11 octobre, 10,00 kilowattheures, 3,00 euros$/ });
     await fireEvent.keyDown(bar, { key: 'Enter' });

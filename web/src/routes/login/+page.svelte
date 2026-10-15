@@ -134,7 +134,7 @@
     {/if}
     {#if error}<p class="error" id="login-error" role="alert">{error()}</p>{/if}
     <!-- aria-disabled while busy: the focused button keeps focus through the round trip. -->
-    <button type="submit" class="btn btn-primary" aria-disabled={busy || !ready}>{busy ? m.login.busy : m.login.submit}</button>
+    <button type="submit" class="btn btn-primary btn-lg" aria-disabled={busy || !ready}>{busy ? m.login.busy : m.login.submit}</button>
     {#if auth.simulator}<p class="muted small">{m.login.simulator}</p>{/if}
     <div class="lang">
       <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_SHORT[l], lang: l, ariaLabel: LOCALE_NAMES[l] }))}

@@ -39,6 +39,24 @@ describe('TariffForm v2', () => {
     expect(field('Début de la plage 1').value).toBe('22:00');
   });
 
+  it('compact fields: intrinsic widths, the HC/HP swatch before each price, one line per off-peak slot', async () => {
+    const { container } = render(TariffForm, { settings, onsaved: vi.fn() });
+    expect(field('Prix heures creuses (€/kWh)')).toHaveClass('w-price');
+    expect(field('Abonnement (€/mois)')).toHaveClass('w-price');
+    expect(container.querySelector('select')).toHaveClass('w-kva');
+    const swatch = (l: string) => field(l).closest('label')!.querySelector('.sw')!.getAttribute('data-series');
+    expect([swatch('Prix heures creuses (€/kWh)'), swatch('Prix heures pleines (€/kWh)')]).toEqual(['hc', 'hp']);
+    // « [22:00] → [06:00] [Retirer] » on one line: both times and the button share the slot row.
+    const row = field('Début de la plage 1').closest('.slot')!;
+    expect(within(row as HTMLElement).getByLabelText('Fin de la plage 1')).toBeTruthy();
+    expect(within(row as HTMLElement).getByRole('button', { name: 'Retirer la plage 1' })).toBeTruthy();
+    // Tempo keeps the day colour (round TempoDot) and adds the hour type (square swatch).
+    await fireEvent.click(screen.getByRole('radio', { name: 'Tempo' }));
+    const cap = field('Rouge HC (€/kWh)').closest('label')!;
+    expect(cap.querySelector('.dot.red')).toBeTruthy();
+    expect(cap.querySelector('.sw')!.getAttribute('data-series')).toBe('hc');
+  });
+
   it('a new price is added as a dated row and the history is kept', async () => {
     render(TariffForm, { settings, onsaved: vi.fn() });
     await fireEvent.input(field('Prix heures pleines (€/kWh)'), { target: { value: '0,28' } });

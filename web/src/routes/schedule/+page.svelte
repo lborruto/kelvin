@@ -499,7 +499,7 @@
   <ChoiceSheet title={m.program.alsoSend} open={alsoOpen} trigger={alsoTrigger} onclose={() => (alsoOpen = false)}>
     <div class="chips">
       {#each alsoOptions as r (r.id)}
-        <label class="chip"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} /><span
+        <label class="chip hit"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} /><span
             aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{roomName(r)}</label>
       {/each}
     </div>
@@ -777,6 +777,16 @@
   .sendbar .btn:not(.btn-primary) {
     background: var(--s1);
   }
+  /* On a phone « Envoyer » is the page's one primary action: the large control (--ctl-h-lg). */
+  @media (max-width: 1023px) {
+    .sendbar .btn-primary {
+      min-height: var(--ctl-h-lg);
+      padding: 0 16px;
+    }
+    .sendbar .btn-primary::before {
+      inset: -1px;
+    }
+  }
   .why {
     flex-basis: 100%;
     margin: 0;
@@ -794,7 +804,7 @@
     padding-left: 18px;
     font-size: 13px;
   }
-  /* Room choices in « Aussi pour… »: 44 px chips; the native box is visually hidden, its focus shows on the chip. */
+  /* Room choices in « Aussi pour… »: 36 px chips (44 px hit area); the native box is visually hidden, its focus shows on the chip. */
   .chips {
     display: flex;
     flex-wrap: wrap;
@@ -805,7 +815,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 44px;
+    min-height: var(--ctl-h);
     padding: 0 12px 0 10px;
     border: 1px solid var(--line);
     border-radius: 8px;

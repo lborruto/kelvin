@@ -42,7 +42,7 @@
   <div class="presets" role="group" aria-label={m.program.presetsLabel}>
     {#each PRESETS as p (p)}
       {@const days = presetDays(p, source, locks)}
-      <button type="button" class="chip" aria-pressed={days.length > 0 && same(chosen, days)} onclick={() => (chosen = days)}>
+      <button type="button" class="chip hit" aria-pressed={days.length > 0 && same(chosen, days)} onclick={() => (chosen = days)}>
         {m.program.presets[p]}
       </button>
     {/each}
@@ -53,12 +53,12 @@
       {#if d === source}
         <span class="chip off" aria-hidden="true"><span class="box"></span>{m.daysShort[d]}</span>
       {:else}
-        <label class="chip"><input class="visually-hidden" type="checkbox" value={d} aria-label={m.days[d]} bind:group={chosen} /><span
+        <label class="chip hit"><input class="visually-hidden" type="checkbox" value={d} aria-label={m.days[d]} bind:group={chosen} /><span
             class="box" aria-hidden="true"><Icon name="check" size={12} /></span><span aria-hidden="true">{m.daysShort[d]}</span></label>
       {/if}
     {/each}
   </fieldset>
-  <button type="button" class="btn btn-primary go" aria-disabled={!chosen.length} onclick={apply}>{m.program.copyN(chosen.length)}</button>
+  <button type="button" class="btn btn-primary btn-lg go" aria-disabled={!chosen.length} onclick={apply}>{m.program.copyN(chosen.length)}</button>
   <p class="note">{m.program.copyNote}</p>
 </ChoiceSheet>
 
@@ -82,7 +82,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 44px;
+    min-height: var(--ctl-h);
     padding: 0 10px;
     border: 1px solid var(--line);
     border-radius: 8px;

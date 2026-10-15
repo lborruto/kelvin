@@ -78,14 +78,16 @@
   </div>
 
   <form onsubmit={save} novalidate>
+    <div class="fields">
     <label class="field">
       <span>{m.linky.pdl}</span>
-      <input inputmode="numeric" autocomplete="off" maxlength="14" bind:value={prm} />
+      <input class="pdl" inputmode="numeric" autocomplete="off" maxlength="14" bind:value={prm} />
     </label>
     <div class="tok">
     <label class="field">
       <span>{m.linky.token}</span>
       <input
+        class="w-text"
         type="password"
         autocomplete="new-password"
         placeholder={status.token_set ? m.linky.tokenPlaceholder : ''}
@@ -93,6 +95,7 @@
         bind:value={token} />
     </label>
     {#if status.token_set}<span class="hint" id="{uid}-keep">{m.linky.keepToken}</span>{/if}
+    </div>
     </div>
     {#if error}<p class="error" role="alert">{error()}</p>{/if}
     <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? m.linky.testing : m.linky.saveTest}</button>
@@ -116,16 +119,26 @@
   .small {
     font-size: 12px;
   }
+  /* Intrinsic widths in a wrapping group (DESIGN Form fields): the PDL is 14 digits wide, the token a
+     text field (--w-text); the primary button closes the form on its own line, left-aligned. */
   form {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    align-items: start;
-    gap: 12px;
+    justify-items: start;
+    gap: var(--ctl-gap);
   }
-  /* The primary button closes the form on its own line, left-aligned (DESIGN Form fields). */
-  form .btn-primary {
-    grid-column: 1 / -1;
-    justify-self: start;
+  .fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--ctl-gap) 16px;
+    width: 100%;
+  }
+  .pdl {
+    width: min(100%, calc(14ch + 2 * var(--ctl-pad-x) + 8px));
+  }
+  .tok {
+    flex: 1 1 14rem;
+    max-width: 22rem;
   }
   .field {
     display: grid;
@@ -144,13 +157,15 @@
     display: grid;
     gap: 4px;
   }
+  .tok .w-text {
+    width: 100%;
+  }
   .hint {
     font-size: 12px;
     color: var(--mu);
   }
   .error {
     color: var(--bad);
-    grid-column: 1 / -1;
   }
   a {
     color: var(--tx);

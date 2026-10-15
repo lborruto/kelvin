@@ -127,7 +127,7 @@
   <h2>{m.away.title}</h2>
   <p class="muted">{m.away.lead}</p>
   <div class="row">
-    <label class="field"><span>{m.away.until} <span class="hint">{m.away.parisTime}</span></span><input type="datetime-local" min={minUntil}
+    <label class="field"><span>{m.away.until} <span class="hint">{m.away.parisTime}</span></span><input class="when" type="datetime-local" min={minUntil}
         bind:value={until} /></label>
     <div class="field"><span>{m.away.temperature}</span>
       <Stepper label={m.away.tempLabel} value={awayTemp} min={7} max={19} debounceMs={0} onchange={(v) => (awayTemp = v)} />
@@ -290,9 +290,14 @@
   }
   .field {
     display: grid;
+    justify-items: start;
     gap: 4px;
     font-size: 12px;
     color: var(--mu);
+  }
+  /* A date and a time: as wide as « 18/10/2026 18:00 » and its picker glyph, never stretched. */
+  .when {
+    width: min(100%, 14.5rem);
   }
   .hint {
     font-weight: 400;

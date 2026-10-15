@@ -9,6 +9,11 @@ const options = [
 ];
 
 describe('Segmented', () => {
+  it('compact scale: every segment carries the 44 px hit area (.hit)', () => {
+    render(Segmented, { options, value: 'month', label: 'Période', onchange: vi.fn() });
+    for (const r of screen.getAllByRole('radio')) expect(r).toHaveClass('hit');
+  });
+
   it('is a radiogroup with one tab stop on the checked option', () => {
     render(Segmented, { options, value: 'month', label: 'Période', onchange: vi.fn() });
     expect(screen.getByRole('radiogroup', { name: 'Période' })).toBeInTheDocument();

@@ -7,6 +7,7 @@
   import { setLoginRequiredHandler } from '$lib/api/client';
   import { loginHref } from '$lib/auth';
   import Banner from '$lib/components/Banner.svelte';
+  import ChartDefs from '$lib/components/ChartDefs.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
@@ -123,6 +124,7 @@
   </div>
   <div class="tabs"><TabBar /></div>
 {/if}
+<ChartDefs />
 <Toasts />
 <div class="visually-hidden" role="status" aria-live="polite">{announcer.polite}</div>
 <div class="visually-hidden" aria-live="assertive">{announcer.assertive}</div>

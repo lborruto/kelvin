@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { HcLens, TariffOption, TempoLens } from '$lib/api/types';
   import { fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
+  import { SERIES, seriesBackground } from '$lib/energy';
   import { m } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
   import { shiftValue } from '$lib/power';
@@ -35,6 +36,11 @@
       </div>
     </dl>
     {#if lens?.hc_share != null}
+      <!-- The split as a meter: heures creuses (light blue, hatched) then heures pleines (dark blue). -->
+      <div class="split" aria-hidden="true">
+        <span class="hc" style:flex-basis="{Math.min(1, Math.max(0, lens.hc_share)) * 100}%" style:background={seriesBackground('hc')}></span>
+        <span class="hp" style:background={SERIES.hp}></span>
+      </div>
       <p class="muted line">{m.hcHp.slots(fmtPct1(lens.slot_share))}</p>
     {:else}
       <!-- The backend gives no lens for a tariff without HC slots. -->
@@ -73,6 +79,24 @@
   }
   .rows {
     margin-top: 10px;
+  }
+  .split {
+    display: flex;
+    gap: 1px;
+    height: 6px;
+    margin-top: 8px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: var(--in);
+  }
+  .split span {
+    min-width: 0;
+  }
+  .split .hc {
+    flex: none;
+  }
+  .split .hp {
+    flex: 1 1 auto;
   }
   .figs div {
     display: flex;

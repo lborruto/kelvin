@@ -15,12 +15,20 @@ const iv = (ts: number, wh: number, offpeak: number | null, o: Partial<EnergyInt
 const four = [iv(t0, 1500, 1), iv(t0 + 1800, 300, 0), iv(t0 + 3600, 600, 0.5), iv(t0 + 5400, 200, 1)];
 
 describe('CurveChart', () => {
-  it('splits each half hour into HC (series-1) and HP (series-2), without <title> tooltips', () => {
+  it('splits each half hour into HC (light blue, hatched) and HP (dark blue), without <title> tooltips', () => {
     const { container } = render(CurveChart, { intervals: four, label: 'Courbe' });
-    expect(container.querySelectorAll('rect.hc')).toHaveLength(3);
+    expect(container.querySelectorAll('rect.hc:not(.hatch)')).toHaveLength(3);
     expect(container.querySelectorAll('rect.hp')).toHaveLength(2);
-    expect(container.querySelector('rect.hc')!.getAttribute('style')).toContain('var(--series-1)');
-    expect(container.querySelector('rect.hp')!.getAttribute('style')).toContain('var(--series-2)');
+    expect(container.querySelector('rect.hc')!.getAttribute('style')).toContain('var(--hc)');
+    expect(container.querySelector('rect.hp')!.getAttribute('style')).toContain('var(--hp)');
+    // Every HC part carries the hatch (never colour alone); HP is solid.
+    const hatches = container.querySelectorAll('rect.hc.hatch');
+    expect(hatches).toHaveLength(3);
+    for (const h of hatches) expect(h.getAttribute('fill')).toBe('url(#hc-hatch)');
+    // A 1 px knockout between HP and HC in a split half-hour (the third: 600 Wh, half off-peak).
+    const hp = container.querySelectorAll('rect.hp')[1];
+    const hc = container.querySelectorAll('rect.hc:not(.hatch)')[1];
+    expect(Number(hc.getAttribute('y')) - (Number(hp.getAttribute('y')) + Number(hp.getAttribute('height')))).toBeCloseTo(1);
     expect(container.querySelector('title')).toBeNull();
     expect(container.querySelector('svg')).toHaveAttribute('aria-label', 'Courbe');
     expect(container.querySelector('.curve-axis .curve-tick')?.textContent).toBe('00');
@@ -138,14 +146,20 @@ describe('CurveChart', () => {
   });
 
   it('a legend only for what is drawn: no empty list when the subscribed power is only stated', () => {
-    const { container, unmount } = render(CurveChart, { intervals: four, label: 'Courbe', kva: 12 });
-    expect(container.querySelector('.legend')).toBeNull(); // no radiator line, kVA off the scale
+    const { container, unmount } = render(CurveChart, { intervals: four, label: 'Courbe', kva: 12, split: false });
+    expect(container.querySelector('.legend')).toBeNull(); // one series, no radiator line, kVA off the scale
     expect(container.querySelector('.kva-note')).not.toBeNull();
     unmount();
     const drawn = render(CurveChart, { intervals: four, label: 'Courbe', kva: 1 });
-    expect([...drawn.container.querySelectorAll('.legend li')].map((l) => l.textContent)).toEqual([`Puissance souscrite (1${NB}kVA)`]);
+    expect([...drawn.container.querySelectorAll('.legend li')].map((l) => l.textContent)).toEqual([
+      'Heures creuses', 'Heures pleines', `Puissance souscrite (1${NB}kVA)`
+    ]);
+    // HC/HP keys are squares, HC hatched; never round dots (those are Tempo days).
+    const keys = drawn.container.querySelectorAll('.legend .sw');
+    expect(keys[0].getAttribute('style')).toContain('var(--hc-hatch)');
+    expect(keys[1].getAttribute('style')).not.toContain('hatch');
     drawn.unmount();
-    expect(render(CurveChart, { intervals: four, label: 'Courbe' }).container.querySelector('.legend')).toBeNull();
+    expect(render(CurveChart, { intervals: four, label: 'Courbe', split: false }).container.querySelector('.legend')).toBeNull();
   });
 
   it('the readout’s temperature names its room', () => {

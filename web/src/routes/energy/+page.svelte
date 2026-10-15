@@ -18,6 +18,7 @@
   import RoomDayPanel from '$lib/components/RoomDayPanel.svelte';
   import RoomsEnergy from '$lib/components/RoomsEnergy.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
+  import Swatch from '$lib/components/Swatch.svelte';
   import { addDays, bucketLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
   import { fmtDateLong, fmtDay, fmtKwh, fmtTime, monthYear } from '$lib/format';
   import { apiMessage, m } from '$lib/i18n';
@@ -256,13 +257,13 @@
         onswipe={step} />
       <ul class="legend">
         {#if bars.some(splitOf)}
-          <li><span class="swatch" style:background={SERIES.hc}></span>{m.energyPage.hc}</li>
-          <li><span class="swatch" style:background={SERIES.hp}></span>{m.energyPage.hp}</li>
+          <li><Swatch series="hc" />{m.energyPage.hc}</li>
+          <li><Swatch series="hp" />{m.energyPage.hp}</li>
         {/if}
         {#if bars.some((b) => !splitOf(b))}
-          <li><span class="swatch" style:background={SERIES.home}></span>{m.energyPage.consumption}</li>
+          <li><Swatch series="home" />{m.energyPage.consumption}</li>
         {/if}
-        <li><span class="line" style:background={SERIES.radiators}></span>{m.energyPage.radiators}</li>
+        <li><Swatch series="radiators" line />{m.energyPage.radiators}</li>
       </ul>
       {#if trimmed > 0 && chart.linky_since}<p class="muted small">{m.energyPage.linkySince(fmtDateLong(chart.linky_since))}</p>{/if}
     {:else}
@@ -484,17 +485,6 @@
     display: flex;
     align-items: center;
     gap: 6px;
-  }
-  .swatch {
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
-    flex: none;
-  }
-  .line {
-    width: 14px;
-    height: 2px;
-    border-radius: 1px;
   }
   .counters-sk {
     height: 160px;

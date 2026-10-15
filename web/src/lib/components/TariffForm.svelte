@@ -163,10 +163,10 @@
   <div class="grid">
     <label class="field">
       <span>{m.tariff.kva}</span>
-      <select bind:value={kva}>{#each kvaOptions as k (k)}<option value={k}>{m.tariff.kvaValue(k)}</option>{/each}</select>
+      <select class="w-kva" bind:value={kva}>{#each kvaOptions as k (k)}<option value={k}>{m.tariff.kvaValue(k)}</option>{/each}</select>
     </label>
     <label class="field"><span>{m.tariff.validFrom}</span><input type="date" bind:value={validFrom} /></label>
-    <label class="field"><span>{m.tariff.subscription}</span><input inputmode="decimal" autocomplete="off" bind:value={sub} /></label>
+    <label class="field"><span>{m.tariff.subscription}</span><input class="w-price" inputmode="decimal" autocomplete="off" bind:value={sub} /></label>
   </div>
 
   <PriceFields {option} bind:values={rates} />
@@ -193,12 +193,12 @@
         <div class="contract" role="status">
           <p>{m.tariff.contractNew(contract.map((s) => `${s.start}–${s.end}`).join(', '))}</p>
           <div class="contract-row">
-            <label class="field narrow"><span>{m.tariff.contractFrom}</span><input type="date" bind:value={contractFrom} /></label>
+            <label class="field"><span>{m.tariff.contractFrom}</span><input type="date" bind:value={contractFrom} /></label>
             <button type="button" class="btn btn-sm" aria-disabled={busy} onclick={addContractHours}>{m.tariff.contractAdd(fmtDay(contractFrom))}</button>
           </div>
         </div>
       {/if}
-      <label class="field narrow"><span>{m.tariff.hcValidFrom}</span><input type="date" bind:value={hcFrom} /></label>
+      <label class="field"><span>{m.tariff.hcValidFrom}</span><input type="date" bind:value={hcFrom} /></label>
       <HcScheduleEditor bind:variants bind:seasonal />
     </fieldset>
   {/if}
@@ -219,13 +219,16 @@
     font-size: 13px;
     margin: 0;
   }
+  /* Intrinsic widths in wrapping groups (DESIGN Form fields): kVA, dates, prices and times are as wide
+     as their value, never a stretched column. */
   .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ctl-gap) 16px;
   }
   .field {
     display: grid;
+    justify-items: start;
     gap: 4px;
     font-size: 12px;
     color: var(--mu);
@@ -267,9 +270,7 @@
     align-items: end;
     gap: 10px;
   }
-  .narrow {
-    max-width: 240px;
-  }
+
   /* Long button labels wrap instead of widening the page (320 px). */
   .row :global(.btn),
   .contract-row :global(.btn) {

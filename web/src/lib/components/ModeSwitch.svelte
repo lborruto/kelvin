@@ -40,30 +40,32 @@
   {#each options as o, i (o.v)}
     {@const on = current === o.v}
     {@const isPending = waiting && pending === o.v}
-    <button type="button" role="radio" aria-checked={on}
+    <button type="button" class="hit" role="radio" aria-checked={on}
       aria-label={isPending ? m.modeSwitch.pending(o.v === 'program' ? m.mode.program : o.l) : o.v === 'program' ? m.mode.program : o.l}
       bind:this={buttons[i]} tabindex={tabStop === o.v ? 0 : -1} onkeydown={(e) => key(e, i)}
       class:on class:pending={isPending} aria-disabled={disabled}
-      onclick={() => !disabled && current !== o.v && onchange(o.v)}>{o.l}{#if on}<PendingEdge shape="rect" rx={6.5} pending={isPending}
+      onclick={() => !disabled && current !== o.v && onchange(o.v)}>{o.l}{#if on}<PendingEdge shape="rect" rx={5.5} pending={isPending}
           confirmed={settle.confirmed && settle.held?.v === o.v} />{/if}</button>
   {/each}
 </div>
 
 <style>
+  /* Compact scale: 36 px segments in a 40 px well, each with a 44 px hit area (.hit). Rows of
+     segments (CommandSwitch) are 8 px apart so the hit areas never overlap. */
   .seg {
     display: grid;
     grid-template-columns: repeat(var(--cols, 3), 1fr);
-    gap: 2px;
-    padding: 2px;
+    gap: 8px 2px;
+    padding: 1px;
     background: var(--in);
     border: 1px solid var(--line);
-    border-radius: var(--radius);
+    border-radius: var(--ctl-radius);
   }
   button {
     position: relative;
-    min-height: 44px;
+    min-height: var(--ctl-h);
     border: 0;
-    border-radius: calc(var(--radius) - 3px);
+    border-radius: calc(var(--ctl-radius) - 2px);
     background: transparent;
     color: var(--mu);
     font-weight: 600;

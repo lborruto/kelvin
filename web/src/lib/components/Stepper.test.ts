@@ -12,6 +12,11 @@ const tap = async (el: HTMLElement) => {
 };
 
 describe('Stepper', () => {
+  it('compact scale: both buttons carry the 44 px hit area (.hit) over a 36 px well', () => {
+    render(Stepper, { value: 20, min: 7, max: 30, label: 'Confort', onchange: vi.fn() });
+    for (const b of screen.getAllByRole('button')) expect(b).toHaveClass('hit');
+  });
+
   it('rapid taps send one command with the final value', async () => {
     const onchange = vi.fn();
     render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });

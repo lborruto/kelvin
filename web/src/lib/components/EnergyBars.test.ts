@@ -110,7 +110,8 @@ describe('EnergyBars', () => {
       unit: 'kWh',
       label: 'x'
     });
-    expect(container.querySelectorAll('rect.part')).toHaveLength(2);
+    expect(container.querySelectorAll('rect.part:not(.hatch)')).toHaveLength(2);
+    expect(container.querySelectorAll('rect.part.hatch')).toHaveLength(1); // HC's hatch over its fill
     for (const r of container.querySelectorAll('rect.part')) expect(Number(r.getAttribute('height'))).not.toBeNaN();
     const rows = container.querySelectorAll('.visually-hidden > table tbody tr');
     expect([...rows[0].querySelectorAll('td')].map((td) => td.textContent)).toEqual(['—', '—']);

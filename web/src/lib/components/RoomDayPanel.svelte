@@ -117,7 +117,7 @@
     font-size: 13px;
   }
   select {
-    min-height: 44px;
+    min-height: var(--ctl-h);
     min-width: 0;
     max-width: 100%;
     padding: 0 10px;

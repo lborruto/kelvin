@@ -130,7 +130,7 @@
   }
   .head {
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    grid-template-columns: var(--ctl-h) minmax(0, 1fr) var(--ctl-h);
     align-items: center;
     gap: 8px;
   }
@@ -161,9 +161,12 @@
     display: grid;
     gap: 8px;
   }
+  /* One period per line from 320 px: compact 36 px time fields as wide as « 22:00 » (--w-time; they
+     may shrink a little on the narrowest phones), the remove button 36 px with a 44 px hit area. */
   .slots li {
     display: grid;
-    grid-template-columns: 12px auto minmax(0, 1fr) 14px minmax(0, 1fr) 44px;
+    grid-template-columns: 12px auto minmax(0, var(--w-time)) 14px minmax(0, var(--w-time)) var(--ctl-h);
+    justify-content: start;
     align-items: center;
     gap: 8px;
     font-size: 13px;
@@ -187,6 +190,9 @@
     width: 100%;
     padding: 0 6px;
     text-align: center;
+  }
+  .slots .btn-icon {
+    justify-self: end;
   }
   input[aria-disabled='true'] {
     color: var(--fa);

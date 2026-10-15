@@ -32,6 +32,7 @@
     <button
       bind:this={buttons[i]}
       type="button"
+      class="hit"
       role="radio"
       lang={o.lang}
       aria-label={o.ariaLabel}
@@ -43,19 +44,21 @@
 </div>
 
 <style>
+  /* Compact scale: 36 px segments (--ctl-h) in a 40 px well (1 px edge, 1 px inset), radius 8 → 6
+     concentric; each segment's hit area reaches 44 px (.hit). */
   .seg {
     display: inline-flex;
     gap: 2px;
-    padding: 2px;
+    padding: 1px;
     background: var(--in);
     border: 1px solid var(--line);
-    border-radius: var(--radius);
+    border-radius: var(--ctl-radius);
   }
   button {
-    min-height: 44px;
-    padding: 0 14px;
+    min-height: var(--ctl-h);
+    padding: 0 12px;
     border: 1px solid transparent;
-    border-radius: 7px;
+    border-radius: calc(var(--ctl-radius) - 2px);
     background: none;
     color: var(--mu);
     font: inherit;

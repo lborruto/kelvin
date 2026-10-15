@@ -59,6 +59,6 @@
     text-decoration: underline;
   }
   .btn-icon {
-    margin: -6px 0;
+    margin: -2px 0;
   }
 </style>
