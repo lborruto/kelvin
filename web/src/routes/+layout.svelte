@@ -10,21 +10,26 @@
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
+  import { initLocale, m } from '$lib/i18n';
   import { reducedMotion } from '$lib/motion';
+  import { ROUTES } from '$lib/paths';
   import { announcer } from '$lib/stores/announcer.svelte';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { connectStream } from '$lib/stores/stream';
 
+  // Once per app start: the stored choice, else the browser's languages; reactive from here on.
+  initLocale();
+
   let { children } = $props();
   let now = $state(Date.now());
   let manifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
   /** The login screen stands alone: no shell, no stream. */
-  let bare = $derived(page.url.pathname === '/login');
+  let bare = $derived(page.url.pathname === ROUTES.login);
 
   function toLogin() {
     auth.clearSession();
-    if (page.url.pathname !== '/login') void goto(loginHref(page.url), { replaceState: true });
+    if (page.url.pathname !== ROUTES.login) void goto(loginHref(page.url), { replaceState: true });
   }
 
   // The static first-paint shell in app.html (a fixed overlay, so removing it moves nothing).
@@ -107,13 +112,13 @@
 {#if bare}
   {@render children()}
 {:else}
-  <a class="skip" href="#contenu">Aller au contenu</a>
+  <a class="skip" href="#content">{m.nav.skip}</a>
   {#if loadingRoute}<div class="progress" aria-hidden="true"></div>{/if}
   <div class="app">
     <div class="side"><Sidebar /></div>
     <div class="main">
       <Banner connection={house.connection} status={house.status} {now} />
-      <main id="contenu" tabindex="-1">{@render children()}</main>
+      <main id="content" tabindex="-1">{@render children()}</main>
     </div>
   </div>
   <div class="tabs"><TabBar /></div>

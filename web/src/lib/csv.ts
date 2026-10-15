@@ -1,8 +1,9 @@
 /**
  * The Énergie CSV export (spec §3.2.9): built in the browser from the same JSON the page shows,
  * never a second computation and no server endpoint. A machine contract documented in
- * web/README.md: French headers, UTF-8 with BOM, « ; », CRLF, decimal commas (Plan 7: follow the UI locale), ISO
- * local times with their offset, an empty cell for a missing value. No PDL, token, email or id.
+ * web/README.md: French headers and file names in every language, UTF-8 with BOM, CRLF, « ; » and decimal commas in
+ * French, « , » and decimal points in English (Decision 30: the number format follows the UI language), ISO local times
+ * with their offset, an empty cell for a missing value. No PDL, token, email or id.
  *
  * Every figure is the API's own (kWh to 3 decimals, € to 2, as the backend rounds them), so a
  * bucket exports what the page shows for it, and a day's € are the same in whatever period they
@@ -10,21 +11,22 @@
  */
 import type { EnergyDay, EnergyReport, EnergySummary, PriceRow } from './api/types';
 import { addDays, bucketSpan, firstCounted, type Span } from './energy';
+import { locale } from './i18n';
 import type { RoomRow } from './roomEnergy';
 import { isoParis, parisDayStart } from './time';
 
 export const BOM = '﻿';
 export const ENERGY_HEADER = [
   'periode', 'debut', 'fin', 'maison_kwh', 'hc_kwh', 'hp_kwh', 'split_estime', 'radiateurs_kwh', 'radiateurs_interp',
-  'reste_kwh', 'energie_eur', 'abonnement_eur', 'total_eur', 'prix', 'jours_manquants',
+  'reste_kwh', 'energie_eur', 'abonnement_eur', 'total_eur', 'prix', 'jours_manquants', // i18n-ignore: CSV machine contract
   // R1: a partial radiator sum never reads as whole. `radiateurs_jusqu_au` is the last day the radiator sum counts
   // (a period running into today counts up to yesterday, while `fin` stays the period's end); `radiateurs_couverture`
   // (last) is the share of the radiator-days up to that day that were fully measured.
   'radiateurs_jusqu_au', 'radiateurs_couverture'
 ];
-export const CURVE_HEADER = ['debut', 'fin', 'minutes', 'wh', 'w_moyen', 'part_hc', 'couleur_tempo', 'prix', 'eur', 'radiateurs_wh'];
+export const CURVE_HEADER = ['debut', 'fin', 'minutes', 'wh', 'w_moyen', 'part_hc', 'couleur_tempo', 'prix', 'eur', 'radiateurs_wh']; // i18n-ignore: CSV machine contract
 export const ROOMS_HEADER = [
-  'piece', 'radiateur', 'kwh', 'part', 'hc_kwh', 'hp_kwh', 'eur', 'temp_moy', 'consigne_moy', 'heures_chauffe', 'couverture', 'depuis'
+  'piece', 'radiateur', 'kwh', 'part', 'hc_kwh', 'hp_kwh', 'eur', 'temp_moy', 'consigne_moy', 'heures_chauffe', 'couverture', 'depuis' // i18n-ignore: CSV machine contract, French headers in every locale
 ];
 
 export interface CsvFile {
@@ -32,10 +34,16 @@ export interface CsvFile {
   text: string;
 }
 
+/** The cell separator of the active language: « ; » with a decimal comma in French (French spreadsheets),
+ * « , » with a decimal point in English. Headers and file names stay French in both (machine contract). */
+export function csvSeparator(): ';' | ',' {
+  return locale.current === 'en' ? ',' : ';';
+}
+
 const plain = new Map<number, Intl.NumberFormat>();
 /**
- * A number with fixed decimals, a decimal comma and no grouping (the French spreadsheet convention, with « ; »
- * between cells); an empty cell for a missing value (never 0). It rounds as the page's formatters do (Intl: a
+ * A number with fixed decimals and no grouping, its decimal mark the language's (a comma in French, with « ; » between
+ * cells; a point in English, with « , »); an empty cell for a missing value (never 0). It rounds as the page's formatters do (Intl: a
  * decimal tie such as 32.535 rounds up, where binary `toFixed` gives 32.53), and a value that rounds to zero has
  * no minus sign (done by hand rather than with `signDisplay`, which older engines lack).
  */
@@ -47,21 +55,22 @@ export function csvNum(v: number | null | undefined, digits: number): string {
     plain.set(digits, f);
   }
   const s = f.format(v);
-  return (/^-0(\.0+)?$/.test(s) ? s.slice(1) : s).replace('.', ',');
+  const out = /^-0(\.0+)?$/.test(s) ? s.slice(1) : s;
+  return csvSeparator() === ';' ? out.replace('.', ',') : out;
 }
 
-/** A text cell: quoted when it holds « ; », a quote or a line break; a leading =, +, -, @, tab or CR
+/** A text cell: quoted when it holds the active separator, a quote or a line break; a leading =, +, -, @, tab or CR
  * is prefixed with « ' » so a spreadsheet never runs it as a formula. */
 export function csvText(v: string | null | undefined): string {
   if (v == null) return '';
   const s = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
-  return /[;"\n\r]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+  return new RegExp(`[${csvSeparator()}"\\n\\r]`).test(s) ? `"${s.replaceAll('"', '""')}"` : s;
 }
 
 const bool = (b: boolean) => (b ? '1' : '0');
 const file = (name: string, header: string[], rows: string[][]): CsvFile => ({
   name,
-  text: BOM + [header, ...rows].map((r) => r.join(';')).join('\r\n') + '\r\n'
+  text: BOM + [header, ...rows].map((r) => r.join(csvSeparator())).join('\r\n') + '\r\n'
 });
 const dayStart = (iso: string) => isoParis(parisDayStart(iso));
 

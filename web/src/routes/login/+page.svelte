@@ -3,13 +3,15 @@
   import { page } from '$app/state';
   import { ApiError } from '$lib/api/client';
   import { safeNext } from '$lib/auth';
+  import Segmented from '$lib/components/Segmented.svelte';
+  import { errorText, LOCALE_NAMES, LOCALE_SHORT, LOCALES, locale, m, setLocale } from '$lib/i18n';
   import { tick } from 'svelte';
   import { auth } from '$lib/stores/auth.svelte';
 
   let email = $state('');
   let password = $state('');
   let busy = $state(false);
-  let error = $state<string | null>(null);
+  let error = $state<(() => string) | null>(null);
   let emailEl = $state<HTMLInputElement>();
   let passwordEl = $state<HTMLInputElement>();
   /** Which field the error is about, so it can be marked invalid and focused. */
@@ -28,7 +30,7 @@
     error = null;
     invalid = null;
     if (!email.trim() || !password) {
-      error = 'Saisissez l’email et le mot de passe Cozytouch.';
+      error = () => m.login.emptyFields;
       invalid = !email.trim() ? 'email' : 'password';
       await tick();
       (invalid === 'email' ? emailEl : passwordEl)?.focus();
@@ -40,7 +42,7 @@
       password = '';
       await goto(safeNext(page.url.searchParams.get('next')), { replaceState: true });
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Erreur inattendue.';
+      error = () => errorText(err);
       // A refused account is about both fields (the password is the one to retype); a network or
       // server failure is about neither.
       invalid = err instanceof ApiError && (err.status === 401 || err.status === 403) ? 'both' : null;
@@ -54,14 +56,14 @@
   }
 </script>
 
-<svelte:head><title>Connexion · Kelvin</title></svelte:head>
+<svelte:head><title>{m.page.title(m.login.title)}</title></svelte:head>
 
 <main class="login">
   <form class="box" onsubmit={submit} novalidate>
     <div class="brand">Kelvin</div>
-    <h1>Connexion</h1>
-    <p class="muted lead">Utilisez le compte Cozytouch de la maison.</p>
-    {#if reauth}<p class="note" role="status">Reconnectez-vous avec le compte Cozytouch.</p>{/if}
+    <h1>{m.login.title}</h1>
+    <p class="muted lead">{m.login.lead}</p>
+    {#if reauth}<p class="note" role="status">{m.login.reauth}</p>{/if}
     <label class="field">
       <span>Email</span>
       <input type="email" name="email" autocomplete="username" inputmode="email" bind:this={emailEl} bind:value={email}
@@ -69,15 +71,19 @@
         aria-describedby={error && invalid !== 'password' ? 'login-error' : undefined} />
     </label>
     <label class="field">
-      <span>Mot de passe</span>
+      <span>{m.login.password}</span>
       <input type="password" name="password" autocomplete="current-password" bind:this={passwordEl} bind:value={password}
         aria-invalid={invalid === 'password' || invalid === 'both' ? 'true' : undefined}
         aria-describedby={error && invalid !== 'email' ? 'login-error' : undefined} />
     </label>
-    {#if error}<p class="error" id="login-error" role="alert">{error}</p>{/if}
+    {#if error}<p class="error" id="login-error" role="alert">{error()}</p>{/if}
     <!-- aria-disabled while busy: the focused button keeps focus through the round trip. -->
-    <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? 'Connexion…' : 'Se connecter'}</button>
-    {#if auth.simulator}<p class="muted small">Simulateur&nbsp;: demo@kelvin.local · kelvin</p>{/if}
+    <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? m.login.busy : m.login.submit}</button>
+    {#if auth.simulator}<p class="muted small">{m.login.simulator}</p>{/if}
+    <div class="lang">
+      <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_SHORT[l], lang: l, ariaLabel: LOCALE_NAMES[l] }))}
+        value={locale.current} label={m.settings.language} onchange={setLocale} />
+    </div>
   </form>
 </main>
 
@@ -132,5 +138,10 @@
   .small {
     font-size: 12px;
     margin: 0;
+  }
+  .lang {
+    display: flex;
+    justify-content: center;
+    margin-top: 4px;
   }
 </style>

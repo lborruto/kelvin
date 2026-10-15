@@ -146,7 +146,7 @@ async def test_real_gateway_refuses_sim_db(tmp_path):
     assert sim.db.get_setting("sim_db") is True
     await stop_runtime(sim)
     gw = StubGateway()
-    with pytest.raises(RuntimeError, match="simulateur"):
+    with pytest.raises(RuntimeError, match="simulator data"):
         await start_runtime(
             Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=False), gw, start_tasks=False
         )

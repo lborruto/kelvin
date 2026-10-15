@@ -5,6 +5,7 @@
   import type { RoomMode, WeekProgram } from '$lib/api/types';
   import { fmtTemp, fmtTime } from '$lib/format';
   import { heatColor } from '$lib/heat';
+  import { m } from '$lib/i18n';
   import { comfortBands } from '$lib/program';
   import type { StripPoint } from '$lib/stores/history.svelte';
 
@@ -121,13 +122,13 @@
   let summary = $derived.by(() => {
     const vs = points.filter((p) => p.t <= now && p.v != null).map((p) => p.v as number);
     const parts = vs.length
-      ? [`de ${fmtTemp(Math.min(...vs))} à ${fmtTemp(Math.max(...vs))}`, `dernière mesure ${fmtTemp(vs.at(-1))}`]
-      : ['pas encore de mesure'];
-    if (mode === 'manual' && target != null) parts.push(`consigne ${fmtTemp(target)}`);
-    else if (mode === 'program' && comfort != null && eco != null) parts.push(`confort ${fmtTemp(comfort)}, éco ${fmtTemp(eco)}`);
-    if (shownTarget != null) parts.push(`consigne demandée ${fmtTemp(shownTarget)}, en attente`);
-    else if (shownComfort != null) parts.push(`confort demandé ${fmtTemp(shownComfort)}, en attente`);
-    return `${parts.join(' ; ')}.`;
+      ? [m.strip.range(fmtTemp(Math.min(...vs)), fmtTemp(Math.max(...vs))), m.strip.last(fmtTemp(vs.at(-1)))]
+      : [m.strip.none];
+    if (mode === 'manual' && target != null) parts.push(m.strip.setpoint(fmtTemp(target)));
+    else if (mode === 'program' && comfort != null && eco != null) parts.push(m.strip.program(fmtTemp(comfort), fmtTemp(eco)));
+    if (shownTarget != null) parts.push(m.strip.pendingSetpoint(fmtTemp(shownTarget)));
+    else if (shownComfort != null) parts.push(m.strip.pendingComfort(fmtTemp(shownComfort)));
+    return m.strip.summary(parts);
   });
 
   const HOURS = [0, 6, 12, 18, 24];

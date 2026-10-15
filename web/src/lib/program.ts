@@ -1,5 +1,6 @@
 import { DAYS, type Day, type Slot, type WeekProgram } from './api/types';
 import { fmtTime } from './format';
+import { m } from './i18n';
 import { addParisDays, parisAt, parisMidnight, parisMinuteOfDay, parisParts } from './time';
 
 export interface Seg {
@@ -12,37 +13,18 @@ export const SNAP = 15;
 export const MIN_LEN = 15;
 const LAST = 1439;
 
-export const DAY_LABEL: Record<Day, string> = {
-  monday: 'Lundi',
-  tuesday: 'Mardi',
-  wednesday: 'Mercredi',
-  thursday: 'Jeudi',
-  friday: 'Vendredi',
-  saturday: 'Samedi',
-  sunday: 'Dimanche'
-};
-export const DAY_SHORT: Record<Day, string> = {
-  monday: 'Lun',
-  tuesday: 'Mar',
-  wednesday: 'Mer',
-  thursday: 'Jeu',
-  friday: 'Ven',
-  saturday: 'Sam',
-  sunday: 'Dim'
-};
-
 export function toMin(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
+  const [h, min] = hhmm.split(':').map(Number);
+  return h * 60 + min;
 }
 
-export function fromMin(m: number): string {
-  const c = Math.max(0, Math.min(LAST, Math.round(m)));
+export function fromMin(mins: number): string {
+  const c = Math.max(0, Math.min(LAST, Math.round(mins)));
   return `${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}`;
 }
 
-export function snap(m: number): number {
-  return Math.max(0, Math.min(LAST, Math.round(m / SNAP) * SNAP));
+export function snap(mins: number): number {
+  return Math.max(0, Math.min(LAST, Math.round(mins / SNAP) * SNAP));
 }
 
 export function daySegs(program: WeekProgram, day: Day): Seg[] {
@@ -104,10 +86,12 @@ export function nextChange(program: WeekProgram, nowMs: number): Change | null {
 }
 
 export function fmtNextChange(c: Change, nowMs: number): string {
-  const label = c.to === 'comfort' ? 'Confort' : 'Éco';
+  const level = m.level[c.to];
+  const time = fmtTime(c.atMs);
   const days = Math.round((parisMidnight(c.atMs) - parisMidnight(nowMs)) / 86_400_000);
-  const when = days === 0 ? '' : days === 1 ? 'demain ' : `${DAY_LABEL[parisParts(c.atMs).weekday].toLowerCase()} `;
-  return `${when}${fmtTime(c.atMs)} → ${label}`;
+  if (days === 0) return `${time} → ${level}`;
+  if (days === 1) return m.program.nextTomorrow(time, level);
+  return m.program.nextOn(parisParts(c.atMs).weekday, time, level);
 }
 
 export function comfortBands(program: WeekProgram, startMs: number, endMs: number): Seg[] {
@@ -123,11 +107,14 @@ export function comfortBands(program: WeekProgram, startMs: number, endMs: numbe
   return out;
 }
 
-export function validateDay(segs: Seg[]): string | null {
-  if (segs.length > 3) return '3 plages confort au maximum.';
+export type DayError = 'tooMany' | 'endBeforeStart' | 'overlap';
+
+/** What is wrong with a day's periods, as a key (the text is m.program.dayError[key]). */
+export function validateDay(segs: Seg[]): DayError | null {
+  if (segs.length > 3) return 'tooMany';
   const sorted = [...segs].sort((a, b) => a.start - b.start);
-  for (const s of sorted) if (s.end <= s.start) return 'Une plage doit finir après son début.';
-  for (let i = 1; i < sorted.length; i++) if (sorted[i].start < sorted[i - 1].end) return 'Des plages se chevauchent.';
+  for (const s of sorted) if (s.end <= s.start) return 'endBeforeStart';
+  for (let i = 1; i < sorted.length; i++) if (sorted[i].start < sorted[i - 1].end) return 'overlap';
   return null;
 }
 

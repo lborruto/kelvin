@@ -66,7 +66,7 @@ async function csvRows(page: Page, button: Locator): Promise<{ name: string; tex
 
 test.describe('Énergie', () => {
   test('shows the bill estimate, HC/HP bars and the day curve from the simulator', async ({ page }) => {
-    await page.goto('/energie');
+    await page.goto('/energy');
     await expect(page.getByRole('heading', { name: 'Énergie', level: 1 })).toBeVisible();
     await expect(page.locator('#period-label')).toHaveText(/^\p{Lu}\p{Ll}+ \d{4}$/u); // « Octobre 2026 »
     await expect(page.locator('.hero .big')).toContainText('€');
@@ -83,7 +83,7 @@ test.describe('Énergie', () => {
   });
 
   test('the navigator: views, ‹ and ›, the arrow keys and « Dernier jour »', async ({ page }) => {
-    await page.goto('/energie');
+    await page.goto('/energy');
     await settled(page);
     const label = page.locator('#period-label');
     await expect(label).toHaveText(/^\p{Lu}\p{Ll}+ \d{4}$/u);
@@ -115,7 +115,7 @@ test.describe('Énergie', () => {
   });
 
   test('the inspector by keyboard: arrows select and name the bar, Esc clears, Enter opens the Courbe', async ({ page }) => {
-    await page.goto('/energie');
+    await page.goto('/energy');
     await settled(page);
     await previousMonth(page);
     const keys = houseBars(page).getByRole('button');
@@ -145,13 +145,13 @@ test.describe('Énergie', () => {
     await page.keyboard.press('ArrowLeft');
     await expect(bar).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page.locator('#courbe-title')).toHaveText(`Courbe du ${title.replace(/^\p{L}+ /u, '')}`, { ignoreCase: true });
+    await expect(page.locator('#curve-title')).toHaveText(`Courbe du ${title.replace(/^\p{L}+ /u, '')}`, { ignoreCase: true });
     await expect(page.locator('div.visually-hidden[role="status"][aria-live="polite"]')).toContainText(/^Courbe du /);
   });
 
   test('a click pins a bar and says it in the live region; the card’s « est. » link opens Qualité des données', async ({ page, isMobile }) => {
     test.skip(isMobile, 'pointer hover');
-    await page.goto('/energie');
+    await page.goto('/energy');
     await settled(page);
     await previousMonth(page);
     const keys = houseBars(page).getByRole('button');
@@ -162,18 +162,18 @@ test.describe('Énergie', () => {
     await expect(page.locator('div.visually-hidden[role="status"][aria-live="polite"]')).toContainText(
       (await keys.nth(3).getAttribute('aria-label'))!
     );
-    const quality = page.locator('#qualite');
+    const quality = page.locator('#quality');
     const toggle = page.getByRole('heading', { level: 2, name: 'Qualité des données' }).getByRole('button', { name: 'Qualité des données' });
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(quality.getByText(/^Linky depuis le /)).toBeHidden(); // hidden until found while closed
-    // HC/HP of a day without a complete curve are estimates: some bar of the month carries « est. ». Else open it at #qualite.
+    // HC/HP of a day without a complete curve are estimates: some bar of the month carries « est. ». Else open it at #quality.
     const link = card.getByRole('link', { name: 'Qualité des données' });
     if (await link.count()) {
       await link.click();
       await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     }
-    // A page reached at #qualite opens it too.
-    await page.goto('/energie#qualite');
+    // A page reached at #quality opens it too.
+    await page.goto('/energy#quality');
     await settled(page);
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(quality.getByText(/^Linky depuis le /)).toBeVisible();
@@ -182,18 +182,18 @@ test.describe('Énergie', () => {
   });
 
   test('the scrubber: arrows move by 30 minutes, PageUp by 3 hours, the readout and the crosshair follow', async ({ page }) => {
-    await page.goto('/energie');
+    await page.goto('/energy');
     await settled(page);
-    const slider = page.locator('#courbe').getByRole('slider', { name: SCRUB });
-    const when = page.locator('#courbe .readout .when dd');
+    const slider = page.locator('#curve').getByRole('slider', { name: SCRUB });
+    const when = page.locator('#curve .readout .when dd');
     await expect(slider).toHaveAttribute('aria-valuetext', /./);
-    await expect(page.locator('#courbe line.cross')).toHaveCount(0);
+    await expect(page.locator('#curve line.cross')).toHaveCount(0);
     await slider.focus();
     await page.keyboard.press('ArrowRight');
     await expect(when).toHaveText('00:00–00:30');
     await expect(slider).toHaveAttribute('aria-valuenow', '0');
     await expect(slider).toHaveAttribute('aria-valuetext', /^00:00–00:30, /);
-    await expect(page.locator('#courbe .readout .field .v.cur .val').first()).toContainText(/k?W$/);
+    await expect(page.locator('#curve .readout .field .v.cur .val').first()).toContainText(/k?W$/);
     await page.keyboard.press('PageUp');
     await expect(slider).toHaveAttribute('aria-valuenow', '6');
     const n = Number(await slider.getAttribute('aria-valuemax')) + 1;
@@ -202,29 +202,29 @@ test.describe('Énergie', () => {
     // A DST day's label holds parentheses (« 02:00–02:30 (heure d’hiver) »): compared as text, never as a pattern.
     const label = (await when.textContent())!.trim();
     expect((await slider.getAttribute('aria-valuetext'))!.startsWith(`${label}, `)).toBe(true);
-    await expect(page.locator('#courbe line.cross')).toHaveCount(1);
+    await expect(page.locator('#curve line.cross')).toHaveCount(1);
     await page.keyboard.press('End');
     await expect(slider).toHaveAttribute('aria-valuenow', String(n - 1));
     await page.keyboard.press('Escape');
-    await expect(page.locator('#courbe line.cross')).toHaveCount(0);
+    await expect(page.locator('#curve line.cross')).toHaveCount(0);
   });
 
   test('phone: a tap on the curve shows that half-hour', async ({ page, isMobile }) => {
     test.skip(!isMobile, 'touch only');
-    await page.goto('/energie');
+    await page.goto('/energy');
     await settled(page);
-    const slider = page.locator('#courbe').getByRole('slider', { name: SCRUB });
+    const slider = page.locator('#curve').getByRole('slider', { name: SCRUB });
     await slider.scrollIntoViewIfNeeded();
     const box = (await slider.boundingBox())!;
     await slider.tap({ position: { x: 2, y: box.height / 2 } });
-    await expect(page.locator('#courbe .readout .when dd')).toHaveText('00:00–00:30');
+    await expect(page.locator('#curve .readout .when dd')).toHaveText('00:00–00:30');
     await slider.tap({ position: { x: box.width - 2, y: box.height / 2 } });
     await expect(slider).toHaveAttribute('aria-valuenow', await slider.getAttribute('aria-valuemax') as string);
     expect(await overflow(page)).toBeLessThanOrEqual(0);
   });
 
   test('CSV: the period file is the hero’s period, the curve file is the Courbe’s day', async ({ page }) => {
-    await page.goto('/energie');
+    await page.goto('/energy');
     await settled(page);
     const period = await csvRows(page, page.getByRole('button', { name: 'Exporter la période (CSV)' }));
     expect(period.name).toMatch(/^energie_\d{4}-\d{2}-01_\d{4}-\d{2}-01_day\.csv$/);
@@ -260,13 +260,13 @@ test.describe('Énergie', () => {
     for (const l of days) if (l.split(';')[3] === '') expect(l.split(';')[12]).toBe('');
 
     const curveButton = page.getByRole('button', { name: /^Exporter la courbe du / });
-    const day = (await page.locator('#courbe-title').textContent())!.replace(/^Courbe du /, '');
+    const day = (await page.locator('#curve-title').textContent())!.replace(/^Courbe du /, '');
     const curve = await csvRows(page, curveButton);
     expect(curve.name).toMatch(/^courbe_\d{4}-\d{2}-\d{2}\.csv$/);
     expect(curve.rows[0]).toBe(CURVE_HEADER);
     const n = curve.rows.length - 1;
     expect([46, 48, 50]).toContain(n);
-    await expect(page.locator('#courbe').getByRole('slider', { name: SCRUB })).toHaveAttribute('aria-valuemax', String(n - 1));
+    await expect(page.locator('#curve').getByRole('slider', { name: SCRUB })).toHaveAttribute('aria-valuemax', String(n - 1));
     for (const r of curve.rows.slice(1)) {
       const c = r.split(';');
       expect(c).toHaveLength(10);
@@ -280,7 +280,7 @@ test.describe('Énergie', () => {
   });
 
   test('CSV: a day exports the € and kWh its bar shows, the same in the month and in Jour', async ({ page }) => {
-    await page.goto('/energie');
+    await page.goto('/energy');
     await settled(page);
     await previousMonth(page);
     const keys = houseBars(page).getByRole('button');
@@ -301,7 +301,7 @@ test.describe('Énergie', () => {
     // Enter on the bar opens that day's Courbe; Jour then shows that day: its file holds the same row.
     await keys.nth(2).focus();
     await page.keyboard.press('Enter');
-    await expect(page.locator('#courbe-title')).toHaveText(/^Courbe du 3 /);
+    await expect(page.locator('#curve-title')).toHaveText(/^Courbe du 3 /);
     await page.getByRole('radio', { name: 'Jour', exact: true }).click();
     await settled(page);
     const one = await csvRows(page, page.getByRole('button', { name: 'Exporter la période (CSV)' }));
@@ -314,7 +314,7 @@ test.describe('Énergie', () => {
     test.skip(isMobile, 'runs once, at explicit widths');
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/energie');
+      await page.goto('/energy');
       await settled(page);
       const plot = page.locator('.plot.interactive').first();
       await plot.scrollIntoViewIfNeeded();
@@ -336,7 +336,7 @@ test.describe('Énergie', () => {
   test('bar sheet at 320 px: a tap docks the day under the chart, its action opens the Courbe, a second tap closes', async ({ page, isMobile }) => {
     test.skip(isMobile, 'explicit phone width on the desktop project');
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto('/energie');
+    await page.goto('/energy');
     await settled(page);
     await previousMonth(page);
     const keys = page.locator('.plot.interactive button.key');
@@ -357,7 +357,7 @@ test.describe('Énergie', () => {
     const action = sheet.getByRole('button', { name: /^Voir la courbe du / });
     const [d] = (await action.textContent())!.replace(/^Voir la courbe du /, '').split('/');
     await action.click();
-    await expect(page.locator('#courbe-title')).toHaveText(new RegExp(`^Courbe du ${d} `));
+    await expect(page.locator('#curve-title')).toHaveText(new RegExp(`^Courbe du ${d} `));
     await expect(sheet).toBeVisible(); // the pin stays while its day's Courbe opens
     await tapBar();
     await expect(sheet).toBeHidden();
@@ -367,7 +367,7 @@ test.describe('Énergie', () => {
     test.skip(isMobile, 'explicit desktop widths');
     for (const width of [1024, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/energie');
+      await page.goto('/energy');
       await settled(page);
       await previousMonth(page);
       const chart = page.getByRole('img', { name: 'Consommation de la maison par jour' });
@@ -410,7 +410,7 @@ test.describe('Énergie', () => {
       await page.mouse.down();
       await page.mouse.up();
       const [d] = label.replace(/^Voir la courbe du /, '').split('/'); // « 3/10 »
-      await expect(page.locator('#courbe-title')).toHaveText(new RegExp(`^Courbe du ${d} `));
+      await expect(page.locator('#curve-title')).toHaveText(new RegExp(`^Courbe du ${d} `));
       expect(await overflow(page)).toBeLessThanOrEqual(0);
     }
   });
@@ -420,7 +420,7 @@ test.describe('Énergie', () => {
     const panel = page.locator('section.panel').filter({ has: page.getByRole('heading', { name: 'Par pièce et par radiateur' }) });
     for (const width of [1024, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/energie');
+      await page.goto('/energy');
       for (const view of ['Jour', 'Semaine', 'Mois', 'Année']) {
         await page.getByRole('radio', { name: view, exact: true }).click();
         await expect(panel.locator('.table table')).toBeVisible();
@@ -449,7 +449,7 @@ test.describe('Énergie layout', () => {
   test('ends with its last panel: no empty tail', async ({ page }) => {
     for (const width of [390, 1280]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/energie');
+      await page.goto('/energy');
       await settled(page);
       const tail = await page.evaluate(() => {
         const panels = [...document.querySelectorAll('main .panel')];
@@ -464,13 +464,13 @@ test.describe('Énergie layout', () => {
   test('the Courbe readout keeps its height idle and while scrubbing every half-hour (R2)', async ({ page }) => {
     for (const width of [320, 390, 1024, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/energie');
+      await page.goto('/energy');
       await settled(page);
-      const readout = page.locator('#courbe .readout');
+      const readout = page.locator('#curve .readout');
       // The day the page opens on has radiator data in the simulator: the radiator fields (and their reasons) are measured too.
       await expect(readout.locator('dt', { hasText: /^Radiateurs$/ })).toHaveCount(1);
       await expect(readout.locator('dt', { hasText: /^Reste$/ })).toHaveCount(1);
-      const slider = page.locator('#courbe').getByRole('slider', { name: SCRUB });
+      const slider = page.locator('#curve').getByRole('slider', { name: SCRUB });
       const idle = (await readout.boundingBox())!.height;
       const heights = new Set<number>();
       // Nothing is cut, at every half-hour: each field holds its texts (the shown one and the stacked hidden ones).
@@ -493,7 +493,7 @@ test.describe('Énergie layout', () => {
   test('Température et chauffe keeps its readout height while scrubbing, on the half-hour it shares with the Courbe', async ({ page }) => {
     for (const width of [320, 390, 1024, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/energie');
+      await page.goto('/energy');
       await settled(page);
       await page.getByRole('radio', { name: 'Jour', exact: true }).click();
       const panel = page.locator('section.panel', { has: page.getByRole('heading', { name: 'Température et chauffe' }) });
@@ -516,7 +516,7 @@ test.describe('Énergie layout', () => {
       expect([...heights], `room readout at ${width} px`).toEqual([idle]);
       // The Courbe shows the same half-hour.
       const when = (await panel.locator('.readout .when dd').textContent())!.trim();
-      await expect(page.locator('#courbe .readout .when dd')).toHaveText(when);
+      await expect(page.locator('#curve .readout .when dd')).toHaveText(when);
     }
   });
 });

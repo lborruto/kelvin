@@ -9,6 +9,8 @@
   import Stepper from '$lib/components/Stepper.svelte';
   import TariffForm from '$lib/components/TariffForm.svelte';
   import { fmtAgo, fmtDateTime, fmtTemp } from '$lib/format';
+  import { apiMessage, LOCALE_NAMES, LOCALES, locale, m, setLocale, statusError } from '$lib/i18n';
+  import { ANCHORS, ROUTES } from '$lib/paths';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
@@ -25,7 +27,7 @@
   let awayTemp = $state(12);
   let themeChoice = $state<ThemeChoice>(theme.get());
   let now = $state(Date.now());
-  let untilError = $state<string | null>(null);
+  let untilError = $state<(() => string) | null>(null);
   const nowLocal = () => {
     const d = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -36,7 +38,7 @@
   function startAway() {
     if (!house.online) return;
     if (!until || new Date(until).getTime() <= Date.now()) {
-      untilError = 'La fin doit être dans le futur.';
+      untilError = () => apiMessage('end_in_past');
       return;
     }
     untilError = null;
@@ -50,9 +52,8 @@
     return () => clearInterval(t);
   });
 
-  const kindLabel = { boost: 'Forçage', away: 'Absence' } as const;
   const roomsOf = (ids: string[]) =>
-    house.rooms.filter((r) => r.radiator_ids.some((i) => ids.includes(i))).map((r) => r.name).join(', ') || 'Toute la maison';
+    house.rooms.filter((r) => r.radiator_ids.some((i) => ids.includes(i))).map((r) => r.name).join(', ') || m.home.wholeHome;
 
   let loggingOut = $state(false);
   async function logout() {
@@ -61,26 +62,26 @@
     try {
       await auth.logout();
     } catch {
-      toasts.push('Déconnexion impossible. Réessayez.');
+      toasts.push(() => m.home.logoutFailed);
       return;
     } finally {
       loggingOut = false;
     }
-    await goto('/login', { replaceState: true });
+    await goto(ROUTES.login, { replaceState: true });
   }
 
   let settingsView = $state<SettingsView | null>(null);
   let linkyStatus = $state<LinkyStatus | null>(null);
-  let tariffError = $state<string | null>(null);
-  let linkyError = $state<string | null>(null);
+  let tariffError = $state<(() => string) | null>(null);
+  let linkyError = $state<(() => string) | null>(null);
 
   function loadTariff() {
     tariffError = null;
-    api.settings().then((s) => (settingsView = s)).catch(() => (tariffError = 'Impossible de charger le tarif.'));
+    api.settings().then((s) => (settingsView = s)).catch(() => (tariffError = () => m.home.tariffLoadFailed));
   }
   function loadLinky() {
     linkyError = null;
-    api.linkyStatus().then((s) => (linkyStatus = s)).catch(() => (linkyError = 'Impossible de charger l’état du Linky.'));
+    api.linkyStatus().then((s) => (linkyStatus = s)).catch(() => (linkyError = () => m.home.linkyLoadFailed));
   }
   $effect(() => {
     loadTariff();
@@ -94,7 +95,7 @@
     if (!settled || landed) return;
     landed = true;
     const id = location.hash.slice(1);
-    if (id !== 'tarif' && id !== 'linky') return;
+    if (id !== ANCHORS.tariff && id !== ANCHORS.linky) return;
     requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }));
   });
 
@@ -103,11 +104,7 @@
     settingsView = s;
   }
 
-  const THEMES: { value: ThemeChoice; label: string }[] = [
-    { value: 'system', label: 'Système' },
-    { value: 'dark', label: 'Sombre' },
-    { value: 'light', label: 'Clair' }
-  ];
+  const THEMES: ThemeChoice[] = ['system', 'dark', 'light'];
 
   function setTheme(v: ThemeChoice) {
     themeChoice = v;
@@ -115,26 +112,26 @@
   }
 </script>
 
-<svelte:head><title>Maison · Kelvin</title></svelte:head>
+<svelte:head><title>{m.page.title(m.nav.home)}</title></svelte:head>
 
-<h1>Maison</h1>
+<h1>{m.nav.home}</h1>
 
-<section id="absence" class="panel">
-  <h2>Absence</h2>
-  <p class="muted">Tous les radiateurs passent à une température réduite, puis reprennent leur réglage à la date choisie.</p>
+<section id={ANCHORS.away} class="panel">
+  <h2>{m.away.title}</h2>
+  <p class="muted">{m.away.lead}</p>
   <div class="row">
-    <label class="field"><span>Jusqu’au <span class="hint">(heure de Paris)</span></span><input type="datetime-local" min={minUntil}
+    <label class="field"><span>{m.away.until} <span class="hint">{m.away.parisTime}</span></span><input type="datetime-local" min={minUntil}
         bind:value={until} /></label>
-    <div class="field"><span>Température</span>
-      <Stepper label="Température d’absence" value={awayTemp} min={7} max={19} debounceMs={0} onchange={(v) => (awayTemp = v)} />
+    <div class="field"><span>{m.away.temperature}</span>
+      <Stepper label={m.away.tempLabel} value={awayTemp} min={7} max={19} debounceMs={0} onchange={(v) => (awayTemp = v)} />
     </div>
-    <button type="button" class="btn btn-primary" aria-disabled={!until || !house.online} onclick={startAway}>Activer l’absence</button>
+    <button type="button" class="btn btn-primary" aria-disabled={!until || !house.online} onclick={startAway}>{m.away.start}</button>
   </div>
-  {#if untilError}<p class="error" role="alert">{untilError}</p>{/if}
+  {#if untilError}<p class="error" role="alert">{untilError()}</p>{/if}
 </section>
 
 <section class="panel">
-  <h2>En cours</h2>
+  <h2>{m.home.active}</h2>
   {#if !house.loaded}
     <p class="line-sk"><span class="skeleton inset" aria-hidden="true"></span></p>
   {:else if house.overrides.length}
@@ -142,16 +139,16 @@
       {#each house.overrides as o (o.id)}
         <li>
           <div>
-            <strong>{kindLabel[o.kind]}</strong> · {roomsOf(o.radiator_ids)} · {fmtTemp(o.temperature)}
-            <div class="muted small">{o.restoring ? 'Rétablissement en cours…' : `jusqu’au ${fmtDateTime(o.ends_at * 1000)}`}</div>
+            <strong>{m.home.kind[o.kind]}</strong> · {roomsOf(o.radiator_ids)} · {fmtTemp(o.temperature)}
+            <div class="muted small">{o.restoring ? m.home.restoring : m.home.until(fmtDateTime(o.ends_at * 1000))}</div>
           </div>
-          <button type="button" class="btn btn-sm" aria-label="Annuler {kindLabel[o.kind]} — {roomsOf(o.radiator_ids)}"
-            aria-disabled={!house.online} onclick={() => house.online && run(() => api.cancelOverride(o.id))}>Annuler</button>
+          <button type="button" class="btn btn-sm" aria-label={m.home.cancelLabel(m.home.kind[o.kind], roomsOf(o.radiator_ids))}
+            aria-disabled={!house.online} onclick={() => house.online && run(() => api.cancelOverride(o.id))}>{m.common.cancel}</button>
         </li>
       {/each}
     </ul>
   {:else}
-    <p class="muted">Aucun forçage ni absence.</p>
+    <p class="muted">{m.home.none}</p>
   {/if}
 </section>
 
@@ -164,50 +161,58 @@
 
 {#if !settled}
   <!-- Tarif and Linky in their final shape until both answers are in. -->
-  <!-- The ids are there from the first render, so /maison#tarif and #linky land on their panel. -->
-  <section id="tarif" class="panel" aria-busy="true"><h2>Tarif</h2><div class="skeleton inset" style:height="340px" aria-hidden="true"></div></section>
-  <section id="linky" class="panel" aria-busy="true"><h2>Linky</h2><div class="skeleton inset" style:height="190px" aria-hidden="true"></div></section>
+  <!-- The ids are there from the first render, so /home#tariff and #linky land on their panel. -->
+  <section id={ANCHORS.tariff} class="panel" aria-busy="true"><h2>{m.home.tariff}</h2><div class="skeleton inset" style:height="340px" aria-hidden="true"></div></section>
+  <section id={ANCHORS.linky} class="panel" aria-busy="true"><h2>Linky</h2><div class="skeleton inset" style:height="190px" aria-hidden="true"></div></section>
 {:else}
-  <section id="tarif" class="panel">
-    <h2>Tarif</h2>
+  <section id={ANCHORS.tariff} class="panel">
+    <h2>{m.home.tariff}</h2>
     {#if settingsView}
       <TariffForm settings={settingsView} onsaved={tariffSaved} />
     {:else}
-      <p class="error" role="alert">{tariffError} <button type="button" class="btn btn-sm" onclick={loadTariff}>Réessayer</button></p>
+      <p class="error" role="alert">{tariffError?.()} <button type="button" class="btn btn-sm" onclick={loadTariff}>{m.common.retry}</button></p>
     {/if}
   </section>
 
-  <section id="linky" class="panel">
+  <section id={ANCHORS.linky} class="panel">
     <h2>Linky</h2>
     {#if linkyStatus}
       <LinkyPanel status={linkyStatus} onsaved={(s) => (linkyStatus = s)} />
     {:else}
-      <p class="error" role="alert">{linkyError} <button type="button" class="btn btn-sm" onclick={loadLinky}>Réessayer</button></p>
+      <p class="error" role="alert">{linkyError?.()} <button type="button" class="btn btn-sm" onclick={loadLinky}>{m.common.retry}</button></p>
     {/if}
   </section>
 
   <section class="panel">
-    <h2>Réglages</h2>
+    <h2>{m.settings.title}</h2>
     <dl>
       <div class="item">
-        <dt>Compte</dt>
+        <dt>{m.settings.account}</dt>
         <dd class="account">
           <span class="email">{auth.email ?? '—'}</span>
-          <button type="button" class="btn btn-sm" aria-disabled={loggingOut} onclick={logout}>Se déconnecter</button>
+          <button type="button" class="btn btn-sm" aria-disabled={loggingOut} onclick={logout}>{m.settings.signOut}</button>
         </dd>
       </div>
       <div class="item">
         <dt>Cozytouch</dt>
         <dd>
-          <span>{house.status.connected ? 'Connecté' : 'Injoignable'}</span>
-          {#if house.status.last_ok_at}<span class="muted"> · dernière synchro {fmtAgo(house.status.last_ok_at * 1000, now)}</span>{/if}
-          {#if house.status.last_error}<div class="muted small">{house.status.last_error}</div>{/if}
+          <span>{house.status.connected ? m.settings.connected : m.settings.unreachable}</span>
+          {#if house.status.last_ok_at}<span class="muted"> · {m.settings.lastSync(fmtAgo(house.status.last_ok_at * 1000, now))}</span>{/if}
+          {#if house.status.last_error}<div class="muted small" title={house.status.last_error}>{statusError(house.status)}</div>{/if}
         </dd>
       </div>
       <div class="item">
-        <dt>Thème</dt>
+        <dt>{m.settings.theme}</dt>
         <dd>
-          <Segmented options={THEMES} value={themeChoice} label="Thème" onchange={setTheme} />
+          <Segmented options={THEMES.map((t) => ({ value: t, label: m.settings.themes[t] }))} value={themeChoice} label={m.settings.theme}
+            onchange={setTheme} />
+        </dd>
+      </div>
+      <div class="item">
+        <dt>{m.settings.language}</dt>
+        <dd>
+          <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l], lang: l }))} value={locale.current}
+            label={m.settings.language} onchange={setLocale} />
         </dd>
       </div>
       <div class="item">

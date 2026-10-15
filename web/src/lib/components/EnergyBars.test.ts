@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { Inspection } from '$lib/inspector';
 import { announcer } from '$lib/stores/announcer.svelte';
 import EnergyBars, { labelEvery } from './EnergyBars.svelte';
@@ -10,7 +11,7 @@ vi.mock('$lib/media.svelte', () => media);
 
 const ins = (title: string, value: string): Inspection => ({
   title,
-  rows: [{ key: 'maison', label: 'Maison', value }],
+  rows: [{ key: 'home', label: 'Maison', value }],
   notes: [],
   empty: null,
   spoken: `${title}, ${value}`
@@ -350,4 +351,13 @@ describe('EnergyBars', () => {
     expect([...table.querySelectorAll('thead th')].map((t) => t.textContent)).toEqual(['Période', 'Maison']);
     expect(table.querySelectorAll('tbody tr')[2].textContent).toContain('14,00\u00a0kWh');
   });
+});
+
+it('in English: the empty state and the bars’ group name', () => {
+  applyLocale('en');
+  const empty = render(EnergyBars, { groups: [], colors: {}, unit: 'kWh', label: 'x' });
+  expect(screen.getByText('No data yet.')).toBeInTheDocument();
+  empty.unmount();
+  render(EnergyBars, three);
+  expect(screen.getByRole('group', { name: `Chart bars: ${three.label}` })).toBeInTheDocument();
 });

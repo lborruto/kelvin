@@ -57,9 +57,11 @@ async def test_backoff_and_recovery(env):
     assert await pump.run_once() == 30.0
     assert await pump.run_once() == 60.0
     assert pump.connected is False and "QUOTA" in pump.status()["last_error"]
+    assert pump.status()["last_error_code"] == "quota"
     gw.fail_fetch = None
     assert await pump.run_once() == 30.0
     assert pump.connected is True
+    assert pump.status()["last_error_code"] is None
     assert [s["connected"] for s in statuses] == [False, True]
 
 
@@ -318,3 +320,14 @@ async def test_a_full_read_hands_the_setup_on_for_storage(env):
     pump.request_resync()
     await pump.run_once()
     assert seen == [(gw.root.oid, len(gw.devices))]
+
+
+async def test_gateway_text_in_status_and_logs_is_scrubbed(env, caplog):
+    from kelvin.overkiz.errors import GatewayError
+
+    _, gw, _, _, pump, _, _ = env
+    gw.fail_fetch = GatewayError("connect to 192.168.1.20:8443 failed for io://1234-5678-9012/1")
+    with caplog.at_level("WARNING"):
+        await pump.run_once()
+    assert pump.status()["last_error"] == "connect to … failed for …"
+    assert "192.168" not in caplog.text and "1234-5678" not in caplog.text

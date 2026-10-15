@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
 import { api } from '$lib/api/client';
+import { applyLocale } from '$lib/i18n';
 import { auth } from '$lib/stores/auth.svelte';
 import { history } from '$lib/stores/history.svelte';
 import { house } from '$lib/stores/house.svelte';
@@ -102,7 +103,7 @@ describe('Maison', () => {
     vi.mocked(api.logout).mockRejectedValueOnce(new Error('network'));
     render(Page);
     await fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
-    await vi.waitFor(() => expect(toasts.items.map((t) => t.message)).toContain('Déconnexion impossible. Réessayez.'));
+    await vi.waitFor(() => expect(toasts.items.map((t) => t.text())).toContain('Déconnexion impossible. Réessayez.'));
     expect(goto).not.toHaveBeenCalled();
     expect(auth.email).toBe('demo@kelvin.local');
     expect(screen.getByRole('button', { name: 'Se déconnecter' })).toHaveAttribute('aria-disabled', 'false');
@@ -149,7 +150,7 @@ describe('Maison', () => {
     vi.mocked(api.settings).mockRejectedValueOnce(new Error('x'));
     render(Page);
     const retry = await screen.findByRole('button', { name: 'Réessayer' });
-    expect(retry.closest('#tarif')).not.toBeNull();
+    expect(retry.closest('#tariff')).not.toBeNull();
     expect(screen.getByText(/Impossible de charger le tarif/)).toBeInTheDocument();
     await fireEvent.click(retry);
     expect(await screen.findByRole('button', { name: 'Enregistrer le tarif' })).toBeInTheDocument();
@@ -163,7 +164,55 @@ describe('Maison', () => {
   it('the Tarif and Linky anchors exist from the first render, skeleton included', () => {
     vi.mocked(api.settings).mockReturnValueOnce(new Promise(() => {}));
     render(Page);
-    expect(document.getElementById('tarif')).toHaveAttribute('aria-busy', 'true');
+    expect(document.getElementById('tariff')).toHaveAttribute('aria-busy', 'true');
     expect(document.getElementById('linky')).toBeInTheDocument();
+  });
+});
+
+describe('Home in English', () => {
+  it('panels, the active override, settings and the Cozytouch status by code', async () => {
+    applyLocale('en');
+    house.status = { connected: false, last_ok_at: null, last_error: 'QUOTA_EXCEEDED', last_error_code: 'quota' };
+    render(Page);
+    expect(screen.getByRole('heading', { name: 'Home', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Away' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start away mode' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Active' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancel Boost — / })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument();
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(expect.arrayContaining(['System', 'Dark', 'Light']));
+    const status = screen.getByText('Cozytouch request limit reached.');
+    expect(status).toHaveAttribute('title', 'QUOTA_EXCEEDED');
+    expect(screen.getByText('Unreachable')).toBeInTheDocument();
+  });
+  it('an away period ending in the past is refused in English', async () => {
+    applyLocale('en');
+    render(Page);
+    await fireEvent.input(screen.getByLabelText(/Until/), { target: { value: '2020-01-01T10:00' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Start away mode' }));
+    expect(screen.getByText('The end must be in the future.')).toBeInTheDocument();
+  });
+});
+
+describe('Réglages › Langue', () => {
+  it('switching re-renders nav, Segmented, chips and the title without remounting, and persists', async () => {
+    render(Page);
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1).toHaveTextContent('Maison');
+    expect(document.title).toBe('Maison · Kelvin');
+    const group = await screen.findByRole('radiogroup', { name: 'Langue' });
+    const fr = within(group).getByRole('radio', { name: 'Français' });
+    expect(fr).toHaveAttribute('lang', 'fr');
+    expect(fr).toHaveAttribute('aria-checked', 'true');
+    await fireEvent.click(within(group).getByRole('radio', { name: 'English' }));
+    expect(screen.getByRole('heading', { level: 1 })).toBe(h1);
+    expect(h1).toHaveTextContent('Home');
+    expect(document.title).toBe('Home · Kelvin');
+    expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'System' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Language' })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('en');
+    expect(localStorage.getItem('kelvin-locale')).toBe('en');
   });
 });

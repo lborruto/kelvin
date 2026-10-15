@@ -1,4 +1,4 @@
-import { ApiError } from './api/client';
+import { errorText, m } from './i18n';
 import type { CommandResult, Pending } from './api/types';
 import { house } from './stores/house.svelte';
 import { toasts } from './stores/toasts.svelte';
@@ -18,7 +18,7 @@ export async function run(fn: () => Promise<CommandResult>): Promise<Pending | n
     }
     return pending;
   } catch (e) {
-    toasts.push(e instanceof ApiError ? e.message : 'Erreur inattendue.');
+    toasts.push(() => errorText(e));
     return null;
   }
 }
@@ -43,7 +43,7 @@ export async function runHouse(fn: () => Promise<CommandResult>): Promise<Pendin
 export async function retry(pendingId: string): Promise<Pending | null> {
   const fn = replays.get(pendingId);
   if (!fn) {
-    toasts.push('Impossible de réessayer ici : refaites l’action.');
+    toasts.push(() => m.pending.cannotRetry);
     return null;
   }
   house.dismiss(pendingId);

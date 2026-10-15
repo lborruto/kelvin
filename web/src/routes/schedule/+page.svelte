@@ -11,10 +11,8 @@
   import Segmented from '$lib/components/Segmented.svelte';
   import { desktop } from '$lib/media.svelte';
   import { dur, easeOut, T } from '$lib/motion';
-  import { plural } from '$lib/plural';
-  import {
-    changedDays, DAY_LABEL, DAY_SHORT, fromMin, fromWeekProgram, toWeekProgram, validateDay, type Week
-  } from '$lib/program';
+  import { m, pendingError } from '$lib/i18n';
+  import { changedDays, fromMin, fromWeekProgram, toWeekProgram, validateDay, type Week } from '$lib/program';
   import { house } from '$lib/stores/house.svelte';
   import { parisMinuteOfDay, parisParts } from '$lib/time';
 
@@ -37,7 +35,6 @@
   let sentList = $state<SentEntry[]>([]);
   // True while the sends of one Envoyer are in flight: no second send, no edits that would be lost.
   let sending = $state(false);
-  const DISCARD = 'Abandonner les modifications non envoyées ?';
 
   $effect(() => {
     const t = setInterval(() => (now = Date.now()), 60_000);
@@ -97,7 +94,7 @@
   beforeNavigate((nav) => {
     if (!unsent) return;
     if (nav.willUnload) nav.cancel(); // the browser asks with its own dialog
-    else if (!confirm(DISCARD)) nav.cancel();
+    else if (!confirm(m.program.discard)) nav.cancel();
   });
   let shown = $derived(locked ? lock!.week : draft);
   let changes = $derived(draft && baseline ? changedDays(baseline, draft) : []);
@@ -114,9 +111,9 @@
   // The sticky send bar: there is something to send, or a send is on its way.
   let bar = $derived(changes.length > 0 || alsoRooms.length > 0 || busy);
   let barText = $derived.by(() => {
-    if (busy) return 'Envoi en cours…';
-    const days = changes.length ? plural(changes.length, 'jour modifié', 'jours modifiés') : 'Aucun jour modifié';
-    return alsoRooms.length ? `${days} · ${plural(alsoRooms.length, 'autre pièce', 'autres pièces')}` : days;
+    if (busy) return m.program.sending;
+    const days = changes.length ? m.program.daysChanged(changes.length) : m.program.noDaysChanged;
+    return alsoRooms.length ? `${days} · ${m.program.otherRooms(alsoRooms.length)}` : days;
   });
   // A retry would overwrite later edits of the room being edited, so it is only offered while the draft is the sent week.
   let statuses = $derived(
@@ -131,11 +128,11 @@
   );
 
   const fmtSegs = (segs: { start: number; end: number }[]) =>
-    segs.length ? segs.map((s) => `${fromMin(s.start)}–${fromMin(s.end)}`).join(', ') : 'aucune plage (éco)';
+    segs.length ? segs.map((s) => `${fromMin(s.start)}–${fromMin(s.end)}`).join(', ') : m.program.noSlots;
 
   function pickRoom(id: string) {
     if (id === roomId) return;
-    if (unsent && !confirm(DISCARD)) return;
+    if (unsent && !confirm(m.program.discard)) return;
     roomId = id;
     draft = null;
     baseline = null;
@@ -180,9 +177,9 @@
   }
 </script>
 
-<svelte:head><title>Programme · Kelvin</title></svelte:head>
+<svelte:head><title>{m.page.title(m.nav.schedule)}</title></svelte:head>
 
-<h1>Programme</h1>
+<h1>{m.nav.schedule}</h1>
 {#if !house.loaded}
   <!-- The editor's shape until the house is known: the room picker, today's strip, seven days. -->
   <div class="sk" aria-hidden="true">
@@ -192,48 +189,49 @@
   </div>
 {:else}
   <div class="rooms">
-    {#if roomId}<Segmented options={roomOptions} value={roomId} label="Pièce" onchange={pickRoom} />{/if}
+    {#if roomId}<Segmented options={roomOptions} value={roomId} label={m.program.roomPicker} onchange={pickRoom} />{/if}
   </div>
 
   {#if roomId && !radiators.length}
-    <p class="muted">Cette pièce n’a aucun radiateur&nbsp;: pas de programme à régler.</p>
+    <p class="muted">{m.program.noRadiator}</p>
   {:else if shown}
+    {@const lg = m.program.legend()}
     {#if mismatch}
-      <p class="warn"><Icon name="alert" size={14} /> Les radiateurs de cette pièce n’ont pas le même programme&nbsp;; l’envoi les alignera sur celui-ci.</p>
+      <p class="warn"><Icon name="alert" size={14} /> {m.program.mismatch}</p>
     {/if}
-    <p class="muted legend">Plages <strong>confort</strong> (3 par jour au plus)&nbsp;; le reste du temps est en <strong>éco</strong>. Touchez ou cliquez la barre pour ajouter une plage, glissez-la pour la déplacer, tirez ses bords pour l’ajuster.</p>
+    <p class="muted legend">{lg.before}<strong>{lg.comfort}</strong>{lg.middle}<strong>{lg.eco}</strong>{lg.after}</p>
 
     {#if roomId}
       <section class="today">
-        <h2>Aujourd’hui</h2>
+        <h2>{m.program.today}</h2>
         <RoomTodayStrip {roomId} height={48} axis program={toWeekProgram(shown)}
-          label="{roomName(roomId)}, température d’aujourd’hui et plages de ce programme" />
+          label={m.program.previewLabel(roomName(roomId))} />
       </section>
     {/if}
 
     <div class="week">
       {#each DAYS as d (d)}
-        <ProgramDay label={DAY_LABEL[d]} segs={shown[d]} pending={busy} nowMinute={d === today ? parisMinuteOfDay(now) : null}
+        <ProgramDay day={d} segs={shown[d]} pending={busy} nowMinute={d === today ? parisMinuteOfDay(now) : null}
           collapsible={!desktop.matches} open={shownDay === d} ontoggle={() => (openDay = shownDay === d ? 'none' : d)}
           onchange={(segs) => (draft = { ...draft!, [d]: segs })} />
       {/each}
     </div>
 
     <section class="tools">
-      <h2>Copier</h2>
+      <h2>{m.program.copy}</h2>
       <div class="row">
-        <label class="from">Du <select bind:value={copyFrom} disabled={busy}>{#each DAYS as d (d)}<option value={d}>{DAY_LABEL[d]}</option>{/each}</select></label>
-        <span>vers</span>
+        <label class="from">{m.program.copyFrom} <select bind:value={copyFrom} disabled={busy}>{#each DAYS as d (d)}<option value={d}>{m.days[d]}</option>{/each}</select></label>
+        <span>{m.program.copyTo}</span>
       </div>
       <div class="chips">
         {#each DAYS.filter((d) => d !== copyFrom) as d (d)}
           <label class="chip"><input class="visually-hidden" type="checkbox" value={d} bind:group={copyTo} disabled={busy} /><span
-              aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{DAY_SHORT[d]}</label>
+              aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{m.daysShort[d]}</label>
         {/each}
-        <button type="button" class="btn btn-sm" aria-disabled={busy || !copyTo.length} onclick={applyCopy}>Copier</button>
+        <button type="button" class="btn btn-sm" aria-disabled={busy || !copyTo.length} onclick={applyCopy}>{m.program.copy}</button>
       </div>
       {#if house.rooms.length > 1}
-        <h2 class="also">Envoyer aussi à</h2>
+        <h2 class="also">{m.program.alsoSend}</h2>
         <div class="chips">
           {#each house.rooms.filter((r) => r.id !== roomId) as r (r.id)}
             <label class="chip"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} disabled={busy} /><span
@@ -246,10 +244,10 @@
     {#if changes.length || statuses.length}
       <section class="send">
         {#if changes.length}
-          <h2>Modifications</h2>
+          <h2>{m.program.changes}</h2>
           <ul>
             {#each changes as d (d)}
-              <li><strong>{DAY_LABEL[d]}</strong>&nbsp;: {fmtSegs(draft![d])} <span class="muted">(avant&nbsp;: {fmtSegs(baseline![d])})</span></li>
+              <li><strong>{m.days[d]}</strong>{m.common.colon}{fmtSegs(draft![d])} <span class="muted">{m.program.changeBefore(fmtSegs(baseline![d]))}</span></li>
             {/each}
           </ul>
         {/if}
@@ -259,8 +257,8 @@
               <li>
                 <span>{roomName(e.roomId)}</span>
                 {#if stale}
-                  <span class="stale"><Icon name="alert" size={14} /> {pending!.error ?? 'Échec de la commande.'} Modifiez puis Envoyer.
-                    <button type="button" class="btn btn-icon" aria-label="Ignorer" onclick={() => house.dismiss(e.pendingId)}><Icon name="x" size={16} /></button></span>
+                  <span class="stale"><Icon name="alert" size={14} /> {pendingError(pending!)} {m.program.staleHint}
+                    <button type="button" class="btn btn-icon" aria-label={m.common.dismiss} onclick={() => house.dismiss(e.pendingId)}><Icon name="x" size={16} /></button></span>
                 {:else}
                   <PendingTag {pending} onretry={retryEntry} ondismiss={(id) => house.dismiss(id)} />
                 {/if}
@@ -276,9 +274,9 @@
       <div class="sendbar" transition:fly={{ y: 8, duration: dur(T.enter), easing: easeOut }}>
         <span class="bar-text" class:muted={busy}>{barText}</span>
         <div class="bar-actions">
-          <button type="button" class="btn" aria-disabled={busy || !changes.length} onclick={() => !busy && changes.length && (draft = baseline)}>Annuler</button>
+          <button type="button" class="btn" aria-disabled={busy || !changes.length} onclick={() => !busy && changes.length && (draft = baseline)}>{m.program.undo}</button>
           <button type="button" class="btn btn-primary" aria-disabled={!canSend}
-            onclick={send}>Envoyer</button>
+            onclick={send}>{m.program.send}</button>
         </div>
       </div>
     {/if}

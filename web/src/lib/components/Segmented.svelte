@@ -1,7 +1,7 @@
 <script lang="ts" generics="T extends string">
   import { flushSync } from 'svelte';
   interface Props {
-    options: { value: T; label: string }[];
+    options: { value: T; label: string; lang?: string; ariaLabel?: string }[];
     value: T;
     label: string;
     onchange: (v: T) => void;
@@ -32,6 +32,8 @@
       bind:this={buttons[i]}
       type="button"
       role="radio"
+      lang={o.lang}
+      aria-label={o.ariaLabel}
       aria-checked={o.value === value}
       tabindex={o.value === value ? 0 : -1}
       onclick={() => onchange(o.value)}

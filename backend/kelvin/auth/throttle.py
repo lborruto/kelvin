@@ -76,5 +76,5 @@ def client_key(host: str) -> str:
     return str(addr)
 
 
-def retry_message(seconds: float) -> str:
-    return f"Trop de tentatives. Réessayez dans {max(1, math.ceil(seconds / 60))} min."
+def retry_minutes(seconds: float) -> int:
+    return max(1, math.ceil(seconds / 60))

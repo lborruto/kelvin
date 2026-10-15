@@ -1,7 +1,7 @@
 # Kelvin
 
 Self-hosted heating control for Sauter radiators on Cozytouch (the Overkiz cloud). Kelvin is a
-fast, clear web app in French for phone and desktop: rooms, schedules, boost and away, a
+fast, clear web app in French and English for phone and desktop: rooms, schedules, boost and away, a
 temperature history, and an electricity-bill estimate from your Linky meter.
 
 Kelvin is an independent project, not affiliated with or endorsed by the makers of the
@@ -14,7 +14,7 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
 - **Truthful commands.** A change counts as done only when the radiator reports the new state.
   Pending, confirmed and failed are shown as such, including Overkiz's misleading
   `OVERRIDEMODE_ERROR` on commands that did apply.
-- **Control:** off, manual, programme; setpoint; the weekly programme editor (the radiators'
+- **Control:** off, manual, schedule; setpoint; the weekly schedule editor (the radiators'
   own three slots a day); boost a room for a few hours; away for the whole house. Boost and away
   restore what was there before.
 - **History:** temperature and setpoint per room, a 24-hour thermal strip, radiator energy from
@@ -23,16 +23,22 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   knows it, and marks such figures as estimates. A reading that cannot be true (above what the
   radiator can draw, or a drop) is never counted as energy, and the time after a meter's last
   change stays unknown until it moves again.
-- **Énergie:** whole-home consumption from Linky (through MyElectricalData) by day, ISO week,
+- **Energy:** whole-home consumption from Linky (through MyElectricalData) by day, ISO week,
   month or year, with a period navigator. Every bar, half-hour and figure shows its exact value on
-  hover, tap or keyboard: HC/HP, radiators and the rest of the home, energy and subscription €,
-  the prices applied. A half-hour scrubber with power and price, peak and base load, the HC/HP
+  hover, tap or keyboard: off-peak/peak, radiators and the rest of the home, energy and standing charge €,
+  the prices applied. A half-hour scrubber with power and price, max power and base load, the off-peak/peak
   share, the radiators' share and cost, per room and per radiator (energy, €, temperature,
   heating hours), a room's temperature against its heating, comparisons on comparable days only,
   a month and a 365-day projection, a data-quality panel, and a CSV export of what is shown
-  (`;`-separated with a decimal comma, for French spreadsheets). Shown parts add up to their
+  (numbers in the UI language: `;` and a decimal comma in French, `,` and a point in English;
+  French headers in both). Shown parts add up to their
   total, and a day reads the same € in every view. A missing figure reads « — » with its reason,
   never 0; estimates say so.
+- **French and English.** The whole UI, errors included, in French (the default) or English
+  (en-GB, with its own number, date and currency formats), chosen per device in Home › Settings or
+  on the sign-in screen, without a reload. A browser in French starts in French, any other
+  language in English. URLs are English (`/rooms`, `/schedule`, `/energy`, `/home`); old
+  bookmarks are redirected.
 - **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets.
 - **A simulator** of a whole home and a synthetic Linky, for trying Kelvin and for every test.
 
@@ -80,14 +86,15 @@ building it: in `docker-compose.yml`, replace `build: .` with the commented
 Log in with the email and password of the home's Cozytouch account (the one the Cozytouch app
 uses). Kelvin checks them with Cozytouch, stores them, and loads your rooms and radiators.
 Anyone in the household logs in with the same account. If the Cozytouch password changes,
-Kelvin shows « Mot de passe Cozytouch modifié : reconnectez-vous »; log in once with the new one.
+Kelvin shows “Cozytouch password changed: sign in again” (« Mot de passe Cozytouch modifié :
+reconnectez-vous » in French); log in once with the new one.
 
 ### Connect Linky (optional)
 
 1. Create a MyElectricalData account and give it access to your meter's data (Enedis consent).
    It gives you a token; your PDL is the 14-digit number on your contract or meter.
-2. In Kelvin, open **Maison › Réglages**, enter the PDL and the token, and the tariff (HC/HP
-   prices and off-peak hours).
+2. In Kelvin, open **Home › Settings** (**Maison › Réglages** in French), enter the PDL and
+   the token, and the tariff (off-peak and peak prices, and the off-peak hours).
 3. Kelvin syncs at 08:00 and 14:00 (Europe/Paris), backfills a year of daily data and 30 days
    of 30-minute curve, and never spends more than 10 of MyElectricalData's 50 daily calls.
 
@@ -132,14 +139,14 @@ replace the volume's content and give it back to Kelvin's user (uid 10001). On a
 All settings are environment variables, and every one is optional. `.env.example` lists them.
 The compose file passes `TZ` and `KELVIN_ALLOWED_HOSTS` from `.env`; add any other one to
 `environment:` in `docker-compose.yml`. No password or token belongs in the compose file or in
-`.env`: you log in with the Cozytouch account in the browser and connect Linky in Réglages, and
+`.env`: you log in with the Cozytouch account in the browser and connect Linky in Settings, and
 Kelvin keeps both in `account.json` (0600) in its data volume.
 
 | Variable | Default in the image | Meaning |
 |---|---|---|
 | `TZ` | `Europe/Paris` | Time zone for schedules, energy days and the Linky sync |
 | `COZY_USER`, `COZY_PASS` | — | Advanced, unattended setup only: create the account file on the first start instead of the first login (Compose interpolates `$`: write it as `$$`) |
-| `MED_PRM`, `MED_TOKEN` | — | Advanced: fallback Linky PDL and token; Réglages wins |
+| `MED_PRM`, `MED_TOKEN` | — | Advanced: fallback Linky PDL and token; Settings wins |
 | `KELVIN_DATA` | `/data` | SQLite database and `account.json` |
 | `KELVIN_WEB` | `/app/web` | The built web app served next to the API |
 | `KELVIN_HOST`, `KELVIN_PORT` | `0.0.0.0`, `8080` | Bind address (outside Docker: `127.0.0.1`, `8000`) |
@@ -166,8 +173,9 @@ Kelvin keeps both in `account.json` (0600) in its data volume.
   or a password change (at most 3 times a day), because Overkiz limits those reads. It runs
   boost and away itself, syncs Linky within its quota, and serves a REST API with server-sent
   events. See [backend/README.md](backend/README.md).
-- **Web** (`web/`, SvelteKit, Svelte 5): a static PWA served by the backend. See
-  [web/README.md](web/README.md).
+- **Web** (`web/`, SvelteKit, Svelte 5): a static PWA served by the backend. Every string lives
+  in a French and an English dictionary; the API answers errors with a stable code the web
+  translates, next to a French `detail`. See [web/README.md](web/README.md).
 - **Device facts** verified on Sauter radiators: [docs/overkiz-notes.md](docs/overkiz-notes.md);
   MyElectricalData: [docs/linky-notes.md](docs/linky-notes.md).
 - **Product and design:** [PRODUCT.md](PRODUCT.md) and the design system,
@@ -182,8 +190,9 @@ simulator, and every test uses it.
 
 Early (0.x). Kelvin is developed against one installation: Sauter IPALA H and HEKLA radiators
 on io-homecontrol, with a Cozytouch bridge. Other heaters on the Atlantic group's Cozytouch
-server may work but are untested. The UI is French only. The Linky bill estimate supports the
-HC/HP option.
+server may work but are untested. The UI is in French and English (French by default; switch in
+Home › Settings, or on the sign-in screen). The Linky bill estimate supports the
+off-peak/peak option.
 
 ## Licence
 

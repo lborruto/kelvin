@@ -18,6 +18,7 @@ import {
   toWeekProgram,
   validateDay
 } from './program';
+import { applyLocale } from '$lib/i18n';
 
 const DAY = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 const usual: WeekProgram = Object.fromEntries(
@@ -94,9 +95,9 @@ describe('editing', () => {
   ];
   it('validates', () => {
     expect(validateDay(segs)).toBeNull();
-    expect(validateDay([...segs, { start: 600, end: 700 }, { start: 800, end: 900 }])).toBe('3 plages confort au maximum.');
-    expect(validateDay([{ start: 100, end: 300 }, { start: 200, end: 400 }])).toBe('Des plages se chevauchent.');
-    expect(validateDay([{ start: 300, end: 300 }])).toBe('Une plage doit finir après son début.');
+    expect(validateDay([...segs, { start: 600, end: 700 }, { start: 800, end: 900 }])).toBe('tooMany');
+    expect(validateDay([{ start: 100, end: 300 }, { start: 200, end: 400 }])).toBe('overlap');
+    expect(validateDay([{ start: 300, end: 300 }])).toBe('endBeforeStart');
   });
   it('adds a slot in free space, trimmed to the next slot', () => {
     expect(addSlot(segs, 600)).toEqual([...segs.slice(0, 1), { start: 600, end: 720 }, segs[1]]);
@@ -154,5 +155,21 @@ describe('adjacent slots', () => {
     const c = nextChange(p, now)!;
     expect(c.to).toBe('eco');
     expect(c.atMs).toBe(Date.parse('2026-10-13T08:00:00Z'));
+  });
+});
+
+describe('next change in each language', () => {
+  const now = Date.parse('2026-10-13T11:48:00Z'); // Tue 13:48 Paris
+  const thursday: WeekProgram = { thursday: [{ start: '06:15', end: '08:00' }] };
+  it('French: today, tomorrow, a weekday in lower case', () => {
+    expect(fmtNextChange(nextChange(usual, now)!, now)).toBe('17:30 → Confort');
+    expect(fmtNextChange(nextChange(thursday, now)!, now)).toBe('jeudi 06:15 → Confort');
+  });
+  it('English', () => {
+    applyLocale('en');
+    expect(fmtNextChange(nextChange(usual, now)!, now)).toBe('17:30 → Comfort');
+    const late = Date.parse('2026-10-13T21:00:00Z');
+    expect(fmtNextChange(nextChange(usual, late)!, late)).toBe('tomorrow 06:15 → Comfort');
+    expect(fmtNextChange(nextChange(thursday, now)!, now)).toBe('Thursday 06:15 → Comfort');
   });
 });

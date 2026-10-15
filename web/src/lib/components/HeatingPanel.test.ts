@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import HeatingPanel from './HeatingPanel.svelte';
 
 const rad = { kwh: 268.4, hc_kwh: 110, hp_kwh: 158.4, eur: 61.02, interpolated: false, apportioned: false, coverage: 1 };
@@ -100,4 +101,17 @@ describe('HeatingPanel', () => {
     });
     expect(screen.getByText(/Coût du chauffage —/)).toHaveTextContent('Coût du chauffage — (pas de tarif renseigné)');
   });
+});
+
+it('in English: the heading, the share sentence with its day count, the cost', () => {
+  applyLocale('en');
+  const { container } = render(HeatingPanel, {
+    heating: { value: 0.651, days: 11, of_days: 13, since: '2026-10-03', inconsistent: false },
+    radiators: { ...rad, interpolated: true },
+    restKwh: null
+  });
+  expect(screen.getByRole('heading', { name: 'Heating' })).toBeInTheDocument();
+  const t = text(container);
+  expect(t).toContain('65% of the home’s consumption comes from the radiators (11 of 13 days).');
+  expect(t).toContain('Heating cost ≈ €61.02 (energy, excluding the standing charge)');
 });

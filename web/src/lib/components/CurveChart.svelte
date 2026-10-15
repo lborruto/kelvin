@@ -4,20 +4,8 @@
   import type { EnergyInterval, RoomSample } from '$lib/api/types';
   import { SERIES } from '$lib/energy';
   import { fmtTime, fmtWh } from '$lib/format';
+  import { m } from '$lib/i18n';
   import { inspectionTable, intervalLabel, READOUT_ORDER, readInterval, type Row } from '$lib/inspector';
-
-  const COPY = {
-    empty: 'Pas de courbe pour ce jour.',
-    scrub: 'Parcourir la courbe, demi-heure par demi-heure',
-    idle: 'Survolez ou touchez la courbe',
-    idleKeys: ', ou utilisez les flèches',
-    idleShort: 'aucune demi-heure choisie',
-    hour: 'Heure',
-    est: 'est.',
-    radiators: 'Radiateurs',
-    kva: (kva: number) => `Puissance souscrite (${kva}\u00a0kVA)`,
-    kvaOff: (kva: number, wh: string) => `Puissance souscrite (${kva}\u00a0kVA, soit ${wh} par demi-heure) hors de l’échelle du graphique.`
-  } as const;
 
   interface Props {
     intervals: EnergyInterval[];
@@ -81,26 +69,26 @@
    */
   const variantId = (x: Row) => `${x.value}\u0001${x.est ? 1 : 0}\u0001${x.note ?? ''}`;
   let variants = $derived.by(() => {
-    const m = new Map<string, Map<string, Row>>();
+    const byKey = new Map<string, Map<string, Row>>();
     for (const r of [readInterval(null, ctx), ...readings]) {
       for (const x of r.rows) {
-        const vs = m.get(x.key) ?? new Map<string, Row>();
+        const vs = byKey.get(x.key) ?? new Map<string, Row>();
         if (!vs.has(variantId(x))) vs.set(variantId(x), x);
-        m.set(x.key, vs);
+        byKey.set(x.key, vs);
       }
     }
-    return m;
+    return byKey;
   });
 </script>
 
 {#if !intervals.length}
-  <p class="muted empty">{COPY.empty}</p>
+  <p class="muted empty">{m.curve.empty}</p>
 {:else}
   <!-- A fixed row above the chart, so nothing covers the bars; its fields never change for the day. -->
   <dl class="readout">
     <div class="when">
-      <dt class="visually-hidden">{COPY.hour}</dt>
-      <dd class="num">{#if current}{readout.title}{:else}{COPY.idle}<span class="wide">{COPY.idleKeys}</span>{/if}</dd>
+      <dt class="visually-hidden">{m.curve.hour}</dt>
+      <dd class="num">{#if current}{readout.title}{:else}{m.curve.idle}<span class="wide">{m.curve.idleKeys}</span>{/if}</dd>
     </div>
     {#each readout.rows as r (r.key)}
       {@const cur = variantId(r)}
@@ -109,7 +97,7 @@
         <dd class="num">
           {#each variants.get(r.key) ?? [] as [id, v] (id)}
             <span class="v" class:cur={id === cur} aria-hidden={id === cur ? undefined : 'true'}>
-              <span class="val">{v.value}{#if v.est}<span class="est">{COPY.est}</span>{/if}</span>{#if v.note}<span class="why">{v.note}</span>{/if}
+              <span class="val">{v.value}{#if v.est}<span class="est">{m.curve.est}</span>{/if}</span>{#if v.note}<span class="why">{v.note}</span>{/if}
             </span>
           {/each}
         </dd>
@@ -150,8 +138,8 @@
       {centers}
       {W}
       {index}
-      label={COPY.scrub}
-      idle={COPY.idleShort}
+      label={m.curve.scrub}
+      idle={m.curve.idleShort}
       valuetext={(i) => readings[i].spoken}
       onchange={(i) => (index = i)} />
   </div>
@@ -162,15 +150,15 @@
   <!-- A legend only for what is drawn: no empty list when the subscribed power is only stated. -->
   {#if radPath || (kvaShown && kva != null)}
     <ul class="legend">
-      {#if radPath}<li><span class="line" style:background={SERIES.radiators}></span>{COPY.radiators}</li>{/if}
-      {#if kvaShown && kva != null}<li><span class="dash"></span>{COPY.kva(kva)}</li>{/if}
+      {#if radPath}<li><span class="line" style:background={SERIES.radiators}></span>{m.curve.radiators}</li>{/if}
+      {#if kvaShown && kva != null}<li><span class="dash"></span>{m.curve.kva(kva)}</li>{/if}
     </ul>
   {/if}
-  {#if kva != null && !kvaShown}<p class="muted kva-note">{COPY.kvaOff(kva, fmtWh(kvaWh))}</p>{/if}
+  {#if kva != null && !kvaShown}<p class="muted kva-note">{m.curve.kvaOff(kva, fmtWh(kvaWh))}</p>{/if}
   <div class="visually-hidden"><table>
     <caption>{label}</caption>
     <thead>
-      <tr><th scope="col">{COPY.hour}</th>{#each table.columns as c (c.key)}<th scope="col">{c.label}</th>{/each}</tr>
+      <tr><th scope="col">{m.curve.hour}</th>{#each table.columns as c (c.key)}<th scope="col">{c.label}</th>{/each}</tr>
     </thead>
     <tbody>
       {#each table.rows as r, i (i)}

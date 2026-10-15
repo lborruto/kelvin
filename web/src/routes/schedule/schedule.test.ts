@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '$lib/api/client';
 import { house } from '$lib/stores/house.svelte';
 import Page from './+page.svelte';
+import { applyLocale } from '$lib/i18n';
 
 const nav = vi.hoisted(() => ({ guard: null as null | ((n: { willUnload: boolean; cancel: () => void }) => void) }));
 vi.mock('$app/navigation', () => ({ beforeNavigate: (fn: never) => (nav.guard = fn) }));
@@ -50,7 +51,7 @@ async function editAndSend() {
   await fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
 }
 
-describe('/programme', () => {
+describe('/schedule', () => {
   it('keeps the edits when the send fails', async () => {
     vi.mocked(api.roomProgram).mockRejectedValue(new ApiError(502, 'Radiateur injoignable.'));
     await editAndSend();
@@ -162,7 +163,7 @@ describe('/programme', () => {
     expect(ask).not.toHaveBeenCalled(); // clean draft: leave freely
     await fireEvent.click(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' }));
     nav.guard!({ willUnload: false, cancel });
-    expect(ask).toHaveBeenCalledWith('Abandonner les modifications non envoyées ?');
+    expect(ask).toHaveBeenCalledWith('Abandonner les modifications non envoyées\u00a0?');
     expect(cancel).toHaveBeenCalledTimes(1);
     ask.mockReturnValue(true);
     nav.guard!({ willUnload: false, cancel });
@@ -181,7 +182,7 @@ describe('/programme', () => {
     const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
     await fireEvent.click(await screen.findByRole('button', { name: 'Ajouter une plage le Lundi' }));
     await fireEvent.click(screen.getByRole('radio', { name: 'Chambre 2' }));
-    expect(ask).toHaveBeenCalledWith('Abandonner les modifications non envoyées ?');
+    expect(ask).toHaveBeenCalledWith('Abandonner les modifications non envoyées\u00a0?');
     expect(screen.getByRole('radio', { name: 'Salon' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByText('Modifications')).toBeInTheDocument();
     ask.mockReturnValue(true);
@@ -263,4 +264,29 @@ describe('/programme', () => {
       vi.useRealTimers();
     }
   });
+});
+
+describe('/schedule in English', () => {
+  it('title, legend, the send bar and the change list', async () => {
+    applyLocale('en');
+    render(Page);
+    expect(screen.getByRole('heading', { name: 'Schedule', level: 1 })).toBeInTheDocument();
+    expect(screen.getByText(/the rest of the time is/)).toBeInTheDocument();
+    await fireEvent.click(await screen.findByRole('button', { name: 'Add a period on Monday' }));
+    expect(screen.getByRole('heading', { name: 'Changes' })).toBeInTheDocument();
+    expect(screen.getByText('1 day changed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Undo changes' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
+    expect(screen.getByText(/\(before: no periods \(eco\)\)/)).toBeInTheDocument();
+  });
+});
+
+it('a Programme draft survives the switch', async () => {
+  render(Page);
+  await fireEvent.click(await screen.findByRole('button', { name: 'Ajouter une plage le Lundi' }));
+  expect(screen.getByText('1 jour modifié')).toBeInTheDocument();
+  const { applyLocale } = await import('$lib/i18n');
+  applyLocale('en');
+  expect(await screen.findByText('1 day changed')).toBeInTheDocument();
+  expect(screen.getByLabelText('Monday, period 1, start')).toHaveValue('07:00');
 });

@@ -3,19 +3,9 @@
   import Segmented from './Segmented.svelte';
   import type { EnergyDay } from '$lib/api/types';
   import { fmtDateLong } from '$lib/format';
+  import { m } from '$lib/i18n';
   import { desktop } from '$lib/media.svelte';
   import { house } from '$lib/stores/house.svelte';
-
-  const COPY = {
-    title: 'Température et chauffe',
-    room: 'Pièce',
-    day: (d: string) => `le ${d}`,
-    chart: (room: string, d: string) => `Radiateurs, température et consigne · ${room} · ${d}`,
-    noRooms: 'Aucune pièce avec un radiateur.',
-    beforeCounted: (d: string) => `Pas de données pour ce jour\u00a0: antérieur au premier jour compté (depuis le ${d}).`,
-    noCurve: 'Pas de courbe Linky pour ce jour\u00a0: les demi-heures de la pièce sont celles de la courbe.',
-    retry: 'Réessayer'
-  } as const;
 
   interface Props {
     day: EnergyDay | null;
@@ -50,21 +40,21 @@
 
 <section class="panel {cls}" aria-busy={busy} aria-labelledby="{uid}-title">
   <div class="head">
-    <h2 id="{uid}-title">{COPY.title}</h2>
-    <p class="muted sub">{COPY.day(fmtDateLong(dayIso))}</p>
+    <h2 id="{uid}-title">{m.roomDayPanel.title}</h2>
+    <p class="muted sub">{m.roomDayPanel.day(fmtDateLong(dayIso))}</p>
   </div>
   {#if none}
-    <p class="muted note">{COPY.noRooms}</p>
+    <p class="muted note">{m.roomDayPanel.noRooms}</p>
   {:else}
     <div class="pick">
       {#if !house.loaded}
         <div class="skeleton inset pick-sk" aria-hidden="true"></div>
       {:else if desktop.matches}
-        <Segmented {options} value={chosen ?? ''} label={COPY.room} onchange={onroom} />
+        <Segmented {options} value={chosen ?? ''} label={m.roomDayPanel.room} onchange={onroom} />
       {:else}
         <!-- A separate label: a wrapping one would add the chosen room to the select's name. -->
         <div class="field">
-          <label class="muted" for="{uid}-room">{COPY.room}</label>
+          <label class="muted" for="{uid}-room">{m.roomDayPanel.room}</label>
           <select id="{uid}-room" onchange={(e) => onroom(e.currentTarget.value)}>
             {#each options as o (o.value)}<option value={o.value} selected={o.value === chosen}>{o.label}</option>{/each}
           </select>
@@ -74,18 +64,18 @@
     {@const view = shown ?? stale}
     <div class="body" class:stale={!!stale}>
       {#if error && !shown}
-        <p class="error" role="status">{error} <button type="button" class="btn btn-sm" onclick={onretry}>{COPY.retry}</button></p>
+        <p class="error" role="status">{error} <button type="button" class="btn btn-sm" onclick={onretry}>{m.roomDayPanel.retry}</button></p>
       {:else if view?.not_counted === 'before_first_day' && view.counted_from}
-        <p class="muted note">{COPY.beforeCounted(fmtDateLong(view.counted_from))}</p>
+        <p class="muted note">{m.roomDayPanel.beforeCounted(fmtDateLong(view.counted_from))}</p>
       {:else if view?.room && !view.intervals.length}
         <!-- The room's half-hours are the curve's: without a curve there are none to show. -->
-        <p class="muted note">{COPY.noCurve}</p>
+        <p class="muted note">{m.roomDayPanel.noCurve}</p>
       {:else if view?.room}
         <RoomDayChart
           intervals={view.intervals}
           roomId={view.room.id}
           samples={view.room.samples}
-          label={COPY.chart(view.room.name, fmtDateLong(view.date))}
+          label={m.roomDayPanel.chart(view.room.name, fmtDateLong(view.date))}
           bind:index />
       {:else}
         <div class="skeleton inset body-sk" aria-hidden="true"></div>

@@ -9,15 +9,63 @@
     <link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
     <title>Kelvin</title>
     <script>
-      try {
-        const t = localStorage.getItem('kelvin-theme');
-        if (t === 'light' || t === 'dark') {
-          document.documentElement.dataset.theme = t;
-          // Same rule as applyThemeColor ($lib/stores/theme.ts), before the app loads.
-          const c = t === 'light' ? '#f5f6f8' : '#0f1115';
-          for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = c;
+      (function () {
+        /* legacy-paths:start */
+        var LEGACY = [
+          [/^\/pieces\/?$/, '/'],
+          [/^\/pieces\/(.+)$/, '/rooms/$1'],
+          [/^\/programme\/?$/, '/schedule'],
+          [/^\/energie\/?$/, '/energy'],
+          [/^\/maison\/?$/, '/home']
+        ];
+        var LEGACY_HASH = { '#tarif': '#tariff', '#absence': '#away', '#qualite': '#quality', '#courbe': '#curve', '#contenu': '#content' };
+        /* legacy-paths:end */
+        // Old French URLs (bookmarks, the offline PWA, typed links) become English before the
+        // router reads the URL: no double render, no history entry, query kept, anchor mapped.
+        var p = location.pathname;
+        for (var i = 0; i < LEGACY.length; i++) {
+          if (LEGACY[i][0].test(p)) {
+            var h = location.hash;
+            history.replaceState(null, '', p.replace(LEGACY[i][0], LEGACY[i][1]) + location.search + (LEGACY_HASH[h] || h));
+            return;
+          }
         }
-      } catch {}
+      })();
+    </script>
+    <script>
+      // An IIFE: no global (window.kelvinLocale, window.stored) leaks from this classic script.
+      (function () {
+        /* locale:start */
+        function kelvinLocale(stored, languages, language) {
+          if (stored === 'fr' || stored === 'en') return stored;
+          var all = (languages ? Array.prototype.slice.call(languages) : []).concat(language ? [language] : []);
+          for (var i = 0; i < all.length; i++) if (/^fr\b/i.test(all[i])) return 'fr';
+          return language || (languages && languages.length) ? 'en' : 'fr';
+        }
+        /* locale:end */
+        // <html lang> before first paint, so screen readers and hyphenation start right (spec §4).
+        // Same rule as detectLocale ($lib/i18n/locale.ts); locale.test.ts runs both on one table.
+        try {
+          var stored = null;
+          try {
+            stored = localStorage.getItem('kelvin-locale');
+          } catch (e) {}
+          document.documentElement.lang = kelvinLocale(stored, navigator.languages, navigator.language);
+        } catch (e) {}
+      })();
+    </script>
+    <script>
+      (function () {
+        try {
+          const t = localStorage.getItem('kelvin-theme');
+          if (t === 'light' || t === 'dark') {
+            document.documentElement.dataset.theme = t;
+            // Same rule as applyThemeColor ($lib/stores/theme.ts), before the app loads.
+            const c = t === 'light' ? '#f5f6f8' : '#0f1115';
+            for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = c;
+          }
+        } catch {}
+      })();
     </script>
     <style>
       /* First paint before the app loads (removed by the root layout): the page ground, the

@@ -2,6 +2,7 @@ import { flushSync } from 'svelte';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import ModeSwitch from './ModeSwitch.svelte';
+import { applyLocale } from '$lib/i18n';
 
 describe('ModeSwitch', () => {
   it('marks the current mode and emits changes', async () => {
@@ -85,4 +86,20 @@ describe('ModeSwitch', () => {
     await fireEvent.click(manual);
     expect(onchange).not.toHaveBeenCalled();
   });
+});
+
+it('in English: Off / Manual / Schedule, “Sched.” when compact, and the pending name', () => {
+  applyLocale('en');
+  render(ModeSwitch, { value: 'off', pending: 'manual', compact: true, onchange: vi.fn() });
+  expect(screen.getAllByRole('radio').map((r) => r.textContent?.trim())).toEqual(['Off', 'Manual', 'Sched.']);
+  expect(screen.getByRole('radio', { name: 'Manual (pending)' })).toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: 'Schedule' })).toBeInTheDocument();
+});
+
+it('the chips re-render on a switch, same buttons', () => {
+  render(ModeSwitch, { value: 'program', onchange: vi.fn() });
+  const radio = screen.getByRole('radio', { name: 'Programme' });
+  applyLocale('en');
+  flushSync();
+  expect(screen.getByRole('radio', { name: 'Schedule' })).toBe(radio);
 });

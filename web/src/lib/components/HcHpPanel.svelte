@@ -1,24 +1,9 @@
 <script lang="ts">
   import type { HcLens } from '$lib/api/types';
-  import { fmtAmount, fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
+  import { fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
+  import { m } from '$lib/i18n';
+  import { ANCHORS, ROUTES } from '$lib/paths';
   import { shiftValue } from '$lib/power';
-
-  const COPY = {
-    title: 'Heures creuses / pleines',
-    tariffLink: 'Renseignez le tarif',
-    tariffTail: ' pour voir la répartition.',
-    share: 'Part en heures creuses',
-    slots: (pct: string) => `vos heures creuses durent ${pct} de la journée`,
-    none: 'Aucune consommation Linky sur la période.',
-    noSlots: 'Le tarif n’a pas d’heures creuses.',
-    avg: 'Prix moyen payé',
-    perKwh: 'Chaque kWh passé d’HP en HC',
-    slider: 'Part de vos heures pleines déplacée en heures creuses',
-    valueText: (pct: number) => `${pct} %`,
-    result: (pct: number, kwh: string, eur: string) => `Si ${pct} % de vos HP (${kwh}) étaient en HC : ${eur}, à consommation identique.`,
-    formula: (pct: number, hp: string, delta: string, eur: string) => `${pct} % × ${hp} × ${delta} €/kWh = ${eur}`,
-    caveat: 'Calcul sur vos prix et votre consommation, pas une économie garantie.'
-  } as const;
 
   interface Props {
     lens: HcLens | null;
@@ -34,42 +19,42 @@
 </script>
 
 <section class="panel {cls}">
-  <h2>{COPY.title}</h2>
+  <h2>{m.hcHp.title}</h2>
   {#if !tariff}
-    <p class="line"><a href="/maison#tarif">{COPY.tariffLink}</a>{COPY.tariffTail}</p>
+    <p class="line"><a href="{ROUTES.home}#{ANCHORS.tariff}">{m.hcHp.tariffLink}</a>{m.hcHp.tariffTail}</p>
   {:else}
     <dl class="figs">
       <div>
-        <dt>{COPY.share}</dt>
+        <dt>{m.hcHp.share}</dt>
         <dd><strong class="num big">{fmtPct1(lens?.hc_share)}</strong></dd>
       </div>
     </dl>
     {#if lens?.hc_share != null}
-      <p class="muted line">{COPY.slots(fmtPct1(lens.slot_share))}</p>
+      <p class="muted line">{m.hcHp.slots(fmtPct1(lens.slot_share))}</p>
     {:else}
       <!-- The backend gives no lens for a tariff without HC slots. -->
-      <p class="muted note">{lens ? COPY.none : COPY.noSlots}</p>
+      <p class="muted note">{lens ? m.hcHp.none : m.hcHp.noSlots}</p>
     {/if}
     <dl class="figs rows">
       <div>
-        <dt>{COPY.avg}</dt>
+        <dt>{m.hcHp.avg}</dt>
         <dd class="num">{fmtPrice(lens?.avg_price)}</dd>
       </div>
       {#if lens}
         <div>
-          <dt>{COPY.perKwh}</dt>
+          <dt>{m.hcHp.perKwh}</dt>
           <dd class="num">{fmtSignedPrice(-lens.delta_price)}</dd>
         </div>
       {/if}
     </dl>
     {#if lens && hpKwh != null && lens.hc_share != null && value != null}
       <div class="shift">
-        <label for="{uid}-shift">{COPY.slider}</label>
-        <input id="{uid}-shift" type="range" min="0" max="50" step="5" aria-valuetext={COPY.valueText(pct)} bind:value={pct} />
-        <p class="line num">{COPY.result(pct, fmtKwhExact((pct / 100) * hpKwh), fmtSigned(-value, '€'))}</p>
-        <p class="muted note num">{COPY.formula(pct, fmtKwhExact(hpKwh), fmtAmount(lens.delta_price, 4), fmtEurExact(value))}</p>
+        <label for="{uid}-shift">{m.hcHp.slider}</label>
+        <input id="{uid}-shift" type="range" min="0" max="50" step="5" aria-valuetext={m.hcHp.valueText(pct)} bind:value={pct} />
+        <p class="line num">{m.hcHp.result(pct, fmtKwhExact((pct / 100) * hpKwh), fmtSigned(-value, '€'))}</p>
+        <p class="muted note num">{m.hcHp.formula(pct, fmtKwhExact(hpKwh), fmtPrice(lens.delta_price), fmtEurExact(value))}</p>
       </div>
-      <p class="muted note">{COPY.caveat}</p>
+      <p class="muted note">{m.hcHp.caveat}</p>
     {/if}
   {/if}
 </section>

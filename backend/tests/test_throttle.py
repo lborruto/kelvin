@@ -1,4 +1,4 @@
-from kelvin.auth.throttle import LoginThrottle, client_key, retry_message
+from kelvin.auth.throttle import LoginThrottle, client_key, retry_minutes
 from tests.conftest import ManualClock
 
 
@@ -36,10 +36,8 @@ def test_success_clears_the_ip():
     assert t.retry_after("1.1.1.1") is None
 
 
-def test_retry_message_rounds_up_to_whole_minutes():
-    assert retry_message(1) == "Trop de tentatives. Réessayez dans 1 min."
-    assert retry_message(61) == "Trop de tentatives. Réessayez dans 2 min."
-    assert retry_message(860) == "Trop de tentatives. Réessayez dans 15 min."
+def test_retry_minutes_rounds_up_to_whole_minutes():
+    assert [retry_minutes(1), retry_minutes(61), retry_minutes(860)] == [1, 2, 15]
 
 
 def test_local_misses_count_per_ip_but_not_against_the_overkiz_gate():

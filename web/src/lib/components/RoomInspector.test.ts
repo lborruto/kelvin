@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { house } from '$lib/stores/house.svelte';
 import RoomInspector from './RoomInspector.svelte';
+import { applyLocale } from '$lib/i18n';
 
 vi.mock('$lib/api/client', () => ({
   api: { roomMode: vi.fn(), roomSetpoint: vi.fn(), roomBoost: vi.fn(), cancelOverride: vi.fn(), history: vi.fn().mockResolvedValue([]) },
@@ -43,8 +44,31 @@ describe('RoomInspector history period', () => {
     render(RoomInspector, { roomId: 'salon' });
     const group = screen.getByRole('radiogroup', { name: 'Période' });
     expect(group).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: '24 h' })).toHaveAttribute('aria-checked', 'true');
-    await fireEvent.keyDown(screen.getByRole('radio', { name: '24 h' }), { key: 'ArrowRight' });
-    expect(screen.getByRole('radio', { name: '7 j' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '24\u00a0h' })).toHaveAttribute('aria-checked', 'true');
+    await fireEvent.keyDown(screen.getByRole('radio', { name: '24\u00a0h' }), { key: 'ArrowRight' });
+    expect(screen.getByRole('radio', { name: '7\u00a0j' })).toHaveAttribute('aria-checked', 'true');
+  });
+});
+
+describe('RoomInspector in English', () => {
+  it('sections, notes, counts and the history ranges', () => {
+    applyLocale('en');
+    render(RoomInspector, { roomId: 'salon' });
+    expect(screen.getByText('Mixed — the radiators aren’t in the same mode')).toBeInTheDocument();
+    expect(screen.getAllByText('Mixed (average)')).toHaveLength(1);
+    expect(screen.getByText(/^2 radiators/)).toBeInTheDocument();
+    for (const h of ['Controls', 'Temporary boost', 'History', 'Radiators']) {
+      expect(screen.getByRole('heading', { name: h, level: 3 })).toBeInTheDocument();
+    }
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(
+      expect.arrayContaining(['24\u00a0h', '7\u00a0d', '30\u00a0d'])
+    );
+    expect(screen.getByRole('button', { name: 'Boost' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Comfort' })).toBeInTheDocument();
+  });
+  it('a room that does not exist, once the house is known', () => {
+    applyLocale('en');
+    render(RoomInspector, { roomId: 'nope' });
+    expect(screen.getByText('Room not found.')).toBeInTheDocument();
   });
 });

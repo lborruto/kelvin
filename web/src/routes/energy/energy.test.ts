@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import { api, ApiError } from '$lib/api/client';
 import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus, Quality } from '$lib/api/types';
 import { download } from '$lib/csv';
@@ -15,15 +16,10 @@ import Page from './+page.svelte';
 
 vi.mock('$lib/csv', async (orig) => ({ ...(await orig<typeof import('$lib/csv')>()), download: vi.fn() }));
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
-vi.mock('$lib/api/client', () => ({
-  api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]) },
-  ApiError: class ApiError extends Error {
-    status: number;
-    constructor(status: number, message: string) {
-      super(message);
-      this.status = status;
-    }
-  }
+// The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
+vi.mock('$lib/api/client', async (orig) => ({
+  ...(await orig<typeof import('$lib/api/client')>()),
+  api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]) }
 }));
 
 const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({
@@ -175,7 +171,7 @@ describe('Énergie', () => {
     const sheet = hero.querySelector<HTMLElement>('.inspector.sheet')!;
     expect(hero.lastElementChild).toBe(sheet);
     expect(sheet.compareDocumentPosition(hero.querySelector('.sub')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-    sheet.querySelector<HTMLElement>('a[href="#qualite"]')?.focus();
+    sheet.querySelector<HTMLElement>('a[href="#quality"]')?.focus();
     await fireEvent.keyDown(sheet, { key: 'Escape' });
     await tick();
     expect(hero.querySelector('.inspector')).toBeNull();
@@ -276,7 +272,7 @@ describe('Énergie', () => {
     vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, configured: false, state: 'off', last_day: null });
     vi.mocked(api.energyReport).mockResolvedValue(report({ linky: false, last_day: null, projection: null, heating_share: null, ...periodWith({ kwh: null, eur: null }) }));
     render(Page);
-    expect(await screen.findByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/maison#linky');
+    expect(await screen.findByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/home#linky');
     expect(await screen.findByRole('img', { name: 'Consommation des radiateurs par jour' })).toBeInTheDocument();
     expect(api.energyDay).not.toHaveBeenCalled();
   });
@@ -285,7 +281,7 @@ describe('Énergie', () => {
     const { container } = render(Page);
     expect(await screen.findByRole('heading', { name: 'Courbe du 12 octobre 2026' })).toBeInTheDocument();
     expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
-    const notes = [...container.querySelectorAll('#courbe .note')].map((n) => n.textContent);
+    const notes = [...container.querySelectorAll('#curve .note')].map((n) => n.textContent);
     expect(notes).toContain('Courbe 21,60\u00a0kWh · relevé journalier 22,03\u00a0kWh (écart 2,0\u00a0%)');
     expect(notes).toContain('HC 8,98\u00a0kWh · HP 13,05\u00a0kWh, d’après le relevé journalier');
     expect(screen.getByRole('button', { name: 'Jour suivant' })).toHaveAttribute('aria-disabled', 'true');
@@ -302,7 +298,7 @@ describe('Énergie', () => {
     );
     const { container } = render(Page);
     await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' });
-    const notes = [...container.querySelectorAll('#courbe .note')].map((n) => n.textContent);
+    const notes = [...container.querySelectorAll('#curve .note')].map((n) => n.textContent);
     const caption = 'Consommation de la maison par jour';
     const row = bucketLabel('2026-10-12', 'day');
     const hc = cell(container, caption, row, 'Heures creuses');
@@ -439,7 +435,7 @@ describe('Énergie', () => {
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
     expect(await screen.findByText('Répartition heures creuses / pleines estimée pour 1 jour sans courbe complète.')).toBeInTheDocument();
     expect(screen.queryByText(/estimée pour 4 jours/)).toBeNull();
-    const q = container.querySelector('#qualite')!;
+    const q = container.querySelector('#quality')!;
     expect(q).toHaveTextContent('Jours HC/HP estimés : 1 (');
     expect(q).not.toHaveTextContent('Prix du premier tarif');
     // The strip has the selected day's cell only.
@@ -522,7 +518,7 @@ describe('Énergie', () => {
   it('Linky auth is an error with a way to renew the token', async () => {
     vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'auth', message: null });
     const { container } = render(Page);
-    expect(await screen.findByRole('link', { name: 'Renouveler le jeton' })).toHaveAttribute('href', '/maison#linky');
+    expect(await screen.findByRole('link', { name: 'Renouveler le jeton' })).toHaveAttribute('href', '/home#linky');
     expect(container.querySelector('.callout.bad')).toHaveTextContent('MyElectricalData refuse le jeton Linky.');
   });
 
@@ -530,7 +526,7 @@ describe('Énergie', () => {
     vi.mocked(api.linkyStatus).mockRejectedValue(new Error('boom'));
     const { container } = render(Page);
     expect(await screen.findByText(/État du Linky indisponible\./)).toBeInTheDocument();
-    expect(container.querySelector('.callout.bad a')).toHaveAttribute('href', '/maison#linky');
+    expect(container.querySelector('.callout.bad a')).toHaveAttribute('href', '/home#linky');
     expect(api.energyReport).toHaveBeenCalled(); // from yesterday's period, without a Linky day to anchor it
   });
 
@@ -593,12 +589,12 @@ describe('Énergie', () => {
     // Full width, straight under the Courbe whose scrubber it shares.
     const panel = h.closest('section')!;
     expect(panel).toHaveClass('wide');
-    expect(panel.previousElementSibling).toHaveAttribute('id', 'courbe');
+    expect(panel.previousElementSibling).toHaveAttribute('id', 'curve');
     // The first room in the Pièces order.
     await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'salon'));
     // The half-hour scrubbed on one chart is the other's.
     await fireEvent.keyDown(await screen.findByRole('slider', { name: 'Parcourir la journée de la pièce, demi-heure par demi-heure' }), { key: 'ArrowRight' });
-    expect(container.querySelector('#courbe .readout .when')).toHaveTextContent('00:00–00:30');
+    expect(container.querySelector('#curve .readout .when')).toHaveTextContent('00:00–00:30');
     await fireEvent.change(screen.getByRole('combobox', { name: 'Pièce' }), { target: { value: 'chambre' } });
     await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'chambre'));
     // Chambre's radiator has no figure that day: said, never a flat zero.
@@ -640,7 +636,7 @@ describe('Énergie', () => {
   it('Qualité des données is collapsed under the panels, and Exporter, the last panel, exports the period shown', async () => {
     const { container } = render(Page);
     const quality = (await screen.findByRole('heading', { name: 'Qualité des données' })).closest('section')!;
-    expect(quality).toHaveAttribute('id', 'qualite');
+    expect(quality).toHaveAttribute('id', 'quality');
     expect(within(quality).getByRole('button', { name: 'Qualité des données' })).toHaveAttribute('aria-expanded', 'false');
     const exporter = screen.getByRole('heading', { name: 'Exporter' }).closest('section')!;
     expect([...container.querySelectorAll('.panels > *')].at(-1)).toBe(exporter);
@@ -653,5 +649,55 @@ describe('Énergie', () => {
     expect(rows[32].split(';').slice(0, 4).join(';')).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;412,640');
     expect(rows[32].split(';')[12]).toBe('98,40');
     expect(await screen.findByRole('button', { name: /^Exporter la courbe du / })).toBeInTheDocument();
+  });
+});
+
+describe('Energy in English', () => {
+  it('title, views, hero, comparison, freshness and the chart in en-GB', async () => {
+    applyLocale('en');
+    const { container } = render(Page);
+    expect(await screen.findByRole('heading', { level: 2, name: 'October 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Energy' })).toBeInTheDocument();
+    expect(document.title).toBe('Energy · Kelvin');
+    expect(screen.getByRole('radio', { name: 'Month' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radiogroup', { name: 'Period' })).toBeInTheDocument();
+    expect(container.querySelector('.hero .big')).toHaveTextContent('€98.40');
+    expect(container.querySelector('.hero .tag')).toHaveTextContent('estimate');
+    expect(container.querySelector('.hero .sub')).toHaveTextContent('412.6 kWh · Off-peak 158.3 kWh · Peak 254.3 kWh · 1/10 – 12/10');
+    expect(screen.getByText('−4% consumption compared with September 2026, over 12 comparable days')).toBeInTheDocument();
+    expect(screen.getByText('Linky: data up to 12/10')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Home consumption by day' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Radiator meters' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Register 1 (kWh)' })).toBeInTheDocument();
+  });
+  it('a failed report shows the code’s English text, a code-less failure the page’s own message', async () => {
+    applyLocale('en');
+    vi.mocked(api.energyReport).mockRejectedValueOnce(Object.assign(new ApiError(422, 'Période invalide.'), { code: 'period_invalid', params: {} }));
+    render(Page);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid period.');
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t load the consumption.'));
+  });
+  it('an error on screen re-renders in the new language', async () => {
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    render(Page);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger la consommation.');
+    applyLocale('en');
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t load the consumption.'));
+  });
+  it('a failed period change names the period in English', async () => {
+    applyLocale('en');
+    render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'October 2026' });
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Previous period' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('September 2026: Couldn’t load the consumption.');
+  });
+  it('a Linky sync error reads its state’s text, the server’s French message only as a fallback', async () => {
+    applyLocale('en');
+    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'error', message: 'Erreur MED 500.' });
+    render(Page);
+    expect(await screen.findByText(/^Linky sync failed\./)).toBeInTheDocument();
   });
 });

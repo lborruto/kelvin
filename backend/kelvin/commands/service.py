@@ -9,7 +9,9 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from kelvin.commands.translate import Planned
+from kelvin.errors import french, gateway_error_code, safe_reason
 from kelvin.house.model import MODES, House
+from kelvin.labels import Label
 from kelvin.overkiz.errors import GatewayError
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import ExecUpdate, StateChange
@@ -40,6 +42,12 @@ class Pending:
     exec_done: bool = False
     # Superseded commands still executing on the device: this one is judged only after them.
     after: list[Pending] = field(default_factory=list)
+    # The codes the web translates (kelvin/labels.py, kelvin/errors.py); label/error stay French.
+    label_code: str | None = None
+    label_params: dict[str, Any] = field(default_factory=dict)
+    error_code: str | None = None
+    error_params: dict[str, Any] = field(default_factory=dict)
+    reason_code: str | None = None  # send_failed: quota, auth, network or unknown
 
     @property
     def active(self) -> bool:
@@ -56,6 +64,11 @@ class Pending:
             "radiator_ids": list(self.radiator_ids),
             "status": self.status,
             "error": self.error,
+            "label_code": self.label_code,
+            "label_params": self.label_params,
+            "error_code": self.error_code,
+            "error_params": self.error_params,
+            "reason_code": self.reason_code,
             "created_at": self.created_wall,
             "expected": self.expected,
         }
@@ -121,14 +134,20 @@ class CommandService:
     def has_active(self) -> bool:
         return bool(self._pending)
 
-    async def submit(self, label: str, radiator_ids: tuple[str, ...], planned: Planned) -> Pending:
+    async def submit(
+        self, label: Label | str, radiator_ids: tuple[str, ...], planned: Planned
+    ) -> Pending:
+        coded = isinstance(label, Label)
+        text = label.text if coded else label
         p = Pending(
             id=uuid4().hex[:12],
-            label=label,
+            label=text,
             radiator_ids=tuple(radiator_ids),
             planned=planned,
             created_at=self.clock(),
             created_wall=self.wall(),
+            label_code=label.code if coded else None,
+            label_params=dict(label.params) if coded else {},
         )
         p.expected = expected_by_radiator(self.house, planned)
         for other in self.active():
@@ -138,17 +157,23 @@ class CommandService:
         self._pending[p.id] = p
         self.on_update(p)
         try:
-            exec_id = await self.gateway.execute(list(planned.commands), label)
+            exec_id = await self.gateway.execute(list(planned.commands), text)
         except GatewayError as e:
             p.exec_done = True
             if p.status == "sending":
-                self._resolve(p, "failed", f"Envoi impossible : {e}")
+                self._resolve(
+                    p,
+                    "failed",
+                    "send_failed",
+                    reason_code=gateway_error_code(e),
+                    detail_reason=safe_reason(e),
+                )
             self._release(p)
             return p
         except BaseException:
             p.exec_done = True
             if p.status == "sending":
-                self._resolve(p, "failed", "Envoi impossible : erreur interne.")
+                self._resolve(p, "failed", "send_internal")
             self._release(p)
             raise
         p.exec_id = exec_id
@@ -210,9 +235,9 @@ class CommandService:
             if p.status == "pending" and (
                 p.exec_failed_at is not None and now - p.exec_failed_at >= EXEC_FAILURE_GRACE
             ):
-                self._resolve(p, "failed", "Le radiateur a refusé la commande.")
+                self._resolve(p, "failed", "radiator_refused")
             elif now - p.created_at >= CONFIRM_TIMEOUT:
-                self._resolve(p, "failed", "Pas de confirmation du radiateur.")
+                self._resolve(p, "failed", "no_confirmation")
 
     def _evaluate(self, p: Pending) -> None:
         if p.status != "pending" or not p.planned.expectations:
@@ -224,9 +249,24 @@ class CommandService:
         ):
             self._resolve(p, "confirmed")
 
-    def _resolve(self, p: Pending, status: Status, error: str | None = None) -> None:
+    def _resolve(
+        self,
+        p: Pending,
+        status: Status,
+        code: str | None = None,
+        *,
+        reason_code: str | None = None,
+        detail_reason: str | None = None,
+        **params: Any,
+    ) -> None:
+        """`params` go to the API as `error_params`; `detail_reason` (scrubbed gateway text) only
+        into the French `error` (kelvin.errors.DETAIL_ONLY)."""
         p.status = status
-        p.error = error
+        p.error_code = code
+        p.error_params = params
+        p.reason_code = reason_code
+        shown = params if detail_reason is None else params | {"reason": detail_reason}
+        p.error = french(code, shown) if code else None
         self._pending.pop(p.id, None)
         self._recent.pop(p.id, None)
         self._recent[p.id] = (self.clock(), p)

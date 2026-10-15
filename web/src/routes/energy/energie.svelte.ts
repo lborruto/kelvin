@@ -10,15 +10,16 @@ import { api, ApiError } from '$lib/api/client';
 import type { EnergyDay, EnergyReport } from '$lib/api/types';
 import { addDays, canStep, chartWindow, isLatest, periodOf, stepPeriod, type Span, type View } from '$lib/energy';
 import { parisTodayIso } from '$lib/format';
+import { errorText, m } from '$lib/i18n';
 
-export const COPY = {
-  reportFailed: 'Impossible de charger la consommation.',
-  dayFailed: 'Impossible de charger la courbe.'
-} as const;
+/** Kelvin's own failures with no more to say than the page's sentence (unreachable, a server error, an empty body). */
+const GENERIC = new Set(['network', 'server', 'unexpected']);
 
-/** ApiError carries the backend's French detail when it sent one; anything else gets the generic copy. */
-export function errorText(e: unknown, generic: string): string {
-  return e instanceof ApiError && e.message && e.message !== 'Erreur inattendue.' ? e.message : generic;
+/** A coded or detailed failure says what went wrong, in the active language; a bare one (`Error`, Kelvin unreachable,
+ * a server error, a body with neither code nor detail) gets the page's own sentence. A thunk: the line re-renders on a
+ * language switch. */
+export function failure(e: unknown, generic: () => string): () => string {
+  return () => (e instanceof ApiError && !GENERIC.has(e.code ?? '') && (e.code || e.message) ? errorText(e) : generic());
 }
 
 export interface Loaded {
@@ -41,10 +42,11 @@ export class EnergieData {
   first = $state<string | null>(null);
   data = $state<Loaded | null>(null);
   loading = $state(false);
-  error = $state<string | null>(null);
+  /** What went wrong, read at render time (a thunk), so a line already on screen follows a language switch. */
+  error = $state<(() => string) | null>(null);
   dayIso = $state<string | null>(null);
   day = $state<EnergyDay | null>(null);
-  dayError = $state<string | null>(null);
+  dayError = $state<(() => string) | null>(null);
   /** Days with a complete curve, kept from the last answer so stepping still works after a failure. */
   available = $state<string[]>([]);
   room = $state<string | null>(null);
@@ -211,7 +213,7 @@ export class EnergieData {
       if (main.linky) this.pickDay(v, p);
     } catch (e) {
       if (mine !== this.seq) return;
-      this.error = errorText(e, COPY.reportFailed);
+      this.error = failure(e, () => m.energyData.reportFailed);
       this.loading = false;
       // The navigator, the hero and the panels must describe the same period: go back to the one on screen.
       const shown = this.data;
@@ -258,7 +260,7 @@ export class EnergieData {
       }
       this.day = r;
     } catch (e) {
-      if (mine === this.daySeq) this.dayError = errorText(e, COPY.dayFailed);
+      if (mine === this.daySeq) this.dayError = failure(e, () => m.energyData.dayFailed);
     }
   }
 }

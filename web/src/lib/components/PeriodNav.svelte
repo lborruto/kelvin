@@ -1,12 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-
-  const COPY = {
-    group: 'Période affichée',
-    prev: 'Période précédente',
-    next: 'Période suivante',
-    latest: 'Dernier jour'
-  } as const;
+  import { m } from '$lib/i18n';
 
   interface Props {
     title: string;
@@ -43,17 +37,17 @@
   }
 </script>
 
-<div class="nav" role="group" aria-label={COPY.group}>
+<div class="nav" role="group" aria-label={m.periodNav.group}>
   <!-- aria-disabled at the ends: a focused button stays focused. -->
-  <button type="button" class="btn btn-icon edged" aria-label={COPY.prev} aria-disabled={!canPrev} onclick={() => go(-1)} {onkeydown}>
+  <button type="button" class="btn btn-icon edged" aria-label={m.periodNav.prev} aria-disabled={!canPrev} onclick={() => go(-1)} {onkeydown}>
     <span class="flip"><Icon name="chevron" /></span>
   </button>
   <h2 id="period-label" class="label">{title}</h2>
-  <button bind:this={nextBtn} type="button" class="btn btn-icon edged" aria-label={COPY.next} aria-disabled={!canNext} onclick={() => go(1)} {onkeydown}>
+  <button bind:this={nextBtn} type="button" class="btn btn-icon edged" aria-label={m.periodNav.next} aria-disabled={!canNext} onclick={() => go(1)} {onkeydown}>
     <Icon name="chevron" />
   </button>
   {#if !latest}
-    <button type="button" class="btn btn-ghost latest" onclick={toLatest} {onkeydown}>{COPY.latest}</button>
+    <button type="button" class="btn btn-ghost latest" onclick={toLatest} {onkeydown}>{m.periodNav.latest}</button>
   {/if}
 </div>
 

@@ -1,11 +1,13 @@
 <script lang="ts">
   import { slide } from 'svelte/transition';
+  import type { Day } from '$lib/api/types';
+  import { m } from '$lib/i18n';
   import { dur, easeOut, T } from '$lib/motion';
   import Icon from './Icon.svelte';
   import { addSlot, fromMin, moveSlot, removeSlot, resizeSlot, toMin, validateDay, type Seg } from '$lib/program';
 
   interface Props {
-    label: string;
+    day: Day;
     segs: Seg[];
     nowMinute?: number | null;
     pending?: boolean;
@@ -15,8 +17,9 @@
     ontoggle?: () => void;
     onchange: (segs: Seg[]) => void;
   }
-  let { label, segs, nowMinute = null, pending = false, collapsible = false, open = true, ontoggle, onchange }: Props = $props();
+  let { day, segs, nowMinute = null, pending = false, collapsible = false, open = true, ontoggle, onchange }: Props = $props();
   const uid = $props.id();
+  let label = $derived(m.days[day]);
   let shut = $derived(collapsible && !open);
   let dragging = $state(false);
 
@@ -29,7 +32,7 @@
     const r = bar!.getBoundingClientRect();
     return r.width ? ((clientX - r.left) / r.width) * 1440 : 0;
   };
-  const pct = (m: number) => `${(m / 1440) * 100}%`;
+  const pct = (min: number) => `${(min / 1440) * 100}%`;
 
   function down(e: PointerEvent, i: number, kind: 'move' | 'start' | 'end') {
     e.stopPropagation();
@@ -41,9 +44,9 @@
   }
   function move(e: PointerEvent) {
     if (!drag || pending) return;
-    const m = minuteAt(e.clientX);
+    const at = minuteAt(e.clientX);
     moved = true;
-    onchange(drag.kind === 'move' ? moveSlot(drag.base, drag.i, m - drag.origin) : resizeSlot(drag.base, drag.i, drag.kind, m));
+    onchange(drag.kind === 'move' ? moveSlot(drag.base, drag.i, at - drag.origin) : resizeSlot(drag.base, drag.i, drag.kind, at));
   }
   function up() {
     drag = null;
@@ -68,8 +71,8 @@
   }
   function addFirstFree() {
     if (pending || segs.length >= 3) return;
-    for (const m of [420, 1080, 720, 0, 60, 180, 300, 540, 840, 960, 1200, 1320]) {
-      const next = addSlot(segs, m);
+    for (const at of [420, 1080, 720, 0, 60, 180, 300, 540, 840, 960, 1200, 1320]) {
+      const next = addSlot(segs, at);
       if (next) return onchange(next);
     }
   }
@@ -103,20 +106,20 @@
     {#if collapsible}
       <button type="button" class="dayhead" aria-expanded={open} aria-controls="{uid}-slots" onclick={() => ontoggle?.()}>
         <span class="label">{label}</span>
-        <span class="slots-sum">{segs.map((s) => `${fromMin(s.start)}–${fromMin(s.end)}`).join(' · ') || 'éco toute la journée'}</span>
+        <span class="slots-sum">{segs.map((s) => `${fromMin(s.start)}–${fromMin(s.end)}`).join(' · ') || m.program.ecoAllDay}</span>
         <span class="chev" aria-hidden="true"><Icon name="chevron" size={14} /></span>
       </button>
     {:else}
       <span class="label">{label}</span>
     {/if}
   </div>
-  <span class="visually-hidden" id="{uid}-hint">Flèches&nbsp;: déplacer de 15 min. Suppr&nbsp;: retirer la plage.</span>
+  <span class="visually-hidden" id="{uid}-hint">{m.program.blockHint}</span>
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div class="bar" class:pending class:dragging data-testid="bar-{label}" bind:this={bar} onclick={addAt} onpointerdown={barDown}
+  <div class="bar" class:pending class:dragging data-testid="bar-{day}" bind:this={bar} onclick={addAt} onpointerdown={barDown}
     onpointermove={move} onpointerup={up} onpointercancel={up}>
     {#each [6, 12, 18] as h (h)}<span class="tick" style:left={pct(h * 60)}></span>{/each}
     {#each segs as s, i (i)}
-      <div class="block" role="button" tabindex="0" aria-roledescription="plage" aria-describedby="{uid}-hint"
+      <div class="block" role="button" tabindex="0" aria-roledescription={m.program.slotRole} aria-describedby="{uid}-hint"
         aria-label="{label} {fromMin(s.start)}–{fromMin(s.end)}"
         style:left={pct(s.start)} style:width={pct(s.end - s.start)}
         onpointerdown={(e) => down(e, i, 'move')} onkeydown={(e) => key(e, i)}
@@ -131,27 +134,30 @@
     <ul class="slots" id="{uid}-slots" transition:slide={{ duration: dur(collapsible ? T.enter : 0), easing: easeOut }}>
       {#each segs as s, i (i)}
         <li>
-          <input type="time" step="900" disabled={pending} aria-label="{label}, plage {i + 1}, début" value={fromMin(s.start)}
+          <input type="time" step="900" disabled={pending} aria-label={m.program.slotStart(label, i + 1)} value={fromMin(s.start)}
             onchange={(e) => setTime(e.currentTarget, i, 'start')} />
           <span aria-hidden="true">–</span>
-          <input type="time" step="900" disabled={pending} aria-label="{label}, plage {i + 1}, fin" value={fromMin(s.end)}
+          <input type="time" step="900" disabled={pending} aria-label={m.program.slotEnd(label, i + 1)} value={fromMin(s.end)}
             onchange={(e) => setTime(e.currentTarget, i, 'end')} />
-          <button type="button" class="btn sq" disabled={pending} aria-label="Supprimer la plage {i + 1} du {label}"
+          <button type="button" class="btn sq" disabled={pending} aria-label={m.program.removeSlot(i + 1, label)}
             onclick={() => onchange(removeSlot(segs, i))}><Icon name="x" size={16} /></button>
         </li>
       {/each}
       <li>
-        <button type="button" class="btn btn-sm add" aria-disabled={pending || segs.length >= 3} aria-label="Ajouter une plage le {label}"
-          onclick={addFirstFree}><Icon name="plus" size={16} />Plage</button>
+        <button type="button" class="btn btn-sm add" aria-disabled={pending || segs.length >= 3} aria-label={m.program.addSlot(label)}
+          onclick={addFirstFree}><Icon name="plus" size={16} />{m.program.addShort}</button>
       </li>
     </ul>
   {/if}
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<p class="error" role="alert">{m.program.dayError[error]}</p>{/if}
 </div>
 
 <style>
   .day {
     display: grid;
+    /* One column no wider than the page: a day with three periods ellipsises its summary
+       instead of widening the page (an auto track grows to the nowrap text). */
+    grid-template-columns: minmax(0, 1fr);
     gap: 6px;
     padding: 10px 0;
     border-bottom: 1px solid var(--line);

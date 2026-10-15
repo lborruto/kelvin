@@ -17,7 +17,7 @@ export default defineConfig({
     sveltekit(),
     SvelteKitPWA({
       // SvelteKit builds with a relative base ('./'): without an absolute base the app registers
-      // './sw.js' and links './manifest.webmanifest', which break on deep links like /pieces/x.
+      // './sw.js' and links './manifest.webmanifest', which break on deep links like /rooms/x.
       base: '/',
       scope: '/',
       registerType: 'autoUpdate',
@@ -27,6 +27,8 @@ export default defineConfig({
         id: '/',
         name: 'Kelvin',
         short_name: 'Kelvin',
+        // The manifest is static: it keeps the product default, French. The installed app's name
+        // and description do not follow the runtime language (Réglages › Langue); the UI does.
         description: 'Le chauffage de la maison',
         lang: 'fr',
         start_url: '/',

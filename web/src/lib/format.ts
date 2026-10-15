@@ -1,98 +1,142 @@
-const NB = ' ';
-const one = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const whole = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
-const clock = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
-const dateTime = new Intl.DateTimeFormat('fr-FR', {
-  timeZone: 'Europe/Paris',
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit'
-});
+import { INTL, locale, m, type Locale } from '$lib/i18n';
+
+const NB = '\u00a0';
+const ZONE = 'Europe/Paris';
+
+interface Formats {
+  /** Fixed decimals 0 to 4, the locale's grouping (fr: U+202F, en: ","). */
+  fixed: readonly [Intl.NumberFormat, Intl.NumberFormat, Intl.NumberFormat, Intl.NumberFormat, Intl.NumberFormat];
+  clock: Intl.DateTimeFormat;
+  dateTime: Intl.DateTimeFormat;
+  dayLong: Intl.DateTimeFormat;
+  monthYear: Intl.DateTimeFormat;
+}
+const cache = new Map<Locale, Formats>();
+const parisDay = new Intl.DateTimeFormat('en-CA', { timeZone: ZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+/** The formatters of the active locale (read through locale.current, so callers re-render on a switch). */
+function f(): Formats {
+  const l = locale.current;
+  let x = cache.get(l);
+  if (!x) {
+    const tag = INTL[l];
+    const n = (d: number) =>
+      new Intl.NumberFormat(tag, d === 0 ? { maximumFractionDigits: 0 } : { minimumFractionDigits: d, maximumFractionDigits: d });
+    // h23 and Paris time in both languages: never the browser's or the locale's default.
+    const t = { timeZone: ZONE, hourCycle: 'h23' } as const;
+    x = {
+      fixed: [n(0), n(1), n(2), n(3), n(4)],
+      clock: new Intl.DateTimeFormat(tag, { ...t, hour: '2-digit', minute: '2-digit' }),
+      dateTime: new Intl.DateTimeFormat(tag, { ...t, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+      dayLong: new Intl.DateTimeFormat(tag, { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' }),
+      monthYear: new Intl.DateTimeFormat(tag, { timeZone: 'UTC', month: 'long', year: 'numeric' })
+    };
+    cache.set(l, x);
+  }
+  return x;
+}
+const whole = () => f().fixed[0];
+const one = () => f().fixed[1];
+const two = () => f().fixed[2];
+const three = () => f().fixed[3];
+const four = () => f().fixed[4];
+const english = () => locale.current === 'en';
 
 const bad = (v: number | null | undefined): v is null | undefined => v == null || Number.isNaN(v);
 
+/** Formats with the true minus (U+2212); a figure that rounds to zero carries no sign (either decimal mark). */
+function signed(fmt: Intl.NumberFormat, v: number): string {
+  return fmt.format(v).replace(/^-(0(?:[.,]0+)?)(?![\d.,])/, '$1').replace(/^-/, '−');
+}
+/** A figure (with its sign, if any) and the euro where the language puts it: « −3,50 € », “−€3.50”. */
+function euro(s: string): string {
+  if (!english()) return `${s}${NB}€`;
+  const sign = /^[+−]/.test(s) ? s[0] : '';
+  return `${sign}€${s.slice(sign.length)}`;
+}
+/** « 42 % » (no-break space) in French, “42%” in English. */
+const pct = (s: string) => (english() ? `${s}%` : `${s}${NB}%`); // i18n-ignore: the typography rule itself, chosen by locale
+
 export function fmtTemp(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
-  const s = one.format(v);
+  const s = signed(one(), v);
   return unit ? `${s}${NB}°C` : s;
+}
+
+/** A whole-degree axis tick, no unit: "20", "−5" (the true minus below 0 °C). */
+export function fmtTempTick(v: number): string {
+  return signed(whole(), v);
 }
 
 export function fmtDelta(v: number | null | undefined): string {
   if (bad(v)) return '—';
   const a = Math.abs(v);
-  return `${a === 0 ? '' : '−'}${one.format(a)}${NB}°C`;
+  return `${a === 0 ? '' : '−'}${one().format(a)}${NB}°C`;
 }
 
-/** "2 050 kWh", "12,5 kWh"; `unit: false` for a column whose header carries the unit. */
+/** "2 050 kWh", "12,5 kWh" (en "2,050 kWh"); `unit: false` for a column whose header carries the unit. */
 export function fmtKwh(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
-  const s = v >= 100 ? whole.format(v) : one.format(v);
+  const s = signed(Math.abs(v) >= 100 ? whole() : one(), v);
   return unit ? `${s}${NB}kWh` : s;
 }
 
 export function fmtWh(v: number | null | undefined): string {
   if (bad(v)) return '—';
-  return `${whole.format(v)}${NB}Wh`;
+  return `${signed(whole(), v)}${NB}Wh`;
 }
 
 export function fmtTime(ms: number): string {
-  return clock.format(new Date(ms));
+  return f().clock.format(new Date(ms));
 }
 
 export function fmtDateTime(ms: number): string {
-  return dateTime.format(new Date(ms));
+  return f().dateTime.format(new Date(ms));
 }
 
 export function fmtAgo(ms: number, now = Date.now()): string {
   const s = Math.max(0, Math.floor((now - ms) / 1000));
-  if (s < 60) return 'à l’instant';
-  if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
-  if (s < 86_400) return `il y a ${Math.floor(s / 3600)} h`;
-  return `le ${fmtDateTime(ms)}`;
+  if (s < 60) return m.ago.justNow;
+  if (s < 3600) return m.ago.minutes(Math.floor(s / 60));
+  if (s < 86_400) return m.ago.hours(Math.floor(s / 3600));
+  return m.ago.on(fmtDateTime(ms));
 }
 
-export const MODE_LABEL: Record<string, string> = {
-  off: 'Arrêt',
-  manual: 'Manuel',
-  program: 'Programme',
-  other: 'Autre',
-  mixed: 'Mixte'
-};
-
-export const LEVEL_LABEL: Record<string, string> = {
-  comfort: 'Confort',
-  eco: 'Éco',
-  frostprotection: 'Hors-gel',
-  off: 'Repos',
-  mixed: 'Mixte'
-};
-const two = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const four = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-const dayLong = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
-const monthYear = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', month: 'long', year: 'numeric' });
-const parisDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' });
-
+/** fr "0,2068 €/kWh"; en "€0.2068/kWh" (a negative: « −0,1000 €/kWh », “−€0.1000/kWh”). */
 export function fmtPrice(v: number | null | undefined): string {
   if (bad(v)) return '—';
-  return `${four.format(v)}${NB}€/kWh`;
+  const s = signed(four(), v);
+  return english() ? `${euro(s)}/kWh` : `${s}${NB}€/kWh`;
 }
 
-/** A bare figure for a column whose header carries the unit: "0,2068", "16,20". */
+/** A bare figure for a column whose header carries the unit: "0,2068", "16,20" (en "0.2068", "16.20"). */
 export function fmtAmount(v: number | null | undefined, digits: 2 | 4): string {
   if (bad(v)) return '—';
-  return (digits === 4 ? four : two).format(v);
+  return signed(digits === 4 ? four() : two(), v);
 }
 
 export function fmtPct(share: number | null | undefined): string {
   if (bad(share)) return '—';
-  return `${whole.format(share * 100)}${NB}%`;
+  return pct(signed(whole(), share * 100));
 }
 
-/** "0,2068", "19.5", "1 234,5" → number; null for anything else (negative included). */
+/**
+ * "0,2068", "19.5", "1 234,5", "1,234.5" → number, in either language (prices are pasted from
+ * bills); null for anything else, negatives included. Spaces are ignored. The rule:
+ * - a lone comma or a lone point is the decimal mark, whatever the language: "1,234" is 1.234
+ *   (Kelvin's inputs, €/month and €/kWh, never reach 1 000);
+ * - with both marks, the last one is the decimal mark and the other may only group thousands
+ *   ("1.234,5", "1,234,567.5"); anything else, like "1,2.3" or "12,34.5", is ambiguous → null.
+ */
 export function parseDecimal(s: string): number | null {
-  const t = s.trim().replace(/[\s  ]/g, '').replace(',', '.');
+  let t = s.trim().replace(/[\s\u00a0\u202f]/g, '');
+  if (t.includes(',') && t.includes('.')) {
+    const dec = Math.max(t.lastIndexOf(','), t.lastIndexOf('.'));
+    const group = t[dec] === ',' ? '.' : ',';
+    const int = t.slice(0, dec);
+    if (!(group === '.' ? /^\d{1,3}(\.\d{3})+$/ : /^\d{1,3}(,\d{3})+$/).test(int)) return null;
+    t = `${int.replaceAll(group, '')}.${t.slice(dec + 1)}`;
+  } else t = t.replace(',', '.');
   return /^\d+(\.\d+)?$/.test(t) ? Number(t) : null;
 }
 
@@ -104,11 +148,17 @@ export function fmtDay(iso: string): string {
 }
 
 export function fmtDateLong(iso: string): string {
-  return dayLong.format(isoNoon(iso));
+  return f().dayLong.format(isoNoon(iso));
 }
 
+/** Month and year inside a sentence, in the language's own case: « septembre 2026 », “September 2026”. */
+export function monthYear(iso: string): string {
+  return f().monthYear.format(isoNoon(iso));
+}
+
+/** Month and year as a title: « Octobre 2026 », “October 2026”. */
 export function monthName(iso: string): string {
-  const s = monthYear.format(isoNoon(iso));
+  const s = monthYear(iso);
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -117,33 +167,24 @@ export function parisTodayIso(now = Date.now()): string {
   return parisDay.format(new Date(now));
 }
 
-// ---- Énergie precision (spec §3.2.1): one place for every Énergie figure. ----
-
-const three = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-/** Number formats by decimals (0 to 4), fr-FR grouping. */
-const FIXED = [whole, one, two, three, four] as const;
-
-/** Formats with the true minus (U+2212); a figure that rounds to zero carries no sign. */
-function signed(f: Intl.NumberFormat, v: number): string {
-  return f.format(v).replace(/^-(0(?:,0+)?)(?![\d,])/, '$1').replace(/^-/, '−');
-}
+// ---- Énergie precision (spec §3.2.1): one place for every Énergie figure, in the active language. ----
 
 /** Decimals of a hero or sentence kWh figure: 1 below 1 000 kWh, else 0 (judged on the rounded value). */
 export function kwhDigits(v: number): 0 | 1 {
   return Math.abs(Math.round(v * 10) / 10) < 1000 ? 1 : 0;
 }
 
-/** Hero and sentence kWh: « 412,6 kWh », « 2 050 kWh ». */
+/** Hero and sentence kWh: « 412,6 kWh », « 2 050 kWh » (en “412.6 kWh”, “2,050 kWh”). */
 export function fmtKwhHero(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
-  const s = signed(FIXED[kwhDigits(v)], v);
+  const s = signed(f().fixed[kwhDigits(v)], v);
   return unit ? `${s}${NB}kWh` : s;
 }
 
 /** Tooltip and table kWh, 2 decimals: « 22,04 kWh ». */
 export function fmtKwhExact(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
-  return unit ? `${signed(two, v)}${NB}kWh` : signed(two, v);
+  return unit ? `${signed(two(), v)}${NB}kWh` : signed(two(), v);
 }
 
 /**
@@ -169,11 +210,11 @@ export function largestRemainder(values: (number | null | undefined)[], units: n
   return out;
 }
 
-/** Percentages of a set that must total 100 (« 33,3 % · 66,7 % »), largest remainder. */
+/** Percentages of a set that must total 100 (« 33,3 % · 66,7 % », “33.3% · 66.7%”), largest remainder. */
 export function fmtShares(values: (number | null | undefined)[], digits: 0 | 1 = 0): string[] {
   const k = 10 ** digits;
   if (!values.some((v) => !bad(v) && v > 0)) return values.map(() => '—');
-  return largestRemainder(values, 100 * k).map((u) => (u == null ? '—' : `${signed(FIXED[digits], u / k)}${NB}%`));
+  return largestRemainder(values, 100 * k).map((u) => (u == null ? '—' : pct(signed(f().fixed[digits], u / k))));
 }
 
 /**
@@ -216,71 +257,72 @@ export function fmtKwhParts(
 ): { total: string; parts: string[] } {
   if (bad(total)) return { total: '—', parts: parts.map(() => '—') };
   const d = kwhDigits(total);
-  const f = (v: number | null) => (v == null ? '—' : `${signed(FIXED[d], v)}${NB}kWh`);
-  const m = matchParts(total, parts, d);
-  return { total: f(m.total), parts: m.parts.map(f) };
+  const fmt = (v: number | null) => (v == null ? '—' : `${signed(f().fixed[d], v)}${NB}kWh`);
+  const shown = matchParts(total, parts, d);
+  return { total: fmt(shown.total), parts: shown.parts.map(fmt) };
 }
 
-/** Mean power: « 734 W » below 1 kW, then « 3,42 kW ». */
+/** Mean power: « 734 W » below 1 kW, then « 3,42 kW » (en “3.42 kW”). */
 export function fmtW(v: number | null | undefined): string {
   if (bad(v)) return '—';
   const w = Math.round(v);
-  return Math.abs(w) < 1000 ? `${signed(whole, w)}${NB}W` : `${signed(two, v / 1000)}${NB}kW`;
+  return Math.abs(w) < 1000 ? `${signed(whole(), w)}${NB}W` : `${signed(two(), v / 1000)}${NB}kW`;
 }
 
-/** Hero and sentence euros: 2 decimals below 1 000 €, then whole euros (the inspector has the exact value). */
+/** Hero and sentence euros: 2 decimals below 1 000 €, then whole euros (« 98,40 € », “€98.40”, “€1,234”). */
 export function fmtEurHero(v: number | null | undefined): string {
   if (bad(v)) return '—';
-  return `${signed(Math.abs(Math.round(v * 100) / 100) < 1000 ? two : whole, v)}${NB}€`;
+  return euro(signed(Math.abs(Math.round(v * 100) / 100) < 1000 ? two() : whole(), v));
 }
 
-/** Tooltip and table euros, always 2 decimals: « 1 234,56 € ». */
+/** Tooltip and table euros, always 2 decimals: « 1 234,56 € », “€1,234.56”; bare with `unit: false`. */
 export function fmtEurExact(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
-  return unit ? `${signed(two, v)}${NB}€` : signed(two, v);
+  return unit ? euro(signed(two(), v)) : signed(two(), v);
 }
 
-/** A half-hour's cost, 3 decimals: « 0,152 € ». */
+/** A half-hour's cost, 3 decimals: « 0,152 € », “€0.152”. */
 export function fmtEurHalfHour(v: number | null | undefined): string {
   if (bad(v)) return '—';
-  return `${signed(three, v)}${NB}€`;
+  return euro(signed(three(), v));
 }
 
-/** A share with one decimal: 0.384 → « 38,4 % ». */
+/** A share with one decimal: 0.384 → « 38,4 % », “38.4%”. */
 export function fmtPct1(share: number | null | undefined): string {
   if (bad(share)) return '—';
-  return `${signed(one, share * 100)}${NB}%`;
+  return pct(signed(one(), share * 100));
 }
 
 /** Rounds the magnitude, then reapplies the sign: ties are symmetric (−0,125 and 0,125 round alike). */
 const roundMag = (v: number, k: number) => (Math.sign(v) * Math.round(Math.abs(v) * k)) / k;
 
-/** A relative change as a whole percentage with its sign: 0.12 → « +12 % »; null stays null (omitted). */
+/** A relative change as a whole percentage with its sign: 0.12 → « +12 % », “+12%”; null stays null (omitted). */
 export function fmtChangeShare(change: number | null | undefined): string | null {
   if (bad(change)) return null;
   const p = roundMag(change * 100, 1);
-  if (p === 0) return `0${NB}%`;
-  return `${p > 0 ? '+' : '−'}${whole.format(Math.abs(p))}${NB}%`;
+  if (p === 0) return pct('0');
+  return `${p > 0 ? '+' : '−'}${pct(whole().format(Math.abs(p)))}`;
 }
 
-/** An absolute difference with its sign, 2 decimals: « −14,20 kWh », « +3,61 € ». */
+/** An absolute difference with its sign, 2 decimals: « −14,20 kWh », « +3,61 € » (en “+€3.61”). */
 export function fmtSigned(v: number | null | undefined, unit: 'kWh' | '€'): string {
   if (bad(v)) return '—';
   const r = roundMag(v, 100);
-  if (r === 0) return `${two.format(0)}${NB}${unit}`;
-  return `${r > 0 ? '+' : '−'}${two.format(Math.abs(r))}${NB}${unit}`;
+  const s = r === 0 ? two().format(0) : `${r > 0 ? '+' : '−'}${two().format(Math.abs(r))}`;
+  return unit === '€' ? euro(s) : `${s}${NB}kWh`;
 }
 
-/** A price difference with its sign, 4 decimals: « −0,0632 €/kWh ». */
+/** A price difference with its sign, 4 decimals: « −0,0632 €/kWh », “−€0.0632/kWh”. */
 export function fmtSignedPrice(v: number | null | undefined): string {
   if (bad(v)) return '—';
   const r = roundMag(v, 10_000);
-  if (r === 0) return `${four.format(0)}${NB}€/kWh`;
-  return `${r > 0 ? '+' : '−'}${four.format(Math.abs(r))}${NB}€/kWh`;
+  const sign = r === 0 ? '' : r > 0 ? '+' : '−';
+  const s = four().format(Math.abs(r));
+  return english() ? `${sign}€${s}/kWh` : `${sign}${s}${NB}€/kWh`;
 }
 
 /** Hours with one decimal: « 2,8 h »; `unit: false` under a header that carries it. */
 export function fmtHours(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
-  return unit ? `${signed(one, v)}${NB}h` : signed(one, v);
+  return unit ? `${signed(one(), v)}${NB}h` : signed(one(), v);
 }

@@ -46,7 +46,7 @@ def test_slot_across_midnight_and_validation():
             [Slot("22:00", "06:00"), Slot("05:00", "07:00")],
             "Les plages d’heures creuses se chevauchent.",
         ),
-        ([Slot("24:00", "06:00")], "Heure invalide : 24:00 (format HH:MM)."),
+        ([Slot("24:00", "06:00")], "Heure invalide : 24:00 (format HH:MM)."),
     ]:
         with pytest.raises(SlotError) as e:
             slot_ranges(bad)
@@ -162,3 +162,12 @@ def test_prefill_from_the_contract():
         "kva": 6,
         "hc_slots": [{"start": "01:30", "end": "07:30"}, {"start": "12:30", "end": "14:30"}],
     }
+
+
+def test_slot_errors_carry_codes():
+    with pytest.raises(SlotError) as e:
+        slot_ranges([Slot("24:00", "06:00")])
+    assert (e.value.code, e.value.params) == ("slot_time_invalid", {"value": "24:00"})
+    with pytest.raises(SlotError) as e:
+        slot_ranges([])
+    assert e.value.code == "slots_none"

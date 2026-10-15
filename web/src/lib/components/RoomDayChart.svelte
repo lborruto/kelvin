@@ -3,32 +3,10 @@
   import Scrubber from './Scrubber.svelte';
   import type { EnergyInterval, RoomSample } from '$lib/api/types';
   import { SERIES } from '$lib/energy';
-  import { fmtTemp, fmtTime, fmtWh } from '$lib/format';
+  import { fmtTemp, fmtTempTick, fmtTime, fmtWh } from '$lib/format';
   import { heatColor } from '$lib/heat';
+  import { locale, m } from '$lib/i18n';
   import { intervalLabel, roomInterval } from '$lib/inspector';
-
-  const COPY = {
-    empty: 'Pas de relevé pour cette pièce ce jour-là.',
-    scrub: 'Parcourir la journée de la pièce, demi-heure par demi-heure',
-    idle: 'Survolez ou touchez le graphique',
-    idleKeys: ', ou utilisez les flèches',
-    idleShort: 'aucune demi-heure choisie',
-    hour: 'Heure',
-    radiators: 'Radiateurs',
-    radiatorsCol: 'Radiateurs de la pièce',
-    temperature: 'Température',
-    setpoint: 'Consigne',
-    wh: 'Wh',
-    degrees: '°C',
-    /** `by_room[room]` is null: a radiator of the room that existed then has no figure (the sum would be partial). */
-    unknown: 'radiateur sans relevé',
-    /** The room is absent from `by_room`: none of its radiators was recording yet. */
-    absent: 'pas de radiateur relevé à cette heure',
-    /** Fewer than half the 5-min samples of the half-hour (`roomInterval`). */
-    fewSamples: 'pas assez de relevés',
-    withWhy: (why: string) => `— (${why})`,
-    spoken: (when: string, wh: string, t: string, s: string) => `${when}, radiateurs ${wh}, température ${t}, consigne ${s}`
-  } as const;
 
   interface Props {
     intervals: EnergyInterval[];
@@ -49,13 +27,13 @@
   const BASE = H - 1;
   /** Gutters for the Wh axis (left) and the °C axis (right). */
   const AXIS = 34;
-  const whole = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+  let whole = $derived(new Intl.NumberFormat(locale.intl, { maximumFractionDigits: 0 }));
   let x = $derived(scaleBand<number>().domain(intervals.map((_, i) => i)).range([AXIS, W - AXIS]).paddingInner(0.15));
 
   /** One field of the readout: its value and, when it reads « — », why. */
   type Cell = { value: string; why: string | null };
-  const cellText = (c: Cell) => (c.why ? COPY.withWhy(c.why) : c.value);
-  const temp = (v: number | null): Cell => ({ value: fmtTemp(v), why: v == null ? COPY.fewSamples : null });
+  const cellText = (c: Cell) => (c.why ? m.roomDay.withWhy(c.why) : c.value);
+  const temp = (v: number | null): Cell => ({ value: fmtTemp(v), why: v == null ? m.roomDay.fewSamples : null });
   // A room absent from `by_room` had no radiator recording then; null: one of its radiators has no figure.
   let rows = $derived(
     intervals.map((iv) => {
@@ -67,7 +45,7 @@
         temperature: t.temperature,
         setpoint: t.setpoint,
         cells: {
-          radiators: { value: fmtWh(wh), why: wh != null ? null : has ? COPY.unknown : COPY.absent },
+          radiators: { value: fmtWh(wh), why: wh != null ? null : has ? m.roomDay.unknown : m.roomDay.absent },
           temperature: temp(t.temperature),
           setpoint: temp(t.setpoint)
         } as Record<'radiators' | 'temperature' | 'setpoint', Cell>
@@ -124,14 +102,14 @@
   let current = $derived(index != null && intervals[index] ? index : null);
   const said = (i: number) => {
     const c = rows[i].cells;
-    return COPY.spoken(intervalLabel(intervals[i], intervals), cellText(c.radiators), cellText(c.temperature), cellText(c.setpoint));
+    return m.roomDay.spoken(intervalLabel(intervals[i], intervals), cellText(c.radiators), cellText(c.temperature), cellText(c.setpoint));
   };
 
-  const FIELDS = [
-    { key: 'radiators', label: COPY.radiators },
-    { key: 'temperature', label: COPY.temperature },
-    { key: 'setpoint', label: COPY.setpoint }
-  ] as const;
+  let FIELDS = $derived([
+    { key: 'radiators', label: m.roomDay.radiators },
+    { key: 'temperature', label: m.roomDay.temperature },
+    { key: 'setpoint', label: m.roomDay.setpoint }
+  ] as const);
   const IDLE: Cell = { value: '—', why: null };
   const cellId = (c: Cell) => `${c.value}\u0001${c.why ?? ''}`;
   /**
@@ -140,20 +118,20 @@
    */
   let variants = $derived.by(() =>
     FIELDS.map((f) => {
-      const m = new Map<string, Cell>([[cellId(IDLE), IDLE]]);
-      for (const r of rows) m.set(cellId(r.cells[f.key]), r.cells[f.key]);
-      return m;
+      const seen = new Map<string, Cell>([[cellId(IDLE), IDLE]]);
+      for (const r of rows) seen.set(cellId(r.cells[f.key]), r.cells[f.key]);
+      return seen;
     })
   );
 </script>
 
 {#if !intervals.length || !measured}
-  <p class="muted empty">{COPY.empty}</p>
+  <p class="muted empty">{m.roomDay.empty}</p>
 {:else}
   <dl class="readout">
     <div class="when">
-      <dt class="visually-hidden">{COPY.hour}</dt>
-      <dd class="num">{#if current != null}{intervalLabel(intervals[current], intervals)}{:else}{COPY.idle}<span class="wide">{COPY.idleKeys}</span>{/if}</dd>
+      <dt class="visually-hidden">{m.roomDay.hour}</dt>
+      <dd class="num">{#if current != null}{intervalLabel(intervals[current], intervals)}{:else}{m.roomDay.idle}<span class="wide">{m.roomDay.idleKeys}</span>{/if}</dd>
     </div>
     {#each FIELDS as f, k (f.key)}
       {@const cur = cellId(current != null ? rows[current].cells[f.key] : IDLE)}
@@ -169,7 +147,7 @@
       </div>
     {/each}
   </dl>
-  <div class="units" aria-hidden="true"><span>{COPY.wh}</span><span>{COPY.degrees}</span></div>
+  <div class="units" aria-hidden="true"><span>{m.roomDay.wh}</span><span>{m.roomDay.degrees}</span></div>
   <div class="plot" bind:clientWidth={width}>
     <svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={label}>
       <defs>
@@ -183,7 +161,7 @@
         <text class="tick-w" x={AXIS - 6} y={yW(t)} dy="0.32em">{whole.format(t)}</text>
       {/each}
       {#each yT.ticks(3) as t (t)}
-        <text class="tick-t" x={W - AXIS + 6} y={yT(t)} dy="0.32em">{whole.format(t)}</text>
+        <text class="tick-t" x={W - AXIS + 6} y={yT(t)} dy="0.32em">{fmtTempTick(t)}</text>
       {/each}
       {#each rows as r, i (intervals[i].ts)}
         {#if r.wh != null && r.wh > 0}
@@ -195,7 +173,7 @@
       {#each temps.dots as p (p.i)}<circle class="temp-dot" cx={centers[p.i]} cy={yT(p.t)} r="2.5" style:fill={heatColor(p.t)} />{/each}
       {#if current != null}<line class="cross" x1={centers[current]} x2={centers[current]} y1="0" y2={H} />{/if}
     </svg>
-    <Scrubber {centers} {W} index={current} label={COPY.scrub} idle={COPY.idleShort} valuetext={said} onchange={(i) => (index = i)} />
+    <Scrubber {centers} {W} index={current} label={m.roomDay.scrub} idle={m.roomDay.idleShort} valuetext={said} onchange={(i) => (index = i)} />
   </div>
   <div class="room-axis" aria-hidden="true">
     {#each ticks as t (t.i)}<span class="tick" style:left="{((x(t.i) ?? 0) / W) * 100}%">{t.text}</span>{/each}
@@ -203,14 +181,14 @@
   </div>
   <!-- Only with something measured: an empty day has nothing for a legend to name. -->
   <ul class="legend">
-    <li><span class="swatch" style:background={SERIES.radiators}></span>{COPY.radiatorsCol}</li>
-    <li><span class="line" style:background={heat}></span>{COPY.temperature}</li>
-    <li><span class="line set"></span>{COPY.setpoint}</li>
+    <li><span class="swatch" style:background={SERIES.radiators}></span>{m.roomDay.radiatorsCol}</li>
+    <li><span class="line" style:background={heat}></span>{m.roomDay.temperature}</li>
+    <li><span class="line set"></span>{m.roomDay.setpoint}</li>
   </ul>
   <div class="visually-hidden"><table>
     <caption>{label}</caption>
     <thead>
-      <tr><th scope="col">{COPY.hour}</th><th scope="col">{COPY.radiatorsCol}</th><th scope="col">{COPY.temperature}</th><th scope="col">{COPY.setpoint}</th></tr>
+      <tr><th scope="col">{m.roomDay.hour}</th><th scope="col">{m.roomDay.radiatorsCol}</th><th scope="col">{m.roomDay.temperature}</th><th scope="col">{m.roomDay.setpoint}</th></tr>
     </thead>
     <tbody>
       {#each rows as r, i (intervals[i].ts)}

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import { addDays, bucketLabel, firstCounted, leadingMissing, spanLabel } from './energy';
 
 describe('energy periods', () => {
@@ -114,5 +115,30 @@ describe('periods and the navigator (spec §3.2.2)', () => {
     expect(halfHoursIn('2026-10-14')).toBe(48);
     expect(halfHoursIn('2026-10-25')).toBe(50);
     expect(halfHoursIn('2026-03-29')).toBe(46);
+  });
+});
+
+describe('periods in English (en-GB)', () => {
+  it('titles, spoken names, the previous period and the bar labels', () => {
+    applyLocale('en');
+    expect(periodTitle('day', periodOf('day', '2026-10-13'))).toMatch(/^Tuesday,? 13 October 2026$/);
+    expect(periodTitle('week', periodOf('week', '2026-10-13'))).toBe('Week 42 · 12–18 Oct 2026');
+    expect(periodTitle('week', periodOf('week', '2026-10-28'))).toBe('Week 44 · 26 Oct – 1 Nov 2026');
+    expect(periodTitle('month', periodOf('month', '2026-10-13'))).toBe('October 2026');
+    expect(spokenTitle('day', periodOf('day', '2026-10-13'))).toBe('13 October');
+    expect(spokenTitle('week', periodOf('week', '2026-10-13'))).toBe('week 42');
+    expect(spokenTitle('month', periodOf('month', '2026-10-13'))).toBe('October 2026');
+    expect(previousName('day', '2026-10-12')).toBe('the previous day');
+    expect(previousName('week', '2026-10-05')).toBe('the previous week');
+    expect(previousName('month', '2026-09-01')).toBe('September 2026');
+    expect(bucketLabel('2026-W42', 'week')).toBe('W42');
+    expect(spanLabel({ from: '2026-10-01', to: '2026-10-13' })).toBe('1/10\u00a0–\u00a012/10');
+  });
+  it('a switch back to French re-reads the dates (one formatter per language)', () => {
+    applyLocale('en');
+    expect(periodTitle('month', periodOf('month', '2026-10-13'))).toBe('October 2026');
+    applyLocale('fr');
+    expect(periodTitle('day', periodOf('day', '2026-10-13'))).toBe('Mardi 13 octobre 2026');
+    expect(bucketLabel('2026-W42', 'week')).toBe('S42');
   });
 });

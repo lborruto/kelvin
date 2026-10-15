@@ -1,17 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import { api, ApiError } from '$lib/api/client';
 import type { EnergyDay, EnergyReport } from '$lib/api/types';
 import { EnergieData } from './energie.svelte';
 
-vi.mock('$lib/api/client', () => ({
-  api: { energyReport: vi.fn(), energyDay: vi.fn() },
-  ApiError: class ApiError extends Error {
-    status: number;
-    constructor(status: number, message: string) {
-      super(message);
-      this.status = status;
-    }
-  }
+// The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
+vi.mock('$lib/api/client', async (orig) => ({
+  ...(await orig<typeof import('$lib/api/client')>()),
+  api: { energyReport: vi.fn(), energyDay: vi.fn() }
 }));
 
 const NOW = () => Date.parse('2026-10-14T10:00:00Z');
@@ -192,11 +188,11 @@ describe('EnergieData', () => {
     const d = new EnergieData(NOW);
     d.start('2026-10-12');
     await flush();
-    expect(d.error).toBe('Période invalide.');
+    expect(d.error?.()).toBe('Période invalide.');
     vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
     d.retry();
     await flush();
-    expect(d.error).toBe('Impossible de charger la consommation.');
+    expect(d.error?.()).toBe('Impossible de charger la consommation.');
     d.retry();
     await flush();
     expect(d.error).toBeNull();
@@ -273,7 +269,7 @@ describe('EnergieData', () => {
     d.start('2026-10-12');
     await flush();
     await flush();
-    expect(d.dayError).toBe('Impossible de charger la courbe.');
+    expect(d.dayError?.()).toBe('Impossible de charger la courbe.');
     d.retryDay();
     await flush();
     await flush();
@@ -298,7 +294,7 @@ describe('EnergieData', () => {
     // The navigator, the hero and the panels describe the same period: the one still on screen.
     expect(d.period).toEqual({ from: '2026-10-01', to: '2026-11-01' });
     expect(d.data?.period.from).toBe('2026-10-01');
-    expect(d.error).toBe('Impossible de charger la consommation.');
+    expect(d.error?.()).toBe('Impossible de charger la consommation.');
     expect(d.failed).toEqual({ view: 'month', period: { from: '2026-09-01', to: '2026-10-01' } });
     d.retry();
     expect(d.period?.from).toBe('2026-09-01');
@@ -314,3 +310,38 @@ describe('EnergieData', () => {
   });
 });
 
+describe('EnergieData errors (a thunk: the line follows the language)', () => {
+  it('a coded failure reads its code in the active language; a code-less one the page’s own sentence', async () => {
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new ApiError(422, 'Période invalide.', 'period_invalid'));
+    const d = new EnergieData(NOW);
+    d.start('2026-10-12');
+    await flush();
+    expect(d.error?.()).toBe('Période invalide.');
+    applyLocale('en');
+    expect(d.error?.()).toBe('Invalid period.');
+    applyLocale('fr');
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    d.retry();
+    await flush();
+    expect(d.error?.()).toBe('Impossible de charger la consommation.');
+    applyLocale('en');
+    expect(d.error?.()).toBe('Couldn’t load the consumption.');
+  });
+  it('Kelvin’s own failures (unreachable, server error, no detail) keep the page’s sentence, as before', async () => {
+    for (const e of [new ApiError(0, '', 'network'), new ApiError(500, '', 'server'), new ApiError(400, '', 'unexpected')]) {
+      vi.mocked(api.energyReport).mockRejectedValueOnce(e);
+      const d = new EnergieData(NOW);
+      d.start('2026-10-12');
+      await flush();
+      expect(d.error?.()).toBe('Impossible de charger la consommation.');
+    }
+    vi.mocked(api.energyDay).mockRejectedValueOnce(new ApiError(0, '', 'network'));
+    const d = new EnergieData(NOW);
+    d.start('2026-10-12');
+    await flush();
+    await flush();
+    expect(d.dayError?.()).toBe('Impossible de charger la courbe.');
+    applyLocale('en');
+    expect(d.dayError?.()).toBe('Couldn’t load the curve.');
+  });
+});

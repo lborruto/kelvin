@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { Inspection } from '$lib/inspector';
 import { T } from '$lib/motion';
 import ChartInspector from './ChartInspector.svelte';
@@ -19,9 +20,9 @@ vi.mock('$lib/media.svelte', () => media);
 const ins: Inspection = {
   title: 'Mardi 13 octobre 2026',
   rows: [
-    { key: 'maison', label: 'Maison', value: '22,04\u00a0kWh' },
+    { key: 'home', label: 'Maison', value: '22,04\u00a0kWh' },
     { key: 'hc', label: 'Heures creuses', value: '8,98\u00a0kWh', est: true },
-    { key: 'energie', label: 'dont énergie', value: '5,31\u00a0€', sub: true }
+    { key: 'energy', label: 'dont énergie', value: '5,31\u00a0€', sub: true }
   ],
   notes: ['2 jours manquants'],
   empty: null,
@@ -39,12 +40,12 @@ describe('ChartInspector', () => {
     expect(rows[0].querySelector('.est')).toBeNull();
     expect(rows[2]).toHaveClass('sub');
     expect(screen.getByText('2 jours manquants')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Qualité des données' })).toHaveAttribute('href', '#qualite');
+    expect(screen.getByRole('link', { name: 'Qualité des données' })).toHaveAttribute('href', '#quality');
   });
 
   it('a « — » says why', () => {
     const { container } = render(ChartInspector, {
-      ins: { ...ins, rows: [{ key: 'radiateurs', label: 'Radiateurs', value: '—', note: 'jour en cours, compté une fois terminé' }] },
+      ins: { ...ins, rows: [{ key: 'radiators', label: 'Radiateurs', value: '—', note: 'jour en cours, compté une fois terminé' }] },
       mode: 'sheet',
       id: 'i4'
     });
@@ -122,4 +123,11 @@ describe('ChartInspector', () => {
     desk.unmount();
     media.desktop.matches = false;
   });
+});
+
+it('in English: the footnote links to Data quality', () => {
+  applyLocale('en');
+  render(ChartInspector, { ins, mode: 'sheet', id: 'i1' });
+  expect(screen.getByRole('link', { name: 'Data quality' })).toHaveAttribute('href', '#quality');
+  expect(screen.getByText(/^est\.: estimated value, details in/)).toBeInTheDocument();
 });

@@ -17,52 +17,15 @@
   import RoomsEnergy from '$lib/components/RoomsEnergy.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
   import { addDays, bucketLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
-  import { fmtDateLong, fmtDay, fmtKwh, fmtTime, monthName } from '$lib/format';
+  import { fmtDateLong, fmtDay, fmtKwh, fmtTime, monthYear } from '$lib/format';
+  import { apiMessage, m } from '$lib/i18n';
   import { inspectBucket } from '$lib/inspector';
   import { reducedMotion } from '$lib/motion';
+  import { ANCHORS, ROUTES } from '$lib/paths';
   import { announcer } from '$lib/stores/announcer.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { today } from '$lib/today.svelte';
   import { EnergieData } from './energie.svelte';
-
-  const COPY = {
-    page: 'Énergie · Kelvin',
-    title: 'Énergie',
-    views: 'Période',
-    unit: { day: 'jour', week: 'semaine', month: 'mois', year: 'année' } as Record<View, string>,
-    houseTitle: 'Consommation de la maison',
-    houseChart: (unit: string) => `Consommation de la maison par ${unit}`,
-    radTitle: 'Consommation des radiateurs',
-    radChart: (unit: string) => `Consommation des radiateurs par ${unit}`,
-    hc: 'Heures creuses',
-    hp: 'Heures pleines',
-    home: 'Maison',
-    radiators: 'Radiateurs',
-    linkySince: (d: string) => `Historique Linky depuis le ${d}.`,
-    drillMonth: (m: string) => `Voir ${m}`,
-    drillDay: 'Voir ce jour',
-    drillCurve: (d: string) => `Voir la courbe du ${d}`,
-    curveShown: (d: string) => `Courbe du ${d}`,
-    retry: 'Réessayer',
-    failedPeriod: (period: string, error: string) => `${period}\u00a0: ${error}`,
-    fresh: (d: string) => `Linky\u00a0: données jusqu’au ${d}`,
-    connect: 'Reliez le compteur Linky pour voir la consommation de toute la maison et son coût.',
-    settings: 'Réglages',
-    renew: 'Renouveler le jeton',
-    statusFailed: 'État du Linky indisponible.',
-    never: 'Linky relié\u00a0: première synchronisation en attente.',
-    quota: 'Historique en cours de récupération\u00a0: la suite arrive demain.',
-    throttledAt: (t: string) => `Enedis limite les requêtes\u00a0: nouvel essai à ${t}.`,
-    throttled: 'Enedis limite les requêtes\u00a0: nouvel essai plus tard.',
-    auth: 'MyElectricalData refuse le jeton Linky.',
-    syncFailed: 'Synchronisation Linky en échec.',
-    counters: 'Compteurs des radiateurs',
-    radiator: 'Radiateur',
-    room: 'Pièce',
-    lifetime: 'Depuis l’installation (kWh)',
-    register1: 'Registre 1 (kWh)',
-    register2: 'Registre 2 (kWh)'
-  } as const;
 
   const data = new EnergieData();
   let linky = $state<LinkyStatus | null>(null);
@@ -116,10 +79,10 @@
   let ready = $derived(!!loaded && (!!linky || linkyFailed));
   let busy = $derived(data.loading || (!!data.error && loaded?.period !== data.period));
   let group = $derived(chart?.group ?? 'day');
-  let unitWord = $derived(COPY.unit[group]);
+  let unitWord = $derived(m.energyPage.unit[group]);
 
   let split = $derived(!!main?.tariff);
-  let names = $derived<Record<string, string>>(split ? { hc: COPY.hc, hp: COPY.hp } : { home: COPY.home });
+  let names = $derived<Record<string, string>>(split ? { hc: m.energyPage.hc, hp: m.energyPage.hp } : { home: m.energyPage.home });
   let colors = $derived<Record<string, string>>(split ? { hc: SERIES.hc, hp: SERIES.hp } : { home: SERIES.home });
   // The house chart starts at the first counted bucket (Linky data, or a counted day without it, which pays its
   // subscription): earlier ones are not gaps.
@@ -136,7 +99,7 @@
     }))
   );
   let overlay = $derived(
-    chart?.linky ? { label: COPY.radiators, values: bars.map((b) => b.radiators?.kwh ?? null), color: SERIES.radiators } : null
+    chart?.linky ? { label: m.energyPage.radiators, values: bars.map((b) => b.radiators?.kwh ?? null), color: SERIES.radiators } : null
   );
   let details = $derived(
     loaded
@@ -190,43 +153,44 @@
     const opensCurve = group === 'day' && loaded.view !== 'day';
     navigate(() => data.drill(b.key));
     if (opensCurve) {
-      announcer.say(COPY.curveShown(fmtDateLong(b.key)));
-      document.getElementById('courbe')?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+      announcer.say(m.energyPage.curveShown(fmtDateLong(b.key)));
+      document.getElementById(ANCHORS.curve)?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
     }
   }
   function drillLabel(i: number): string | null {
     const b = bars[i];
     if (!b || !loaded) return null;
-    if (group === 'month') return COPY.drillMonth(monthName(`${b.key}-01`).toLowerCase());
-    if (loaded.view === 'day') return b.key === loaded.period.from ? null : COPY.drillDay;
-    return COPY.drillCurve(fmtDay(b.key));
+    if (group === 'month') return m.energyPage.drillMonth(monthYear(`${b.key}-01`));
+    if (loaded.view === 'day') return b.key === loaded.period.from ? null : m.energyPage.drillDay;
+    return m.energyPage.drillCurve(fmtDay(b.key));
   }
 
   /** The Linky line under the title, by state: progress is neutral and needs no link; only auth
    * and error are problems, with the way to fix them. */
   let linkyNote = $derived.by((): { text: string; link: string | null; bad: boolean } | null => {
-    if (linkyFailed) return { text: COPY.statusFailed, link: COPY.settings, bad: true };
+    if (linkyFailed) return { text: m.energyPage.statusFailed, link: m.energyPage.settings, bad: true };
     if (!linky || linky.state === 'off' || linky.state === 'ok') return null;
     switch (linky.state) {
       case 'never':
-        return { text: COPY.never, link: null, bad: false };
+        return { text: m.energyPage.never, link: null, bad: false };
       case 'quota':
-        return { text: COPY.quota, link: null, bad: false };
+        return { text: m.energyPage.quota, link: null, bad: false };
       case 'throttled':
-        return { text: linky.retry_at ? COPY.throttledAt(fmtTime(linky.retry_at * 1000)) : COPY.throttled, link: null, bad: false };
+        return { text: linky.retry_at ? m.energyPage.throttledAt(fmtTime(linky.retry_at * 1000)) : m.energyPage.throttled, link: null, bad: false };
       case 'auth':
-        return { text: COPY.auth, link: COPY.renew, bad: true };
+        return { text: m.energyPage.auth, link: m.energyPage.renew, bad: true };
       default:
-        return { text: linky.message ?? COPY.syncFailed, link: COPY.settings, bad: true };
+        // The state's own code first (it follows the language), the server's French message as the fallback.
+        return { text: apiMessage(`linky_status_${linky.state}`, {}, linky.message ?? m.energyPage.syncFailed), link: m.energyPage.settings, bad: true };
     }
   });
 </script>
 
-<svelte:head><title>{COPY.page}</title></svelte:head>
+<svelte:head><title>{m.page.title(m.nav.energy)}</title></svelte:head>
 
 <header class="top">
-  <h1>{COPY.title}</h1>
-  <Segmented options={VIEWS} value={data.view} label={COPY.views} onchange={(v) => navigate(() => data.setView(v))} />
+  <h1>{m.nav.energy}</h1>
+  <Segmented options={VIEWS.map((v) => ({ value: v, label: m.energy.views[v] }))} value={data.view} label={m.energyPage.views} onchange={(v) => navigate(() => data.setView(v))} />
 </header>
 {#if data.period}
   <PeriodNav
@@ -241,12 +205,12 @@
 {/if}
 
 {#if !ready}{:else if linky?.state === 'off'}
-  <p class="callout">{COPY.connect} <a href="/maison#linky">{COPY.settings}</a></p>
+  <p class="callout">{m.energyPage.connect} <a href="{ROUTES.home}#{ANCHORS.linky}">{m.energyPage.settings}</a></p>
 {:else if linkyNote}
-  <p class="callout" class:bad={linkyNote.bad} role="status">{linkyNote.text}{#if linkyNote.link}&nbsp;<a href="/maison#linky">{linkyNote.link}</a>{/if}</p>
+  <p class="callout" class:bad={linkyNote.bad} role="status">{linkyNote.text}{#if linkyNote.link}&nbsp;<a href="{ROUTES.home}#{ANCHORS.linky}">{linkyNote.link}</a>{/if}</p>
 {/if}
-{#if ready && main?.last_day}<p class="muted fresh">{COPY.fresh(fmtDay(main.last_day))}</p>{/if}
-{#if data.error}<p class="error" role="alert">{data.failed ? COPY.failedPeriod(periodTitle(data.failed.view, data.failed.period), data.error) : data.error} <button type="button" class="btn btn-sm" onclick={() => navigate(() => data.retry())}>{COPY.retry}</button></p>{/if}
+{#if ready && main?.last_day}<p class="muted fresh">{m.energyPage.fresh(fmtDay(main.last_day))}</p>{/if}
+{#if data.error}<p class="error" role="alert">{data.failed ? m.energyPage.failedPeriod(periodTitle(data.failed.view, data.failed.period), data.error()) : data.error()} <button type="button" class="btn btn-sm" onclick={() => navigate(() => data.retry())}>{m.energyPage.retry}</button></p>{/if}
 
 {#if !ready}
   {#if !data.error}
@@ -263,7 +227,7 @@
 
   <section class="panel wide">
     {#if chart.linky}
-      <h2>{COPY.houseTitle}</h2>
+      <h2>{m.energyPage.houseTitle}</h2>
       <EnergyBars
         {groups}
         {colors}
@@ -271,30 +235,30 @@
         {overlay}
         {details}
         unit="kWh"
-        label={COPY.houseChart(unitWord)}
+        label={m.energyPage.houseChart(unitWord)}
         bind:selected={selectedBar}
         ondrill={drill}
         {drillLabel}
         onswipe={step} />
       <ul class="legend">
         {#if split}
-          <li><span class="swatch" style:background={SERIES.hc}></span>{COPY.hc}</li>
-          <li><span class="swatch" style:background={SERIES.hp}></span>{COPY.hp}</li>
+          <li><span class="swatch" style:background={SERIES.hc}></span>{m.energyPage.hc}</li>
+          <li><span class="swatch" style:background={SERIES.hp}></span>{m.energyPage.hp}</li>
         {:else}
-          <li><span class="swatch" style:background={SERIES.home}></span>{COPY.home}</li>
+          <li><span class="swatch" style:background={SERIES.home}></span>{m.energyPage.home}</li>
         {/if}
-        <li><span class="line" style:background={SERIES.radiators}></span>{COPY.radiators}</li>
+        <li><span class="line" style:background={SERIES.radiators}></span>{m.energyPage.radiators}</li>
       </ul>
-      {#if trimmed > 0 && chart.linky_since}<p class="muted small">{COPY.linkySince(fmtDateLong(chart.linky_since))}</p>{/if}
+      {#if trimmed > 0 && chart.linky_since}<p class="muted small">{m.energyPage.linkySince(fmtDateLong(chart.linky_since))}</p>{/if}
     {:else}
-      <h2>{COPY.radTitle}</h2>
+      <h2>{m.energyPage.radTitle}</h2>
       <EnergyBars
         {groups}
         colors={{ rad: SERIES.radiators }}
-        names={{ rad: COPY.radiators }}
+        names={{ rad: m.energyPage.radiators }}
         {details}
         unit="kWh"
-        label={COPY.radChart(unitWord)}
+        label={m.energyPage.radChart(unitWord)}
         bind:selected={selectedBar}
         ondrill={drill}
         {drillLabel}
@@ -306,7 +270,7 @@
     <CurvePanel
       dayIso={data.dayIso}
       day={data.day}
-      error={data.dayError}
+      error={data.dayError?.() ?? null}
       view={loaded.view}
       split={main.tariff}
       canPrev={data.canPrevDay}
@@ -323,7 +287,7 @@
       dayIso={data.dayIso}
       room={data.room}
       onroom={(id) => data.setRoom(id)}
-      error={data.dayError}
+      error={data.dayError?.() ?? null}
       onretry={() => data.retryDay()}
       bind:index={scrub}
       class="wide" />
@@ -345,13 +309,13 @@
 
   <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="wide" />
 
-  <!-- Collapsed: where every estimate comes from, opened by the « est. » links (#qualite). -->
+  <!-- Collapsed: where every estimate comes from, opened by the « est. » links (#quality). -->
   {#if main.linky}
     <QualityPanel buckets={periodBars} group={chart.group} quality={main.period.quality} class="wide" />
   {/if}
 
   <section class="panel wide" aria-busy={!house.loaded}>
-    <h2>{COPY.counters}</h2>
+    <h2>{m.energyPage.counters}</h2>
     {#if !house.loaded}
       <div class="skeleton inset counters-sk" aria-hidden="true"></div>
     {:else}
@@ -359,8 +323,8 @@
         <table>
           <thead>
             <tr>
-              <th>{COPY.radiator}</th><th class="room">{COPY.room}</th><th class="r">{COPY.lifetime}</th>
-              <th class="r opt">{COPY.register1}</th><th class="r opt">{COPY.register2}</th>
+              <th>{m.energyPage.radiator}</th><th class="room">{m.energyPage.room}</th><th class="r">{m.energyPage.lifetime}</th>
+              <th class="r opt">{m.energyPage.register1}</th><th class="r opt">{m.energyPage.register2}</th>
             </tr>
           </thead>
           <tbody>

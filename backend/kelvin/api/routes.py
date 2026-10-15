@@ -11,7 +11,7 @@ from operator import add
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
@@ -34,8 +34,6 @@ from kelvin.api.sse import event_stream
 from kelvin.auth.sessions import COOKIE_NAME
 from kelvin.billing.report import next_unit, unit_start
 from kelvin.commands.translate import (
-    MODE_LABELS,
-    CommandError,
     Planned,
     plan_feature,
     plan_identify,
@@ -45,7 +43,9 @@ from kelvin.commands.translate import (
     plan_rename,
     plan_setpoint,
 )
+from kelvin.errors import UserError
 from kelvin.house.model import Radiator
+from kelvin.labels import Label
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled, day_bounds
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import BudgetExceeded
@@ -61,7 +61,6 @@ _RADIATOR_ID = re.compile(r"[A-Za-z0-9_.-]{1,64}")
 FIRST_TS = 946_684_800  # 2000-01-01T00:00:00Z
 _PRM = re.compile(r"[0-9]{14}")  # ASCII digits only
 FIRST_DAY = date(2000, 1, 1)
-KIND_LABELS = {"manual": "consigne", "comfort": "confort", "eco": "abaissement éco"}
 
 
 def _rt(request: Request) -> Runtime:
@@ -74,30 +73,23 @@ def _rt(request: Request) -> Runtime:
 def _radiator(rt: Runtime, rid: str) -> Radiator:
     r = rt.house.radiators.get(rid)
     if r is None:
-        raise HTTPException(404, "Radiateur inconnu.")
+        raise UserError("radiator_unknown", 404)
     return r
 
 
 def _room_radiators(rt: Runtime, room_id: str) -> tuple[str, list[Radiator]]:
     room = rt.house.rooms.get(room_id)
     if room is None:
-        raise HTTPException(404, "Pièce inconnue.")
+        raise UserError("room_unknown", 404)
     return room.name, rt.house.room_radiators(room_id)
 
 
 async def _submit(
-    rt: Runtime, label: str, rads: list[Radiator], build: Callable[[Radiator], Planned]
+    rt: Runtime, label: Label, rads: list[Radiator], build: Callable[[Radiator], Planned]
 ) -> JSONResponse:
-    try:
-        planned = reduce(add, [build(r) for r in rads])
-    except CommandError as e:
-        raise HTTPException(422, str(e)) from e
+    planned = reduce(add, [build(r) for r in rads])  # a CommandError answers 422 with its code
     p = await rt.commands.submit(label, tuple(r.id for r in rads), planned)
     return JSONResponse(status_code=202, content={"pending": p.view()})
-
-
-def _fmt(v: float) -> str:
-    return f"{v:g}".replace(".", ",")
 
 
 @router.get("/status")
@@ -115,13 +107,13 @@ async def overkiz_quotas(request: Request) -> dict:
     """Remaining Overkiz quotas (`GET /setup/quotas`), read at most once an hour."""
     rt = _rt(request)
     if rt.quotas is None:
-        raise HTTPException(503, "Quotas indisponibles.")
+        raise UserError("quotas_unavailable", 503)
     try:
         return await rt.quotas.get()
     except GatewayError:
-        raise HTTPException(503, "Cozytouch injoignable, réessayez plus tard.") from None
+        raise UserError("cozytouch_unavailable", 503) from None
     except QuotasUnavailable:
-        raise HTTPException(503, "Quotas indisponibles.") from None
+        raise UserError("quotas_unavailable", 503) from None
 
 
 @router.get("/house")
@@ -145,7 +137,7 @@ async def room_mode(room_id: str, body: ModeBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
     return await _submit(
-        rt, f"{name} : {MODE_LABELS[body.mode]}", rads, lambda r: plan_mode(r, body.mode)
+        rt, Label.of("mode", name=name, mode=body.mode), rads, lambda r: plan_mode(r, body.mode)
     )
 
 
@@ -155,7 +147,7 @@ async def room_setpoint(room_id: str, body: SetpointBody, request: Request):
     name, rads = _room_radiators(rt, room_id)
     return await _submit(
         rt,
-        f"{name} : {KIND_LABELS[body.kind]} {_fmt(body.value)} °C",
+        Label.of("setpoint", name=name, kind=body.kind, value=body.value),
         rads,
         lambda r: plan_setpoint(r, body.kind, body.value),
     )
@@ -166,7 +158,7 @@ async def room_program(room_id: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
     week = body.week()
-    return await _submit(rt, f"{name} : programme", rads, lambda r: plan_program(r, week))
+    return await _submit(rt, Label.of("program", name=name), rads, lambda r: plan_program(r, week))
 
 
 @router.post("/radiators/{rid}/mode")
@@ -174,7 +166,7 @@ async def radiator_mode(rid: str, body: ModeBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
     return await _submit(
-        rt, f"{r.name} : {MODE_LABELS[body.mode]}", [r], lambda x: plan_mode(x, body.mode)
+        rt, Label.of("mode", name=r.name, mode=body.mode), [r], lambda x: plan_mode(x, body.mode)
     )
 
 
@@ -184,7 +176,7 @@ async def radiator_setpoint(rid: str, body: SetpointBody, request: Request):
     r = _radiator(rt, rid)
     return await _submit(
         rt,
-        f"{r.name} : {KIND_LABELS[body.kind]} {_fmt(body.value)} °C",
+        Label.of("setpoint", name=r.name, kind=body.kind, value=body.value),
         [r],
         lambda x: plan_setpoint(x, body.kind, body.value),
     )
@@ -195,7 +187,7 @@ async def radiator_program(rid: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
     week = body.week()
-    return await _submit(rt, f"{r.name} : programme", [r], lambda x: plan_program(x, week))
+    return await _submit(rt, Label.of("program", name=r.name), [r], lambda x: plan_program(x, week))
 
 
 @router.patch("/radiators/{rid}/features")
@@ -210,9 +202,9 @@ async def radiator_features(rid: str, body: FeaturesBody, request: Request):
     if body.name is not None:
         parts.append(lambda x: plan_rename(x, body.name))
     if not parts:
-        raise HTTPException(422, "Rien à modifier.")
+        raise UserError("nothing_to_change")
     return await _submit(
-        rt, f"{r.name} : réglages", [r], lambda x: reduce(add, [f(x) for f in parts])
+        rt, Label.of("settings", name=r.name), [r], lambda x: reduce(add, [f(x) for f in parts])
     )
 
 
@@ -220,7 +212,7 @@ async def radiator_features(rid: str, body: FeaturesBody, request: Request):
 async def radiator_light(rid: str, body: LightBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
-    label = f"{r.name} : veilleuse {'allumée' if body.on else 'éteinte'}"
+    label = Label.of("night_light", name=r.name, on=body.on)
     return await _submit(rt, label, [r], lambda x: plan_light(x, body.on, body.intensity))
 
 
@@ -228,7 +220,7 @@ async def radiator_light(rid: str, body: LightBody, request: Request):
 async def radiator_identify(rid: str, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
-    return await _submit(rt, f"{r.name} : identification", [r], plan_identify)
+    return await _submit(rt, Label.of("identify", name=r.name), [r], plan_identify)
 
 
 @router.post("/rooms/{room_id}/boost")
@@ -236,17 +228,14 @@ async def room_boost(room_id: str, body: BoostBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
     ends_at = time.time() + body.duration_min * 60
-    try:
-        _, p = await rt.overrides.start(
-            "boost",
-            [r.id for r in rads],
-            body.temperature,
-            ends_at,
-            label=f"{name} : forcé à {_fmt(body.temperature)} °C",
-            room_id=room_id,
-        )
-    except CommandError as e:
-        raise HTTPException(422, str(e)) from e
+    _, p = await rt.overrides.start(
+        "boost",
+        [r.id for r in rads],
+        body.temperature,
+        ends_at,
+        label=Label.of("boost", name=name, temperature=body.temperature),
+        room_id=room_id,
+    )
     rt.publish_overrides()
     return JSONResponse(status_code=202, content={"pending": p.view()})
 
@@ -257,16 +246,13 @@ async def house_away(body: AwayBody, request: Request):
     until = body.until
     if until.tzinfo is None:
         until = until.replace(tzinfo=ZoneInfo(rt.settings.tz))
-    try:
-        _, p = await rt.overrides.start(
-            "away",
-            list(rt.house.radiators),
-            body.temperature,
-            until.timestamp(),
-            label=f"Absence à {_fmt(body.temperature)} °C",
-        )
-    except CommandError as e:
-        raise HTTPException(422, str(e)) from e
+    _, p = await rt.overrides.start(
+        "away",
+        list(rt.house.radiators),
+        body.temperature,
+        until.timestamp(),
+        label=Label.of("away", temperature=body.temperature),
+    )
     rt.publish_overrides()
     return JSONResponse(status_code=202, content={"pending": p.view()})
 
@@ -277,7 +263,7 @@ async def cancel_override(override_id: str, request: Request):
     try:
         p = await rt.overrides.cancel(override_id)
     except KeyError as e:
-        raise HTTPException(404, "Forçage ou absence introuvable.") from e
+        raise UserError("override_not_found", 404) from e
     rt.publish_overrides()
     return JSONResponse(status_code=202, content={"pending": p.view() if p else None})
 
@@ -286,7 +272,10 @@ async def cancel_override(override_id: str, request: Request):
 async def house_off(request: Request):
     rt = _rt(request)
     return await _submit(
-        rt, "Tout éteindre", list(rt.house.radiators.values()), lambda r: plan_mode(r, "off")
+        rt,
+        Label.of("all_off"),
+        list(rt.house.radiators.values()),
+        lambda r: plan_mode(r, "off"),
     )
 
 
@@ -295,7 +284,7 @@ async def house_program(request: Request):
     rt = _rt(request)
     return await _submit(
         rt,
-        "Tout en programme",
+        Label.of("all_program"),
         list(rt.house.radiators.values()),
         lambda r: plan_mode(r, "program"),
     )
@@ -306,15 +295,15 @@ def _check_span(start: float, end: float, max_days: int = MAX_REPORT_DAYS) -> No
     ahead, `end` after `start`, at most `max_days` long. Every query below is bounded."""
     hi = time.time() + 2 * 366 * 86400
     if not (FIRST_TS <= start < end <= hi) or end - start > max_days * 86400:
-        raise HTTPException(422, "Période invalide.")
+        raise UserError("period_invalid")
 
 
 def _ids(raw: str | None) -> list[str]:
     ids = list(dict.fromkeys(i for i in (raw or "").split(",") if i))
     if len(ids) > MAX_RADIATORS:
-        raise HTTPException(422, "Trop de radiateurs dans la demande.")
+        raise UserError("too_many_radiators")
     if not all(_RADIATOR_ID.fullmatch(i) for i in ids):
-        raise HTTPException(422, "Radiateur inconnu.")
+        raise UserError("radiator_unknown")
     return ids
 
 
@@ -334,7 +323,7 @@ async def history(
     start = start or end - 86400
     _check_span(start, end)
     if (end - start) / step > MAX_HISTORY_POINTS:
-        raise HTTPException(422, "Période invalide.")
+        raise UserError("period_invalid")
     return rt.recorder.history(ids, start, end, step)
 
 
@@ -356,7 +345,7 @@ async def energy_radiators(
 
 def _linky(rt: Runtime) -> LinkyService:
     if rt.linky is None:
-        raise HTTPException(503, "Linky indisponible.")
+        raise UserError("linky_unavailable", 503)
     return rt.linky
 
 
@@ -368,7 +357,7 @@ def _check_days(linky: LinkyService, *days: date) -> None:
     except ValueError:  # 29 February
         last = today.replace(year=today.year + 2, day=28)
     if any(not FIRST_DAY <= d <= last for d in days):
-        raise HTTPException(422, "Période invalide.")
+        raise UserError("period_invalid")
 
 
 @router.get("/energy")
@@ -387,14 +376,14 @@ async def energy(
     linky = _linky(rt)
     _check_days(linky, start, end)
     if end <= start or (end - start).days > MAX_REPORT_DAYS:
-        raise HTTPException(422, "Période invalide.")
+        raise UserError("period_invalid")
     period: tuple[date, date] | None = None
     if period_from is not None or period_to is not None:
         if period_from is None or period_to is None or focus is not None:
-            raise HTTPException(422, "Période invalide.")
+            raise UserError("period_invalid")
         _check_days(linky, period_from, period_to)
         if period_to <= period_from or (period_to - period_from).days > MAX_REPORT_DAYS:
-            raise HTTPException(422, "Période invalide.")
+            raise UserError("period_invalid")
         period = (period_from, period_to)
     elif focus is not None:
         _check_days(linky, focus)
@@ -457,8 +446,10 @@ async def put_settings(body: SettingsBody, request: Request) -> dict:
     linky = _linky(_rt(request))
     try:
         linky.tariffs.update(body.tariff.to_update())
-    except ValueError as e:  # French messages: prices, power, option, slots
-        raise HTTPException(422, str(e)) from e
+    except UserError:  # coded: prices, power, option, slots
+        raise
+    except ValueError as e:  # anything the codes do not cover is still a 422, never a 500
+        raise UserError("invalid_request") from e
     return linky.settings_view()
 
 
@@ -475,23 +466,23 @@ async def put_linky(body: LinkyBody, request: Request) -> dict:
     linky = _linky(_rt(request))
     prm = body.prm.strip()
     if not _PRM.fullmatch(prm):
-        raise HTTPException(422, "Le PDL compte 14 chiffres.")
+        raise UserError("pdl_invalid")
     token = (body.token or "").strip() or None
     if token is None:
         stored = linky_credentials(ctx.account, ctx.settings)
         token = stored[1] if stored else None
     if not token:
-        raise HTTPException(422, "Collez le jeton MyElectricalData.")
+        raise UserError("token_missing")
     try:
         await linky.configure(prm, token)
     except BudgetExceeded:
-        raise HTTPException(429, "Quota Linky du jour atteint : réessayez demain.") from None
+        raise UserError("linky_quota", 429) from None
     except LinkyAuthError:
-        raise HTTPException(422, "MyElectricalData refuse ce PDL ou ce jeton.") from None
+        raise UserError("linky_refused") from None
     except LinkyThrottled:
-        raise HTTPException(503, "Enedis limite les requêtes : réessayez plus tard.") from None
+        raise UserError("linky_throttled", 503) from None
     except LinkyError:
-        raise HTTPException(503, "MyElectricalData injoignable, réessayez plus tard.") from None
+        raise UserError("med_unreachable", 503) from None
     async with ctx.lock:  # a login may replace the account (new password) at the same time
         if ctx.account is not None:
             ctx.account = replace(ctx.account, med_prm=prm, med_token=token)

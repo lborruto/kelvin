@@ -14,14 +14,19 @@ import type {
   TariffInput,
   WeekProgram
 } from './types';
+import type { ApiParams } from '$lib/i18n';
 
 export class ApiError extends Error {
   status: number;
   code: string | null;
-  constructor(status: number, message: string, code: string | null = null) {
+  params: ApiParams;
+  /** `message` is the backend's French `detail` (or ''), kept as a fallback; the UI shows
+   * errorText(e), which translates `code`. */
+  constructor(status: number, message: string, code: string | null = null, params: ApiParams = {}) {
     super(message);
     this.status = status;
     this.code = code;
+    this.params = params;
     this.name = 'ApiError';
   }
 }
@@ -47,22 +52,26 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
       body: body === undefined ? undefined : JSON.stringify(body)
     });
   } catch {
-    throw new ApiError(0, 'Kelvin est injoignable.');
+    throw new ApiError(0, '', 'network');
   }
   if (!res.ok) {
-    let message = 'Erreur inattendue.';
+    let detail = '';
     let code: string | null = null;
+    let params: ApiParams = {};
     try {
       const data = await res.json();
-      if (typeof data?.detail === 'string') message = data.detail;
+      if (typeof data?.detail === 'string') detail = data.detail;
       if (typeof data?.code === 'string') code = data.code;
+      if (data?.params && typeof data.params === 'object') params = data.params;
     } catch {
       /* body was not JSON */
     }
-    // 503 carries Kelvin's own French message (Cozytouch or MyElectricalData unreachable).
-    if (res.status >= 500 && res.status !== 503) message = 'Le serveur Kelvin a rencontré une erreur.';
+    // A 503 carries Kelvin's own message (Cozytouch or MyElectricalData unreachable); other 5xx
+    // details are internal and never shown.
+    if (res.status >= 500 && res.status !== 503) [detail, code, params] = ['', 'server', {}];
+    else if (!code && !detail) code = 'unexpected';
     if (res.status === 401 && code === 'login_required') onLoginRequired?.();
-    throw new ApiError(res.status, message, code);
+    throw new ApiError(res.status, detail, code, params);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;

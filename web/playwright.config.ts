@@ -19,7 +19,9 @@ export default defineConfig({
     baseURL: external ?? `http://127.0.0.1:${PORT}`,
     trace: 'retain-on-failure',
     // Only the full chromium build is installed here (no headless shell).
-    channel: 'chromium'
+    channel: 'chromium',
+    // Kelvin follows the browser language (Plan 7): the default suite runs French; english.spec.ts sets English.
+    locale: 'fr-FR'
   },
   projects: [
     { name: 'setup', testMatch: /auth\.setup\.ts/ },

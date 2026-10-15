@@ -11,7 +11,7 @@ from kelvin.api.runtime import override_step
 from kelvin.api.sse import event_stream
 from kelvin.config import Settings
 from kelvin.overkiz.fake import FakeGateway
-from tests.conftest import ManualClock, login
+from tests.conftest import ManualClock, err, login
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ async def test_room_mode_roundtrip(ctx):
 async def test_radiator_setpoint_validation_is_french(ctx):
     c, _, _ = ctx
     r = await c.post("/api/radiators/9312063/setpoint", json={"kind": "manual", "value": 21.3})
-    assert r.status_code == 422 and "0,5 °C" in r.json()["detail"]
+    assert r.status_code == 422 and "0,5 °C" in r.json()["detail"]
 
 
 async def test_unknown_ids_404(ctx):
@@ -185,7 +185,8 @@ async def test_mutating_routes_require_kelvin_header(ctx):
     c, _, _ = ctx
     r = await c.post("/api/house/off", headers={"X-Kelvin": ""})
     assert r.status_code == 403
-    assert r.json() == {"detail": "En-tête X-Kelvin manquant."}
+    assert r.json() == err("header_missing")
+    assert r.json()["detail"] == "En-tête X-Kelvin manquant."
     del c.headers["X-Kelvin"]
     assert (await c.post("/api/house/off")).status_code == 403
     assert (await c.delete("/api/overrides/x")).status_code == 403
@@ -380,3 +381,61 @@ async def test_an_unexpected_quota_failure_is_a_french_503_not_a_500(ctx):
     rt.quotas = type(rt.quotas)(broken)
     r = await c.get("/api/overkiz/quotas")
     assert r.status_code == 503 and r.json()["detail"] == "Quotas indisponibles."
+
+
+async def test_validation_errors_carry_invalid_request_and_the_field(ctx):
+    c, rt, _ = ctx
+    r = await c.post(f"/api/rooms/{salon_id(rt)}/mode", json={"mode": "turbo"})
+    assert r.status_code == 422
+    body = r.json()
+    assert (body["code"], body["params"]) == ("invalid_request", {"field": "mode"})
+    assert body["detail"].startswith("Requête invalide : mode — ")
+
+
+async def test_route_errors_answer_with_code_and_params(ctx):
+    c, rt, _ = ctx
+    r = await c.post("/api/rooms/nope/mode", json={"mode": "off"})
+    assert r.status_code == 404 and r.json() == err("room_unknown")
+    week = {"monday": [{"start": f"0{i}:00", "end": f"0{i}:30"} for i in range(4)]}
+    r = await c.put(f"/api/rooms/{salon_id(rt)}/program", json=week)
+    assert r.status_code == 422 and r.json() == err("program_too_many", day="monday")
+    assert r.json()["detail"] == "lundi : 3 plages confort au maximum."
+    r = await c.delete("/api/overrides/nope")
+    assert r.status_code == 404 and r.json() == err("override_not_found")
+    rt.quotas = None
+    r = await c.get("/api/overkiz/quotas")
+    assert r.status_code == 503 and r.json() == err("quotas_unavailable")
+
+
+async def test_pending_views_carry_label_codes(ctx):
+    c, rt, _ = ctx
+    r = await c.post(f"/api/rooms/{salon_id(rt)}/mode", json={"mode": "manual"})
+    p = r.json()["pending"]
+    assert (p["label"], p["label_code"], p["label_params"]) == (
+        "Salon : Manuel",
+        "mode",
+        {"name": "Salon", "mode": "manual"},
+    )
+    assert p["error_code"] is None and p["reason_code"] is None
+    r = await c.post("/api/house/off")
+    assert r.json()["pending"]["label_code"] == "all_off"
+
+
+async def test_malformed_json_names_no_field(ctx):
+    c, rt, _ = ctx
+    r = await c.post(
+        f"/api/rooms/{salon_id(rt)}/mode",
+        content="{bad",
+        headers={"Content-Type": "application/json"},
+    )
+    assert r.status_code == 422
+    assert (r.json()["code"], r.json()["params"]) == ("invalid_request", {})
+
+
+async def test_framework_404_and_405_answer_with_codes_without_the_spa(ctx):
+    c, _, _ = ctx
+    r = await c.get("/api/nope")
+    assert r.status_code == 404 and r.json() == err("not_found")
+    r = await c.post("/api/status")
+    assert r.status_code == 405 and r.json() == err("method_not_allowed")
+    assert "GET" in r.headers["allow"]

@@ -3,6 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import { house } from '$lib/stores/house.svelte';
 import HouseActions from './HouseActions.svelte';
+import { applyLocale } from '$lib/i18n';
 
 vi.mock('$lib/api/client', () => ({
   api: { houseOff: vi.fn(), houseProgram: vi.fn() },
@@ -50,7 +51,7 @@ it('is disabled while Kelvin is disconnected', () => {
 
 it('offers « Absence… » except where the Absence panel already is', () => {
   const a = render(HouseActions);
-  expect(screen.getByRole('link', { name: 'Absence…' })).toHaveAttribute('href', '/maison#absence');
+  expect(screen.getByRole('link', { name: 'Absence…' })).toHaveAttribute('href', '/home#away');
   a.unmount();
   render(HouseActions, { away: false });
   expect(screen.queryByRole('link', { name: 'Absence…' })).toBeNull();
@@ -112,4 +113,17 @@ it('keeps keyboard focus on « Tout remettre en programme » while its command r
   expect(document.activeElement).toBe(button);
   await fireEvent.click(button);
   expect(api.houseProgram).toHaveBeenCalledTimes(1);
+});
+
+it('in English: the actions, the dialog and the away link', () => {
+  applyLocale('en');
+  render(HouseActions, { program: true });
+  expect(screen.getByRole('button', { name: 'Turn everything off' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Put everything back on schedule' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Away…' })).toHaveAttribute('href', '/home#away');
+  const dialog = document.querySelector('dialog')!;
+  expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)).toHaveTextContent('Turn everything off?');
+  expect(document.getElementById(dialog.getAttribute('aria-describedby')!)).toHaveTextContent(
+    'The radiators switch off. You can put them back on schedule from Home.'
+  );
 });

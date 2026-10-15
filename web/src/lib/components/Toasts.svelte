@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import { flip } from 'svelte/animate';
+  import { m } from '$lib/i18n';
   import { dur, easeOut, rise, T } from '$lib/motion';
   import { toasts } from '$lib/stores/toasts.svelte';
   import Icon from './Icon.svelte';
@@ -20,8 +21,8 @@
           animate:flip={{ duration: dur(T.move), easing: easeOut }}
           onpointerenter={() => toasts.pause(t.id)} onpointerleave={() => toasts.resume(t.id)}
           onfocusin={() => toasts.pause(t.id)} onfocusout={() => toasts.resume(t.id)}>
-          <span>{t.message}</span>
-          <button type="button" class="btn btn-icon" aria-label="Fermer" onclick={() => toasts.remove(t.id)}><Icon name="x" size={18} /></button>
+          <span>{t.text()}</span>
+          <button type="button" class="btn btn-icon" aria-label={m.common.close} onclick={() => toasts.remove(t.id)}><Icon name="x" size={18} /></button>
         </div>
       {/each}
     </div>

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { EnergyInterval, RoomSample } from '$lib/api/types';
 import RoomDayChart from './RoomDayChart.svelte';
 
@@ -133,5 +134,32 @@ describe('RoomDayChart', () => {
   it('a room with nothing measured that day says so', () => {
     render(RoomDayChart, { ...props, intervals: four.map((x) => ({ ...x, by_room: {} })), samples: [] });
     expect(screen.getByText('Pas de relevé pour cette pièce ce jour-là.')).toBeInTheDocument();
+  });
+});
+
+it('in English: the legend and the readout’s field names', () => {
+  applyLocale('en');
+  const { container } = render(RoomDayChart, props);
+  expect([...container.querySelectorAll('.legend li')].map((l) => l.textContent)).toEqual(['The room’s radiators', 'Temperature', 'Setpoint']);
+  expect([...container.querySelectorAll('.readout .field dt')].map((d) => d.textContent)).toEqual(['Radiators', 'Temperature', 'Setpoint']);
+  expect(container.querySelector('.readout')!.textContent).toContain('no radiator recorded at this time');
+});
+
+describe('°C axis ticks', () => {
+  const cold: RoomSample[] = Array.from({ length: 12 }, (_, k) => ({ ts: t0 + k * 300, temperature: k < 6 ? -5 : 3, setpoint: -2, working_rate: 0 }));
+  const ticks = (c: HTMLElement) => [...c.querySelectorAll('text.tick-t')].map((e) => e.textContent!);
+
+  it('French: the true minus below 0 °C', () => {
+    applyLocale('fr');
+    const t = ticks(render(RoomDayChart, { ...props, samples: cold }).container);
+    expect(t.some((x) => x.startsWith('\u2212'))).toBe(true);
+    expect(t.join('')).not.toContain('-');
+  });
+
+  it('English: the true minus too', () => {
+    applyLocale('en');
+    const t = ticks(render(RoomDayChart, { ...props, samples: cold }).container);
+    expect(t.some((x) => x.startsWith('\u2212'))).toBe(true);
+    expect(t.join('')).not.toContain('-');
   });
 });

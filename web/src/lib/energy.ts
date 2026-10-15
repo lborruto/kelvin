@@ -1,5 +1,6 @@
 import type { EnergyGroup } from './api/types';
-import { fmtDay, monthName } from './format';
+import { fmtDay, monthName, monthYear } from './format';
+import { locale, m } from './i18n';
 import { parisDayStart } from './time';
 
 /** Categorical series (DESIGN.md Series rule): never heat colours. */
@@ -19,17 +20,15 @@ export function addDays(iso: string, n: number): string {
 
 export function bucketLabel(key: string, group: EnergyGroup): string {
   if (group === 'day') return `${Number(key.slice(8, 10))}/${Number(key.slice(5, 7))}`;
-  if (group === 'week') return `S${Number(key.slice(6))}`;
+  if (group === 'week') return m.energy.weekShort(Number(key.slice(6)));
   if (group === 'month') return `${key.slice(5, 7)}/${key.slice(2, 4)}`;
   return key;
 }
 
-const NB = '\u00a0';
-
-/** "du 1/10 au 12/10" joined by no-break spaces, so it never wraps; empty for a single day. */
+/** « du 1/10 au 12/10 », “1/10 – 12/10”, joined by no-break spaces so it never wraps; empty for a single day. */
 export function spanLabel(cur: Span): string {
   const last = addDays(cur.to, -1);
-  return last === cur.from ? '' : ['du', fmtDay(cur.from), 'au', fmtDay(last)].join(NB);
+  return last === cur.from ? '' : m.energy.span(fmtDay(cur.from), fmtDay(last));
 }
 
 /** How many leading buckets have no data (before Linky history begins): a chart drops them
@@ -48,12 +47,8 @@ export function firstCounted(buckets: { kwh: number | null; missing_days: number
 /** The navigator's views; the same words as the bar groups (Plan 5's `group`). */
 export type View = EnergyGroup;
 
-export const VIEWS: { value: View; label: string }[] = [
-  { value: 'day', label: 'Jour' },
-  { value: 'week', label: 'Semaine' },
-  { value: 'month', label: 'Mois' },
-  { value: 'year', label: 'Année' }
-];
+/** The views in order; each one's label is `m.energy.views[v]`, read where it is shown. */
+export const VIEWS: View[] = ['day', 'week', 'month', 'year'];
 
 /** A span of Paris days, `to` exclusive (ISO YYYY-MM-DD). */
 export interface Span {
@@ -61,20 +56,23 @@ export interface Span {
   to: string;
 }
 
-const COPY = {
-  week: (n: number, range: string) => `Semaine ${n} · ${range}`,
-  weekSpoken: (n: number) => `semaine ${n}`,
-  dayBefore: 'la veille',
-  weekBefore: 'la semaine précédente'
-} as const;
-
 const ymd = (iso: string) => [Number(iso.slice(0, 4)), Number(iso.slice(5, 7)), Number(iso.slice(8, 10))] as const;
 const utcIso = (y: number, m: number, d: number) => isoUtc(new Date(Date.UTC(y, m - 1, d)));
 const noonUtc = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`);
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const dayTitle = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-const dayShort = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'short' });
-const dayLongNoYear = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'long' });
+const DATES = {
+  dayTitle: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
+  dayShort: { day: 'numeric', month: 'short' },
+  dayLongNoYear: { day: 'numeric', month: 'long' }
+} as const satisfies Record<string, Intl.DateTimeFormatOptions>;
+const dateCache = new Map<string, Intl.DateTimeFormat>();
+/** A UTC date formatter in the active language (en-GB: “Tuesday, 13 October 2026”, “12 Oct”). */
+function dates(kind: keyof typeof DATES): Intl.DateTimeFormat {
+  const key = `${locale.intl}|${kind}`;
+  let f = dateCache.get(key);
+  if (!f) dateCache.set(key, (f = new Intl.DateTimeFormat(locale.intl, { timeZone: 'UTC', ...DATES[kind] })));
+  return f;
+}
 
 /** Monday of the ISO week holding `day`. */
 export function weekStart(day: string): string {
@@ -134,32 +132,33 @@ export function dataSpan(p: Span, last: string | null): Span {
 function weekRange(a: string, b: string): string {
   const [ya, ma, da] = ymd(a);
   const [yb, mb] = ymd(b);
-  if (ya === yb && ma === mb) return `${da}–${dayShort.format(noonUtc(b))} ${yb}`;
-  if (ya === yb) return `${dayShort.format(noonUtc(a))} – ${dayShort.format(noonUtc(b))} ${yb}`;
-  return `${dayShort.format(noonUtc(a))} ${ya} – ${dayShort.format(noonUtc(b))} ${yb}`;
+  if (ya === yb && ma === mb) return `${da}–${dates('dayShort').format(noonUtc(b))} ${yb}`;
+  if (ya === yb) return `${dates('dayShort').format(noonUtc(a))} – ${dates('dayShort').format(noonUtc(b))} ${yb}`;
+  return `${dates('dayShort').format(noonUtc(a))} ${ya} – ${dates('dayShort').format(noonUtc(b))} ${yb}`;
 }
 
-/** « Mardi 13 octobre 2026 », « Semaine 42 · 12–18 oct. 2026 », « Octobre 2026 », « 2026 ». */
+/** « Mardi 13 octobre 2026 », « Semaine 42 · 12–18 oct. 2026 », « Octobre 2026 », « 2026 » (en-GB: “Tuesday, 13 October
+ * 2026”, “Week 42 · 12–18 Oct 2026”, “October 2026”). */
 export function periodTitle(view: View, p: Span): string {
-  if (view === 'day') return cap(dayTitle.format(noonUtc(p.from)));
-  if (view === 'week') return COPY.week(isoWeek(p.from).week, weekRange(p.from, addDays(p.to, -1)));
+  if (view === 'day') return cap(dates('dayTitle').format(noonUtc(p.from)));
+  if (view === 'week') return m.energy.week(isoWeek(p.from).week, weekRange(p.from, addDays(p.to, -1)));
   if (view === 'month') return monthName(p.from);
   return p.from.slice(0, 4);
 }
 
 /** The short spoken name of a bucket: « 13 octobre », « semaine 42 », « octobre 2026 », « 2026 ». */
 export function spokenTitle(group: EnergyGroup, p: Span): string {
-  if (group === 'day') return dayLongNoYear.format(noonUtc(p.from));
-  if (group === 'week') return COPY.weekSpoken(isoWeek(p.from).week);
-  if (group === 'month') return monthName(p.from).toLowerCase();
+  if (group === 'day') return dates('dayLongNoYear').format(noonUtc(p.from));
+  if (group === 'week') return m.energy.weekSpoken(isoWeek(p.from).week);
+  if (group === 'month') return monthYear(p.from);
   return p.from.slice(0, 4);
 }
 
 /** What « par rapport à … » names for the previous period starting on `prevFrom`. */
 export function previousName(view: View, prevFrom: string): string {
-  if (view === 'day') return COPY.dayBefore;
-  if (view === 'week') return COPY.weekBefore;
-  if (view === 'month') return monthName(prevFrom).toLowerCase();
+  if (view === 'day') return m.energy.dayBefore;
+  if (view === 'week') return m.energy.weekBefore;
+  if (view === 'month') return monthYear(prevFrom);
   return prevFrom.slice(0, 4);
 }
 

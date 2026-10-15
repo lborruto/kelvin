@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from kelvin.billing.slots import Slot as HcSlot
 from kelvin.billing.tariff import Prices, TariffUpdate
+from kelvin.errors import UserError
 
 
 class ModeBody(BaseModel):
@@ -68,7 +69,7 @@ class LoginBody(BaseModel):
 
 
 class HcSlotBody(BaseModel):
-    """Times are checked by the billing slots, which answer in French."""
+    """Times are checked by the billing slots, which raise UserError codes (kelvin/errors.py)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -76,15 +77,15 @@ class HcSlotBody(BaseModel):
     end: str
 
 
-def _price(value: float, upper: float, message: str) -> float:
+def _price(value: float, upper: float, code: str) -> float:
     if not math.isfinite(value) or not 0 < value < upper:
-        raise ValueError(message)
+        raise UserError(code)
     return value
 
 
 class TariffBody(BaseModel):
-    """Option, power and slots are checked by TariffStore.update; the prices here (French
-    ValueError messages, so the route answers 422 with them)."""
+    """Option, power and slots are checked by TariffStore.update; the prices here
+    (UserError codes (kelvin/errors.py), so the route answers 422 with them)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -99,9 +100,9 @@ class TariffBody(BaseModel):
     def to_update(self) -> TariffUpdate:
         prices = Prices(
             self.valid_from,
-            _price(self.subscription_eur_month, 1000, "Prix de l’abonnement invalide."),
-            _price(self.hc_eur_kwh, 10, "Prix du kWh en heures creuses invalide."),
-            _price(self.hp_eur_kwh, 10, "Prix du kWh en heures pleines invalide."),
+            _price(self.subscription_eur_month, 1000, code="price_subscription_invalid"),
+            _price(self.hc_eur_kwh, 10, code="price_hc_invalid"),
+            _price(self.hp_eur_kwh, 10, code="price_hp_invalid"),
         )
         return TariffUpdate(
             kva=self.kva,
@@ -118,7 +119,7 @@ class SettingsBody(BaseModel):
 
 
 class LinkyBody(BaseModel):
-    """The PDL and the token are checked by the route (French messages, never echoed)."""
+    """The PDL and the token are checked by the route (UserError codes, never echoed)."""
 
     model_config = ConfigDict(extra="forbid")
 

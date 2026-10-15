@@ -4,7 +4,7 @@
   import { house } from '$lib/stores/house.svelte';
 
   let { children } = $props();
-  // "/" and "/pieces/[id]" share one PiecesView: on desktop the list stays mounted when a card is
+  // "/" and "/rooms/[id]" share one PiecesView: on desktop the list stays mounted when a card is
   // chosen, so keyboard focus stays on that card and nothing re-renders but the inspector.
   let id = $derived(page.params.id ?? null);
   // "/": chosen once, so the inspector does not jump when another room starts needing attention.

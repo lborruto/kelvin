@@ -3,18 +3,10 @@
   import { curveCsv, download, energyCsv, roomsCsv } from '$lib/csv';
   import type { Span } from '$lib/energy';
   import { fmtDay } from '$lib/format';
+  import { m } from '$lib/i18n';
   import { roomEnergy } from '$lib/roomEnergy';
   import { house } from '$lib/stores/house.svelte';
   import { today } from '$lib/today.svelte';
-
-  const COPY = {
-    title: 'Exporter',
-    period: 'Exporter la période (CSV)',
-    curve: (d: string) => `Exporter la courbe du ${d} (CSV)`,
-    rooms: 'Exporter par pièce (CSV)',
-    format:
-      'Fichiers CSV\u00a0: séparateur point-virgule, décimales avec une virgule, dates ISO avec leur fuseau, cellule vide quand une valeur manque. Les chiffres de la page, avec toutes leurs décimales.'
-  } as const;
 
   interface Props {
     chart: EnergyReport;
@@ -34,18 +26,18 @@
 </script>
 
 <section class="panel {cls}">
-  <h2>{COPY.title}</h2>
+  <h2>{m.exportPanel.title}</h2>
   <div class="actions">
-    <button type="button" class="btn btn-ghost" onclick={() => download(energyCsv(chart, main, period, today.iso))}>{COPY.period}</button>
+    <button type="button" class="btn btn-ghost" onclick={() => download(energyCsv(chart, main, period, today.iso))}>{m.exportPanel.period}</button>
     {#if day && day.points > 0}
-      <button type="button" class="btn btn-ghost num" onclick={() => download(curveCsv(day))}>{COPY.curve(fmtDay(day.date))}</button>
+      <button type="button" class="btn btn-ghost num" onclick={() => download(curveCsv(day))}>{m.exportPanel.curve(fmtDay(day.date))}</button>
     {/if}
     {#if main.by_radiator.length}
       <!-- Held (aria-disabled) until the house is known: the file names rooms and radiators. It holds its place, so nothing moves. -->
-      <button type="button" class="btn btn-ghost" aria-disabled={!house.loaded} onclick={exportRooms}>{COPY.rooms}</button>
+      <button type="button" class="btn btn-ghost" aria-disabled={!house.loaded} onclick={exportRooms}>{m.exportPanel.rooms}</button>
     {/if}
   </div>
-  <p class="muted note">{COPY.format}</p>
+  <p class="muted note">{m.exportPanel.format}</p>
 </section>
 
 <style>

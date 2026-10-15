@@ -3,8 +3,10 @@
 import mimetypes
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
+
+from kelvin.errors import UserError
 
 IMMUTABLE = "public, max-age=31536000, immutable"
 # Every method reaches the catch-all, so an unknown /api route is a 404 for all of them
@@ -59,19 +61,19 @@ def mount_web(app: FastAPI, web_dir: Path | None) -> None:
     @app.api_route("/{path:path}", methods=METHODS, include_in_schema=False)
     async def spa(request: Request, path: str) -> FileResponse:
         if _is_api(path):
-            raise HTTPException(404, "Introuvable.")
+            raise UserError("not_found", 404)
         if request.method not in ("GET", "HEAD"):
-            raise HTTPException(405, "Méthode non autorisée.")
+            raise UserError("method_not_allowed", 405)
         if path:
             try:
                 candidate = (root / path).resolve()
             except (OSError, ValueError):  # a NUL byte, a name too long
-                raise HTTPException(404, "Introuvable.") from None
+                raise UserError("not_found", 404) from None
             # Inside the build first, then the file: nothing outside the build is even stat'ed.
             # The .br/.gz copies are only ever sent as an encoding of their original.
             packed = candidate.suffix in (".br", ".gz")
             if packed and candidate.is_file():
-                raise HTTPException(404, "Introuvable.")
+                raise UserError("not_found", 404)
             if candidate.is_relative_to(root) and candidate.is_file():
                 cache = IMMUTABLE if "/immutable/" in f"/{path}" else "no-cache"
                 return _file(candidate, request, cache)

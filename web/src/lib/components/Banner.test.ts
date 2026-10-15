@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import Banner from './Banner.svelte';
+import { applyLocale } from '$lib/i18n';
 
 const now = Date.parse('2026-10-13T12:00:00Z');
 
@@ -42,5 +43,27 @@ describe('Banner', () => {
     });
     expect(screen.getByRole('status')).toHaveTextContent('Mot de passe Cozytouch modifié : reconnectez-vous');
     expect(screen.getByRole('link', { name: 'Se reconnecter' })).toHaveAttribute('href', '/login?reauth=1');
+  });
+});
+
+describe('Banner in English', () => {
+  it('says Cozytouch is unreachable with the data age', () => {
+    applyLocale('en');
+    render(Banner, {
+      connection: 'open',
+      status: { connected: false, last_ok_at: (now - 12 * 60_000) / 1000, last_error: 'QUOTA_EXCEEDED' },
+      now
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Can’t reach Cozytouch — last data 12 min ago');
+  });
+  it('asks to sign in again after a password change', () => {
+    applyLocale('en');
+    render(Banner, {
+      connection: 'open',
+      status: { connected: false, last_ok_at: now / 1000, last_error: 'x', auth_rejected: true },
+      now
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Cozytouch password changed: sign in again');
+    expect(screen.getByRole('link', { name: 'Sign in again' })).toHaveAttribute('href', '/login?reauth=1');
   });
 });

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from kelvin.errors import UserError
 from kelvin.linky.models import CurvePoint
 
 DAY_MIN = 1440
@@ -23,28 +24,28 @@ class Slot:
     end: str
 
 
-class SlotError(ValueError):
-    """Invalid HC slots; the message is French, for the user."""
+class SlotError(UserError):
+    """Invalid HC slots: a stable code; `str(e)` is the French detail (kelvin/errors.py)."""
 
 
 def to_minutes(hhmm: str) -> int:
     m = _HHMM.fullmatch(hhmm)
     if not m:
-        raise SlotError(f"Heure invalide : {hhmm} (format HH:MM).")
+        raise SlotError("slot_time_invalid", value=hhmm)
     return int(m[1]) * 60 + int(m[2])
 
 
 def slot_ranges(slots: Sequence[Slot]) -> Ranges:
     """Validated [a, b) minute ranges within one day; a slot across midnight becomes two."""
     if not slots:
-        raise SlotError("Indiquez au moins une plage d’heures creuses.")
+        raise SlotError("slots_none")
     if len(slots) > MAX_SLOTS:
-        raise SlotError("Trois plages d’heures creuses au maximum.")
+        raise SlotError("slots_too_many")
     ranges: Ranges = []
     for s in slots:
         a, b = to_minutes(s.start), to_minutes(s.end)
         if a == b:
-            raise SlotError("Une plage d’heures creuses ne peut pas être vide.")
+            raise SlotError("slot_empty")
         if a < b:
             ranges.append((a, b))
         else:
@@ -54,7 +55,7 @@ def slot_ranges(slots: Sequence[Slot]) -> Ranges:
     ranges.sort()
     for (_, b1), (a2, _) in zip(ranges, ranges[1:], strict=False):
         if a2 < b1:
-            raise SlotError("Les plages d’heures creuses se chevauchent.")
+            raise SlotError("slots_overlap")
     return ranges
 
 

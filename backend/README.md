@@ -50,7 +50,7 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 
 ## API
 
-- `GET /api/health` and `/api/auth/*` are open; every other route needs the `kelvin_session` cookie and otherwise answers `401 {"detail": "Connexion requise.", "code": "login_required"}`.
+- `GET /api/health` and `/api/auth/*` are open; every other route needs the `kelvin_session` cookie and otherwise answers `401 {"detail": "Connexion requise.", "code": "login_required", "params": {}}`.
 - `GET /api/health` → `{"status": "ok" | "degraded" | "setup" | "reauth" | "offline"}` only; `GET /api/status` (session) adds the Overkiz pump status (with `setup_reads_24h`, full setup reads in the last 24 h) and the Linky state.
 - `GET /api/overkiz/quotas` — remaining Overkiz quotas (`GET /setup/quotas`), read only when asked, one read at a time, and cached for an hour (a failure for a minute); ids, URLs, emails and account keys are dropped. `503` « Cozytouch injoignable, réessayez plus tard. » or « Quotas indisponibles. ».
 - `POST /api/auth/login {email, password}` · `POST /api/auth/logout` · `GET /api/auth/me`
@@ -76,12 +76,22 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 - `GET /api/settings/linky` · `PUT /api/settings/linky {prm, token?}` — the token is write-only
 
 Every mutating request (POST, PUT, PATCH, DELETE) must send the header `X-Kelvin: 1`, otherwise
-it gets `403 {"detail": "En-tête X-Kelvin manquant."}`. This blocks cross-site form posts. GET
+it gets `403 {"detail": "En-tête X-Kelvin manquant.", "code": "header_missing", "params": {}}`. This blocks cross-site form posts. GET
 routes and the SSE stream do not need it. Every response carries `X-Content-Type-Options:
 nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`.
 
-Commands return `202 {"pending": …}` and resolve over SSE (`pending` and `house` events). Errors return `422 {"detail": "<French message>"}`.
+Commands return `202 {"pending": …}` and resolve over SSE (`pending` and `house` events). Errors return `{"detail": "<French message>", "code": "<snake_case>", "params": {…}}` with the
+HTTP status (mostly 422; 401, 403, 404, 429, 503 where they apply). `code` and `params` are the
+stable contract the web app translates (`web/src/lib/i18n/api-codes.json` lists every code);
+`detail` stays French for curl, logs and older clients (the API never reads `Accept-Language`). The
+full list is `kelvin/errors.py`.
 `DELETE /api/overrides/{id}` may return `202 {"pending": null}` when there is nothing to restore.
+A pending's `label` and `error` stay French; `label_code`/`label_params` and
+`error_code`/`error_params` are the codes the web translates, and `reason_code` (`quota`, `auth`,
+`network`, `unknown`) says why a send failed. `GET /api/status` carries the same kind of code in
+`overkiz.last_error_code`. Params hold keys and figures only, never an id, an email or a token.
+A send failure's gateway text appears only, scrubbed of addresses, ids and secrets, in the French
+`error` (as in `overkiz.last_error`), never in `error_params`.
 An ended boost or away stays listed with `"restoring": true` until the device confirms the restore;
 a restore the device does not confirm is retried after 30 s, then less and less often, at most every 30 min.
 

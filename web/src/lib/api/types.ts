@@ -1,3 +1,5 @@
+import type { ApiParams } from '$lib/i18n';
+
 export type Mode = 'off' | 'manual' | 'program' | 'other';
 export type RoomMode = Mode | 'mixed';
 export type SettableMode = 'off' | 'manual' | 'program';
@@ -68,6 +70,12 @@ export interface Pending {
   error: string | null;
   created_at: number;
   expected: Record<string, Expected>;
+  /** Codes the web translates (backend kelvin/labels.py, kelvin/errors.py); absent on older servers. */
+  label_code?: string | null;
+  label_params?: ApiParams;
+  error_code?: string | null;
+  error_params?: ApiParams;
+  reason_code?: string | null;
 }
 
 export interface Override {
@@ -84,6 +92,8 @@ export interface Status {
   connected: boolean;
   last_ok_at: number | null;
   last_error: string | null;
+  /** Why the last poll failed, as a code the web words (backend gateway_error_code). */
+  last_error_code?: 'quota' | 'auth' | 'network' | 'unknown' | null;
   auth_rejected?: boolean;
 }
 

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import { house } from '$lib/stores/house.svelte';
 import RoomCard from './RoomCard.svelte';
+import { applyLocale } from '$lib/i18n';
 
 vi.mock('$lib/api/client', () => ({
   api: { roomMode: vi.fn().mockResolvedValue({ pending: null }), roomSetpoint: vi.fn().mockResolvedValue({ pending: null }) },
@@ -98,7 +99,7 @@ describe('RoomCard', () => {
   it('is a link to the room on desktop, marked current when it is the room shown', () => {
     render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn(), navigates: true, selected: true, current: true });
     const link = screen.getByRole('link', { name: /Salon/ });
-    expect(link).toHaveAttribute('href', '/pieces/salon');
+    expect(link).toHaveAttribute('href', '/rooms/salon');
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(link).not.toHaveAttribute('aria-expanded');
     // Focus stays on the card across the navigation (the list is not re-rendered).
@@ -200,4 +201,13 @@ describe('RoomCard', () => {
       vi.useRealTimers();
     }
   });
+});
+
+it('in English: mode and level chips, the comfort row and the details link', () => {
+  applyLocale('en');
+  render(RoomCard, { room, now, expanded: true, points: [], onselect: vi.fn() });
+  expect(screen.getByText('Schedule', { selector: '.chip' })).toBeInTheDocument();
+  expect(screen.getByText('Eco', { selector: '.chip' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/rooms/salon');
+  expect(screen.getByRole('group', { name: 'Comfort' })).toBeInTheDocument();
 });

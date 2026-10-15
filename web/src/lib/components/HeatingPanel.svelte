@@ -2,24 +2,7 @@
   import type { Heating, RadiatorSum } from '$lib/api/types';
   import { SERIES } from '$lib/energy';
   import { fmtEurExact, fmtKwhExact, fmtPct, fmtPct1 } from '$lib/format';
-  import { plural } from '$lib/plural';
-
-  const COPY = {
-    title: 'Chauffage',
-    sentence: 'de la consommation de la maison vient des radiateurs',
-    days: (n: number, of: number) => ` (${plural(n, 'jour')} sur ${of})`,
-    parts: (rad: string, rest: string) => `${rad} radiateurs · ${rest} reste`,
-    cost: (eur: string) => `Coût du chauffage ≈\u00a0${eur} (énergie, hors abonnement)`,
-    noCost: 'Coût du chauffage — (aucun relevé de radiateur sur la période)',
-    noTariff: 'Coût du chauffage — (pas de tarif renseigné)',
-    // « jusqu’à hier » only for a running period: a closed one counts all its days.
-    unmeasured: (running: boolean) => `Aucun jour de radiateur mesuré en entier${running ? ' (jusqu’à hier)' : ''}\u00a0: somme partielle.`,
-    partial: (pct: string, running: boolean) => `Radiateurs mesurés sur ${pct} des jours${running ? ' (jusqu’à hier)' : ''} : somme partielle.`,
-    running: 'Période en cours : radiateurs comptés jusqu’à hier.',
-    est: 'est.',
-    inconsistent: 'Les radiateurs dépassent le compteur : données incohérentes.',
-    none: 'Aucun jour couvert à la fois par le Linky et par tous les radiateurs.'
-  } as const;
+  import { m } from '$lib/i18n';
 
   interface Props {
     heating: Heating;
@@ -36,33 +19,33 @@
 </script>
 
 <section class="panel {cls}">
-  <h2>{COPY.title}</h2>
+  <h2>{m.heatingPanel.title}</h2>
   <!-- {' '}: Svelte trims a block's leading space. -->
   <p class="share-line">
-    <strong class="num share">{fmtPct(value)}</strong>{#if value != null}{' '}{COPY.sentence}{heating.days < heating.of_days
-        ? COPY.days(heating.days, heating.of_days)
+    <strong class="num share">{fmtPct(value)}</strong>{#if value != null}{' '}{m.heatingPanel.sentence}{heating.days < heating.of_days
+        ? m.heatingPanel.days(heating.days, heating.of_days)
         : ''}.{/if}
   </p>
   {#if heating.inconsistent}
-    <p class="muted note">{COPY.inconsistent}</p>
+    <p class="muted note">{m.heatingPanel.inconsistent}</p>
   {:else if value == null}
-    <p class="muted note">{COPY.none}</p>
+    <p class="muted note">{m.heatingPanel.none}</p>
   {:else}
     <div class="meter" aria-hidden="true"><span class="rad" style:transform="scaleX({Math.min(1, value)})" style:background={SERIES.radiators}></span></div>
-    {#if radiators && restKwh != null}<p class="muted line num">{COPY.parts(fmtKwhExact(radiators.kwh), fmtKwhExact(restKwh))}</p>{/if}
+    {#if radiators && restKwh != null}<p class="muted line num">{m.heatingPanel.parts(fmtKwhExact(radiators.kwh), fmtKwhExact(restKwh))}</p>{/if}
   {/if}
   {#if !radiators}
-    <p class="line cost num">{COPY.noCost}</p>
+    <p class="line cost num">{m.heatingPanel.noCost}</p>
   {:else if radiators.eur == null}
     <!-- A radiator sum has no € only without a tariff. -->
-    <p class="line cost num">{COPY.noTariff}</p>
+    <p class="line cost num">{m.heatingPanel.noTariff}</p>
   {:else}
-    <p class="line cost num">{COPY.cost(fmtEurExact(radiators.eur))}{#if radiators.interpolated || radiators.apportioned}<span class="est">{COPY.est}</span>{/if}</p>
+    <p class="line cost num">{m.heatingPanel.cost(fmtEurExact(radiators.eur))}{#if radiators.interpolated || radiators.apportioned}<span class="est">{m.heatingPanel.est}</span>{/if}</p>
   {/if}
   {#if radiators?.coverage != null && radiators.coverage < 1}
-    <p class="muted note">{radiators.coverage > 0 ? COPY.partial(fmtPct1(radiators.coverage), running) : COPY.unmeasured(running)}</p>
+    <p class="muted note">{radiators.coverage > 0 ? m.heatingPanel.partial(fmtPct1(radiators.coverage), running) : m.heatingPanel.unmeasured(running)}</p>
   {:else if radiators && running}
-    <p class="muted note">{COPY.running}</p>
+    <p class="muted note">{m.heatingPanel.running}</p>
   {/if}
 </section>
 

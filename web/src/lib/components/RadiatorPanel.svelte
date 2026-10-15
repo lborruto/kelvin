@@ -2,7 +2,8 @@
   import type { Radiator } from '$lib/api/types';
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
-  import { fmtKwh, fmtTemp, MODE_LABEL } from '$lib/format';
+  import { fmtKwh, fmtPct, fmtTemp } from '$lib/format';
+  import { m, modeLabel } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
   import { house } from '$lib/stores/house.svelte';
   import Icon from './Icon.svelte';
@@ -16,9 +17,9 @@
   }
   let { radiator, showControls }: Props = $props();
   let expected = $derived(house.expectedFor(radiator.id));
-  let facts = $derived(`${radiator.model ?? 'Radiateur'}${radiator.power_w ? ` · ${radiator.power_w} W` : ''}`);
+  let facts = $derived(m.radiator.facts(radiator.model ?? m.radiator.default, radiator.power_w));
   // The device default ("Radiateur", or the model) says nothing; the model and power do.
-  let renamed = $derived(!!radiator.name.trim() && radiator.name !== 'Radiateur' && radiator.name !== radiator.model);
+  let renamed = $derived(!!radiator.name.trim() && radiator.name !== 'Radiateur' && radiator.name !== radiator.model); // i18n-ignore: upstream device default
   let title = $derived(renamed ? radiator.name : facts);
   // The command each toggle sent last: dashed while the radiator has not answered it.
   let sent = $state<Record<string, string>>({});
@@ -49,29 +50,29 @@
   <header>
     {#if renaming}
       <form onsubmit={submitRename}>
-        <input aria-label="Nom du radiateur" maxlength="32" bind:value={draft} />
+        <input aria-label={m.radiator.nameLabel} maxlength="32" bind:value={draft} />
         <button type="submit" class="btn btn-sm">OK</button>
       </form>
     {:else}
       <h4>{title}</h4>
-      <button type="button" class="btn btn-icon" aria-label="Renommer" onclick={startRename}><Icon name="edit" size={16} /></button>
+      <button type="button" class="btn btn-icon" aria-label={m.radiator.rename} onclick={startRename}><Icon name="edit" size={16} /></button>
     {/if}
     <span class="temp num" style:color={heatColor(radiator.temperature)}>{fmtTemp(radiator.temperature)}</span>
   </header>
   {#if renamed}<p class="muted facts">{facts}</p>{/if}
   <dl class="grid">
-    <dt>Mode</dt><dd>{MODE_LABEL[radiator.mode]}</dd>
-    <dt>Consigne active</dt><dd class="num">{fmtTemp(radiator.effective_setpoint)}</dd>
-    {#if radiator.energy_wh}<dt>Consommation totale</dt><dd class="num">{fmtKwh(radiator.energy_wh.total / 1000)}</dd>{/if}
-    {#if radiator.rssi != null}<dt>Signal</dt><dd class="num">{Math.round(radiator.rssi)}&nbsp;%</dd>{/if}
+    <dt>Mode</dt><dd>{modeLabel(radiator.mode)}</dd>
+    <dt>{m.radiator.setpointActive}</dt><dd class="num">{fmtTemp(radiator.effective_setpoint)}</dd>
+    {#if radiator.energy_wh}<dt>{m.radiator.energyTotal}</dt><dd class="num">{fmtKwh(radiator.energy_wh.total / 1000)}</dd>{/if}
+    {#if radiator.rssi != null}<dt>Signal</dt><dd class="num">{fmtPct(radiator.rssi / 100)}</dd>{/if}
   </dl>
 
   {#if showControls}
     <div class="controls">
       <ModeSwitch label="Mode — {title}" value={radiator.mode} pending={expected.mode ?? null} compact
-        disabled={!house.online} onchange={(m) => run(() => api.radiatorMode(radiator.id, m))} />
+        disabled={!house.online} onchange={(next) => run(() => api.radiatorMode(radiator.id, next))} />
       {#if (expected.mode ?? radiator.mode) === 'manual'}
-        <Stepper label="Consigne {title}" announce={false} value={expected.target ?? radiator.target} min={7}
+        <Stepper label={m.radiator.setpointLabel(title)} announce={false} value={expected.target ?? radiator.target} min={7}
           max={radiator.max_temperature} pending={expected.target !== undefined} disabled={!house.online}
           onchange={(v) => run(() => api.radiatorSetpoint(radiator.id, 'manual', v))} />
       {/if}
@@ -79,17 +80,17 @@
   {/if}
 
   <div class="switches">
-    <Toggle label="Détection de fenêtre ouverte" checked={radiator.window_detection} pending={busy('window')} disabled={!house.online}
+    <Toggle label={m.radiator.windowDetection} checked={radiator.window_detection} pending={busy('window')} disabled={!house.online}
       onchange={(v) => toggle('window', () => api.radiatorFeatures(radiator.id, { window_detection: v }))} />
-    <Toggle label="Détection de présence" checked={radiator.presence_detection} pending={busy('presence')} disabled={!house.online}
+    <Toggle label={m.radiator.presenceDetection} checked={radiator.presence_detection} pending={busy('presence')} disabled={!house.online}
       onchange={(v) => toggle('presence', () => api.radiatorFeatures(radiator.id, { presence_detection: v }))} />
     {#if radiator.light}
-      <Toggle label="Veilleuse" checked={radiator.light.on} pending={busy('light')} disabled={!house.online}
+      <Toggle label={m.radiator.nightLight} checked={radiator.light.on} pending={busy('light')} disabled={!house.online}
         onchange={(v) => toggle('light', () => api.radiatorLight(radiator.id, v))} />
     {/if}
   </div>
   <button type="button" class="btn btn-ghost identify" aria-disabled={!house.online}
-    onclick={() => house.online && run(() => api.identify(radiator.id))}>Faire clignoter</button>
+    onclick={() => house.online && run(() => api.identify(radiator.id))}>{m.radiator.identify}</button>
 </section>
 
 <style>

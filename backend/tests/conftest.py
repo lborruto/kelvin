@@ -28,3 +28,10 @@ async def login(client) -> None:
     """Log in through the real flow with the simulator's demo account."""
     r = await client.post("/api/auth/login", json=DEMO, headers={"X-Kelvin": "1"})
     assert r.status_code == 200, r.text
+
+
+def err(code: str, **params) -> dict:
+    """The JSON body of a user error: its unchanged French detail, its code, its params."""
+    from kelvin.errors import french
+
+    return {"detail": french(code, params), "code": code, "params": params}

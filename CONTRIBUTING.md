@@ -43,13 +43,22 @@ or real data will not be merged.
   `docs: …`, `ci: …`, `build: …`, `chore: …`. Say why in the body when it is not obvious.
 - One topic per pull request, with tests. Fill in the template's checklist.
 
-## French UI copy
+## UI copy (French and English)
 
-The UI is French; code, logs and docs are English. Follow `DESIGN.md`:
-- a no-break space (U+00A0) before units: « 20,1 °C », « 2 400 kWh », « 100 % »;
-- the true minus `−` for negative values, `—` for a missing value (never 0);
-- times in Europe/Paris, 24 h (« 06:15 »), relative times « à l’instant », « il y a 5 min »;
-- typographic apostrophes (’).
+The UI is French (default) and English; code, logs and docs are English. Every string is a
+message in `web/src/lib/i18n/fr.ts` and `en.ts`, never a literal in a component:
+- add the message to `fr.ts`; `npm run check` then fails until `en.ts` has it too;
+- write the English from `docs/glossary.md` (add a new term there first);
+- follow DESIGN.md "Copy (French and English)": a no-break space (U+00A0) before units in French
+  (« 20,1 °C », « 100 % »), “42%” and “€16.20” in English, the true minus `−`, `—` for a missing
+  value, typographic apostrophes (’), Paris time, 24 h;
+- read messages in templates or `$derived`, never at module scope (a label array holds keys or
+  getters), so a language switch reaches them;
+- a backend error is a code in `backend/kelvin/errors.py` (a pending label in `labels.py`), then
+  `cd backend && uv run python scripts/export_codes.py`, then its text in both dictionaries;
+- `npx vitest run` checks it all: no hard-coded French left, no unused key, no message read at
+  module scope, both languages with the same keys and parameters, typography, and no French URL
+  path outside the redirect table.
 
 ## Never commit real data or credentials
 

@@ -2,24 +2,9 @@
 import type { ByRadiator, Radiator, Room } from './api/types';
 import type { Span } from './energy';
 import { fmtDay, fmtPct1, fmtShares, largestRemainder, matchParts } from './format';
-import { plural } from './plural';
+import { INTL, locale, m } from './i18n';
 
-export const NO_ROOM = 'sans-piece';
-
-export const COPY = {
-  noRoom: 'Sans pièce',
-  removed: 'Radiateur retiré',
-  roomFrom: (k: number, n: number, day: string) =>
-    `${plural(k, 'radiateur')} sur ${n} ${k > 1 ? 'enregistrés' : 'enregistré'} à partir du ${day}`,
-  roomPartial: (k: number, n: number) => `${plural(k, 'radiateur')} sur ${n} ${k > 1 ? 'enregistrés' : 'enregistré'} en partie`,
-  radFrom: (day: string) => `enregistré à partir du ${day}`,
-  radPartial: (pct: string) => `couverture ${pct}`,
-  none: 'aucun relevé sur la période',
-  // The backend gives no mean °C, setpoint or heating hours below 50 % sample coverage.
-  stats: 'moins de la moitié de la période mesurée',
-  statsOf: (k: number, n: number) =>
-    `moyenne de ${plural(k, 'radiateur')} sur ${n} (${n - k > 1 ? 'les autres' : 'l’autre'}\u00a0: moins de la moitié de la période mesurée)`
-} as const;
+export const NO_ROOM = 'no-room';
 
 /** kWh, HC and HP as the table shows them (2 decimals), allocated so that they add up. */
 export interface Shown {
@@ -74,7 +59,7 @@ const mean = (v: (number | null)[]) => {
 const partialOf = (r: ByRadiator) => r.kwh == null || (r.coverage != null && r.coverage < 1);
 const NO_SHOWN: Shown = { kwh: null, hc: null, hp: null };
 const statsWhy = (f: { temp: number | null; setpoint: number | null; hours: number | null }) =>
-  f.temp == null || f.setpoint == null || f.hours == null ? COPY.stats : null;
+  f.temp == null || f.setpoint == null || f.hours == null ? m.roomEnergy.stats : null;
 
 /**
  * L1 at the table's 2 decimals: the room's HC and HP add up to its kWh, its radiators' kWh and HC
@@ -83,8 +68,8 @@ const statsWhy = (f: { temp: number | null; setpoint: number | null; hours: numb
  */
 function shownFigures(room: Figures, rads: Figures[]): { room: Shown; rads: Shown[] } {
   if (room.kwh == null) return { room: NO_SHOWN, rads: rads.map(() => NO_SHOWN) };
-  const m = matchParts(room.kwh, [room.hc, room.hp], DIGITS);
-  const top: Shown = { kwh: m.total, hc: m.parts[0], hp: m.parts[1] };
+  const matched = matchParts(room.kwh, [room.hc, room.hp], DIGITS);
+  const top: Shown = { kwh: matched.total, hc: matched.parts[0], hp: matched.parts[1] };
   const idx = rads.flatMap((r, i) => (r.kwh != null ? [i] : []));
   const kwh = largestRemainder(idx.map((i) => rads[i].kwh), Math.round((top.kwh as number) * UNITS));
   const split = top.hc != null && top.hp != null && idx.every((i) => rads[i].hc != null && rads[i].hp != null);
@@ -114,11 +99,11 @@ export function roomEnergy(rows: ByRadiator[], rooms: Room[], radiators: Record<
     groups.set(id, [...(groups.get(id) ?? []), r]);
   }
   const order = rooms.map((r) => ({ id: r.id, name: r.name }));
-  if (groups.has(NO_ROOM)) order.push({ id: NO_ROOM, name: COPY.noRoom });
+  if (groups.has(NO_ROOM)) order.push({ id: NO_ROOM, name: m.roomEnergy.noRoom });
 
   const radRow = (r: ByRadiator): RadiatorRow => ({
     id: r.radiator_id,
-    name: radiators[r.radiator_id]?.name ?? COPY.removed,
+    name: radiators[r.radiator_id]?.name ?? m.roomEnergy.removed,
     kwh: r.kwh,
     hc: r.hc_kwh,
     hp: r.hp_kwh,
@@ -129,11 +114,11 @@ export function roomEnergy(rows: ByRadiator[], rooms: Room[], radiators: Record<
     est: r.interpolated || r.apportioned,
     partial:
       r.kwh == null
-        ? COPY.none
+        ? m.roomEnergy.none
         : partialOf(r)
           ? r.from && r.from > span.from
-            ? COPY.radFrom(fmtDay(r.from))
-            : COPY.radPartial(fmtPct1(r.coverage))
+            ? m.roomEnergy.radFrom(fmtDay(r.from))
+            : m.roomEnergy.radPartial(fmtPct1(r.coverage))
           : null,
     statsWhy: statsWhy({ temp: r.temp_avg, setpoint: r.setpoint_avg, hours: r.heating_hours }),
     shown: NO_SHOWN,
@@ -160,17 +145,18 @@ export function roomEnergy(rows: ByRadiator[], rooms: Room[], radiators: Record<
       partial: !parts.length
         ? null
         : rs.every((r) => r.kwh == null)
-          ? COPY.none
+          ? m.roomEnergy.none
           : late && latest
-            ? COPY.roomFrom(parts.length, rs.length, fmtDay(latest))
-            : COPY.roomPartial(parts.length, rs.length),
+            ? m.roomEnergy.roomFrom(parts.length, rs.length, fmtDay(latest))
+            : m.roomEnergy.roomPartial(parts.length, rs.length),
       statsWhy: null as string | null,
       shown: NO_SHOWN,
-      radiators: rs.map(radRow).sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+      // Radiator names sort the way the reader's language does (the UI locale, not always French).
+      radiators: rs.map(radRow).sort((a, b) => a.name.localeCompare(b.name, INTL[locale.current]))
     };
     // A room without any recorded radiator says so instead (« aucun radiateur enregistré »).
     const full = room.radiators.filter((r) => r.statsWhy == null).length;
-    room.statsWhy = !rs.length ? null : statsWhy(room) ?? (full < rs.length ? COPY.statsOf(full, rs.length) : null);
+    room.statsWhy = !rs.length ? null : statsWhy(room) ?? (full < rs.length ? m.roomEnergy.statsOf(full, rs.length) : null);
     const s = shownFigures(room, room.radiators);
     return { ...room, shown: s.room, radiators: room.radiators.map((r, i) => ({ ...r, shown: s.rads[i] })) };
   });

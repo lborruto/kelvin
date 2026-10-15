@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { EnergyReport, Quality } from '$lib/api/types';
 import QualityPanel from './QualityPanel.svelte';
 
@@ -23,7 +24,7 @@ describe('QualityPanel', () => {
     const toggle = within(heading).getByRole('button', { name: 'Qualité des données', expanded: false });
     const body = document.getElementById(toggle.getAttribute('aria-controls')!)!;
     expect(body).not.toBeVisible();
-    expect(container.querySelector('#qualite')).toContainElement(body);
+    expect(container.querySelector('#quality')).toContainElement(body);
     await fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(body).toBeVisible();
@@ -41,7 +42,7 @@ describe('QualityPanel', () => {
 
   it('is collapsed, with a coverage strip per bucket and row: full, partial, missing', () => {
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
-    expect(container.querySelector('#qualite [aria-expanded]')).toHaveAttribute('aria-expanded', 'false');
+    expect(container.querySelector('#quality [aria-expanded]')).toHaveAttribute('aria-expanded', 'false');
     const MARKS = ['full', 'partial', 'missing', 'none'];
     const row = (i: number) =>
       [...container.querySelectorAll('.strip .row')[i].querySelectorAll('.cell')].map((c) => [...c.classList].find((x) => MARKS.includes(x)));
@@ -78,19 +79,19 @@ describe('QualityPanel', () => {
     expect(t).toContain('Prix du premier tarif appliqué à 6 jours antérieurs');
   });
 
-  it('opens when the page is reached at #qualite', () => {
-    window.location.hash = '#qualite';
+  it('opens when the page is reached at #quality', () => {
+    window.location.hash = '#quality';
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
-    expect(container.querySelector('#qualite [aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
+    expect(container.querySelector('#quality [aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
     window.location.hash = '';
   });
 
-  it('opens when an « est. » link to #qualite is followed', async () => {
-    const link = document.body.appendChild(Object.assign(document.createElement('a'), { href: '#qualite', textContent: 'est.' }));
+  it('opens when an « est. » link to #quality is followed', async () => {
+    const link = document.body.appendChild(Object.assign(document.createElement('a'), { href: '#quality', textContent: 'est.' }));
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
     link.click();
     await Promise.resolve();
-    expect(container.querySelector('#qualite [aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
+    expect(container.querySelector('#quality [aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
     link.remove();
     window.location.hash = '';
   });
@@ -115,4 +116,17 @@ describe('QualityPanel', () => {
     expect(row(0)).toEqual(['partial', 'full', 'none']);
     expect(row(1)).toEqual(['full', 'full', 'none']);
   });
+});
+
+it('in English: the heading, the legend, the hidden table and the facts', () => {
+  applyLocale('en');
+  const { container } = render(QualityPanel, { buckets, group: 'day', quality });
+  expect(screen.getByRole('heading', { level: 2, name: 'Data quality' })).toBeInTheDocument();
+  expect([...container.querySelectorAll('.legend li')].map((l) => l.textContent)).toEqual(['complete', 'partial', 'missing']);
+  const cells = [...container.querySelectorAll('.visually-hidden tbody tr')[1].querySelectorAll('td')].map((t) => t.textContent);
+  expect(cells).toEqual(['complete', 'missing', 'partial (50.0%)']);
+  const t = container.textContent!.replace(/\s+/g, ' ');
+  expect(t).toContain('Off-peak/peak days estimated: 3 (fallback share 36.2%, method: ±15 days)');
+  expect(t).toContain('First tariff’s price applied to 6 earlier days');
+  expect(t).toContain('Curve available since 15 January 2026');
 });

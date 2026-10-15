@@ -43,17 +43,21 @@ describe('api client', () => {
     );
   });
 
-  it('hides 5xx details behind a generic French message', async () => {
+  it('hides 5xx details behind the server code', async () => {
     mockFetch(500, { detail: 'Traceback…' });
-    await expect(api.houseOff()).rejects.toMatchObject({
-      status: 500,
-      message: 'Le serveur Kelvin a rencontré une erreur.'
-    });
+    await expect(api.houseOff()).rejects.toMatchObject({ status: 500, code: 'server', message: '' });
   });
 
   it('maps network failure to status 0', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
-    await expect(api.house()).rejects.toMatchObject({ status: 0, message: 'Kelvin est injoignable.' });
+    await expect(api.house()).rejects.toMatchObject({ status: 0, code: 'network', message: '' });
+  });
+
+  it('keeps the params of a coded error, and calls a body with neither detail nor code unexpected', async () => {
+    mockFetch(429, { detail: 'Trop de tentatives. Réessayez dans 15 min.', code: 'too_many_attempts', params: { minutes: 15 } });
+    await expect(api.login('a@b.fr', 'x')).rejects.toMatchObject({ code: 'too_many_attempts', params: { minutes: 15 } });
+    mockFetch(422, {});
+    await expect(api.houseOff()).rejects.toMatchObject({ status: 422, code: 'unexpected', message: '' });
   });
 
   it('GET requests do not send the mutation header', async () => {
@@ -69,10 +73,10 @@ describe('api client', () => {
     mockFetch(401, { detail: 'Connexion requise.', code: 'login_required' });
     await expect(api.house()).rejects.toMatchObject({ status: 401, code: 'login_required' });
     expect(handler).toHaveBeenCalledTimes(1);
-    mockFetch(401, { detail: 'Email ou mot de passe Cozytouch incorrect.' });
+    mockFetch(401, { detail: 'Email ou mot de passe Cozytouch incorrect.', code: 'bad_credentials', params: {} });
     await expect(api.login('a@b.fr', 'x')).rejects.toMatchObject({
       status: 401,
-      code: null,
+      code: 'bad_credentials',
       message: 'Email ou mot de passe Cozytouch incorrect.'
     });
     expect(handler).toHaveBeenCalledTimes(1);

@@ -2,17 +2,13 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import type { LinkyStatus } from '$lib/api/types';
+import { applyLocale } from '$lib/i18n';
 import LinkyPanel from './LinkyPanel.svelte';
 
-vi.mock('$lib/api/client', () => ({
-  api: { putLinky: vi.fn() },
-  ApiError: class extends Error {
-    status: number;
-    constructor(status: number, message: string) {
-      super(message);
-      this.status = status;
-    }
-  }
+// The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
+vi.mock('$lib/api/client', async (orig) => ({
+  ApiError: (await orig<typeof import('$lib/api/client')>()).ApiError,
+  api: { putLinky: vi.fn() }
 }));
 
 const base: LinkyStatus = {
@@ -101,5 +97,26 @@ describe('LinkyPanel', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('LinkyPanel in English', () => {
+  it('freshness, consent, calls, and the field checks', async () => {
+    applyLocale('en');
+    render(LinkyPanel, { status: base, onsaved: vi.fn() });
+    expect(screen.getByText('Connected · data up to 12/10')).toBeInTheDocument();
+    expect(screen.getByText('Enedis consent valid until 14 October 2029')).toBeInTheDocument();
+    expect(screen.getByText('3 of 10 calls today')).toBeInTheDocument();
+    await fireEvent.input(screen.getByLabelText('PDL (delivery point)'), { target: { value: '123' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save and test' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('The PDL has 14 digits.');
+  });
+  it('a rejected token reads in English whatever the server sent', () => {
+    applyLocale('en');
+    render(LinkyPanel, {
+      status: { ...base, state: 'auth', message: 'MyElectricalData refuse le jeton : renouvelez-le dans Réglages.' },
+      onsaved: vi.fn()
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('MyElectricalData rejected the token: renew it in Settings.');
   });
 });

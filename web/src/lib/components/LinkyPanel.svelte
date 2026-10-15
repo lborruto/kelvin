@@ -1,9 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { api, ApiError } from '$lib/api/client';
+  import { api } from '$lib/api/client';
   import type { LinkyStatus } from '$lib/api/types';
   import { fmtAgo, fmtDateLong, fmtDay, fmtTime } from '$lib/format';
-  import { plural } from '$lib/plural';
+  import { apiMessage, errorText, m } from '$lib/i18n';
 
   interface Props {
     status: LinkyStatus;
@@ -14,7 +14,7 @@
   let prm = $state(untrack(() => status.prm ?? ''));
   let token = $state('');
   let busy = $state(false);
-  let error = $state<string | null>(null);
+  let error = $state<(() => string) | null>(null);
   let now = $state(Date.now());
   const uid = $props.id();
 
@@ -25,29 +25,32 @@
 
   // Progress states get a neutral line; only auth and error are problems.
   let line = $derived.by(() => {
-    if (status.state === 'off') return 'Non relié.';
-    if (status.state === 'never') return 'Relié · première synchronisation en attente.';
-    const data = status.last_day ? ` · données jusqu’au ${fmtDay(status.last_day)}` : '';
-    if (status.state === 'ok') return `Relié${data}`;
-    if (status.state === 'quota') return `Relié${data} · historique en cours de récupération, la suite arrive demain`;
+    if (status.state === 'off') return m.linky.off;
+    if (status.state === 'never') return m.linky.never;
+    const day = status.last_day ? fmtDay(status.last_day) : null;
+    if (status.state === 'ok') return m.linky.ok(day);
+    if (status.state === 'quota') return m.linky.quota(day);
     if (status.state === 'throttled') {
-      const at = status.retry_at ? `à ${fmtTime(status.retry_at * 1000)}` : 'plus tard';
-      return `Relié${data} · Enedis limite les requêtes, nouvel essai ${at}`;
+      return status.retry_at ? m.linky.throttledAt(day, fmtTime(status.retry_at * 1000)) : m.linky.throttledLater(day);
     }
     return null;
   });
-  let problem = $derived(status.state === 'auth' || status.state === 'error' ? status.message : null);
+  // The text comes from the state, in the active language; the server's French message is the fallback.
+  let problem = $derived(
+    status.state === 'auth' || status.state === 'error' ? apiMessage(`linky_status_${status.state}`, {}, status.message) : null
+  );
+  let help = $derived(m.linky.help());
 
   async function save(e: SubmitEvent) {
     e.preventDefault();
     if (busy) return;
     error = null;
     if (!/^\d{14}$/.test(prm.trim())) {
-      error = 'Le PDL compte 14 chiffres.';
+      error = () => apiMessage('pdl_invalid');
       return;
     }
     if (!token.trim() && !status.token_set) {
-      error = 'Collez le jeton MyElectricalData.';
+      error = () => apiMessage('token_missing');
       return;
     }
     busy = true;
@@ -57,7 +60,7 @@
       now = Date.now();
       onsaved(res);
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Erreur inattendue.';
+      error = () => errorText(err);
     } finally {
       busy = false;
     }
@@ -67,37 +70,37 @@
 <div class="linky">
   <!-- The state and its facts read as one block. -->
   <div class="meta">
-    {#if line}<p class="state">{line}{#if status.state === 'ok' && status.last_ok_at}<span class="muted">&nbsp;· synchro {fmtAgo(status.last_ok_at * 1000, now)}</span>{/if}</p>{/if}
+    {#if line}<p class="state">{line}{#if status.state === 'ok' && status.last_ok_at}<span class="muted">&nbsp;· {m.linky.sync(fmtAgo(status.last_ok_at * 1000, now))}</span>{/if}</p>{/if}
     {#if problem}<p class="error" role="alert">{problem}</p>{/if}
-    {#if status.simulator}<p class="muted small">Simulateur&nbsp;: Linky de démonstration.</p>{/if}
-    {#if status.consent_expires}<p class="muted small">Consentement Enedis valable jusqu’au {fmtDateLong(status.consent_expires)}</p>{/if}
-    {#if status.configured}<p class="muted small">{plural(status.calls_today, 'appel')} sur {status.budget} aujourd’hui</p>{/if}
+    {#if status.simulator}<p class="muted small">{m.linky.simulator}</p>{/if}
+    {#if status.consent_expires}<p class="muted small">{m.linky.consent(fmtDateLong(status.consent_expires))}</p>{/if}
+    {#if status.configured}<p class="muted small">{m.linky.calls(status.calls_today, status.budget)}</p>{/if}
   </div>
 
   <form onsubmit={save} novalidate>
     <label class="field">
-      <span>PDL (point de livraison)</span>
+      <span>{m.linky.pdl}</span>
       <input inputmode="numeric" autocomplete="off" maxlength="14" bind:value={prm} />
     </label>
     <div class="tok">
     <label class="field">
-      <span>Jeton MyElectricalData</span>
+      <span>{m.linky.token}</span>
       <input
         type="password"
         autocomplete="new-password"
-        placeholder={status.token_set ? 'Enregistré' : ''}
+        placeholder={status.token_set ? m.linky.tokenPlaceholder : ''}
         aria-describedby={status.token_set ? `${uid}-keep` : undefined}
         bind:value={token} />
     </label>
-    {#if status.token_set}<span class="hint" id="{uid}-keep">Laissez vide pour garder le jeton.</span>{/if}
+    {#if status.token_set}<span class="hint" id="{uid}-keep">{m.linky.keepToken}</span>{/if}
     </div>
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? 'Test en cours…' : 'Enregistrer et tester'}</button>
+    {#if error}<p class="error" role="alert">{error()}</p>{/if}
+    <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? m.linky.testing : m.linky.saveTest}</button>
   </form>
   <p class="muted small">
-    Le PDL figure sur la facture (14 chiffres). Le jeton s’obtient sur
+    {help.before}
     <a href="https://www.myelectricaldata.fr" target="_blank" rel="noopener noreferrer">myelectricaldata.fr</a>
-    après l’accord Enedis.
+    {help.after}
   </p>
 </div>
 
