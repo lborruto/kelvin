@@ -173,10 +173,12 @@ _SCRUB = re.compile(
             # a bare IPv6 address: with « :: », or at least four groups (not a time like 14:30:00)
             r"(?<![\w:])(?:[0-9A-Fa-f]{0,4}:){1,7}:[0-9A-Fa-f]{0,4}(?:%\w+)?(?![\w:])",
             r"(?<![\w:])(?:[0-9A-Fa-f]{1,4}:){3,7}[0-9A-Fa-f]{1,4}(?:%\w+)?(?![\w:])",
-            r"\b\d{4}-\d{4}-\d{4}(?:/[\w.#-]*)?",  # an Overkiz gateway id, with a device path
+            # digit lookarounds, not \b: an id right after a word character (an URL-encoded
+            # device path, io%3A%2F%2F1234-5678-9012%2F5432187) is still an id
+            r"(?<!\d)\d{4}-\d{4}-\d{4}(?:/[\w.#-]*)?",  # an Overkiz gateway id, with a device path
             r"\b[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\b",  # a UUID
             r"\b[A-Za-z0-9_-]{32,}\b",  # a long opaque token or session id
-            r"\b\d{6,}\b",  # a device id, a serial, a PDL
+            r"(?<!\d)\d{6,}(?!\d)",  # a device id, a serial, a PDL
         )
     ),
     re.IGNORECASE,

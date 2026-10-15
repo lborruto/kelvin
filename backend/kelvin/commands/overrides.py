@@ -378,10 +378,9 @@ class OverrideManager:
                 ours = self._ours(o, r)
                 if ours is None:
                     if now >= o.ends_at + UNLOADED_WAIT:
+                        # no radiator id in a log (CLAUDE.md: log no ids)
                         log.warning(
-                            "override %s: state of radiator %s still unknown; not restored",
-                            o.id,
-                            rid,
+                            "override %s: a radiator's state still unknown; not restored", o.id
                         )
                         self._drop(o, rid)
                     continue

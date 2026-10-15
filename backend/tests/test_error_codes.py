@@ -110,7 +110,7 @@ ID_LIKE = re.compile(
 # french(code, params) is called with a non-literal dict only here: errors.py and catalogue.py
 # pass through params their callers gave (checked at those calls); service.py `_resolve` passes
 # its own keyword params (checked at every `_resolve` call) plus the scrubbed detail-only reason.
-FRENCH_PASS_THROUGH = {"errors.py", "catalogue.py", "service.py"}
+FRENCH_PASS_THROUGH = {"errors.py", "catalogue.py", "commands/service.py"}
 
 
 def _user_error_classes() -> set[str]:
@@ -324,6 +324,13 @@ def test_the_param_guard_flags_ids_secrets_and_what_it_cannot_see(snippet):
     assert param_offenders(snippet, "routes.py", _user_error_classes()) != []
 
 
+@pytest.mark.parametrize("file", ["service.py", "auth/service.py", "linky/service.py"])
+def test_only_the_command_service_may_pass_params_it_builds_to_french(file):
+    snippet = 'french("x", params)'
+    assert param_offenders(snippet, file, _user_error_classes()) != []
+    assert param_offenders(snippet, "commands/service.py", _user_error_classes()) == []
+
+
 def test_the_param_guard_lets_keys_and_figures_through():
     ok = 'CommandError("temp_range", kind=kind, min=lo, max=hi)\nfrench("x", {"day": day})'
     assert param_offenders(ok, "routes.py", _user_error_classes()) == []
@@ -338,7 +345,9 @@ def test_no_code_takes_an_identifier_or_secret_param():
         o
         for p in sorted(KELVIN.rglob("*.py"))
         if not (p.name in DEFINING_FILES and p.parent == KELVIN)
-        for o in param_offenders(p.read_text(encoding="utf-8"), p.name, classes)
+        for o in param_offenders(
+            p.read_text(encoding="utf-8"), p.relative_to(KELVIN).as_posix(), classes
+        )
     ]
     assert offenders == []
 
@@ -359,6 +368,9 @@ def test_no_code_takes_an_identifier_or_secret_param():
         ("gateway 1234-5678-9012 offline", "gateway … offline"),
         ("device 1234-5678-9012/5432187#1 offline", "device … offline"),
         ("radiator 5432187 offline", "radiator … offline"),
+        # URL-encoded device path with no scheme: ids right after a word character
+        ("GET io%3A%2F%2F1234-5678-9012%2F5432187 failed", "GET io%3A%2F%2F…%2F… failed"),
+        ("device a5432187 gone", "device a… gone"),
         ("PDL 12345678901234 refused", "PDL … refused"),
         ("got token=deadbeef back", "got … back"),
         ("JSESSIONID=abc123; path=/", "…; path=/"),
