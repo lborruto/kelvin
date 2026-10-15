@@ -3,7 +3,7 @@
   import type { SetupDevice } from '$lib/api/types';
   import { fmtAgo } from '$lib/format';
   import { m } from '$lib/i18n';
-  import { detailRows } from '$lib/setup';
+  import { detailRows, deviceLabel } from '$lib/setup';
 
   interface Props {
     device: SetupDevice;
@@ -12,16 +12,22 @@
   }
   let { device, now, children }: Props = $props();
   let rows = $derived(detailRows(device));
+  let name = $derived(deviceLabel(device));
   let reach = $derived(device.reachable === null ? null : device.reachable ? m.devices.reachable : m.devices.unreachable);
 </script>
 
 <li class="device" class:misplaced={device.misplaced}>
   <div class="head">
     <span class="role">{m.devices.role[device.role]}</span>
-    <span class="chip" class:bad={device.reachable === false} aria-label={reach === null ? m.devices.reachUnknownLabel : undefined}>{reach ?? '—'}</span>
+    <span
+      class="chip"
+      class:bad={device.reachable === false}
+      role={reach === null ? 'img' : undefined}
+      aria-label={reach === null ? m.devices.reachUnknownLabel : undefined}>{reach ?? '—'}</span
+    >
   </div>
   <div class="meta">
-    <span class="label">{device.label}</span>
+    <span class="label">{name}</span>
     <span class="mono widget">{device.widget}</span>
   </div>
   <p class="signal">
@@ -29,7 +35,7 @@
   </p>
   {#if rows.length}
     <details class="more">
-      <summary>{m.devices.details}</summary>
+      <summary aria-label={m.devices.detailsOf(name)}>{m.devices.details}</summary>
       <dl>
         {#each rows as row (row.state)}
           <div class="row">

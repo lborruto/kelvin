@@ -800,6 +800,7 @@ export const fr = {
     lastSignal: (ago: string) => `Dernier signal${NB}: ${ago}`,
     lastSignalNone: `Dernier signal${NB}: —`,
     details: 'Détails',
+    detailsOf: (name: string) => `Détails de ${name}`,
     loadFailed: 'Impossible de charger les appareils.',
     reload: 'Réessayer',
     syncedAgo: (ago: string) => `Synchronisé avec Cozytouch ${ago}`,
@@ -943,7 +944,7 @@ export const fr = {
     room_label_invalid: () => `Le nom de la pièce doit faire de 1 à 32${NB}caractères, sans caractère invisible.`,
     room_label_taken: (p: ApiParams) => `Une pièce s’appelle déjà «${NB}${p.label}${NB}».`,
     room_label_reserved: (p: ApiParams) =>
-      `«${NB}${p.label}${NB}» attend encore la confirmation de Cozytouch${NB}: réessayez après la prochaine synchronisation${p.at ? ` (possible à ${p.at})` : ''}.`,
+      `«${NB}${p.label}${NB}» attend encore la confirmation de Cozytouch${NB}: réessayez après la prochaine synchronisation${p.at ? ` (possible ${p.day ? `le ${p.day} ` : ''}à ${p.at})` : ''}.`,
     room_not_empty: () => `Videz d’abord la pièce${NB}: déplacez ses radiateurs et appareils vers une autre pièce.`,
     room_protected: () =>
       `Cette pièce ne peut pas être supprimée${NB}: c’est la maison, ou elle contient le pont Cozytouch ou d’autres pièces.`,

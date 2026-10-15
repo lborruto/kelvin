@@ -116,3 +116,14 @@ export function roomName(r: { name: string; is_root?: boolean }): string {
 export function whenText(ms: number, now: number): string {
   return parisTodayIso(ms) === parisTodayIso(now) ? m.devices.atTime(fmtTime(ms)) : m.devices.onDate(fmtDateTime(ms));
 }
+
+// Cozytouch's generic sub-device label « IO (8370011#2) », or any label holding a device serial or
+// URL: shown as the device's role, never as a serial-like id (owner ruling).
+const GENERIC_LABEL = /^IO \(.*\)$/;
+const SERIAL_LIKE = /\d{5,}|:\/\//;
+
+/** The label to show for a device: its Cozytouch label, or its role when that label is generic. */
+export function deviceLabel(d: SetupDevice): string {
+  const label = d.label.trim();
+  return !label || GENERIC_LABEL.test(label) || SERIAL_LIKE.test(label) ? m.devices.role[d.role] : label;
+}

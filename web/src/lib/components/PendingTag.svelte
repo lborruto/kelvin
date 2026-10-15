@@ -34,7 +34,8 @@
            next full read settles it). No Réessayer: a second write could duplicate it. -->
       <span class="tag wait" in:fade={{ duration: dur(T.state) }}>
         <span class="dot still"></span>
-        <span title={pendingError(p)}>{m.pending.unconfirmed}</span>
+        <span>{m.pending.unconfirmed}</span>
+        <span class="why">{pendingError(p)}</span>
         <button type="button" class="btn btn-icon x" aria-label={m.common.dismiss} onclick={() => ondismiss(p.id)}><Icon name="x" size={16} /></button>
       </span>
     {:else if pending && phase === 'failed'}
@@ -92,6 +93,9 @@
   }
   .wait {
     flex-wrap: wrap;
+  }
+  .why {
+    flex-basis: 100%;
   }
   .dot.still {
     animation: none;

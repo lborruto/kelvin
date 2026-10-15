@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { SetupDevice, SyncStatus } from '$lib/api/types';
 import { applyLocale } from '$lib/i18n';
-import { detailRows, labelProblem, roomName, syncInfo, whenText } from './setup';
+import { detailRows, deviceLabel, labelProblem, roomName, syncInfo, whenText } from './setup';
 
 const NB = ' ';
 afterEach(() => applyLocale('fr'));
@@ -82,5 +82,24 @@ describe('whenText', () => {
     expect(whenText(Date.parse('2026-10-15T08:00:00Z'), now)).toMatch(/^le .*10:00$/);
     applyLocale('en');
     expect(whenText(Date.parse('2026-10-14T12:10:00Z'), now)).toBe('at 14:10');
+  });
+});
+
+describe('deviceLabel (ruling: never a serial-like id on screen)', () => {
+  const d = (label: string, role: SetupDevice['role'] = 'temperature'): SetupDevice => ({
+    id: 'r1#2', role, label, widget: 'TemperatureSensor', room_id: 'p-salon', misplaced: false, reachable: null,
+    last_event_at: null, details: {}
+  });
+  it('a Cozytouch generic label or one holding a device serial reads as the role', () => {
+    expect(deviceLabel(d('IO (8370011#2)'))).toBe('Sonde de température');
+    expect(deviceLabel(d('IO (1698997)', 'bridge'))).toBe('Pont Cozytouch');
+    expect(deviceLabel(d('Sonde 14172536#2'))).toBe('Sonde de température');
+    expect(deviceLabel(d('io://1234-5678-9012/1#2'))).toBe('Sonde de température');
+  });
+  it('a label someone chose is kept', () => {
+    expect(deviceLabel(d('Radiateur fenêtre', 'heater'))).toBe('Radiateur fenêtre');
+    expect(deviceLabel(d('Chambre 2'))).toBe('Chambre 2');
+    applyLocale('en');
+    expect(deviceLabel(d('IO (8370011#2)'))).toBe('Temperature sensor');
   });
 });

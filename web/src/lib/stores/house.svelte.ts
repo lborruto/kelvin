@@ -99,7 +99,14 @@ export class HouseStore {
     const next: Record<string, Pending> = {};
     const unknown: Pending[] = [];
     for (const p of local) {
-      if (p.status === 'failed' || p.status === 'unconfirmed') next[p.id] = p;
+      if (p.status === 'failed' || p.status === 'unconfirmed') {
+        // The server may have learnt more since (an unconfirmed write seen applied): prefer that.
+        const r = recent.get(p.id);
+        if (r && r.status !== p.status) {
+          next[p.id] = r;
+          if (r.status === 'confirmed') this.lingerThenDrop(r.id);
+        } else next[p.id] = p;
+      }
       else if (!ACTIVE.has(p.status) || s.pending.some((q) => q.id === p.id)) continue;
       else if (recent.has(p.id)) {
         // The server knows how it ended: use that, not a guess.

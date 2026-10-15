@@ -38,12 +38,30 @@ describe('SyncLine', () => {
     expect(screen.getByRole('button', { name: 'Synchroniser' })).toHaveAttribute('aria-disabled', 'false');
   });
 
-  it('asks for one sync and shows it running', async () => {
-    vi.mocked(api.syncSetup).mockResolvedValue({ sync: sync({ requested: true }) });
+  it('asks for one sync and shows it running at once', async () => {
+    let answer!: (v: unknown) => void;
+    vi.mocked(api.syncSetup).mockReturnValue(new Promise((r) => (answer = r)) as never);
+    vi.mocked(api.setupDevices).mockResolvedValue({ ...setupFixture(), sync: sync({ requested: true }) });
     render(SyncLine, { sync: sync(), now });
     await fireEvent.click(screen.getByRole('button', { name: 'Synchroniser' }));
     expect(api.syncSetup).toHaveBeenCalledOnce();
-    expect(house.setup?.sync?.requested).toBe(true);
+    expect(house.setup?.sync?.requested).toBe(true); // optimistic, before the 202
+    answer({ sync: sync({ requested: true }) });
+    await vi.waitFor(() => expect(api.setupDevices).toHaveBeenCalledOnce());
+  });
+
+  it('a layout event that lands before the 202 is never overwritten by it (review T10-1)', async () => {
+    const done = sync({ used: 2, requested: false, last_full_at: now / 1000 });
+    let answer!: (v: unknown) => void;
+    vi.mocked(api.syncSetup).mockReturnValue(new Promise((r) => (answer = r)) as never);
+    vi.mocked(api.setupDevices).mockResolvedValue({ ...setupFixture(), sync: done });
+    render(SyncLine, { sync: sync(), now });
+    await fireEvent.click(screen.getByRole('button', { name: 'Synchroniser' }));
+    house.applySetup({ ...setupFixture(), sync: done }); // the pump read at once: SSE layout
+    answer({ sync: sync({ requested: true }) }); // the stale 202 arrives after it
+    await vi.waitFor(() => expect(api.setupDevices).toHaveBeenCalledOnce());
+    await Promise.resolve();
+    expect(house.setup?.sync).toEqual(done);
   });
 
   it('when the budget is spent, says when the next sync is possible and does not send', async () => {

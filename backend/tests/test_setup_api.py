@@ -11,7 +11,7 @@ from kelvin.api.app import create_app
 from kelvin.api.context import boot, open_context
 from kelvin.config import Settings
 from kelvin.overkiz.budget import FULL_READS_PER_DAY
-from kelvin.overkiz.fake import DEMO_EMAIL, DEMO_PASSWORD, FakeGateway
+from kelvin.overkiz.fake import DEMO_EMAIL, DEMO_PASSWORD, FakeGateway, setup_failures
 from kelvin.overkiz.sample import SAMPLE_GATEWAY
 from tests.conftest import ManualClock, err, login
 
@@ -214,3 +214,16 @@ async def test_features_name_is_bounded(ctx):
     c, _, _ = ctx
     r = await c.patch("/api/radiators/9312063/features", json={"name": "x" * 201})
     assert r.status_code == 422 and r.json()["code"] == "invalid_request"
+
+
+async def test_the_reserved_answer_says_the_day_when_the_next_sync_is_not_today(ctx):
+    c, rt, clock = ctx
+    rt.gateway.fail_setup = setup_failures("create_place")
+    await c.post("/api/setup/rooms", json={"label": "Bureau"})
+    rt.gateway.fail_setup = {}
+    for _ in range(2):
+        rt.pump.guard.record()  # only the restart's read is left: the next sync is in 24 h
+    r = await c.post("/api/setup/rooms", json={"label": "Bureau"})
+    assert r.status_code == 409 and r.json()["code"] == "room_label_reserved"
+    params = r.json()["params"]
+    assert params["at"] and params["day"]  # tomorrow: « le 15/10 à … »

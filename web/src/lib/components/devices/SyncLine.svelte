@@ -22,18 +22,22 @@
   async function syncNow(): Promise<void> {
     if (paused) return;
     sending = true;
+    // Optimistic: the line says « en cours » at once. The 202's own `sync` is never applied: the
+    // pump may read and publish `layout` before the 202 is parsed, and that newer truth must not
+    // be overwritten (review T10-1). The layout event or the re-fetch below brings the truth.
+    if (house.setup?.sync) house.applySetup({ ...house.setup, sync: { ...house.setup.sync, requested: true } });
     try {
-      const res = await api.syncSetup();
-      if (house.setup) house.applySetup({ ...house.setup, sync: res.sync });
+      await api.syncSetup();
     } catch (e) {
       toasts.push(() => errorText(e));
-      try {
-        house.applySetup(await api.setupDevices());
-      } catch {
-        /* the 30 s reload will bring it */
-      }
     } finally {
       sending = false;
+    }
+    try {
+      const fresh = await api.setupDevices();
+      if (fresh) house.applySetup(fresh);
+    } catch {
+      /* the 30 s reload will bring it */
     }
   }
 </script>

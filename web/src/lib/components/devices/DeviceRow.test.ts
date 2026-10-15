@@ -16,7 +16,7 @@ describe('DeviceRow', () => {
     expect(screen.getByText(/AtlanticElectricalHeater/)).toHaveClass('mono');
     expect(screen.getByText('Joignable')).toBeInTheDocument();
     expect(screen.getByText(/Dernier signal/)).toHaveTextContent('il y a 3');
-    expect(screen.getByText('Détails')).toBeInTheDocument();
+    expect(screen.getByText('Détails').closest('summary')).toHaveAccessibleName('Détails de Radiateur');
     expect(screen.getByText('core:VersionState')).toHaveClass('mono');
   });
 
@@ -34,5 +34,17 @@ describe('DeviceRow', () => {
     render(DeviceRow, { device: { ...heater, reachable: false }, now });
     expect(screen.getByText('Heater')).toBeInTheDocument();
     expect(screen.getByText('Unreachable')).toBeInTheDocument();
+  });
+
+  it('shows a generic « IO (serial#n) » label as the role, never the serial', () => {
+    const sensor = setupFixture().radiators[0].devices[1]; // label « IO (r1#2) »
+    const { container } = render(DeviceRow, { device: { ...sensor, label: 'IO (8370011#2)' }, now });
+    expect(container.textContent).not.toContain('8370011');
+    expect(screen.getAllByText('Sonde de température')).toHaveLength(2); // role and label
+  });
+
+  it('the unknown connectivity chip is announced', () => {
+    render(DeviceRow, { device: setupFixture().radiators[0].devices[2], now });
+    expect(screen.getByRole('img', { name: 'Connexion inconnue' })).toHaveTextContent('—');
   });
 });

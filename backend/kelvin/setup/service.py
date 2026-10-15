@@ -121,9 +121,9 @@ class SetupService:
         # Set by the runtime (Task 6): a place change Kelvin did not make; a write settled.
         self.on_outside_change: Callable[[], None] = lambda: None
         self.on_written: Callable[[], None] = lambda: None
-        # Set by the runtime: when « Synchroniser » can next read (« HH:MM »), for the answer
-        # to a label still waiting for Cozytouch.
-        self.next_sync_text: Callable[[], str | None] = lambda: None
+        # Set by the runtime: when « Synchroniser » can next read, as (« HH:MM », the day
+        # « dd/mm » or None when it is today), for the answer to a label still waiting.
+        self.next_sync_when: Callable[[], tuple[str | None, str | None]] = lambda: (None, None)
         self._pending: dict[str, SetupPending] = {}
         self._recent: dict[str, tuple[float, SetupPending]] = {}
         self._lock = asyncio.Lock()
@@ -135,7 +135,7 @@ class SetupService:
         self._missing: dict[str, float] = {}  # place oid -> when it answered 404
         # Reserved labels whose place oid is known (a create that got its oid, a rename): one
         # targeted read settles each, at the timeout and when a full read is withheld.
-        self._unsettled: dict[str, Step] = {}
+        self._unsettled: dict[str, tuple[Step, SetupPending]] = {}
         self._settle_due = False
         self._settle_final = False
 
@@ -172,7 +172,7 @@ class SetupService:
                 key = st.want.casefold()
                 self._reserved.add(key)
                 if st.target:
-                    self._unsettled[key] = st
+                    self._unsettled[key] = (st, p)
 
     def _release(self, key: str) -> None:
         self._reserved.discard(key)
@@ -180,15 +180,19 @@ class SetupService:
 
     async def _settle(self) -> bool:
         """One targeted read per reserved label with a known place. Applied → the house has
-        it (taken for real); not applied → released when final, kept otherwise (Cozytouch may
-        still be applying it; the after-write full read, or a final settle, decides)."""
+        it (taken for real) and the pending is confirmed after all; not applied → released
+        when final, kept otherwise (Cozytouch may still be applying it; the after-write full
+        read, or a final settle, decides). A renamed place that answers 404 is gone."""
         final, self._settle_due, self._settle_final = self._settle_final, False, False
         changed = False
-        for key, st in list(self._unsettled.items()):
+        for key, (st, p) in list(self._unsettled.items()):
             try:
                 place = await self.gateway.read_place(st.target)
             except SetupNotFoundError:
-                if final:
+                if st.op == "rename":
+                    changed |= self.house.remove_place(st.target)
+                    self._release(key)
+                elif final:
                     self._release(key)
                 continue
             except GatewayError as e:
@@ -197,15 +201,28 @@ class SetupService:
             if place.label == st.want:
                 changed |= self.house.put_place(place, st.parent)
                 self._release(key)
+                st.done = True
+                self._confirm_late(p)
             elif final:
                 changed |= self.house.put_place(place, st.parent)
                 self._release(key)
         return changed
 
+    def _confirm_late(self, p: SetupPending) -> None:
+        """An unconfirmed pending whose every write is now seen applied: confirmed after all."""
+        if p.status != "unconfirmed" or not all(st.done for st in p.steps):
+            return
+        p.status = "confirmed"
+        p.error = p.error_code = p.reason_code = None
+        p.error_params = {}
+        self._recent[p.id] = (self.clock(), p)
+        self.on_update(p)
+
     def _check_reserved(self, raw: str) -> None:
         s = clean_label(raw)
         if s is not None and s.casefold() in self._reserved:
-            raise UserError("room_label_reserved", 409, label=s, at=self.next_sync_text())
+            at, day = self.next_sync_when()
+            raise UserError("room_label_reserved", 409, label=s, at=at, day=day)
 
     def _prune_recent(self) -> None:
         cutoff = self.clock() - RECENT_KEEP

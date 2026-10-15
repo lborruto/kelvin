@@ -237,6 +237,7 @@
       "fr": "« Studio » attend encore la confirmation de Cozytouch : réessayez après la prochaine synchronisation.",
       "params": {
         "at": null,
+        "day": null,
         "label": "Studio"
       }
     },

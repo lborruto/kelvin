@@ -775,6 +775,7 @@ export const en: Messages = {
     lastSignal: (ago: string) => `Last signal: ${ago}`,
     lastSignalNone: 'Last signal: —',
     details: 'Details',
+    detailsOf: (name: string) => `Details of ${name}`,
     loadFailed: 'Couldn’t load the devices.',
     reload: 'Try again',
     syncedAgo: (ago: string) => `Synced with Cozytouch ${ago}`,
@@ -915,7 +916,7 @@ export const en: Messages = {
     room_label_invalid: () => 'A room name must be 1 to 32 characters, with no invisible characters.',
     room_label_taken: (p: ApiParams) => `A room called “${p.label}” already exists.`,
     room_label_reserved: (p: ApiParams) =>
-      `“${p.label}” is still waiting for Cozytouch to confirm it: try again after the next sync${p.at ? ` (possible at ${p.at})` : ''}.`,
+      `“${p.label}” is still waiting for Cozytouch to confirm it: try again after the next sync${p.at ? ` (possible ${p.day ? `on ${p.day} ` : ''}at ${p.at})` : ''}.`,
     room_not_empty: () => 'Empty the room first: move its radiators and devices to another room.',
     room_protected: () => 'This room can’t be deleted: it’s the home itself, or it holds the Cozytouch bridge or other rooms.',
     room_type_unknown: () => 'Create a first room in the Cozytouch app: Kelvin uses its type.',

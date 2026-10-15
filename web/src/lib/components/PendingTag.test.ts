@@ -56,6 +56,8 @@ forEachLocale((l) => {
       ondismiss
     });
     expect(screen.getByText(en ? 'Not confirmed yet' : 'Pas encore confirmé')).toBeInTheDocument();
+    // The reason is visible text, not a title only (review T8-1).
+    expect(container).toHaveTextContent(en ? 'Kelvin checks at the next refresh' : 'Kelvin vérifie au prochain relevé');
     expect(screen.queryByRole('button', { name: en ? 'Retry' : 'Réessayer' })).toBeNull();
     expect(container.querySelector('.bad')).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: en ? 'Dismiss' : 'Ignorer' }));

@@ -469,13 +469,15 @@ async def test_tidy_when_the_heater_s_place_is_unknown_is_room_unknown(env):
 
 
 async def test_the_settle_read_at_the_timeout_applies_a_write_that_landed_silently(env):
-    clock, gw, house, svc, _ = env
+    clock, gw, house, svc, updates = env
     gw.silent_setup = True
     gw.setup_delay = 40.0  # after the +30 s read, before the timeout
     p = await svc.create_room("Bureau")
     await pump(clock, gw, svc, 60)
-    assert p.status == "unconfirmed"
-    assert house.places[p.room_id].label == "Bureau"  # the one settle read found it
+    # The one settle read found it: confirmed by Cozytouch after all (review F2).
+    assert p.status == "confirmed" and p.error_code is None
+    assert [u["status"] for u in updates][-2:] == ["unconfirmed", "confirmed"]
+    assert house.places[p.room_id].label == "Bureau"
     with pytest.raises(UserError) as e:
         await svc.create_room("Bureau")
     assert e.value.code == "room_label_taken"  # it exists: taken for real, not « reserved »
@@ -512,11 +514,29 @@ async def test_an_unconfirmed_rename_is_settled_by_its_read(env):
     assert [w[0] for w in gw.setup_writes] == ["update_place", "create_place"]
 
 
-async def test_the_reserved_answer_carries_the_next_sync_time(env):
+async def test_the_reserved_answer_carries_the_next_sync_time_and_its_day(env):
     _, gw, _, svc, _ = env
-    svc.next_sync_text = lambda: "14:30"
+    svc.next_sync_when = lambda: ("14:30", None)  # today
     gw.fail_setup = setup_failures("create_place")
     await svc.create_room("Bureau")
     with pytest.raises(UserError) as e:
         await svc.create_room("Bureau")
-    assert e.value.params == {"label": "Bureau", "at": "14:30"}
+    assert e.value.params == {"label": "Bureau", "at": "14:30", "day": None}
+    svc.next_sync_when = lambda: ("12:00", "15/10")  # tomorrow: the day is said (review F1)
+    with pytest.raises(UserError) as e:
+        await svc.create_room("Bureau")
+    assert e.value.params == {"label": "Bureau", "at": "12:00", "day": "15/10"}
+
+
+async def test_a_rename_settled_by_a_404_removes_the_deleted_place(env):
+    """Review F3: the 404 is Cozytouch's own report that the place is gone."""
+    clock, gw, house, svc, _ = env
+    gw.silent_setup = True
+    gw.setup_delay = 10_000.0
+    await svc.rename_room("p-ch1", "Studio")
+    await pump(clock, gw, svc, 60)
+    gw.outside_delete_place("p-ch1")  # deleted in the app meanwhile
+    svc.settle_soon()
+    await pump(clock, gw, svc, 1)
+    assert "p-ch1" not in house.places
+    await svc.create_room("Studio")  # released

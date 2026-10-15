@@ -272,4 +272,15 @@ describe('a write Cozytouch did not confirm in time (unconfirmed)', () => {
     s.applySnapshot(snap());
     expect(s.pending.p1?.status).toBe('unconfirmed');
   });
+
+  it('a later confirmation from the server replaces it (review F2)', () => {
+    const later: (() => void)[] = [];
+    const s = new HouseStore((fn) => later.push(fn));
+    const base = { radiator_ids: [], room_id: 'salon', kind: 'setup' } as Partial<Pending>;
+    s.applyPending(pending('p1', { ...base, status: 'unconfirmed' }));
+    s.applySnapshot({ ...snap(), recent: [pending('p1', { ...base, status: 'confirmed' })] });
+    expect(s.pending.p1?.status).toBe('confirmed');
+    later.forEach((fn) => fn());
+    expect(s.pending.p1).toBeUndefined(); // dropped after its linger
+  });
 });

@@ -164,7 +164,7 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "slot_time_invalid": {"value": "24:00"},
     "linky_status_throttled": {"at": "14:30"},
     "room_label_taken": {"label": "Salon"},
-    "room_label_reserved": {"label": "Studio", "at": None},
+    "room_label_reserved": {"label": "Studio", "at": None, "day": None},
     "room_not_empty": {"count": 2},
     "setup_move_partial": {"done": 5, "total": 6},
     "setup_sync_spent": {"used": 3, "limit": 3, "next_at": 1760500000.0},

@@ -349,11 +349,15 @@ async def start_runtime(
         refresher.on_withheld = setup.settle_soon
         zone = ZoneInfo(settings.tz)
 
-        def next_sync_text() -> str | None:
+        def next_sync_when() -> tuple[str | None, str | None]:
             at = refresher.view()["next_possible_at"]
-            return None if at is None else datetime.fromtimestamp(at, zone).strftime("%H:%M")
+            if at is None:
+                return None, None
+            when = datetime.fromtimestamp(at, zone)
+            today = datetime.fromtimestamp(wall(), zone).date()
+            return when.strftime("%H:%M"), None if when.date() == today else when.strftime("%d/%m")
 
-        setup.next_sync_text = next_sync_text
+        setup.next_sync_when = next_sync_when
 
         recorder_ref: list[Recorder] = []
 
