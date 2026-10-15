@@ -118,6 +118,15 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Joignable / Injoignable | Reachable / Unreachable |
 | Sessions | Signed-in devices |
 | Pré-chauffage | Pre-heat |
+| Allure | Heating level | A pilot-wire heater's level (Confort, Éco, Hors-gel, Arrêt) |
+| Devrait fonctionner | Expected to work | Support chip: not tested on real hardware |
+| Expérimental | Experimental | Support chip |
+| Lecture seule | Read-only | Support chip: Kelvin shows the device and sends it nothing |
+| Sèche-serviettes | Towel dryer | |
+| Boost (du sèche-serviettes) | Towel boost | Kelvin's own override stays Forcer / Boost |
+| Séchage | Drying | |
+| Radiateur fil pilote | Pilot-wire radiator | |
+| Serveur | Server | The Overkiz server a home belongs to (Settings, login) |
 
 ## Tone
 

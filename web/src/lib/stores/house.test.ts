@@ -84,6 +84,35 @@ describe('HouseStore', () => {
     expect(s.away?.id).toBe('o1');
   });
 
+  it('compares a room expectation only across the radiators that take it', () => {
+    const s = new HouseStore();
+    const dryerCaps = {
+      modes: ['off', 'manual', 'program'], manual: [7, 26], comfort: null, eco: null, levels: [], program: false,
+      dryer: [], window_detection: false, presence_detection: false, night_light: false, night_light_intensity: false,
+      identify: false, energy: false, boost: true, read_only: false
+    } as never;
+    s.applySnapshot({
+      ...snap(),
+      house: { rooms: [room('salon', ['a', 'd'])], radiators: [rad('a', 'salon'), rad('d', 'salon', { capabilities: dryerCaps })] }
+    });
+    s.applyPending(pending('p', { radiator_ids: ['a'], expected: { a: { comfort: 21 } } }));
+    expect(s.roomExpected('salon')).toEqual({ comfort: 21 });
+  });
+
+  it('a lost level pending is checked against the reported level', () => {
+    const s = new HouseStore();
+    s.applySnapshot(snap());
+    s.applyPending(pending('lv', { expected: { a: { level: 'eco' } } }));
+    s.applySnapshot({ ...snap(), house: { ...snap().house, radiators: [rad('a', 'salon', { heating_level: 'comfort' }), rad('b', 'salon'), rad('c', 'ch1')] } });
+    expect(s.pending.lv?.status).toBe('failed');
+    expect(s.pending.lv?.error_code).toBe(LOST);
+    const t = new HouseStore();
+    t.applySnapshot(snap());
+    t.applyPending(pending('lv', { expected: { a: { level: 'eco' } } }));
+    t.applySnapshot(snap());
+    expect(t.pending.lv).toBeUndefined();
+  });
+
   it('resync: unseen active pending is dropped if state matches, else failed', () => {
     const s = new HouseStore();
     s.applySnapshot(snap());

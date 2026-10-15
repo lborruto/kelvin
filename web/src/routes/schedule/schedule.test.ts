@@ -146,7 +146,7 @@ describe('/schedule', () => {
       pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
     } as never);
     render(Page);
-    expect(await screen.findByText(/aucun radiateur/)).toBeInTheDocument();
+    expect(await screen.findByText(/Aucun radiateur de cette maison/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Envoyer' })).toBeNull();
   });
 
@@ -412,5 +412,40 @@ describe('sending to other rooms (final review C1, I2)', () => {
     await waitFor(() => expect(api.roomProgram).toHaveBeenCalledTimes(3));
     expect(vi.mocked(api.roomProgram).mock.calls[2][0]).toBe('ch');
     expect(vi.mocked(api.roomProgram).mock.calls[2][2]).toMatchObject({ force: true });
+  });
+});
+
+describe('Schedule across kinds', () => {
+  const pilot = {
+    ...rad, id: 'p', room_id: 'bureau', name: 'Bureau', support: 'expected',
+    capabilities: {
+      modes: [], manual: null, comfort: null, eco: null, levels: ['eco', 'off'], program: false, dryer: [],
+      window_detection: false, presence_detection: false, night_light: false, night_light_intensity: false,
+      identify: false, energy: false, boost: false, read_only: false
+    }
+  };
+  const roomOf = (id: string, name: string, ids: string[]) => ({
+    id, name, radiator_ids: ids, temperature: 19.5, mode: 'manual', target: 20, comfort: 19, eco: 17,
+    effective_setpoint: 17, heating_level: 'eco', window_open: false, occupied: false
+  });
+
+  it('offers only rooms whose programme Kelvin can edit', async () => {
+    house.applySnapshot({
+      house: { rooms: [roomOf('salon', 'Salon', ['a']), roomOf('bureau', 'Bureau', ['p'])], radiators: [rad, pilot] },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
+    } as never);
+    render(Page);
+    expect(await screen.findByRole('button', { name: 'Ajouter une plage le Lundi' })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Bureau' })).toBeNull();
+    expect(screen.queryByText('Bureau')).toBeNull();
+  });
+
+  it('says so when no programme is editable', async () => {
+    house.applySnapshot({
+      house: { rooms: [roomOf('bureau', 'Bureau', ['p'])], radiators: [pilot] },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
+    } as never);
+    render(Page);
+    expect(await screen.findByText(/Aucun radiateur de cette maison n’a de programme/)).toBeInTheDocument();
   });
 });

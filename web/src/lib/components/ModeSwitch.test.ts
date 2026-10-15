@@ -103,3 +103,8 @@ it('the chips re-render on a switch, same buttons', () => {
   flushSync();
   expect(screen.getByRole('radio', { name: 'Schedule' })).toBe(radio);
 });
+
+it('offers only the modes it is given', () => {
+  render(ModeSwitch, { value: 'manual', modes: ['off', 'manual'], onchange: vi.fn() });
+  expect(screen.getAllByRole('radio').map((b) => b.textContent?.trim())).toEqual(['Arrêt', 'Manuel']);
+});

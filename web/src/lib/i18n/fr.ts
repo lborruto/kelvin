@@ -196,6 +196,7 @@ export const fr = {
     changedElsewhereDays: (days: string) => `Modifié dans l’app Cozytouch ou sur un autre appareil${NB}: ${days}. Rechargez pour voir la version actuelle, ou remplacez-la par vos modifications.`,
     reload: 'Recharger',
     replaceAnyway: 'Remplacer quand même',
+    noRooms: 'Aucun radiateur de cette maison n’a de programme que Kelvin sait modifier. Les autres suivent leur propre programme ou l’application du fabricant.',
     nextTomorrow: (time: string, level: string) => `demain ${time} → ${level}`,
     nextOn: (day: Day, time: string, level: string) => `${DAY_LOWER[day]} ${time} → ${level}`,
     dayError: {
@@ -1103,6 +1104,34 @@ export const fr = {
     level_unknown: (p: ApiParams) => `Allure inconnue${NB}: ${p.level}.`,
     dryer_action_unknown: (p: ApiParams) => `Action inconnue${NB}: ${p.action}.`,
     unsupported_in_room: () => 'Aucun des radiateurs concernés ne prend en charge cette commande.'
+  },
+  // Plan 12 (Task 12)
+  kind: {
+    setpoint_heater: 'Radiateur',
+    pilot_wire_heater: 'Radiateur fil pilote',
+    towel_dryer: 'Sèche-serviettes',
+    heater_unknown: 'Chauffage'
+  },
+  support: {
+    expected: 'Devrait fonctionner',
+    experimental: 'Expérimental',
+    readonly: 'Lecture seule',
+    readonlyHint: `Kelvin ne pilote pas ce type d’appareil${NB}: il est affiché tel que Cozytouch le décrit.`
+  },
+  pilot: {
+    label: 'Allure',
+    comfort: 'Confort',
+    comfort1: 'Confort −1',
+    comfort2: 'Confort −2',
+    eco: 'Éco',
+    frostprotection: 'Hors-gel',
+    off: 'Arrêt'
+  },
+  dryer: { label: 'Sèche-serviettes', normal: 'Normal', boost: 'Boost', drying: 'Séchage' },
+  roomCaps: {
+    partial: (n: number, total: number) =>
+      n === 1 ? `S’applique à 1 radiateur sur ${total}` : `S’applique à ${n} radiateurs sur ${total}`,
+    readOnly: 'Kelvin ne pilote aucun appareil de cette pièce.'
   },
   // Plan 12
   servers: {

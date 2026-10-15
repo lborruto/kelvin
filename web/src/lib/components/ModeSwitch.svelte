@@ -9,15 +9,16 @@
     pending?: Mode | null;
     disabled?: boolean;
     compact?: boolean;
+    modes?: SettableMode[];
     label?: string;
     onchange: (m: SettableMode) => void;
   }
-  let { value, pending = null, disabled = false, compact = false, label = 'Mode', onchange }: Props = $props();
+  let { value, pending = null, disabled = false, compact = false, modes = ['off', 'manual', 'program'], label = 'Mode', onchange }: Props = $props();
   let options = $derived([
     { v: 'off' as const, l: m.mode.off },
     { v: 'manual' as const, l: m.mode.manual },
     { v: 'program' as const, l: compact ? m.modeSwitch.programShort : m.mode.program }
-  ]);
+  ].filter((o) => modes.includes(o.v)));
   let current = $derived(pending ?? value);
   let waiting = $derived(pending !== null && pending !== value);
   // Dashed while the radiator has not reported the requested mode; closes solid when it does.
@@ -35,7 +36,7 @@
   }
 </script>
 
-<div class="seg" role="radiogroup" aria-label={label} aria-busy={waiting}>
+<div class="seg" role="radiogroup" aria-label={label} aria-busy={waiting} style:--cols={options.length}>
   {#each options as o, i (o.v)}
     {@const on = current === o.v}
     {@const isPending = waiting && pending === o.v}
@@ -51,7 +52,7 @@
 <style>
   .seg {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(var(--cols, 3), 1fr);
     gap: 2px;
     padding: 2px;
     background: var(--in);
