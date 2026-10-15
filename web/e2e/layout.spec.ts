@@ -29,6 +29,23 @@ test.describe('layout', () => {
     });
   }
 
+  test('/schedule with three periods on a day never scrolls sideways from 320 to 1440 px', async ({ page }) => {
+    page.on('dialog', (d) => d.accept());
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.goto('/schedule');
+    await settled(page);
+    // The open day (today on a phone) gets its third period: its summary is then at its longest.
+    // Clicked in the DOM: once the first period is added, the sticky send bar may cover the button.
+    const add = page.locator('button.add').first();
+    for (let i = 0; i < 3; i++) await add.evaluate((b: HTMLButtonElement) => b.click());
+    await expect(add).toHaveAttribute('aria-disabled', 'true');
+    for (const width of WIDTHS) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForTimeout(100);
+      expect(await overflow(page), `/schedule (3 periods) at ${width} px`).toBeLessThanOrEqual(0);
+    }
+  });
+
   test('/login never scrolls sideways from 320 to 1440 px', async ({ browser }) => {
     const page = await (await browser.newContext({ storageState: { cookies: [], origins: [] } })).newPage();
     for (const width of WIDTHS) {

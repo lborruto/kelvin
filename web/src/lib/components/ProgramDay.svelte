@@ -155,6 +155,9 @@
 <style>
   .day {
     display: grid;
+    /* One column no wider than the page: a day with three periods ellipsises its summary
+       instead of widening the page (an auto track grows to the nowrap text). */
+    grid-template-columns: minmax(0, 1fr);
     gap: 6px;
     padding: 10px 0;
     border-bottom: 1px solid var(--line);
