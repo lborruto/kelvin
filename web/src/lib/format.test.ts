@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  fmtAgo, fmtAmount, fmtChange, fmtDateLong, fmtDay, fmtDelta, fmtEur, fmtKwh, fmtPct, fmtPrice, fmtTemp, fmtTime, fmtWh,
+  fmtAgo, fmtAmount, fmtDateLong, fmtDay, fmtDelta, fmtKwh, fmtPct, fmtPrice, fmtTemp, fmtTime, fmtWh,
   LEVEL_LABEL, MODE_LABEL, monthName, parseDecimal
 } from './format';
 
@@ -56,22 +56,12 @@ describe('energy formats', () => {
     expect(fmtWh(399.6)).toBe(`400${NB}Wh`);
     expect(fmtWh(null)).toBe('—');
   });
-  it('euros: cents under 100, whole above, NBSP before the unit', () => {
-    expect(fmtEur(12.5)).toBe(`12,50${NB}€`);
-    expect(fmtEur(1234.4)).toBe(`1 234${NB}€`);
-    expect(fmtEur(null)).toBe('—');
+  it('prices, amounts and shares, NBSP before the unit', () => {
     expect(fmtPrice(0.2068)).toBe(`0,2068${NB}€/kWh`);
     expect(fmtAmount(0.2068, 4)).toBe('0,2068');
     expect(fmtAmount(16.2, 2)).toBe('16,20');
     expect(fmtAmount(null, 2)).toBe('—');
     expect(fmtPct(0.574)).toBe(`57${NB}%`);
-  });
-  it('change with a sign and the true minus', () => {
-    expect(fmtChange(110, 100)).toBe(`+10${NB}%`);
-    expect(fmtChange(90, 100)).toBe(`−10${NB}%`);
-    expect(fmtChange(100, 100)).toBe(`0${NB}%`);
-    expect(fmtChange(5, 0)).toBeNull();
-    expect(fmtChange(null, 3)).toBeNull();
   });
   it('reads French decimals', () => {
     expect(parseDecimal('0,2068')).toBe(0.2068);

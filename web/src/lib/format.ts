@@ -74,11 +74,6 @@ const dayLong = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', day: 'numeri
 const monthYear = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', month: 'long', year: 'numeric' });
 const parisDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' });
 
-export function fmtEur(v: number | null | undefined): string {
-  if (bad(v)) return '—';
-  return `${Math.abs(v) >= 100 ? whole.format(v) : two.format(v)}${NB}€`;
-}
-
 export function fmtPrice(v: number | null | undefined): string {
   if (bad(v)) return '—';
   return `${four.format(v)}${NB}€/kWh`;
@@ -93,14 +88,6 @@ export function fmtAmount(v: number | null | undefined, digits: 2 | 4): string {
 export function fmtPct(share: number | null | undefined): string {
   if (bad(share)) return '—';
   return `${whole.format(share * 100)}${NB}%`;
-}
-
-/** "+12 %", "−8 %" (true minus), "0 %"; null when there is nothing to compare with. */
-export function fmtChange(cur: number | null | undefined, prev: number | null | undefined): string | null {
-  if (bad(cur) || bad(prev) || prev <= 0) return null;
-  const p = Math.round(((cur - prev) / prev) * 100);
-  if (p === 0) return `0${NB}%`;
-  return `${p > 0 ? '+' : '−'}${whole.format(Math.abs(p))}${NB}%`;
 }
 
 /** "0,2068", "19.5", "1 234,5" → number; null for anything else (negative included). */
