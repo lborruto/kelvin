@@ -33,34 +33,39 @@
       })();
     </script>
     <script>
-      /* locale:start */
-      function kelvinLocale(stored, languages, language) {
-        if (stored === 'fr' || stored === 'en') return stored;
-        var all = (languages ? Array.prototype.slice.call(languages) : []).concat(language ? [language] : []);
-        for (var i = 0; i < all.length; i++) if (/^fr\b/i.test(all[i])) return 'fr';
-        return language || (languages && languages.length) ? 'en' : 'fr';
-      }
-      /* locale:end */
-      // <html lang> before first paint, so screen readers and hyphenation start right (spec §4).
-      // Same rule as detectLocale ($lib/i18n/locale.ts); locale.test.ts runs both on one table.
-      try {
-        var stored = null;
+      // An IIFE: no global (window.kelvinLocale, window.stored) leaks from this classic script.
+      (function () {
+        /* locale:start */
+        function kelvinLocale(stored, languages, language) {
+          if (stored === 'fr' || stored === 'en') return stored;
+          var all = (languages ? Array.prototype.slice.call(languages) : []).concat(language ? [language] : []);
+          for (var i = 0; i < all.length; i++) if (/^fr\b/i.test(all[i])) return 'fr';
+          return language || (languages && languages.length) ? 'en' : 'fr';
+        }
+        /* locale:end */
+        // <html lang> before first paint, so screen readers and hyphenation start right (spec §4).
+        // Same rule as detectLocale ($lib/i18n/locale.ts); locale.test.ts runs both on one table.
         try {
-          stored = localStorage.getItem('kelvin-locale');
+          var stored = null;
+          try {
+            stored = localStorage.getItem('kelvin-locale');
+          } catch (e) {}
+          document.documentElement.lang = kelvinLocale(stored, navigator.languages, navigator.language);
         } catch (e) {}
-        document.documentElement.lang = kelvinLocale(stored, navigator.languages, navigator.language);
-      } catch (e) {}
+      })();
     </script>
     <script>
-      try {
-        const t = localStorage.getItem('kelvin-theme');
-        if (t === 'light' || t === 'dark') {
-          document.documentElement.dataset.theme = t;
-          // Same rule as applyThemeColor ($lib/stores/theme.ts), before the app loads.
-          const c = t === 'light' ? '#f5f6f8' : '#0f1115';
-          for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = c;
-        }
-      } catch {}
+      (function () {
+        try {
+          const t = localStorage.getItem('kelvin-theme');
+          if (t === 'light' || t === 'dark') {
+            document.documentElement.dataset.theme = t;
+            // Same rule as applyThemeColor ($lib/stores/theme.ts), before the app loads.
+            const c = t === 'light' ? '#f5f6f8' : '#0f1115';
+            for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = c;
+          }
+        } catch {}
+      })();
     </script>
     <style>
       /* First paint before the app loads (removed by the root layout): the page ground, the

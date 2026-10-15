@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import { detectLocale, KEY, persist, readStored } from './locale';
 import { initLocale, locale, setLocale } from './index';
@@ -31,6 +32,26 @@ describe('detectLocale', () => {
   });
 });
 
+describe('the app.html locale script', () => {
+  const script = html.match(/<script>((?:(?!<\/script>)[\s\S])*?locale:start[\s\S]*?)<\/script>/)?.[1] ?? '';
+  const run = (stored: string | null, languages: string[]) => {
+    const ctx = {
+      localStorage: { getItem: () => stored },
+      navigator: { languages, language: languages[0] },
+      document: { documentElement: { lang: 'fr' } }
+    } as Record<string, unknown>;
+    runInNewContext(script, ctx);
+    return ctx;
+  };
+  it('sets <html lang> before the app and leaks no global', () => {
+    expect(script).toContain('kelvinLocale');
+    const ctx = run(null, ['en-GB']);
+    expect((ctx.document as { documentElement: { lang: string } }).documentElement.lang).toBe('en');
+    expect(Object.keys(ctx).sort()).toEqual(['document', 'localStorage', 'navigator']);
+    expect((run('fr', ['en-GB']).document as { documentElement: { lang: string } }).documentElement.lang).toBe('fr');
+  });
+});
+
 describe('storage', () => {
   it('a throwing storage keeps French and never throws', () => {
     const broken = {
@@ -49,9 +70,9 @@ describe('storage', () => {
     setLocale('en');
     expect(localStorage.getItem(KEY)).toBe('en');
     expect([locale.current, document.documentElement.lang]).toEqual(['en', 'en']);
-    setLocale('fr');
-    localStorage.setItem(KEY, 'en');
+    // jsdom's navigator says en-US: only a stored 'fr' can bring French back.
+    localStorage.setItem(KEY, 'fr');
     initLocale();
-    expect(locale.current).toBe('en');
+    expect(locale.current).toBe('fr');
   });
 });
