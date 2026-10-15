@@ -807,6 +807,7 @@ export const en: Messages = {
     misplaced: 'Not in the same room as its radiator',
     tidy: 'Move back with the radiator',
     home: 'Home',
+    radiator: 'Radiator',
     undo: 'Undo',
     done: (label: string) => `${label} — done`,
     watts: (n: string) => `${n}${NB}W`,

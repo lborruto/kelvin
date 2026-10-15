@@ -14,6 +14,7 @@
   import MoveDialog from '$lib/components/devices/MoveDialog.svelte';
   import { m } from '$lib/i18n';
   import { ROUTES } from '$lib/paths';
+  import { radiatorName } from '$lib/setup';
   import { installUndo, runSetup } from '$lib/setupActions';
   import { house } from '$lib/stores/house.svelte';
 
@@ -62,7 +63,8 @@
     let made: Pending | null = null;
     made = await runSetup(
       () => api.createRoom(label),
-      () => api.deleteRoom(made!.room_id!)
+      () => api.deleteRoom(made!.room_id!),
+      'create'
     );
     if (made) {
       createId = made.id;
@@ -72,25 +74,30 @@
 
   async function renameRoom(room: SetupRoom, label: string): Promise<void> {
     const before = room.name;
-    if (await runSetup(() => api.renameRoom(room.id, label), () => api.renameRoom(room.id, before))) editing = null;
+    if (await runSetup(() => api.renameRoom(room.id, label), () => api.renameRoom(room.id, before), `room:${room.id}`)) editing = null;
   }
 
   async function deleteRoom(room: SetupRoom): Promise<void> {
     const name = room.name; // the undo recreates it with the same name (and the house's room type)
-    await runSetup(() => api.deleteRoom(room.id), () => api.createRoom(name));
+    await runSetup(() => api.deleteRoom(room.id), () => api.createRoom(name), `room:${room.id}`);
   }
 
   async function moveRadiator(r: SetupRadiator, roomId: string): Promise<void> {
     const from = setup?.rooms.find((x) => x.id === r.room_id);
     const undo = from && !from.is_root ? () => api.moveRadiator(r.id, from.id) : undefined;
-    await runSetup(() => api.moveRadiator(r.id, roomId), undo);
+    await runSetup(() => api.moveRadiator(r.id, roomId), undo, `radiator:${r.id}`);
   }
 
   async function renameRadiator(r: SetupRadiator, name: string): Promise<void> {
     // The undo restores the heater's exact Cozytouch label, not the shown name (which falls back
     // to the device name when the label is Cozytouch's generic one).
-    const before = r.devices.find((d) => d.role === 'heater')?.label ?? r.name;
-    if (await runSetup(() => api.renameRadiator(r.id, name), () => api.renameRadiator(r.id, before))) editing = null;
+    const before = r.devices.find((d) => d.role === 'heater')?.label || r.name;
+    const sent = await runSetup(
+      () => api.renameRadiator(r.id, name),
+      () => api.renameRadiator(r.id, before),
+      `radiator:${r.id}`
+    );
+    if (sent) editing = null;
   }
 </script>
 
@@ -165,7 +172,7 @@
     <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
   </div>
   {#if editing === `radiator:${r.id}`}
-    <LabelForm name={m.devices.radiatorField} initial={r.name} kind="device" submitText={m.devices.save}
+    <LabelForm name={m.devices.radiatorField} initial={radiatorName(r)} kind="device" submitText={m.devices.save}
       busy={active(pending)} onsubmit={(v) => renameRadiator(r, v)} oncancel={() => (editing = null)} />
   {/if}
 {/snippet}

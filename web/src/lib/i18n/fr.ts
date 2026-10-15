@@ -833,6 +833,7 @@ export const fr = {
     misplaced: 'Pas dans la même pièce que son radiateur',
     tidy: 'Ranger avec le radiateur',
     home: 'Maison',
+    radiator: 'Radiateur',
     undo: 'Annuler',
     done: (label: string) => `${label} — confirmé`,
     watts: (n: string) => `${n}${NB}W`,

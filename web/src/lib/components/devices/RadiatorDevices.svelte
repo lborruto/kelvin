@@ -3,6 +3,7 @@
   import type { Pending, SetupDevice, SetupRadiator } from '$lib/api/types';
   import PendingEdge from '../PendingEdge.svelte';
   import { m } from '$lib/i18n';
+  import { radiatorName } from '$lib/setup';
   import DeviceRow from './DeviceRow.svelte';
 
   interface Props {
@@ -18,7 +19,7 @@
 
 <li class="radiator">
   <div class="top">
-    <span class="name">{radiator.name}</span>
+    <span class="name">{radiatorName(radiator)}</span>
     <PendingEdge pending={pending?.status === 'sending' || pending?.status === 'pending'} confirmed={pending?.status === 'confirmed'} />
     {@render children?.()}
   </div>

@@ -35,4 +35,20 @@ describe('LabelForm', () => {
     expect(screen.getByText('Ce mot est réservé par Cozytouch.')).toBeInTheDocument();
     expect(onsubmit).not.toHaveBeenCalled();
   });
+
+  it('Enter, click and Enter while the write is in flight send it once (review T11-1)', async () => {
+    let settle!: () => void;
+    const onsubmit = vi.fn(() => new Promise<void>((r) => (settle = r)));
+    render(LabelForm, { name: 'Nom', kind: 'room', submitText: 'Créer', onsubmit });
+    const input = screen.getByLabelText('Nom');
+    await fireEvent.input(input, { target: { value: 'Bureau' } });
+    const button = screen.getByRole('button', { name: 'Créer' });
+    await fireEvent.submit(input.closest('form')!); // Enter
+    await fireEvent.click(button);
+    await fireEvent.submit(input.closest('form')!); // Enter again
+    expect(onsubmit).toHaveBeenCalledOnce();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    settle();
+    await vi.waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'));
+  });
 });

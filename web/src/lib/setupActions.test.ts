@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Pending } from '$lib/api/types';
+import type { CommandResult, Pending } from '$lib/api/types';
 import { house } from '$lib/stores/house.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { installUndo, runSetup } from './setupActions';
@@ -37,5 +37,25 @@ describe('runSetup', () => {
     await runSetup(async () => ({ pending: setupPending('pending') }), undo);
     house.applyPending({ ...setupPending('failed'), error_code: 'setup_failed' } as Pending);
     expect(toasts.items.filter((x) => x.action)).toHaveLength(0);
+  });
+});
+
+describe('one write per target at a time (review T11-1)', () => {
+  it('a second call for the same target while the first is unresolved is ignored', async () => {
+    let answer!: (v: CommandResult) => void;
+    const fn = vi
+      .fn<() => Promise<CommandResult>>()
+      .mockImplementationOnce(() => new Promise<CommandResult>((r) => (answer = r)))
+      .mockResolvedValue({ pending: null });
+    const first = runSetup(fn, undefined, 'room:p-salon');
+    expect(await runSetup(fn, undefined, 'room:p-salon')).toBeNull();
+    expect(fn).toHaveBeenCalledOnce();
+    const other = vi.fn().mockResolvedValue({ pending: null });
+    await runSetup(other, undefined, 'room:p-ch1'); // another target is not held up
+    expect(other).toHaveBeenCalledOnce();
+    answer({ pending: null });
+    await first;
+    await runSetup(fn, undefined, 'room:p-salon'); // free again once settled
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 });

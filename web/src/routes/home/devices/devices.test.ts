@@ -83,4 +83,21 @@ describe('Rooms and devices page', () => {
     toasts.items.at(-1)!.action!.run();
     await vi.waitFor(() => expect(api.renameRadiator).toHaveBeenLastCalledWith('r1', 'IO (r1#1)'));
   });
+
+  it('a slow server: Enter, click and Enter on « Créer » send one create (review T11-1)', async () => {
+    vi.mocked(api.setupDevices).mockResolvedValue(setupFixture());
+    vi.mocked(api.createRoom).mockClear();
+    vi.mocked(api.createRoom).mockImplementation(
+      () => new Promise((r) => setTimeout(() => r({ pending: null }), 1500)) as never
+    );
+    render(Page);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Nouvelle pièce' }));
+    const input = screen.getByLabelText('Nom de la nouvelle pièce');
+    await fireEvent.input(input, { target: { value: 'Bureau 2' } });
+    await fireEvent.submit(input.closest('form')!);
+    await fireEvent.click(screen.getByRole('button', { name: 'Créer' }));
+    await fireEvent.submit(input.closest('form')!);
+    await new Promise((r) => setTimeout(r, 1600));
+    expect(api.createRoom).toHaveBeenCalledOnce();
+  });
 });

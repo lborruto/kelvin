@@ -30,3 +30,21 @@ it('delete asks first, focuses Annuler and refuses a non-empty room', async () =
   expect(screen.getByText(/Videz d’abord la pièce/)).toBeInTheDocument();
   expect(ondelete).toHaveBeenCalledOnce();
 });
+
+it('a confirmed delete is sent once, and the trigger waits for the answer', async () => {
+  let settle!: () => void;
+  const ondelete = vi.fn(() => new Promise<void>((r) => (settle = r)));
+  render(DeleteRoomDialog, { room: setupFixture().rooms[2], ondelete });
+  const trigger = screen.getByRole('button', { name: 'Supprimer la pièce' });
+  await fireEvent.click(trigger);
+  const dialog = document.querySelector('dialog')!;
+  const confirm = within(dialog).getByRole('button', { name: 'Supprimer la pièce' });
+  await fireEvent.click(confirm);
+  await fireEvent.click(confirm); // a second click while the sheet fades out
+  expect(ondelete).toHaveBeenCalledOnce();
+  expect(trigger).toHaveAttribute('aria-disabled', 'true');
+  await fireEvent.click(trigger);
+  expect(dialog.open).toBe(false);
+  settle();
+  await vi.waitFor(() => expect(trigger).toHaveAttribute('aria-disabled', 'false'));
+});

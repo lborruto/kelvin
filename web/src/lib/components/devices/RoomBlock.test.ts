@@ -28,4 +28,11 @@ describe('RoomBlock', () => {
     rerender({ room: s.rooms[2], radiators: [], now: 0, pending: { ...(pending as object), status: 'confirmed' } as never });
     expect(container.querySelector('svg.edge.confirmed')).toBeInTheDocument();
   });
+
+  it('a radiator title never prints a serial-like label', () => {
+    const s = setupFixture();
+    render(RoomBlock, { room: s.rooms[1], radiators: [{ ...s.radiators[0], name: 'IO (8370011#1)' }], now: 0 });
+    expect(document.body.textContent).not.toContain('8370011');
+    expect(screen.getByText('Radiateur', { selector: '.name' })).toBeInTheDocument();
+  });
 });

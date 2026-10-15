@@ -17,7 +17,7 @@
 
   function tidy(): void {
     if (busy) return;
-    void runSetup(() => api.tidyDevice(device.id)); // fixes an inconsistency: no undo
+    void runSetup(() => api.tidyDevice(device.id), undefined, `device:${device.id}`); // no undo: fixes an inconsistency
   }
 </script>
 

@@ -11,13 +11,15 @@
     existing?: string[];
     submitText: string;
     busy?: boolean;
-    onsubmit: (value: string) => void;
+    /** May return the write's promise: the form waits for it before it can send again. */
+    onsubmit: (value: string) => unknown;
     oncancel?: () => void;
   }
   let { name, initial = '', kind, existing = [], submitText, busy = false, onsubmit, oncancel }: Props = $props();
   const uid = $props.id();
   let value = $state(untrack(() => initial));
   let touched = $state(false);
+  let submitting = $state(false);
   let input = $state<HTMLInputElement>();
   let problem = $derived(labelProblem(value, { kind, existing }));
   let showProblem = $derived(touched && problem !== null);
@@ -27,12 +29,16 @@
   function submit(e: SubmitEvent): void {
     e.preventDefault();
     touched = true;
-    if (busy) return;
+    if (busy || submitting) return;
     if (problem !== null) {
       input?.focus();
       return;
     }
-    onsubmit(value.normalize('NFC').trim());
+    const sent = onsubmit(value.normalize('NFC').trim());
+    if (sent instanceof Promise) {
+      submitting = true;
+      void sent.finally(() => (submitting = false));
+    }
   }
 </script>
 
@@ -50,7 +56,7 @@
     />
   </label>
   <div class="buttons">
-    <button type="submit" class="btn btn-sm btn-primary" aria-disabled={busy}>{submitText}</button>
+    <button type="submit" class="btn btn-sm btn-primary" aria-disabled={busy || submitting}>{submitText}</button>
     {#if oncancel}<button type="button" class="btn btn-sm btn-ghost" onclick={oncancel}>{m.common.cancel}</button>{/if}
   </div>
   {#if showProblem && problem !== null}<p class="problem" id="{uid}-problem">{problemText(problem)}</p>{/if}

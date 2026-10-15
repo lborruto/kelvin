@@ -6,28 +6,39 @@
   interface Props {
     room: SetupRoom;
     busy?: boolean;
-    ondelete: () => void;
+    /** May return the write's promise: the trigger waits for it. */
+    ondelete: () => unknown;
   }
   let { room, busy = false, ondelete }: Props = $props();
   const uid = $props.id();
   let dialog = $state<HTMLDialogElement>();
   let cancel = $state<HTMLButtonElement>();
   let reason = $state<string | null>(null);
-  let paused = $derived(busy || room.block !== null);
+  let submitting = $state(false);
+  // Closed, still fading out: its buttons must not send a second time.
+  let closing = $state(false);
+  let paused = $derived(busy || submitting || room.block !== null);
 
   function ask(): void {
     if (room.block !== null) {
       reason = apiMessage(room.block); // say why; focus stays on the button
       return;
     }
-    if (busy) return;
+    if (busy || submitting) return;
+    closing = false;
     dialog?.showModal();
     cancel?.focus(); // the safe choice
   }
 
   function confirmDelete(): void {
+    if (closing) return;
+    closing = true;
     dialog?.close();
-    ondelete();
+    const sent = ondelete();
+    if (sent instanceof Promise) {
+      submitting = true;
+      void sent.finally(() => (submitting = false));
+    }
   }
 </script>
 
@@ -39,7 +50,7 @@
 <Sheet bind:dialog title={m.devices.deleteTitle(room.name)} description={m.devices.deleteBody}>
   <div class="row">
     <button type="button" class="btn" bind:this={cancel} onclick={() => dialog?.close()}>{m.common.cancel}</button>
-    <button type="button" class="btn btn-danger" onclick={confirmDelete}>{m.devices.deleteRoom}</button>
+    <button type="button" class="btn btn-danger" aria-disabled={closing} onclick={confirmDelete}>{m.devices.deleteRoom}</button>
   </div>
 </Sheet>
 

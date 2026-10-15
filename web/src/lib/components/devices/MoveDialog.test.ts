@@ -24,3 +24,21 @@ it('offers every other room, never the house, and moves to the chosen one', asyn
   await fireEvent.click(move);
   expect(onmove).toHaveBeenCalledWith('p-bureau');
 });
+
+it('a move is sent once, and the trigger waits for the answer', async () => {
+  let settle!: () => void;
+  const onmove = vi.fn(() => new Promise<void>((r) => (settle = r)));
+  const s = setupFixture();
+  render(MoveDialog, { radiator: s.radiators[0], rooms: s.rooms, onmove });
+  const trigger = screen.getByRole('button', { name: 'Déplacer vers…' });
+  await fireEvent.click(trigger);
+  const dialog = document.querySelector('dialog')!;
+  await fireEvent.click(within(dialog).getAllByRole('radio')[0]);
+  const move = within(dialog).getByRole('button', { name: 'Déplacer' });
+  await fireEvent.click(move);
+  await fireEvent.click(move);
+  expect(onmove).toHaveBeenCalledOnce();
+  expect(trigger).toHaveAttribute('aria-disabled', 'true');
+  settle();
+  await vi.waitFor(() => expect(trigger).toHaveAttribute('aria-disabled', 'false'));
+});

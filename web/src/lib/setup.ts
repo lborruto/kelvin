@@ -127,3 +127,10 @@ export function deviceLabel(d: SetupDevice): string {
   const label = d.label.trim();
   return !label || GENERIC_LABEL.test(label) || SERIAL_LIKE.test(label) ? m.devices.role[d.role] : label;
 }
+
+/** A radiator's title: its name, or « Radiateur » / “Radiator” when that name is Cozytouch's generic
+ * label or holds a serial or a device URL (the same rule as deviceLabel). */
+export function radiatorName(r: { name: string }): string {
+  const name = r.name.trim();
+  return !name || GENERIC_LABEL.test(name) || SERIAL_LIKE.test(name) ? m.devices.radiator : name;
+}
