@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { EnergyDay } from '$lib/api/types';
 import { house } from '$lib/stores/house.svelte';
 import RoomDayPanel from './RoomDayPanel.svelte';
@@ -125,4 +126,13 @@ describe('RoomDayPanel', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(onretry).toHaveBeenCalled();
   });
+});
+
+it('in English: the heading, the day and the chart’s name', () => {
+  applyLocale('en');
+  render(RoomDayPanel, { ...base, day: day('salon'), room: 'salon', onroom: vi.fn() });
+  expect(screen.getByRole('heading', { name: 'Temperature and heating' })).toBeInTheDocument();
+  expect(screen.getByText('on 13 October 2026')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Radiators, temperature and setpoint · Salon · 13 October 2026' })).toBeInTheDocument();
+  expect(screen.getByRole('combobox', { name: 'Room' })).toBeInTheDocument();
 });

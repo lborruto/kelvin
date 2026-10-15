@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { EnergyInterval } from '$lib/api/types';
 import { parisDayStart } from '$lib/time';
 import CurveChart from './CurveChart.svelte';
@@ -164,4 +166,25 @@ describe('CurveChart', () => {
     await fireEvent.keyDown(s, { key: 'ArrowRight' });
     expect(container.querySelector('.readout .when')).toHaveTextContent('02:00–02:30 (heure d’hiver)');
   });
+});
+
+it('in English: the empty state', () => {
+  applyLocale('en');
+  render(CurveChart, { intervals: [], label: 'x' });
+  expect(screen.getByText('No curve for this day.')).toBeInTheDocument();
+});
+it('a language switch re-stacks the readout’s texts: every field’s variants in the new language', async () => {
+  const { container } = render(CurveChart, { intervals: four, label: 'Courbe' });
+  const stacked = () => container.querySelector('.readout')!.textContent!.replace(/\s+/g, ' ');
+  expect(stacked()).toContain('Heures creuses');
+  applyLocale('en');
+  await tick();
+  const t = stacked();
+  expect(t).toContain('Mean power');
+  expect(t).toContain('Off-peak');
+  expect(t).toContain('Off-peak 50%');
+  expect(t).not.toMatch(/Heures|Puissance|Tarif|HC /);
+  expect([...container.querySelectorAll('.visually-hidden > table thead th')].map((th) => th.textContent)).toEqual([
+    'Time', 'Mean power', 'Energy', 'Rate', 'Price', 'Cost'
+  ]);
 });

@@ -127,7 +127,7 @@ depends on.
   the web, so a day reads the same figure in Jour, Semaine, Mois, Année and the CSV. A « — »
   always carries its reason. The Courbe readout's fields stack every text they take over the day
   in one cell, so scrubbing never reflows them; keep that when adding a field. Énergie strings
-  live in one `COPY` constant per component or module (Plan 7 extracts them); the CSV export is a
+  live in the `$lib/i18n` dictionaries like every other string (one group per component or module); the CSV export is a
   machine contract documented in `web/README.md` (French headers in every locale; `;` and a
   decimal comma in French, `,` and a point in English; no ids, no PDL).
 - **Time in tests:** tests that depend on the time of day use the injected clock

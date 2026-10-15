@@ -32,7 +32,8 @@ export const ARGS: Record<string, unknown[]> = {
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
 export const SAME = new Set<string>([
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
-  'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none'
+  'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
+  'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {

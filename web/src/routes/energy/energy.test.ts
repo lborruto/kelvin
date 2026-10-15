@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import { api, ApiError } from '$lib/api/client';
 import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus, Quality } from '$lib/api/types';
 import { download } from '$lib/csv';
@@ -15,15 +16,10 @@ import Page from './+page.svelte';
 
 vi.mock('$lib/csv', async (orig) => ({ ...(await orig<typeof import('$lib/csv')>()), download: vi.fn() }));
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
-vi.mock('$lib/api/client', () => ({
-  api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]) },
-  ApiError: class ApiError extends Error {
-    status: number;
-    constructor(status: number, message: string) {
-      super(message);
-      this.status = status;
-    }
-  }
+// The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
+vi.mock('$lib/api/client', async (orig) => ({
+  ...(await orig<typeof import('$lib/api/client')>()),
+  api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]) }
 }));
 
 const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({
@@ -653,5 +649,55 @@ describe('Énergie', () => {
     expect(rows[32].split(';').slice(0, 4).join(';')).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;412,640');
     expect(rows[32].split(';')[12]).toBe('98,40');
     expect(await screen.findByRole('button', { name: /^Exporter la courbe du / })).toBeInTheDocument();
+  });
+});
+
+describe('Energy in English', () => {
+  it('title, views, hero, comparison, freshness and the chart in en-GB', async () => {
+    applyLocale('en');
+    const { container } = render(Page);
+    expect(await screen.findByRole('heading', { level: 2, name: 'October 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Energy' })).toBeInTheDocument();
+    expect(document.title).toBe('Energy · Kelvin');
+    expect(screen.getByRole('radio', { name: 'Month' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radiogroup', { name: 'Period' })).toBeInTheDocument();
+    expect(container.querySelector('.hero .big')).toHaveTextContent('€98.40');
+    expect(container.querySelector('.hero .tag')).toHaveTextContent('estimate');
+    expect(container.querySelector('.hero .sub')).toHaveTextContent('412.6 kWh · Off-peak 158.3 kWh · Peak 254.3 kWh · 1/10 – 12/10');
+    expect(screen.getByText('−4% consumption compared with September 2026, over 12 comparable days')).toBeInTheDocument();
+    expect(screen.getByText('Linky: data up to 12/10')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Home consumption by day' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Radiator meters' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Register 1 (kWh)' })).toBeInTheDocument();
+  });
+  it('a failed report shows the code’s English text, a code-less failure the page’s own message', async () => {
+    applyLocale('en');
+    vi.mocked(api.energyReport).mockRejectedValueOnce(Object.assign(new ApiError(422, 'Période invalide.'), { code: 'period_invalid', params: {} }));
+    render(Page);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid period.');
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t load the consumption.'));
+  });
+  it('an error on screen re-renders in the new language', async () => {
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    render(Page);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger la consommation.');
+    applyLocale('en');
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t load the consumption.'));
+  });
+  it('a failed period change names the period in English', async () => {
+    applyLocale('en');
+    render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'October 2026' });
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Previous period' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('September 2026: Couldn’t load the consumption.');
+  });
+  it('a Linky sync error reads its state’s text, the server’s French message only as a fallback', async () => {
+    applyLocale('en');
+    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'error', message: 'Erreur MED 500.' });
+    render(Page);
+    expect(await screen.findByText(/^Linky sync failed\./)).toBeInTheDocument();
   });
 });

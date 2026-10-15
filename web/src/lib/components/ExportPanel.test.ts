@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { EnergyDay, EnergyReport } from '$lib/api/types';
 import { download, energyCsv } from '$lib/csv';
 import { house } from '$lib/stores/house.svelte';
@@ -58,4 +59,15 @@ describe('ExportPanel', () => {
     await fireEvent.click(b);
     expect(download).not.toHaveBeenCalled();
   });
+});
+
+it('in English: the buttons, the format note; file names stay the French contract', async () => {
+  applyLocale('en');
+  render(ExportPanel, { chart, main, period: { from: '2026-10-01', to: '2026-11-01' }, roomSpan: { from: '2026-10-01', to: '2026-10-13' }, day });
+  await fireEvent.click(screen.getByRole('button', { name: 'Export the period (CSV)' }));
+  expect(vi.mocked(download).mock.calls[0][0].name).toBe('energie_2026-10-01_2026-11-01_day.csv');
+  expect(vi.mocked(download).mock.calls[0][0].text.split('\r\n')[0]).toContain('periode,debut,fin,');
+  expect(screen.getByRole('button', { name: 'Export the curve of 12/10 (CSV)' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Export by room (CSV)' })).toBeInTheDocument();
+  expect(screen.getByText(/comma-separated, decimal point/)).toBeInTheDocument();
 });

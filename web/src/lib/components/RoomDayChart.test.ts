@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { EnergyInterval, RoomSample } from '$lib/api/types';
 import RoomDayChart from './RoomDayChart.svelte';
 
@@ -134,4 +135,12 @@ describe('RoomDayChart', () => {
     render(RoomDayChart, { ...props, intervals: four.map((x) => ({ ...x, by_room: {} })), samples: [] });
     expect(screen.getByText('Pas de relevé pour cette pièce ce jour-là.')).toBeInTheDocument();
   });
+});
+
+it('in English: the legend and the readout’s field names', () => {
+  applyLocale('en');
+  const { container } = render(RoomDayChart, props);
+  expect([...container.querySelectorAll('.legend li')].map((l) => l.textContent)).toEqual(['The room’s radiators', 'Temperature', 'Setpoint']);
+  expect([...container.querySelectorAll('.readout .field dt')].map((d) => d.textContent)).toEqual(['Radiators', 'Temperature', 'Setpoint']);
+  expect(container.querySelector('.readout')!.textContent).toContain('no radiator recorded at this time');
 });

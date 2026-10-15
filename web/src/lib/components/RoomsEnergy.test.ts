@@ -1,5 +1,6 @@
 import { fireEvent, render, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { ByRadiator } from '$lib/api/types';
 import { house } from '$lib/stores/house.svelte';
 import RoomsEnergy from './RoomsEnergy.svelte';
@@ -90,4 +91,18 @@ describe('RoomsEnergy', () => {
     expect(bureau.querySelector('td')).toHaveTextContent('—');
     expect(container.querySelectorAll('.list > li')[1]).toHaveTextContent('aucun radiateur enregistré');
   });
+});
+
+it('in English: the heading, the columns with a tariff, the partial room', () => {
+  applyLocale('en');
+  const { container, getByRole } = render(RoomsEnergy, { rows, span, tariff: true });
+  expect(getByRole('heading', { name: 'By room and by radiator' })).toBeInTheDocument();
+  expect(container.querySelector('.sub')).toHaveTextContent('1/10 – 13/10');
+  const table = container.querySelector<HTMLElement>('.table')!;
+  expect([...table.querySelectorAll('thead th')].map((t) => t.textContent)).toEqual([
+    'Room', 'kWh', 'Share', 'Off-peak (kWh)', 'Peak (kWh)', '€', 'Avg °C', 'Avg setpoint (°C)', 'Heating hours (h)'
+  ]);
+  expect(table.querySelector('tbody tr.room th')).toHaveTextContent('partial · 1 of 2 radiators recorded from 7/10');
+  const cells = [...table.querySelectorAll('tbody tr.room td')].map((t) => t.textContent!.replace(/\s+/g, ' ').trim());
+  expect(cells).toEqual(['150.00', '100.0%', '60.00', '90.00', '37.50', '19.4', '20.0', '3.0']);
 });
