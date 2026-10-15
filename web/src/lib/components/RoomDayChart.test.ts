@@ -6,7 +6,7 @@ import RoomDayChart from './RoomDayChart.svelte';
 
 const t0 = Date.UTC(2026, 9, 12, 22) / 1000; // 13 Oct 00:00 Paris
 const iv = (i: number, room: number | null): EnergyInterval => ({
-  ts: t0 + i * 1800, minutes: 30, wh: 500, w: 1000, offpeak: null, boundary: false, price: null, eur: null,
+  ts: t0 + i * 1800, minutes: 30, wh: 500, w: 1000, offpeak: null, tempo_colour: null, boundary: false, price: null, eur: null,
   radiators_wh: room, radiators_known: room == null ? 0 : 1, radiators_total: room == null ? 0 : 1, radiators_interp: false, radiators_apportioned: false,
   by_room: room == null ? {} : { salon: room }
 });

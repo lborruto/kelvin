@@ -284,7 +284,22 @@ export interface CurveSummary {
   base_w_p10?: number | null;
   night_min_w?: number | null;
 }
+export interface TempoCounts {
+  blue: number;
+  white: number;
+  red: number;
+  unknown: number;
+}
+export interface TempoLens {
+  rows: { key: string; kwh: number | null; eur: number | null }[];
+  days: TempoCounts;
+  unknown_kwh: number | null;
+}
 export interface EnergySummary {
+  tempo: TempoCounts | null;
+  by_rate: Record<string, number> | null;
+  missing_colour_days: number;
+  retro_scheduled: boolean;
   kwh: number | null;
   hc_kwh: number | null;
   hp_kwh: number | null;
@@ -372,7 +387,7 @@ export interface HcLens {
   slot_share: number;
   avg_price: number | null;
   /** P_hp − P_hc at today's prices. */
-  delta_price: number;
+  delta_price: number | null;
 }
 export interface Quality {
   fallback_share: number | null;
@@ -383,6 +398,8 @@ export interface Quality {
   curve_since: string | null;
   radiators_since: string | null;
   retro_priced_days: number;
+  missing_colour_days: number;
+  retro_scheduled_days: number;
 }
 export type ProjectionMethod = 'seasonal' | 'linear';
 export interface Projection {
@@ -438,6 +455,8 @@ export interface EnergyReport {
   by_radiator: ByRadiator[];
   comparison: Comparisons;
   hc_lens: HcLens | null;
+  option: TariffOption | null;
+  tempo_lens: TempoLens | null;
   /** An HC slot edge falls inside a half-hour: those half-hours' HC share is prorated (L11). */
   boundary_prorated: boolean;
   /** Over the chart window (the bars, the Qualité strip); the selected period's are `period.quality`. */
@@ -451,6 +470,7 @@ export interface EnergyInterval {
   w: number;
   /** Share of the interval inside the HC slots, 0…1; null without a tariff. */
   offpeak: number | null;
+  tempo_colour: TempoColour | null;
   boundary: boolean;
   price: number | null;
   eur: number | null;

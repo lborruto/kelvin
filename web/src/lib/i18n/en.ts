@@ -924,6 +924,24 @@ export const en: Messages = {
     via: 'Tempo and EcoWatt come from MyElectricalData, with no token and no PDL.',
     loadFailed: 'Source status unavailable.'
   },
+  energyTariff: {
+    daysRow: 'Tempo days',
+    days: (t: { blue: number; white: number; red: number; unknown: number }) =>
+      [`${t.blue} blue`, `${t.white} white`, `${t.red} red`, ...(t.unknown ? [`${t.unknown} without a known colour`] : [])].join(' · '),
+    daysLine: (text: string) => `Tempo days: ${text}`,
+    redDays: (n: number) => `Red days: ${n}`,
+    notCounted: (n: number) => `energy of ${n} ${n === 1 ? 'day' : 'days'} without a Tempo colour not counted`,
+    retroScheduled: 'the first off-peak hours applied to earlier days',
+    withColour: (rate: string, colour: string) => `${rate} · ${colour}`,
+    baseOption: 'Base option: no off-peak hours.',
+    rowsTitle: 'Energy by Tempo colour',
+    colRate: 'Rate',
+    colKwh: 'kWh',
+    colEur: '€',
+    unknownKwh: (kwh: string) => `${kwh} without a known colour, not counted in euros.`,
+    qualityColours: (n: number) => `Days without a Tempo colour: ${n} (energy counted, euros not counted)`,
+    qualityRetro: (n: number) => `Days before the first off-peak hours: ${n} (the first off-peak hours applied)`
+  },
   api: {
     login_required: () => 'Please sign in.',
     session_is_current: () => 'Use “Sign out” for this device.',

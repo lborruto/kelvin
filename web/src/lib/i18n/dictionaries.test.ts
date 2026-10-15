@@ -63,7 +63,15 @@ export const ARGS: Record<string, unknown[]> = {
   'sources.ok': ['07:15'],
   'sources.error': ['08:15'],
   'sources.next': ['17:15'],
-  'sources.med': [6, 10, 2]
+  'sources.med': [6, 10, 2],
+  'energyTariff.days': [{ blue: 3, white: 1, red: 0, unknown: 1 }],
+  'energyTariff.daysLine': ['x'],
+  'energyTariff.redDays': [1],
+  'energyTariff.notCounted': [2],
+  'energyTariff.withColour': ['B', 'C'],
+  'energyTariff.unknownKwh': ['18\u00a0kWh'],
+  'energyTariff.qualityColours': [3],
+  'energyTariff.qualityRetro': [5]
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
@@ -74,6 +82,7 @@ export const SAME = new Set<string>([
   'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
   'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est',
   'tariff.kvaValue', 'tariff.options.base', 'tariff.options.tempo', 'tariff.rateShort.base', 'tariff.colOption',
+  'energyTariff.colKwh', 'energyTariff.colEur', 'energyTariff.withColour',
   'sources.title', 'sources.tempo', 'sources.ecowatt', 'grid.source'
 ]);
 

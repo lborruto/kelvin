@@ -106,8 +106,9 @@ PDL, token, email or id is exported; rooms and radiators appear by name.
   A counted day without Linky data keeps its `abonnement_eur`, with `total_eur` empty.
 - `courbe_<date>.csv` — one row per interval of the Courbe's day (46, 48 or 50):
   `debut;fin;minutes;wh;w_moyen;part_hc;couleur_tempo;prix;eur;radiateurs_wh`. Wh and W are integers,
-  `part_hc` a 4-decimal fraction, `prix` €/kWh and `eur` with 4 decimals; `couleur_tempo` is empty
-  until the Tempo option exists. `radiateurs_wh` is empty unless every radiator was measured in
+  `part_hc` a 4-decimal fraction, `prix` €/kWh and `eur` with 4 decimals; `couleur_tempo` is `bleu`, `blanc` or `rouge`
+  (the colour of the half-hour's Tempo day: before 06:00, the previous day's), empty when the half-hour
+  is not Tempo-priced or its colour is unknown. `radiateurs_wh` is empty unless every radiator was measured in
   that half-hour (never a partial sum).
 - `pieces_<from>_<to>.csv` — the period's elapsed days (up to yesterday), as Par pièce shows them;
   each room, then its radiators:

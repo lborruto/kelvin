@@ -308,7 +308,7 @@
     {#if loaded.view === 'day' || loaded.view === 'week'}
       <PowerPanel view={loaded.view} day={powerDay} week={main.period.curve} failed={!!data.dayError} class={trio.power} />
     {/if}
-    <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} class={trio.hchp} />
+    <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} option={main.option} tempo={main.tempo_lens} class={trio.hchp} />
     <HeatingPanel heating={main.heating} radiators={main.period.radiators} restKwh={main.period.rest_kwh} {running} class={trio.heating} />
   {/if}
 

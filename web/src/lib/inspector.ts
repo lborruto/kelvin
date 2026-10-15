@@ -51,7 +51,7 @@ export interface BucketCtx {
 
 /** The order of the inspector's rows and of the hidden table's columns. */
 export const ROW_ORDER = [
-  'home', 'hc', 'hp', 'hc_share', 'radiators', 'rest', 'rad_share', 'cost', 'energy', 'subscription', 'prices', 'avg_price',
+  'home', 'hc', 'hp', 'hc_share', 'tempo', 'radiators', 'rest', 'rad_share', 'cost', 'energy', 'subscription', 'prices', 'avg_price',
   'period_share', 'per_day'
 ] as const;
 export const READOUT_ORDER = ['power', 'energy', 'rate', 'price', 'cost', 'radiators', 'rest', 'temperature'] as const;
@@ -93,6 +93,7 @@ export function inspectBucket(b: EnergySummary, ctx: BucketCtx): Inspection {
   if (b.hc_kwh != null) add('hc', m.inspector.hc, fmtKwhExact(hc), { est: split });
   if (b.hp_kwh != null) add('hp', m.inspector.hp, fmtKwhExact(hp), { est: split });
   if (kwh && b.hc_kwh != null) add('hc_share', m.inspector.hcShare, fmtPct1(b.hc_kwh / kwh), { sub: true, est: split });
+  if (b.tempo) add('tempo', m.energyTariff.daysRow, m.energyTariff.days(b.tempo));
   // Radiator sums count elapsed days only (never today); null means nothing is known there yet.
   const running = !!ctx.today && ctx.span.from <= ctx.today && ctx.today < ctx.span.to;
   const [radShown, restShown] = shownParts(kwh, [rad?.kwh ?? null, b.rest_kwh], 2);
@@ -133,6 +134,8 @@ export function inspectBucket(b: EnergySummary, ctx: BucketCtx): Inspection {
   if (rad && rad.coverage != null && rad.coverage < 1) notes.push(m.inspector.coverage(fmtPct1(rad.coverage)));
   if (rad && running) notes.push(m.inspector.radUntilYesterday);
   if (b.retro_priced && b.prices.length) notes.push(m.inspector.retro(fmtDay(b.prices[0].valid_from)));
+  if (b.missing_colour_days > 0) notes.push(m.energyTariff.notCounted(b.missing_colour_days));
+  if (b.retro_scheduled) notes.push(m.energyTariff.retroScheduled);
 
   const empty = (ctx.linky ?? true) && kwh == null ? (ctx.group === 'day' ? m.inspector.noLinkyDay : m.inspector.noLinkyPeriod) : null;
   const said = spokenTitle(ctx.group, ctx.span);
@@ -230,17 +233,21 @@ export function readInterval(iv: EnergyInterval | null, ctx: ReadoutCtx): Inspec
     { key: 'power', label: m.inspector.power, value: iv ? fmtW(iv.w) : '—' },
     { key: 'energy', label: m.inspector.energyWh, value: iv ? fmtWh(iv.wh) : '—' }
   ];
-  if (ctx.tariff && any((x) => x.offpeak)) {
+  const split = any((x) => x.offpeak);
+  if (ctx.tariff && (split || any((x) => x.price))) {
     // A chosen half-hour without a price says why (spec §9.1); nothing chosen is the idle « — ».
     const why = (v: number | null | undefined) => (iv && v == null ? m.inspector.noPrice : undefined);
-    rows.push(
-      {
+    if (split) {
+      const text = iv?.offpeak != null ? rateText(iv.offpeak, iv.boundary) : '—';
+      rows.push({
         key: 'rate',
         label: m.inspector.rate,
-        value: iv?.offpeak != null ? rateText(iv.offpeak, iv.boundary) : '—',
+        value: iv?.tempo_colour && iv.offpeak != null ? m.energyTariff.withColour(text, m.grid.colour[iv.tempo_colour]) : text,
         est: iv?.offpeak != null && iv.boundary,
         note: why(iv?.offpeak)
-      },
+      });
+    }
+    rows.push(
       { key: 'price', label: m.inspector.price, value: fmtPrice(iv?.price), note: why(iv?.price) },
       { key: 'cost', label: m.inspector.halfCost, value: fmtEurHalfHour(iv?.eur), note: why(iv?.eur) }
     );

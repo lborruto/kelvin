@@ -950,6 +950,29 @@ export const fr = {
     via: 'Tempo et EcoWatt viennent de MyElectricalData, sans jeton ni PDL.',
     loadFailed: 'État des sources indisponible.'
   },
+  energyTariff: {
+    daysRow: 'Jours Tempo',
+    days: (t: { blue: number; white: number; red: number; unknown: number }) =>
+      [
+        `${t.blue} ${t.blue > 1 ? 'bleus' : 'bleu'}`,
+        `${t.white} ${t.white > 1 ? 'blancs' : 'blanc'}`,
+        `${t.red} ${t.red > 1 ? 'rouges' : 'rouge'}`,
+        ...(t.unknown ? [`${t.unknown} sans couleur connue`] : [])
+      ].join(' · '),
+    daysLine: (text: string) => `Jours Tempo${NB}: ${text}`,
+    redDays: (n: number) => `Jours rouges${NB}: ${n}`,
+    notCounted: (n: number) => `énergie de ${n} ${n > 1 ? 'jours' : 'jour'} sans couleur Tempo non comptée`,
+    retroScheduled: 'heures creuses du premier relevé appliquées aux jours antérieurs',
+    withColour: (rate: string, colour: string) => `${rate} · ${colour}`,
+    baseOption: `Option base${NB}: pas d’heures creuses.`,
+    rowsTitle: 'Énergie par couleur Tempo',
+    colRate: 'Tarif',
+    colKwh: 'kWh',
+    colEur: '€',
+    unknownKwh: (kwh: string) => `${kwh} sans couleur connue, non comptés en euros.`,
+    qualityColours: (n: number) => `Jours sans couleur Tempo${NB}: ${n} (énergie comptée, euros non comptés)`,
+    qualityRetro: (n: number) => `Jours avant les premières heures creuses${NB}: ${n} (premières heures creuses appliquées)`
+  },
   api: {
     login_required: () => 'Connexion requise.',
     session_is_current: () => `Utilisez «${NB}Se déconnecter${NB}» pour cet appareil.`,
