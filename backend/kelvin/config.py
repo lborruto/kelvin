@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     med_base_url: str = "https://www.myelectricaldata.fr"
     kelvin_data: Path = Path("./data")
     kelvin_fake: bool = False
+    # Simulator only: setup operations that always fail (comma-separated; see overkiz/fake.py).
+    kelvin_fake_setup_fail: str = ""
     kelvin_web: Path | None = None
     kelvin_debug: bool = False  # serves /docs, /redoc and /openapi.json
     kelvin_host: str = "127.0.0.1"  # `python -m kelvin`; the Docker image sets 0.0.0.0

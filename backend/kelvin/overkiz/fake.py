@@ -8,9 +8,30 @@ from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
-from kelvin.overkiz.errors import BadCredentialsError, GatewayError
-from kelvin.overkiz.models import DeviceCommand, Event, ExecUpdate, RawDevice, RawPlace, StateChange
-from kelvin.overkiz.sample import sample_house
+from kelvin.config import split_list
+from kelvin.overkiz.errors import BadCredentialsError, GatewayError, SetupNotFoundError
+from kelvin.overkiz.models import (
+    DeviceCommand,
+    DeviceUpdate,
+    Event,
+    ExecUpdate,
+    PlaceEvent,
+    PlaceKind,
+    RawDevice,
+    RawPlace,
+    SetupDevice,
+    SetupPlace,
+    StateChange,
+)
+from kelvin.overkiz.sample import ROOM_TYPE, sample_house
+from kelvin.setup.client import (
+    check_allowed,
+    device_path,
+    label_path,
+    place_path,
+    relocate_path,
+    subplaces_path,
+)
 
 EFFECTS: dict[str, Callable[[tuple[Any, ...]], list[tuple[str, Any]]]] = {
     "setOperatingMode": lambda p: [("core:OperatingModeState", p[0])],
@@ -33,6 +54,26 @@ QUIRK_COMMANDS = frozenset({"setComfortTemperature", "setEcoTemperature"})
 DEMO_EMAIL = "demo@kelvin.local"
 DEMO_PASSWORD = "kelvin"
 
+SETUP_OPS = ("create_place", "update_place", "delete_place", "relocate_device", "rename_device")
+# Cozytouch applies a setup write and announces it 1–3 s later (spec §2.7); fixed for tests.
+SETUP_DELAY_S = 2.0
+
+
+def setup_failures(value: str) -> dict[str, Exception]:
+    """KELVIN_FAKE_SETUP_FAIL: setup operations the simulator always refuses."""
+    out: dict[str, Exception] = {}
+    for op in split_list(value):
+        if op not in SETUP_OPS:
+            raise ValueError(f"unknown setup operation: {op}")
+        out[op] = GatewayError("simulated setup failure")
+    return out
+
+
+def _walk(p: RawPlace, parent: str | None = None):
+    yield parent, p
+    for c in p.children:
+        yield from _walk(c, p.oid)
+
 
 class FakeGateway:
     def __init__(
@@ -48,7 +89,21 @@ class FakeGateway:
     ) -> None:
         if root is None:
             root, devices = sample_house()
-        self.root = root
+        # The place tree, mutable (spec §2.7): oid -> label, type, parent, metadata, tree order.
+        self.places: dict[str, dict[str, Any]] = {
+            p.oid: {"label": p.label, "type": p.type, "parent": parent, "metadata": None}
+            for parent, p in _walk(root)
+        }
+        self.root_oid = root.oid
+        self.setup_delay = SETUP_DELAY_S
+        self.place_event_payload = False  # like pyoverkiz 2.2.2: place events carry no payload
+        self.silent_setup = False  # no setup events at all (confirmation by re-read only)
+        self.fail_setup: dict[str, Exception] = {}  # operation -> raised on every call
+        self.refuse_relocate: dict[str, Exception] = {}  # device URL -> raised by relocate
+        self.setup_writes: list[tuple[Any, ...]] = []
+        self.place_reads = 0
+        self.device_reads = 0
+        self._setup_due: list[tuple[float, Callable[[], None]]] = []
         self.devices = {d.device_url: d for d in copy.deepcopy(devices or [])}
         self.clock = clock
         self.delay = delay
@@ -106,8 +161,175 @@ class FakeGateway:
     async def close(self) -> None:
         return None
 
+    @property
+    def root(self) -> RawPlace:
+        """The current place tree, as `GET /setup/places` answers it."""
+
+        def build(oid: str) -> RawPlace:
+            p = self.places[oid]
+            kids = tuple(build(c) for c, q in self.places.items() if q["parent"] == oid)
+            return RawPlace(oid, p["label"], kids, p["type"])
+
+        return build(self.root_oid)
+
+    # --- setup (spec §2.7): the same allowlist as the real client, applied 2 s later ---
+
+    def _later(self, apply: Callable[[], None]) -> None:
+        self._setup_due.append((self.clock() + self.setup_delay, apply))
+
+    def _apply_due_setup(self) -> None:
+        now = self.clock()
+        due = [s for s in self._setup_due if s[0] <= now]
+        self._setup_due = [s for s in self._setup_due if s[0] > now]
+        for _, apply in due:
+            apply()
+
+    def _emit_setup(self, ev: Event) -> None:
+        if not self.silent_setup:
+            self._events.append(ev)
+
+    def _place_event(self, kind: PlaceKind, oid: str, label: str | None = None) -> None:
+        self._emit_setup(
+            PlaceEvent(kind, oid, label) if self.place_event_payload else PlaceEvent(kind)
+        )
+
+    def _check(self, op: str, method: str, path: str) -> None:
+        check_allowed(method, path)
+        self._apply_due_setup()
+        exc = self.fail_setup.get(op)
+        if exc is not None:
+            raise exc
+
+    def _children(self, oid: str) -> tuple[str, ...]:
+        return tuple(c for c, q in self.places.items() if q["parent"] == oid)
+
+    async def read_place(self, oid: str) -> SetupPlace:
+        check_allowed("GET", place_path(oid))
+        self._apply_due_setup()
+        self.place_reads += 1
+        p = self.places.get(oid)
+        if p is None:
+            raise SetupNotFoundError("place not found")
+        return SetupPlace(oid, p["label"], p["type"], p["metadata"], self._children(oid))
+
+    async def read_device(self, device_url: str) -> SetupDevice:
+        check_allowed("GET", device_path(device_url))
+        self._apply_due_setup()
+        self.device_reads += 1
+        d = self.devices.get(device_url)
+        if d is None:
+            raise SetupNotFoundError("device not found")
+        return SetupDevice(device_url, d.label, d.place_oid)
+
+    async def create_place(self, parent_oid: str, label: str, type_: int) -> str:
+        self._check("create_place", "POST", subplaces_path(parent_oid))
+        if parent_oid not in self.places:
+            raise SetupNotFoundError("parent not found")
+        oid = f"p-{uuid4().hex[:8]}"
+        self.setup_writes.append(("create_place", parent_oid, label, type_))
+
+        def apply() -> None:
+            self.places[oid] = {
+                "label": label,
+                "type": type_,
+                "parent": parent_oid,
+                "metadata": None,
+            }
+            self._place_event("created", oid, label)
+
+        self._later(apply)
+        return oid
+
+    async def update_place(self, oid: str, label: str, type_: int | None, metadata: Any) -> None:
+        self._check("update_place", "PUT", place_path(oid))
+        if oid not in self.places:
+            raise SetupNotFoundError("place not found")
+        self.setup_writes.append(("update_place", oid, label, type_))
+
+        def apply() -> None:
+            if oid in self.places:
+                self.places[oid].update(label=label, type=type_, metadata=metadata)
+                self._place_event("updated", oid, label)
+
+        self._later(apply)
+
+    async def delete_place(self, oid: str) -> None:
+        self._check("delete_place", "DELETE", place_path(oid))
+        if oid not in self.places:
+            raise SetupNotFoundError("place not found")
+        if (
+            oid == self.root_oid
+            or self._children(oid)
+            or any(d.place_oid == oid for d in self.devices.values())
+        ):
+            # What Overkiz does here is undocumented; Kelvin never sends it (delete guard).
+            raise GatewayError("place not empty")
+        self.setup_writes.append(("delete_place", oid))
+
+        def apply() -> None:
+            if self.places.pop(oid, None) is not None:
+                self._place_event("deleted", oid)
+
+        self._later(apply)
+
+    async def relocate_device(self, device_url: str, place_oid: str) -> None:
+        self._check("relocate_device", "PUT", relocate_path(device_url, place_oid))
+        if device_url not in self.devices or place_oid not in self.places:
+            raise SetupNotFoundError("device or place not found")
+        exc = self.refuse_relocate.get(device_url)
+        if exc is not None:
+            raise exc
+        self.setup_writes.append(("relocate_device", device_url, place_oid))
+
+        def apply() -> None:
+            d = self.devices[device_url]
+            d.place_oid = place_oid
+            self._emit_setup(DeviceUpdate(device_url, place_oid, d.label))
+
+        self._later(apply)
+
+    async def rename_device(self, device_url: str, label: str) -> None:
+        self._check("rename_device", "PUT", label_path(device_url, label))
+        if device_url not in self.devices:
+            raise SetupNotFoundError("device not found")
+        self.setup_writes.append(("rename_device", device_url, label))
+
+        def apply() -> None:
+            d = self.devices[device_url]
+            d.label = label
+            self._emit_setup(DeviceUpdate(device_url, d.place_oid, label))
+
+        self._later(apply)
+
+    # --- changes made in the Cozytouch app (applied at once, as the listener reports them) ---
+
+    def outside_move(self, device_url: str, place_oid: str) -> None:
+        d = self.devices[device_url]
+        d.place_oid = place_oid
+        self._emit_setup(DeviceUpdate(device_url, place_oid, d.label))
+
+    def outside_rename_place(self, oid: str, label: str) -> None:
+        self.places[oid]["label"] = label
+        self._place_event("updated", oid, label)
+
+    def outside_create_place(self, label: str, type_: int | None = ROOM_TYPE) -> str:
+        oid = f"p-{uuid4().hex[:8]}"
+        self.places[oid] = {
+            "label": label,
+            "type": type_,
+            "parent": self.root_oid,
+            "metadata": None,
+        }
+        self._place_event("created", oid, label)
+        return oid
+
+    def outside_delete_place(self, oid: str) -> None:
+        del self.places[oid]
+        self._place_event("deleted", oid)
+
     async def snapshot(self) -> tuple[RawPlace, list[RawDevice]]:
         self.snapshots += 1  # counts attempts: a refused call may still count upstream
+        self._apply_due_setup()
         if self.fail_snapshot is not None:
             raise self.fail_snapshot
         return self.root, copy.deepcopy(list(self.devices.values()))
@@ -147,6 +369,7 @@ class FakeGateway:
     async def fetch_events(self) -> list[Event]:
         if self.fail_fetch is not None:
             raise self.fail_fetch
+        self._apply_due_setup()
         now = self.clock()
         timed = [t for t in self._timed if t[0] <= t[1]()]
         self._timed = [t for t in self._timed if t not in timed]

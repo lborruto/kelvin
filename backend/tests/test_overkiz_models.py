@@ -10,7 +10,13 @@ from kelvin.overkiz.models import (
     place_from_dict,
     place_to_dict,
 )
-from kelvin.overkiz.sample import SAMPLE_GATEWAY, sample_house
+from kelvin.overkiz.sample import (
+    HOUSE_TYPE,
+    ROOM_TYPE,
+    SAMPLE_GATEWAY,
+    SAMPLE_INTERNAL,
+    sample_house,
+)
 
 
 def test_place_roundtrip_and_preorder():
@@ -31,8 +37,9 @@ def test_sample_house_mirrors_the_home_dump():
     assert labels == ["All House", "Chambre 1", "Salon", "Chambre 2"]
     heaters = [d for d in devices if "Heater" in d.widget]
     assert len(heaters) == 4
-    assert all(d.device_url.startswith(SAMPLE_GATEWAY) for d in devices)
-    assert any(d.widget == "IOStack" for d in devices)
+    assert all(d.device_url.startswith((SAMPLE_GATEWAY, SAMPLE_INTERNAL)) for d in devices)
+    assert {"IOStack", "Pod", "Wifi"} <= {d.widget for d in devices}
+    assert root.type == HOUSE_TYPE and {c.type for c in root.children} == {ROOM_TYPE}
 
 
 def test_sample_heaters_do_not_share_time_program_state():

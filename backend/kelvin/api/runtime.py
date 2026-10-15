@@ -24,7 +24,7 @@ from kelvin.linky.models import LinkySource
 from kelvin.linky.service import LinkyService
 from kelvin.overkiz.budget import QuotaReadout, SetupReadGuard
 from kelvin.overkiz.errors import SetupBudgetSpent
-from kelvin.overkiz.fake import FakeGateway
+from kelvin.overkiz.fake import FakeGateway, setup_failures
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import (
     RawDevice,
@@ -121,19 +121,21 @@ def make_gateway(
         fixture = settings.kelvin_data / "fake_home.json"
         if fixture.exists():
             data = json.loads(fixture.read_text())
-            return FakeGateway(
+            gw = FakeGateway(
                 place_from_dict(data["places"]),
                 [device_from_dict(d) for d in data["devices"]],
                 username=username,
                 password=password,
             )
-        gw = FakeGateway(username=username, password=password)
-        gw.demo_outage(
-            DEMO_OUTAGE_RID,
-            before_s=DEMO_OUTAGE_BEFORE_S,
-            after_s=DEMO_OUTAGE_AFTER_S,
-            wall=wall,
-        )
+        else:
+            gw = FakeGateway(username=username, password=password)
+            gw.demo_outage(
+                DEMO_OUTAGE_RID,
+                before_s=DEMO_OUTAGE_BEFORE_S,
+                after_s=DEMO_OUTAGE_AFTER_S,
+                wall=wall,
+            )
+        gw.fail_setup = setup_failures(settings.kelvin_fake_setup_fail)
         return gw
     from kelvin.overkiz.real import PyOverkizGateway
 

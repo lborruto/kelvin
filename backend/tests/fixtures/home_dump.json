@@ -2,24 +2,24 @@
   "places": {
     "oid": "p-house",
     "label": "All House",
-    "type": null,
+    "type": 0,
     "children": [
       {
         "oid": "p-ch1",
         "label": "Chambre 1 ",
-        "type": null,
+        "type": 7,
         "children": []
       },
       {
         "oid": "p-salon",
         "label": "Salon",
-        "type": null,
+        "type": 7,
         "children": []
       },
       {
         "oid": "p-ch2",
         "label": "Chambre 2 ",
-        "type": null,
+        "type": 7,
         "children": []
       }
     ]
@@ -47,6 +47,10 @@
         "core:OccupancyActivationState": "inactive",
         "io:CurrentWorkingRateState": 0.0,
         "core:RSSILevelState": 100.0,
+        "core:DiscreteRSSILevelState": "good",
+        "core:VersionState": "1.4.0",
+        "io:UptimeState": 864000,
+        "io:TensionState": 231,
         "core:TimeProgramState": [
           {
             "monday": [
@@ -257,6 +261,10 @@
         "core:OccupancyActivationState": "inactive",
         "io:CurrentWorkingRateState": 0.0,
         "core:RSSILevelState": 100.0,
+        "core:DiscreteRSSILevelState": "good",
+        "core:VersionState": "1.4.0",
+        "io:UptimeState": 864000,
+        "io:TensionState": 231,
         "core:TimeProgramState": [
           {
             "monday": [
@@ -467,6 +475,10 @@
         "core:OccupancyActivationState": "inactive",
         "io:CurrentWorkingRateState": 0.0,
         "core:RSSILevelState": 100.0,
+        "core:DiscreteRSSILevelState": "good",
+        "core:VersionState": "1.4.0",
+        "io:UptimeState": 864000,
+        "io:TensionState": 231,
         "core:TimeProgramState": [
           {
             "monday": [
@@ -681,6 +693,10 @@
         "core:OccupancyActivationState": "inactive",
         "io:CurrentWorkingRateState": 0.0,
         "core:RSSILevelState": 100.0,
+        "core:DiscreteRSSILevelState": "good",
+        "core:VersionState": "1.4.0",
+        "io:UptimeState": 864000,
+        "io:TensionState": 231,
         "core:TimeProgramState": [
           {
             "monday": [
@@ -878,6 +894,29 @@
       "commands": [
         "discoverActuators"
       ]
+    },
+    {
+      "device_url": "internal://1234-5678-9012/pod/0",
+      "label": "Box Cozytouch",
+      "widget": "Pod",
+      "place_oid": "p-house",
+      "states": {
+        "core:ConnectivityState": "online",
+        "core:NameState": "Box",
+        "core:CountryCodeState": "FR"
+      },
+      "commands": []
+    },
+    {
+      "device_url": "internal://1234-5678-9012/wifi/0",
+      "label": "Wifi",
+      "widget": "Wifi",
+      "place_oid": "p-house",
+      "states": {
+        "internal:SignalStrengthState": 72,
+        "internal:WifiModeState": "infrastructure"
+      },
+      "commands": []
     }
   ]
 }

@@ -12,7 +12,8 @@ from pyoverkiz.client import OverkizClient
 from pyoverkiz.enums import Server
 
 from kelvin.overkiz.errors import AuthError, GatewayError, QuotaError, SetupNotFoundError
-from kelvin.overkiz.real import _map_error
+from kelvin.overkiz.models import SetupDevice, SetupPlace
+from kelvin.overkiz.real import PyOverkizGateway, _map_error
 from kelvin.setup.client import (
     ALLOWED,
     SetupHttp,
@@ -245,3 +246,41 @@ async def test_the_private_pyoverkiz_surface_setup_http_uses_is_there():
         assert hasattr(client, "_ssl")
     finally:
         await client.close()
+
+
+async def test_the_real_gateway_sends_the_documented_requests():
+    session = _Session(
+        _Resp(201, {"placeOID": "p-new"}),
+        _Resp(200, {"oid": "p-new", "label": "Bureau", "type": 7, "subPlaces": []}),
+        _Resp(200, None),
+        _Resp(204),
+        _Resp(200, None),
+        _Resp(200, {"execId": "e"}),
+        _Resp(200, {"deviceURL": URL, "label": "Radiateur", "placeOID": "p-salon"}),
+    )
+    gw = PyOverkizGateway("a@example.invalid", "x")
+    gw._client = _Client(session)  # type: ignore[assignment]
+    assert await gw.create_place("p-house", "Bureau", 7) == "p-new"
+    assert await gw.read_place("p-new") == SetupPlace("p-new", "Bureau", 7, None, ())
+    await gw.update_place("p-new", "Bureau 2", 7, None)
+    await gw.delete_place("p-new")
+    await gw.relocate_device(URL, "p-salon")
+    await gw.rename_device(URL, "Radiateur")
+    assert await gw.read_device(URL) == SetupDevice(URL, "Radiateur", "p-salon")
+    sent = [(m, str(u).removeprefix(ROOT), body) for m, u, body in session.calls]
+    assert sent == [
+        ("POST", "setup/places/p-house/subPlaces", {"type": 7, "label": "Bureau"}),
+        ("GET", "setup/places/p-new", None),
+        ("PUT", "setup/places/p-new", {"type": 7, "label": "Bureau 2"}),
+        ("DELETE", "setup/places/p-new", None),
+        ("PUT", f"setup/devices/{ENC}/relocate/p-salon", None),
+        ("PUT", f"setup/devices/{ENC}/Radiateur?updateDeviceName=false", None),
+        ("GET", f"setup/devices/{ENC}", None),
+    ]
+
+
+async def test_a_created_place_without_an_oid_is_an_error():
+    gw = PyOverkizGateway("a@example.invalid", "x")
+    gw._client = _Client(_Session(_Resp(201, {})))  # type: ignore[assignment]
+    with pytest.raises(GatewayError):
+        await gw.create_place("p-house", "Bureau", 7)

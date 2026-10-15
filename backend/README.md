@@ -42,6 +42,7 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 | KELVIN_DATA | ./data | SQLite and runtime files |
 | KELVIN_WEB | — | Built SPA directory to serve |
 | KELVIN_FAKE | false | Use the simulator |
+| KELVIN_FAKE_SETUP_FAIL | — | Simulator only: comma-separated setup operations that always fail (`create_place`, `update_place`, `delete_place`, `relocate_device`, `rename_device`), for trying the error paths |
 | KELVIN_DEBUG | false | `1` serves the API docs (`/docs`, `/redoc`, `/openapi.json`), off otherwise |
 | KELVIN_HOST / KELVIN_PORT | 127.0.0.1 / 8000 | Bind address of `python -m kelvin` |
 | KELVIN_ALLOWED_HOSTS | — | Comma-separated Host allowlist (localhost always passes) |
