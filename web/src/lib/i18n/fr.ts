@@ -340,8 +340,7 @@ export const fr = {
     noTariff: 'Renseignez le tarif',
     est: 'est.',
     estHint: `Estimation${NB}: une partie de l’énergie est répartie entre deux relevés du compteur.`,
-    partial: (pct: string) => `relevé sur ${pct} de la période`,
-    noColour: (n: number) => `coût non compté${NB}: ${int(n)} ${plural(n, { one: 'jour', other: 'jours' })} sans couleur Tempo`
+    partial: (pct: string) => `relevé sur ${pct} de la période`
   },
   roomEnergy: {
     noRoom: 'Sans pièce',

@@ -330,8 +330,7 @@ export const en: Messages = {
     noTariff: 'Add your tariff',
     est: 'est.',
     estHint: 'Estimate: some energy is spread between two meter readings.',
-    partial: (pct: string) => `recorded over ${pct} of the period`,
-    noColour: (n: number) => `cost not counted: ${int(n)} ${plural(n, { one: 'day', other: 'days' })} without a Tempo colour`
+    partial: (pct: string) => `recorded over ${pct} of the period`
   },
   roomEnergy: {
     noRoom: 'No room',

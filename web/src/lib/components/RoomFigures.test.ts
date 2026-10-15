@@ -37,10 +37,17 @@ describe('RoomFigures', () => {
     expect(screen.getByRole('link', { name: 'Renseignez le tarif' })).toHaveAttribute('href', '/home#tariff');
     expect(screen.getByText(/relevé sur 50/)).toBeInTheDocument();
   });
-  it('a € without a Tempo colour reads — with its reason', async () => {
-    vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, eur: null, missing_colour_days: 2 });
+  it('days without a Tempo colour: the priced days\' € with the reason, as the radiator block', async () => {
+    vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, missing_colour_days: 2 });
     render(RoomFigures, props);
-    expect(await screen.findByText(/coût non compté\s: 2\sjours sans couleur Tempo/)).toBeInTheDocument();
+    expect(await screen.findByText(/1,23/)).toBeInTheDocument();
+    expect(screen.getByText(/énergie de 2 jours sans couleur Tempo non comptée/)).toBeInTheDocument();
+  });
+  it('no priced day at all: — with the same reason', async () => {
+    vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, eur: null, missing_colour_days: 1 });
+    render(RoomFigures, props);
+    expect(await screen.findByText(/énergie de 1 jour sans couleur Tempo non comptée/)).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
   it('unknown values read —, never 0', async () => {
     vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, kwh: null, eur: null, heating_hours: null, coverage: null });

@@ -162,11 +162,27 @@ def test_under_base_a_room_has_euros_and_no_split():
     assert (out["hc_kwh"], out["hp_kwh"]) == (None, None) and out["missing_colour_days"] == 0
 
 
-def test_a_day_without_a_tempo_colour_leaves_the_split_and_no_euros():
+def test_a_day_without_a_tempo_colour_keeps_the_split_and_the_priced_days_euros():
+    # As the report's radiator block: the € are the priced days', and `missing_colour_days` says
+    # which days they leave out (never null for a window that has priced days).
     per = {"a": days_back(3, lambda i: rd(1000.0, 0.2))}
     per["a"][TODAY - timedelta(days=1)] = RadiatorDay(
         1000.0, 500.0, 500.0, None, False, False, True
     )
     out = room_energy(per, LIFE, ["a"], 3, TODAY, {"a": 1.0}, priced=True)
-    assert out["eur"] is None and out["missing_colour_days"] == 1  # never a partial €, and why
+    assert out["eur"] == pytest.approx(0.4) and out["missing_colour_days"] == 1
     assert out["kwh"] == pytest.approx(3.0) and out["hc_kwh"] == pytest.approx(1.5)
+
+
+def test_a_day_before_the_first_price_row_leaves_the_other_days_euros():
+    base = RadiatorDay(1000.0, None, None, 0.2, False, False, True)
+    before = RadiatorDay(1000.0, None, None, None, False, False, True)
+    per = {"a": days_back(3, lambda i: before if i == 2 else base)}
+    out = room_energy(per, LIFE, ["a"], 3, TODAY, {"a": 1.0}, priced=True)
+    assert out["eur"] == pytest.approx(0.4) and out["missing_colour_days"] == 1
+
+
+def test_a_window_without_any_priced_day_has_no_euros():
+    per = {"a": days_back(2, lambda i: RadiatorDay(1000.0, 500.0, 500.0, None, False, False, True))}
+    out = room_energy(per, LIFE, ["a"], 2, TODAY, {"a": 1.0}, priced=True)
+    assert out["eur"] is None and out["missing_colour_days"] == 2  # unknown, never 0

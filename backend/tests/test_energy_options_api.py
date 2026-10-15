@@ -213,14 +213,45 @@ async def test_room_energy_under_tempo_prices_each_half_hour_by_its_colour(api):
         assert round(two["eur"] * 100) - round((one["eur"] or 0.0) * 100) == eur, room
         checked += 1
     assert checked >= 1
-    # The 19th's colour unknown: its kWh and HC/HP stay, its € is null (never a partial €).
+    # A day without a colour: see the next test (a colour never published is never cached).
+
+
+async def test_room_energy_with_a_day_without_colour_is_its_priced_days_par_piece_rows(api):
+    """Ruling (review of batch 8): under Tempo, a window with days that have no € (the 17th's
+    colour is not published, so the 17th and the 18th's night have none) reads, as the report's
+    radiator block, the priced days' €, i.e. the sum of the room's Par pièce rows over its priced
+    days, and `missing_colour_days` says which days are left out; kWh and HC/HP keep every day."""
+    c, rt = api
+    blind = date(2026, 11, 17)
+    # Before any figure is built: a colour never published is never in the radiator cache.
     rt.linky.colours = lambda a, b: {
-        d: col for d, col in COLOURS.items() if a <= d < b and d != day
+        d: col for d, col in COLOURS.items() if a <= d < b and d != blind
     }
-    room = next(iter(rt.house.rooms))
-    blind = (await c.get(f"/api/rooms/{room}/energy", params={"days": 2})).json()
-    assert blind["eur"] is None and blind["kwh"] is not None and blind["hc_kwh"] is not None
-    assert blind["missing_colour_days"] == 1
+    rt.linky.tariffs.replace(tempo_switch())
+    today, first = date(2026, 11, 20), date(2026, 11, 13)  # the simulator's radiators from the 13th
+    days = (today - first).days + 1
+    rows = {
+        d: await _par_piece_day(c, rt, d)
+        for d in (first + timedelta(days=i) for i in range(days - 1))
+    }
+    checked = 0
+    for room in rt.house.rooms:
+        mine = {d: r.get(room, []) for d, r in rows.items()}
+        if not all(mine.values()):
+            continue
+        unpriced = [d for d, r in mine.items() if any(x["eur"] is None for x in r)]
+        assert unpriced == [blind, blind + timedelta(days=1)], room
+        whole = (await c.get(f"/api/rooms/{room}/energy", params={"days": days})).json()
+        one = (await c.get(f"/api/rooms/{room}/energy", params={"days": 1})).json()
+        assert whole["kwh"] is not None and whole["hc_kwh"] is not None, room
+        assert whole["eur"] is not None, room  # never null for a window with priced days
+        assert whole["missing_colour_days"] == len(unpriced), room
+        priced = round(
+            sum(x["eur"] for r in mine.values() for x in r if x["eur"] is not None) * 100
+        )
+        assert round(whole["eur"] * 100) - round((one["eur"] or 0.0) * 100) == priced, room
+        checked += 1
+    assert checked >= 1
 
 
 async def test_room_energy_under_base_has_euros_and_no_split(api):
