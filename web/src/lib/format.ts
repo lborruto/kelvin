@@ -101,6 +101,18 @@ export function fmtDayShort(ms: number): string {
   return f().dayShort.format(new Date(ms));
 }
 
+// A weekday and a time, Paris (UX batch 8, the Absence end in one short line): « dim. 18:00 », “Sun 18:00”.
+const weekdayClock = new Map<Locale, Intl.DateTimeFormat>();
+export function fmtWeekdayTime(ms: number): string {
+  const l = locale.current;
+  let x = weekdayClock.get(l);
+  if (!x) {
+    x = new Intl.DateTimeFormat(INTL[l], { timeZone: ZONE, hourCycle: 'h23', weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    weekdayClock.set(l, x);
+  }
+  return x.format(new Date(ms)).replace(',', '');
+}
+
 export function fmtAgo(ms: number, now = Date.now()): string {
   const s = Math.max(0, Math.floor((now - ms) / 1000));
   if (s < 60) return m.ago.justNow;

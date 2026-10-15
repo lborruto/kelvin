@@ -93,14 +93,44 @@ test('Chauffe temporaire: a sentence, then the room says it until « Arrêter »
   await expect(status).not.toContainText('Chauffe temporaire', { timeout: 20_000 });
 });
 
-test('absence can be started and cancelled', async ({ page }) => {
+/** Batch 9 opens the editor with « Nouveau prix… »; batch 8 shows the form at once. */
+async function openTariffEditor(page: import('@playwright/test').Page) {
+  const fresh = page.getByRole('button', { name: 'Nouveau prix…' });
+  if (await fresh.isVisible().catch(() => false)) await fresh.click();
+}
+
+test('absence can be started from Maison and ended from En ce moment', async ({ page }) => {
   await page.goto('/home');
-  await page.getByRole('button', { name: 'Activer l’absence' }).click();
-  const cancel = page.getByRole('button', { name: /^Annuler Absence/ });
-  await expect(cancel).toBeVisible();
-  await cancel.click();
+  await page.getByRole('button', { name: 'Partir en absence…' }).first().click();
+  const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
+  await expect(sheet.getByText(/^Les \d+ pièces passeront à 12,0\s°C jusqu’à/)).toBeVisible();
+  await sheet.getByRole('button', { name: 'Partir' }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByText(/^Absence jusqu’à .*\.$/).first()).toBeVisible(); // the toast
+  const end = page.getByRole('button', { name: 'Terminer l’absence' });
+  await expect(end).toBeVisible({ timeout: 20_000 });
+  await end.click();
   // Default timeout on purpose: the override must leave as soon as its restore settles.
-  await expect(cancel).toBeHidden();
+  await expect(end).toBeHidden();
+});
+
+test('absence from Pièces in two taps (desktop sidebar, phone header), ended from the sheet', async ({ page, isMobile }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Pièces', level: 1 })).toBeVisible();
+  const opener = isMobile ? page.locator('.top').getByRole('button', { name: 'Absence…' }) : page.locator('.sidebar').getByRole('button', { name: 'Absence…' });
+  await opener.click();
+  const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
+  await expect(sheet.getByRole('button', { pressed: true })).toBeFocused();
+  await sheet.getByRole('button', { name: 'Partir' }).click();
+  await expect(sheet).toBeHidden();
+  // The opener now says the absence and opens it in its active state.
+  const active = isMobile ? page.locator('.top').getByRole('button', { name: /^Absence · / }) : page.locator('.sidebar').getByRole('button', { name: /^Absence · / });
+  await expect(active).toBeVisible({ timeout: 20_000 });
+  await active.click();
+  const running = page.getByRole('dialog', { name: 'Absence en cours' });
+  await running.getByRole('button', { name: 'Terminer maintenant' }).click();
+  await expect(running).toBeHidden();
+  await expect(opener).toBeVisible({ timeout: 20_000 });
 });
 
 test('desktop shows the sidebar and the inspector with every radiator', async ({ page, isMobile }) => {
@@ -202,24 +232,32 @@ test('a deep link registers the service worker at the root', async ({ page, isMo
   expect(errors.filter((e) => /MIME type/.test(e))).toEqual([]);
 });
 
-test('/home#linky and #tariff land on their panel once it has loaded', async ({ page }) => {
-  for (const id of ['linky', 'tariff']) {
+test('the old Maison anchors land on their sub-page (#linky, #tariff, #sessions) or open the sheet (#away)', async ({ page }) => {
+  for (const [id, path, title] of [
+    ['linky', '/home/linky', 'Linky'],
+    ['tariff', '/home/tariff', 'Tarif'],
+    ['sessions', '/home/account#sessions', 'Compte']
+  ]) {
     await page.goto(`/home#${id}`);
-    await expect(page.locator(`#${id} h2`)).toBeVisible();
-    await expect(page.locator(`#${id}`).getByRole('button').first()).toBeVisible();
-    await expect(page.locator(`#${id} h2`)).toBeInViewport();
+    await expect(page).toHaveURL(new RegExp(`${path.replace('#', '\\#')}$`));
+    await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
   }
+  await page.goto('/home#away');
+  await expect(page.getByRole('dialog', { name: 'Partir en absence' })).toBeVisible();
+  await expect(page).toHaveURL(/\/home$/);
 });
 
-test('Réglages saves a tariff and shows the simulated Linky', async ({ page }) => {
-  await page.goto('/home');
-  const tarif = page.locator('#tariff');
+test('Tarif saves a tariff and Linky shows the simulated Linky', async ({ page }) => {
+  await page.goto('/home/tariff');
+  const tarif = page.locator('main');
+  await openTariffEditor(page);
   await tarif.getByLabel('Prix heures creuses (€/kWh)').fill('0,2068');
   await tarif.getByRole('button', { name: 'Enregistrer le tarif' }).click();
   await expect(tarif.getByText('Tarif enregistré.')).toBeVisible();
   // A table on desktop, one two-column list per price on phone: whichever is shown has the price.
   await expect(tarif.locator('[aria-label="Historique des prix"]:visible')).toContainText('0,2068');
-  const linky = page.locator('#linky');
+  await page.goto('/home/linky');
+  const linky = page.locator('main');
   await expect(linky).toContainText('Simulateur');
   await expect(linky).toContainText(/Relié · données jusqu’au \d{1,2}\/\d{1,2}/);
 });

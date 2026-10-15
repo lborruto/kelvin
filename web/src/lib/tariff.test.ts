@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Tariff } from '$lib/api/types';
-import { ALL_MONTHS, buildDocument, inForce, monthsProblem, withSchedule } from './tariff';
+import { ALL_MONTHS, buildDocument, hourBlocks, inForce, monthsProblem, slotsText, withSchedule } from './tariff';
 
 const NIGHT = [{ start: '22:00', end: '06:00' }];
 const current: Tariff = {
@@ -20,6 +20,18 @@ const draft = (over = {}) => ({
   schedule: { valid_from: '2026-10-14', variants: [{ months: ALL_MONTHS, slots: NIGHT }] },
   tempoHours: { hc_start: '22:00', hc_end: '06:00' },
   ...over
+});
+
+describe('hourBlocks (HoursBar)', () => {
+  it('splits a slot past midnight, keeps a day slot whole', () => {
+    expect(hourBlocks([{ start: '22:00', end: '06:00' }])).toEqual([
+      { left: (1320 / 1440) * 100, width: (120 / 1440) * 100 },
+      { left: 0, width: 25 }
+    ]);
+    expect(hourBlocks([{ start: '12:00', end: '14:00' }])).toEqual([{ left: 50, width: (120 / 1440) * 100 }]);
+    expect(hourBlocks([{ start: '00:00', end: '00:00' }])).toEqual([{ left: 0, width: 100 }]);
+    expect(slotsText([{ start: '22:00', end: '06:00' }, { start: '12:00', end: '14:00' }])).toBe('22:00–06:00, 12:00–14:00');
+  });
 });
 
 describe('tariff document', () => {

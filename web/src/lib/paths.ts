@@ -9,11 +9,30 @@ export const ROUTES = {
   energy: '/energy',
   home: '/home',
   devices: '/home/devices',
+  tariff: '/home/tariff',
+  linky: '/home/linky',
+  sources: '/home/sources',
+  account: '/home/account',
   login: '/login'
 } as const;
 
 /** Section anchors: Home (away, tariff, linky, alerts, sessions) and Energy (quality, curve). */
 export const ANCHORS = { away: 'away', tariff: 'tariff', linky: 'linky', quality: 'quality', curve: 'curve', alerts: 'alerts', sessions: 'sessions' } as const;
+
+/** Maison's old section anchors (one page until UX batch 8) and where each now lives: a sub-page, or the
+ * Absence sheet opened over the overview (`away`). `#alerts` stays on the overview. */
+export const HOME_ANCHORS: Record<string, string | 'away'> = {
+  [ANCHORS.tariff]: ROUTES.tariff,
+  [ANCHORS.linky]: ROUTES.linky,
+  [ANCHORS.sessions]: `${ROUTES.account}#${ANCHORS.sessions}`,
+  [ANCHORS.away]: 'away'
+};
+
+/** Where `/home` + `hash` now lives: a path, `'away'` (open the Absence sheet on the overview) or null. */
+export function homeAnchor(hash: string): string | 'away' | null {
+  const id = hash.replace(/^#/, '');
+  return Object.hasOwn(HOME_ANCHORS, id) ? HOME_ANCHORS[id] : null;
+}
 
 export type NavKey = 'rooms' | 'schedule' | 'energy' | 'home';
 /** The four destinations of the sidebar and the tab bar; labels come from m.nav[key]. */

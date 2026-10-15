@@ -1,120 +1,139 @@
+<!-- Maison overview (direction-2 §3, UX batch 8): an overview, not a form. What happens now (absence, temporary
+     heating) with its actions, the alerts when there are some, then one card per section that summarises its
+     state and leads to its page (Pièces et appareils, Tarif, Linky, Sources de données, Compte), and the
+     Affichage card set in place. The old section anchors land on their new place (`homeAnchor`). -->
 <script lang="ts">
-  import { goto } from '$app/navigation';
+  import { afterNavigate, goto } from '$app/navigation';
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
-  import type { LinkyStatus, SettingsView, Slot } from '$lib/api/types';
+  import type { LinkyStatus, SessionInfo, SettingsView, Sources } from '$lib/api/types';
+  import { alertText } from '$lib/alerts-text';
   import AlertList from '$lib/components/AlertList.svelte';
+  import CozytouchStatus from '$lib/components/CozytouchStatus.svelte';
+  import Freshness from '$lib/components/Freshness.svelte';
+  import HomeCard from '$lib/components/HomeCard.svelte';
   import HouseActions from '$lib/components/HouseActions.svelte';
-  import LinkyPanel from '$lib/components/LinkyPanel.svelte';
-  import SessionsPanel from '$lib/components/SessionsPanel.svelte';
+  import HoursBar from '$lib/components/HoursBar.svelte';
+  import Icon from '$lib/components/Icon.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
-  import SourcesPanel from '$lib/components/SourcesPanel.svelte';
-  import SupportChip from '$lib/components/SupportChip.svelte';
-  import Stepper from '$lib/components/Stepper.svelte';
+  import Swatch from '$lib/components/Swatch.svelte';
   import Toggle from '$lib/components/Toggle.svelte';
-  import { detail } from '$lib/stores/detail.svelte';
-  import TariffForm from '$lib/components/TariffForm.svelte';
-  import { fmtAgo, fmtDateTime, fmtTemp } from '$lib/format';
+  import { canEditSetup } from '$lib/capabilities';
+  import { fmtAgo, fmtEurExact, fmtPrice, fmtTemp, fmtTime, fmtWeekdayTime, parisTodayIso } from '$lib/format';
+  import { LOCALE_NAMES, LOCALES, locale, m, setLocale } from '$lib/i18n';
+  import { linkyFresh, linkyLine, linkyProblem } from '$lib/linky';
+  import { desktop } from '$lib/media.svelte';
+  import { navAlerts } from '$lib/navAlerts';
+  import { ANCHORS, homeAnchor, ROUTES } from '$lib/paths';
+  import { lateCount, sourceRows } from '$lib/sources';
   import { roomName } from '$lib/setup';
-  import { apiMessage, LOCALE_NAMES, LOCALES, locale, m, setLocale, statusError } from '$lib/i18n';
-  import { ANCHORS, ROUTES } from '$lib/paths';
   import { alerts } from '$lib/stores/alerts.svelte';
   import { auth } from '$lib/stores/auth.svelte';
+  import { awaySheet } from '$lib/stores/away.svelte';
+  import { detail } from '$lib/stores/detail.svelte';
   import { house } from '$lib/stores/house.svelte';
-  import { toasts } from '$lib/stores/toasts.svelte';
   import { theme, type ThemeChoice } from '$lib/stores/theme';
+  import { inForce, RATE_KEYS, slotsText } from '$lib/tariff';
   import { VERSION } from '$lib/version';
 
-  const tomorrowAt18 = () => {
-    const d = new Date(Date.now() + 86_400_000);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T18:00`;
-  };
-
-  let until = $state(tomorrowAt18());
-  let awayTemp = $state(12);
-  let themeChoice = $state<ThemeChoice>(theme.get());
-  let now = $state(Date.now());
-  let untilError = $state<(() => string) | null>(null);
-  const nowLocal = () => {
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-  let minUntil = $state(nowLocal());
-
-  function startAway() {
-    if (!house.online) return;
-    if (!until || new Date(until).getTime() <= Date.now()) {
-      untilError = () => apiMessage('end_in_past');
+  // An old anchor (/home#tariff, #linky, #sessions) lands on its page; #away opens the sheet here.
+  let leaving = $state(typeof location !== 'undefined' && !!homeAnchor(location.hash) && homeAnchor(location.hash) !== 'away');
+  function land(hash: string) {
+    const target = homeAnchor(hash);
+    if (!target) return;
+    if (target === 'away') {
+      history.replaceState(history.state, '', ROUTES.home);
+      awaySheet.show();
       return;
     }
-    untilError = null;
-    run(() => api.houseAway(until, awayTemp));
+    leaving = true;
+    void goto(target, { replaceState: true });
   }
+  afterNavigate(({ to }) => land(to?.url.hash ?? ''));
+  // A hash typed or followed while already on Maison is not a navigation for the router.
   $effect(() => {
-    const t = setInterval(() => {
-        now = Date.now();
-        minUntil = nowLocal();
-      }, 30_000);
+    const on = () => land(location.hash);
+    addEventListener('hashchange', on);
+    return () => removeEventListener('hashchange', on);
+  });
+
+  let now = $state(Date.now());
+  $effect(() => {
+    const t = setInterval(() => (now = Date.now()), 30_000);
     return () => clearInterval(t);
   });
 
+  // The cards' summaries: each its own answer; a failure says « indisponible » in its card (the page retries).
+  let settings = $state<SettingsView | null | undefined>(undefined);
+  let linky = $state<LinkyStatus | null | undefined>(undefined);
+  let grid = $state<Sources | null | undefined>(undefined);
+  let sessions = $state<SessionInfo[] | null | undefined>(undefined);
+  $effect(() => {
+    api.settings().then((s) => (settings = s), () => (settings = null));
+    api.linkyStatus().then((s) => (linky = s), () => (linky = null));
+    api.status().then((s) => (grid = s.sources ?? null), () => (grid = null));
+    api.sessions().then((s) => (sessions = s), () => (sessions = null));
+  });
+
+  // Everything below the header comes in one frame, once the house and the alerts are known: an alert's height
+  // depends on how its text wraps (the font), so nothing already on screen is pushed down when it lands.
+  let ready = $derived(house.loaded && alerts.answered);
+  let shownAlerts = $derived((alerts.list ?? []).filter((a) => alertText(a) !== null));
+  let alertsSection = $derived((alerts.error && alerts.list === null) || shownAlerts.length > 0);
+
+  let dot = $derived(navAlerts(alerts.summary, alerts.list));
+  let stateText = $derived(
+    [dot.count ? m.home.stateAlerts(dot.count) : null, house.away ? m.home.stateAway(fmtWeekdayTime(house.away.ends_at * 1000)) : null]
+      .filter(Boolean)
+      .join(' · ') || m.home.allGood
+  );
+
   const roomsOf = (ids: string[]) =>
     house.rooms.filter((r) => r.radiator_ids.some((i) => ids.includes(i))).map((r) => roomName(r)).join(', ') || m.home.wholeHome;
+  /** « 21:45 » today, « dim. 18:00 » another day. */
+  const endText = (ms: number) => (parisTodayIso(ms) === parisTodayIso(now) ? fmtTime(ms) : fmtWeekdayTime(ms));
+  let offlineRooms = $derived(
+    house.rooms.filter((r) => r.radiator_ids.length && house.roomRadiators(r.id).every((x) => x.reachable === false)).map((r) => roomName(r))
+  );
 
-  let loggingOut = $state(false);
-  async function logout() {
-    if (loggingOut) return;
-    loggingOut = true;
-    try {
-      await auth.logout();
-    } catch {
-      toasts.push(() => m.home.logoutFailed);
-      return;
-    } finally {
-      loggingOut = false;
-    }
-    await goto(ROUTES.login, { replaceState: true });
-  }
-
-  let settingsView = $state<SettingsView | null>(null);
-  let linkyStatus = $state<LinkyStatus | null>(null);
-  let tariffError = $state<(() => string) | null>(null);
-  let linkyError = $state<(() => string) | null>(null);
-
-  function loadTariff() {
-    tariffError = null;
-    api.settings().then((s) => (settingsView = s)).catch(() => (tariffError = () => m.home.tariffLoadFailed));
-  }
-  function loadLinky() {
-    linkyError = null;
-    api.linkyStatus().then((s) => (linkyStatus = s)).catch(() => (linkyError = () => m.home.linkyLoadFailed));
-  }
-  $effect(() => {
-    loadTariff();
-    loadLinky();
+  // Cards.
+  let radiatorCount = $derived(Object.keys(house.radiators).length);
+  let devicesSummary = $derived(m.home.cardDevices(house.rooms.length, radiatorCount));
+  let tariffRow = $derived(settings?.tariff ? inForce(settings.tariff.prices, parisTodayIso(now)) : null);
+  let tariffSlots = $derived.by(() => {
+    const t = settings?.tariff;
+    if (!t || tariffRow?.option !== 'hchp') return null;
+    const s = inForce(t.hc_schedules, parisTodayIso(now));
+    if (!s) return null;
+    const month = Number(parisTodayIso(now).slice(5, 7));
+    return (s.variants.find((v) => v.months.includes(month)) ?? s.variants[0])?.slots ?? null;
   });
-  // Tarif, Linky and Réglages appear together, once both answers are in: nothing on screen moves. The
-  // alerts' answer is one of them: their panel (above) takes its real height in that same frame.
-  let settled = $derived((!!settingsView || !!tariffError) && (!!linkyStatus || !!linkyError) && alerts.answered);
-  // The panels come after the anchors: once they render, land on the anchor again.
-  let landed = false;
-  $effect(() => {
-    if (!settled || landed) return;
-    landed = true;
-    const id = location.hash.slice(1);
-    if (id !== ANCHORS.tariff && id !== ANCHORS.linky) return;
-    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }));
-  });
+  let tariffSummary = $derived(
+    settings === undefined
+      ? null
+      : settings === null
+        ? m.home.unavailable
+        : !settings.tariff || !tariffRow
+          ? m.home.cardTariffNone
+          : m.home.cardTariff(m.tariff.options[tariffRow.option], m.tariff.kvaValue(settings.tariff.kva), fmtEurExact(tariffRow.subscription_eur_month))
+  );
+  let linkySummary = $derived(
+    linky === undefined ? null : linky === null ? m.home.unavailable : linky.state === 'off' ? m.home.cardLinkyOff : (linkyProblem(linky) ?? linkyLine(linky) ?? '—')
+  );
+  let sources = $derived(
+    grid === undefined || linky === undefined ? null : sourceRows({ status: house.status, live: house.online, linky: linky ?? null, grid: grid ?? null }, now)
+  );
+  let late = $derived(sources ? lateCount(sources) : 0);
+  let sourcesSummary = $derived(sources === null ? null : late ? m.home.cardSourcesLate(late) : m.home.cardSourcesOk);
+  let accountSummary = $derived(auth.email ?? '—');
+  let accountLine = $derived(
+    [auth.server?.name ?? null, sessions ? m.home.cardSessions(sessions.length) : null].filter(Boolean).join(' · ')
+  );
 
-  // The form keeps its fields and its « Tarif enregistré. »; its price history follows the prop.
-  function tariffSaved(s: SettingsView) {
-    settingsView = s;
-  }
-
+  // Affichage.
+  let themeChoice = $state<ThemeChoice>(theme.get());
   const THEMES: ThemeChoice[] = ['system', 'dark', 'light'];
-
   function setTheme(v: ThemeChoice) {
     themeChoice = v;
     theme.set(v);
@@ -123,284 +142,328 @@
 
 <svelte:head><title>{m.page.title(m.nav.home)}</title></svelte:head>
 
-<h1>{m.nav.home}</h1>
-
-<section id={ANCHORS.away} class="panel">
-  <h2>{m.away.title}</h2>
-  <p class="muted">{m.away.lead}</p>
-  <div class="row">
-    <label class="field"><span>{m.away.until} <span class="hint">{m.away.parisTime}</span></span><input class="when" type="datetime-local" min={minUntil}
-        bind:value={until} /></label>
-    <div class="field"><span>{m.away.temperature}</span>
-      <Stepper label={m.away.tempLabel} value={awayTemp} min={7} max={19} debounceMs={0} onchange={(v) => (awayTemp = v)} />
-    </div>
-    <button type="button" class="btn btn-primary" aria-disabled={!until || !house.online} onclick={startAway}>{m.away.start}</button>
-  </div>
-  {#if untilError}<p class="error" role="alert">{untilError()}</p>{/if}
-</section>
-
-<section class="panel">
-  <h2>{m.home.active}</h2>
-  {#if !house.loaded}
-    <p class="line-sk"><span class="skeleton inset" aria-hidden="true"></span></p>
-  {:else if house.overrides.length}
-    <ul class="overrides">
-      {#each house.overrides as o (o.id)}
-        <li>
-          <div>
-            <strong>{m.home.kind[o.kind]}</strong> · {roomsOf(o.radiator_ids)} · {fmtTemp(o.temperature)}
-            <div class="muted small">{o.restoring ? m.home.restoring : m.home.until(fmtDateTime(o.ends_at * 1000))}</div>
-          </div>
-          <button type="button" class="btn btn-sm" aria-label={m.home.cancelLabel(m.home.kind[o.kind], roomsOf(o.radiator_ids))}
-            aria-disabled={!house.online} onclick={() => house.online && run(() => api.cancelOverride(o.id))}>{m.common.cancel}</button>
-        </li>
-      {/each}
-    </ul>
-  {:else}
-    <p class="muted">{m.home.none}</p>
-  {/if}
-</section>
-
-<section class="panel">
-  <h2>Actions</h2>
-  <div class="row">
-    <HouseActions program away={false} />
-  </div>
-</section>
-
-<!-- Below the always-drawn panels, so the alerts' arrival moves nothing that is already there. -->
-<section id={ANCHORS.alerts} class="panel">
-  <h2>{m.alerts.title}</h2>
-  <AlertList hold={!settled} />
-</section>
-
-<!-- Everything below the alerts is drawn in the frame the alerts take their real height (it depends on how
-     their text wraps, so on the font): nothing that is already on screen is ever pushed down. -->
-{#if settled}
-  <section class="panel">
-    <h2>{m.devices.title}</h2>
-    <p>{m.devices.homeText}</p>
-    <a class="btn btn-sm" href={ROUTES.devices}>{m.devices.open}</a>
-  </section>
-
-  <section id={ANCHORS.tariff} class="panel">
-    <h2>{m.home.tariff}</h2>
-    {#if settingsView}
-      <TariffForm settings={settingsView} onsaved={tariffSaved} contractSlots={(alerts.of(['hc_changed'])[0]?.params.slots as Slot[] | undefined) ?? null} />
-    {:else}
-      <p class="error" role="alert">{tariffError?.()} <button type="button" class="btn btn-sm" onclick={loadTariff}>{m.common.retry}</button></p>
+{#if !leaving}
+<PageHeader title={m.nav.home}>
+  {#snippet actions()}
+    {#if desktop.matches}
+      <button type="button" class="btn" class:cool={!!house.away} onclick={(e) => awaySheet.show(e.currentTarget)}><Icon name="away" size={16} />{house.away
+          ? m.away.short(fmtWeekdayTime(house.away.ends_at * 1000))
+          : m.away.open}</button>
     {/if}
-  </section>
+  {/snippet}
+  {#snippet stateLine()}
+    {#if ready}<p class="state">{stateText}</p>{:else}<p class="state"><span class="skeleton line-sk" aria-hidden="true"></span></p>{/if}
+  {/snippet}
+</PageHeader>
 
-  <section id={ANCHORS.linky} class="panel">
-    <h2>Linky</h2>
-    {#if linkyStatus}
-      <LinkyPanel status={linkyStatus} onsaved={(s) => (linkyStatus = s)} />
-    {:else}
-      <p class="error" role="alert">{linkyError?.()} <button type="button" class="btn btn-sm" onclick={loadLinky}>{m.common.retry}</button></p>
-    {/if}
-  </section>
-
-  <section id={ANCHORS.sessions} class="panel">
-    <h2>{m.sessions.title}</h2>
-    <SessionsPanel />
-  </section>
-
-  <section class="panel">
-    <h2>{m.sources.title}</h2>
-    <SourcesPanel />
-  </section>
-
-  <section class="panel">
-    <h2>{m.settings.title}</h2>
-    <dl>
-      <div class="item">
-        <dt>{m.settings.account}</dt>
-        <dd class="account">
-          <span class="email">{auth.email ?? '—'}</span>
-          <button type="button" class="btn btn-sm" aria-disabled={loggingOut} onclick={logout}>{m.settings.signOut}</button>
-        </dd>
-      </div>
-      <div class="item">
-        <dt>Cozytouch</dt>
-        <dd>
-          <span>{house.status.connected ? m.settings.connected : m.settings.unreachable}</span>
-          {#if house.status.last_ok_at}<span class="muted"> · {m.settings.lastSync(fmtAgo(house.status.last_ok_at * 1000, now))}</span>{/if}
-          {#if house.status.last_error}<div class="muted small" title={house.status.last_error}>{statusError(house.status)}</div>{/if}
-        </dd>
-      </div>
-      <div class="item">
-        <dt>{m.settings.theme}</dt>
-        <dd>
-          <Segmented options={THEMES.map((t) => ({ value: t, label: m.settings.themes[t] }))} value={themeChoice} label={m.settings.theme}
-            onchange={setTheme} />
-        </dd>
-      </div>
-      <div class="item">
-        <dt>{m.settings.language}</dt>
-        <dd>
-          <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l], lang: l }))} value={locale.current}
-            label={m.settings.language} onchange={setLocale} />
-        </dd>
-      </div>
-      <div class="item">
-        <dt>{m.settings.server}</dt>
-        <dd>{auth.server?.name ?? '—'}{#if auth.server?.tier === 'experimental'} <SupportChip support="experimental" />{/if}</dd>
-      </div>
-      <div class="item">
-        <dt>Version</dt>
-        <dd class="mono">Kelvin {VERSION}</dd>
-      </div>
-    </dl>
-    <!-- « Détails techniques » (direction-2 §1.3): per device; moves to Maison › Affichage with the overview. -->
-    <div class="detail-pref">
-      <Toggle checked={detail.on} label={m.detail.label} onchange={(v) => detail.set(v)} />
-      <p class="muted small">{m.detail.hint}</p>
-    </div>
-  </section>
+{#if !ready}
+  <div class="page" aria-busy="true">
+    <div class="skeleton now-sk" aria-hidden="true"></div>
+    <div class="cards-wrap"><div class="cards">
+      {#each [0, 1, 2, 3, 4, 5] as i (i)}<div class="skeleton card-sk" aria-hidden="true"></div>{/each}
+    </div></div>
+  </div>
 {:else}
-  <!-- No height: the anchors exist from the first render (/home#tariff, #linky), the panels come with the rest. -->
-  <div id={ANCHORS.tariff} aria-busy="true"></div>
-  <div id={ANCHORS.linky} aria-busy="true"></div>
+  <div class="page">
+    <section class="panel now" aria-labelledby="now-title">
+      <h2 id="now-title" class="sl">{m.home.now}</h2>
+      {#if house.overrides.length}
+        <ul class="overrides">
+          {#each house.overrides as o (o.id)}
+            {@const end = endText(o.ends_at * 1000)}
+            <li class="orow">
+              <span class="glyph {o.kind}" aria-hidden="true"><Icon name={o.kind === 'away' ? 'away' : 'flame'} size={16} /></span>
+              <div class="otext">
+                {#if o.kind === 'away'}
+                  <span><strong class="cool">{m.home.kind.away}</strong> · {m.home.tempUntil(fmtTemp(o.temperature), end)}</span>
+                  <small>{o.restoring ? m.home.restoring : offlineRooms.length ? m.home.everyRoomBut(offlineRooms) : m.home.everyRoom}</small>
+                {:else}
+                  <span><strong class="warm">{m.home.kind.boost}</strong> · {roomsOf(o.radiator_ids)} · {m.home.tempUntil(fmtTemp(o.temperature), end)}</span>
+                  <small>{o.restoring ? m.home.restoring : m.home.thenBack}</small>
+                {/if}
+              </div>
+              <button type="button" class="btn btn-sm" aria-disabled={!house.online}
+                aria-label={o.kind === 'away' ? m.home.endAwayLabel : m.home.stopLabel(roomsOf(o.radiator_ids))}
+                onclick={() => house.online && run(() => api.cancelOverride(o.id))}>{o.kind === 'away' ? m.home.end : m.home.stop}</button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="nothing">{m.home.nothing}</p>
+      {/if}
+      <div class="qa">
+        <HouseActions program away={!desktop.matches} awayText={m.away.open} stacked={!desktop.matches} />
+      </div>
+    </section>
+
+    {#if alertsSection}
+      <section id={ANCHORS.alerts} class="alerts" aria-labelledby="alerts-title">
+        <h2 id="alerts-title" class="sl">{m.alerts.title}</h2>
+        <AlertList />
+      </section>
+    {/if}
+
+    <div class="cards-wrap">
+      <div class="cards">
+        <div class="list">
+        <HomeCard href={ROUTES.devices} title={m.devices.title} summary={devicesSummary} vt="home-devices">
+          {#if offlineRooms.length}<p>{m.home.cardDevicesOff(offlineRooms.length)}</p>{/if}
+          {#if auth.server && !canEditSetup(auth.server)}<p>{m.home.readOnlyServer}</p>{/if}
+          {#snippet foot()}<CozytouchStatus {now} />{/snippet}
+        </HomeCard>
+        <HomeCard href={ROUTES.tariff} title={m.tariff.title} summary={tariffSummary} vt="home-tariff">
+          {#if tariffRow}
+            <p class="prices">
+              {#each RATE_KEYS[tariffRow.option].slice(0, tariffRow.option === 'tempo' ? 0 : 2) as k (k)}
+                <span class="price">{#if k === 'hc' || k === 'hp'}<Swatch series={k} size={8} />{/if}{tariffRow.option === 'base'
+                    ? fmtPrice(tariffRow.rates[k])
+                    : `${m.tariff.rateShort[k]} ${fmtPrice(tariffRow.rates[k])}`}</span>
+              {/each}
+              {#if tariffRow.option === 'tempo'}<span>{m.home.cardTempo}</span>{/if}
+            </p>
+            {#if tariffSlots}<HoursBar slots={tariffSlots} compact label={m.tariffSummary.hoursLabel(slotsText(tariffSlots))} />{/if}
+          {:else if settings && !settings.tariff}
+            <p>{m.home.cardTariffSet}</p>
+          {/if}
+        </HomeCard>
+        <HomeCard href={ROUTES.linky} title="Linky" summary={linkySummary} vt="home-linky">
+          {#snippet mark()}{#if linky}<Freshness state={linkyFresh(linky, now)} />{/if}{/snippet}
+          {#if linky && linky.state !== 'off'}<p>{m.home.cardLinkyWhat}</p>{/if}
+          {#if linky?.last_ok_at}<p class="small">{m.linky.sync(fmtAgo(linky.last_ok_at * 1000, now))}</p>{/if}
+        </HomeCard>
+        <HomeCard href={ROUTES.sources} title={m.sources.title} summary={sourcesSummary} vt="home-sources">
+          {#if sources}
+            <p class="marks">{#each sources as s (s.key)}<span><Freshness state={s.state} />{s.name}</span>{/each}</p>
+          {/if}
+        </HomeCard>
+        <HomeCard href={ROUTES.account} title={m.account.title} summary={accountSummary} vt="home-account">
+          {#if accountLine}<p>{accountLine}</p>{/if}
+        </HomeCard>
+        </div>
+        <section class="panel display" aria-labelledby="display-title">
+          <h2 id="display-title" class="sl">{m.home.display}</h2>
+          <div class="setrow">
+            <span class="lbl">{m.settings.theme}</span>
+            <Segmented options={THEMES.map((t) => ({ value: t, label: m.settings.themes[t] }))} value={themeChoice} label={m.settings.theme}
+              onchange={setTheme} />
+          </div>
+          <div class="setrow">
+            <span class="lbl">{m.settings.language}</span>
+            <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l], lang: l }))} value={locale.current} label={m.settings.language}
+              onchange={setLocale} />
+          </div>
+          <div class="detail-pref">
+            <Toggle checked={detail.on} label={m.detail.label} onchange={(v) => detail.set(v)} />
+            <p class="hint">{m.detail.hint}</p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <p class="ver mono">Kelvin {VERSION}</p>
+  </div>
+{/if}
 {/if}
 
 <style>
-  h1 {
-    font-size: 22px;
-    margin: 0 0 12px;
+  .page {
+    display: grid;
+    gap: 14px;
+    max-width: 1080px;
+    min-width: 0;
   }
-  h2 {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+  .state {
+    margin: 0;
+    height: 19px;
+    font-size: 13px;
+    line-height: 19px;
     color: var(--mu);
-    margin: 0 0 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .line-sk {
+    display: inline-block;
+    width: 9rem;
+    height: 13px;
+    border-radius: 4px;
+    vertical-align: -2px;
+  }
+  .now-sk {
+    height: 96px;
+    border-radius: var(--radius);
+  }
+  .card-sk {
+    min-height: 132px;
+    border-radius: var(--radius);
+  }
+  .cool {
+    color: var(--cool);
+  }
+  .warm {
+    color: var(--warm);
   }
   .panel {
     padding: 14px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--s1);
-    margin-bottom: 14px;
-    max-width: 720px;
+    min-width: 0;
   }
-  p {
-    font-size: 13px;
-    margin: 0 0 10px;
-  }
-  .row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: end;
-    gap: 12px;
-  }
-  .detail-pref {
-    margin-top: 6px;
-    padding-top: 4px;
-    border-top: 1px solid var(--line);
-  }
-  .detail-pref p {
-    margin: -6px 0 0;
-  }
-  .field {
-    display: grid;
-    justify-items: start;
-    gap: 4px;
+  .sl {
+    margin: 0 0 8px;
     font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: var(--mu);
-  }
-  /* A date and a time: as wide as « 18/10/2026 18:00 » and its picker glyph, never stretched. */
-  .when {
-    width: min(100%, 14.5rem);
-  }
-  .hint {
-    font-weight: 400;
-  }
-  .line-sk {
-    display: flex;
-    align-items: center;
-    height: 19px;
-  }
-  .line-sk .skeleton {
-    display: block;
-    width: 12rem;
-    height: 13px;
-    border-radius: 4px;
   }
   .overrides {
     list-style: none;
-    padding: 0;
     margin: 0;
-    display: grid;
-    gap: 8px;
+    padding: 0;
   }
-  .overrides li {
-    display: flex;
-    justify-content: space-between;
+  .orow {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .orow:first-child {
+    padding-top: 0;
+  }
+  .glyph {
+    display: inline-flex;
+    align-self: start;
+    padding-top: 2px;
+  }
+  .glyph.away {
+    color: var(--cool);
+  }
+  .glyph.boost {
+    color: var(--warm);
+  }
+  .otext {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .otext strong {
+    font-weight: 600;
+  }
+  .otext small {
+    font-size: 12px;
+    color: var(--mu);
+  }
+  .nothing {
+    margin: 0;
     font-size: 13px;
+    color: var(--mu);
   }
-  .error {
-    color: var(--bad);
-    margin: 8px 0 0;
+  .qa {
+    margin-top: 12px;
   }
-  .panel > .error:first-of-type {
+  .alerts {
+    min-width: 0;
+  }
+  .alerts .sl {
+    margin-bottom: 8px;
+  }
+  .cards-wrap {
+    container: home-cards / inline-size;
+    min-width: 0;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .prices {
     display: flex;
     flex-wrap: wrap;
+    gap: 2px 12px;
+    margin: 0;
+    color: var(--tx);
+    font-variant-numeric: tabular-nums;
+  }
+  .price {
+    display: inline-flex;
     align-items: center;
-    gap: 8px 12px;
+    gap: 6px;
+  }
+  .marks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
     margin: 0;
   }
-  .error .btn {
-    color: var(--tx);
+  .marks span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
   .small {
     font-size: 12px;
   }
-  /* Réglages: label and value share a row, centred on the 44 px controls. */
-  dl {
-    display: grid;
-    gap: 6px;
+  .cards :global(.more p) {
     margin: 0;
-    font-size: 13px;
   }
-  .item {
+  .display {
     display: grid;
-    grid-template-columns: 110px minmax(0, 1fr);
-    align-items: center;
-    gap: 4px 14px;
-    min-height: 44px;
+    align-content: start;
+    gap: 2px;
   }
-  dt {
-    color: var(--mu);
+  .display .sl {
+    margin-bottom: 4px;
   }
-  dd {
-    margin: 0;
-    min-width: 0;
-  }
-  .account {
+  .setrow {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
     justify-content: space-between;
+    gap: 6px 12px;
+    min-height: 44px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--line);
   }
-  .email {
-    overflow-wrap: anywhere;
+  .lbl {
+    font-weight: 500;
   }
-  /* Phone: the label column takes only what it needs, so the theme control fits at 360 px. */
-  @media (max-width: 599px) {
-    .item {
-      grid-template-columns: max-content minmax(0, 1fr);
-    }
+  .detail-pref .hint {
+    margin: -6px 0 0;
+    font-size: 12px;
+    color: var(--mu);
   }
-  /* Narrowest phones: the label sits above its value. */
-  @media (max-width: 359px) {
-    .item {
+  .ver {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--mu);
+    text-align: center;
+  }
+  .list {
+    display: contents;
+  }
+  /* The list form: one grouped panel of 64 px rows (iOS-settings density), then Affichage on its own. */
+  @container home-cards (max-width: 719px) {
+    .cards {
       grid-template-columns: minmax(0, 1fr);
-      gap: 4px;
+    }
+    .list {
+      display: grid;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--s1);
+      overflow: hidden;
+    }
+    .list > :global(.hcard:not(:last-child)) {
+      border-bottom: 1px solid var(--line);
+    }
+    .card-sk {
+      min-height: 64px;
     }
   }
 </style>

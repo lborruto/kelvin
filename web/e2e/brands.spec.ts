@@ -63,8 +63,8 @@ test.describe('on the Atlantic house', () => {
     await expect(page.getByRole('radio', { name: 'Salle de bain' })).toHaveCount(0);
   });
 
-  test('Settings name the server', async ({ page }) => {
-    await page.goto('/home');
+  test('Compte names the server', async ({ page }) => {
+    await page.goto('/home/account');
     await expect(page.getByText('Atlantic Cozytouch')).toBeVisible();
   });
 

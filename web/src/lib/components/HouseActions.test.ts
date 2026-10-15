@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
+import { awaySheet } from '$lib/stores/away.svelte';
 import { house } from '$lib/stores/house.svelte';
 import HouseActions from './HouseActions.svelte';
 import { applyLocale } from '$lib/i18n';
@@ -49,12 +50,28 @@ it('is disabled while Kelvin is disconnected', () => {
   expect(screen.getByRole('button', { name: 'Tout remettre en programme' })).toHaveAttribute('aria-disabled', 'true');
 });
 
-it('offers « Absence… » except where the Absence panel already is', () => {
+it('« Absence… » opens the Absence sheet where the user is (focus returns to it); away: false hides it', async () => {
   const a = render(HouseActions);
-  expect(screen.getByRole('link', { name: 'Absence…' })).toHaveAttribute('href', '/home#away');
+  const btn = screen.getByRole('button', { name: 'Absence…' });
+  await fireEvent.click(btn);
+  expect(awaySheet.open).toBe(true);
+  expect(awaySheet.trigger).toBe(btn);
+  awaySheet.close();
   a.unmount();
   render(HouseActions, { away: false });
-  expect(screen.queryByRole('link', { name: 'Absence…' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Absence…' })).toBeNull();
+});
+
+it('while an absence runs, the button says its end in cool, and a dot marks the icon form', () => {
+  house.overrides = [{ id: 'o1', kind: 'away', room_id: null, radiator_ids: ['a'], temperature: 12, ends_at: Date.UTC(2026, 9, 18, 16) / 1000, restoring: false }];
+  const a = render(HouseActions);
+  const btn = screen.getByRole('button', { name: /^Absence · dim\. 18:00$/ });
+  expect(btn).toHaveClass('on');
+  a.unmount();
+  render(HouseActions, { icons: true });
+  const icon = screen.getByRole('button', { name: /^Absence · dim\. 18:00$/ });
+  expect(icon.querySelector('.adot')).not.toBeNull();
+  house.overrides = [];
 });
 
 it('gives each mounted instance its own dialog title id', () => {
@@ -120,7 +137,7 @@ it('in English: the actions, the dialog and the away link', () => {
   render(HouseActions, { program: true });
   expect(screen.getByRole('button', { name: 'Turn everything off' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Put everything back on schedule' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Away…' })).toHaveAttribute('href', '/home#away');
+  expect(screen.getByRole('button', { name: 'Away…' })).toBeInTheDocument();
   const dialog = document.querySelector('dialog')!;
   expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)).toHaveTextContent('Turn everything off?');
   expect(document.getElementById(dialog.getAttribute('aria-describedby')!)).toHaveTextContent(
@@ -132,7 +149,7 @@ it('the icon form (phone Rooms header) keeps the names as labels and still asks 
   render(HouseActions, { icons: true });
   const off = screen.getByRole('button', { name: 'Tout éteindre' });
   expect(off).not.toHaveTextContent('Tout éteindre');
-  expect(screen.getByRole('link', { name: 'Absence…' })).toHaveAttribute('href', '/home#away');
+  expect(screen.getByRole('button', { name: 'Absence…' })).not.toHaveTextContent('Absence…');
   await fireEvent.click(off);
   expect(document.querySelector('dialog')!.open).toBe(true);
 });

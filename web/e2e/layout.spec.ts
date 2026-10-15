@@ -3,6 +3,8 @@ import { expect, test, type Page } from '@playwright/test';
 // Layout guards, run once (desktop project; widths are set per check).
 const WIDTHS = [320, 360, 390, 768, 1024, 1280, 1440];
 const ROUTES = ['/', '/rooms/p-salon', '/schedule', '/energy', '/home', '/home/devices'];
+// Maison sub-pages (UX batches 8–10).
+ROUTES.push('/home/tariff', '/home/linky', '/home/sources', '/home/account');
 
 /** The page is in its loaded state: a title, no skeleton left. */
 async function settled(page: Page) {
@@ -431,4 +433,29 @@ test.describe('layout in English', () => {
     }
     await context.close();
   });
+});
+
+// The Absence sheet (UX batch 8) open over Pièces and Maison, fr and en, both themes: never sideways.
+test.describe('layout with the Absence sheet open', () => {
+  test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
+  for (const lang of ['fr', 'en'])
+    for (const theme of ['light', 'dark'])
+      test(`${lang}, ${theme}: never scrolls sideways from 320 to 1440 px`, async ({ page }) => {
+        await page.addInitScript(
+          ([l, t]) => {
+            localStorage.setItem('kelvin-locale', l);
+            localStorage.setItem('kelvin-theme', t);
+          },
+          [lang, theme]
+        );
+        for (const width of WIDTHS) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto('/home#away');
+          await expect(page.getByRole('dialog')).toBeVisible();
+          // The precise date field is the widest content.
+          await page.getByRole('dialog').getByRole('button', { name: /^(Date précise…|Pick a date…)$/ }).click();
+          await page.waitForTimeout(250);
+          expect(await overflow(page), `/home with the sheet (${lang}, ${theme}) at ${width} px`).toBeLessThanOrEqual(0);
+        }
+      });
 });

@@ -779,27 +779,82 @@ export const fr = {
     register1: 'Registre 1 (kWh)',
     register2: 'Registre 2 (kWh)'
   },
+  // Partir en absence (UX batch 8): the Absence sheet, opened where the user is.
   away: {
-    title: 'Absence',
-    lead: 'Tous les radiateurs passent à une température réduite, puis reprennent leur réglage à la date choisie.',
-    until: 'Jusqu’au',
+    title: 'Partir en absence',
+    open: 'Partir en absence…',
+    activeTitle: 'Absence en cours',
+    lead: 'Toutes les pièces baissent, puis reprennent leur réglage.',
+    until: 'Jusqu’à',
     parisTime: '(heure de Paris)',
+    tomorrow: (t: string) => `Demain ${t}`,
+    sunday: (t: string) => `Dimanche ${t}`,
+    pick: 'Date précise…',
+    pickField: 'Date et heure du retour',
     temperature: 'Température',
     tempLabel: 'Température d’absence',
-    start: 'Activer l’absence'
+    frost: `hors-gel à partir de 7${NB}°C`,
+    consequence: (n: number, temp: string, t: string) =>
+      n === 1
+        ? `La pièce passera à ${temp} jusqu’à ${t}, puis reprendra son réglage.`
+        : `Les ${int(n)} pièces passeront à ${temp} jusqu’à ${t}, puis reprendront leur réglage.`,
+    offline: (names: string[], n: number) =>
+      n === 1
+        ? `${names[0]} est hors ligne${NB}: elle ne recevra peut-être pas la consigne.`
+        : `${list(names)} sont hors ligne${NB}: elles ne recevront peut-être pas la consigne.`,
+    noRoom: `Aucun radiateur ne prend de consigne de température${NB}: une absence ne changerait rien.`,
+    go: 'Partir',
+    extendGo: 'Prolonger',
+    waiting: 'En attente de la connexion à Kelvin.',
+    started: (t: string) => `Absence jusqu’à ${t}.`,
+    undo: 'Annuler l’absence',
+    active: (t: string, temp: string) => `Absence jusqu’à ${t} · ${temp}`,
+    activeLead: 'Toutes les pièces reprendront leur réglage à la fin.',
+    extend: 'Prolonger…',
+    endNow: 'Terminer maintenant',
+    short: (t: string) => `Absence · ${t}`
   },
+  // Maison overview (UX batch 8).
   home: {
-    active: 'En cours',
-    kind: { boost: 'Forçage', away: 'Absence' },
-    wholeHome: 'Toute la maison',
+    allGood: 'Tout va bien',
+    stateAlerts: (n: number) => `${int(n)} ${plural(n, { one: 'alerte', other: 'alertes' })}`,
+    stateAway: (t: string) => `Absence jusqu’à ${t}`,
+    now: 'En ce moment',
+    nothing: 'Tout suit son réglage habituel.',
+    kind: { boost: 'Chauffe temporaire', away: 'Absence' },
+    tempUntil: (temp: string, t: string) => `${temp} jusqu’à ${t}`,
+    everyRoom: 'toutes les pièces',
+    everyRoomBut: (names: string[]) => `toutes les pièces · ${list(names)} hors ligne`,
+    thenBack: 'puis retour au réglage d’avant',
     restoring: 'Rétablissement en cours…',
-    until: (dateTime: string) => `jusqu’au ${dateTime}`,
-    cancelLabel: (kind: string, rooms: string) => `Annuler ${kind} — ${rooms}`,
-    none: 'Aucun forçage ni absence.',
-    tariff: 'Tarif',
+    wholeHome: 'Toute la maison',
+    end: 'Terminer',
+    stop: 'Arrêter',
+    endAwayLabel: 'Terminer l’absence',
+    stopLabel: (rooms: string) => `Arrêter la chauffe temporaire${NB}: ${rooms}`,
+    cardDevices: (rooms: number, radiators: number) =>
+      `${int(rooms)} ${plural(rooms, { one: 'pièce', other: 'pièces' })} · ${int(radiators)} ${plural(radiators, { one: 'radiateur', other: 'radiateurs' })}`,
+    cardDevicesOff: (k: number) => `${int(k)} hors ligne`,
+    readOnlyServer: 'lecture seule sur ce serveur',
+    cardTariff: (option: string, kva: string, sub: string) => `${option} · ${kva} · ${sub}/mois`,
+    cardTariffNone: 'Pas encore de tarif',
+    cardTariffSet: 'Renseignez-le pour voir vos coûts en euros.',
+    cardTempo: 'Prix Bleu, Blanc et Rouge',
+    cardLinkyOff: 'Non relié · reliez-le pour la consommation de la maison',
+    cardLinkyWhat: 'Consommation de la maison et courbe à la demi-heure',
+    cardSourcesOk: 'Tout est à jour',
+    cardSourcesLate: (n: number) => `${int(n)} ${plural(n, { one: 'source en retard', other: 'sources en retard' })}`,
+    cardSessions: (n: number) => `${int(n)} ${plural(n, { one: 'appareil connecté', other: 'appareils connectés' })}`,
+    unavailable: 'Indisponible pour le moment',
+    display: 'Affichage',
     tariffLoadFailed: 'Impossible de charger le tarif.',
     linkyLoadFailed: 'Impossible de charger l’état du Linky.',
     logoutFailed: 'Déconnexion impossible. Réessayez.'
+  },
+  // Maison › Compte (UX batch 8).
+  account: {
+    title: 'Compte',
+    email: 'Email'
   },
   alerts: {
     title: 'Alertes',
@@ -838,8 +893,6 @@ export const fr = {
   },
   settings: {
     server: 'Serveur',
-    title: 'Réglages',
-    account: 'Compte',
     signOut: 'Se déconnecter',
     connected: 'Connecté',
     unreachable: 'Injoignable',
@@ -849,6 +902,7 @@ export const fr = {
     language: 'Langue'
   },
   tariff: {
+    title: 'Tarif',
     prefill: (kva: string, slots: string) => `Prérempli d’après votre contrat Enedis (${kva}${NB}kVA, heures creuses ${slots}). Ajoutez vos prix TTC.`,
     option: 'Option tarifaire',
     options: { base: 'Base', hchp: 'HC/HP', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
@@ -942,8 +996,6 @@ export const fr = {
     byCurrentPlacement: 'Pièces selon la répartition actuelle des radiateurs.',
     title: 'Pièces et appareils',
     intro: `Lu et écrit dans votre installation Cozytouch${NB}: ce que vous changez ici change aussi dans l’application Cozytouch.`,
-    open: 'Gérer les pièces et appareils',
-    homeText: `Créer, renommer et supprimer des pièces, déplacer un radiateur, et l’état de chaque appareil.`,
     radiatorCount: (n: number) => (n === 1 ? '1 radiateur' : `${n} radiateurs`),
     deviceCount: (n: number) => (n === 1 ? '1 appareil' : `${n} appareils`),
     emptyRoom: 'Pièce vide',
@@ -1085,8 +1137,20 @@ export const fr = {
       `EcoWatt ${level >= 3 ? 'rouge' : 'orange'} ${when}${hours ? `, ${hours}` : ''}`,
     source: (time: string) => `RTE via MyElectricalData · ${time}`
   },
+  // The Tarif summary (UX batches 8–9): « Tarif en vigueur », the off-peak hours bar.
+  tariffSummary: {
+    hoursLabel: (slots: string) => `Heures creuses${NB}: ${slots}`
+  },
   sources: {
-    title: 'Sources',
+    title: 'Sources de données',
+    cozytouchOk: (ago: string) => `Connecté · dernier relevé ${ago}`,
+    lastOk: 'Dernier relevé réussi',
+    lastSync: 'Dernière synchronisation',
+    lastDay: 'Données jusqu’au',
+    errorSince: 'En erreur depuis',
+    nextRead: 'Prochain relevé',
+    noNext: 'pas encore planifié',
+    calls: 'Appels MyElectricalData',
     tempo: 'Tempo (RTE)',
     ecowatt: 'EcoWatt (RTE)',
     ok: (time: string) => `à jour, relevé à ${time}`,

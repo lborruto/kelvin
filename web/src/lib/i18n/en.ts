@@ -751,27 +751,80 @@ export const en: Messages = {
     register1: 'Register 1 (kWh)',
     register2: 'Register 2 (kWh)'
   },
+  // Go away (UX batch 8): the Absence sheet, opened where the user is.
   away: {
-    title: 'Away',
-    lead: 'Every radiator drops to a lower temperature, then goes back to its settings at the chosen time.',
+    title: 'Go away',
+    open: 'Go away…',
+    activeTitle: 'Away mode on',
+    lead: 'Every room turns down, then goes back to its settings.',
     until: 'Until',
     parisTime: '(Paris time)',
+    tomorrow: (t: string) => `Tomorrow ${t}`,
+    sunday: (t: string) => `Sunday ${t}`,
+    pick: 'Pick a date…',
+    pickField: 'Return date and time',
     temperature: 'Temperature',
     tempLabel: 'Away temperature',
-    start: 'Start away mode'
+    frost: 'frost protection from 7°C',
+    consequence: (n: number, temp: string, t: string) =>
+      n === 1
+        ? `The room will go to ${temp} until ${t}, then back to its settings.`
+        : `The ${int(n)} rooms will go to ${temp} until ${t}, then back to their settings.`,
+    offline: (names: string[], n: number) =>
+      n === 1 ? `${names[0]} is offline: it may not get the setting.` : `${list(names)} are offline: they may not get the setting.`,
+    noRoom: 'No radiator takes a temperature: going away would change nothing.',
+    go: 'Go away',
+    extendGo: 'Extend',
+    waiting: 'Waiting for the connection to Kelvin.',
+    started: (t: string) => `Away until ${t}.`,
+    undo: 'Cancel away',
+    active: (t: string, temp: string) => `Away until ${t} · ${temp}`,
+    activeLead: 'Every room goes back to its settings at the end.',
+    extend: 'Extend…',
+    endNow: 'End now',
+    short: (t: string) => `Away · ${t}`
   },
+  // Home overview (UX batch 8).
   home: {
-    active: 'Active',
+    allGood: 'All good',
+    stateAlerts: (n: number) => `${int(n)} ${plural(n, { one: 'alert', other: 'alerts' })}`,
+    stateAway: (t: string) => `Away until ${t}`,
+    now: 'Right now',
+    nothing: 'Everything follows its usual settings.',
     kind: { boost: 'Boost', away: 'Away' },
-    wholeHome: 'Whole home',
+    tempUntil: (temp: string, t: string) => `${temp} until ${t}`,
+    everyRoom: 'every room',
+    everyRoomBut: (names: string[]) => `every room · ${list(names)} offline`,
+    thenBack: 'then back to the previous setting',
     restoring: 'Restoring…',
-    until: (dateTime: string) => `until ${dateTime}`,
-    cancelLabel: (kind: string, rooms: string) => `Cancel ${kind} — ${rooms}`,
-    none: 'No boost or away period.',
-    tariff: 'Tariff',
+    wholeHome: 'Whole home',
+    end: 'End',
+    stop: 'Stop',
+    endAwayLabel: 'End away',
+    stopLabel: (rooms: string) => `Stop boost: ${rooms}`,
+    cardDevices: (rooms: number, radiators: number) =>
+      `${int(rooms)} ${plural(rooms, { one: 'room', other: 'rooms' })} · ${int(radiators)} ${plural(radiators, { one: 'radiator', other: 'radiators' })}`,
+    cardDevicesOff: (k: number) => `${int(k)} offline`,
+    readOnlyServer: 'read-only on this server',
+    cardTariff: (option: string, kva: string, sub: string) => `${option} · ${kva} · ${sub}/month`,
+    cardTariffNone: 'No tariff yet',
+    cardTariffSet: 'Add it to see your costs in euros.',
+    cardTempo: 'Blue, White and Red prices',
+    cardLinkyOff: 'Not connected · connect it for the home’s consumption',
+    cardLinkyWhat: 'Home consumption and the half-hourly curve',
+    cardSourcesOk: 'Everything is up to date',
+    cardSourcesLate: (n: number) => `${int(n)} ${plural(n, { one: 'source late', other: 'sources late' })}`,
+    cardSessions: (n: number) => `${int(n)} ${plural(n, { one: 'signed-in device', other: 'signed-in devices' })}`,
+    unavailable: 'Unavailable right now',
+    display: 'Display',
     tariffLoadFailed: 'Couldn’t load the tariff.',
     linkyLoadFailed: 'Couldn’t load the Linky status.',
     logoutFailed: 'Couldn’t sign out. Try again.'
+  },
+  // Home › Account (UX batch 8).
+  account: {
+    title: 'Account',
+    email: 'Email'
   },
   alerts: {
     title: 'Alerts',
@@ -810,8 +863,6 @@ export const en: Messages = {
   },
   settings: {
     server: 'Server',
-    title: 'Settings',
-    account: 'Account',
     signOut: 'Sign out',
     connected: 'Connected',
     unreachable: 'Unreachable',
@@ -821,6 +872,7 @@ export const en: Messages = {
     language: 'Language'
   },
   tariff: {
+    title: 'Tariff',
     prefill: (kva: string, slots: string) => `Prefilled from your Enedis contract (${kva}${NB}kVA, off-peak ${slots}). Add your prices including tax.`,
     option: 'Tariff option',
     options: { base: 'Base', hchp: 'Peak/Off-peak', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
@@ -913,8 +965,6 @@ export const en: Messages = {
     byCurrentPlacement: 'Rooms as the radiators are placed now.',
     title: 'Rooms and devices',
     intro: 'Read from and written to your Cozytouch setup: what you change here also changes in the Cozytouch app.',
-    open: 'Manage rooms and devices',
-    homeText: 'Create, rename and delete rooms, move a radiator, and see each device’s status.',
     radiatorCount: (n: number) => (n === 1 ? '1 radiator' : `${n} radiators`),
     deviceCount: (n: number) => (n === 1 ? '1 device' : `${n} devices`),
     emptyRoom: 'Empty room',
@@ -1055,8 +1105,20 @@ export const en: Messages = {
       `EcoWatt ${level >= 3 ? 'red' : 'orange'} ${when}${hours ? `, ${hours}` : ''}`,
     source: (time: string) => `RTE via MyElectricalData · ${time}`
   },
+  // The Tariff summary (UX batches 8–9).
+  tariffSummary: {
+    hoursLabel: (slots: string) => `Off-peak hours: ${slots}`
+  },
   sources: {
-    title: 'Sources',
+    title: 'Data sources',
+    cozytouchOk: (ago: string) => `Connected · last reading ${ago}`,
+    lastOk: 'Last successful read',
+    lastSync: 'Last sync',
+    lastDay: 'Data up to',
+    errorSince: 'Failing since',
+    nextRead: 'Next read',
+    noNext: 'not planned yet',
+    calls: 'MyElectricalData calls',
     tempo: 'Tempo (RTE)',
     ecowatt: 'EcoWatt (RTE)',
     ok: (time: string) => `up to date, read at ${time}`,

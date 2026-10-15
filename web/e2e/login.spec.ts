@@ -15,7 +15,7 @@ test('a deep link asks for the login, then comes back; logout returns to the log
   await page.getByRole('button', { name: 'Se connecter' }).click();
   await expect(page).toHaveURL(/\/schedule$/);
   await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeVisible();
-  await page.goto('/home');
+  await page.goto('/home/account');
   await expect(page.getByText('demo@kelvin.local')).toBeVisible();
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
   await expect(page).toHaveURL(/\/login$/);

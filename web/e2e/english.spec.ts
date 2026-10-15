@@ -52,12 +52,12 @@ test('Home › Settings: Language switches without a reload and is remembered', 
     }
   });
   await page.goto('/home');
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Display' })).toBeVisible();
   const group = page.getByRole('radiogroup', { name: 'Language' });
   await expect(group.getByRole('radio', { name: 'English' })).toHaveAttribute('aria-checked', 'true');
   const marker = await page.evaluate(() => ((window as unknown as { __kv: number }).__kv = Date.now()));
   await group.getByRole('radio', { name: 'Français' }).click();
-  await expect(page.getByRole('heading', { name: 'Réglages' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Affichage' })).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __kv: number }).__kv)).toBe(marker); // no reload
   expect(await page.evaluate(() => document.documentElement.lang)).toBe('fr');
   await page.reload();
@@ -150,7 +150,7 @@ test.describe('key flows in English', () => {
 
   test('a French bookmark lands on the English page, in English', async ({ page }) => {
     await page.goto('/maison#tarif'); // legacy-path-test
-    await expect(page).toHaveURL(/\/home#tariff$/);
-    await expect(page.locator('#tariff h2')).toHaveText('Tariff');
+    await expect(page).toHaveURL(/\/home\/tariff$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tariff');
   });
 });

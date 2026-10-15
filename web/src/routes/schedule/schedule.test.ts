@@ -320,7 +320,7 @@ describe('/schedule: what the page says', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Jours de semaine' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Copier sur 4 jours' }));
     expect(sendBar()).toHaveTextContent('5 jours modifiés');
-    expect(row('Vendredi')).toHaveAccessibleName(/^Vendredi, 07:00–09:00, 2\sh confort, modifié$/);
+    expect(row('Vendredi')).toHaveAccessibleName(/^Vendredi, (aujourd’hui, )?07:00–09:00, 2\sh confort, modifié$/); // « aujourd’hui » on a Friday
     expect(container.querySelector<HTMLElement>('[data-day="friday"] .bar')!.style.animationName).toMatch(/^kv-pulse/);
     expect(container.querySelector<HTMLElement>('[data-day="saturday"] .bar')!.style.animationName).toBe('none');
     expect(say).toHaveBeenCalledWith(expect.stringMatching(/^Copié sur 4 jours\./));

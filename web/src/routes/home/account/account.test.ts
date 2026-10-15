@@ -1,0 +1,81 @@
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { goto } from '$app/navigation';
+import { api } from '$lib/api/client';
+import { applyLocale } from '$lib/i18n';
+import { auth } from '$lib/stores/auth.svelte';
+import { history } from '$lib/stores/history.svelte';
+import { house } from '$lib/stores/house.svelte';
+import { toasts } from '$lib/stores/toasts.svelte';
+import Page from './+page.svelte';
+
+vi.mock('$lib/api/client', () => ({
+  api: {
+    sessions: vi.fn().mockResolvedValue([]),
+    revokeSession: vi.fn(),
+    revokeOtherSessions: vi.fn(),
+    logout: vi.fn().mockResolvedValue({ email: null, logged_in: false })
+  },
+  ApiError: class extends Error {}
+}));
+vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  toasts.items = [];
+  auth.email = 'demo@kelvin.local';
+  auth.loggedIn = true;
+  auth.server = { id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true };
+  house.applySnapshot({
+    house: { rooms: [], radiators: [] },
+    pending: [],
+    overrides: [{ id: 'o1', kind: 'boost', room_id: 'p-salon', radiator_ids: ['a'], temperature: 21, ends_at: 2e9, restoring: false }],
+    status: { connected: true, last_ok_at: Date.now() / 1000, last_error: null }
+  });
+});
+afterEach(() => {
+  applyLocale('fr');
+  auth.server = null;
+});
+
+describe('Maison › Compte', () => {
+  it('the account, its server, the Cozytouch status and the signed-in devices (#sessions)', async () => {
+    render(Page);
+    expect(screen.getByRole('heading', { level: 1, name: 'Compte' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Maison' })).toHaveAttribute('href', '/home');
+    expect(screen.getByText('demo@kelvin.local')).toBeInTheDocument();
+    expect(screen.getByText('Sauter Cozytouch')).toBeInTheDocument();
+    expect(screen.getByText('Connecté')).toBeInTheDocument();
+    expect(document.getElementById('sessions')).toBeInTheDocument();
+  });
+
+  it('logs out to the login screen and empties the stores', async () => {
+    history.data = { k: [{ t: 1, v: 20, s: 17 }] };
+    render(Page);
+    await fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
+    expect(api.logout).toHaveBeenCalled();
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replaceState: true }));
+    expect(house.overrides).toEqual([]);
+    expect(house.loaded).toBe(false);
+    expect(history.data).toEqual({});
+  });
+
+  it('stays with a toast when the logout fails', async () => {
+    vi.mocked(api.logout).mockRejectedValueOnce(new Error('network'));
+    render(Page);
+    await fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
+    await vi.waitFor(() => expect(toasts.items.map((t) => t.text())).toContain('Déconnexion impossible. Réessayez.'));
+    expect(goto).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Se déconnecter' })).toHaveAttribute('aria-disabled', 'false');
+  });
+
+  it('in English, with the Cozytouch error by code', () => {
+    applyLocale('en');
+    house.status = { connected: false, last_ok_at: null, last_error: 'QUOTA_EXCEEDED', last_error_code: 'quota' };
+    render(Page);
+    expect(screen.getByRole('heading', { level: 1, name: 'Account' })).toBeInTheDocument();
+    expect(screen.getByText('Cozytouch request limit reached.')).toHaveAttribute('title', 'QUOTA_EXCEEDED');
+    expect(screen.getByText('Unreachable')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+  });
+});
