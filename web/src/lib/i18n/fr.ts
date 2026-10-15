@@ -1,9 +1,10 @@
 import type { Day, EnergyGroup } from '$lib/api/types';
-import { intFor, own, pluralFor, type ApiParams } from './rules';
+import { intFor, listFor, own, pluralFor, type ApiParams } from './rules';
 
 const NB = '\u00a0';
 const int = intFor('fr');
 const plural = pluralFor('fr');
+const list = listFor('fr');
 
 const DAY_LOWER: Record<Day, string> = {
   monday: 'lundi',
@@ -593,6 +594,99 @@ export const fr = {
     lifetime: 'Depuis l’installation (kWh)',
     register1: 'Registre 1 (kWh)',
     register2: 'Registre 2 (kWh)'
+  },
+  away: {
+    title: 'Absence',
+    lead: 'Tous les radiateurs passent à une température réduite, puis reprennent leur réglage à la date choisie.',
+    until: 'Jusqu’au',
+    parisTime: '(heure de Paris)',
+    temperature: 'Température',
+    tempLabel: 'Température d’absence',
+    start: 'Activer l’absence'
+  },
+  home: {
+    active: 'En cours',
+    kind: { boost: 'Forçage', away: 'Absence' },
+    wholeHome: 'Toute la maison',
+    restoring: 'Rétablissement en cours…',
+    until: (dateTime: string) => `jusqu’au ${dateTime}`,
+    cancelLabel: (kind: string, rooms: string) => `Annuler ${kind} — ${rooms}`,
+    none: 'Aucun forçage ni absence.',
+    tariff: 'Tarif',
+    tariffLoadFailed: 'Impossible de charger le tarif.',
+    linkyLoadFailed: 'Impossible de charger l’état du Linky.',
+    logoutFailed: 'Déconnexion impossible. Réessayez.'
+  },
+  settings: {
+    title: 'Réglages',
+    account: 'Compte',
+    signOut: 'Se déconnecter',
+    connected: 'Connecté',
+    unreachable: 'Injoignable',
+    lastSync: (ago: string) => `dernière synchro ${ago}`,
+    theme: 'Thème',
+    themes: { system: 'Système', dark: 'Sombre', light: 'Clair' },
+    language: 'Langue'
+  },
+  tariff: {
+    invalidAmounts: 'Saisissez des montants valides (ex. 0,2068).',
+    dateMissing: 'Choisissez une date.',
+    prefilled: (kva: string, slots: string[]) =>
+      `Prérempli d’après votre contrat Enedis (${kva}${NB}kVA, heures creuses ${list(slots)}). Ajoutez vos prix TTC.`,
+    kva: 'Puissance souscrite',
+    subscription: 'Abonnement (€/mois)',
+    hcPrice: 'Prix heures creuses (€/kWh)',
+    hpPrice: 'Prix heures pleines (€/kWh)',
+    validFrom: 'Applicable à partir du',
+    offPeak: 'Heures creuses',
+    slotStart: (n: number) => `Début de la plage ${n}`,
+    slotEnd: (n: number) => `Fin de la plage ${n}`,
+    removeLabel: (n: number) => `Retirer la plage ${n}`,
+    remove: 'Retirer',
+    add: 'Ajouter une plage',
+    saved: 'Tarif enregistré.',
+    saving: 'Enregistrement…',
+    save: 'Enregistrer le tarif',
+    history: 'Historique des prix',
+    since: 'Depuis',
+    colHc: 'HC (€/kWh)',
+    colHp: 'HP (€/kWh)'
+  },
+  linky: {
+    off: 'Non relié.',
+    never: 'Relié · première synchronisation en attente.',
+    ok: (day: string | null) => (day ? `Relié · données jusqu’au ${day}` : 'Relié'),
+    quota: (day: string | null) =>
+      `Relié${day ? ` · données jusqu’au ${day}` : ''} · historique en cours de récupération, la suite arrive demain`,
+    throttledAt: (day: string | null, time: string) =>
+      `Relié${day ? ` · données jusqu’au ${day}` : ''} · Enedis limite les requêtes, nouvel essai à ${time}`,
+    throttledLater: (day: string | null) =>
+      `Relié${day ? ` · données jusqu’au ${day}` : ''} · Enedis limite les requêtes, nouvel essai plus tard`,
+    sync: (ago: string) => `synchro ${ago}`,
+    simulator: `Simulateur${NB}: Linky de démonstration.`,
+    consent: (date: string) => `Consentement Enedis valable jusqu’au ${date}`,
+    calls: (n: number, budget: number) =>
+      `${int(n)} ${plural(n, { one: 'appel', other: 'appels' })} sur ${int(budget)} aujourd’hui`,
+    pdl: 'PDL (point de livraison)',
+    token: 'Jeton MyElectricalData',
+    tokenPlaceholder: 'Enregistré',
+    keepToken: 'Laissez vide pour garder le jeton.',
+    testing: 'Test en cours…',
+    saveTest: 'Enregistrer et tester',
+    help: () => ({
+      before: 'Le PDL figure sur la facture (14 chiffres). Le jeton s’obtient sur',
+      after: 'après l’accord Enedis.'
+    })
+  },
+  login: {
+    title: 'Connexion',
+    lead: 'Utilisez le compte Cozytouch de la maison.',
+    reauth: 'Reconnectez-vous avec le compte Cozytouch.',
+    password: 'Mot de passe',
+    busy: 'Connexion…',
+    submit: 'Se connecter',
+    emptyFields: 'Saisissez l’email et le mot de passe Cozytouch.',
+    simulator: `Simulateur${NB}: demo@kelvin.local · kelvin`
   },
   cozytouch: {
     auth: 'Cozytouch refuse la connexion.',

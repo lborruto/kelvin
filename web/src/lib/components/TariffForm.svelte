@@ -1,8 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { api, ApiError } from '$lib/api/client';
+  import { api } from '$lib/api/client';
   import type { SettingsView, Slot } from '$lib/api/types';
   import { fmtAmount, fmtDateLong, parisTodayIso, parseDecimal } from '$lib/format';
+  import { apiMessage, errorText, locale, m } from '$lib/i18n';
 
   const KVA = [3, 6, 9, 12, 15, 18, 24, 30, 36];
   interface Props {
@@ -11,7 +12,9 @@
   }
   let { settings, onsaved }: Props = $props();
 
-  const dec = (v: number | undefined) => (v === undefined ? '' : String(v).replace('.', ','));
+  // The fields are seeded once, in the language of the moment; parseDecimal reads both marks.
+  const dec = (v: number | undefined) =>
+    v === undefined ? '' : locale.current === 'en' ? String(v) : String(v).replace('.', ',');
   // The fields start from the saved tariff, else the Enedis contract; only the history follows the prop.
   const init = untrack(() => {
     const t = settings.tariff;
@@ -37,7 +40,7 @@
   let validFrom = $state(init.today);
   let kvaOptions = $derived(KVA.includes(kva) ? KVA : [...KVA, kva].sort((a, b) => a - b));
   let busy = $state(false);
-  let error = $state<string | null>(null);
+  let error = $state<(() => string) | null>(null);
   let saved = $state(false);
   let history = $derived(settings.tariff?.prices ?? []);
 
@@ -59,15 +62,15 @@
     const h = parseDecimal(hc);
     const p = parseDecimal(hp);
     if (s === null || h === null || p === null) {
-      error = 'Saisissez des montants valides (ex. 0,2068).';
+      error = () => m.tariff.invalidAmounts;
       return;
     }
     if (!slots.length) {
-      error = 'Indiquez au moins une plage d’heures creuses.';
+      error = () => apiMessage('slots_none');
       return;
     }
     if (!validFrom) {
-      error = 'Choisissez une date.';
+      error = () => m.tariff.dateMissing;
       return;
     }
     // Prices untouched and date left on today: re-send the entry in force (same date, so it is
@@ -89,7 +92,7 @@
       saved = true;
       onsaved(res);
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Erreur inattendue.';
+      error = () => errorText(err);
     } finally {
       busy = false;
     }
@@ -99,57 +102,56 @@
 <form class="tariff" onsubmit={save} oninput={() => (saved = false)} onchange={() => (saved = false)} novalidate>
   {#if !settings.tariff && settings.prefill}
     <p class="muted note">
-      Prérempli d’après votre contrat Enedis ({settings.prefill.kva ?? '—'}&nbsp;kVA, heures creuses
-      {settings.prefill.hc_slots.map((x) => `${x.start}–${x.end}`).join(' et ')}). Ajoutez vos prix TTC.
+      {m.tariff.prefilled(String(settings.prefill.kva ?? '—'), settings.prefill.hc_slots.map((x) => `${x.start}–${x.end}`))}
     </p>
   {/if}
   <div class="grid">
     <label class="field">
-      <span>Puissance souscrite</span>
+      <span>{m.tariff.kva}</span>
       <select bind:value={kva}>
         {#each kvaOptions as k (k)}<option value={k}>{k}&nbsp;kVA</option>{/each}
       </select>
     </label>
     <label class="field">
-      <span>Abonnement (€/mois)</span>
+      <span>{m.tariff.subscription}</span>
       <input inputmode="decimal" autocomplete="off" bind:value={sub} />
     </label>
     <label class="field">
-      <span>Prix heures creuses (€/kWh)</span>
+      <span>{m.tariff.hcPrice}</span>
       <input inputmode="decimal" autocomplete="off" bind:value={hc} />
     </label>
     <label class="field">
-      <span>Prix heures pleines (€/kWh)</span>
+      <span>{m.tariff.hpPrice}</span>
       <input inputmode="decimal" autocomplete="off" bind:value={hp} />
     </label>
     <label class="field">
-      <span>Applicable à partir du</span>
+      <span>{m.tariff.validFrom}</span>
       <input type="date" bind:value={validFrom} />
     </label>
   </div>
 
   <fieldset>
-    <legend>Heures creuses</legend>
+    <legend>{m.tariff.offPeak}</legend>
     {#each slots as slot, i (i)}
       <div class="slot">
-        <label class="field"><span>Début de la plage {i + 1}</span><input type="time" step="600" bind:value={slot.start} /></label>
-        <label class="field"><span>Fin de la plage {i + 1}</span><input type="time" step="600" bind:value={slot.end} /></label>
-        <button type="button" class="btn btn-ghost" aria-label="Retirer la plage {i + 1}" disabled={slots.length === 1} onclick={() => removeSlot(i)}>Retirer</button>
+        <label class="field"><span>{m.tariff.slotStart(i + 1)}</span><input type="time" step="600" bind:value={slot.start} /></label>
+        <label class="field"><span>{m.tariff.slotEnd(i + 1)}</span><input type="time" step="600" bind:value={slot.end} /></label>
+        <button type="button" class="btn btn-ghost" aria-label={m.tariff.removeLabel(i + 1)} disabled={slots.length === 1} onclick={() => removeSlot(i)}>{m.tariff.remove}</button>
       </div>
     {/each}
-    <button type="button" class="btn btn-ghost add" aria-disabled={slots.length >= 3} onclick={addSlot}>Ajouter une plage</button>
+    <button type="button" class="btn btn-ghost add" aria-disabled={slots.length >= 3} onclick={addSlot}>{m.tariff.add}</button>
   </fieldset>
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
-  {#if saved}<p class="ok" role="status">Tarif enregistré.</p>{/if}
-  <button type="submit" class="btn btn-primary save" aria-disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer le tarif'}</button>
+  {#if error}<p class="error" role="alert">{error()}</p>{/if}
+  {#if saved}<p class="ok" role="status">{m.tariff.saved}</p>{/if}
+  <button type="submit" class="btn btn-primary save" aria-disabled={busy}>{busy ? m.tariff.saving : m.tariff.save}</button>
 
   {#if history.length}
     <!-- Units sit in the headers; below 600 px each price becomes a two-column list. -->
     <div class="table-wrap">
-      <table aria-label="Historique des prix">
+      <table aria-label={m.tariff.history}>
         <thead>
-          <tr><th>Depuis</th><th class="r">Abonnement (€/mois)</th><th class="r">HC (€/kWh)</th><th class="r">HP (€/kWh)</th></tr>
+          <tr><th>{m.tariff.since}</th><th class="r">{m.tariff.subscription}</th><th class="r">{m.tariff.colHc}</th><th class="r">{m.tariff.colHp}</th></tr>
         </thead>
         <tbody>
           {#each history as p (p.valid_from)}
@@ -163,14 +165,14 @@
         </tbody>
       </table>
     </div>
-    <ul class="history-list" aria-label="Historique des prix">
+    <ul class="history-list" aria-label={m.tariff.history}>
       {#each history as p (p.valid_from)}
         <li>
           <dl>
-            <dt>Depuis</dt><dd>{fmtDateLong(p.valid_from)}</dd>
-            <dt>Abonnement (€/mois)</dt><dd class="mono">{fmtAmount(p.subscription_eur_month, 2)}</dd>
-            <dt>HC (€/kWh)</dt><dd class="mono">{fmtAmount(p.hc_eur_kwh, 4)}</dd>
-            <dt>HP (€/kWh)</dt><dd class="mono">{fmtAmount(p.hp_eur_kwh, 4)}</dd>
+            <dt>{m.tariff.since}</dt><dd>{fmtDateLong(p.valid_from)}</dd>
+            <dt>{m.tariff.subscription}</dt><dd class="mono">{fmtAmount(p.subscription_eur_month, 2)}</dd>
+            <dt>{m.tariff.colHc}</dt><dd class="mono">{fmtAmount(p.hc_eur_kwh, 4)}</dd>
+            <dt>{m.tariff.colHp}</dt><dd class="mono">{fmtAmount(p.hp_eur_kwh, 4)}</dd>
           </dl>
         </li>
       {/each}

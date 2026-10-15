@@ -1,10 +1,11 @@
 import type { Messages } from './fr';
 import type { Day, EnergyGroup } from '$lib/api/types';
-import { intFor, own, pluralFor, type ApiParams } from './rules';
+import { intFor, listFor, own, pluralFor, type ApiParams } from './rules';
 
 const NB = '\u00a0';
 const int = intFor('en');
 const plural = pluralFor('en');
+const list = listFor('en');
 
 const DAY: Record<Day, string> = {
   monday: 'Monday',
@@ -571,6 +572,98 @@ export const en: Messages = {
     lifetime: 'Since installation (kWh)',
     register1: 'Register 1 (kWh)',
     register2: 'Register 2 (kWh)'
+  },
+  away: {
+    title: 'Away',
+    lead: 'Every radiator drops to a lower temperature, then goes back to its settings at the chosen time.',
+    until: 'Until',
+    parisTime: '(Paris time)',
+    temperature: 'Temperature',
+    tempLabel: 'Away temperature',
+    start: 'Start away mode'
+  },
+  home: {
+    active: 'Active',
+    kind: { boost: 'Boost', away: 'Away' },
+    wholeHome: 'Whole home',
+    restoring: 'Restoring…',
+    until: (dateTime: string) => `until ${dateTime}`,
+    cancelLabel: (kind: string, rooms: string) => `Cancel ${kind} — ${rooms}`,
+    none: 'No boost or away period.',
+    tariff: 'Tariff',
+    tariffLoadFailed: 'Couldn’t load the tariff.',
+    linkyLoadFailed: 'Couldn’t load the Linky status.',
+    logoutFailed: 'Couldn’t sign out. Try again.'
+  },
+  settings: {
+    title: 'Settings',
+    account: 'Account',
+    signOut: 'Sign out',
+    connected: 'Connected',
+    unreachable: 'Unreachable',
+    lastSync: (ago: string) => `last sync ${ago}`,
+    theme: 'Theme',
+    themes: { system: 'System', dark: 'Dark', light: 'Light' },
+    language: 'Language'
+  },
+  tariff: {
+    invalidAmounts: 'Enter valid amounts (e.g. 0.2068).',
+    dateMissing: 'Choose a date.',
+    prefilled: (kva: string, slots: string[]) =>
+      `Prefilled from your Enedis contract (${kva}${NB}kVA, off-peak ${list(slots)}). Add your prices including VAT.`,
+    kva: 'Subscribed power',
+    subscription: 'Standing charge (€/month)',
+    hcPrice: 'Off-peak price (€/kWh)',
+    hpPrice: 'Peak price (€/kWh)',
+    validFrom: 'Valid from',
+    offPeak: 'Off-peak hours',
+    slotStart: (n: number) => `Start of period ${n}`,
+    slotEnd: (n: number) => `End of period ${n}`,
+    removeLabel: (n: number) => `Remove period ${n}`,
+    remove: 'Remove',
+    add: 'Add a period',
+    saved: 'Tariff saved.',
+    saving: 'Saving…',
+    save: 'Save the tariff',
+    history: 'Price history',
+    since: 'From',
+    colHc: 'Off-peak (€/kWh)',
+    colHp: 'Peak (€/kWh)'
+  },
+  linky: {
+    off: 'Not connected.',
+    never: 'Connected · waiting for the first sync.',
+    ok: (day: string | null) => (day ? `Connected · data up to ${day}` : 'Connected'),
+    quota: (day: string | null) =>
+      `Connected${day ? ` · data up to ${day}` : ''} · fetching history, the rest arrives tomorrow`,
+    throttledAt: (day: string | null, time: string) =>
+      `Connected${day ? ` · data up to ${day}` : ''} · Enedis is limiting requests, next try at ${time}`,
+    throttledLater: (day: string | null) =>
+      `Connected${day ? ` · data up to ${day}` : ''} · Enedis is limiting requests, next try later`,
+    sync: (ago: string) => `sync ${ago}`,
+    simulator: 'Simulator: demo Linky.',
+    consent: (date: string) => `Enedis consent valid until ${date}`,
+    calls: (n: number, budget: number) => `${int(n)} of ${int(budget)} calls today`,
+    pdl: 'PDL (delivery point)',
+    token: 'MyElectricalData token',
+    tokenPlaceholder: 'Saved',
+    keepToken: 'Leave empty to keep the token.',
+    testing: 'Testing…',
+    saveTest: 'Save and test',
+    help: () => ({
+      before: 'The PDL is on your bill (14 digits). Get the token from',
+      after: 'after the Enedis consent.'
+    })
+  },
+  login: {
+    title: 'Sign in',
+    lead: 'Use the home’s Cozytouch account.',
+    reauth: 'Sign in again with the Cozytouch account.',
+    password: 'Password',
+    busy: 'Signing in…',
+    submit: 'Sign in',
+    emptyFields: 'Enter the Cozytouch email and password.',
+    simulator: 'Simulator: demo@kelvin.local · kelvin'
   },
   cozytouch: {
     auth: 'Cozytouch refused the sign-in.',

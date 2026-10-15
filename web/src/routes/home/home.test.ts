@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
 import { api } from '$lib/api/client';
+import { applyLocale } from '$lib/i18n';
 import { auth } from '$lib/stores/auth.svelte';
 import { history } from '$lib/stores/history.svelte';
 import { house } from '$lib/stores/house.svelte';
@@ -165,5 +166,31 @@ describe('Maison', () => {
     render(Page);
     expect(document.getElementById('tariff')).toHaveAttribute('aria-busy', 'true');
     expect(document.getElementById('linky')).toBeInTheDocument();
+  });
+});
+
+describe('Home in English', () => {
+  it('panels, the active override, settings and the Cozytouch status by code', async () => {
+    applyLocale('en');
+    house.status = { connected: false, last_ok_at: null, last_error: 'QUOTA_EXCEEDED', last_error_code: 'quota' };
+    render(Page);
+    expect(screen.getByRole('heading', { name: 'Home', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Away' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start away mode' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Active' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancel Boost — / })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument();
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(expect.arrayContaining(['System', 'Dark', 'Light']));
+    const status = screen.getByText('Cozytouch request limit reached.');
+    expect(status).toHaveAttribute('title', 'QUOTA_EXCEEDED');
+    expect(screen.getByText('Unreachable')).toBeInTheDocument();
+  });
+  it('an away period ending in the past is refused in English', async () => {
+    applyLocale('en');
+    render(Page);
+    await fireEvent.input(screen.getByLabelText(/Until/), { target: { value: '2020-01-01T10:00' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Start away mode' }));
+    expect(screen.getByText('The end must be in the future.')).toBeInTheDocument();
   });
 });

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
 import { api, ApiError } from '$lib/api/client';
+import { applyLocale } from '$lib/i18n';
 import Page from './+page.svelte';
 
 const url = { current: new URL('http://kelvin.test/login?next=%2Fschedule') };
@@ -13,17 +14,10 @@ vi.mock('$app/state', () => ({
   }
 }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
-vi.mock('$lib/api/client', () => ({
-  api: { me: vi.fn(), login: vi.fn(), logout: vi.fn() },
-  ApiError: class extends Error {
-    status: number;
-    code: string | null;
-    constructor(status: number, message: string, code: string | null = null) {
-      super(message);
-      this.status = status;
-      this.code = code;
-    }
-  }
+// The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
+vi.mock('$lib/api/client', async (orig) => ({
+  ApiError: (await orig<typeof import('$lib/api/client')>()).ApiError,
+  api: { me: vi.fn(), login: vi.fn(), logout: vi.fn() }
 }));
 
 beforeEach(() => {
@@ -111,5 +105,25 @@ describe('Login', () => {
     vi.mocked(api.me).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
     render(Page);
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replaceState: true }));
+  });
+});
+
+describe('Login in English', () => {
+  it('reads in English and shows a refused login by its code', async () => {
+    applyLocale('en');
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.', 'bad_credentials'));
+    render(Page);
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.getByText('Use the home’s Cozytouch account.')).toBeInTheDocument();
+    await fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'a@b.fr' } });
+    await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'x' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong Cozytouch email or password.');
+  });
+  it('empty fields are refused in English', async () => {
+    applyLocale('en');
+    render(Page);
+    await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter the Cozytouch email and password.');
   });
 });

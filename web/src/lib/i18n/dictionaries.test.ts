@@ -10,6 +10,12 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
 /** Sample arguments for messages whose parameters are not (number, string, string, …): a day key,
  * a list, an object. A task that adds such a message adds its line here. */
 export const ARGS: Record<string, unknown[]> = {
+  'tariff.prefilled': ['6', ['22:00–06:00', '12:00–14:00']],
+  'linky.ok': ['12/10'],
+  'linky.quota': ['12/10'],
+  'linky.throttledAt': ['12/10', '14:30'],
+  'linky.throttledLater': ['12/10'],
+  'linky.calls': [3, 10],
   'strip.summary': [['a', 'b']],
   'radiator.facts': ['HEKLA P', 1500],
   'program.nextOn': ['monday', '06:15', 'B'],
