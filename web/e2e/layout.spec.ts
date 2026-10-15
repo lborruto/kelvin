@@ -52,6 +52,8 @@ test.describe('layout', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/login');
       await expect(page.getByRole('heading', { name: 'Connexion' })).toBeVisible();
+      // Plan 12: the server picker (or, once the home is claimed, its locked line) is part of the layout.
+      await expect(page.getByRole('combobox', { name: 'Serveur' }).or(page.getByText(/^Serveur\s*:/))).toBeVisible();
       expect(await overflow(page), `/login at ${width} px`).toBeLessThanOrEqual(0);
     }
   });
@@ -321,6 +323,7 @@ test.describe('layout in English', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/login');
       await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+      await expect(page.getByRole('combobox', { name: 'Server' }).or(page.getByText(/^Server: /))).toBeVisible();
       expect(await overflow(page), `/login at ${width} px`).toBeLessThanOrEqual(0);
     }
     await context.close();

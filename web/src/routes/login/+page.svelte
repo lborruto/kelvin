@@ -1,7 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { ApiError } from '$lib/api/client';
+  import { api, ApiError } from '$lib/api/client';
+  import type { ServerInfo } from '$lib/api/types';
   import { safeNext } from '$lib/auth';
   import Segmented from '$lib/components/Segmented.svelte';
   import { errorText, LOCALE_NAMES, LOCALE_SHORT, LOCALES, locale, m, setLocale } from '$lib/i18n';
@@ -17,6 +18,27 @@
   /** Which field the error is about, so it can be marked invalid and focused. */
   let invalid = $state<'email' | 'password' | 'both' | null>(null);
   let reauth = $derived(page.url.searchParams.get('reauth') === '1' || auth.reauth);
+
+  /** Plan 12: the servers Kelvin offers; `current` is the home's once claimed (then no choice). */
+  let servers = $state<ServerInfo[]>([]);
+  let current = $state<string | null>(null);
+  let server = $state('sauter_cozytouch');
+  let chosen = $derived(servers.find((s) => s.id === server));
+  let homeServer = $derived(servers.find((s) => s.id === current));
+  const group = (tier: ServerInfo['tier']) => servers.filter((s) => s.tier === tier);
+
+  $effect(() => {
+    api
+      .servers()
+      .then((list) => {
+        servers = list.servers;
+        current = list.current;
+        server = list.current ?? list.servers.find((s) => s.default)?.id ?? server;
+      })
+      .catch(() => {
+        // Without the list the field stays hidden and the backend picks the home's server.
+      });
+  });
 
   $effect(() => {
     void auth.refresh().then((ok) => {
@@ -38,7 +60,8 @@
     }
     busy = true;
     try {
-      await auth.login(email.trim(), password);
+      // The server only on a first login with a list read: afterwards it is the home's.
+      await auth.login(email.trim(), password, current || !servers.length ? undefined : server);
       password = '';
       await goto(safeNext(page.url.searchParams.get('next')), { replaceState: true });
     } catch (err) {
@@ -62,8 +85,27 @@
   <form class="box" onsubmit={submit} novalidate>
     <div class="brand">Kelvin</div>
     <h1>{m.login.title}</h1>
-    <p class="muted lead">{m.login.lead}</p>
+    <p class="muted lead">{chosen?.tier === 'experimental' && !current ? m.login.leadServer(chosen.name) : m.login.lead}</p>
     {#if reauth}<p class="note" role="status">{m.login.reauth}</p>{/if}
+    {#if current && homeServer}
+      <p class="muted small">{m.servers.locked(homeServer.name)}</p>
+    {:else if servers.length}
+      <label class="field">
+        <span>{m.servers.label}</span>
+        <select name="server" bind:value={server}
+          aria-describedby={chosen?.tier === 'experimental' ? 'server-note' : undefined}>
+          <optgroup label={m.servers.cozytouch}>
+            {#each group('cozytouch') as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+          </optgroup>
+          <optgroup label={m.servers.experimental}>
+            {#each group('experimental') as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+          </optgroup>
+        </select>
+      </label>
+      {#if chosen?.tier === 'experimental'}
+        <p class="note" id="server-note" role="note">{m.servers.experimentalNote}</p>
+      {/if}
+    {/if}
     <label class="field">
       <span>Email</span>
       <input type="email" name="email" autocomplete="username" inputmode="email" bind:this={emailEl} bind:value={email}

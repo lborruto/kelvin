@@ -17,13 +17,24 @@ vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 // The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
 vi.mock('$lib/api/client', async (orig) => ({
   ApiError: (await orig<typeof import('$lib/api/client')>()).ApiError,
-  api: { me: vi.fn(), login: vi.fn(), logout: vi.fn() }
+  api: { me: vi.fn(), login: vi.fn(), logout: vi.fn(), servers: vi.fn() }
 }));
+
+const LIST = {
+  current: null as string | null,
+  servers: [
+    { id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch' as const, default: true },
+    { id: 'atlantic_cozytouch', name: 'Atlantic Cozytouch', tier: 'cozytouch' as const, default: false },
+    { id: 'thermor_cozytouch', name: 'Thermor Cozytouch', tier: 'cozytouch' as const, default: false },
+    { id: 'flexom', name: 'Flexom', tier: 'experimental' as const, default: false }
+  ]
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
   url.current = new URL('http://kelvin.test/login?next=%2Fschedule');
   vi.mocked(api.me).mockResolvedValue({ email: null, logged_in: false, setup: true, simulator: false });
+  vi.mocked(api.servers).mockResolvedValue(LIST);
 });
 
 async function fill(email: string, password: string) {
@@ -37,8 +48,9 @@ describe('Login', () => {
     vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
     render(Page);
     expect(screen.getByRole('heading', { name: 'Connexion' })).toBeInTheDocument();
+    await screen.findByRole('combobox', { name: 'Serveur' });
     await fill(' demo@kelvin.local ', 'kelvin');
-    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', undefined);
+    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', 'sauter_cozytouch');
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replaceState: true }));
   });
 
@@ -105,6 +117,59 @@ describe('Login', () => {
     vi.mocked(api.me).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
     render(Page);
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replaceState: true }));
+  });
+});
+
+describe('Login server', () => {
+  it('offers the Cozytouch servers first, Sauter chosen', async () => {
+    render(Page);
+    const select = (await screen.findByRole('combobox', { name: 'Serveur' })) as HTMLSelectElement;
+    expect(select.value).toBe('sauter_cozytouch');
+    const groups = [...select.querySelectorAll('optgroup')].map((g) => [
+      g.label,
+      [...g.querySelectorAll('option')].map((o) => o.textContent)
+    ]);
+    expect(groups).toEqual([
+      ['Cozytouch', ['Sauter Cozytouch', 'Atlantic Cozytouch', 'Thermor Cozytouch']],
+      ['Expérimental — chauffage seulement', ['Flexom']]
+    ]);
+  });
+
+  it('sends the chosen server on a first login', async () => {
+    vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
+    render(Page);
+    await fireEvent.change(await screen.findByRole('combobox', { name: 'Serveur' }), {
+      target: { value: 'atlantic_cozytouch' }
+    });
+    await fill('demo@kelvin.local', 'kelvin');
+    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', 'atlantic_cozytouch');
+  });
+
+  it('explains an experimental server', async () => {
+    render(Page);
+    await fireEvent.change(await screen.findByRole('combobox', { name: 'Serveur' }), { target: { value: 'flexom' } });
+    expect(screen.getByText('Utilisez le compte Flexom de la maison.')).toBeInTheDocument();
+    expect(screen.getByRole('note')).toHaveTextContent(/n’affiche que le chauffage/);
+    expect(screen.getByRole('combobox', { name: 'Serveur' })).toHaveAccessibleDescription(/n’affiche que le chauffage/);
+  });
+
+  it('shows the home’s server, without a choice, once claimed', async () => {
+    vi.mocked(api.servers).mockResolvedValue({ ...LIST, current: 'thermor_cozytouch' });
+    vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
+    render(Page);
+    expect(await screen.findByText(/Serveur\s*: Thermor Cozytouch\./)).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Serveur' })).toBeNull();
+    await fill('demo@kelvin.local', 'kelvin');
+    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', undefined);
+  });
+
+  it('still logs in when the server list cannot be read', async () => {
+    vi.mocked(api.servers).mockRejectedValue(new Error('offline'));
+    vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
+    render(Page);
+    await fill('demo@kelvin.local', 'kelvin');
+    expect(screen.queryByRole('combobox', { name: 'Serveur' })).toBeNull();
+    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', undefined);
   });
 });
 
