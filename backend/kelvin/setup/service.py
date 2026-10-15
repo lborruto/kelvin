@@ -30,12 +30,17 @@ log = logging.getLogger(__name__)
 
 READS_AT = (5.0, 15.0, 30.0)
 SETUP_TIMEOUT = 60.0
-ECHO_S = 90.0  # place events this soon after Kelvin's own place write are its echoes
+# Place events this soon after Kelvin's own place write are its echoes. Capped at SETUP_TIMEOUT:
+# once a write has timed out, a late event is a fact to read, never swallowed (review T4-1).
+ECHO_S = 60.0
 RECENT_KEEP = 300.0
 MAX_PLACE_LOOKUPS = 5
+MISSING_RETRY_S = 600.0  # a place that answered 404 is not looked up again before this
 
 Op = Literal["create", "rename", "delete", "relocate", "label"]
-Status = Literal["sending", "pending", "confirmed", "failed"]
+# « unconfirmed »: sent, accepted, but not confirmed within SETUP_TIMEOUT. Not a refusal:
+# Cozytouch may still apply it, so the next full read reconciles it (spec §9.1 rule 9).
+Status = Literal["sending", "pending", "confirmed", "failed", "unconfirmed"]
 PLACE_OPS: dict[str, Op] = {"created": "create", "updated": "rename", "deleted": "delete"}
 
 
@@ -121,6 +126,10 @@ class SetupService:
         self._lock = asyncio.Lock()
         self._last_place_write: float | None = None
         self._lookups: set[str] = set()
+        # Labels of writes that may have applied (unconfirmed, or a create whose answer was
+        # lost): reserved until a full read shows the truth (`reconciled`). Casefolded.
+        self._reserved: set[str] = set()
+        self._missing: dict[str, float] = {}  # place oid -> when it answered 404
 
     # --- state ---
 
@@ -134,6 +143,16 @@ class SetupService:
     @property
     def has_active(self) -> bool:
         return bool(self._pending) or bool(self._lookups)
+
+    def reconciled(self) -> None:
+        """A full read was applied to the house: it shows what the unconfirmed writes did."""
+        self._reserved.clear()
+        self._missing.clear()
+
+    def _reserve(self, p: SetupPending) -> None:
+        for st in p.steps:
+            if st.op in ("create", "rename") and not st.done:
+                self._reserved.add(st.want.casefold())
 
     def _prune_recent(self) -> None:
         cutoff = self.clock() - RECENT_KEEP
@@ -162,6 +181,7 @@ class SetupService:
             for s in p.steps
             if s.op in ("create", "rename") and s.target != except_oid
         ]
+        labels += list(self._reserved)
         return labels
 
     def _new(
@@ -265,7 +285,7 @@ class SetupService:
         """Set the heater's Cozytouch label (ruling 4); no device command."""
         r = self._radiator(rid)
         label = device_label(raw)
-        if label == r.name:
+        if label == r.label.strip():  # the Cozytouch label, not the name shown
             raise UserError("nothing_to_change")
         self._busy(set(), {rid})
         p = self._new(
@@ -286,11 +306,9 @@ class SetupService:
         r = self.house.radiators[rid]
         heater_meta = self.house.meta.get(r.heater_url)
         place = heater_meta.place_oid if heater_meta else None
-        if (
-            place is None
-            or place not in self.house.places
-            or self.house.meta[url].place_oid == place
-        ):
+        if place is None or place not in self.house.places:
+            raise UserError("room_unknown", 404)  # the heater is in a place Kelvin does not know
+        if self.house.meta[url].place_oid == place:
             raise UserError("device_in_place", 409)
         self._busy({place}, {rid})
         p = self._new(
@@ -324,6 +342,7 @@ class SetupService:
         self._pending[p.id] = p
         self.on_update(p)
         refusal: tuple[str, str | None] | None = None
+        lost: Step | None = None  # a create whose answer was lost: it may have applied
         try:
             async with self._lock:  # one setup write at a time
                 for s in p.steps:
@@ -336,6 +355,8 @@ class SetupService:
                         break
                     except GatewayError as e:
                         refusal = ("setup_failed", gateway_error_code(e))
+                        if s.op == "create" and refusal[1] == "network":
+                            lost = s
                         break
                     s.sent_at = self.clock()
                     p.last_sent_at = s.sent_at
@@ -347,7 +368,13 @@ class SetupService:
             raise
         if p.last_sent_at is None:  # nothing was accepted
             code, reason = refusal or ("setup_failed", "unknown")
+            if lost is not None:
+                # A timeout or a dropped connection can hide a create that reached Cozytouch:
+                # keep the label until a full read says, and ask for that read.
+                self._reserved.add(lost.want.casefold())
             self._resolve(p, "failed", code, reason_code=reason)
+            if lost is not None:
+                self.on_written()
             return p
         p.refusal = refusal
         p.status = "pending"
@@ -400,7 +427,7 @@ class SetupService:
         self._recent[p.id] = (self.clock(), p)
         self._prune_recent()
         self.on_update(p)
-        if any(s.done for s in p.steps):
+        if p.last_sent_at is not None:  # something reached Cozytouch: the refresher checks
             self.on_written()
 
     def _recent_place_write(self) -> bool:
@@ -518,9 +545,13 @@ class SetupService:
         changed = False
         for oid in sorted(self._lookups)[:MAX_PLACE_LOOKUPS]:
             self._lookups.discard(oid)
+            seen = self._missing.get(oid)
+            if seen is not None and self.clock() - seen < MISSING_RETRY_S:
+                continue
             try:
                 place = await self.gateway.read_place(oid)
             except SetupNotFoundError:
+                self._missing[oid] = self.clock()
                 continue
             except GatewayError:
                 self.on_outside_change()  # the next full read will bring it
@@ -535,15 +566,12 @@ class SetupService:
                 continue
             if now - p.last_sent_at < SETUP_TIMEOUT:
                 continue
-            done = sum(s.done for s in p.steps)
-            if len(p.steps) > 1 and done:
-                self._resolve(
-                    p,
-                    "failed",
-                    "setup_move_partial",
-                    reason_code=p.refusal[1] if p.refusal else None,
-                    done=done,
-                    total=len(p.steps),
-                )
-            else:
-                self._resolve(p, "failed", "setup_no_confirmation")
+            # Sent and accepted, not confirmed: not a refusal. Its labels stay reserved and
+            # the refresher's next full read reconciles it (`on_written` via _resolve).
+            self._reserve(p)
+            self._resolve(
+                p,
+                "unconfirmed",
+                "setup_no_confirmation",
+                reason_code=p.refusal[1] if p.refusal else None,
+            )

@@ -291,7 +291,7 @@
       }
     },
     "setup_no_confirmation": {
-      "fr": "Pas de confirmation de Cozytouch.",
+      "fr": "Cozytouch n’a pas confirmé la modification : Kelvin vérifie au prochain relevé.",
       "params": {}
     },
     "setup_not_found": {

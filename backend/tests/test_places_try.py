@@ -356,3 +356,37 @@ def test_the_stored_budget_is_read_and_written_without_touching_the_schema(tmp_p
         )
     conn.close()
     assert tables == ["settings"] and len(stored) == 2
+
+
+def test_the_stored_budget_opens_a_path_with_a_space_or_a_hash(tmp_path):
+    folder = tmp_path / "data dir #1"
+    folder.mkdir()
+    path = folder / "kelvin.db"
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    conn.close()
+    guard = places_try.stored_guard(path)
+    assert guard is not None and guard.used() == 0
+    guard.record()
+    assert places_try.stored_guard(path).used() == 1
+
+
+async def test_ctrl_c_while_rechecking_a_refused_delete_keeps_delete_in_the_report():
+    gw, sleep = _gw()
+    gw.fail_setup = {"delete_place": places_try.GatewayError("refused")}
+    state = {"done": False}
+
+    async def sleep_cancelled_after_the_refusal(s: float) -> None:
+        refused = any(w[0] == "update_place" for w in gw.setup_writes)
+        if refused and gw.places and not state["done"] and gw.clock() >= 6:
+            state["done"] = True
+            raise asyncio.CancelledError
+        await sleep(s)
+
+    lines: list[str] = []
+    with pytest.raises(asyncio.CancelledError):
+        await places_try.check(
+            gw, write=True, sleep=sleep_cancelled_after_the_refusal, out=lines.append
+        )
+    report = json.loads(lines[-1])
+    assert report["delete"]["ok"] is False and report["delete"]["sent"] is False

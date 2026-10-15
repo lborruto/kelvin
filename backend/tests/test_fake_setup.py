@@ -153,3 +153,13 @@ def test_make_gateway_injects_the_setup_failures(tmp_path):
     )
     gw = make_gateway(s, "demo@kelvin.local", "kelvin")
     assert set(gw.fail_setup) == {"delete_place"}
+
+
+async def test_a_device_removed_before_its_write_applies_is_skipped():
+    gw, clock = _gw()
+    await gw.relocate_device(HEATER, "p-ch1")
+    await gw.rename_device(f"{SAMPLE_GATEWAY}/9312063#2", "Sonde")
+    del gw.devices[HEATER]
+    del gw.devices[f"{SAMPLE_GATEWAY}/9312063#2"]
+    clock.advance(2.0)
+    assert await gw.fetch_events() == []

@@ -67,17 +67,94 @@ async def test_payload_events_confirm_without_any_read(env):
     assert house.places[p.room_id].type == ROOM_TYPE
 
 
-async def test_nothing_confirms_within_60_s_and_the_write_fails(env):
+async def test_nothing_confirms_within_60_s_and_the_write_ends_unconfirmed(env):
+    """Sent but not confirmed is not a refusal: Cozytouch may still apply it."""
     clock, gw, house, svc, updates = env
+    written: list[int] = []
+    svc.on_written = lambda: written.append(1)
     gw.silent_setup = True
     gw.setup_delay = 10_000.0  # Cozytouch never applies it
     p = await svc.create_room("Bureau")
     await pump(clock, gw, svc, 59)
     assert p.status == "pending" and gw.place_reads == 3  # at +5, +15 and +30 s
     await pump(clock, gw, svc, 1)
-    assert p.status == "failed" and p.error_code == "setup_no_confirmation"
-    assert updates[-1]["error"] == "Pas de confirmation de Cozytouch."
+    assert p.status == "unconfirmed" and p.error_code == "setup_no_confirmation"
+    assert not p.active and not svc.has_active
+    assert updates[-1]["error"] == (
+        "Cozytouch n’a pas confirmé la modification : Kelvin vérifie au prochain relevé."
+    )
+    assert written == [1]  # the refresher reconciles it
     assert len(house.places) == 4
+    with pytest.raises(UserError) as e:  # its label stays reserved until that refresh
+        await svc.create_room("bureau")
+    assert e.value.code == "room_label_taken" and len(gw.setup_writes) == 1
+    svc.reconciled()  # the full read showed it did not apply
+    await svc.create_room("Bureau")
+    assert len(gw.setup_writes) == 2
+
+
+async def test_a_write_applied_after_the_timeout_is_not_lost(env):
+    """Reviewer probe E: Cozytouch applies the create at +70 s."""
+    clock, gw, house, svc, _ = env
+    outside: list[int] = []
+    written: list[int] = []
+    svc.on_outside_change = lambda: outside.append(1)
+    svc.on_written = lambda: written.append(1)
+    gw.setup_delay = 70.0
+    p = await svc.create_room("Bureau")
+    await pump(clock, gw, svc, 60)
+    assert p.status == "unconfirmed" and written == [1]
+    with pytest.raises(UserError) as e:
+        await svc.create_room("Bureau")  # no duplicate room while it may exist
+    assert e.value.code == "room_label_taken"
+    await pump(clock, gw, svc, 10)  # the bare PlaceCreatedEvent at +70 s
+    assert outside == [1]  # not swallowed as an echo: the refresher reads the tree
+    root, devices = await gw.snapshot()
+    house.sync_setup(root, devices)
+    svc.reconciled()
+    assert any(pl.label == "Bureau" for pl in house.places.values())
+    with pytest.raises(UserError) as e:
+        await svc.create_room("Bureau")  # it exists now: taken for real
+    assert e.value.code == "room_label_taken" and len(gw.setup_writes) == 1
+
+
+async def test_a_create_that_errored_keeps_its_label_until_the_refresh(env):
+    """A dropped connection may hide a create that reached Cozytouch."""
+    _, gw, _, svc, _ = env
+    written: list[int] = []
+    svc.on_written = lambda: written.append(1)
+    gw.fail_setup = setup_failures("create_place")
+    p = await svc.create_room("Bureau")
+    assert (p.status, p.error_code) == ("failed", "setup_failed")
+    assert written == [1]
+    gw.fail_setup = {}
+    with pytest.raises(UserError) as e:
+        await svc.create_room("bureau")
+    assert e.value.code == "room_label_taken"
+    svc.reconciled()
+    await svc.create_room("Bureau")
+    assert len(gw.setup_writes) == 1
+
+
+async def test_a_create_refused_for_quota_releases_its_label_at_once(env):
+    _, gw, _, svc, _ = env
+    gw.fail_setup = {"create_place": QuotaError("QUOTA_EXCEEDED")}
+    await svc.create_room("Bureau")
+    gw.fail_setup = {}
+    await svc.create_room("Bureau")
+    assert len(gw.setup_writes) == 1
+
+
+async def test_a_place_that_answers_404_is_not_looked_up_again_and_again(env):
+    clock, gw, _, svc, _ = env
+    for n in (2, 3, 4, 5, 6):
+        gw.outside_move(f"{SAMPLE_GATEWAY}/8370011#{n}", "p-ghost")
+        await pump(clock, gw, svc, 1)
+    assert gw.place_reads == 1
+    svc.reconciled()  # a full read: the next unknown-place event may look again
+    gw.outside_move(f"{SAMPLE_GATEWAY}/8370011#2", "p-ghost")
+    await pump(clock, gw, svc, 1)
+    assert gw.place_reads == 2
 
 
 async def test_rename_reads_the_place_and_sends_its_type_back(env):
@@ -168,7 +245,8 @@ async def test_a_refused_write_fails_at_once_with_its_reason(env):
     assert (p.status, p.error_code, p.reason_code) == ("failed", "setup_failed", "network")
     assert not svc.has_active and len(house.places) == 4
     gw.fail_setup = {"update_place": QuotaError("QUOTA_EXCEEDED")}
-    p = await svc.rename_room("p-ch1", "Bureau")
+    # « Bureau » stays reserved: that create may have reached Cozytouch (review T4-2).
+    p = await svc.rename_room("p-ch1", "Studio")
     assert (p.status, p.reason_code) == ("failed", "quota")
 
 
@@ -361,3 +439,28 @@ async def test_a_device_moved_to_an_unknown_place_reads_that_place_only(env):
     assert house.radiators[RAD].room_id == oid and house.rooms[oid].name == "Bureau"
     assert gw.place_reads == 1 and gw.snapshots == 0
     assert outside == [1]  # the bare PlaceCreatedEvent: the refresher decides (Task 6)
+
+
+async def test_rename_radiator_compares_with_the_cozytouch_label(env):
+    _, gw, house, svc, _ = env
+    heater = f"{S}/9312063#1"
+    house.apply_device_update(DeviceUpdate(heater, None, "IO (9312063#1)"))
+    assert house.radiators["9312063"].name == "Radiateur"  # the generic label falls back
+    await svc.rename_radiator("9312063", "Radiateur")  # the Cozytouch label does change
+    assert gw.setup_writes == [("rename_device", heater, "Radiateur")]
+
+
+async def test_rename_radiator_to_its_current_label_changes_nothing(env):
+    _, gw, _, svc, _ = env
+    with pytest.raises(UserError) as e:
+        await svc.rename_radiator("9312063", "Radiateur")
+    assert e.value.code == "nothing_to_change" and gw.setup_writes == []
+
+
+async def test_tidy_when_the_heater_s_place_is_unknown_is_room_unknown(env):
+    _, gw, house, svc, _ = env
+    house.apply_device_update(DeviceUpdate(HEATER, "p-ghost", None))
+    with pytest.raises(UserError) as e:
+        await svc.tidy(f"{RAD}#3")
+    assert (e.value.code, e.value.status) == ("room_unknown", 404)
+    assert gw.setup_writes == []

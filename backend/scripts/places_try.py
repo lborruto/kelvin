@@ -159,7 +159,9 @@ async def _cleanup(
     out: Callable[[str], None],
 ) -> None:
     """Delete the place this run created, and only while it bears a test label. Sets
-    `report["delete"]`, also when cancelled (then re-raises)."""
+    `report["delete"]`, also when cancelled (then re-raises). `sent` means acknowledged by
+    Cozytouch: a DELETE that timed out reports `sent: false` though it may have applied, so the
+    re-check reads decide (`confirmed_by: "re-read"`)."""
 
     async def ours() -> bool:
         try:
@@ -207,6 +209,8 @@ async def _cleanup(
         report["delete"] = _refused("cancelled") | {"sent": sent, "resent": resent}
         raise
     except GatewayError as e:
+        # Recorded first: a Ctrl-C during the re-check below leaves this answer in the report.
+        report["delete"] = _refused(type(e).__name__) | {"sent": sent, "resent": resent}
         if await _gone_later(gone, sleep):
             report["delete"] = {"event": False, "reads": len(READ_AT), "ok": True}
             report["delete"] |= {"sent": sent, "resent": resent, "confirmed_by": "re-read"}
@@ -355,7 +359,7 @@ def stored_guard(path: Path) -> SetupReadGuard | None:
 
     if not path.exists():
         return None
-    uri = f"file:{path}?mode=rw"
+    uri = path.resolve().as_uri() + "?mode=rw"  # a space, ? or # stays one path
 
     def load() -> list[float]:
         conn = sqlite3.connect(uri, uri=True)

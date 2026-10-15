@@ -119,7 +119,9 @@ TEMPLATES: dict[str, str] = {
     "setup_busy": "Une modification est déjà en cours pour cette pièce ou ce radiateur.",
     "setup_not_found": "Cozytouch ne trouve plus cette pièce ou cet appareil.",
     "setup_failed": "Cozytouch a refusé la modification.",
-    "setup_no_confirmation": "Pas de confirmation de Cozytouch.",
+    "setup_no_confirmation": (
+        "Cozytouch n’a pas confirmé la modification : Kelvin vérifie au prochain relevé."
+    ),
     "radiator_in_room": "Le radiateur est déjà dans cette pièce.",
     "device_in_place": "L’appareil est déjà dans la pièce de son radiateur.",
     "device_unknown": "Appareil inconnu.",

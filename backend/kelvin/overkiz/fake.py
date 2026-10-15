@@ -282,7 +282,9 @@ class FakeGateway:
         self.setup_writes.append(("relocate_device", device_url, place_oid))
 
         def apply() -> None:
-            d = self.devices[device_url]
+            d = self.devices.get(device_url)
+            if d is None:  # removed meanwhile
+                return
             d.place_oid = place_oid
             self._emit_setup(DeviceUpdate(device_url, place_oid, d.label))
 
@@ -295,7 +297,9 @@ class FakeGateway:
         self.setup_writes.append(("rename_device", device_url, label))
 
         def apply() -> None:
-            d = self.devices[device_url]
+            d = self.devices.get(device_url)
+            if d is None:  # removed meanwhile
+                return
             d.label = label
             self._emit_setup(DeviceUpdate(device_url, d.place_oid, label))
 
