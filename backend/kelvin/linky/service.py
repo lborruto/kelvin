@@ -29,7 +29,14 @@ from kelvin.billing.room_energy import room_energy
 from kelvin.billing.slots import Slot
 from kelvin.billing.split import FallbackShares
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
-from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds, local_day
+from kelvin.linky.models import (
+    Contract,
+    LinkyAuthError,
+    LinkyError,
+    LinkySource,
+    day_bounds,
+    local_day,
+)
 from kelvin.linky.radiator_cache import RadiatorDayCache
 from kelvin.linky.store import LinkyStore
 from kelvin.linky.sync import DAILY_BACKFILL_DAYS, DAILY_BUDGET, BudgetExceeded, LinkySync
@@ -89,6 +96,24 @@ class LinkyService:
         self.radiator_days = RadiatorDayCache(self.tz)
         if credentials:
             self.sync.use_token(credentials[1])
+        self.sync.on_contract = self._on_contract
+
+    def _on_contract(self, contract: Contract) -> None:
+        """The monthly re-read: keep it for `hc_changed`, refresh the form's prefill and the
+        contract start. Nothing is applied to the tariff (spec §2.2)."""
+        self.tariffs.set_contract_last(contract, self.wall())
+        self.tariffs.set_prefill(contract)
+        if contract.activation_date:
+            self.sync.set_not_before(contract.activation_date)
+
+    def _contract_read(self, contract: Contract) -> None:
+        """A configure or prefill read counts as this month's re-read."""
+        self.tariffs.set_contract_last(contract, self.wall())
+        self.sync.state.contract_month = self.today().strftime("%Y-%m")
+
+    def spend_grid(self) -> bool:
+        """One grid call (Tempo, EcoWatt, Tempo prices) from the shared MED ledger."""
+        return self.sync.spend(kind="grid")
 
     def today(self) -> date:
         return datetime.fromtimestamp(self.wall(), self.tz).date()
@@ -138,6 +163,7 @@ class LinkyService:
             self.tariffs.clear_prefill()
         if contract is not None:
             self.tariffs.set_prefill(contract)
+            self._contract_read(contract)
         self.prm = prm
         self.sync.use_token(token)
         self.sync.set_source(  # wakes the sync loop: no inline run
@@ -159,8 +185,11 @@ class LinkyService:
             log.warning("linky contract fetch failed: %s", type(e).__name__)
             return
         self.tariffs.set_prefill(contract)
+        self._contract_read(contract)
         if contract.activation_date:
             self.sync.set_not_before(contract.activation_date)
+        else:
+            self.sync._save()
 
     def seed_demo_tariff(self) -> None:
         if not self.tariffs.stored():  # never over a stored document, even an invalid one

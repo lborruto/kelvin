@@ -55,7 +55,8 @@ async def api(tmp_path, wall):
         ) as c:
             await login(c)
             rt = app.state.ctx.rt
-            # The simulator's first sync: 1 daily + 5 curve calls, then 2 extension chunks (8).
+            # The simulator's first sync: 1 daily + the newest curve chunk, the month's contract
+            # re-read, 4 more curve calls, then 2 extension chunks (9 of the 10 a day).
             await rt.linky.sync.run_once()
             yield c, app, rt, tmp_path
 
@@ -265,6 +266,7 @@ async def test_linky_token_is_write_only(api, caplog):
 async def test_linky_settings_errors_are_french(api, caplog):
     c, _, rt, _ = api
     caplog.set_level(logging.DEBUG)
+    rt.linky.sync.state.calls = 0  # the fixture's sync took 9 of 10: these tries need 3
     r = await c.put("/api/settings/linky", json={"prm": PRM})
     assert r.status_code == 422 and r.json()["detail"] == "Collez le jeton MyElectricalData."
     refused = FakeLinkySource()

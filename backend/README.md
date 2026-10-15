@@ -117,6 +117,12 @@ and never spends more than 10 calls a day (MyElectricalData allows 50), the PDL/
 included. The simulator uses a synthetic Linky and a demo tariff. Verified behaviour:
 [`docs/linky-notes.md`](../docs/linky-notes.md).
 
+MyElectricalData calls share one ledger: at most 10 a Paris day (`calls_today` / `budget` in
+`GET /api/settings/linky`), every endpoint included — Linky, the monthly contract re-read and
+the public Tempo/EcoWatt endpoints (`grid_calls_today`, at most 4). Older curve chunks wait while
+grid calls are still planned for the day. The contract is re-read once a month (normally the 1st
+at 08:00) to notice new off-peak hours; it never changes the tariff by itself.
+
 ## Data
 
 `KELVIN_DATA` holds `account.json` (0600) and `kelvin.db`: samples (kept 400 days), radiator

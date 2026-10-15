@@ -79,6 +79,12 @@ async def _figures(tmp_path) -> dict:
             await login(c)
             rt = app.state.ctx.rt
             assert "hc_schedules" in rt.db.get_setting("tariff")  # migrated at startup
+            # The golden predates the monthly contract re-read (Plan 9 Task 7). That read teaches
+            # Kelvin the contract start, so the report would stop counting at the daily backfill
+            # window (CLAUDE.md « first day ») and drop the curve-only days this test loads before
+            # it: a rule of its own, tested in test_energy_api.py. This test pins the tariff
+            # migration, so it keeps the contract start unknown, as when the golden was made.
+            rt.linky.sync.on_contract = None
             await rt.linky.sync.run_once()
             # A whole year of curve (the sync's quota would take weeks), straight from the source.
             store, source = rt.linky.sync.store, rt.linky.sync.source

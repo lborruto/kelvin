@@ -56,6 +56,9 @@ class FakeLinkySource:
         self.calls: list[str] = []
         self.fail: dict[str, Exception] = {}
         self.missing: set[date] = set()
+        self.contract_offpeak = (
+            "HC (22H00-6H00)"  # the contract's off-peak hours, as MED words them
+        )
 
     def _raise(self, kind: str) -> None:
         if kind in self.fail:
@@ -169,7 +172,7 @@ class FakeLinkySource:
                             "usage_point": {"usage_point_id": DEMO_PRM},
                             "contracts": {
                                 "subscribed_power": "9 kVA",
-                                "offpeak_hours": "HC (22H00-6H00)",
+                                "offpeak_hours": self.contract_offpeak,
                                 "last_activation_date": f"{self.activation}+01:00",
                                 "distribution_tariff": "BTINFCU4",
                             },
