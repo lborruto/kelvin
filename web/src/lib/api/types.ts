@@ -193,31 +193,48 @@ export interface Me {
   reauth?: boolean;
   simulator?: boolean;
 }
-export interface PriceEntry {
+export type TariffOption = 'base' | 'hchp' | 'tempo';
+export interface TariffRow extends PriceRow {
+  option: TariffOption;
+  hc_eur_kwh?: number;
+  hp_eur_kwh?: number;
+}
+export interface HcVariant {
+  months: number[];
+  slots: Slot[];
+}
+export interface HcSchedule {
   valid_from: string;
-  subscription_eur_month: number;
-  hc_eur_kwh: number;
-  hp_eur_kwh: number;
+  variants: HcVariant[];
+}
+export interface TempoHours {
+  hc_start: string;
+  hc_end: string;
+  day_start?: string;
 }
 export interface Tariff {
-  option: 'hchp';
+  option: TariffOption;
   kva: number;
   hc_slots: Slot[];
-  prices: PriceEntry[];
+  hc_schedules: HcSchedule[];
+  tempo_hours: TempoHours;
+  prices: TariffRow[];
 }
 export interface SettingsView {
   tariff: Tariff | null;
   /** From the Enedis contract (subscribed power, off-peak hours); prefills the form. */
   prefill: { kva: number | null; hc_slots: Slot[] } | null;
 }
-export interface TariffInput {
-  option: 'hchp';
+export interface TariffDoc {
   kva: number;
-  hc_slots: Slot[];
-  subscription_eur_month: number;
-  hc_eur_kwh: number;
-  hp_eur_kwh: number;
-  valid_from: string;
+  prices: { valid_from: string; option: TariffOption; subscription_eur_month: number; rates: Record<string, number> }[];
+  hc_schedules: HcSchedule[];
+  tempo_hours: { hc_start: string; hc_end: string };
+}
+export interface TempoPrices {
+  rates: Record<string, number>;
+  fetched_at: number;
+  source: string;
 }
 export type LinkyState = 'off' | 'never' | 'ok' | 'auth' | 'throttled' | 'quota' | 'error';
 export interface LinkyStatus {

@@ -1,217 +1,106 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
-import { flushSync } from 'svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError } from '$lib/api/client';
-import { parisTodayIso } from '$lib/format';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { api } from '$lib/api/client';
+import type { SettingsView, Tariff } from '$lib/api/types';
 import { applyLocale } from '$lib/i18n';
 import TariffForm from './TariffForm.svelte';
 
-// The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
 vi.mock('$lib/api/client', async (orig) => ({
-  ApiError: (await orig<typeof import('$lib/api/client')>()).ApiError,
-  api: { putTariff: vi.fn() }
+  ...(await orig<object>()),
+  api: { putTariffDoc: vi.fn(), tempoPrices: vi.fn() }
 }));
 
-const prefillOnly = {
-  tariff: null,
-  prefill: { kva: 6, hc_slots: [{ start: '01:30', end: '07:30' }, { start: '12:30', end: '14:30' }] }
+const NB = ' ';
+const ALL = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const NIGHT = [{ start: '22:00', end: '06:00' }];
+const TEMPO = { blue_hc: 0.1296, blue_hp: 0.1609, white_hc: 0.1486, white_hp: 0.1894, red_hc: 0.1568, red_hp: 0.7562 };
+const hchp: Tariff = {
+  option: 'hchp',
+  kva: 9,
+  hc_slots: NIGHT,
+  hc_schedules: [{ valid_from: '2025-01-15', variants: [{ months: ALL, slots: NIGHT }] }],
+  tempo_hours: { hc_start: '22:00', hc_end: '06:00', day_start: '06:00' },
+  prices: [{ valid_from: '2025-01-15', option: 'hchp', subscription_eur_month: 15, rates: { hc: 0.2068, hp: 0.27 } }]
 };
+const settings: SettingsView = { tariff: hchp, prefill: null };
+const field = (label: string) => screen.getByLabelText(label) as HTMLInputElement;
 
-beforeEach(() => vi.clearAllMocks());
-
-describe('TariffForm', () => {
-  it('is prefilled from the Enedis contract', () => {
-    render(TariffForm, { settings: prefillOnly, onsaved: vi.fn() });
-    expect(screen.getByText(/Prérempli d’après votre contrat Enedis/)).toBeInTheDocument();
-    expect((screen.getByLabelText('Puissance souscrite') as HTMLSelectElement).value).toBe('6');
-    expect(screen.getByLabelText('Début de la plage 2')).toHaveValue('12:30');
-  });
-
-  it('sends French decimals as numbers, from today', async () => {
-    const saved = { tariff: { option: 'hchp', kva: 6, hc_slots: prefillOnly.prefill.hc_slots, prices: [] }, prefill: null };
-    vi.mocked(api.putTariff).mockResolvedValue(saved as never);
-    const onsaved = vi.fn();
-    render(TariffForm, { settings: prefillOnly, onsaved });
-    await fireEvent.input(screen.getByLabelText('Abonnement (€/mois)'), { target: { value: '19,50' } });
-    await fireEvent.input(screen.getByLabelText('Prix heures creuses (€/kWh)'), { target: { value: '0,2068' } });
-    await fireEvent.input(screen.getByLabelText('Prix heures pleines (€/kWh)'), { target: { value: '0,27' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
-    expect(api.putTariff).toHaveBeenCalledWith({
-      option: 'hchp', kva: 6, hc_slots: prefillOnly.prefill.hc_slots,
-      subscription_eur_month: 19.5, hc_eur_kwh: 0.2068, hp_eur_kwh: 0.27, valid_from: parisTodayIso()
-    });
-    expect(await screen.findByText('Tarif enregistré.')).toBeInTheDocument();
-    expect(onsaved).toHaveBeenCalledWith(saved);
-  });
-
-  it('refuses amounts it cannot read, and shows the server message', async () => {
-    render(TariffForm, { settings: prefillOnly, onsaved: vi.fn() });
-    await fireEvent.input(screen.getByLabelText('Abonnement (€/mois)'), { target: { value: 'abc' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Saisissez des montants valides (ex. 0,2068).');
-    expect(api.putTariff).not.toHaveBeenCalled();
-    vi.mocked(api.putTariff).mockRejectedValue(new ApiError(422, 'Les plages d’heures creuses se chevauchent.'));
-    for (const [label, v] of [['Abonnement (€/mois)', '19'], ['Prix heures creuses (€/kWh)', '0,2'], ['Prix heures pleines (€/kWh)', '0,3']]) {
-      await fireEvent.input(screen.getByLabelText(label), { target: { value: v } });
-    }
-    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Les plages d’heures creuses se chevauchent.');
-  });
-
-  it('adds up to three slots and removes one', async () => {
-    render(TariffForm, { settings: prefillOnly, onsaved: vi.fn() });
-    const add = screen.getByRole('button', { name: 'Ajouter une plage' });
-    await fireEvent.click(add);
-    expect(screen.getByLabelText('Début de la plage 3')).toBeInTheDocument();
-    expect(add).toHaveAttribute('aria-disabled', 'true');
-    await fireEvent.click(screen.getByRole('button', { name: 'Retirer la plage 1' }));
-    expect(screen.getByLabelText('Début de la plage 1')).toHaveValue('12:30');
-  });
-
-  it('lists the price history in mono columns', () => {
-    const settings = {
-      tariff: {
-        option: 'hchp' as const, kva: 9, hc_slots: [{ start: '22:00', end: '06:00' }],
-        prices: [
-          { valid_from: '2026-02-01', subscription_eur_month: 15, hc_eur_kwh: 0.2, hp_eur_kwh: 0.27 },
-          { valid_from: '2026-08-01', subscription_eur_month: 16.2, hc_eur_kwh: 0.21, hp_eur_kwh: 0.28 }
-        ]
-      },
-      prefill: null
-    };
-    render(TariffForm, { settings, onsaved: vi.fn() });
-    const table = screen.getByRole('table', { name: 'Historique des prix' });
-    const rows = within(table).getAllByRole('row');
-    expect(rows).toHaveLength(3);
-    expect(rows[2]).toHaveTextContent('1 août 2026');
-    // Units live in the headers; the cells hold bare figures.
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
-      'Depuis', 'Abonnement (€/mois)', 'HC (€/kWh)', 'HP (€/kWh)'
-    ]);
-    expect(rows[2]).toHaveTextContent('0,2100');
-    expect(rows[2]).not.toHaveTextContent('€');
-    // Phone: the same history as one two-column list per price.
-    const lists = [...document.querySelectorAll('.history-list dl')];
-    expect(lists).toHaveLength(2);
-    expect([...lists[1].querySelectorAll('dt')].map((d) => d.textContent)).toEqual([
-      'Depuis', 'Abonnement (€/mois)', 'HC (€/kWh)', 'HP (€/kWh)'
-    ]);
-    expect([...lists[1].querySelectorAll('dd')].map((d) => d.textContent)).toEqual(['1 août 2026', '16,20', '0,2100', '0,2800']);
-    expect((screen.getByLabelText('Prix heures creuses (€/kWh)') as HTMLInputElement).value).toBe('0,21');
-  });
-
-  const withHistory = (prices: { valid_from: string; subscription_eur_month: number; hc_eur_kwh: number; hp_eur_kwh: number }[]) => ({
-    tariff: { option: 'hchp' as const, kva: 9, hc_slots: [{ start: '22:00', end: '06:00' }], prices },
-    prefill: null
-  });
-  const click = () => fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
-
-  it('a power-only change reuses the price in force instead of adding a row', async () => {
-    vi.mocked(api.putTariff).mockResolvedValue(withHistory([]) as never);
-    const settings = withHistory([
-      { valid_from: '2026-02-01', subscription_eur_month: 15, hc_eur_kwh: 0.2, hp_eur_kwh: 0.27 },
-      { valid_from: '2026-03-01', subscription_eur_month: 16, hc_eur_kwh: 0.21, hp_eur_kwh: 0.28 },
-      { valid_from: '2999-01-01', subscription_eur_month: 99, hc_eur_kwh: 0.9, hp_eur_kwh: 0.9 }
-    ]);
-    render(TariffForm, { settings, onsaved: vi.fn() });
-    expect((screen.getByLabelText('Abonnement (€/mois)') as HTMLInputElement).value).toBe('16');
-    await fireEvent.change(screen.getByLabelText('Puissance souscrite'), { target: { value: '12' } });
-    await click();
-    expect(api.putTariff).toHaveBeenLastCalledWith(
-      expect.objectContaining({ kva: 12, valid_from: '2026-03-01', subscription_eur_month: 16, hc_eur_kwh: 0.21, hp_eur_kwh: 0.28 })
-    );
-  });
-
-  it('a changed price starts today', async () => {
-    vi.mocked(api.putTariff).mockResolvedValue(withHistory([]) as never);
-    render(TariffForm, {
-      settings: withHistory([{ valid_from: '2026-03-01', subscription_eur_month: 16, hc_eur_kwh: 0.21, hp_eur_kwh: 0.28 }]),
-      onsaved: vi.fn()
-    });
-    await fireEvent.input(screen.getByLabelText('Prix heures pleines (€/kWh)'), { target: { value: '0,3' } });
-    await click();
-    expect(api.putTariff).toHaveBeenLastCalledWith(expect.objectContaining({ hp_eur_kwh: 0.3, valid_from: parisTodayIso() }));
-  });
-
-  it('blocks an empty start date in French', async () => {
-    render(TariffForm, { settings: prefillOnly, onsaved: vi.fn() });
-    for (const [label, v] of [['Abonnement (€/mois)', '19'], ['Prix heures creuses (€/kWh)', '0,2'], ['Prix heures pleines (€/kWh)', '0,3']]) {
-      await fireEvent.input(screen.getByLabelText(label), { target: { value: v } });
-    }
-    await fireEvent.input(screen.getByLabelText('Applicable à partir du'), { target: { value: '' } });
-    await click();
-    expect(screen.getByRole('alert')).toHaveTextContent('Choisissez une date.');
-    expect(api.putTariff).not.toHaveBeenCalled();
-  });
-
-  it('falls back to a default slot and keeps an unlisted power', () => {
-    render(TariffForm, { settings: { tariff: null, prefill: { kva: 10, hc_slots: [] } }, onsaved: vi.fn() });
-    expect(screen.getByLabelText('Début de la plage 1')).toHaveValue('22:00');
-    expect((screen.getByLabelText('Puissance souscrite') as HTMLSelectElement).value).toBe('10');
-    expect(screen.getByRole('option', { name: /^10\s*kVA$/ })).toBeInTheDocument();
-  });
-
-  it('drops « Tarif enregistré. » as soon as a field changes', async () => {
-    vi.mocked(api.putTariff).mockResolvedValue(withHistory([]) as never);
-    render(TariffForm, { settings: prefillOnly, onsaved: vi.fn() });
-    for (const [label, v] of [['Abonnement (€/mois)', '19'], ['Prix heures creuses (€/kWh)', '0,2'], ['Prix heures pleines (€/kWh)', '0,3']]) {
-      await fireEvent.input(screen.getByLabelText(label), { target: { value: v } });
-    }
-    await click();
-    expect(await screen.findByText('Tarif enregistré.')).toBeInTheDocument();
-    await fireEvent.input(screen.getByLabelText('Abonnement (€/mois)'), { target: { value: '20' } });
-    expect(screen.queryByText('Tarif enregistré.')).toBeNull();
-  });
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(api.putTariffDoc).mockResolvedValue(settings as never);
 });
+afterEach(() => applyLocale('fr'));
 
-describe('TariffForm in English', () => {
-  it('prefill sentence, field labels, English decimals, and a backend code in English', async () => {
-    applyLocale('en');
-    vi.mocked(api.putTariff).mockRejectedValue(
-      Object.assign(new ApiError(422, 'Les plages d’heures creuses se chevauchent.'), { code: 'slots_overlap', params: {} })
-    );
-    render(TariffForm, { settings: prefillOnly, onsaved: vi.fn() });
-    expect(
-      screen.getByText('Prefilled from your Enedis contract (6 kVA, off-peak 01:30–07:30 and 12:30–14:30). Add your prices including VAT.')
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText('Subscribed power')).toBeInTheDocument();
-    expect(screen.getByLabelText('Start of period 2')).toHaveValue('12:30');
-    await fireEvent.input(screen.getByLabelText('Standing charge (€/month)'), { target: { value: '19.50' } });
-    await fireEvent.input(screen.getByLabelText('Off-peak price (€/kWh)'), { target: { value: '0.2068' } });
-    await fireEvent.input(screen.getByLabelText('Peak price (€/kWh)'), { target: { value: '0.27' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Save the tariff' }));
-    expect(api.putTariff).toHaveBeenCalledWith(expect.objectContaining({ subscription_eur_month: 19.5, hc_eur_kwh: 0.2068 }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Off-peak periods overlap.');
+describe('TariffForm v2', () => {
+  it('a migrated HC/HP tariff opens on HC/HP with the prices in force', () => {
+    render(TariffForm, { settings, onsaved: vi.fn() });
+    expect(screen.getByRole('radio', { name: 'HC/HP' })).toHaveAttribute('aria-checked', 'true');
+    expect(field('Prix heures creuses (€/kWh)').value).toBe('0,2068');
+    expect(field('Début de la plage 1').value).toBe('22:00');
   });
-});
 
-describe('TariffForm fix round 1', () => {
-  const one = {
-    tariff: {
-      option: 'hchp' as const, kva: 6, hc_slots: [{ start: '22:00', end: '06:00' }],
-      prices: [{ valid_from: '2026-02-01', subscription_eur_month: 19.5, hc_eur_kwh: 0.2068, hp_eur_kwh: 0.27 }]
-    },
-    prefill: null
-  };
-  it('the last slot’s Retirer is paused with aria-disabled, focusable, and does nothing', async () => {
-    render(TariffForm, { settings: one, onsaved: vi.fn() });
-    const remove = screen.getByRole('button', { name: 'Retirer la plage 1' });
-    expect(remove).not.toBeDisabled();
-    expect(remove).toHaveAttribute('aria-disabled', 'true');
-    await fireEvent.click(remove);
-    expect(screen.getByLabelText('Début de la plage 1')).toHaveValue('22:00');
+  it('a new price is added as a dated row and the history is kept', async () => {
+    render(TariffForm, { settings, onsaved: vi.fn() });
+    await fireEvent.input(field('Prix heures pleines (€/kWh)'), { target: { value: '0,28' } });
+    await fireEvent.input(field('Applicable à partir du'), { target: { value: '2026-11-01' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
+    const doc = vi.mocked(api.putTariffDoc).mock.calls[0][0];
+    expect(doc.prices.map((p) => [p.valid_from, p.rates.hp])).toEqual([['2025-01-15', 0.27], ['2026-11-01', 0.28]]);
+    expect(doc.hc_schedules).toEqual(hchp.hc_schedules);
   });
-  it('a switch re-seeds the untouched amounts in the new decimal mark and keeps the edited one', async () => {
-    render(TariffForm, { settings: one, onsaved: vi.fn() });
-    expect(screen.getByLabelText('Abonnement (€/mois)')).toHaveValue('19,5');
-    await fireEvent.input(screen.getByLabelText('Prix heures creuses (€/kWh)'), { target: { value: '0,21' } });
+
+  it('Tempo: six prices, prefilled on request with their source and date, saved as a Tempo row', async () => {
+    vi.mocked(api.tempoPrices).mockResolvedValue({ rates: TEMPO, fetched_at: 1_760_400_000, source: 'MyElectricalData' });
+    render(TariffForm, { settings, onsaved: vi.fn() });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Tempo' }));
+    for (const l of ['Bleu HC', 'Bleu HP', 'Blanc HC', 'Blanc HP', 'Rouge HC', 'Rouge HP']) expect(field(`${l} (€/kWh)`)).toBeTruthy();
+    expect(screen.queryByText('Heures creuses', { selector: 'legend' })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Préremplir avec les prix Tempo publiés' }));
+    expect(await screen.findByText(/relevés via MyElectricalData le/)).toBeTruthy();
+    expect(field('Rouge HP (€/kWh)').value).toBe('0,7562');
+    expect(field('Début').value).toBe('22:00');
+    await fireEvent.input(field('Applicable à partir du'), { target: { value: '2026-11-01' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
+    const doc = vi.mocked(api.putTariffDoc).mock.calls[0][0];
+    expect(doc.prices.at(-1)).toEqual({ valid_from: '2026-11-01', option: 'tempo', subscription_eur_month: 15, rates: TEMPO });
+    expect(doc.tempo_hours).toEqual({ hc_start: '22:00', hc_end: '06:00' });
+  });
+
+  it('Base: one price and no off-peak hours', async () => {
+    render(TariffForm, { settings, onsaved: vi.fn() });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Base' }));
+    expect(field('Prix du kWh (€/kWh)')).toBeTruthy();
+    expect(screen.queryByLabelText('Prix heures creuses (€/kWh)')).toBeNull();
+    expect(screen.queryByText('Heures creuses', { selector: 'legend' })).toBeNull();
+  });
+
+  it('seasonal off-peak hours split the months, and a month left out is named', async () => {
+    render(TariffForm, { settings, onsaved: vi.fn() });
+    await fireEvent.click(screen.getByLabelText('Heures creuses différentes selon la saison'));
+    const seasons = screen.getAllByRole('group', { name: 'Mois' });
+    expect(seasons.length).toBe(2);
+    await fireEvent.click(within(seasons[1]).getByLabelText(/avr/));
+    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
+    expect(screen.getByRole('alert').textContent).toBe(`Chaque mois doit avoir ses heures creuses${NB}: avril.`);
+    expect(api.putTariffDoc).not.toHaveBeenCalled();
+  });
+
+  it('Enedis’ new off-peak hours are added from the chosen date', async () => {
+    render(TariffForm, { settings, onsaved: vi.fn(), contractSlots: [{ start: '23:00', end: '07:00' }] });
+    expect(screen.getByText(/Enedis indique de nouvelles heures creuses\s: 23:00–07:00\./)).toBeTruthy();
+    await fireEvent.input(field('À partir du'), { target: { value: '2026-12-01' } });
+    await fireEvent.click(screen.getByRole('button', { name: /Ajouter ces heures creuses à partir du/ }));
+    const doc = vi.mocked(api.putTariffDoc).mock.calls[0][0];
+    expect(doc.hc_schedules.at(-1)).toEqual({ valid_from: '2026-12-01', variants: [{ months: ALL, slots: [{ start: '23:00', end: '07:00' }] }] });
+    expect(doc.prices).toEqual(hchp.prices);
+  });
+
+  it('reads in English', async () => {
     applyLocale('en');
-    flushSync();
-    expect(screen.getByLabelText('Standing charge (€/month)')).toHaveValue('19.5');
-    expect(screen.getByLabelText('Peak price (€/kWh)')).toHaveValue('0.27');
-    expect(screen.getByLabelText('Off-peak price (€/kWh)')).toHaveValue('0,21');
-    applyLocale('fr');
-    flushSync();
-    expect(screen.getByLabelText('Abonnement (€/mois)')).toHaveValue('19,5');
+    render(TariffForm, { settings, onsaved: vi.fn() });
+    expect(screen.getByRole('radiogroup', { name: 'Tariff option' })).toBeTruthy();
+    expect(field('Off-peak price (€/kWh)').value).toBe('0.2068');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Tempo' }));
+    expect(field('Red peak (€/kWh)')).toBeTruthy();
   });
 });

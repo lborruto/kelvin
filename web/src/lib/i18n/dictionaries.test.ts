@@ -23,7 +23,17 @@ export const ARGS: Record<string, unknown[]> = {
   'devices.atTime': ['14:10'],
   'devices.onDate': ['15/10 08:00'],
   'devices.watts': ['1 500'],
-  'tariff.prefilled': ['6', ['22:00–06:00', '12:00–14:00']],
+  'tariff.prefill': ['6', '22:00–06:00'],
+  'tariff.contractNew': ['23:00–07:00'],
+  'tariff.kvaValue': [9],
+  'tariff.tempoPrefillNote': ['14 octobre 2026'],
+  'tariff.season': [1],
+  'tariff.slotStart': [1],
+  'tariff.slotEnd': [1],
+  'tariff.removeSlotLabel': [1],
+  'tariff.contractAdd': ['1/12'],
+  'tariff.monthsMissing': ['avril'],
+  'tariff.monthsOverlap': ['janvier'],
   'linky.ok': ['12/10'],
   'alerts.linkyStalled': ['10/10', 4],
   'linky.quota': ['12/10'],
@@ -63,6 +73,7 @@ export const SAME = new Set<string>([
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
   'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
   'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est',
+  'tariff.kvaValue', 'tariff.options.base', 'tariff.options.tempo', 'tariff.rateShort.base', 'tariff.colOption',
   'sources.title', 'sources.tempo', 'sources.ecowatt', 'grid.source'
 ]);
 
@@ -169,7 +180,8 @@ const SCANNER_BLIND = new Set([
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
   'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',
   'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
-  'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title'
+  'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title',
+  'tariff.option', 'tariff.tempoEnd', 'tariff.season'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

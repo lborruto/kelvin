@@ -151,6 +151,9 @@ export const DYNAMIC = [
   'quality.method',
   'settings.themes',
   'grid.colour',
+  'tariff.options',
+  'tariff.rate',
+  'tariff.rateShort',
   'home.kind'
 ];
 

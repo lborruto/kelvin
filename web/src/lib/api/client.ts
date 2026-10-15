@@ -21,7 +21,8 @@ import type {
   Snapshot,
   StatusView,
   SyncStatus,
-  TariffInput,
+  TariffDoc,
+  TempoPrices,
   WeekProgram
 } from './types';
 import type { ApiParams } from '$lib/i18n';
@@ -173,7 +174,8 @@ export const api = {
   energyDay: (date: string, room?: string | null) =>
     call<EnergyDay>('GET', `/energy/day?date=${enc(date)}` + (room ? `&room=${enc(room)}` : '')),
   settings: () => call<SettingsView>('GET', '/settings'),
-  putTariff: (tariff: TariffInput) => call<SettingsView>('PUT', '/settings', { tariff }),
+  putTariffDoc: (doc: TariffDoc) => call<SettingsView>('PUT', '/settings', { tariff: doc }),
+  tempoPrices: () => call<TempoPrices>('POST', '/grid/tempo-prices'),
   linkyStatus: () => call<LinkyStatus>('GET', '/settings/linky'),
   putLinky: (prm: string, token?: string) =>
     call<LinkyStatus>('PUT', '/settings/linky', token ? { prm, token } : { prm })

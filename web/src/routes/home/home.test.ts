@@ -27,7 +27,8 @@ vi.mock('$lib/api/client', () => ({
       configured: false, prm: null, token_set: false, simulator: false, state: 'off', message: null,
       last_day: null, last_ok_at: null, retry_at: null, calls_today: 0, budget: 10, consent_expires: null
     }),
-    putTariff: vi.fn(),
+    putTariffDoc: vi.fn(),
+    tempoPrices: vi.fn(),
     putLinky: vi.fn(),
     logout: vi.fn().mockResolvedValue({ email: null, logged_in: false }),
     me: vi.fn().mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true })
