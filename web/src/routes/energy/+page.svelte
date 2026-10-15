@@ -18,6 +18,7 @@
   import Segmented from '$lib/components/Segmented.svelte';
   import { addDays, bucketLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
   import { fmtDateLong, fmtDay, fmtKwh, fmtTime, monthName } from '$lib/format';
+  import { m } from '$lib/i18n';
   import { inspectBucket } from '$lib/inspector';
   import { reducedMotion } from '$lib/motion';
   import { ANCHORS, ROUTES } from '$lib/paths';
@@ -227,7 +228,7 @@
 
 <header class="top">
   <h1>{COPY.title}</h1>
-  <Segmented options={VIEWS} value={data.view} label={COPY.views} onchange={(v) => navigate(() => data.setView(v))} />
+  <Segmented options={VIEWS.map((v) => ({ value: v, label: m.energy.views[v] }))} value={data.view} label={COPY.views} onchange={(v) => navigate(() => data.setView(v))} />
 </header>
 {#if data.period}
   <PeriodNav

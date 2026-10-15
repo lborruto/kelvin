@@ -218,6 +218,90 @@ export const fr = {
     pendingComfort: (t: string) => `confort demandé ${t}, en attente`,
     summary: (parts: string[]) => `${parts.join(`${NB}; `)}.`
   },
+  energy: {
+    views: { day: 'Jour', week: 'Semaine', month: 'Mois', year: 'Année' },
+    week: (n: number, range: string) => `Semaine ${n} · ${range}`,
+    weekSpoken: (n: number) => `semaine ${n}`,
+    weekShort: (n: number) => `S${n}`,
+    dayBefore: 'la veille',
+    weekBefore: 'la semaine précédente',
+    span: (a: string, b: string) => `du${NB}${a}${NB}au${NB}${b}`
+  },
+  inspector: {
+    home: 'Maison',
+    hc: 'Heures creuses',
+    hp: 'Heures pleines',
+    hcShare: 'dont HC',
+    radiators: 'Radiateurs',
+    rest: 'Reste de la maison',
+    radShare: 'Part des radiateurs',
+    cost: 'Coût estimé',
+    energy: 'dont énergie',
+    subscription: 'dont abonnement',
+    prices: 'Prix appliqués',
+    avgPrice: 'Prix moyen',
+    periodShare: 'Part de la période',
+    perDay: 'Moyenne par jour',
+    quality: 'Qualité',
+    since: (day: string) => `depuis le ${day}${NB}: `,
+    noLinkyDay: 'Aucune donnée Linky pour ce jour',
+    costUnknown: `aucune donnée Linky${NB}: énergie inconnue`,
+    noLinkyPeriod: 'Aucune donnée Linky pour cette période',
+    missing: (n: number) => `${int(n)} ${plural(n, { one: 'jour manquant', other: 'jours manquants' })}`,
+    notCounted: (n: number) => `énergie de ${int(n)} ${plural(n, { one: 'jour manquant', other: 'jours manquants' })} non comptée`,
+    estimatedSplit: `courbe absente${NB}: HC/HP estimés`,
+    coverage: (pct: string) => `radiateurs${NB}: couverture ${pct}`,
+    retro: (day: string) => `prix du ${day} appliqué aux jours antérieurs`,
+    radToday: 'jour en cours, compté une fois terminé',
+    radNone: 'aucun relevé de radiateur',
+    radUntilYesterday: `radiateurs${NB}: jusqu’à hier`,
+    radMeasured: (k: number, n: number) =>
+      `${int(k)} sur ${int(n)} ${plural(n, { one: 'radiateur mesuré', other: 'radiateurs mesurés' })}`,
+    est: 'est.',
+    kwhWord: 'kilowattheures',
+    eurWord: 'euros',
+    radiatorsSpoken: 'radiateurs',
+    noData: 'aucune donnée Linky',
+    power: 'Puissance moyenne',
+    energyWh: 'Énergie',
+    rate: 'Tarif',
+    price: 'Prix',
+    halfCost: 'Coût',
+    restShort: 'Reste',
+    restNegative: `Radiateurs au-dessus du compteur${NB}: écart de mesure`,
+    noPrice: 'aucun tarif pour cette demi-heure',
+    /** The Courbe's readout names the room its temperature is from. */
+    temperature: (room: string | null | undefined) => (room ? `Température (${room})` : 'Température'),
+    setpoint: 'consigne',
+    offpeak: 'Heures creuses',
+    peak: 'Heures pleines',
+    partial: (pct: number) => `HC ${pct}${NB}%`,
+    summer: '(heure d’été)',
+    winter: '(heure d’hiver)',
+    /** « HC 0,2068 · HP 0,2700 €/kWh »: a price row's rates, already labelled and formatted. */
+    rates: (items: [string, string][]) => `${items.map(([l, v]) => `${l} ${v}`).join(' · ')}${NB}€/kWh`,
+    /** Between the lines of a multi-line value in the hidden table (price rows). */
+    lineSep: `${NB}; `,
+    rateLabels: {
+      base: 'Base', hc: 'HC', hp: 'HP', blue_hc: 'Bleu HC', blue_hp: 'Bleu HP', white_hc: 'Blanc HC', white_hp: 'Blanc HP',
+      red_hc: 'Rouge HC', red_hp: 'Rouge HP'
+    } as Record<string, string>
+  },
+  roomEnergy: {
+    noRoom: 'Sans pièce',
+    removed: 'Radiateur retiré',
+    roomFrom: (k: number, n: number, day: string) =>
+      `${int(k)} ${plural(k, { one: 'radiateur', other: 'radiateurs' })} sur ${int(n)} ${plural(k, { one: 'enregistré', other: 'enregistrés' })} à partir du ${day}`,
+    roomPartial: (k: number, n: number) =>
+      `${int(k)} ${plural(k, { one: 'radiateur', other: 'radiateurs' })} sur ${int(n)} ${plural(k, { one: 'enregistré', other: 'enregistrés' })} en partie`,
+    radFrom: (day: string) => `enregistré à partir du ${day}`,
+    radPartial: (pct: string) => `couverture ${pct}`,
+    none: 'aucun relevé sur la période',
+    // The backend gives no mean °C, setpoint or heating hours below 50 % sample coverage.
+    stats: 'moins de la moitié de la période mesurée',
+    statsOf: (k: number, n: number) =>
+      `moyenne de ${int(k)} ${plural(k, { one: 'radiateur', other: 'radiateurs' })} sur ${int(n)} (${n - k > 1 ? 'les autres' : 'l’autre'}${NB}: moins de la moitié de la période mesurée)`
+  },
   cozytouch: {
     auth: 'Cozytouch refuse la connexion.',
     network: 'Cozytouch ne répond pas.',

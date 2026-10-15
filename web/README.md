@@ -42,12 +42,13 @@ The version shown on Maison comes from `package.json`. Icons are rendered from
 Énergie › Exporter builds the files in the browser from the JSON the page shows (no server
 endpoint), so every figure is the one the page shows for the same bar or half-hour, at the API's
 precision: a day's € are the same in whatever period it is exported. Every file is UTF-8 with a
-BOM, `;`-separated, CRLF line ends, `,` as the decimal separator with no thousands separator (the
-French spreadsheet convention, so a French Excel or LibreOffice opens it with numbers as numbers;
-Plan 7 makes the CSV follow the UI locale), timestamps in ISO 8601 Paris
-local time with their offset (`2026-10-25T02:30:00+01:00`, so the repeated autumn hour stays
-unambiguous), and an empty cell for a missing value (never 0). Headers stay French in every
-locale. Text cells that start with `=`, `+`, `-`, `@`, a tab or a CR are prefixed with `'`. No
+BOM, CRLF line ends, no thousands separator, and follows the UI language for its number format:
+in French `;`-separated with `,` as the decimal separator (the French spreadsheet convention, so a
+French Excel or LibreOffice opens it with numbers as numbers), in English `,`-separated with `.`
+as the decimal separator (a text cell holding a `,` is quoted). The examples below are the French
+format. Timestamps are in ISO 8601 Paris local time with their offset
+(`2026-10-25T02:30:00+01:00`, so the repeated autumn hour stays unambiguous), and a missing value
+is an empty cell (never 0). Headers and file names stay French in every locale. Text cells that start with `=`, `+`, `-`, `@`, a tab or a CR are prefixed with `'`. No
 PDL, token, email or id is exported; rooms and radiators appear by name.
 
 - `energie_<from>_<to>_<group>.csv` (`<to>` exclusive) — one row per bar of the selected period

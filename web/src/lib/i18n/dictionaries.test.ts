@@ -12,11 +12,16 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
 export const ARGS: Record<string, unknown[]> = {
   'strip.summary': [['a', 'b']],
   'radiator.facts': ['HEKLA P', 1500],
-  'program.nextOn': ['monday', '06:15', 'B']
+  'program.nextOn': ['monday', '06:15', 'B'],
+  'inspector.radMeasured': [1, 2],
+  'inspector.rates': [[['a', '1'], ['b', '2']]],
+  'roomEnergy.roomFrom': [1, 2, '7/10'],
+  'roomEnergy.roomPartial': [1, 2],
+  'roomEnergy.statsOf': [1, 3]
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
-export const SAME = new Set<string>(['page.title', 'range.day', 'radiator.facts']);
+export const SAME = new Set<string>(['page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord']);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
   return Object.entries(o).flatMap(([k, v]) =>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { EnergyDay, EnergyInterval, EnergyReport, EnergySummary } from './api/types';
-import { BOM, csvNum, csvText, curveCsv, ENERGY_HEADER, energyCsv, pricesCsv, roomsCsv } from './csv';
+import { BOM, csvNum, csvSeparator, csvText, curveCsv, ENERGY_HEADER, energyCsv, pricesCsv, ROOMS_HEADER, roomsCsv } from './csv';
 import type { RoomRow } from './roomEnergy';
 import { parisDayStart } from './time';
 
@@ -234,5 +235,25 @@ describe('pieces_<from>_<to>.csv', () => {
     ]);
     expect(file.text).not.toContain('rad-9312063');
     expect(file.text).not.toContain('p-1');
+  });
+});
+
+describe('CSV in the English UI (Decision 30): « , » between cells, a decimal point, the same French headers', () => {
+  it('cells, prices and a whole file', () => {
+    applyLocale('en');
+    expect(csvSeparator()).toBe(',');
+    expect(csvNum(1.23456, 3)).toBe('1.235');
+    expect(csvNum(1234567.891, 2)).toBe('1234567.89');
+    expect(csvNum(-0.0001, 2)).toBe('0.00');
+    expect(csvText('Chambre, bleue')).toBe('"Chambre, bleue"');
+    expect(csvText('Chambre; bleue')).toBe('Chambre; bleue');
+    expect(pricesCsv([{ valid_from: '2026-08-01', subscription_eur_month: 15, rates: { hc: 0.2068, hp: 0.27 } }])).toBe('hc=0.2068|hp=0.2700');
+    const file = roomsCsv([], { from: '2026-10-01', to: '2026-10-13' });
+    expect(file.name).toBe('pieces_2026-10-01_2026-10-13.csv');
+    expect(lines(file.text)[0]).toBe(ROOMS_HEADER.join(','));
+  });
+  it('French stays « ; » and a decimal comma', () => {
+    expect(csvSeparator()).toBe(';');
+    expect(csvNum(1.5, 2)).toBe('1,50');
   });
 });
