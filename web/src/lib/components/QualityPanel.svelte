@@ -3,6 +3,7 @@
   import { bucketLabel, bucketSpan } from '$lib/energy';
   import { fmtDateLong, fmtPct1 } from '$lib/format';
   import { plural } from '$lib/plural';
+  import Icon from './Icon.svelte';
 
   type Mark = 'full' | 'partial' | 'missing' | 'none';
   const COPY = {
@@ -90,7 +91,7 @@
 </script>
 
 <details id="qualite" class="panel {cls}" bind:open>
-  <summary><h2>{COPY.title}</h2></summary>
+  <summary><span class="chev" class:on={open} aria-hidden="true"><Icon name="chevron" size={16} /></span><h2 class="qtitle">{COPY.title}</h2></summary>
   <div class="strip" aria-hidden="true" style:--n={buckets.length}>
     {#each strip as row (row.label)}
       <div class="row">
@@ -125,16 +126,39 @@
 </details>
 
 <style>
+  /* A flex summary loses the native marker: the chevron (as in Par pièce) says it opens. */
   summary {
     min-height: 44px;
+    margin: -10px 0;
     display: flex;
     align-items: center;
+    gap: 6px;
     cursor: pointer;
-    list-style-position: inside;
+    list-style: none;
   }
-  summary h2 {
-    display: inline;
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  /* Beats the page's section-label margin: the summary row is the whole collapsed panel. */
+  details > summary > h2.qtitle {
     margin: 0;
+  }
+  details[open] > summary {
+    margin-bottom: 0;
+  }
+  .chev {
+    display: grid;
+    flex: none;
+    color: var(--mu);
+    transition: transform var(--t-state) var(--ease-out);
+  }
+  .chev.on {
+    transform: rotate(90deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chev {
+      transition: none;
+    }
   }
   .strip {
     display: grid;
