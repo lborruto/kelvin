@@ -356,7 +356,7 @@ async def start_runtime(
         else:
             log.info("full setup read budget spent: starting from the stored setup")
             root, devices = stored
-        house = build_house(root, devices, wall=wall)
+        house = build_house(root, devices, wall=wall, server=gateway.server)
         if is_sim:
             house.backdate_status(gateway.sim_status_since)
         if stored_server is None:

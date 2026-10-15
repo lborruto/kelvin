@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from statistics import mean
 from typing import Any, Literal
 
+from kelvin.devices.capabilities import Capabilities, capabilities
+from kelvin.devices.registry import PROFILES, RADIATOR_KINDS, Profile, kind_for, support_for
 from kelvin.overkiz.models import (
     DeviceUpdate,
     RawDevice,
@@ -18,6 +20,7 @@ from kelvin.overkiz.models import (
     StateChange,
     iter_places,
 )
+from kelvin.overkiz.servers import DEFAULT_SERVER
 
 MODES = {"standby": "off", "basic": "manual", "internal": "program"}
 OVERKIZ_MODES = {v: k for k, v in MODES.items()}
@@ -239,12 +242,23 @@ class Radiator:
     commands: dict[str, list[str]] = field(default_factory=dict)
     signal: Signal | None = field(default=None, repr=False, compare=False)
     label: str = ""  # the heater's Cozytouch label (spec ruling 4)
+    kind: str = "setpoint_heater"  # kelvin.devices.registry kind (Plan 12)
+    support: str = "tested"  # tested | expected | experimental | readonly
+    values: dict[str, list[str]] = field(default_factory=dict)  # the heater's allowed values
 
     def get(self, role: str, name: str, default: Any = None) -> Any:
         url = self.urls.get(role)
         if url is None:
             return default
         return self.states.get(url, {}).get(name, default)
+
+    @property
+    def profile(self) -> Profile:
+        return PROFILES[self.kind]
+
+    @property
+    def capabilities(self) -> Capabilities:
+        return capabilities(self)
 
     @property
     def name(self) -> str:
@@ -270,7 +284,8 @@ class Radiator:
 
     @property
     def mode(self) -> str:
-        return MODES.get(self.get("heater", "core:OperatingModeState"), "other")
+        p = self.profile
+        return p.mode_of(self.get("heater", p.mode_state or p.level_state or ""))
 
     @property
     def target(self) -> float | None:
@@ -297,6 +312,12 @@ class Radiator:
     @property
     def heating_level(self) -> str | None:
         return self.get("heater", "io:TargetHeatingLevelState")
+
+    @property
+    def dryer(self) -> str | None:
+        """A towel dryer's boost or drying in progress; None otherwise (or unknown)."""
+        p = self.profile
+        return p.dryer_of(self.get("heater", p.dryer_state)) if p.dryer_state else None
 
     @property
     def max_temperature(self) -> float:
@@ -420,6 +441,10 @@ class Radiator:
             "last_event_at": self.last_event_at,
             "program": self.program,
             "program_locked": self.program_locked,
+            "kind": self.kind,
+            "support": self.support,
+            "capabilities": self.capabilities.view(),
+            "dryer": self.dryer,
         }
 
 
@@ -761,8 +786,13 @@ class House:
 
 
 def build_house(
-    root: RawPlace, devices: list[RawDevice], *, wall: Callable[[], float] = time.time
+    root: RawPlace,
+    devices: list[RawDevice],
+    *,
+    wall: Callable[[], float] = time.time,
+    server: str = DEFAULT_SERVER,
 ) -> House:
+    """`server`: the home's Overkiz server, which sets each radiator's support (Plan 12)."""
     groups: dict[str, list[RawDevice]] = {}
     for d in devices:
         groups.setdefault(base_url(d.device_url), []).append(d)
@@ -771,9 +801,10 @@ def build_house(
 
     radiators: dict[str, Radiator] = {}
     for devs in groups.values():
-        heater = next((d for d in devs if "Heater" in d.widget), None)
+        heater = next((d for d in devs if kind_for(d.widget, d.ui_class) in RADIATOR_KINDS), None)
         if heater is None:
             continue
+        kind = kind_for(heater.widget, heater.ui_class) or "heater_unknown"
         urls = {"heater": heater.device_url}
         for d in devs:
             role = ROLE_BY_WIDGET.get(d.widget)
@@ -787,6 +818,9 @@ def build_house(
             urls=urls,
             states={d.device_url: dict(d.states) for d in devs},
             commands={d.device_url: list(d.commands) for d in devs},
+            kind=kind,
+            support=support_for(kind, server),
+            values=dict(heater.state_values),
         )
 
     rooms = []
