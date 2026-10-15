@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import type { EnergyReport, Quality } from '$lib/api/types';
 import QualityPanel from './QualityPanel.svelte';
@@ -16,10 +16,22 @@ const quality: Quality = {
 };
 
 describe('QualityPanel', () => {
+  it('is a heading holding its toggle (final review minor 2: a heading inside <summary> loses its role in some readers)', async () => {
+    const { container } = render(QualityPanel, { buckets, group: 'day', quality });
+    const heading = screen.getByRole('heading', { level: 2, name: 'Qualité des données' });
+    expect(heading.closest('summary, button')).toBeNull();
+    const toggle = within(heading).getByRole('button', { name: 'Qualité des données', expanded: false });
+    const body = document.getElementById(toggle.getAttribute('aria-controls')!)!;
+    expect(body).not.toBeVisible();
+    expect(container.querySelector('#qualite')).toContainElement(body);
+    await fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(body).toBeVisible();
+  });
+
   it('is collapsed, with a coverage strip per bucket and row: full, partial, missing', () => {
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
-    expect(container.querySelector('details#qualite')).not.toHaveAttribute('open');
-    expect(screen.getByRole('heading', { name: 'Qualité des données' })).toBeInTheDocument();
+    expect(container.querySelector('#qualite [aria-expanded]')).toHaveAttribute('aria-expanded', 'false');
     const MARKS = ['full', 'partial', 'missing', 'none'];
     const row = (i: number) =>
       [...container.querySelectorAll('.strip .row')[i].querySelectorAll('.cell')].map((c) => [...c.classList].find((x) => MARKS.includes(x)));
@@ -59,7 +71,7 @@ describe('QualityPanel', () => {
   it('opens when the page is reached at #qualite', () => {
     window.location.hash = '#qualite';
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
-    expect(container.querySelector('details#qualite')).toHaveAttribute('open');
+    expect(container.querySelector('#qualite [aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
     window.location.hash = '';
   });
 
@@ -68,7 +80,7 @@ describe('QualityPanel', () => {
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
     link.click();
     await Promise.resolve();
-    expect(container.querySelector('details#qualite')).toHaveAttribute('open');
+    expect(container.querySelector('#qualite [aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
     link.remove();
     window.location.hash = '';
   });

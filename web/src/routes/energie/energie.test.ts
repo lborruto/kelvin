@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '$lib/api/client';
@@ -439,7 +439,7 @@ describe('Énergie', () => {
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
     expect(await screen.findByText('Répartition heures creuses / pleines estimée pour 1 jour sans courbe complète.')).toBeInTheDocument();
     expect(screen.queryByText(/estimée pour 4 jours/)).toBeNull();
-    const q = container.querySelector('details#qualite')!;
+    const q = container.querySelector('#qualite')!;
     expect(q).toHaveTextContent('Jours HC/HP estimés : 1 (');
     expect(q).not.toHaveTextContent('Prix du premier tarif');
     // The strip has the selected day's cell only.
@@ -625,9 +625,9 @@ describe('Énergie', () => {
 
   it('Qualité des données is collapsed under the panels, and Exporter, the last panel, exports the period shown', async () => {
     const { container } = render(Page);
-    const quality = (await screen.findByRole('heading', { name: 'Qualité des données' })).closest('details')!;
+    const quality = (await screen.findByRole('heading', { name: 'Qualité des données' })).closest('section')!;
     expect(quality).toHaveAttribute('id', 'qualite');
-    expect(quality).not.toHaveAttribute('open');
+    expect(within(quality).getByRole('button', { name: 'Qualité des données' })).toHaveAttribute('aria-expanded', 'false');
     const exporter = screen.getByRole('heading', { name: 'Exporter' }).closest('section')!;
     expect([...container.querySelectorAll('.panels > *')].at(-1)).toBe(exporter);
     await fireEvent.click(screen.getByRole('button', { name: 'Exporter la période (CSV)' }));

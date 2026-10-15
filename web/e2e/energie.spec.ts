@@ -154,18 +154,19 @@ test.describe('Énergie', () => {
     await expect(page.locator('div.visually-hidden[role="status"][aria-live="polite"]')).toContainText(
       (await keys.nth(3).getAttribute('aria-label'))!
     );
-    const quality = page.locator('details#qualite');
-    await expect(quality).not.toHaveAttribute('open');
+    const quality = page.locator('#qualite');
+    const toggle = page.getByRole('heading', { level: 2, name: 'Qualité des données' }).getByRole('button', { name: 'Qualité des données' });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     // HC/HP of a day without a complete curve are estimates: some bar of the month carries « est. ». Else open it at #qualite.
     const link = card.getByRole('link', { name: 'Qualité des données' });
     if (await link.count()) {
       await link.click();
-      await expect(quality).toHaveAttribute('open', '');
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     }
     // A page reached at #qualite opens it too.
     await page.goto('/energie#qualite');
     await settled(page);
-    await expect(quality).toHaveAttribute('open', '');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(quality.getByText(/^Linky depuis le /)).toBeVisible();
     await expect(quality.locator('.strip .row')).toHaveCount(3);
     expect(await overflow(page)).toBeLessThanOrEqual(0);

@@ -36,6 +36,7 @@
     class?: string;
   }
   let { buckets, group, quality, class: cls = '' }: Props = $props();
+  const uid = $props.id();
   let open = $state(false);
 
   // Opened by a link to #qualite (the « est. » footnotes) or a page reached at that anchor.
@@ -103,8 +104,15 @@
   );
 </script>
 
-<details id="qualite" class="panel {cls}" bind:open>
-  <summary><span class="chev" class:on={open} aria-hidden="true"><Icon name="chevron" size={16} /></span><h2 class="qtitle">{COPY.title}</h2></summary>
+<!-- A heading holding its toggle (the disclosure pattern), not an <h2> inside <summary>: a summary is a button, and
+     some screen readers drop the heading role of what it holds, so « Qualité des données » left heading navigation. -->
+<section id="qualite" class="panel {cls}" class:open aria-labelledby="{uid}-title">
+  <h2 class="qtitle">
+    <button type="button" id="{uid}-title" class="disclose" aria-expanded={open} aria-controls="{uid}-body" onclick={() => (open = !open)}>
+      <span class="chev" class:on={open} aria-hidden="true"><Icon name="chevron" size={16} /></span>{COPY.title}
+    </button>
+  </h2>
+  <div id="{uid}-body" hidden={!open}>
   <div class="strip" aria-hidden="true" style:--n={buckets.length}>
     {#each strip as row (row.label)}
       <div class="row">
@@ -136,30 +144,35 @@
   </table></div>
   <ul class="facts">{#each facts as f (f)}<li>{f}</li>{/each}</ul>
   <p class="muted note">{COPY.est}</p>
-</details>
+  </div>
+</section>
 
 <style>
-  /* A flex summary loses the native marker: the chevron (as in Par pièce) says it opens. */
-  summary {
-    min-height: 44px;
+  /* Beats the page's section-label margin (.panels > .panel h2): the toggle row is the whole collapsed panel. */
+  section.panel > h2.qtitle {
     margin: -10px 0;
+  }
+  section.panel.open > h2.qtitle {
+    margin-bottom: 0;
+  }
+  /* The toggle takes the heading's own type (the section label), full width and 44 px tall; the chevron (as in Par
+     pièce) says it opens, and the title's line box is the chevron's height, so both centre on the row. */
+  .disclose {
     display: flex;
     align-items: center;
     gap: 6px;
-    cursor: pointer;
-    list-style: none;
-  }
-  summary::-webkit-details-marker {
-    display: none;
-  }
-  /* Beats the page's section-label margin (.panels > .panel h2): the summary row is the whole collapsed panel, and the
-     title's line box is the chevron's height, so both centre on the row. */
-  details.panel > summary > h2.qtitle {
-    margin: 0;
+    width: 100%;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
     line-height: 16px;
-  }
-  details[open] > summary {
-    margin-bottom: 0;
+    text-align: left;
+    cursor: pointer;
   }
   .chev {
     display: grid;
