@@ -26,6 +26,11 @@ login screen first and shares the session (`e2e/.auth/state.json`, gitignored) w
 The default suite runs French (an `fr-FR` browser); `e2e/english.spec.ts` runs the key flows in
 English, and `e2e/layout.spec.ts` checks the layout in both languages.
 
+`npx playwright test` also starts a second simulator on port 4175 with a fresh `KELVIN_DATA`
+(`/tmp/kelvin-e2e-brands`): the `brands` project logs in choosing « Atlantic Cozytouch » and runs
+`e2e/brands.spec.ts` on the Atlantic house. With an external Kelvin (`KELVIN_E2E_URL`) it runs only
+if `KELVIN_E2E_BRANDS_URL` points at a fresh simulator (empty `KELVIN_DATA`).
+
 Screenshots (simulator only): `SCREENS=1 npx playwright test screens` writes them to
 `test-results/screens/` as `<scheme>_<locale>_<project>_<page>.png`; set `SCREENS_DIR` to write
 elsewhere, `SCREENS_SCHEME=dark` for the dark theme and `SCREENS_LOCALE=en` for English.
