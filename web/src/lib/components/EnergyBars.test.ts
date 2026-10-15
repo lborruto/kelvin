@@ -289,6 +289,30 @@ describe('EnergyBars', () => {
     after.remove();
   });
 
+  it('Esc inside the card (desktop) or the sheet (phone) closes it and gives focus back to its bar', async () => {
+    for (const desk of [true, false]) {
+      media.desktop.matches = desk;
+      const { container, unmount } = render(EnergyBars, { ...three, ondrill: vi.fn(), drillLabel: () => 'Voir la courbe' });
+      const keys = screen.getAllByRole('button').filter((b) => b.classList.contains('key'));
+      await fireEvent.click(keys[1]); // pinned
+      const action = screen.getByRole('button', { name: 'Voir la courbe' });
+      action.focus();
+      await tick();
+      expect(container.querySelector(desk ? '.inspector.card' : '.inspector.sheet')).not.toBeNull();
+      await fireEvent.keyDown(action, { key: 'Escape' });
+      await tick();
+      expect(container.querySelector('.inspector')).toBeNull();
+      expect(document.activeElement).toBe(keys[1]);
+      expect(keys[1]).toHaveAttribute('aria-pressed', 'false');
+      expect(keys[1]).toHaveAttribute('tabindex', '0');
+      // Quiet until the next move: the focused bar does not reopen its card.
+      expect(container.querySelector('rect.sel')).toBeNull();
+      await fireEvent.keyDown(keys[1], { key: 'ArrowRight' });
+      expect(container.querySelector('.inspector .title')).toHaveTextContent('13 octobre');
+      unmount();
+    }
+  });
+
   it('desktop, dense chart: once a bar is pinned, hover never moves the card, so the pointer can reach its action', async () => {
     media.desktop.matches = true;
     const ondrill = vi.fn();

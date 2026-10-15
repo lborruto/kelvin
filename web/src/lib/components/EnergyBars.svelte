@@ -219,6 +219,17 @@
     if (!plot?.contains(to)) focused = false;
     if (!inCard(to)) held = null;
   }
+  /** Esc inside the card or sheet: it closes, quiet until the next move, and focus goes back to its bar. */
+  function close() {
+    const i = active ?? selected ?? stop;
+    focusIdx = i;
+    selected = null;
+    hover = null;
+    held = null;
+    quiet = true;
+    // The card is still in the DOM: focus moves before it leaves, so it never falls to <body>.
+    buttons[i]?.focus();
+  }
   function actionFor(i: number | null) {
     if (i == null || !ondrill || !drillLabel) return null;
     const l = drillLabel(i);
@@ -305,7 +316,8 @@
           id="{uid}-inspector"
           left={cardLeft(x(groups[active].label) ?? 0, x.bandwidth(), W)}
           pinned={selected === active}
-          action={actionFor(active)} />
+          action={actionFor(active)}
+          onclose={close} />
       {/if}
     {/if}
   </div>
@@ -315,7 +327,7 @@
     {/each}
   </div>
   {#if details && mode === 'sheet' && selected != null && details[selected]}
-    <ChartInspector ins={details[selected]} mode="sheet" id="{uid}-inspector" pinned action={actionFor(selected)} />
+    <ChartInspector ins={details[selected]} mode="sheet" id="{uid}-inspector" pinned action={actionFor(selected)} onclose={close} />
   {/if}
   <!-- A table cannot shrink to 1 px: the wrapper hides it without widening or lengthening the page. -->
   <div class="visually-hidden"><table>

@@ -20,9 +20,16 @@
     /** A pinned card (click, tap or keyboard) takes the pointer, so its action can be clicked. */
     pinned?: boolean;
     action?: { label: string; run: () => void } | null;
+    /** Esc inside the card or sheet: the host closes it and puts focus back on what opened it. */
+    onclose?: (() => void) | null;
   }
-  let { ins, mode, id, left = 0, top = 0, pinned = false, action = null }: Props = $props();
+  let { ins, mode, id, left = 0, top = 0, pinned = false, action = null, onclose = null }: Props = $props();
   let hasEst = $derived(ins.rows.some((r) => r.est));
+  function onkeydown(e: KeyboardEvent) {
+    if (e.key !== 'Escape' || !onclose) return;
+    e.preventDefault();
+    onclose();
+  }
 </script>
 
 {#snippet body()}
@@ -45,7 +52,10 @@
   {#if action}<button type="button" class="btn btn-sm" onclick={action.run}>{action.label}</button>{/if}
 {/snippet}
 
+<!-- The host mounts the inspector inside its own {#if}: |global lets the entrance play all the same. The keydown only
+     catches Esc bubbling up from the controls inside (the action, the Qualité link); the group takes no focus. -->
 {#if mode === 'card'}
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
     {id}
     class="inspector card"
@@ -55,11 +65,13 @@
     style:left="{left}px"
     style:top="{top}px"
     style:width="{CARD_W}px"
-    transition:fade={{ duration: dur(T.state) }}>
+    {onkeydown}
+    transition:fade|global={{ duration: dur(T.state) }}>
     {@render body()}
   </div>
 {:else}
-  <div {id} class="inspector sheet" role="group" aria-label={ins.title} transition:slide={{ duration: dur(T.enter) }}>
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div {id} class="inspector sheet" role="group" aria-label={ins.title} {onkeydown} transition:slide|global={{ duration: dur(T.enter) }}>
     {@render body()}
   </div>
 {/if}
@@ -130,12 +142,18 @@
     font-size: 12px;
     color: var(--mu);
   }
+  /* A 44 px tall target around 12 px text, without moving the lines around it. */
   .foot a {
+    padding-block: 14px;
     color: var(--tx);
     text-decoration: underline;
     text-underline-offset: 3px;
   }
   .btn {
     margin-top: 10px;
+  }
+  /* Clear of the link's target above it. */
+  .foot + .btn {
+    margin-top: 18px;
   }
 </style>
