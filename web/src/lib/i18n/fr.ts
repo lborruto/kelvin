@@ -744,6 +744,7 @@ export const fr = {
     program_too_many: (p: ApiParams) => `${dayLower(p.day)}${NB}: 3 plages confort au maximum.`,
     program_slot_invalid: (p: ApiParams) => `${dayLower(p.day)}${NB}: la plage ${p.start}–${p.end} est invalide.`,
     program_overlap: (p: ApiParams) => `${dayLower(p.day)}${NB}: des plages se chevauchent.`,
+    program_changed_elsewhere: () => `Programme modifié ailleurs${NB}: rechargez-le ou remplacez-le.`,
     feature_unknown: (p: ApiParams) => `Fonction inconnue${NB}: ${p.feature}.`,
     no_night_light: () => 'Ce radiateur n’a pas de veilleuse.',
     intensity_light_off: () => 'L’intensité ne peut être réglée que veilleuse allumée.',

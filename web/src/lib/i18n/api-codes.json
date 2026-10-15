@@ -148,6 +148,14 @@
       "fr": "Prix de l’abonnement invalide.",
       "params": {}
     },
+    "program_changed_elsewhere": {
+      "fr": "Programme modifié ailleurs : rechargez-le ou remplacez-le.",
+      "params": {
+        "days": [
+          "monday"
+        ]
+      }
+    },
     "program_overlap": {
       "fr": "mardi : des plages se chevauchent.",
       "params": {

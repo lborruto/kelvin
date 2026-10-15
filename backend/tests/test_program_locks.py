@@ -4,8 +4,9 @@ import copy
 
 import pytest
 
+from kelvin.api.schemas import ProgramBody
 from kelvin.commands.translate import plan_program
-from kelvin.house.model import build_house, parse_day, parse_program
+from kelvin.house.model import DAY_ORDER, build_house, parse_day, parse_program
 from kelvin.overkiz.sample import SAMPLE_GATEWAY, WEEK_PROGRAM, sample_house
 from tests.test_api import ctx, settle  # noqa: F401  (the API fixture)
 
@@ -115,3 +116,64 @@ def test_the_simulator_has_a_midnight_day_and_an_unrecognised_day():
     assert r.program_locked == {"saturday": "unrecognised", "sunday": "midnight"}
     assert r.view()["program"]["sunday"] == [{"start": "20:00", "end": "24:00"}]
     assert r.view()["program_locked"] == {"saturday": "unrecognised", "sunday": "midnight"}
+
+
+async def _salon_base(c):
+    house = (await c.get("/api/house")).json()["house"]
+    return {r["id"]: r["program"] for r in house["radiators"] if r["room_id"] == "p-salon"}
+
+
+WEEK = {"monday": [{"start": "07:00", "end": "08:00"}]}
+
+
+async def test_a_program_changed_in_the_cozytouch_app_is_not_overwritten(ctx):  # noqa: F811
+    c, rt, clock = ctx
+    base = await _salon_base(c)
+    changed = copy.deepcopy(WEEK_PROGRAM)
+    changed[0] = {"monday": [{"start": "05:00", "end": "06:00"}, E, E]}
+    rt.gateway.push_state(f"{SAMPLE_GATEWAY}/14172536#1", "core:TimeProgramState", changed)
+    await settle(rt, clock)
+    sent_before = len(rt.gateway.executed)
+    r = await c.put("/api/rooms/p-salon/program", json={**WEEK, "base": base})
+    assert r.status_code == 409
+    body = r.json()
+    assert (body["code"], body["params"]) == ("program_changed_elsewhere", {"days": ["monday"]})
+    assert "14172536" not in r.text  # no id in an error body
+    assert len(rt.gateway.executed) == sent_before  # nothing was written
+
+
+async def test_force_overwrites(ctx):  # noqa: F811
+    c, rt, clock = ctx
+    base = await _salon_base(c)
+    changed = copy.deepcopy(WEEK_PROGRAM)
+    changed[2] = {"wednesday": [{"start": "05:00", "end": "06:00"}, E, E]}
+    rt.gateway.push_state(f"{SAMPLE_GATEWAY}/9312063#1", "core:TimeProgramState", changed)
+    await settle(rt, clock)
+    r = await c.put("/api/rooms/p-salon/program", json={**WEEK, "base": base, "force": True})
+    assert r.status_code == 202, r.text
+
+
+async def test_an_unchanged_base_passes_and_no_base_is_not_checked(ctx):  # noqa: F811
+    c, rt, _ = ctx
+    base = await _salon_base(c)
+    assert (
+        await c.put("/api/rooms/p-salon/program", json={**WEEK, "base": base})
+    ).status_code == 202
+    assert (await c.put("/api/rooms/p-salon/program", json=WEEK)).status_code == 202
+
+
+async def test_the_radiator_route_is_guarded_too_and_a_missing_base_entry_conflicts(ctx):  # noqa: F811
+    c, rt, _ = ctx
+    r = await c.put("/api/radiators/8370022/program", json={**WEEK, "base": {"other": {}}})
+    assert (r.status_code, r.json()["code"]) == (409, "program_changed_elsewhere")
+    assert r.json()["params"]["days"] == list(
+        DAY_ORDER
+    )  # no base for it: every readable day differs
+
+
+def test_body_week_is_the_seven_days_only():
+    body = ProgramBody.model_validate({**WEEK, "base": {"r": {}}, "force": True})
+    assert list(body.week()) == list(DAY_ORDER)
+    assert body.base_programs() == {"r": {}}
+    with pytest.raises(ValueError):
+        ProgramBody.model_validate({"base": {f"r{i}": {} for i in range(51)}})

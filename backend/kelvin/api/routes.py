@@ -45,7 +45,7 @@ from kelvin.commands.translate import (
     plan_setpoint,
 )
 from kelvin.errors import UserError
-from kelvin.house.model import Radiator
+from kelvin.house.model import DAY_ORDER, Radiator
 from kelvin.labels import Label
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled, day_bounds
 from kelvin.linky.service import LinkyService
@@ -163,10 +163,27 @@ async def room_setpoint(room_id: str, body: SetpointBody, request: Request):
     )
 
 
+def _check_base(body: ProgramBody, rads: list[Radiator]) -> None:
+    """Refuse to overwrite a programme that changed since the editor loaded it."""
+    base = body.base_programs()
+    if base is None or body.force:
+        return
+    changed = [r for r in rads if base.get(r.id) != r.program]
+    if not changed:
+        return
+    days = [
+        d
+        for d in DAY_ORDER
+        if any((base.get(r.id) or {}).get(d) != r.program.get(d) for r in changed)
+    ]
+    raise UserError("program_changed_elsewhere", 409, days=days)  # day keys only, never an id
+
+
 @router.put("/rooms/{room_id}/program")
 async def room_program(room_id: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
+    _check_base(body, rads)
     week = body.week()
     return await _submit(rt, Label.of("program", name=name), rads, lambda r: plan_program(r, week))
 
@@ -259,6 +276,7 @@ async def radiator_setpoint(rid: str, body: SetpointBody, request: Request):
 async def radiator_program(rid: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
+    _check_base(body, [r])
     week = body.week()
     return await _submit(rt, Label.of("program", name=r.name), [r], lambda x: plan_program(x, week))
 

@@ -718,6 +718,7 @@ export const en: Messages = {
     program_too_many: (p: ApiParams) => `${day(p.day)}: 3 comfort periods at most.`,
     program_slot_invalid: (p: ApiParams) => `${day(p.day)}: the period ${p.start}–${p.end} isn’t valid.`,
     program_overlap: (p: ApiParams) => `${day(p.day)}: periods overlap.`,
+    program_changed_elsewhere: () => 'Schedule changed elsewhere: reload it or replace it.',
     feature_unknown: (p: ApiParams) => `Unknown feature: ${p.feature}.`,
     no_night_light: () => 'This radiator has no night light.',
     intensity_light_off: () => 'Brightness can only be set with the night light on.',

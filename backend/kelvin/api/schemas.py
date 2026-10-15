@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from kelvin.billing.slots import Slot as HcSlot
 from kelvin.billing.tariff import Prices, TariffUpdate
 from kelvin.errors import UserError
+from kelvin.house.model import DAY_ORDER
 
 
 class ModeBody(BaseModel):
@@ -26,7 +27,11 @@ class Slot(BaseModel):
 
 
 class ProgramBody(BaseModel):
-    """Days left out have no comfort slot. Unknown keys are rejected, not dropped."""
+    """Days left out have no comfort slot. Unknown keys are rejected, not dropped.
+
+    `base`: per radiator, the programme the editor started from. When it no longer matches what
+    the radiator reports (changed in the Cozytouch app or another tab), the send is refused unless
+    `force` (owner addition, 2026-10-14)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -37,9 +42,19 @@ class ProgramBody(BaseModel):
     friday: list[Slot] = []
     saturday: list[Slot] = []
     sunday: list[Slot] = []
+    base: dict[str, dict[str, list[Slot]]] | None = Field(default=None, max_length=50)
+    force: bool = False
 
     def week(self) -> dict[str, list[dict[str, str]]]:
-        return {day: [s.model_dump() for s in slots] for day, slots in self}
+        return {day: [s.model_dump() for s in getattr(self, day)] for day in DAY_ORDER}
+
+    def base_programs(self) -> dict[str, dict[str, list[dict[str, str]]]] | None:
+        if self.base is None:
+            return None
+        return {
+            rid: {day: [s.model_dump() for s in slots] for day, slots in prog.items()}
+            for rid, prog in self.base.items()
+        }
 
 
 class FeaturesBody(BaseModel):
