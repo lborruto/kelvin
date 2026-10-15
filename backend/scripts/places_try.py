@@ -11,8 +11,10 @@ tree is re-read and a « Kelvin test » left behind is announced. Stop Kelvin fi
 no second listener.
 
 The bulk read is one of the day's full setup reads (Overkiz: "1 call per 1d"). When Kelvin's
-database exists under KELVIN_DATA, the read is debited from Kelvin's stored budget (and refused
-when it is spent); without it, Kelvin does not see it, and Overkiz's own quota is the only limit.
+database exists under KELVIN_DATA, the read is debited from Kelvin's stored budget (and refused,
+before logging in, when it is spent), by plain SQL on its settings table: no schema change or
+migration. Without it, Kelvin does not see the read, and Overkiz's own quota is the only limit.
+The report's `budget` says which (« debited » or « not tracked »).
 
 Exit code: 0 for a read-only run; with --write, 0 only when every step succeeded and the house
 is unchanged.
@@ -27,9 +29,11 @@ import argparse
 import asyncio
 import json
 import os
+import sqlite3
 import sys
 from collections import Counter
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
 
 from kelvin.overkiz.budget import SetupReadGuard
@@ -133,14 +137,29 @@ async def _stray(gw: Any, root_oid: str, known: set[str], sleep: Sleep) -> bool:
     return False
 
 
+async def _gone_later(gone: Callable[[], Awaitable[bool]], sleep: Sleep) -> bool:
+    """Before any alarm: is the place gone after all? Targeted reads at READ_AT only."""
+    for second in range(1, WAIT_S + 1):
+        await sleep(1)
+        if second in READ_AT:
+            try:
+                if await gone():
+                    return True
+            except GatewayError:
+                return False
+    return False
+
+
 async def _cleanup(
     gw: Any,
     oid: str,
+    report: dict[str, Any],
     events: list[str],
     sleep: Sleep,
     out: Callable[[str], None],
-) -> dict[str, Any]:
-    """Delete the place this run created, and only while it bears a test label."""
+) -> None:
+    """Delete the place this run created, and only while it bears a test label. Sets
+    `report["delete"]`, also when cancelled (then re-raises)."""
 
     async def ours() -> bool:
         try:
@@ -155,29 +174,46 @@ async def _cleanup(
             return True
         return False
 
+    sent = resent = False
     try:
         if not await ours():
             out("the temporary place was renamed meanwhile: left alone, check it by hand")
-            return _refused("not the test place")
-        resent = False
+            report["delete"] = _refused("not the test place") | {"sent": False}
+            return
         try:
             await gw.delete_place(oid)
         except SetupNotFoundError:
             # Too early: the place may still be appearing. Look before saying anything.
             if not await _appears(gw, oid, sleep):
-                return {"event": False, "reads": len(READ_AT), "ok": True, "absent": True}
+                report["delete"] = {
+                    "event": False,
+                    "reads": len(READ_AT),
+                    "ok": True,
+                    "absent": True,
+                    "sent": False,
+                }
+                return
             if not await ours():
                 out("the temporary place was renamed meanwhile: left alone, check it by hand")
-                return _refused("not the test place")
+                report["delete"] = _refused("not the test place") | {"sent": False}
+                return
             # The one re-sent write: the same created oid, which can touch nothing else.
             await gw.delete_place(oid)
             resent = True
+        sent = True
         result = await _confirm(gw, "deleted", gone, events, sleep)
-        result["resent"] = resent
-        return result
+        report["delete"] = result | {"sent": True, "resent": resent}
+    except asyncio.CancelledError:
+        report["delete"] = _refused("cancelled") | {"sent": sent, "resent": resent}
+        raise
     except GatewayError as e:
-        out(f"the temporary place could not be deleted: remove « {TEST_LABEL} » by hand")
-        return _refused(type(e).__name__)
+        if await _gone_later(gone, sleep):
+            report["delete"] = {"event": False, "reads": len(READ_AT), "ok": True}
+            report["delete"] |= {"sent": sent, "resent": resent, "confirmed_by": "re-read"}
+            return
+        report["delete"] = _refused(type(e).__name__) | {"sent": sent, "resent": resent}
+        if not sent:
+            out(f"the temporary place could not be deleted: remove « {TEST_LABEL} » by hand")
 
 
 async def _steps(
@@ -219,10 +255,10 @@ async def check(
     out: Callable[[str], None] = print,
     guard: SetupReadGuard | None = None,
 ) -> dict[str, Any]:
+    if guard is not None and not guard.allowed():
+        raise SystemExit("Kelvin's full setup reads for today are spent: nothing read.")
     await gw.login()
     if guard is not None:
-        if not guard.allowed():
-            raise SystemExit("Kelvin's full setup reads for today are spent: nothing read.")
         guard.record()  # made or attempted, like Kelvin counts it
     root, _ = await gw.snapshot()  # the one bulk read
     places = list(_walk(root))
@@ -230,6 +266,7 @@ async def check(
     types = Counter(p.type for p in subs)
     report: dict[str, Any] = {
         "mode": "write" if write else "read-only",
+        "budget": "debited" if guard is not None else "not tracked",
         "places": len(places),
         "room_types": {str(t): n for t, n in sorted(types.items(), key=lambda kv: str(kv[0]))},
     }
@@ -259,9 +296,14 @@ async def check(
         try:
             oid = await gw.create_place(root.oid, TEST_LABEL, room_type)
             out(f"created « {TEST_LABEL} » (type {room_type}); confirming…")
-        except GatewayError as e:
-            report["create"] = _refused(type(e).__name__)
-            out("the create failed; it may still have reached Cozytouch: looking for it")
+        except (GatewayError, asyncio.CancelledError) as e:
+            # It may still have reached Cozytouch (a lost answer, or Ctrl-C in flight).
+            if isinstance(e, asyncio.CancelledError):
+                cancelled = e
+                report["create"] = _refused("cancelled")
+            else:
+                report["create"] = _refused(type(e).__name__)
+            out("the create did not answer; it may still have reached Cozytouch: looking for it")
             await _stray(gw, root.oid, {r[0] for r in before[2]}, sleep)
         if oid is not None:
             try:
@@ -270,18 +312,28 @@ async def check(
                 cancelled = e
                 report.setdefault("create", _refused("cancelled"))
                 report.setdefault("rename", _refused("cancelled"))
-            report["delete"] = await _cleanup(gw, oid, events, sleep, out)
+            try:
+                await _cleanup(gw, oid, report, events, sleep, out)
+            except asyncio.CancelledError as e:  # `delete` is in the report: stop here
+                cancelled = cancelled or e
     finally:
         report["events"] = events
         try:
             after = await _tree(gw, root.oid)
             report["unchanged"] = after == before
             stray = [r for r in after[2] if _is_test(r[1]) and r not in before[2]]
-            if stray:
+            delete = report.get("delete") or {}
+            if stray and delete.get("sent") and not delete.get("ok"):
+                out(f"delete sent, not confirmed: check that « {TEST_LABEL} » is gone")
+            elif stray:
                 out(f"« {TEST_LABEL} » is still on the account: remove it by hand")
-        except GatewayError as e:
+        except (GatewayError, asyncio.CancelledError) as e:
+            if isinstance(e, asyncio.CancelledError):
+                cancelled = cancelled or e
             report["unchanged"] = False
-            report["after_read"] = type(e).__name__
+            report["after_read"] = (
+                "cancelled" if isinstance(e, asyncio.CancelledError) else type(e).__name__
+            )
             out(f"the house could not be re-read: check for « {TEST_LABEL} » by hand")
         steps = (report.get(k) or {} for k in ("create", "rename", "delete"))
         report["ok"] = report["unchanged"] and all(s.get("ok") is True for s in steps)
@@ -295,22 +347,46 @@ def exit_code(report: dict[str, Any]) -> int:
     return 0 if report.get("mode") != "write" or report.get("ok") is True else 1
 
 
+def stored_guard(path: Path) -> SetupReadGuard | None:
+    """Kelvin's stored budget of full setup reads, when its database exists. Plain SQL on the
+    settings table: no schema creation and no migration (unlike opening `Database`), so a
+    checkout newer than the last Kelvin run never migrates Kelvin's data."""
+    from kelvin.api.context import SETUP_READS_KEY
+
+    if not path.exists():
+        return None
+    uri = f"file:{path}?mode=rw"
+
+    def load() -> list[float]:
+        conn = sqlite3.connect(uri, uri=True)
+        try:
+            row = conn.execute("SELECT value FROM settings WHERE key = ?", (SETUP_READS_KEY,))
+            found = row.fetchone()
+        finally:
+            conn.close()
+        value = json.loads(found[0]) if found else []
+        return value if isinstance(value, list) else []
+
+    def save(reads: list[float]) -> None:
+        conn = sqlite3.connect(uri, uri=True)
+        try:
+            with conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                    (SETUP_READS_KEY, json.dumps(reads)),
+                )
+        finally:
+            conn.close()
+
+    return SetupReadGuard(reads=load(), on_record=save)
+
+
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    from kelvin.api.context import SETUP_READS_KEY
     from kelvin.config import Settings
     from kelvin.overkiz.real import PyOverkizGateway
-    from kelvin.recorder.db import Database
 
-    path = Settings().kelvin_data / "kelvin.db"
-    db = Database(path) if path.exists() else None
-    guard = None
-    if db is not None:
-        stored = db.get_setting(SETUP_READS_KEY, [])
-        guard = SetupReadGuard(
-            reads=stored if isinstance(stored, list) else [],
-            on_record=lambda reads: db.set_setting(SETUP_READS_KEY, reads),
-        )
+    guard = stored_guard(Settings().kelvin_data / "kelvin.db")
     gw = PyOverkizGateway(os.environ["COZY_USER"], os.environ["COZY_PASS"])
 
     async def run() -> dict[str, Any]:
@@ -319,11 +395,7 @@ def main(argv: list[str]) -> int:
         finally:
             await gw.close()
 
-    try:
-        return exit_code(asyncio.run(run()))
-    finally:
-        if db is not None:
-            db.close()
+    return exit_code(asyncio.run(run()))
 
 
 if __name__ == "__main__":

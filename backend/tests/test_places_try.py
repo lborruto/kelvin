@@ -4,7 +4,10 @@ real installation only when the owner asks and watches)."""
 import asyncio
 import copy
 import importlib.util
+import json
+import sqlite3
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -234,3 +237,122 @@ def test_the_exit_code_is_non_zero_when_any_step_failed():
     assert places_try.exit_code({"mode": "read-only"}) == 0
     assert places_try.exit_code({"mode": "write", "ok": True}) == 0
     assert places_try.exit_code({"mode": "write", "ok": False}) == 1
+
+
+async def test_ctrl_c_while_the_create_is_in_flight_still_announces_a_leftover():
+    gw, sleep = _gw()
+    real_create = gw.create_place
+
+    async def create_then_ctrl_c(parent, label, type_):
+        await real_create(parent, label, type_)  # reached Cozytouch...
+        raise asyncio.CancelledError  # ...and Ctrl-C before the answer
+
+    gw.create_place = create_then_ctrl_c
+    lines: list[str] = []
+    with pytest.raises(asyncio.CancelledError):
+        await places_try.check(gw, write=True, sleep=sleep, out=lines.append)
+    assert [w[0] for w in gw.setup_writes] == ["create_place"]
+    assert any("remove it by hand" in line for line in lines)
+    assert '"unchanged": false' in lines[-1] and '"error": "cancelled"' in lines[-1]
+
+
+async def test_ctrl_c_during_the_delete_confirm_keeps_delete_in_the_report_without_a_false_alarm():
+    gw, sleep = _gw()
+
+    async def sleep_cancelled_after_the_delete(s: float) -> None:
+        if any(w[0] == "delete_place" for w in gw.setup_writes) and not gw.cancelled:
+            gw.cancelled = True
+            raise asyncio.CancelledError
+        await sleep(s)
+
+    gw.cancelled = False
+    lines: list[str] = []
+    with pytest.raises(asyncio.CancelledError):
+        await places_try.check(
+            gw, write=True, sleep=sleep_cancelled_after_the_delete, out=lines.append
+        )
+    report = json.loads(lines[-1])
+    assert report["delete"]["error"] == "cancelled" and report["delete"]["sent"] is True
+    assert not any("remove" in line for line in lines)
+    assert any("delete sent, not confirmed" in line for line in lines)
+
+
+async def test_a_delete_confirmed_by_a_late_read_is_no_alarm():
+    gw, sleep = _gw()
+    real_fetch = gw.fetch_events
+    state = {"failed": False}
+
+    async def fetch_failing_after_the_delete():
+        if any(w[0] == "delete_place" for w in gw.setup_writes) and not state["failed"]:
+            state["failed"] = True
+            raise places_try.GatewayError("listener lost")
+        return await real_fetch()
+
+    gw.fetch_events = fetch_failing_after_the_delete
+    lines: list[str] = []
+    report = await places_try.check(gw, write=True, sleep=sleep, out=lines.append)
+    assert report["delete"]["ok"] is True and report["unchanged"] is True
+    assert not any("by hand" in line or "could not" in line for line in lines)
+
+
+async def test_could_not_be_deleted_only_when_the_delete_itself_failed():
+    gw, sleep = _gw()
+    gw.fail_setup = {"delete_place": places_try.GatewayError("refused")}
+    lines: list[str] = []
+    report = await places_try.check(gw, write=True, sleep=sleep, out=lines.append)
+    assert report["delete"]["ok"] is False and report["delete"]["sent"] is False
+    assert any("could not be deleted" in line for line in lines)
+
+
+async def test_ctrl_c_during_the_final_re_read_still_prints_the_report():
+    gw, sleep = _gw()
+    real_read = gw.read_place
+    state = {"done": False}
+
+    async def read_cancelled_at_the_end(oid):
+        deleted = any(w[0] == "delete_place" for w in gw.setup_writes)
+        if oid == "p-house" and deleted and not state["done"]:
+            state["done"] = True
+            raise asyncio.CancelledError
+        return await real_read(oid)
+
+    gw.read_place = read_cancelled_at_the_end
+    lines: list[str] = []
+    with pytest.raises(asyncio.CancelledError):
+        await places_try.check(gw, write=True, sleep=sleep, out=lines.append)
+    report = json.loads(lines[-1])
+    assert report["unchanged"] is False and report["after_read"] == "cancelled"
+
+
+async def test_a_spent_budget_stops_before_login_and_the_report_says_whether_it_was_debited():
+    gw, sleep = _gw()
+    spent = SetupReadGuard(wall=lambda: 1_000.0, reads=[999.0, 999.0, 999.0])
+    with pytest.raises(SystemExit):
+        await places_try.check(gw, write=False, sleep=sleep, out=lambda s: None, guard=spent)
+    assert gw.logins == 0
+    guard = SetupReadGuard(wall=lambda: 1_000.0)
+    report = await places_try.check(gw, write=False, sleep=sleep, out=lambda s: None, guard=guard)
+    assert report["budget"] == "debited"
+    report = await places_try.check(gw, write=False, sleep=sleep, out=lambda s: None)
+    assert report["budget"] == "not tracked"
+
+
+def test_the_stored_budget_is_read_and_written_without_touching_the_schema(tmp_path):
+    path = tmp_path / "kelvin.db"
+    assert places_try.stored_guard(path) is None and not path.exists()
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        conn.execute(
+            "INSERT INTO settings VALUES (?, ?)", ("overkiz_setup_reads", json.dumps([time.time()]))
+        )
+    conn.close()
+    guard = places_try.stored_guard(path)
+    assert guard is not None and guard.used() == 1
+    guard.record()
+    with sqlite3.connect(path) as conn:
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+        stored = json.loads(
+            conn.execute("SELECT value FROM settings WHERE key='overkiz_setup_reads'").fetchone()[0]
+        )
+    conn.close()
+    assert tables == ["settings"] and len(stored) == 2
