@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   fmtAgo, fmtAmount, fmtDateLong, fmtDay, fmtDelta, fmtKwh, fmtPct, fmtPrice, fmtTemp, fmtTime, fmtWh,
-  LEVEL_LABEL, MODE_LABEL, monthName, parseDecimal
+  LEVEL_LABEL, MODE_LABEL, monthName, monthYear, parseDecimal
 } from './format';
 
 const NB = ' ';
@@ -36,9 +36,9 @@ describe('format', () => {
   it('relative ages', () => {
     const now = Date.parse('2026-10-13T12:00:00Z');
     expect(fmtAgo(now - 20_000, now)).toBe('à l’instant');
-    expect(fmtAgo(now - 12 * 60_000, now)).toBe('il y a 12 min');
-    expect(fmtAgo(now - 3 * 3_600_000, now)).toBe('il y a 3 h');
-    expect(fmtAgo(now - 3570_000, now)).toBe('il y a 59 min');
+    expect(fmtAgo(now - 12 * 60_000, now)).toBe(`il y a 12${NB}min`);
+    expect(fmtAgo(now - 3 * 3_600_000, now)).toBe(`il y a 3${NB}h`);
+    expect(fmtAgo(now - 3570_000, now)).toBe(`il y a 59${NB}min`);
   });
   it('labels', () => {
     expect(MODE_LABEL.program).toBe('Programme');
@@ -70,11 +70,15 @@ describe('energy formats', () => {
     expect(parseDecimal('abc')).toBeNull();
     expect(parseDecimal('')).toBeNull();
     expect(parseDecimal('-1')).toBeNull();
+    expect(parseDecimal('0.2068')).toBe(0.2068);
+    expect(parseDecimal('1,234.5')).toBe(1234.5);
+    expect(parseDecimal('1.234,5')).toBe(1234.5);
   });
   it('dates from ISO days, whatever the browser zone', () => {
     expect(fmtDay('2026-10-12')).toBe('12/10');
     expect(fmtDateLong('2026-10-12')).toBe('12 octobre 2026');
     expect(monthName('2026-10-01')).toBe('Octobre 2026');
+    expect(monthYear('2026-09-01')).toBe('septembre 2026');
   });
 });
 
@@ -248,4 +252,143 @@ describe('review fixes: signs, ties, digits, parts', () => {
       }
     }
   });
+});
+
+import { fmtDateTime, parisTodayIso } from './format';
+
+/** Every formatter over a grid of values, in French: pins that French output is byte-identical to
+ * Plan 6's (taken before the formatters followed the locale). Only fmtAgo's spaces changed since. */
+function frenchGrid(): Record<string, unknown> {
+  const nums = [
+    -1234.567, -999.96, -3.5, -0.125, -0.004, -0, 0, 0.001, 0.0049, 0.00005, 0.125, 0.152, 0.2068, 0.384,
+    0.995, 1, 12.34, 19.5, 99.995, 100, 412.64, 999.95, 999.96, 1000, 1234.4, 1234.56, 2050, 12345.678,
+    1234567.891, null, undefined, Number.NaN
+  ];
+  const label = (v: number | null | undefined) => String(v === 0 && Object.is(v, -0) ? '-0' : v);
+  const each = (fn: (v: number | null | undefined) => unknown) => Object.fromEntries(nums.map((v) => [label(v), fn(v)]));
+  const times = [
+    '2026-01-01T00:05:00Z', '2026-03-29T00:59:00Z', '2026-03-29T01:00:00Z', '2026-06-30T22:00:00Z',
+    '2026-10-25T00:30:00Z', '2026-10-25T01:30:00Z', '2026-12-31T23:59:00Z'
+  ].map((t) => Date.parse(t));
+  const days = ['2026-01-01', '2026-02-28', '2026-08-15', '2026-10-12', '2026-12-31'];
+  return {
+    fmtTemp: each((v) => [fmtTemp(v), fmtTemp(v, false)]),
+    fmtDelta: each(fmtDelta),
+    fmtKwh: each((v) => [fmtKwh(v), fmtKwh(v, false)]),
+    fmtWh: each(fmtWh),
+    fmtPrice: each(fmtPrice),
+    fmtAmount: each((v) => [fmtAmount(v, 2), fmtAmount(v, 4)]),
+    fmtPct: each(fmtPct),
+    kwhDigits: each((v) => (v == null || Number.isNaN(v) ? null : kwhDigits(v))),
+    fmtKwhHero: each((v) => [fmtKwhHero(v), fmtKwhHero(v, false)]),
+    fmtKwhExact: each((v) => [fmtKwhExact(v), fmtKwhExact(v, false)]),
+    fmtW: each(fmtW),
+    fmtEurHero: each(fmtEurHero),
+    fmtEurExact: each((v) => [fmtEurExact(v), fmtEurExact(v, false)]),
+    fmtEurHalfHour: each(fmtEurHalfHour),
+    fmtPct1: each(fmtPct1),
+    fmtChangeShare: each(fmtChangeShare),
+    fmtSigned: each((v) => [fmtSigned(v, 'kWh'), fmtSigned(v, '€')]),
+    fmtSignedPrice: each(fmtSignedPrice),
+    fmtHours: each((v) => [fmtHours(v), fmtHours(v, false)]),
+    fmtShares: [[1, 2], [1, 1, 1], [0.5, null, 2], [0, 0], [3, -1, 7]].map((s) => [fmtShares(s), fmtShares(s, 1)]),
+    fmtKwhParts: [
+      [412.64, [158.3, 254.34]], [2050.4, [1000.2, 1050.2]], [22.04, [8.975, 13.065]], [10, [3.336, null]],
+      [null, [1]], [999.96, [500, 499.96]]
+    ].map(([t, p]) => fmtKwhParts(t as number | null, p as (number | null)[])),
+    fmtTime: times.map(fmtTime),
+    fmtDateTime: times.map(fmtDateTime),
+    parisTodayIso: times.map((t) => parisTodayIso(t)),
+    fmtDay: days.map(fmtDay),
+    fmtDateLong: days.map(fmtDateLong),
+    monthName: days.map(monthName),
+    parseDecimal: ['0,2068', ' 19.5 ', '1 234,5', '1 234,5', '1 234,5', '12', 'abc', '', '-1', '1,2,3'].map(
+      parseDecimal
+    )
+  };
+}
+
+describe('French output is unchanged (snapshot of Plan 6)', () => {
+  it('every formatter over a grid of values', () => {
+    expect(frenchGrid()).toMatchSnapshot();
+  });
+});
+
+import { applyLocale } from '$lib/i18n';
+
+describe('format in English (en-GB)', () => {
+  beforeEach(() => applyLocale('en'));
+  const NB = '\u00a0';
+  it('decimal point, NBSP before °C and kWh, € before the figure, no space before %', () => {
+    expect(fmtTemp(20.5)).toBe(`20.5${NB}°C`);
+    expect(fmtDelta(3)).toBe(`−3.0${NB}°C`);
+    expect(fmtKwh(2400)).toBe(`2,400${NB}kWh`);
+    expect(fmtKwh(12.34)).toBe(`12.3${NB}kWh`);
+    expect(fmtWh(1500)).toBe(`1,500${NB}Wh`);
+    expect(fmtPrice(0.2068)).toBe('€0.2068/kWh');
+    expect(fmtAmount(16.2, 2)).toBe('16.20');
+    expect(fmtPct(0.574)).toBe('57%');
+    expect(fmtTemp(null)).toBe('—');
+  });
+  it('Énergie precision (spec §3.2.1) in en-GB: the same digits, English signs', () => {
+    expect(fmtKwhHero(412.64)).toBe(`412.6${NB}kWh`);
+    expect(fmtKwhHero(2050)).toBe(`2,050${NB}kWh`);
+    expect(fmtKwhExact(22.041)).toBe(`22.04${NB}kWh`);
+    expect(fmtKwhParts(412.64, [158.3, 254.34])).toEqual({ total: `412.6${NB}kWh`, parts: [`158.3${NB}kWh`, `254.3${NB}kWh`] });
+    expect(fmtEurHero(98.4)).toBe('€98.40');
+    expect(fmtEurHero(1234.4)).toBe('€1,234');
+    expect(fmtEurHero(-3.5)).toBe('−€3.50');
+    expect(fmtEurExact(1234.56)).toBe('€1,234.56');
+    expect(fmtEurExact(1234.56, false)).toBe('1,234.56');
+    expect(fmtEurHalfHour(0.152)).toBe('€0.152');
+    expect(fmtPct1(0.384)).toBe('38.4%');
+    expect(fmtShares([1, 2], 1)).toEqual(['33.3%', '66.7%']);
+    expect([fmtChangeShare(0.12), fmtChangeShare(-0.08), fmtChangeShare(0)]).toEqual(['+12%', '−8%', '0%']);
+    expect(fmtSigned(-14.2, 'kWh')).toBe(`−14.20${NB}kWh`);
+    expect([fmtSigned(3.61, '€'), fmtSigned(-3.61, '€'), fmtSigned(0, '€')]).toEqual(['+€3.61', '−€3.61', '€0.00']);
+    expect(fmtSignedPrice(-0.0632)).toBe('−€0.0632/kWh');
+    expect([fmtW(734), fmtW(3420)]).toEqual([`734${NB}W`, `3.42${NB}kW`]);
+    expect(fmtHours(2.8)).toBe(`2.8${NB}h`);
+    expect(fmtEurExact(-0.001)).toBe('€0.00');
+  });
+  it('en-GB dates and a 24 h clock in Paris time', () => {
+    expect(fmtDateLong('2026-10-12')).toBe('12 October 2026');
+    expect(monthName('2026-10-01')).toBe('October 2026');
+    expect(monthYear('2026-09-01')).toBe('September 2026');
+    expect(fmtDateTime(Date.parse('2026-10-13T16:05:00Z'))).toBe('Tue 13 Oct, 18:05');
+    expect(fmtTime(Date.parse('2026-12-01T05:30:00Z'))).toBe('06:30');
+    expect(fmtDay('2026-10-12')).toBe('12/10');
+  });
+  it('relative ages', () => {
+    const now = Date.parse('2026-10-13T12:00:00Z');
+    expect(fmtAgo(now - 20_000, now)).toBe('just now');
+    expect(fmtAgo(now - 12 * 60_000, now)).toBe(`12${NB}min ago`);
+    expect(fmtAgo(now - 3 * 3_600_000, now)).toBe(`3${NB}h ago`);
+    expect(fmtAgo(now - 2 * 86_400_000, now)).toBe(`on ${fmtDateTime(now - 2 * 86_400_000)}`);
+  });
+  it('a comma or a point reads the same in English', () => {
+    expect(parseDecimal('0,2068')).toBe(0.2068);
+    expect(parseDecimal('1,234.5')).toBe(1234.5);
+  });
+});
+
+describe('shown parts add up in both languages (matchParts is digits only)', () => {
+  for (const l of ['fr', 'en'] as const) {
+    // The locale's own decimal mark; grouping and units dropped.
+    const read = (s: string) => Number(s.replace(l === 'en' ? /[^\d.]/g : /[^\d,]/g, '').replace(',', '.'));
+    it(`${l}: kWh parts and shares`, () => {
+      applyLocale(l);
+      const r = rng(7);
+      for (let n = 0; n < 300; n++) {
+        const parts = Array.from({ length: 2 + Math.floor(r() * 2) }, () => Math.round(r() * 1_500_000) / 1000);
+        const total = Math.round(parts.reduce((a, b) => a + b, 0) * 1000) / 1000;
+        const shown = fmtKwhParts(total, parts);
+        const k = 10 ** kwhDigits(total);
+        const sum = shown.parts.reduce((a, p) => a + read(p), 0);
+        expect(Math.round(sum * k), shown.total).toBe(Math.round(read(shown.total) * k));
+        const shares = fmtShares(parts, 1).reduce((a, p) => a + read(p), 0);
+        expect(Math.round(shares * 10)).toBe(1000);
+      }
+    });
+  }
 });
