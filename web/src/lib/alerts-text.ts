@@ -2,6 +2,7 @@ import type { Alert, Pending } from '$lib/api/types';
 import { fmtDay, fmtTime } from '$lib/format';
 import { locale, m, pendingError, pendingLabel } from '$lib/i18n';
 import { ANCHORS, ROUTES } from '$lib/paths';
+import { roomName } from '$lib/setup';
 import { house } from '$lib/stores/house.svelte';
 
 const MED = 'https://www.myelectricaldata.fr/';
@@ -28,7 +29,7 @@ function roomLabel(roomId: string, radiatorId: string): string {
   const room = house.room(roomId);
   const rad = house.radiators[radiatorId];
   if (!room) return rad?.name ?? m.radiator.default;
-  return room.radiator_ids.length > 1 && rad ? `${room.name} · ${rad.name}` : room.name;
+  return room.radiator_ids.length > 1 && rad ? `${roomName(room)} · ${rad.name}` : roomName(room);
 }
 
 /** The words of an alert, from its kind and params only (the backend sends no text). */

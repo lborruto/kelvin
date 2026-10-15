@@ -100,7 +100,8 @@ def test_a_reload_is_not_an_event_but_a_listener_event_is():
     assert h.apply(StateChange(url, "core:TemperatureState", 3.0), event=False) == "8370011"
     assert h.last_event_ts == {}
     clock.advance(60)
-    assert h.apply(StateChange(url, "core:TemperatureState", 3.0)) is None  # unchanged: v1 contract
+    # unchanged, but an event is a sign of life (Plan 8): the radiator's last_event_at moved
+    assert h.apply(StateChange(url, "core:TemperatureState", 3.0)) == "8370011"
     assert h.last_event_ts == {url: 10_060.0}
     h.reload_device(url, {"core:TemperatureState": 4.0})
     assert h.last_event_ts == {url: 10_060.0}
