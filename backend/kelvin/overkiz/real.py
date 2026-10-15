@@ -76,13 +76,20 @@ def to_raw_place(p: Any) -> RawPlace:
 
 
 def to_raw_device(d: Any) -> RawDevice:
+    definition = d.definition
     return RawDevice(
         device_url=d.device_url,
         label=d.label,
         widget=str(d.widget),
         place_oid=d.place_oid,
         states={name: s.value for name, s in d.states.items()},
-        commands=list(d.definition.commands) if d.definition else [],
+        commands=list(definition.commands) if definition else [],
+        ui_class=str(d.ui_class) if d.ui_class else "",
+        state_values={
+            name: [str(v) for v in sd.values] for name, sd in definition.states.items() if sd.values
+        }
+        if definition
+        else {},
     )
 
 

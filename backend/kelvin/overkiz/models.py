@@ -21,6 +21,9 @@ class RawDevice:
     place_oid: str | None
     states: dict[str, Any] = field(default_factory=dict)
     commands: list[str] = field(default_factory=list)
+    ui_class: str = ""  # pyoverkiz UIClass value ("" in setups stored before Plan 12)
+    # Allowed values of a discrete state, when the device definition lists them (Plan 12).
+    state_values: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

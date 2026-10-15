@@ -67,3 +67,16 @@ def test_place_type_roundtrips_and_old_dicts_still_load():
     p = RawPlace("h", "All House", (RawPlace("a", "Salon", (), 7),), 0)
     assert place_from_dict(json.loads(json.dumps(place_to_dict(p)))) == p
     assert place_from_dict({"oid": "h", "label": "H", "children": []}).type is None
+
+
+def test_a_stored_device_without_the_plan_12_fields_still_loads():
+    old = {
+        "device_url": "io://x/1#1",
+        "label": "Radiateur",
+        "widget": "AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint",
+        "place_oid": "a",
+        "states": {},
+        "commands": ["setOperatingMode"],
+    }
+    d = device_from_dict(old)
+    assert (d.ui_class, d.state_values) == ("", {})
