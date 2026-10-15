@@ -390,3 +390,18 @@ async def test_validation_errors_carry_invalid_request_and_the_field(ctx):
     body = r.json()
     assert (body["code"], body["params"]) == ("invalid_request", {"field": "mode"})
     assert body["detail"].startswith("Requête invalide : mode — ")
+
+
+async def test_route_errors_answer_with_code_and_params(ctx):
+    c, rt, _ = ctx
+    r = await c.post("/api/rooms/nope/mode", json={"mode": "off"})
+    assert r.status_code == 404 and r.json() == err("room_unknown")
+    week = {"monday": [{"start": f"0{i}:00", "end": f"0{i}:30"} for i in range(4)]}
+    r = await c.put(f"/api/rooms/{salon_id(rt)}/program", json=week)
+    assert r.status_code == 422 and r.json() == err("program_too_many", day="monday")
+    assert r.json()["detail"] == "lundi : 3 plages confort au maximum."
+    r = await c.delete("/api/overrides/nope")
+    assert r.status_code == 404 and r.json() == err("override_not_found")
+    rt.quotas = None
+    r = await c.get("/api/overkiz/quotas")
+    assert r.status_code == 503 and r.json() == err("quotas_unavailable")

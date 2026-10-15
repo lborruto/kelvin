@@ -16,7 +16,7 @@ from kelvin.config import Settings
 from kelvin.linky.fake import FakeLinkySource
 from kelvin.linky.models import DailyReading, LinkyAuthError, LinkyError, day_bounds
 from kelvin.overkiz.fake import FakeGateway
-from tests.conftest import ManualClock, login
+from tests.conftest import ManualClock, err, login
 
 PARIS = ZoneInfo("Europe/Paris")
 TOKEN = "demo-token-0123456789"
@@ -131,14 +131,14 @@ async def test_report_without_a_known_contract_start_uses_the_data(api):
 async def test_energy_dates_out_of_range_are_french(api, start, end):
     c, *_ = api
     r = await c.get("/api/energy", params={"from": start, "to": end})
-    assert r.status_code == 422 and r.json() == {"detail": "Période invalide."}
+    assert r.status_code == 422 and r.json() == err("period_invalid")
 
 
 @pytest.mark.parametrize("day", ["9999-12-31", "1999-12-31", str(date.today().replace(year=2099))])
 async def test_curve_dates_out_of_range_are_french(api, day):
     c, *_ = api
     r = await c.get("/api/linky/curve", params={"date": day})
-    assert r.status_code == 422 and r.json() == {"detail": "Période invalide."}
+    assert r.status_code == 422 and r.json() == err("period_invalid")
 
 
 async def test_curve_of_a_day(api):
@@ -164,9 +164,9 @@ async def test_curve_available_reaches_the_oldest_stored_day(api):
 async def test_invalid_period_is_french(api):
     c, *_ = api
     r = await c.get("/api/energy", params={"from": "2026-10-10", "to": "2026-10-01"})
-    assert r.status_code == 422 and r.json() == {"detail": "Période invalide."}
+    assert r.status_code == 422 and r.json() == err("period_invalid")
     r = await c.get("/api/energy", params={"from": "2020-01-01", "to": "2026-01-01"})
-    assert r.status_code == 422 and r.json() == {"detail": "Période invalide."}
+    assert r.status_code == 422 and r.json() == err("period_invalid")
 
 
 async def test_tariff_settings_round_trip(api):
@@ -198,23 +198,23 @@ async def test_tariff_rejects_a_non_positive_power(api, kva):
 
 
 @pytest.mark.parametrize(
-    ("field", "value", "detail"),
+    ("field", "value", "code"),
     [
-        ("subscription_eur_month", -1.0, "Prix de l’abonnement invalide."),
-        ("subscription_eur_month", float("inf"), "Prix de l’abonnement invalide."),
-        ("hc_eur_kwh", -0.2, "Prix du kWh en heures creuses invalide."),
-        ("hc_eur_kwh", float("nan"), "Prix du kWh en heures creuses invalide."),
-        ("hp_eur_kwh", float("-inf"), "Prix du kWh en heures pleines invalide."),
-        ("hp_eur_kwh", float("nan"), "Prix du kWh en heures pleines invalide."),
+        ("subscription_eur_month", -1.0, "price_subscription_invalid"),
+        ("subscription_eur_month", float("inf"), "price_subscription_invalid"),
+        ("hc_eur_kwh", -0.2, "price_hc_invalid"),
+        ("hc_eur_kwh", float("nan"), "price_hc_invalid"),
+        ("hp_eur_kwh", float("-inf"), "price_hp_invalid"),
+        ("hp_eur_kwh", float("nan"), "price_hp_invalid"),
     ],
 )
-async def test_tariff_rejects_bad_prices_in_french(api, field, value, detail):
+async def test_tariff_rejects_bad_prices_in_french(api, field, value, code):
     c, *_ = api
     before = (await c.get("/api/settings")).json()
     # NaN and Infinity are not JSON, but Python's parser (behind the API) accepts them.
     raw = json.dumps(tariff_body(**{field: value}))
     r = await c.put("/api/settings", content=raw, headers={"Content-Type": "application/json"})
-    assert r.status_code == 422 and r.json() == {"detail": detail}
+    assert r.status_code == 422 and r.json() == err(code)
     assert (await c.get("/api/settings")).json() == before
 
 
@@ -411,7 +411,7 @@ async def test_a_non_object_med_answer_is_a_french_503(api):
     rt.linky.make_source = lambda prm, tok: MedSource(prm, tok, client=client)
     r = await c.put("/api/settings/linky", json={"prm": PRM, "token": TOKEN})
     assert r.status_code == 503
-    assert r.json() == {"detail": "MyElectricalData injoignable, réessayez plus tard."}
+    assert r.json() == err("med_unreachable")
 
 
 async def test_radiator_energy_keeps_its_shape_and_adds_the_flags(api):

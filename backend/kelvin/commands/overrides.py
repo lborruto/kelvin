@@ -266,13 +266,13 @@ class OverrideManager:
     ) -> tuple[Override, Pending]:
         ids = list(dict.fromkeys(radiator_ids))
         if not ids:
-            raise CommandError("Aucun radiateur.")
+            raise CommandError("no_radiator")
         for rid in ids:
             if rid not in self.house.radiators:
-                raise CommandError(f"Radiateur inconnu : {rid}.")
+                raise CommandError("radiator_unknown_id")
         now = self.wall()
         if ends_at <= now:
-            raise CommandError("La fin doit être dans le futur.")
+            raise CommandError("end_in_past")
         self._reap()
         rads = [self.house.radiators[i] for i in ids]
         planned: Planned | None = None

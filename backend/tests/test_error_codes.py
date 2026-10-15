@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from kelvin.errors import SAMPLES, TEMPLATES, UserError, french, gateway_error_code
@@ -51,3 +53,16 @@ def test_gateway_errors_map_to_status_codes():
         "network",
         "unknown",
     ]
+
+
+KELVIN = Path(__file__).resolve().parents[1] / "kelvin"
+
+
+def test_no_route_raises_a_bare_http_exception():
+    offenders = [
+        f"{p.relative_to(KELVIN)}:{i}"
+        for p in sorted(KELVIN.rglob("*.py"))
+        for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
+        if "HTTPException(" in line
+    ]
+    assert offenders == []

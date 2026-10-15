@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any
 
 from kelvin.billing.slots import Ranges, Slot, slot_ranges
+from kelvin.errors import UserError
 from kelvin.linky.models import Contract
 from kelvin.recorder.db import Database
 
@@ -98,9 +99,9 @@ class TariffStore:
     def update(self, u: TariffUpdate) -> Tariff:
         """Set power and slots; add the prices at their valid_from (same date: replaced)."""
         if u.option != "hchp":
-            raise ValueError("Seule l’option heures pleines / heures creuses est disponible.")
+            raise UserError("tariff_option_unsupported")
         if u.kva not in KVA_CHOICES:
-            raise ValueError("Puissance souscrite inconnue.")
+            raise UserError("kva_unknown")
         slot_ranges(u.hc_slots)
         current = self.get()
         kept = [

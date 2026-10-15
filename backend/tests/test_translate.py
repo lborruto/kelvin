@@ -222,3 +222,16 @@ def test_light_off_emits_single_off_command(r):
 def test_light_off_with_intensity_rejected(r):
     with pytest.raises(CommandError):
         plan_light(r, False, 40)
+
+
+def test_command_errors_carry_codes_and_key_params(r):
+    with pytest.raises(CommandError) as e:
+        normalize_program({"sunday": [{"start": f"0{i}:00", "end": f"0{i}:30"} for i in range(4)]})
+    assert (e.value.code, e.value.params) == ("program_too_many", {"day": "sunday"})
+    with pytest.raises(CommandError) as e:
+        plan_setpoint(r, "eco", 9.0)
+    assert (e.value.code, e.value.params) == ("temp_range", {"kind": "eco", "min": 1.0, "max": 8.0})
+    assert str(e.value) == "L’abaissement éco doit être comprise entre 1 et 8 °C."
+    with pytest.raises(CommandError) as e:
+        plan_mode(r, "turbo")
+    assert (e.value.code, e.value.params) == ("mode_unknown", {"mode": "turbo"})
