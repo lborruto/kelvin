@@ -115,6 +115,60 @@ a restore the device does not confirm is retried after 30 s, then less and less 
 - `POST /api/setup/rooms {label}`, `PATCH /api/setup/rooms/{room_id} {label}`, `DELETE /api/setup/rooms/{room_id}` (empty rooms only), `POST /api/radiators/{id}/move {room_id}`, `POST /api/setup/devices/{device_id}/tidy` (session + `X-Kelvin`): write to the Cozytouch setup and answer 202 with a pending (`kind: "setup"`, `progress`) that is confirmed only when Cozytouch reports the change. A write Cozytouch accepted but did not confirm within 60 s ends `unconfirmed` (not a refusal): its label stays reserved and the next full read reconciles it. Labels: 1–32 characters after trim, nothing invisible, unique among rooms. On an experimental server every setup write, the radiator rename included, answers `403 setup_experimental` before any request: Kelvin changes rooms and devices on the Cozytouch servers only.
 - `POST /api/setup/sync` (session + `X-Kelvin`): one full setup read soon (202 `{sync}`), or 429 `setup_sync_spent` with `next_at` when no read is free (the last read of the 24 h stays for a restart).
 
+## MCP
+
+`POST /mcp` — Kelvin's read-only [MCP](https://modelcontextprotocol.io) server (Plan 13, official
+Python SDK `mcp`, exact pin): Streamable HTTP, stateless, JSON responses (no `Mcp-Session-Id`, no
+SSE); `GET /mcp` answers `405`. `KELVIN_MCP=false` removes the endpoint (`404`).
+
+Auth: only `Authorization: Bearer kmcp_…` with a live token from `POST /api/mcp/tokens`; the
+session cookie is never accepted, and an MCP token is never accepted on `/api`. Answers before
+the SDK, always JSON `{"error": …}` with `Cache-Control: no-store`:
+- `403 origin_refused`: any request carrying an `Origin` header (no browser talks to `/mcp`);
+- `429 too_many_attempts` + `Retry-After`: 10 failed authentications from one client in 15 min;
+- `401 invalid_token` + `WWW-Authenticate: Bearer realm="kelvin"`: no, malformed, wrong or
+  revoked token;
+- `429 rate_limited` + `Retry-After`: more than 60 calls a minute or 1 000 an hour for a token;
+- `413` from the SDK above 64 KiB of body.
+
+The SDK's DNS-rebinding check is off (it only knows localhost); `KELVIN_ALLOWED_HOSTS` and the
+`Origin` refusal replace it. Two tool calls run at a time (a third waits).
+
+Tools (all annotated `read_only_hint`, never `destructive`, never `open_world`):
+
+| Tool | Arguments | Data |
+|---|---|---|
+| `get_overview` | — | Rooms (temperature, mode, setpoints, heating now, window, presence), boosts and aways in progress, active alert count and severity, today's Tempo and EcoWatt, the option in force |
+| `get_room` | `room_id` | Each radiator's state, setpoints, power and capabilities (as data); 24 h heating share and coverage; today's window-open and presence runs |
+| `get_programmes` | `room_id?` | Weekly programmes per radiator, locked days, comfort/eco, this week's off-peak hours per day, the share of comfort minutes in peak hours (`billing/overlap.py`) |
+| `get_temperature_history` | `start`, `end` (local ISO), `room_id` or `radiator_ids`, `step_minutes` 5–1440 | Mean temperature, effective setpoint and target per step; `/api/history` bounds, at most 2 000 points per radiator |
+| `get_energy` | `start`, `end` (dates, end exclusive), `group` | The report of `GET /api/energy` with neutral keys: totals, buckets (at most 93), by rate, by room (the sum of its radiators' `by_radiator` cents), by radiator, comparisons, projection, lenses, quality |
+| `get_room_energy` | `room_id`, `days` 1–31 | `GET /api/rooms/{id}/energy` |
+| `get_day_detail` | `date` | `GET /api/energy/day` without `room` |
+| `get_tariff` | — | The tariff view (neutral keys), the option today, the last contract read (kVA, off-peak hours); never the PDL |
+| `get_grid_signals` | `start?`, `end?` (≤ 366 days) | Stored Tempo colours (only with a Tempo row) and counts, EcoWatt days, today/tomorrow; never a fetch |
+| `get_alerts` | `state` (`active`/`all`) | `AlertStore.listing` |
+| `get_data_status` | — | Kelvin's mode, Cozytouch connection, Linky state and MED calls (no `prm`), grid sources, each radiator meter's first and last reading |
+| `propose_savings` | `days` 7–31 | Proposals (`shift_to_offpeak`, `tempo_red_days`, `tempo_peak_share`, `review_programme`, `review_setpoints`, `data_gaps`): measured figures, an upper-bound estimate only at equal consumption, `apply_in_app`; nothing is applied |
+| `evaluate_programme` | `room_id`, `week` | A draft week checked against Kelvin's programme rules and locked days, the peak share before and after, a labelled estimate; nothing is sent or stored |
+
+Resources: `kelvin://house` (the `get_overview` envelope), `kelvin://tariff`,
+`kelvin://rooms/{room_id}` (the `get_room` envelope), `kelvin://guide` (Markdown: how to read
+the data). Prompts (`language` `fr`/`en`, default `fr`): `analyse_last_month`, `explain_bill`
+(`month`), `plan_tempo_red_day` (`date?`), `review_programme` (`room_id`).
+
+Every tool and resource returns `{data, meta}`; `meta` holds `tool`, `generated_at` (local ISO),
+`timezone`, `simulator`, `sources`, `basis` (`measured`, `computed`, `estimated`, `mixed`,
+`static`, `unknown`), `notes` and `units` (the unit of each field suffix). `hc`/`hp` keys read
+`offpeak`/`peak`. A redaction backstop drops secret keys and refuses device URLs, emails and
+PDL-like strings. Tool errors are `is_error` results whose text starts with a stable code:
+`kelvin_not_running`, `room_unknown`, `radiator_unknown`, `too_many_radiators`, `period_invalid`,
+`linky_unavailable`, `invalid_argument`, `internal_error` (never a traceback).
+
+Audit: every tool, resource and prompt call and every refused authentication is a row in
+`mcp_audit` (time, token id, kind, name, sanitised arguments without secrets, outcome, error
+code, duration), kept 90 days and 20 000 rows at most; `GET /api/mcp/audit` lists them.
+
 ## Linky (MyElectricalData)
 
 Enter the PDL and the MyElectricalData token in Maison › Linky (or set `MED_PRM`/`MED_TOKEN`). Kelvin
@@ -139,7 +193,7 @@ coloured. A real install that has spent its day colours that switch the next day
 ## Data
 
 `KELVIN_DATA` holds `account.json` (0600) and `kelvin.db`: samples (kept 400 days), radiator
-meter readings (kept), Linky data, tariffs, sessions, overrides and the command log (90 days). `tempo_days` holds one colour per Tempo day, kept (it prices the history; a stored colour never changes, a correction by MED is logged); `ecowatt_days` is kept 30 days; the settings `tariff` (v2), `tariff_v1` (the pre-migration copy), `contract_last`, `tempo_price_prefill` and `scheduler` hold the rest. The schema version is the `schema_version` setting; migrations run at startup in batches and are idempotent. v1 (Plan 5) stores an absent meter register as `NULL` and keeps the readings as they were in `energy_v0`. v2 gives `sessions` an opaque `id` (never derived from the token or its hash). The `alerts` table (kept 90 days after resolution) and the `tempo_days`/`ecowatt_days` tables are part of the base schema (`CREATE TABLE IF NOT EXISTS`, no migration). v3 adds the label and error codes to `command_log` (`label_code`, `label_params`, `error_code`, `error_params`, `reason_code`), which the `command_failed` alert reads.
+meter readings (kept), Linky data, tariffs, sessions, overrides and the command log (90 days). `tempo_days` holds one colour per Tempo day, kept (it prices the history; a stored colour never changes, a correction by MED is logged); `ecowatt_days` is kept 30 days; the settings `tariff` (v2), `tariff_v1` (the pre-migration copy), `contract_last`, `tempo_price_prefill` and `scheduler` hold the rest. The schema version is the `schema_version` setting; migrations run at startup in batches and are idempotent. v1 (Plan 5) stores an absent meter register as `NULL` and keeps the readings as they were in `energy_v0`. v2 gives `sessions` an opaque `id` (never derived from the token or its hash). The `alerts` table (kept 90 days after resolution) and the `tempo_days`/`ecowatt_days` tables are part of the base schema (`CREATE TABLE IF NOT EXISTS`, no migration). v3 adds the label and error codes to `command_log` (`label_code`, `label_params`, `error_code`, `error_params`, `reason_code`), which the `command_failed` alert reads. v4 (Plan 13) adds `mcp_tokens` (only each secret's SHA-256, revoked tokens kept 90 days) and `mcp_audit` (90 days, 20 000 rows at most).
 
 Meter readings are written when a counter changes, at the time Kelvin learns it (Overkiz reports counters only on change); energy between two readings is spread over the time between them, by the radiator's working rate when the 5-min samples cover the gap (and the weighted power stays within the radiator's), by time otherwise. A drop to below half the counter is a reset only if the next different reading stays low; a jump above the radiator's power (+10 %, +1 min; 5 kW when the power is unknown, for plausibility only) is skipped, and becomes the new reference (never consumption) only when the counter then moves on from it plausibly (a replaced meter, a glitched reference); while such a jump is pending, a later reading at or above it is judged against the jump however late it comes, so a long flat gap never turns the jump into consumption. Until a span is accepted from it, a reference is unconfirmed: a lower level that persists (the next reading moves on from it plausibly) replaces it, so a glitch too high cannot stall counting. An increase above 3 h of full power (plausible only over a long gap) waits for the next reading: counted when that reading moves on from it plausibly, dropped as a glitch otherwise, so a glitch after a quiet stretch never lands in the idle days (the latest such reading stays unknown until then). Readings are cleaned in fixed 28-day chunks, each replaying from 3 days before it, anchored at the first reading of the value the counter held then (and the change before it), so a bucket reads the same in any window and repeated legacy rows are counted once.
 

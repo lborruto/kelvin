@@ -21,8 +21,11 @@ full licence text: https://openfontlicense.org/open-font-license-official-text/
 
 Backend (Python): FastAPI (MIT), Starlette (BSD-3-Clause), uvicorn (BSD-3-Clause),
 pyoverkiz (MIT), aiohttp (Apache-2.0 and MIT), pydantic and pydantic-settings (MIT),
-sse-starlette (BSD-3-Clause), httpx (BSD-3-Clause), certifi (MPL-2.0, unmodified), and their
-transitive dependencies.
+sse-starlette (BSD-3-Clause), httpx (BSD-3-Clause), certifi (MPL-2.0, unmodified); the MCP
+SDK mcp and mcp-types (MIT) and what they bring: httpx2 and httpcore2 (BSD-3-Clause), PyJWT
+(MIT), cryptography (Apache-2.0 OR BSD-3-Clause), cffi (MIT-0), pycparser (BSD-3-Clause),
+opentelemetry-api (Apache-2.0), jsonschema, jsonschema-specifications, referencing and rpds-py
+(MIT), python-multipart (Apache-2.0), truststore (MIT); and their transitive dependencies.
 
 Web: the Svelte and SvelteKit runtime compiled into the app (MIT); d3-scale and d3-shape and
 their dependencies d3-array, d3-color, d3-format, d3-interpolate, d3-path, d3-time,

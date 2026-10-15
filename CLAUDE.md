@@ -278,6 +278,25 @@ depends on.
   live in the `$lib/i18n` dictionaries like every other string (one group per component or
   module: `m.hero`, `m.inspector`, …); the CSV export is a machine contract documented in `web/README.md` (French headers in every locale; `;` and a
   decimal comma in French, `,` and a point in English; no ids, no PDL).
+- **MCP is read-only** (Plan 13, `kelvin/mcp/`, spec `2026-10-16-kelvin-mcp-design.md`): no tool,
+  resource or prompt may reach a command, override, setup, tariff, Linky-configuration, alert or
+  session write, or an Overkiz or MyElectricalData call; the only writes are MCP's own audit rows
+  and a token's `last_used`. `tests/test_mcp_guarantees.py` enforces it (an AST rule on
+  `kelvin/mcp/` and a spy + database-diff run of everything on every simulator house): a new tool
+  goes into its `TOOLS` and `calls_for` in the same PR. Every tool is annotated read-only, runs
+  through `Runner` (audit, redaction, two at a time) and returns `shape.envelope` with units and a
+  `basis` (`measured`, `computed`, `estimated`, `mixed`, `static`, `unknown`); keys are neutral
+  (`offpeak`/`peak`, `shape.neutral`). Tools reuse the services and `api/bounds.py`/`api/views.py`;
+  no figure is recomputed except proposal estimates, which say `estimated` and their assumptions,
+  and none is given for a setpoint change (no thermal model). MCP text (tool errors, prompts, the
+  guide, proposal titles) is English machine text, outside the web dictionaries.
+- **MCP tokens:** `kmcp_…`, shown once, only their SHA-256 stored (`mcp_tokens`), accepted only as
+  `Authorization: Bearer` on `/mcp` (never on `/api`; `/mcp` never takes the session cookie). The
+  gate (`mcp/gate.py`) refuses any `Origin` header, locks a client out after 10 failures in 15 min,
+  limits a token to 60 calls a minute and 1 000 an hour, and audits every refusal without token
+  material. The SDK (`mcp`, exact pin) runs stateless with JSON responses; `/mcp` takes POST only
+  (a GET would open an idle SSE stream); its DNS-rebinding check is off on purpose (TrustedHost +
+  Origin refusal replace it).
 - **Time in tests:** tests that depend on the time of day use the injected clock
   (`create_app(wall=…)` / `start_runtime(wall=…)` in the backend, `EnergieData(now)` in the web),
   never the real hour, so they pass at 00:27 as at 14:00.

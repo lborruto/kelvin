@@ -105,6 +105,61 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
 - **A simulator** of a whole home and a synthetic Linky, for trying Kelvin and for every test.
   `KELVIN_FAKE_HOUSE=atlantic|thermor|experimental` shows another invented house; without it, the
   house follows the server chosen at login.
+- **AI assistants can read your data through MCP, read-only** (see below).
+
+## AI assistants (MCP)
+
+Kelvin serves a read-only [Model Context Protocol](https://modelcontextprotocol.io) endpoint at
+`/mcp`, so an AI assistant you run (Claude Code, Claude Desktop, any MCP client) can read your
+rooms, programmes, temperatures, energy and cost by period, room and rate, tariff, Tempo and
+EcoWatt, alerts and data freshness, answer questions about them, and propose ways to pay less.
+It cannot change anything: no tool sends a command to a radiator or changes a setting; you
+apply its proposals in Kelvin. Every figure comes with its unit and says whether it is measured,
+computed from your tariff or estimated.
+
+1. Create a token. It is shown once: copy it. The Home › MCP access panel is coming with the web
+   part of this feature; until then, create one from a browser signed in to Kelvin (developer
+   console, on Kelvin's page):
+   ```js
+   fetch('/api/mcp/tokens', {method: 'POST', headers: {'X-Kelvin': '1',
+     'Content-Type': 'application/json'}, body: JSON.stringify({name: 'Claude'})})
+     .then((r) => r.json()).then((b) => console.log(b.secret));
+   ```
+2. Add Kelvin to your client, with Kelvin's address as your browser reaches it (LAN or VPN):
+
+   Claude Code:
+   ```bash
+   claude mcp add --transport http kelvin https://kelvin.example.lan/mcp \
+     --header "Authorization: Bearer kmcp_…"
+   ```
+
+   Claude Desktop (`claude_desktop_config.json`; needs Node.js for `mcp-remote`):
+   ```json
+   {
+     "mcpServers": {
+       "kelvin": {
+         "command": "npx",
+         "args": ["-y", "mcp-remote", "https://kelvin.example.lan/mcp",
+                  "--header", "Authorization:${KELVIN_MCP_AUTH}"],
+         "env": { "KELVIN_MCP_AUTH": "Bearer kmcp_…" }
+       }
+     }
+   }
+   ```
+3. Ask, for example: « Analyse my last month and propose savings » (the `analyse_last_month`
+   prompt), « Why was October more expensive than September? », « Plan tomorrow's Tempo red day ».
+
+Tools: `get_overview`, `get_room`, `get_programmes`, `get_temperature_history`, `get_energy`,
+`get_room_energy`, `get_day_detail`, `get_tariff`, `get_grid_signals`, `get_alerts`,
+`get_data_status`, `propose_savings`, `evaluate_programme`. Resources: `kelvin://house`,
+`kelvin://tariff`, `kelvin://rooms/{room_id}`, `kelvin://guide`.
+
+Security: a token reads everything in Kelvin except secrets (never the PDL, your email, a
+token or a device id). It is stored hashed, limited to 60 calls a minute, and revoked at once
+(`DELETE /api/mcp/tokens/{id}`; the panel will do it and list the last calls). Use HTTPS (your
+reverse proxy): on plain HTTP the token crosses the network in clear. Kelvin stays off the
+internet; clients that need a public URL with OAuth (claude.ai web connectors) are not
+supported. `KELVIN_MCP=false` removes the endpoint.
 
 ## Screens
 
@@ -337,7 +392,8 @@ Sauter are « expected to work » or « experimental » and untested on real har
 [Compatibility](#compatibility)); messages that name Cozytouch keep that word on every server. The
 UI is in French and English (French by default; switch in Home › Display, or on the sign-in
 screen). The Linky bill estimate supports the Base, HC/HP and Tempo options; Tempo and EcoWatt
-are shown on Rooms and Energy and raise alerts.
+are shown on Rooms and Energy and raise alerts. AI assistants can read Kelvin's data through a
+read-only MCP endpoint (Plan 13; the web panel for its tokens comes next).
 
 ## Licence
 
