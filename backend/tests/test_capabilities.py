@@ -4,7 +4,7 @@ from kelvin.house.model import build_house
 from kelvin.overkiz.models import RawDevice, RawPlace
 from kelvin.overkiz.sample import sample_house
 
-G = "io://9999-0000-1111"
+G = "io://2345-6789-0123"  # an invented simulator gateway (test_repo_hygiene)
 
 
 def _house(devices: list[RawDevice], server: str = "atlantic_cozytouch"):

@@ -256,17 +256,28 @@ def test_fragment_links_in_markdown_point_at_a_heading():
 
 
 GATEWAY_ID = re.compile(r"(?<![0-9])\d{4}-\d{4}-\d{4}(?![0-9])")
+# The simulator's gateway ids, invented: the sample house and the three Plan 12 brand houses.
+# Assembled so that this file never contains them either.
+SIMULATOR_GATEWAYS = {
+    "-".join(parts)
+    for parts in (
+        ("1234", "5678", "9012"),
+        ("2345", "6789", "0123"),
+        ("3456", "7890", "1234"),
+        ("4567", "8901", "2345"),
+    )
+}
 SIMULATOR_GATEWAY = "-".join(("1234", "5678", "9012"))
 
 
-def test_only_the_simulator_gateway_id_appears_in_tracked_files():
-    """Overkiz gateway ids identify a home: the only one allowed is the simulator's."""
+def test_only_the_simulator_gateway_ids_appear_in_tracked_files():
+    """Overkiz gateway ids identify a home: the only ones allowed are the simulator's four."""
     found = []
     for rel in _tracked():
         text = _text(rel)  # None for binaries and the lockfiles
         if text is None:
             continue
         for n, line in enumerate(text.splitlines(), 1):
-            if any(m.group(0) != SIMULATOR_GATEWAY for m in GATEWAY_ID.finditer(line)):
+            if any(m.group(0) not in SIMULATOR_GATEWAYS for m in GATEWAY_ID.finditer(line)):
                 found.append(f"{rel}:{n}")  # the location only, never the value
     assert not found, found
