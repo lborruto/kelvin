@@ -28,6 +28,15 @@
       <span class="tag ok" aria-hidden="true" in:fade={{ duration: dur(T.state) }} out:fade={{ duration: dur(T.move) }}><svg
           class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
           stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" /></svg>{m.pending.confirmed}</span>
+    {:else if pending && phase === 'unconfirmed'}
+      {@const p = pending}
+      <!-- Accepted by Cozytouch, not confirmed in time: not an error, it may still apply (the
+           next full read settles it). No Réessayer: a second write could duplicate it. -->
+      <span class="tag wait" in:fade={{ duration: dur(T.state) }}>
+        <span class="dot still"></span>
+        <span title={pendingError(p)}>{m.pending.unconfirmed}</span>
+        <button type="button" class="btn btn-icon x" aria-label={m.common.dismiss} onclick={() => ondismiss(p.id)}><Icon name="x" size={16} /></button>
+      </span>
     {:else if pending && phase === 'failed'}
       {@const p = pending}
       <span class="tag bad" in:fade={{ duration: dur(T.state) }}>
@@ -80,6 +89,12 @@
     to {
       stroke-dashoffset: 0;
     }
+  }
+  .wait {
+    flex-wrap: wrap;
+  }
+  .dot.still {
+    animation: none;
   }
   .bad .btn {
     color: var(--tx);

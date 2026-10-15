@@ -11,6 +11,8 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
 /** Sample arguments for messages whose parameters are not (number, string, string, …): a day key,
  * a list, an object. A task that adds such a message adds its line here. */
 export const ARGS: Record<string, unknown[]> = {
+  'devices.done': ['Salon'],
+  'devices.watts': ['1 500'],
   'tariff.prefilled': ['6', ['22:00–06:00', '12:00–14:00']],
   'linky.ok': ['12/10'],
   'alerts.linkyStalled': ['10/10', 4],
@@ -39,6 +41,7 @@ export const ARGS: Record<string, unknown[]> = {
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
 export const SAME = new Set<string>([
+  'devices.watts', 'devices.detail.version', 'devices.detail.rssi',
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
   'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
@@ -144,10 +147,11 @@ describe('English messages take the same parameters as French', () => {
 /** French the strict scanner cannot tell from English or code, so a hard-coded copy of it would
  * slip through: short forms that are English words or names, a bare figure. Kept small on purpose. */
 const SCANNER_BLIND = new Set([
+  'devices.detail.voltage', 'devices.detail.wifi',
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
   'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',
   'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
-  'roomInfo.title', 'roomInfo.signal', 'roomInfo.reachable', 'roomInfo.lastSignal', 'program.reload', 'sessions.thisDevice', 'alerts.title'
+  'roomInfo.title', 'roomInfo.reachable', 'roomInfo.lastSignal', 'program.reload', 'sessions.thisDevice', 'alerts.title'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

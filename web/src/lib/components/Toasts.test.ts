@@ -1,6 +1,6 @@
 import { render } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toasts } from '$lib/stores/toasts.svelte';
 import Toasts from './Toasts.svelte';
 import { applyLocale, m } from '$lib/i18n';
@@ -36,3 +36,14 @@ it('a toast pushed in French reads English after the switch', () => {
   expect(region).toHaveTextContent('Can’t reach Kelvin.');
   expect(container.querySelector('button')).toHaveAccessibleName('Close');
 });
+
+  it('shows an action as a button that runs it and closes the toast', async () => {
+    const run = vi.fn();
+    const { getByRole, queryByText } = render(Toasts);
+    toasts.push('Salon — confirmé', 'info', 10_000, { label: () => 'Annuler', run });
+    flushSync();
+    getByRole('button', { name: 'Annuler' }).click();
+    flushSync();
+    expect(run).toHaveBeenCalledOnce();
+    expect(queryByText('Salon — confirmé')).toBeNull();
+  });

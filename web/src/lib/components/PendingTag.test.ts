@@ -48,4 +48,17 @@ forEachLocale((l) => {
     expect(screen.getByRole('button', { name: en ? 'Retry' : 'Réessayer' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: en ? 'Dismiss' : 'Ignorer' })).toBeInTheDocument();
   });
+  it('shows a write Cozytouch has not confirmed yet as neutral, without Réessayer', async () => {
+    const ondismiss = vi.fn();
+    const { container } = render(PendingTag, {
+      pending: { ...base, status: 'unconfirmed', error_code: 'setup_no_confirmation' },
+      onretry: vi.fn(),
+      ondismiss
+    });
+    expect(screen.getByText(en ? 'Not confirmed yet' : 'Pas encore confirmé')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: en ? 'Retry' : 'Réessayer' })).toBeNull();
+    expect(container.querySelector('.bad')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: en ? 'Dismiss' : 'Ignorer' }));
+    expect(ondismiss).toHaveBeenCalledWith('p1');
+  });
 });

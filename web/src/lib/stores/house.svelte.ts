@@ -1,4 +1,15 @@
-import type { Expected, HouseView, Override, Pending, Radiator, Room, Snapshot, Status } from '$lib/api/types';
+import type {
+  Expected,
+  HouseView,
+  Layout,
+  Override,
+  Pending,
+  Radiator,
+  Room,
+  SetupView,
+  Snapshot,
+  Status
+} from '$lib/api/types';
 import { LOST, m, pendingError, pendingLabel, UNKNOWN } from '$lib/i18n';
 import { announcer } from './announcer.svelte';
 import { toasts } from './toasts.svelte';
@@ -28,6 +39,10 @@ export class HouseStore {
   loaded = $state(false);
   /** The last house-wide command (Tout éteindre, Tout remettre en programme), shown by every HouseActions. */
   houseCommandId = $state<string | null>(null);
+  /** The device tree (rooms, radiators' devices, bridges) and the sync status, once loaded. */
+  setup = $state<SetupView | null>(null);
+  /** Called once when a pending settles (confirmed, failed or unconfirmed): the undo offer of setup writes. */
+  onSettle: ((p: Pending) => void) | null = null;
   schedule: Scheduler;
   /** Commands sent from this browser: their progress is announced to screen readers. */
   private watched = new Set<string>();
@@ -46,6 +61,7 @@ export class HouseStore {
     this.connection = 'connecting';
     this.loaded = false;
     this.houseCommandId = null;
+    this.setup = null;
     this.watched.clear();
   }
 
@@ -72,6 +88,7 @@ export class HouseStore {
     if (now === 'active') announcer.say(m.pending.announceSending(pendingLabel(next)));
     else if (now === 'confirmed') announcer.say(m.pending.announceConfirmed(pendingLabel(next)));
     else if (now === 'failed') announcer.say(`${pendingLabel(next)} — ${pendingError(next)}`, true);
+    else if (now === 'unconfirmed') announcer.say(m.pending.announceUnconfirmed(pendingLabel(next)));
     if (now !== 'active') this.watched.delete(next.id);
   }
 
@@ -82,12 +99,12 @@ export class HouseStore {
     const next: Record<string, Pending> = {};
     const unknown: Pending[] = [];
     for (const p of local) {
-      if (p.status === 'failed') next[p.id] = p;
+      if (p.status === 'failed' || p.status === 'unconfirmed') next[p.id] = p;
       else if (!ACTIVE.has(p.status) || s.pending.some((q) => q.id === p.id)) continue;
       else if (recent.has(p.id)) {
         // The server knows how it ended: use that, not a guess.
         const r = recent.get(p.id)!;
-        if (r.status === 'failed') next[p.id] = r;
+        if (r.status === 'failed' || r.status === 'unconfirmed') next[p.id] = r;
         else if (r.status === 'confirmed') {
           next[p.id] = r;
           this.lingerThenDrop(r.id);
@@ -163,6 +180,7 @@ export class HouseStore {
     if (prev && !ACTIVE.has(prev.status) && ACTIVE.has(p.status)) return;
     this.announce(prev, p);
     this.pending[p.id] = p;
+    if (!ACTIVE.has(p.status) && (!prev || ACTIVE.has(prev.status))) this.onSettle?.(p);
     if (!prev && ACTIVE.has(p.status)) this.retireCovered(this.pending, p);
     if (p.status === 'confirmed') this.lingerThenDrop(p.id);
   }
@@ -221,11 +239,32 @@ export class HouseStore {
     return out;
   }
 
+  /** Rooms, radiators and the device tree after a placement, label or sync change. */
+  applyLayout(l: Layout): void {
+    this.applyHouseView(l.house);
+    this.setup = l.setup;
+  }
+
+  applySetup(v: SetupView): void {
+    this.setup = v;
+  }
+
+  /** The most recent pending of a room (setup writes carry room_id). */
+  pendingForRoom(roomId: string): Pending | undefined {
+    return Object.values(this.pending)
+      .filter((p) => p.room_id === roomId)
+      .sort((a, b) => b.created_at - a.created_at)[0];
+  }
+
+  /** An override follows its radiators (a boost keeps them when they move); a boost without
+   *  radiators falls back to its room. */
   overrideFor(roomId: string): Override | undefined {
     const ids = new Set(this.room(roomId)?.radiator_ids ?? []);
+    const hits = this.overrides.filter((o) => o.radiator_ids.some((i) => ids.has(i)));
     return (
-      this.overrides.find((o) => o.kind === 'boost' && o.room_id === roomId) ??
-      this.overrides.find((o) => o.radiator_ids.some((i) => ids.has(i)))
+      hits.find((o) => o.kind === 'boost') ??
+      hits[0] ??
+      this.overrides.find((o) => o.kind === 'boost' && o.room_id === roomId && !o.radiator_ids.length)
     );
   }
 

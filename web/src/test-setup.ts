@@ -9,6 +9,10 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 } as unknown as typeof ResizeObserver;
 
+// jsdom has no Web Animations: Svelte's animate:flip asks an element for its running animations
+// when it moves or leaves (a toast closed by its action). None run in jsdom.
+Element.prototype.getAnimations ??= () => [];
+
 // Every test starts in French (the default), whatever a previous test switched to.
 beforeEach(() => {
   applyLocale('fr');

@@ -127,6 +127,8 @@ describe('frozenMessages', () => {
 
 /** Parents whose children are read by index (m.mode[mode]); a key under one counts as used. */
 export const DYNAMIC = [
+  'devices.problem',
+  'devices.detail',
   'api',
   'action',
   'cozytouch',

@@ -130,3 +130,8 @@ describe('no French path outside the legacy blocks', () => {
     expect(findLegacyPaths(resolve(here, '../../..'))).toEqual([]);
   });
 });
+
+it('the device screen lives under Home', () => {
+  expect(ROUTES.devices).toBe('/home/devices');
+  expect(isActive('/home/devices', ROUTES.home)).toBe(true);
+});

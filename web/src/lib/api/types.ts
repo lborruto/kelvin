@@ -51,6 +51,8 @@ export interface Radiator {
 export interface Room {
   id: string;
   name: string;
+  /** The house itself (radiators in no room). */
+  is_root?: boolean;
   radiator_ids: string[];
   temperature: number | null;
   mode: RoomMode | null;
@@ -72,7 +74,9 @@ export interface Expected {
   light_intensity?: number;
 }
 
-export type PendingStatus = 'sending' | 'pending' | 'confirmed' | 'failed' | 'superseded';
+/** `unconfirmed`: a setup write Cozytouch accepted but did not confirm in time. Not an error:
+ * it may still apply, and the next full read settles it. */
+export type PendingStatus = 'sending' | 'pending' | 'confirmed' | 'failed' | 'unconfirmed' | 'superseded';
 export interface Pending {
   id: string;
   label: string;
@@ -87,6 +91,10 @@ export interface Pending {
   error_code?: string | null;
   error_params?: ApiParams;
   reason_code?: string | null;
+  /** Setup writes (rooms and devices) only. */
+  kind?: 'setup';
+  room_id?: string | null;
+  progress?: { done: number; total: number } | null;
 }
 
 export interface Override {
@@ -505,4 +513,59 @@ export interface Alert {
 export interface AlertSummary {
   active: number;
   highest: Severity | null;
+}
+
+export type DeviceRole =
+  | 'heater' | 'temperature' | 'window' | 'occupancy' | 'energy' | 'light' | 'bridge' | 'box' | 'wifi' | 'other';
+
+export interface SetupDevice {
+  id: string;
+  role: DeviceRole;
+  label: string;
+  widget: string;
+  room_id: string | null;
+  /** A radiator sub-device in another room than its heater. */
+  misplaced: boolean;
+  reachable: boolean | null;
+  last_event_at: number | null;
+  /** Raw read-only states the device reports (Cozytouch state name → value). */
+  details: Record<string, string | number | boolean>;
+}
+
+export interface SetupRoom {
+  id: string;
+  name: string;
+  is_root: boolean;
+  radiator_ids: string[];
+  device_count: number;
+  block: 'room_protected' | 'room_not_empty' | null;
+}
+
+export interface SetupRadiator {
+  id: string;
+  room_id: string;
+  name: string;
+  devices: SetupDevice[];
+}
+
+export interface SyncStatus {
+  used: number;
+  limit: number;
+  next_possible_at: number | null;
+  last_full_at: number | null;
+  stale_since: number | null;
+  requested: boolean;
+  next_daily_at: number;
+}
+
+export interface SetupView {
+  rooms: SetupRoom[];
+  radiators: SetupRadiator[];
+  bridges: SetupDevice[];
+  sync: SyncStatus | null;
+}
+
+export interface Layout {
+  house: HouseView;
+  setup: SetupView;
 }

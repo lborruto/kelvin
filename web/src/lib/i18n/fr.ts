@@ -60,6 +60,8 @@ export const fr = {
     unknownResult: 'Résultat inconnu (connexion perdue) — vérifiez.',
     sending: 'Envoi…',
     confirmed: 'Confirmé',
+    unconfirmed: 'Pas encore confirmé',
+    announceUnconfirmed: (label: string) => `${label} — pas encore confirmé par Cozytouch`,
     announceSending: (label: string) => `${label} — envoi…`,
     announceConfirmed: (label: string) => `${label} — confirmé`,
     unknownToast: (label: string) => `${label}${NB}: résultat inconnu — vérifiez.`,
@@ -769,6 +771,40 @@ export const fr = {
     submit: 'Se connecter',
     emptyFields: 'Saisissez l’email et le mot de passe Cozytouch.',
     simulator: `Simulateur${NB}: demo@kelvin.local · kelvin`
+  },
+  devices: {
+    home: 'Maison',
+    undo: 'Annuler',
+    done: (label: string) => `${label} — confirmé`,
+    watts: (n: string) => `${n}${NB}W`,
+    problem: {
+      empty: 'Indiquez un nom.',
+      long: `32${NB}caractères au maximum.`,
+      invisible: 'Retirez les caractères invisibles.',
+      dots: 'Un nom ne peut pas être fait que de points.',
+      taken: 'Une pièce porte déjà ce nom.',
+      reserved: 'Ce mot est réservé par Cozytouch.'
+    },
+    detail: {
+      model: 'Modèle',
+      maker: 'Fabricant',
+      power: 'Puissance',
+      voltage: 'Tension',
+      version: 'Version',
+      uptime: 'Durée de fonctionnement',
+      rssi: 'Signal (RSSI)',
+      rssiLevel: 'Niveau de signal',
+      wifi: 'Signal Wi-Fi',
+      connectivity: 'Connexion',
+      running: 'État de marche',
+      workingRate: 'Taux de chauffe',
+      maxLevel: 'Niveau de chauffe maximal',
+      lowering: 'Abaissement cumulé',
+      holidays: 'Mode vacances',
+      derogation: 'Consigne de dérogation',
+      peakNotice: 'Préavis de pointe',
+      peakWarning: 'Alerte de pointe'
+    }
   },
   cozytouch: {
     auth: 'Cozytouch refuse la connexion.',

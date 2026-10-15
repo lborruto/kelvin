@@ -16,7 +16,9 @@ import type {
   SetpointKind,
   SettableMode,
   SettingsView,
+  SetupView,
   Snapshot,
+  SyncStatus,
   TariffInput,
   WeekProgram
 } from './types';
@@ -133,6 +135,14 @@ export const api = {
   radiatorLight: (id: string, on: boolean, intensity?: number) =>
     cmd('POST', `/radiators/${enc(id)}/light`, intensity === undefined ? { on } : { on, intensity }),
   identify: (id: string) => cmd('POST', `/radiators/${enc(id)}/identify`),
+  setupDevices: () => call<SetupView>('GET', '/setup/devices'),
+  createRoom: (label: string) => cmd('POST', '/setup/rooms', { label }),
+  renameRoom: (id: string, label: string) => cmd('PATCH', `/setup/rooms/${enc(id)}`, { label }),
+  deleteRoom: (id: string) => cmd('DELETE', `/setup/rooms/${enc(id)}`),
+  moveRadiator: (id: string, roomId: string) => cmd('POST', `/radiators/${enc(id)}/move`, { room_id: roomId }),
+  renameRadiator: (id: string, name: string) => cmd('PATCH', `/radiators/${enc(id)}/features`, { name }),
+  tidyDevice: (deviceId: string) => cmd('POST', `/setup/devices/${enc(deviceId)}/tidy`),
+  syncSetup: () => call<{ sync: SyncStatus }>('POST', '/setup/sync'),
 
   houseOff: () => cmd('POST', '/house/off'),
   houseProgram: () => cmd('POST', '/house/program'),

@@ -54,6 +54,8 @@ export const en: Messages = {
     unknownResult: 'Unknown result (connection lost) — please check.',
     sending: 'Sending…',
     confirmed: 'Confirmed',
+    unconfirmed: 'Not confirmed yet',
+    announceUnconfirmed: (label: string) => `${label} — not confirmed by Cozytouch yet`,
     announceSending: (label: string) => `${label} — sending…`,
     announceConfirmed: (label: string) => `${label} — confirmed`,
     unknownToast: (label: string) => `${label}: unknown result — please check.`,
@@ -744,6 +746,40 @@ export const en: Messages = {
     submit: 'Sign in',
     emptyFields: 'Enter the Cozytouch email and password.',
     simulator: 'Simulator: demo@kelvin.local · kelvin'
+  },
+  devices: {
+    home: 'Home',
+    undo: 'Undo',
+    done: (label: string) => `${label} — done`,
+    watts: (n: string) => `${n}${NB}W`,
+    problem: {
+      empty: 'Enter a name.',
+      long: '32 characters at most.',
+      invisible: 'Remove the invisible characters.',
+      dots: 'A name can’t be only dots.',
+      taken: 'A room already has this name.',
+      reserved: 'Cozytouch reserves this word.'
+    },
+    detail: {
+      model: 'Model',
+      maker: 'Manufacturer',
+      power: 'Power',
+      voltage: 'Voltage',
+      version: 'Version',
+      uptime: 'Uptime',
+      rssi: 'Signal (RSSI)',
+      rssiLevel: 'Signal level',
+      wifi: 'Wi-Fi signal',
+      connectivity: 'Connection',
+      running: 'Running state',
+      workingRate: 'Heating rate',
+      maxLevel: 'Maximum heating level',
+      lowering: 'Cumulated lowering',
+      holidays: 'Holiday mode',
+      derogation: 'Override setpoint',
+      peakNotice: 'Peak notice',
+      peakWarning: 'Peak warning'
+    }
   },
   cozytouch: {
     auth: 'Cozytouch refused the sign-in.',
