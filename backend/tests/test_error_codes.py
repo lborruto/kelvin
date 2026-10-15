@@ -192,6 +192,10 @@ def test_labels_read_in_french_with_their_params():
     assert Label.of("night_light", name="Salon", on=False).text == "Salon : veilleuse éteinte"
     assert Label.of("away", temperature=12.0).text == "Absence à 12 °C"
     assert Label.of("away_end").text == "Fin de l’absence"
+    assert Label.of("level", name="Bureau", level="comfort-1").text == "Bureau : allure confort −1"
+    assert (
+        Label.of("dryer", name="Salle de bain", action="drying").text == "Salle de bain : séchage"
+    )
     for code in LABEL_TEMPLATES:
         assert "{" not in Label.of(code, **LABEL_SAMPLES.get(code, {})).text
     with pytest.raises(KeyError):
@@ -203,7 +207,7 @@ def test_api_codes_json_is_up_to_date():
     assert API_CODES.read_text(encoding="utf-8") == dump(catalogue())
     data = json.loads(API_CODES.read_text(encoding="utf-8"))
     assert set(data["errors"]) == set(TEMPLATES) and set(data["labels"]) == set(LABEL_TEMPLATES)
-    assert len(data["errors"]) + len(data["labels"]) + len(data["status"]) == 121
+    assert len(data["errors"]) + len(data["labels"]) + len(data["status"]) == 124
 
 
 def _literals(path: Path):

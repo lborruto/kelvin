@@ -104,6 +104,18 @@ class LightBody(BaseModel):
     intensity: int | None = None
 
 
+class LevelBody(BaseModel):
+    """A pilot-wire heater's level (Plan 12)."""
+
+    level: Literal["comfort", "comfort-1", "comfort-2", "eco", "frostprotection", "off"]
+
+
+class DryerBody(BaseModel):
+    """A towel dryer's boost or drying; `stop` goes back to normal heating (Plan 12)."""
+
+    action: Literal["boost", "drying", "stop"]
+
+
 class BoostBody(BaseModel):
     temperature: float
     duration_min: int = Field(ge=15, le=720)
