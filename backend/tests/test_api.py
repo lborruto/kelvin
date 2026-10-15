@@ -490,3 +490,50 @@ async def test_room_energy_bounds(ctx):
         assert (r.status_code, r.json()["code"]) == (422, "invalid_request"), days
     r = await c.get("/api/rooms/nope/energy", params={"days": 7})
     assert (r.status_code, r.json()["code"]) == (404, "room_unknown")
+
+
+async def test_room_activity_route_returns_runs_from_the_seeded_week(ctx):
+    c, rt, _ = ctx
+    ch1 = next(r.id for r in rt.house.rooms.values() if r.name == "Chambre 1")
+    now = time.time()
+    body = (
+        await c.get(f"/api/rooms/{ch1}/activity", params={"start": now - 7 * 86400, "end": now})
+    ).json()
+    assert body["step"] == 300
+    assert len(body["window"]) >= 6  # one 20-minute run a morning
+    assert all(1200 - 300 <= w["end"] - w["start"] <= 1200 + 300 for w in body["window"][1:-1])
+    r = await c.get(f"/api/rooms/{ch1}/activity", params={"start": now - 40 * 86400, "end": now})
+    assert (r.status_code, r.json()["code"]) == (422, "period_invalid")
+
+
+async def test_duty_route_gives_every_room_over_24h(ctx):
+    c, rt, _ = ctx
+    body = (await c.get("/api/rooms/duty")).json()
+    assert body["to"] - body["from"] == 86400
+    assert set(body["rooms"]) == set(rt.house.rooms)
+    for v in body["rooms"].values():
+        assert v["coverage"] >= 0.5 and 0.0 <= v["duty"] <= 1.0
+
+
+async def test_activity_and_duty_read_the_runtime_clock(tmp_path):
+    """Both routes read the injected wall clock (CLAUDE.md « Time in tests »), never the host's."""
+    pinned = 1_760_000_000.0
+    app = create_app(
+        Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
+        FakeGateway(clock=ManualClock()),
+        start_tasks=False,
+        wall=lambda: pinned,
+    )
+    async with LifespanManager(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://t", headers={"X-Kelvin": "1"}
+        ) as c:
+            await login(c)
+            rt = app.state.ctx.rt
+            body = (await c.get("/api/rooms/duty")).json()
+            assert body["to"] == int(pinned)
+            assert all(v["duty"] is not None for v in body["rooms"].values())
+            ch1 = next(r.id for r in rt.house.rooms.values() if r.name == "Chambre 1")
+            p = {"start": pinned - 7 * 86400, "end": pinned + 86400}  # end clamped to the clock
+            win = (await c.get(f"/api/rooms/{ch1}/activity", params=p)).json()["window"]
+            assert win and max(w["end"] for w in win) <= pinned

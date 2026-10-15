@@ -52,6 +52,15 @@ from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import BudgetExceeded
 from kelvin.overkiz.budget import QuotasUnavailable
 from kelvin.overkiz.errors import GatewayError
+from kelvin.recorder.activity import (
+    DUTY_WINDOW_S,
+    MAX_SPAN_S,
+    STEP,
+    radiator_duty,
+    room_duty,
+    runs,
+    union,
+)
 
 router = APIRouter(dependencies=[Depends(require_kelvin_header), Depends(require_session)])
 MAX_REPORT_DAYS = 4 * 366
@@ -176,6 +185,51 @@ async def room_energy_route(
     return await asyncio.to_thread(
         linky.room_energy, ids, days, rt.recorder, set(rt.house.radiators)
     )
+
+
+def _window(start: float, end: float, now: float) -> tuple[int, int]:
+    """An epoch window for the activity routes: from 2000-01-01, `end` after `start` (clamped to
+    now), at most MAX_SPAN_S long; `422 period_invalid` otherwise, as `_check_span`."""
+    end = min(end, now)
+    if not FIRST_TS <= start < end or end - start > MAX_SPAN_S:
+        raise UserError("period_invalid")
+    return int(start), int(end)
+
+
+@router.get("/rooms/duty")
+async def rooms_duty(request: Request) -> dict:
+    """Each room's share of time heating over the last 24 h (spec QW5)."""
+    rt = _rt(request)
+    end = int(rt.recorder.wall())  # the runtime's injected clock
+    start = end - DUTY_WINDOW_S
+    samples = rt.recorder.activity_samples(list(rt.house.radiators), start, end)
+    out: dict[str, dict] = {}
+    for room in rt.house.rooms.values():
+        rads = rt.house.room_radiators(room.id)
+        per = {
+            r.id: radiator_duty(((s[0], s[3]) for s in samples.get(r.id, [])), start, end)
+            for r in rads
+        }
+        out[room.id] = {
+            "duty": room_duty(per, {r.id: r.power_w for r in rads}),
+            "coverage": min((c for _, c in per.values()), default=0.0),
+        }
+    return {"from": start, "to": end, "rooms": out}
+
+
+@router.get("/rooms/{room_id}/activity")
+async def room_activity(room_id: str, request: Request, start: float, end: float) -> dict:
+    """Window-open and presence runs the radiators reported (spec QW4)."""
+    rt = _rt(request)
+    _, rads = _room_radiators(rt, room_id)
+    a, z = _window(start, end, rt.recorder.wall())
+    samples = rt.recorder.activity_samples([r.id for r in rads], a, z)
+    window: list[dict] = []
+    presence: list[dict] = []
+    for rows in samples.values():
+        window += runs(((s[0], s[1]) for s in rows), a, z)
+        presence += runs(((s[0], s[2]) for s in rows), a, z)
+    return {"step": STEP, "window": union(window), "presence": union(presence)}
 
 
 @router.post("/radiators/{rid}/mode")

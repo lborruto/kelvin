@@ -28,6 +28,10 @@ NOISE = 0.15
 FULL_POWER_GAP = 2.5  # below setpoint by this much or more = full power
 OFFPEAK = (22, 6)
 SIM_DB_KEY = "sim_db"
+# Invented runs so the room strip shows its bands in demos (spec §10.2): a window opened every
+# morning in Chambre 1, presence every evening in the Salon. (radiator id, from, to) local minutes.
+SIM_WINDOW = ("8370011", 7 * 60 + 30, 7 * 60 + 50)
+SIM_PRESENCE = ("14172536", 18 * 60, 22 * 60 + 30)
 
 
 def _minutes(hhmm: str) -> int:
@@ -60,13 +64,19 @@ def _plan(r: Radiator, local: datetime) -> tuple[float, str]:
     return (comfort, "comfort") if _in_comfort(r, local) else (eco, "eco")
 
 
+def _flag(r: Radiator, local: datetime, run: tuple[str, int, int]) -> int:
+    minute = local.hour * 60 + local.minute
+    return 1 if r.id == run[0] and run[1] <= minute < run[2] else 0
+
+
 def _simulate(r: Radiator, times: list[int], tz: ZoneInfo, current: float | None) -> list[tuple]:
     rng = random.Random(r.id)
     temp = _plan(r, datetime.fromtimestamp(times[0], tz))[0] - 0.5
     rows: list[tuple] = []
     blend_from = len(times) - 12
     for i, t in enumerate(times):
-        setpoint, level = _plan(r, datetime.fromtimestamp(t, tz))
+        local = datetime.fromtimestamp(t, tz)
+        setpoint, level = _plan(r, local)
         rate = 0.0
         if temp < setpoint:
             if r.mode != "off":  # proportional: full power far below the setpoint, less near it
@@ -89,8 +99,8 @@ def _simulate(r: Radiator, times: list[int], tz: ZoneInfo, current: float | None
                 r.mode,
                 level,
                 round(rate, 1),
-                0,
-                0,
+                _flag(r, local, SIM_WINDOW),
+                _flag(r, local, SIM_PRESENCE),
             )
         )
     return rows
