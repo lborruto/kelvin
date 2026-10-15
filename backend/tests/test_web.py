@@ -41,6 +41,9 @@ async def test_spa_serves_index_assets_and_keeps_api(tmp_path):
             assert "secret" not in traversal.text
             assert (await c.get("/api/nope")).status_code == 404
             assert (await c.get("/api/health")).json()["status"] == "setup"
+            for path in ("/mcp/x", "/.well-known/x"):  # never the SPA shell (Plan 13)
+                r = await c.get(path)
+                assert r.status_code == 404 and r.json() == err("not_found"), path
 
 
 async def test_no_web_dir_means_no_catch_all(tmp_path):

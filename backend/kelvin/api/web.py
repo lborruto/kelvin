@@ -15,7 +15,11 @@ METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 
 def _is_api(path: str) -> bool:
-    return path == "api" or path.startswith("api/")
+    """Paths the SPA never serves: the API, anything under /mcp, and /.well-known (an MCP
+    client probing for OAuth metadata gets a JSON 404, not index.html)."""
+    return path in ("api", "mcp", ".well-known") or path.startswith(
+        ("api/", "mcp/", ".well-known/")
+    )
 
 
 # adapter-static writes .br and .gz next to each text asset (precompress): send the smallest one
