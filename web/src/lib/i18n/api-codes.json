@@ -146,6 +146,18 @@
       "fr": "Connexion requise.",
       "params": {}
     },
+    "mcp_token_limit": {
+      "fr": "10 jetons MCP au plus : révoquez-en un d’abord.",
+      "params": {
+        "max": 10
+      }
+    },
+    "mcp_token_name_invalid": {
+      "fr": "Nom de jeton invalide (1 à 40 caractères).",
+      "params": {
+        "max": 40
+      }
+    },
     "med_quota": {
       "fr": "Quota MyElectricalData du jour atteint : réessayez demain.",
       "params": {}
