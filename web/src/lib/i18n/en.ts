@@ -382,7 +382,7 @@ export const en: Messages = {
     range: (a: string, b: string) => `${a}–${b}`,
     instant: 'the instantaneous maximum can be higher',
     kva: (kva: number) => `${kva}${NB}kVA subscribed power`,
-    share: (pct: string) => `${pct} of the subscribed power (30${NB}min average)`,
+    share: (pct: string) => `${pct} of the subscribed power (30-min average)`,
     pf: 'kVA ≈ kW, power factor assumed to be 1',
     base: 'Base load',
     night: (w: string) => `night minimum (00:00–06:00): ${w}`,
@@ -398,7 +398,7 @@ export const en: Messages = {
     title: 'Forecast',
     covers: 'Current month and next 365 days',
     month: (month: string) => `${month}, full month`,
-    measured: (v: string) => `${v} of it measured`,
+    measured: (v: string) => `${v} measured so far`,
     filled: (n: number) => `${int(n)} missing ${plural(n, { one: 'day', other: 'days' })} estimated`,
     rolling: 'Next 365 days',
     range: (a: string, b: string) => `${a} – ${b}`,
@@ -432,7 +432,7 @@ export const en: Messages = {
     curveSince: (d: string) => `Curve available since ${d}`,
     radiatorsSince: (d: string) => `Radiators recorded since ${d}`,
     linkySince: (d: string) => `Linky since ${d}`,
-    estimated: (n: number, share: string, method: string) => `Off-peak/peak days estimated: ${n} (fallback share ${share}, method: ${method})`,
+    estimated: (n: number, share: string, method: string) => `Off-peak/peak days estimated: ${int(n)} (fallback share ${share}, method: ${method})`,
     gap: (pct: string) => `Mean curve / reading gap: ${pct}`,
     retro: (n: number) => `First tariff’s price applied to ${int(n)} earlier ${plural(n, { one: 'day', other: 'days' })}`,
     est: '“est.” marks an estimate: off-peak/peak split without a complete curve, radiator energy spread between two readings, forecast.',
@@ -469,7 +469,7 @@ export const en: Messages = {
     split: (hc: string, hp: string) => `Off-peak ${hc} · Peak ${hp}, from the daily reading`,
     est: 'est.',
     incomplete: (n: number, of: number) => `Incomplete curve (${n}/${of} half-hours)`,
-    boundary: '≈: an off-peak period starts or ends in this half-hour; its share there is prorated.'
+    boundary: '≈: off-peak hours start or end in this half-hour; their share there is prorated.'
   },
   roomDay: {
     empty: 'No reading for this room that day.',
@@ -535,7 +535,7 @@ export const en: Messages = {
     format:
       'CSV files: comma-separated, decimal point, ISO dates with their time zone, an empty cell when a value is missing; column names stay in French. The page’s figures, with all their decimals.'
   },
-  energyData: { reportFailed: 'Couldn’t load the consumption.', dayFailed: 'Couldn’t load the load curve.' },
+  energyData: { reportFailed: 'Couldn’t load the consumption.', dayFailed: 'Couldn’t load the curve.' },
   energyPage: {
     views: 'Period',
     unit: { day: 'day', week: 'week', month: 'month', year: 'year' },

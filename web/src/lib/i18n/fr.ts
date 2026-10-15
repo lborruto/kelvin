@@ -395,7 +395,7 @@ export const fr = {
   power: {
     title: 'Puissance',
     // Linky's curve is half-hour means: the highest one, never an instantaneous peak.
-    peak: 'Pointe moyenne sur 30 min',
+    peak: `Pointe moyenne sur 30${NB}min`,
     range: (a: string, b: string) => `${a}–${b}`,
     instant: 'la pointe instantanée peut être plus élevée',
     kva: (kva: number) => `abonnement ${kva}${NB}kVA`,
@@ -451,7 +451,7 @@ export const fr = {
     curveSince: (d: string) => `Courbe disponible depuis le ${d}`,
     radiatorsSince: (d: string) => `Radiateurs enregistrés depuis le ${d}`,
     linkySince: (d: string) => `Linky depuis le ${d}`,
-    estimated: (n: number, share: string, method: string) => `Jours HC/HP estimés${NB}: ${n} (part de repli ${share}, méthode${NB}: ${method})`,
+    estimated: (n: number, share: string, method: string) => `Jours HC/HP estimés${NB}: ${int(n)} (part de repli ${share}, méthode${NB}: ${method})`,
     gap: (pct: string) => `Écart moyen courbe / relevé${NB}: ${pct}`,
     retro: (n: number) => `Prix du premier tarif appliqué à ${int(n)} ${plural(n, { one: 'jour antérieur', other: 'jours antérieurs' })}`,
     est: `«${NB}est.${NB}» marque une estimation${NB}: répartition HC/HP sans courbe complète, énergie des radiateurs répartie entre deux relevés, projection.`,

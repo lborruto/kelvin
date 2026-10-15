@@ -43,6 +43,22 @@ describe('roomEnergy (spec §3.2.7)', () => {
     expect(en.at(-1)!.radiators.map((r) => r.name)).toEqual(['Removed radiator']);
     expect(en[0].partial).toBe('1 of 2 radiators recorded from 7/10');
   });
+  it('radiator names are sorted with the UI language’s collation', () => {
+    const seen: (string | string[] | undefined)[] = [];
+    const orig = String.prototype.localeCompare;
+    String.prototype.localeCompare = function (this: string, that: string, locales?: string | string[], o?: Intl.CollatorOptions) {
+      seen.push(locales);
+      return orig.call(this, that, locales, o);
+    };
+    try {
+      roomEnergy(byRadiator, rooms, radiators, span);
+      applyLocale('en');
+      roomEnergy(byRadiator, rooms, radiators, span);
+    } finally {
+      String.prototype.localeCompare = orig;
+    }
+    expect([...new Set(seen)]).toEqual(['fr-FR', 'en-GB']);
+  });
 
   it('sums energy and €, averages temperature, setpoint and heating hours; a room never recorded reads null', () => {
     expect(list[0]).toMatchObject({ kwh: 150.25, hc: 60, hp: 90.25, eur: 37.5, temp: 19.6, setpoint: 20, hours: 2, est: true });

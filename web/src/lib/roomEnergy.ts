@@ -2,7 +2,7 @@
 import type { ByRadiator, Radiator, Room } from './api/types';
 import type { Span } from './energy';
 import { fmtDay, fmtPct1, fmtShares, largestRemainder, matchParts } from './format';
-import { m } from './i18n';
+import { INTL, locale, m } from './i18n';
 
 export const NO_ROOM = 'no-room';
 
@@ -151,7 +151,8 @@ export function roomEnergy(rows: ByRadiator[], rooms: Room[], radiators: Record<
             : m.roomEnergy.roomPartial(parts.length, rs.length),
       statsWhy: null as string | null,
       shown: NO_SHOWN,
-      radiators: rs.map(radRow).sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+      // Radiator names sort the way the reader's language does (the UI locale, not always French).
+      radiators: rs.map(radRow).sort((a, b) => a.name.localeCompare(b.name, INTL[locale.current]))
     };
     // A room without any recorded radiator says so instead (« aucun radiateur enregistré »).
     const full = room.radiators.filter((r) => r.statsWhy == null).length;

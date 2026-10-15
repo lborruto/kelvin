@@ -112,7 +112,7 @@ it('in English: the month, the next 365 days, how it is calculated, the short mo
   applyLocale('en');
   const { container } = render(ProjectionPanel, { projection, last: '2026-10-14', today: '2026-10-15' });
   const rows = [...container.querySelectorAll('.row')];
-  expect(text(rows[0])).toBe('October 2026, full month ≈ €412.40 €268.20 of it measured · 3 missing days estimated');
+  expect(text(rows[0])).toBe('October 2026, full month ≈ €412.40 €268.20 measured so far · 3 missing days estimated');
   expect(text(rows[1])).toBe('Next 365 days ≈ €2,141 15/10/2026 – 14/10/2027');
   expect(text(container.querySelector('.spark-ends')!)).toBe('Oct 2026Sept 2027');
   await fireEvent.click(screen.getByText('How it’s calculated'));

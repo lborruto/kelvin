@@ -342,6 +342,6 @@ describe('EnergieData errors (a thunk: the line follows the language)', () => {
     await flush();
     expect(d.dayError?.()).toBe('Impossible de charger la courbe.');
     applyLocale('en');
-    expect(d.dayError?.()).toBe('Couldn’t load the load curve.');
+    expect(d.dayError?.()).toBe('Couldn’t load the curve.');
   });
 });

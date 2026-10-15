@@ -355,6 +355,9 @@ describe('EnergyBars', () => {
 
 it('in English: the empty state and the bars’ group name', () => {
   applyLocale('en');
-  render(EnergyBars, { groups: [], colors: {}, unit: 'kWh', label: 'x' });
+  const empty = render(EnergyBars, { groups: [], colors: {}, unit: 'kWh', label: 'x' });
   expect(screen.getByText('No data yet.')).toBeInTheDocument();
+  empty.unmount();
+  render(EnergyBars, three);
+  expect(screen.getByRole('group', { name: `Chart bars: ${three.label}` })).toBeInTheDocument();
 });
