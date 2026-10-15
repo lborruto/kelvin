@@ -62,3 +62,15 @@ async def test_disabled_means_no_endpoint(tmp_path):
     async with kelvin_app(tmp_path, sync=False, kelvin_mcp=False) as (c, app):
         assert app.state.mcp is None
         assert (await rpc(c, "initialize", INIT, token="kmcp_" + "a" * 43)).status_code == 404
+
+
+async def test_get_is_405_not_a_stream(tmp_path):
+    async with kelvin_app(tmp_path, sync=False) as (c, app):
+        token = await _token(c)
+        c.cookies.clear()
+        r = await c.get(
+            "/mcp",
+            headers={"Authorization": f"Bearer {token}", "Accept": "text/event-stream"},
+            timeout=5,
+        )
+        assert r.status_code == 405 and r.json()["code"] == "method_not_allowed"

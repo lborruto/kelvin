@@ -48,4 +48,6 @@ def mount_mcp(app: FastAPI, server: MCPServer) -> None:
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     )
     endpoint = next(r.endpoint for r in sdk.routes if isinstance(r, Route) and r.path == "/mcp")
-    app.router.routes.append(Route("/mcp", endpoint=McpGate(endpoint)))
+    # POST only: a GET would open the SDK's standalone SSE stream, idle for ever in stateless
+    # mode; MCP clients take 405 as « no server stream » (Decision 4).
+    app.router.routes.append(Route("/mcp", endpoint=McpGate(endpoint), methods=["POST"]))
