@@ -1,6 +1,8 @@
 """Sauter commands, byte for byte (Plan 12). The fixture was recorded before the multi-brand
 command layer existed (scripts/sauter_golden.py); never regenerate it to make this test pass.
-A justified re-record is its own commit and updates FIXTURE_SHA256 here."""
+A justified re-record is its own commit and updates FIXTURE_SHA256 here. Re-recorded once after
+the Plan 8 merge (programme keep semantics, night-light intensity label): the multi-brand branch
+and Plan 8 alone produce the same bytes."""
 
 import hashlib
 import json
@@ -15,7 +17,7 @@ from kelvin.overkiz.fake import FakeGateway
 from tests.conftest import ManualClock, login
 from tests.sauter_script import FIXTURE, WALL_START, dump, run_script
 
-FIXTURE_SHA256 = "eff86366365f947d42ac786dec673ee2aee2cda2adfa0bdbc7ea1c231e350454"
+FIXTURE_SHA256 = "ea124e07782a7ea65f30fa3a2023d624941543028724129364ac55bb996b6deb"
 REQUESTS = 27
 
 
@@ -73,6 +75,7 @@ def test_the_fixture_covers_every_command_route():
         "program",
         "settings",
         "night_light",
+        "night_light_intensity",  # Plan 8: a light command with an intensity
         "identify",
         "boost",
         "boost_end",
