@@ -23,9 +23,11 @@ from kelvin.api.schemas import (
     AwayBody,
     BoostBody,
     FeaturesBody,
+    LabelBody,
     LightBody,
     LinkyBody,
     ModeBody,
+    MoveBody,
     ProgramBody,
     SetpointBody,
     SettingsBody,
@@ -41,7 +43,6 @@ from kelvin.commands.translate import (
     plan_light,
     plan_mode,
     plan_program,
-    plan_rename,
     plan_setpoint,
 )
 from kelvin.errors import UserError
@@ -61,6 +62,8 @@ from kelvin.recorder.activity import (
     runs,
     union,
 )
+from kelvin.setup.refresh import SyncSpent
+from kelvin.setup.service import SetupPending, SetupService
 
 router = APIRouter(dependencies=[Depends(require_kelvin_header), Depends(require_session)])
 MAX_REPORT_DAYS = 4 * 366
@@ -68,6 +71,7 @@ MAX_HOUR_DAYS = 62  # hourly radiator buckets: two months at most
 MAX_HISTORY_POINTS = 10_000  # per radiator
 MAX_RADIATORS = 50
 _RADIATOR_ID = re.compile(r"[A-Za-z0-9_.-]{1,64}")
+_DEVICE_ID = re.compile(r"[A-Za-z0-9_.-]{1,64}#[0-9]{1,2}|bridge-[0-9]{1,3}")
 FIRST_TS = 946_684_800  # 2000-01-01T00:00:00Z
 _PRM = re.compile(r"[0-9]{14}")  # ASCII digits only
 FIRST_DAY = date(2000, 1, 1)
@@ -289,13 +293,16 @@ async def radiator_program(rid: str, body: ProgramBody, request: Request):
 async def radiator_features(rid: str, body: FeaturesBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
+    if body.name is not None:
+        # The rename is a Cozytouch setup write (the label, ruling 4), not a device command.
+        if body.window_detection is not None or body.presence_detection is not None:
+            raise UserError("rename_alone")
+        return _setup_accepted(rt, await _setup(rt).rename_radiator(r.id, body.name))
     parts: list[Callable[[Radiator], Planned]] = []
     if body.window_detection is not None:
         parts.append(lambda x: plan_feature(x, "window_detection", body.window_detection))
     if body.presence_detection is not None:
         parts.append(lambda x: plan_feature(x, "presence_detection", body.presence_detection))
-    if body.name is not None:
-        parts.append(lambda x: plan_rename(x, body.name))
     if not parts:
         raise UserError("nothing_to_change")
     return await _submit(
@@ -641,3 +648,68 @@ async def put_linky(body: LinkyBody, request: Request) -> dict:
     if rt.alerts:
         rt.alerts.request()  # a new token resolves linky_stalled after its sync
     return linky.status()
+
+
+def _setup(rt: Runtime) -> SetupService:
+    if rt.setup is None:
+        raise UserError("cozytouch_unavailable", 503)
+    return rt.setup
+
+
+def _setup_accepted(rt: Runtime, p: SetupPending) -> JSONResponse:
+    rt.pump.wake()  # poll fast until Cozytouch confirms
+    return JSONResponse(status_code=202, content={"pending": p.view()})
+
+
+@router.get("/setup/devices")
+async def setup_devices(request: Request) -> dict:
+    """Rooms, radiators with their sub-devices, bridge devices and the sync status (memory)."""
+    return _rt(request).setup_view()
+
+
+@router.post("/setup/rooms")
+async def setup_create_room(body: LabelBody, request: Request):
+    rt = _rt(request)
+    return _setup_accepted(rt, await _setup(rt).create_room(body.label))
+
+
+@router.patch("/setup/rooms/{room_id}")
+async def setup_rename_room(room_id: str, body: LabelBody, request: Request):
+    rt = _rt(request)
+    return _setup_accepted(rt, await _setup(rt).rename_room(room_id, body.label))
+
+
+@router.delete("/setup/rooms/{room_id}")
+async def setup_delete_room(room_id: str, request: Request):
+    rt = _rt(request)
+    return _setup_accepted(rt, await _setup(rt).delete_room(room_id))
+
+
+@router.post("/radiators/{rid}/move")
+async def radiator_move(rid: str, body: MoveBody, request: Request):
+    rt = _rt(request)
+    return _setup_accepted(rt, await _setup(rt).move_radiator(rid, body.room_id))
+
+
+@router.post("/setup/devices/{device_id}/tidy")
+async def setup_tidy(device_id: str, request: Request):
+    rt = _rt(request)
+    if not _DEVICE_ID.fullmatch(device_id):
+        raise UserError("device_unknown", 404)
+    return _setup_accepted(rt, await _setup(rt).tidy(device_id))
+
+
+@router.post("/setup/sync")
+async def setup_sync(request: Request):
+    """« Synchroniser »: one full setup read soon, if the daily budget has one left."""
+    rt = _rt(request)
+    if rt.refresher is None:
+        raise UserError("cozytouch_unavailable", 503)
+    try:
+        rt.refresher.request_manual()
+    except SyncSpent as e:
+        raise UserError(
+            "setup_sync_spent", 429, used=e.used, limit=e.limit, next_at=e.next_at
+        ) from None
+    rt.pump.wake()
+    return JSONResponse(status_code=202, content={"sync": rt.refresher.view()})

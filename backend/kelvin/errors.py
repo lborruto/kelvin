@@ -126,6 +126,11 @@ TEMPLATES: dict[str, str] = {
     "device_in_place": "L’appareil est déjà dans la pièce de son radiateur.",
     "device_unknown": "Appareil inconnu.",
     "setup_move_partial": "Déplacement partiel ({done} sur {total}).",
+    "rename_alone": "Renommez le radiateur seul, sans autre réglage dans la même demande.",
+    "setup_sync_spent": (
+        "Les {limit} lectures complètes de Cozytouch des dernières 24 h sont "
+        "utilisées : réessayez plus tard."
+    ),
     "device_label_invalid": (
         "Le nom doit faire de 1 à 32 caractères, sans caractère invisible ni mot réservé."
     ),
@@ -157,6 +162,7 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "room_label_taken": {"label": "Salon"},
     "room_not_empty": {"count": 2},
     "setup_move_partial": {"done": 5, "total": 6},
+    "setup_sync_spent": {"used": 3, "limit": 3, "next_at": 1760500000.0},
 }
 
 # Status.last_error_code: why the last Cozytouch poll failed.

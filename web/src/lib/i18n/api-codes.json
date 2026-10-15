@@ -225,6 +225,10 @@
       "fr": "Radiateur inconnu dans la demande.",
       "params": {}
     },
+    "rename_alone": {
+      "fr": "Renommez le radiateur seul, sans autre réglage dans la même demande.",
+      "params": {}
+    },
     "room_label_invalid": {
       "fr": "Le nom de la pièce doit faire de 1 à 32 caractères, sans caractère invisible.",
       "params": {}
@@ -297,6 +301,14 @@
     "setup_not_found": {
       "fr": "Cozytouch ne trouve plus cette pièce ou cet appareil.",
       "params": {}
+    },
+    "setup_sync_spent": {
+      "fr": "Les 3 lectures complètes de Cozytouch des dernières 24 h sont utilisées : réessayez plus tard.",
+      "params": {
+        "limit": 3,
+        "next_at": 1760500000.0,
+        "used": 3
+      }
     },
     "slot_empty": {
       "fr": "Une plage d’heures creuses ne peut pas être vide.",

@@ -875,6 +875,9 @@ export const fr = {
     device_in_place: () => 'L’appareil est déjà dans la pièce de son radiateur.',
     device_unknown: () => 'Appareil inconnu.',
     setup_move_partial: (p: ApiParams) => `Déplacement partiel (${p.done} sur ${p.total}).`,
+    rename_alone: () => 'Renommez le radiateur seul, sans autre réglage dans la même demande.',
+    setup_sync_spent: (p: ApiParams) =>
+      `Les ${p.limit}${NB}lectures complètes de Cozytouch des dernières 24${NB}h sont utilisées${NB}: réessayez plus tard.`,
     device_label_invalid: () => `Le nom doit faire de 1 à 32${NB}caractères, sans caractère invisible ni mot réservé.`,
     send_failed: (p: ApiParams) => {
       const why = own(REASON, p.reason_code);

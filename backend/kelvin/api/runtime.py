@@ -40,6 +40,8 @@ from kelvin.overkiz.simhistory import SIM_DB_KEY, seed_history
 from kelvin.recorder.db import Database
 from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
+from kelvin.setup.refresh import SetupRefresher
+from kelvin.setup.service import SetupPending, SetupService
 
 log = logging.getLogger(__name__)
 
@@ -71,19 +73,35 @@ class Runtime:
     linky: LinkyService | None = None
     alerts: AlertService | None = None
     quotas: QuotaReadout | None = None
+    setup: SetupService | None = None
+    refresher: SetupRefresher | None = None
 
     def snapshot(self) -> dict[str, Any]:
         return {
             "house": self.house.view(),
-            "pending": [p.view() for p in self.commands.active()],
+            "pending": [p.view() for p in self.commands.active()]
+            + [p.view() for p in (self.setup.active() if self.setup else [])],
             # Settled lately: lets a client that missed the outcome (asleep) use the real status.
-            "recent": [p.view() for p in self.commands.recent()],
+            "recent": [p.view() for p in self.commands.recent()]
+            + [p.view() for p in (self.setup.recent() if self.setup else [])],
             "overrides": self.overrides.active(),
             "status": self.pump.status(),
             "alerts": (
                 self.alerts.store.summary() if self.alerts else {"active": 0, "highest": None}
             ),
         }
+
+    def setup_view(self) -> dict[str, Any]:
+        view = self.house.setup_view()
+        view["sync"] = self.refresher.view() if self.refresher else None
+        return view
+
+    def layout(self) -> dict[str, Any]:
+        return {"house": self.house.view(), "setup": self.setup_view()}
+
+    def publish_layout(self) -> None:
+        if not self.closed:
+            self.broadcaster.publish("layout", self.layout())
 
     def publish_overrides(self) -> None:
         self.published_overrides = self.overrides.active()
@@ -308,6 +326,21 @@ async def start_runtime(
 
         # The runtime's clock: a pending's time is what the command_failed rule compares with.
         commands = CommandService(gateway, house, wall=wall, on_update=on_update)
+        refresher = SetupRefresher(guard, wall=wall, tz=settings.tz)
+        refresher.full_read_done()  # the startup read above
+
+        def on_setup_update(p: SetupPending) -> None:
+            view = p.view()
+            bc.publish("pending", view)
+            if p.status in ("confirmed", "failed", "unconfirmed"):
+                # Labels are logged; place oids and device URLs are not (spec §2.7).
+                db.log_command(
+                    {**view, "radiator_ids": []}, [{"setup": p.action, "steps": len(p.steps)}]
+                )
+
+        setup = SetupService(gateway, house, wall=wall, on_update=on_setup_update)
+        setup.on_outside_change = refresher.outside_change
+        setup.on_written = refresher.after_write
 
         recorder_ref: list[Recorder] = []
 
@@ -334,6 +367,9 @@ async def start_runtime(
             on_status=lambda s: bc.publish("status", s),
             guard=guard,
             on_setup=lambda r, d: store_setup(db, r, d),
+            setup=setup,
+            refresher=refresher,
+            on_layout=lambda: runtime[0].publish_layout() if runtime else None,
         )
         if stored is None:
             pump.mark_ok()
@@ -372,6 +408,8 @@ async def start_runtime(
             overrides,
             owns_db=owns_db,
             linky=linky_service,
+            setup=setup,
+            refresher=refresher,
         )
         rt.quotas = QuotaReadout(lambda: gateway.quotas())  # lazy: stub gateways need no quotas()
         rt.published_overrides = overrides.active()

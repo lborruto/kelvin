@@ -82,6 +82,14 @@ class FeaturesBody(BaseModel):
     name: str | None = None
 
 
+class LabelBody(BaseModel):
+    label: str = Field(max_length=200)  # the real rule (1–32 after trim) is checked in setup/
+
+
+class MoveBody(BaseModel):
+    room_id: str = Field(min_length=1, max_length=200)
+
+
 class LightBody(BaseModel):
     on: bool
     # No schema bound: `plan_light` refuses 0 or 101 with the worded `intensity_range`.
