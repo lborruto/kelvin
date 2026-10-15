@@ -17,8 +17,10 @@ from kelvin.api import bounds, views
 from kelvin.api.auth_routes import status_word
 from kelvin.api.runtime import sources
 from kelvin.billing.overlap import day_ranges, week_overlap
+from kelvin.billing.room_energy import MAX_ROOM_DAYS
 from kelvin.errors import UserError
 from kelvin.house.model import DAY_ORDER
+from kelvin.mcp import energy as en
 from kelvin.mcp import shape
 from kelvin.mcp.runner import Runner
 
@@ -437,6 +439,69 @@ async def tariff_view(ctx: Any) -> dict[str, Any]:
     )
 
 
+_BUCKET_DAYS = {"day": 1, "week": 7, "month": 31, "year": 366}
+
+
+async def energy(ctx: Any, start: date, end: date, group: str) -> dict[str, Any]:
+    rt = ctx.rt
+    linky = views.linky_of(rt)
+    bounds.check_days(linky, start, end)
+    if end <= start or (end - start).days > bounds.MAX_REPORT_DAYS:
+        raise UserError("period_invalid")
+    if (end - start).days / _BUCKET_DAYS[group] > en.MAX_BUCKETS:
+        raise UserError("period_invalid")
+    report = await asyncio.to_thread(
+        linky.report, start, end, group, rt.recorder, views.radiator_rooms(rt), (start, end)
+    )
+    names = {rid: room.name for rid, room in rt.house.rooms.items()}
+    basis, notes = en.report_basis(report)
+    return shape.envelope(
+        "get_energy",
+        en.energy_view(report, names),
+        ctx=ctx,
+        sources=["linky", "radiator_meters", "tariff"],
+        basis=basis,
+        notes=notes,
+    )
+
+
+async def room_energy(ctx: Any, room_id: str, days: int) -> dict[str, Any]:
+    rt = ctx.rt
+    linky = views.linky_of(rt)
+    _, rads = views.room_radiators(rt, room_id)
+    body = await asyncio.to_thread(
+        linky.room_energy, [r.id for r in rads], days, rt.recorder, set(rt.house.radiators)
+    )
+    basis, notes = en.room_energy_basis(body)
+    return shape.envelope(
+        "get_room_energy",
+        shape.neutral(body),
+        ctx=ctx,
+        sources=["radiator_meters", "tariff"],
+        basis=basis,
+        notes=notes,
+    )
+
+
+async def day_detail(ctx: Any, day: date) -> dict[str, Any]:
+    rt = ctx.rt
+    linky = views.linky_of(rt)
+    bounds.check_days(linky, day)
+    body = await asyncio.to_thread(linky.day_detail, day, rt.recorder, views.radiator_rooms(rt))
+    body.pop("room", None)
+    return shape.envelope(
+        "get_day_detail",
+        shape.neutral(body),
+        ctx=ctx,
+        sources=["linky", "radiator_meters", "tariff"],
+        basis="computed",
+        notes=[
+            "an interval's € is its measured Wh at its price: intervals need not add up to"
+            " the day's billed €, which follows the daily reading"
+        ],
+    )
+
+
 def register_tools(server: MCPServer, run: Runner) -> None:
     @server.tool(
         annotations=READ_ONLY,
@@ -550,3 +615,49 @@ def register_tools(server: MCPServer, run: Runner) -> None:
     )
     async def get_tariff() -> dict[str, Any]:
         return await run("tool", "get_tariff", {}, tariff_view)
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "Electricity use and cost for a period (start inclusive, end exclusive, ISO dates),"
+            " grouped by day, week, month or year: meter kWh and € (energy, subscription), kWh by"
+            " rate (offpeak/peak, Tempo colours), radiators' kWh and € with coverage, per room and"
+            " per radiator, heating share, comparisons with the previous period and last year, the"
+            " month projection. At most 93 buckets."
+        ),
+    )
+    async def get_energy(
+        start: date, end: date, group: Literal["day", "week", "month", "year"] = "month"
+    ) -> dict[str, Any]:
+        args = {"start": start.isoformat(), "end": end.isoformat(), "group": group}
+        return await run("tool", "get_energy", args, lambda c: energy(c, start, end, group))
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "One room's radiator energy over the last `days` days (today included): kWh, offpeak"
+            " and"
+            " peak kWh, € (the sum of its radiators' shares), heating hours, coverage."
+        ),
+    )
+    async def get_room_energy(
+        room_id: str, days: Annotated[int, Field(ge=1, le=MAX_ROOM_DAYS)] = 7
+    ) -> dict[str, Any]:
+        return await run(
+            "tool",
+            "get_room_energy",
+            {"room_id": room_id, "days": days},
+            lambda c: room_energy(c, room_id, days),
+        )
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "One day by half-hour: kWh, mean power, rate, price, €, Tempo colour, radiators' Wh;"
+            " the day's billed totals; peak power, base load and night minimum."
+        ),
+    )
+    async def get_day_detail(date: date) -> dict[str, Any]:  # noqa: A002 — the API's name
+        return await run(
+            "tool", "get_day_detail", {"date": date.isoformat()}, lambda c: day_detail(c, date)
+        )
