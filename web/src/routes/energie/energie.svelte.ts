@@ -202,7 +202,11 @@ export class EnergieData {
       this.data = { view: v, period: p, chart, main };
       this.failed = null;
       this.loading = false;
-      if (main.last_day) this.last = main.last_day;
+      // The report knows the last Linky day even when the status call failed: it holds across midnight.
+      if (main.last_day) {
+        this.last = main.last_day;
+        this.linkyLast = true;
+      }
       this.first = earliest(main.linky_since, main.quality?.radiators_since);
       if (main.linky) this.pickDay(v, p);
     } catch (e) {

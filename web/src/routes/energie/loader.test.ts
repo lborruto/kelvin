@@ -104,6 +104,21 @@ describe('EnergieData', () => {
     expect(api.energyReport).toHaveBeenCalledWith('2026-10-01', '2026-11-01', 'day', { from: '2026-10-01', to: '2026-11-01' });
   });
 
+  it('a report’s last Linky day holds when the Linky status call failed: a new day does not replace it with yesterday (final review minor 5)', async () => {
+    let now = Date.parse('2026-10-31T21:00:00Z'); // 31 October, 22:00 in Paris
+    vi.mocked(api.energyReport).mockResolvedValue(rep({ last_day: '2026-10-30' }));
+    const d = new EnergieData(() => now);
+    d.start(null); // the status call failed
+    await flush();
+    expect(d.last).toBe('2026-10-30');
+    now = Date.parse('2026-11-01T23:30:00Z'); // 2 November, 00:30: yesterday is 1 November
+    d.newDay();
+    expect(d.last).toBe('2026-10-30');
+    expect(d.period).toEqual({ from: '2026-10-01', to: '2026-11-01' }); // Linky’s last day is still in October
+    await flush();
+    expect(d.last).toBe('2026-10-30');
+  });
+
   it('steps between the first period with data and the last day’s period', async () => {
     const d = new EnergieData(NOW);
     expect(d.canPrev).toBe(false);
