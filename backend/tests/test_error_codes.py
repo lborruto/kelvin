@@ -201,7 +201,7 @@ def test_api_codes_json_is_up_to_date():
     assert API_CODES.read_text(encoding="utf-8") == dump(catalogue())
     data = json.loads(API_CODES.read_text(encoding="utf-8"))
     assert set(data["errors"]) == set(TEMPLATES) and set(data["labels"]) == set(LABEL_TEMPLATES)
-    assert len(data["errors"]) + len(data["labels"]) + len(data["status"]) == 104
+    assert len(data["errors"]) + len(data["labels"]) + len(data["status"]) == 108
 
 
 def _literals(path: Path):

@@ -8,10 +8,11 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from kelvin.account import Account
-from kelvin.api.runtime import stop_runtime
+from kelvin.api.runtime import SERVER_KEY, stop_runtime
 from kelvin.auth.throttle import retry_minutes
 from kelvin.errors import TEMPLATES, UserError
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
+from kelvin.overkiz.servers import DEFAULT_SERVER, SERVERS, is_cozytouch, server_name
 
 if TYPE_CHECKING:
     from kelvin.api.context import AppContext
@@ -44,16 +45,39 @@ def _same_password(a: str, b: str) -> bool:
     return hmac.compare_digest(a.encode(), b.encode())
 
 
-async def login(ctx: AppContext, email: str, password: str, ip: str) -> Account:
+def _bad_credentials(server: str) -> LoginRefused:
+    """The Cozytouch servers keep their message; other servers are named (Plan 12)."""
+    if is_cozytouch(server):
+        return LoginRefused(401, "bad_credentials")
+    return LoginRefused(401, "bad_credentials_server", server=server_name(server))
+
+
+async def login(
+    ctx: AppContext, email: str, password: str, ip: str, server: str | None = None
+) -> Account:
     email = email.strip()
     async with ctx.lock:
         wait = ctx.throttle.ip_retry_after(ip)  # first: nothing is compared from a blocked IP
         if wait is not None:
             raise LoginRefused(429, "too_many_attempts", minutes=retry_minutes(wait))
         account = ctx.account
+        if server is None:  # the login screen names no server once the home is claimed
+            server = account.server if account is not None else DEFAULT_SERVER
+        if server not in SERVERS:
+            raise LoginRefused(422, "server_unknown")
         if account is not None and not account.same_email(email):
             ctx.throttle.failure(ip, reached_overkiz=False)
             raise LoginRefused(401, "wrong_account")
+        if account is not None and account.server != server:
+            # The home's account is (server, email): switching server is a fresh install.
+            ctx.throttle.failure(ip, reached_overkiz=False)
+            raise LoginRefused(409, "server_mismatch", server=server_name(account.server))
+        if account is None:
+            held = ctx.db.get_setting(SERVER_KEY)
+            if held is not None and held != server:
+                # Like the simulator-data guard: this folder holds another server's home.
+                ctx.throttle.failure(ip, reached_overkiz=False)
+                raise LoginRefused(409, "data_other_server", server=server_name(held))
         rt = ctx.rt
         # Cozytouch refused the stored password (pump or boot): every password, the old one
         # included, then goes to Cozytouch. Answering the old one locally would be a timing
@@ -75,13 +99,13 @@ async def login(ctx: AppContext, email: str, password: str, ip: str) -> Account:
             new = (
                 replace(account, password=password)
                 if account is not None
-                else Account(email, password)
+                else Account(email, password, server=server)
             )
             try:
                 await ctx.start(new)
             except BadCredentialsError:
                 ctx.throttle.failure(ip, reached_overkiz=True)
-                raise LoginRefused(401, "bad_credentials") from None
+                raise _bad_credentials(server) from None
             except GatewayError as e:
                 if _cozytouch_answered(e):
                     ctx.throttle.failure(ip, reached_overkiz=True)
@@ -104,7 +128,7 @@ async def login(ctx: AppContext, email: str, password: str, ip: str) -> Account:
             await rt.gateway.check_credentials(account.email, password)
         except BadCredentialsError:
             ctx.throttle.failure(ip, reached_overkiz=True)
-            raise LoginRefused(401, "bad_credentials") from None
+            raise _bad_credentials(server) from None
         except GatewayError as e:
             if _cozytouch_answered(e):
                 ctx.throttle.failure(ip, reached_overkiz=True)

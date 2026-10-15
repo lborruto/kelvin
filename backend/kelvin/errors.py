@@ -46,6 +46,13 @@ TEMPLATES: dict[str, str] = {
     "not_found": "Introuvable.",
     "method_not_allowed": "Méthode non autorisée.",
     "invalid_request": "Requête invalide.",
+    # Plan 12: the Overkiz server chosen at the first login
+    "server_unknown": "Serveur inconnu.",
+    "server_mismatch": "Cette maison est reliée au serveur {server}. Pour changer de serveur, "
+    "repartez d’une installation neuve (voir le README).",
+    "data_other_server": "Ce dossier de données appartient à une maison reliée au serveur "
+    "{server} : utilisez un autre dossier KELVIN_DATA.",
+    "bad_credentials_server": "Email ou mot de passe {server} incorrect.",
     # Rooms, radiators, overrides
     "radiator_unknown": "Radiateur inconnu.",
     "room_unknown": "Pièce inconnue.",
@@ -167,6 +174,10 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "room_not_empty": {"count": 2},
     "setup_move_partial": {"done": 5, "total": 6},
     "setup_sync_spent": {"used": 3, "limit": 3, "next_at": 1760500000.0},
+    # Plan 12
+    "server_mismatch": {"server": "Sauter Cozytouch"},
+    "data_other_server": {"server": "Sauter Cozytouch"},
+    "bad_credentials_server": {"server": "Flexom"},
 }
 
 # Status.last_error_code: why the last Cozytouch poll failed.
