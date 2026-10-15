@@ -110,6 +110,7 @@ class StubGateway:
 
     def __init__(self):
         self.closed = False
+        self.server = "sauter_cozytouch"  # Gateway.server (Plan 12): what a real gateway carries
 
     async def login(self):
         pass

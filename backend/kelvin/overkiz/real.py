@@ -1,4 +1,4 @@
-"""Gateway implementation backed by pyoverkiz (Overkiz cloud, Sauter Cozytouch server)."""
+"""Gateway implementation backed by pyoverkiz (Overkiz cloud; the server is the account's)."""
 
 import asyncio
 import ssl
@@ -32,6 +32,7 @@ from kelvin.overkiz.models import (
     SetupPlace,
     StateChange,
 )
+from kelvin.overkiz.servers import DEFAULT_SERVER
 from kelvin.setup.client import (
     SetupHttp,
     device_path,
@@ -136,16 +137,23 @@ def to_events(events: list[Any]) -> list[Event]:
 
 
 class PyOverkizGateway:
-    def __init__(self, username: str, password: str, *, timeout: float = REQUEST_TIMEOUT_S) -> None:
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        *,
+        server: str = DEFAULT_SERVER,
+        timeout: float = REQUEST_TIMEOUT_S,
+    ) -> None:
+        self.server = server
         self._creds = UsernamePasswordCredentials(username=username, password=password)
         self._client: OverkizClient | None = None
         self._timeout = timeout
 
-    @staticmethod
-    def _client_for(creds: UsernamePasswordCredentials) -> OverkizClient:
+    def _client_for(self, creds: UsernamePasswordCredentials) -> OverkizClient:
         ssl_ctx = ssl.create_default_context(cafile=certifi.where())
         return OverkizClient(
-            server=Server.SAUTER_COZYTOUCH,
+            server=Server(self.server),
             credentials=creds,
             verify_ssl=ssl_ctx,  # type: ignore[arg-type]  # pyoverkiz forwards it as aiohttp ssl=
         )

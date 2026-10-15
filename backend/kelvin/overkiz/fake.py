@@ -24,6 +24,7 @@ from kelvin.overkiz.models import (
     StateChange,
 )
 from kelvin.overkiz.sample import ROOM_TYPE, sample_house
+from kelvin.overkiz.servers import DEFAULT_SERVER
 from kelvin.setup.client import (
     check_allowed,
     device_path,
@@ -86,6 +87,7 @@ class FakeGateway:
         quirk_override_mode: bool = True,
         username: str = DEMO_EMAIL,
         password: str = DEMO_PASSWORD,
+        server: str = DEFAULT_SERVER,
     ) -> None:
         if root is None:
             root, devices = sample_house()
@@ -108,6 +110,7 @@ class FakeGateway:
         self.clock = clock
         self.delay = delay
         self.quirk = quirk_override_mode
+        self.server = server
         self.logins = 0
         self.username = username
         self.password = password

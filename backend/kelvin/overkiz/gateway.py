@@ -11,6 +11,8 @@ from kelvin.overkiz.models import (
 
 
 class Gateway(Protocol):
+    server: str  # the Overkiz server id (kelvin.overkiz.servers), fixed for the gateway's life
+
     async def login(self) -> None: ...
 
     async def set_credentials(self, username: str, password: str) -> None:

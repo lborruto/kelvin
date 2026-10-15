@@ -8,7 +8,10 @@ from pyoverkiz.auth.factory import build_auth_strategy
 from pyoverkiz.const import SUPPORTED_SERVERS
 from pyoverkiz.enums import Server
 
+from kelvin.api.runtime import SERVER_KEY, DataServerMismatch, start_runtime, stop_runtime
 from kelvin.config import Settings
+from kelvin.overkiz.fake import FakeGateway
+from kelvin.overkiz.real import PyOverkizGateway
 from kelvin.overkiz.servers import (
     DEFAULT_SERVER,
     SERVERS,
@@ -16,6 +19,7 @@ from kelvin.overkiz.servers import (
     server_info,
     server_name,
 )
+from kelvin.recorder.db import Database
 
 
 def test_the_cozytouch_servers_come_first_with_sauter_the_default():
@@ -90,3 +94,45 @@ def test_the_default_setting_is_sauter_and_an_unknown_one_is_refused(monkeypatch
     monkeypatch.setenv("COZY_SERVER", "rexel")
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+# Task 3: a gateway per server; the data folder is bound to its server.
+
+
+async def test_the_real_gateway_talks_to_its_server():
+    creds = UsernamePasswordCredentials(username="a@b.fr", password="pw")
+    for sid, name in (("sauter_cozytouch", "Sauter Cozytouch"), ("flexom", "Flexom")):
+        gw = PyOverkizGateway("a@b.fr", "pw", server=sid)
+        assert gw.server == sid
+        client = gw._client_for(creds)  # builds the client; no request is sent
+        try:
+            assert client.server_config.name == name
+        finally:
+            await client.close()
+    assert PyOverkizGateway("a@b.fr", "pw").server == "sauter_cozytouch"
+
+
+def test_the_fake_gateway_carries_its_server():
+    assert FakeGateway().server == "sauter_cozytouch"
+    assert FakeGateway(server="atlantic_cozytouch").server == "atlantic_cozytouch"
+
+
+async def test_a_first_start_records_the_server(tmp_path):
+    db = Database(tmp_path / "kelvin.db")
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    rt = await start_runtime(settings, FakeGateway(), start_tasks=False, db=db)
+    try:
+        assert db.get_setting(SERVER_KEY) == "sauter_cozytouch"
+    finally:
+        await stop_runtime(rt)
+
+
+async def test_a_start_on_another_servers_data_is_refused_before_any_call(tmp_path):
+    db = Database(tmp_path / "kelvin.db")
+    db.set_setting(SERVER_KEY, "atlantic_cozytouch")
+    gw = FakeGateway()  # Sauter
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    with pytest.raises(DataServerMismatch) as e:
+        await start_runtime(settings, gw, start_tasks=False, db=db)
+    assert e.value.server == "atlantic_cozytouch"
+    assert gw.logins == 0 and gw.snapshots == 0
