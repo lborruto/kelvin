@@ -21,10 +21,12 @@ export function safeNext(next: string | null | undefined): string {
   return c ? c.pathname + u.search + c.hash : u.pathname + u.search + u.hash;
 }
 
-/** The login URL that brings the user back to `current` afterwards. */
-export function loginHref(current: { pathname: string; search: string }, reauth = false): string {
-  const path = current.pathname === '/login' ? null : (canonical(current.pathname)?.pathname ?? current.pathname);
-  const q = new URLSearchParams({ next: path === null ? '/' : path + current.search });
+/** The login URL that brings the user back to `current` (anchor included) afterwards. */
+export function loginHref(current: { pathname: string; search: string; hash?: string }, reauth = false): string {
+  const hash = current.hash ?? '';
+  const c = canonical(current.pathname, hash);
+  const next = current.pathname === '/login' ? '/' : (c?.pathname ?? current.pathname) + current.search + (c?.hash ?? hash);
+  const q = new URLSearchParams({ next });
   if (reauth) q.set('reauth', '1');
   return `/login?${q}`;
 }

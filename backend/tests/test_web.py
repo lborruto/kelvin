@@ -31,6 +31,9 @@ async def test_spa_serves_index_assets_and_keeps_api(tmp_path):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
             assert "kelvin-index" in (await c.get("/")).text
             assert "kelvin-index" in (await c.get("/rooms/p-salon")).text
+            # Old French bookmarks get the shell too: its pre-boot script rewrites them.
+            for legacy in ("/maison", "/pieces/p-salon", "/energie"):  # legacy-path-test
+                assert "kelvin-index" in (await c.get(legacy)).text, legacy
             asset = await c.get("/_app/immutable/app.js")
             assert asset.text == "console.log(1)"
             assert "immutable" in asset.headers["cache-control"]

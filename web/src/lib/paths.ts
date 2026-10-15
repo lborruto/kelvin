@@ -41,7 +41,8 @@ export const LEGACY_HASH: Record<string, string> = {
   '#tarif': '#tariff',
   '#absence': '#away',
   '#qualite': '#quality',
-  '#courbe': '#curve'
+  '#courbe': '#curve',
+  '#contenu': '#content'
 };
 /* legacy-paths:end */
 

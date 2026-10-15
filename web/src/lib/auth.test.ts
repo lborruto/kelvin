@@ -37,6 +37,10 @@ describe('loginHref', () => {
   it('carries the English path of a legacy page', () => {
     expect(loginHref({ pathname: '/programme', search: '' })).toBe('/login?next=%2Fschedule'); // legacy-path-test
   });
+  it('carries the anchor, mapped for a legacy page', () => {
+    expect(loginHref({ pathname: '/home', search: '?x=1', hash: '#tariff' })).toBe('/login?next=%2Fhome%3Fx%3D1%23tariff');
+    expect(loginHref({ pathname: '/maison', search: '', hash: '#tarif' })).toBe('/login?next=%2Fhome%23tariff'); // legacy-path-test
+  });
   it('never nests the login page', () => {
     expect(loginHref({ pathname: '/login', search: '?next=%2Fhome' })).toBe('/login?next=%2F');
   });

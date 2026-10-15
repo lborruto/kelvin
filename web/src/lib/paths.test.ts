@@ -33,6 +33,7 @@ describe('canonical', () => {
     expect(canonical('/energie', '#qualite')).toEqual({ pathname: '/energy', hash: '#quality' });
     expect(canonical('/energie', '#courbe')).toEqual({ pathname: '/energy', hash: '#curve' });
     expect(canonical('/pieces/p-salon', '#y')).toEqual({ pathname: '/rooms/p-salon', hash: '#y' });
+    expect(canonical('/pieces', '#contenu')).toEqual({ pathname: '/', hash: '#content' });
   });
   it('leaves English and look-alike paths alone', () => {
     for (const p of ['/', '/rooms/p-salon', '/schedule', '/energy', '/home', '/login', '/piecesX', '/maisons', '/programme/x']) {
