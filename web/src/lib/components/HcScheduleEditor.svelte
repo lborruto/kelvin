@@ -80,6 +80,16 @@
     align-items: end;
     gap: 10px;
   }
+  /* From a phone's width the two time fields keep the whole row (a 44 px clock icon eats a narrow one). */
+  @media (max-width: 480px) {
+    .slot {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .slot button {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
   .field {
     display: grid;
     gap: 4px;

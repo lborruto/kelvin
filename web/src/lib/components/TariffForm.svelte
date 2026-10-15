@@ -291,6 +291,9 @@
     margin: 0;
   }
   /* Three choices share the width from 320 px (« Peak/Off-peak » is the widest label). */
+  .options {
+    max-width: 420px;
+  }
   .options :global(.seg) {
     display: flex;
     width: 100%;
