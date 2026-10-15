@@ -46,7 +46,14 @@ export const ARGS: Record<string, unknown[]> = {
   'hero.radPartial': ['P', true],
   'compare.zero': ['day'],
   'power.floorDay': ['K', 'E'],
-  'projection.base': ['V', '12/10']
+  'projection.base': ['V', '12/10'],
+  'grid.tempoPending': ['11:00'],
+  'grid.ecowatt': [3, 'B', null],
+  'grid.source': ['11:20'],
+  'sources.ok': ['07:15'],
+  'sources.error': ['08:15'],
+  'sources.next': ['17:15'],
+  'sources.med': [6, 10, 2]
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
@@ -55,7 +62,8 @@ export const SAME = new Set<string>([
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
   'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
-  'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est'
+  'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est',
+  'sources.title', 'sources.tempo', 'sources.ecowatt', 'grid.source'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {

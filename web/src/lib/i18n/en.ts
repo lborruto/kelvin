@@ -867,6 +867,34 @@ export const en: Messages = {
     setup_rename_device: (p: ApiParams) => `${p.name}: renamed “${p.label}”`,
     setup_tidy: (p: ApiParams) => `${p.name}: device moved back with the radiator`
   },
+  grid: {
+    label: 'Power grid signals',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    colour: { blue: 'Blue', white: 'White', red: 'Red' } as Record<'blue' | 'white' | 'red', string>,
+    tempoDay: (when: string, colour: string) => `${when}: ${colour}`,
+    tempoUnknown: (when: string) => `${when}: colour unknown`,
+    tempoPending: (at: string) => `Tomorrow: colour not published yet (around ${at})`,
+    whenToday: 'today',
+    whenTomorrow: 'tomorrow',
+    ecowatt: (level: number, when: string, hours: string | null) =>
+      `EcoWatt ${level >= 3 ? 'red' : 'orange'} ${when}${hours ? `, ${hours}` : ''}`,
+    source: (time: string) => `RTE via MyElectricalData · ${time}`
+  },
+  sources: {
+    title: 'Sources',
+    tempo: 'Tempo (RTE)',
+    ecowatt: 'EcoWatt (RTE)',
+    ok: (time: string) => `up to date, read at ${time}`,
+    never: 'not asked yet',
+    error: (time: string) => `unavailable since ${time}`,
+    quota: 'today’s quota used up, back tomorrow',
+    next: (time: string) => `next read ${time}`,
+    med: (calls: number, budget: number, grid: number) =>
+      `MyElectricalData calls today: ${calls} of ${budget} (${grid} for Tempo and EcoWatt)`,
+    via: 'Tempo and EcoWatt come from MyElectricalData, with no token and no PDL.',
+    loadFailed: 'Source status unavailable.'
+  },
   api: {
     login_required: () => 'Please sign in.',
     session_is_current: () => 'Use “Sign out” for this device.',

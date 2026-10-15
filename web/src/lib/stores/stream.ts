@@ -1,5 +1,6 @@
-import type { AlertSummary } from '$lib/api/types';
+import type { AlertSummary, GridView } from '$lib/api/types';
 import { alerts } from './alerts.svelte';
+import { grid } from './grid.svelte';
 import type { HouseStore } from './house.svelte';
 
 export interface StreamOptions {
@@ -18,6 +19,8 @@ export interface StreamOptions {
   livenessMs?: number;
   /** The alerts count (snapshot and `alerts` event). */
   onAlerts?: (s: AlertSummary) => void;
+  /** Tempo and EcoWatt (snapshot and `grid` event). */
+  onGrid?: (v: GridView | null) => void;
 }
 
 const MAX_DELAY_MS = 30_000;
@@ -31,6 +34,7 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
   const win = opts.win ?? (typeof window === 'undefined' ? undefined : window);
 
   const onAlerts = opts.onAlerts ?? ((s: AlertSummary) => alerts.applySummary(s));
+  const onGrid = opts.onGrid ?? ((v: GridView | null) => grid.apply(v));
   const now = opts.now ?? (() => Date.now());
   const staleAfterMs = opts.staleAfterMs ?? 10_000;
   let hiddenAt: number | null = null;
@@ -86,12 +90,14 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
     const source = new ES(url);
     es = source;
     store.connection = attempts === 0 ? 'connecting' : 'reconnecting';
-    listen(source, 'snapshot', (d: { alerts?: AlertSummary }) => {
+    listen(source, 'snapshot', (d: { alerts?: AlertSummary; grid?: GridView | null }) => {
       store.applySnapshot(d as never);
       if (d.alerts) onAlerts(d.alerts);
+      if ('grid' in d) onGrid(d.grid ?? null);
       store.connection = 'open';
       attempts = 0;
     });
+    listen(source, 'grid', (d: GridView) => onGrid(d));
     listen(source, 'house', (d) => store.applyHouse(d));
     listen(source, 'pending', (d) => store.applyPending(d));
     listen(source, 'layout', (d) => store.applyLayout(d));

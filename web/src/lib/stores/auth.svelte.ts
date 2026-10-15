@@ -1,6 +1,7 @@
 import { api, ApiError } from '$lib/api/client';
 import type { Me } from '$lib/api/types';
 import { alerts } from './alerts.svelte';
+import { grid } from './grid.svelte';
 import { history } from './history.svelte';
 import { house } from './house.svelte';
 import { resetRoomData } from './roomdata.svelte';
@@ -41,6 +42,7 @@ export class AuthStore {
     history.reset();
     resetRoomData();
     alerts.reset();
+    grid.reset();
   }
 
   /** A 401 means the session is already gone (success); any other failure rejects and changes nothing. */

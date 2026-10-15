@@ -45,6 +45,22 @@ describe('connectStream', () => {
     expect(store.status.last_error).toBe('QUOTA');
   });
 
+  it('a grid event and the snapshot grid reach onGrid', () => {
+    const onGrid = vi.fn();
+    connectStream(new HouseStore(), {
+      EventSourceImpl: FakeES as unknown as typeof EventSource,
+      schedule: () => 1,
+      cancel: () => {},
+      doc: new EventTarget() as unknown as Document,
+      onGrid
+    });
+    const g = { tempo: null, ecowatt: { days: [], fetched_at: null }, source: 'MyElectricalData' };
+    FakeES.all.at(-1)!.emit('snapshot', { ...snapshot, grid: g });
+    FakeES.all.at(-1)!.emit('grid', { ...g, source: 'x' });
+    expect(onGrid).toHaveBeenNthCalledWith(1, g);
+    expect(onGrid).toHaveBeenNthCalledWith(2, { ...g, source: 'x' });
+  });
+
   it('reconnects with exponential backoff', () => {
     const { store, timers } = setup();
     FakeES.all[0].onerror!();

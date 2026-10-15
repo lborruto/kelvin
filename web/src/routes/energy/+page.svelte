@@ -7,6 +7,7 @@
   import CurvePanel from '$lib/components/CurvePanel.svelte';
   import EnergyBars from '$lib/components/EnergyBars.svelte';
   import EnergyHero from '$lib/components/EnergyHero.svelte';
+  import GridStrip from '$lib/components/GridStrip.svelte';
   import ExportPanel from '$lib/components/ExportPanel.svelte';
   import HcHpPanel from '$lib/components/HcHpPanel.svelte';
   import HeatingPanel from '$lib/components/HeatingPanel.svelte';
@@ -218,6 +219,7 @@
   <p class="callout" class:bad={linkyNote.bad} role="status">{linkyNote.text}{#if linkyNote.link}&nbsp;<a href="{ROUTES.home}#{ANCHORS.linky}">{linkyNote.link}</a>{/if}</p>
 {/if}
 {#if ready}{#each alerts.of(['price_change', 'consent_expiring', 'linky_stalled']) as a (a.id)}<AlertCallout alert={a} />{/each}{/if}
+{#if ready}<GridStrip />{/if}
 {#if ready && main?.last_day}<p class="muted fresh">{m.energyPage.fresh(fmtDay(main.last_day))}</p>{/if}
 {#if data.error}<p class="error" role="alert">{data.failed ? m.energyPage.failedPeriod(periodTitle(data.failed.view, data.failed.period), data.error()) : data.error()} <button type="button" class="btn btn-sm" onclick={() => navigate(() => data.retry())}>{m.energyPage.retry}</button></p>{/if}
 

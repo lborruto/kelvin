@@ -893,6 +893,34 @@ export const fr = {
     setup_rename_device: (p: ApiParams) => `${p.name}${NB}: renommé «${NB}${p.label}${NB}»`,
     setup_tidy: (p: ApiParams) => `${p.name}${NB}: appareil rangé avec le radiateur`
   },
+  grid: {
+    label: 'Signaux du réseau électrique',
+    today: 'Aujourd’hui',
+    tomorrow: 'Demain',
+    colour: { blue: 'Bleu', white: 'Blanc', red: 'Rouge' } as Record<'blue' | 'white' | 'red', string>,
+    tempoDay: (when: string, colour: string) => `${when}${NB}: ${colour}`,
+    tempoUnknown: (when: string) => `${when}${NB}: couleur inconnue`,
+    tempoPending: (at: string) => `Demain${NB}: couleur pas encore publiée (vers ${at})`,
+    whenToday: 'aujourd’hui',
+    whenTomorrow: 'demain',
+    ecowatt: (level: number, when: string, hours: string | null) =>
+      `EcoWatt ${level >= 3 ? 'rouge' : 'orange'} ${when}${hours ? `, ${hours}` : ''}`,
+    source: (time: string) => `RTE via MyElectricalData · ${time}`
+  },
+  sources: {
+    title: 'Sources',
+    tempo: 'Tempo (RTE)',
+    ecowatt: 'EcoWatt (RTE)',
+    ok: (time: string) => `à jour, relevé à ${time}`,
+    never: 'pas encore interrogé',
+    error: (time: string) => `indisponible depuis ${time}`,
+    quota: 'quota du jour atteint, reprise demain',
+    next: (time: string) => `prochain relevé ${time}`,
+    med: (calls: number, budget: number, grid: number) =>
+      `Appels MyElectricalData aujourd’hui${NB}: ${calls} sur ${budget} (dont ${grid} pour Tempo et EcoWatt)`,
+    via: 'Tempo et EcoWatt viennent de MyElectricalData, sans jeton ni PDL.',
+    loadFailed: 'État des sources indisponible.'
+  },
   api: {
     login_required: () => 'Connexion requise.',
     session_is_current: () => `Utilisez «${NB}Se déconnecter${NB}» pour cet appareil.`,

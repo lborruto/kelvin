@@ -22,6 +22,7 @@ vi.mock('$lib/api/client', () => ({
     revokeSession: vi.fn(),
     revokeOtherSessions: vi.fn(),
     settings: vi.fn().mockResolvedValue({ tariff: null, prefill: null }),
+    status: vi.fn().mockResolvedValue({ sources: null }),
     linkyStatus: vi.fn().mockResolvedValue({
       configured: false, prm: null, token_set: false, simulator: false, state: 'off', message: null,
       last_day: null, last_ok_at: null, retry_at: null, calls_today: 0, budget: 10, consent_expires: null

@@ -3,6 +3,7 @@
   import { desktop } from '$lib/media.svelte';
   import { ROUTES } from '$lib/paths';
   import { house } from '$lib/stores/house.svelte';
+  import GridStrip from './GridStrip.svelte';
   import HouseActions from './HouseActions.svelte';
   import Icon from './Icon.svelte';
   import RoomInspector from './RoomInspector.svelte';
@@ -33,6 +34,7 @@
     </div>
     <div class="phone-only"><HouseActions /></div>
   </header>
+  {#if house.loaded}<GridStrip />{/if}
 {:else}
   <a class="back" href={ROUTES.rooms}><Icon name="arrow-left" size={16} />{m.nav.rooms}</a>
 {/if}

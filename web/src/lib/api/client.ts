@@ -6,6 +6,7 @@ import type {
   EnergyDay,
   EnergyGroup,
   EnergyReport,
+  GridView,
   HistoryPoint,
   LinkyStatus,
   Me,
@@ -18,6 +19,7 @@ import type {
   SettingsView,
   SetupView,
   Snapshot,
+  StatusView,
   SyncStatus,
   TariffInput,
   WeekProgram
@@ -102,6 +104,8 @@ const programOpts = (o: ProgramOpts) => ({
 
 export const api = {
   me: () => call<Me>('GET', '/auth/me'),
+  grid: () => call<GridView>('GET', '/grid'),
+  status: () => call<StatusView>('GET', '/status'),
   login: (email: string, password: string) => call<Me>('POST', '/auth/login', { email, password }),
   logout: () => call<Me>('POST', '/auth/logout'),
   house: () => call<Snapshot>('GET', '/house'),

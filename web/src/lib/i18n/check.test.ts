@@ -150,6 +150,7 @@ export const DYNAMIC = [
   'quality.mark',
   'quality.method',
   'settings.themes',
+  'grid.colour',
   'home.kind'
 ];
 

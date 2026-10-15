@@ -121,6 +121,36 @@ export interface HouseView {
   radiators: Radiator[];
 }
 
+export type TempoColour = 'blue' | 'white' | 'red';
+export interface EcowattRun { start: string; end: string; level: number }
+export interface GridView {
+  tempo: {
+    today: { date: string; colour: TempoColour | null };
+    tomorrow: { date: string; colour: TempoColour | null; expected_at: string | null };
+    fetched_at: number | null;
+  } | null;
+  ecowatt: { days: { date: string; level: number; hours: EcowattRun[] | null }[]; fetched_at: number | null };
+  source: string;
+}
+export interface SourceStatus {
+  state: 'off' | 'never' | 'ok' | 'error' | 'quota';
+  last_ok: number | null;
+  error_since: number | null;
+  next: number | null;
+  enabled: boolean;
+}
+export interface Sources {
+  tempo: SourceStatus;
+  ecowatt: SourceStatus;
+  med: { calls_today: number; grid_calls_today: number; budget: number };
+}
+export interface StatusView {
+  status: string;
+  overkiz: Status;
+  linky: string | null;
+  sources?: Sources | null;
+}
+
 export interface Snapshot {
   house: HouseView;
   pending: Pending[];
@@ -129,6 +159,7 @@ export interface Snapshot {
   overrides: Override[];
   status: Status;
   alerts?: AlertSummary;
+  grid?: GridView | null;
 }
 
 export interface HistoryPoint {

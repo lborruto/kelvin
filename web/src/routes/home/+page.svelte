@@ -8,6 +8,7 @@
   import LinkyPanel from '$lib/components/LinkyPanel.svelte';
   import SessionsPanel from '$lib/components/SessionsPanel.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
+  import SourcesPanel from '$lib/components/SourcesPanel.svelte';
   import Stepper from '$lib/components/Stepper.svelte';
   import TariffForm from '$lib/components/TariffForm.svelte';
   import { fmtAgo, fmtDateTime, fmtTemp } from '$lib/format';
@@ -199,6 +200,11 @@
   <section id={ANCHORS.sessions} class="panel">
     <h2>{m.sessions.title}</h2>
     <SessionsPanel />
+  </section>
+
+  <section class="panel">
+    <h2>{m.sources.title}</h2>
+    <SourcesPanel />
   </section>
 
   <section class="panel">

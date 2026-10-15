@@ -23,6 +23,10 @@
   --series-2: #2fc4b2;
   --series-3: #e5c14b;
   --series-4: #e87bb5;
+  /* Tempo day chip only (ruling 2): the days are named after colours; text carries the meaning. */
+  --tempo-blue: #6c8cff;
+  --tempo-white: #e8eaf0;
+  --tempo-red: #ff5c7a;
   --radius: 10px;
   /* motion: one curve, exits about 30 % faster than entrances */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -59,6 +63,9 @@
   --series-2: #0f8577;
   --series-3: #8f6d00;
   --series-4: #b8327a;
+  --tempo-blue: #3355cc;
+  --tempo-white: #ffffff;
+  --tempo-red: #c2185b;
 }
 
 /* keep in sync with :root[data-theme='light'] above */
@@ -83,6 +90,9 @@
     --series-2: #0f8577;
     --series-3: #8f6d00;
     --series-4: #b8327a;
+  --tempo-blue: #3355cc;
+  --tempo-white: #ffffff;
+  --tempo-red: #c2185b;
   }
 }
 
