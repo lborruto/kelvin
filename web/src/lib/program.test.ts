@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import type { WeekProgram } from './api/types';
+import type { Radiator, WeekProgram } from './api/types';
 import {
   addSlot,
+  baseOf,
   changedDays,
   comfortBands,
   daySegs,
+  EDIT_MAX,
   fmtNextChange,
   fromMin,
   fromWeekProgram,
   isComfortAt,
+  lockedDays,
   moveSlot,
   nextChange,
   removeSlot,
@@ -34,7 +37,7 @@ describe('program basics', () => {
     expect(fromMin(1110)).toBe('18:30');
     expect(fromMin(1439)).toBe('23:59');
     expect(snap(1112)).toBe(1110);
-    expect(snap(1440)).toBe(1439);
+    expect(snap(1440)).toBe(1425);
     expect(snap(-5)).toBe(0);
   });
   it('day segments are sorted and parsed', () => {
@@ -171,5 +174,34 @@ describe('next change in each language', () => {
     const late = Date.parse('2026-10-13T21:00:00Z');
     expect(fmtNextChange(nextChange(usual, late)!, late)).toBe('tomorrow 06:15 → Comfort');
     expect(fmtNextChange(nextChange(thursday, now)!, now)).toBe('Thursday 06:15 → Comfort');
+  });
+});
+
+describe('midnight and locked days (QW8)', () => {
+  it('24:00 reads and formats; the editor never makes an end after 23:45', () => {
+    expect(toMin('24:00')).toBe(1440);
+    expect(fromMin(1440)).toBe('24:00');
+    expect(EDIT_MAX).toBe(1425);
+    expect(resizeSlot([{ start: 1300, end: 1380 }], 0, 'end', 1440)).toEqual([{ start: 1300, end: 1425 }]);
+    expect(addSlot([], 1410)).toEqual([{ start: 1410, end: 1425 }]); // 23:30–23:45: the last period that fits
+    expect(addSlot([], 1420)).toBeNull(); // 23:40 snaps to 23:45: no room left for a 15 min period
+    expect(daySegs({ sunday: [{ start: '20:00', end: '24:00' }] }, 'sunday')).toEqual([{ start: 1200, end: 1440 }]);
+  });
+  it('a locked day is never in the payload', () => {
+    const week = fromWeekProgram({ monday: [{ start: '07:00', end: '08:00' }], sunday: [{ start: '20:00', end: '24:00' }] });
+    const payload = toWeekProgram(week, ['sunday', 'saturday']);
+    expect(Object.keys(payload)).not.toContain('sunday');
+    expect(Object.keys(payload)).not.toContain('saturday');
+    expect(payload.monday).toEqual([{ start: '07:00', end: '08:00' }]);
+  });
+  it('locked days are the union over the room, unrecognised first; base is a copy', () => {
+    const r = (program_locked: object, program = {}) => ({ id: Math.random().toString(), program, program_locked }) as unknown as Radiator;
+    expect(lockedDays([r({ sunday: 'midnight' }), r({ sunday: 'unrecognised', friday: 'midnight' }), r({})])).toEqual({
+      sunday: 'unrecognised', friday: 'midnight'
+    });
+    const a = r({}, { monday: [{ start: '07:00', end: '08:00' }] });
+    const base = baseOf([a]);
+    (a.program.monday as { start: string }[])[0].start = '06:00';
+    expect(base[a.id].monday![0].start).toBe('07:00');
   });
 });

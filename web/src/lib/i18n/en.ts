@@ -170,6 +170,14 @@ export const en: Messages = {
   },
   daysShort: { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' },
   program: {
+    lockedMidnight: 'Ends at midnight: edit this day in the Cozytouch app',
+    lockedUnrecognised: 'Unrecognised period: edit this day in the Cozytouch app',
+    midnightCap: 'Ending at midnight isn’t supported yet.',
+    unknownDayLabel: (day: string) => `${day}: unrecognised periods`,
+    changedElsewhere: 'Schedule changed elsewhere',
+    changedElsewhereDays: (days: string) => `Changed in the Cozytouch app or on another device: ${days}. Reload to see the current version, or replace it with your changes.`,
+    reload: 'Reload',
+    replaceAnyway: 'Replace anyway',
     nextTomorrow: (time: string, level: string) => `tomorrow ${time} → ${level}`,
     nextOn: (day: Day, time: string, level: string) => `${DAY[day]} ${time} → ${level}`,
     dayError: {

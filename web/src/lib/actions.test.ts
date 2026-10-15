@@ -53,3 +53,13 @@ describe('actions', () => {
     expect(toasts.items[0].text()).toBe('The setpoint goes in steps of 0.5\u00a0°C.');
   });
 });
+
+describe('run with an error handler', () => {
+  it('a handled error shows no toast; an unhandled one does', async () => {
+    const before = toasts.items.length;
+    await run(() => Promise.reject(new ApiError(409, 'x', 'program_changed_elsewhere')), { onError: () => true });
+    expect(toasts.items.length).toBe(before);
+    await run(() => Promise.reject(new ApiError(500, 'y')), { onError: () => false });
+    expect(toasts.items.length).toBe(before + 1);
+  });
+});

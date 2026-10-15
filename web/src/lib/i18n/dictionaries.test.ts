@@ -146,7 +146,7 @@ const SCANNER_BLIND = new Set([
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
   'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',
   'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
-  'roomInfo.title', 'roomInfo.signal', 'roomInfo.reachable', 'roomInfo.lastSignal'
+  'roomInfo.title', 'roomInfo.signal', 'roomInfo.reachable', 'roomInfo.lastSignal', 'program.reload'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

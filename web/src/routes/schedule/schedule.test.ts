@@ -13,7 +13,12 @@ vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn(
 vi.mock('$lib/api/client', () => ({
   api: { roomProgram: vi.fn() },
   ApiError: class extends Error {
-    constructor(public status: number, message: string) {
+    constructor(
+      public status: number,
+      message: string,
+      public code: string | null = null,
+      public params: Record<string, unknown> = {}
+    ) {
       super(message);
     }
   }
@@ -289,4 +294,58 @@ it('a Programme draft survives the switch', async () => {
   applyLocale('en');
   expect(await screen.findByText('1 day changed')).toBeInTheDocument();
   expect(screen.getByLabelText('Monday, period 1, start')).toHaveValue('07:00');
+});
+
+describe('changed elsewhere', () => {
+  it('sends the base it started from', async () => {
+    vi.mocked(api.roomProgram).mockResolvedValue({ pending: pending('pending') as never });
+    await editAndSend();
+    await waitFor(() => expect(api.roomProgram).toHaveBeenCalled());
+    expect(vi.mocked(api.roomProgram).mock.calls[0][2]).toEqual({ base: { a: {} } });
+  });
+
+  it('an SSE change on an edited day shows the notice; Recharger drops the edits', async () => {
+    render(Page);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Ajouter une plage le Lundi' }));
+    house.applyHouse({ rooms: [], radiators: [{ ...rad, program: { monday: [{ start: '05:00', end: '06:00' }] } }] } as never);
+    expect(await screen.findByText('Programme modifié ailleurs')).toBeInTheDocument();
+    expect(screen.getByText(/lundi/i, { selector: '.conflict p' })).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: 'Recharger' }));
+    expect(screen.queryByText('Programme modifié ailleurs')).toBeNull();
+    expect(screen.getByLabelText('Lundi, plage 1, début')).toHaveValue('05:00');
+  });
+
+  it('an untouched day follows silently', async () => {
+    render(Page);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Ajouter une plage le Lundi' }));
+    house.applyHouse({ rooms: [], radiators: [{ ...rad, program: { tuesday: [{ start: '18:00', end: '20:00' }] } }] } as never);
+    await waitFor(() => expect(screen.getByLabelText('Mardi, plage 1, début')).toHaveValue('18:00'));
+    expect(screen.queryByText('Programme modifié ailleurs')).toBeNull();
+    expect(screen.getByText('Modifications')).toBeInTheDocument();
+  });
+
+  it('a 409 shows the notice; Remplacer quand même resends with force', async () => {
+    vi.mocked(api.roomProgram)
+      .mockRejectedValueOnce(new (ApiError as never as new (...a: unknown[]) => Error)(409, 'x', 'program_changed_elsewhere', { days: ['monday'] }))
+      .mockResolvedValueOnce({ pending: pending('pending') as never });
+    await editAndSend();
+    expect(await screen.findByText('Programme modifié ailleurs')).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: 'Remplacer quand même' }));
+    await waitFor(() => expect(api.roomProgram).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.roomProgram).mock.calls[1][2]).toMatchObject({ force: true });
+  });
+
+  it('a locked day is read-only and never in the payload', async () => {
+    house.applyHouse({
+      rooms: [],
+      radiators: [{ ...rad, program: { sunday: [{ start: '20:00', end: '24:00' }] }, program_locked: { sunday: 'midnight', saturday: 'unrecognised' } }]
+    } as never);
+    vi.mocked(api.roomProgram).mockResolvedValue({ pending: pending('pending') as never });
+    await editAndSend();
+    await waitFor(() => expect(api.roomProgram).toHaveBeenCalled());
+    const payload = vi.mocked(api.roomProgram).mock.calls[0][1];
+    expect(Object.keys(payload)).not.toContain('sunday');
+    expect(Object.keys(payload)).not.toContain('saturday');
+    expect(screen.getByText(/Fin à minuit/)).toBeInTheDocument();
+  });
 });

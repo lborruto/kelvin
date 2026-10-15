@@ -176,6 +176,14 @@ export const fr = {
   },
   daysShort: { monday: 'Lun', tuesday: 'Mar', wednesday: 'Mer', thursday: 'Jeu', friday: 'Ven', saturday: 'Sam', sunday: 'Dim' },
   program: {
+    lockedMidnight: `Fin à minuit${NB}: modifiez ce jour dans l’app Cozytouch`,
+    lockedUnrecognised: `Plage non reconnue${NB}: modifiez ce jour dans l’app Cozytouch`,
+    midnightCap: 'Une fin à minuit n’est pas encore prise en charge.',
+    unknownDayLabel: (day: string) => `${day}${NB}: plages non reconnues`,
+    changedElsewhere: 'Programme modifié ailleurs',
+    changedElsewhereDays: (days: string) => `Modifié dans l’app Cozytouch ou sur un autre appareil${NB}: ${days}. Rechargez pour voir la version actuelle, ou remplacez-la par vos modifications.`,
+    reload: 'Recharger',
+    replaceAnyway: 'Remplacer quand même',
     nextTomorrow: (time: string, level: string) => `demain ${time} → ${level}`,
     nextOn: (day: Day, time: string, level: string) => `${DAY_LOWER[day]} ${time} → ${level}`,
     dayError: {

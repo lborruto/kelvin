@@ -1,4 +1,4 @@
-import { DAYS, type Day, type Slot, type WeekProgram } from './api/types';
+import { DAYS, type Day, type DayLock, type Radiator, type Slot, type WeekProgram } from './api/types';
 import { fmtTime } from './format';
 import { m } from './i18n';
 import { addParisDays, parisAt, parisMidnight, parisMinuteOfDay, parisParts } from './time';
@@ -11,7 +11,9 @@ export type Week = Record<Day, Seg[]>;
 
 export const SNAP = 15;
 export const MIN_LEN = 15;
-const LAST = 1439;
+/** The latest end the editor makes (QW8, ruling 3): a midnight end was never verified on a device. */
+export const EDIT_MAX = 23 * 60 + 45;
+const DAY_END = 1440;
 
 export function toMin(hhmm: string): number {
   const [h, min] = hhmm.split(':').map(Number);
@@ -19,12 +21,12 @@ export function toMin(hhmm: string): number {
 }
 
 export function fromMin(mins: number): string {
-  const c = Math.max(0, Math.min(LAST, Math.round(mins)));
+  const c = Math.max(0, Math.min(DAY_END, Math.round(mins)));
   return `${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}`;
 }
 
 export function snap(mins: number): number {
-  return Math.max(0, Math.min(LAST, Math.round(mins / SNAP) * SNAP));
+  return Math.max(0, Math.min(EDIT_MAX, Math.round(mins / SNAP) * SNAP));
 }
 
 export function daySegs(program: WeekProgram, day: Day): Seg[] {
@@ -38,10 +40,27 @@ export function fromWeekProgram(p: WeekProgram): Week {
   return Object.fromEntries(DAYS.map((d) => [d, daySegs(p, d)])) as Week;
 }
 
-export function toWeekProgram(week: Week): WeekProgram {
+export function toWeekProgram(week: Week, locked: Iterable<Day> = []): WeekProgram {
+  const skip = new Set(locked);
   return Object.fromEntries(
-    DAYS.map((d) => [d, week[d].map((s) => ({ start: fromMin(s.start), end: fromMin(s.end) }))])
+    DAYS.filter((d) => !skip.has(d)).map((d) => [d, week[d].map((s) => ({ start: fromMin(s.start), end: fromMin(s.end) }))])
   ) as WeekProgram;
+}
+
+/** The days no radiator of the room may have edited (union; an unrecognised day wins). */
+export function lockedDays(radiators: Radiator[]): Partial<Record<Day, DayLock>> {
+  const out: Partial<Record<Day, DayLock>> = {};
+  for (const r of radiators)
+    for (const [d, why] of Object.entries(r.program_locked ?? {}) as [Day, DayLock][])
+      if (out[d] !== 'unrecognised') out[d] = why;
+  return out;
+}
+
+export type Base = Record<string, WeekProgram>;
+
+/** What each radiator showed when the editor loaded: the backend refuses to overwrite a change. */
+export function baseOf(radiators: Radiator[]): Base {
+  return Object.fromEntries(radiators.map((r) => [r.id, JSON.parse(JSON.stringify(r.program ?? {}))]));
 }
 
 export function isComfortAt(program: WeekProgram, day: Day, minute: number): boolean {
@@ -123,7 +142,7 @@ export function addSlot(segs: Seg[], at: number, len = 120): Seg[] | null {
   const start = snap(at);
   if (segs.some((s) => start >= s.start && start < s.end)) return null;
   const next = segs.filter((s) => s.start > start).sort((a, b) => a.start - b.start)[0];
-  const end = Math.min(start + len, next ? next.start : LAST);
+  const end = Math.min(start + len, next ? next.start : EDIT_MAX);
   if (end - start < MIN_LEN) return null;
   return [...segs, { start, end }].sort((a, b) => a.start - b.start);
 }
@@ -132,7 +151,7 @@ export function moveSlot(segs: Seg[], i: number, delta: number): Seg[] {
   const s = segs[i];
   const len = s.end - s.start;
   const lo = i > 0 ? segs[i - 1].end : 0;
-  const hi = i < segs.length - 1 ? segs[i + 1].start : LAST;
+  const hi = i < segs.length - 1 ? segs[i + 1].start : EDIT_MAX;
   const start = Math.max(lo, Math.min(hi - len, snap(s.start + delta)));
   return segs.map((x, j) => (j === i ? { start, end: start + len } : x));
 }
@@ -140,7 +159,7 @@ export function moveSlot(segs: Seg[], i: number, delta: number): Seg[] {
 export function resizeSlot(segs: Seg[], i: number, edge: 'start' | 'end', to: number): Seg[] {
   const s = segs[i];
   const lo = i > 0 ? segs[i - 1].end : 0;
-  const hi = i < segs.length - 1 ? segs[i + 1].start : LAST;
+  const hi = i < segs.length - 1 ? segs[i + 1].start : EDIT_MAX;
   const v = snap(to);
   const next =
     edge === 'start'
