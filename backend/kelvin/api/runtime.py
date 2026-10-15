@@ -176,13 +176,17 @@ def make_gateway(
                 server=server,
             )
         else:
-            gw = FakeGateway(username=username, password=password, server=server)
-            gw.demo_outage(
-                DEMO_OUTAGE_RID,
-                before_s=DEMO_OUTAGE_BEFORE_S,
-                after_s=DEMO_OUTAGE_AFTER_S,
-                wall=wall,
-            )
+            from kelvin.overkiz.houses import HOUSES, house_for_server
+
+            root, devices = HOUSES[settings.kelvin_fake_house or house_for_server(server)]()
+            gw = FakeGateway(root, devices, username=username, password=password, server=server)
+            if any(u.endswith(f"/{DEMO_OUTAGE_RID}#1") for u in gw.devices):  # the Sauter house
+                gw.demo_outage(
+                    DEMO_OUTAGE_RID,
+                    before_s=DEMO_OUTAGE_BEFORE_S,
+                    after_s=DEMO_OUTAGE_AFTER_S,
+                    wall=wall,
+                )
         gw.fail_setup = setup_failures(settings.kelvin_fake_setup_fail)
         return gw
     from kelvin.overkiz.real import PyOverkizGateway

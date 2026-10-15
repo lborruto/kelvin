@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +27,9 @@ class Settings(BaseSettings):
     kelvin_fake: bool = False
     # Simulator only: setup operations that always fail (comma-separated; see overkiz/fake.py).
     kelvin_fake_setup_fail: str = ""
+    # Simulator house (Plan 12): sauter, atlantic, thermor or experimental. Empty: the house of
+    # the server chosen at login (sauter by default).
+    kelvin_fake_house: Literal["", "sauter", "atlantic", "thermor", "experimental"] = ""
     kelvin_web: Path | None = None
     kelvin_debug: bool = False  # serves /docs, /redoc and /openapi.json
     kelvin_host: str = "127.0.0.1"  # `python -m kelvin`; the Docker image sets 0.0.0.0

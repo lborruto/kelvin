@@ -94,6 +94,8 @@ FRENCH = re.compile(
     re.IGNORECASE,
 )
 CATALOGUE_FILES = {"errors.py", "labels.py"}
+# Simulator data (invented room and device labels, as a Cozytouch setup reports them): not copy.
+SIMULATOR_DATA = {"overkiz/houses.py"}
 # Files that define the codes (and the catalogue built from them): a use elsewhere is a real use.
 DEFINING_FILES = {"errors.py", "labels.py", "catalogue.py"}
 # Param names that would carry an identifier or a secret into an API body or a log.
@@ -223,7 +225,8 @@ def test_user_facing_french_lives_only_in_errors_and_labels():
     offenders = [
         f"{p.relative_to(KELVIN)}:{line}: {text[:60]}"
         for p in sorted(KELVIN.rglob("*.py"))
-        if p.name not in CATALOGUE_FILES or p.parent != KELVIN
+        if (p.name not in CATALOGUE_FILES or p.parent != KELVIN)
+        and p.relative_to(KELVIN).as_posix() not in SIMULATOR_DATA
         for line, text in _literals(p)
         if FRENCH.search(text)
     ]
