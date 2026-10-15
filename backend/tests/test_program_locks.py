@@ -288,3 +288,21 @@ async def test_a_mixed_room_never_empties_a_day_locked_on_its_other_radiator(ctx
     sent = {cmd.device_url: cmd.parameters[0] for cmd in rt.gateway.executed[-1]}
     assert sent[a][6] == {"sunday": [{"start": "21:00", "end": "00:00"}, E, E]}
     assert sent[b][6] == {"sunday": WEEKEND_RAW}  # unlocked here, and still not emptied
+
+
+def test_a_day_to_keep_that_the_radiator_never_reported_is_refused_not_emptied():
+    """Re-review Minor 12: keeping a day needs its reported state; without one, the send is
+    refused with a worded code instead of writing that day empty."""
+    from kelvin.commands.translate import CommandError
+
+    root, devices = sample_house()
+    url = f"{SAMPLE_GATEWAY}/9312063#1"
+    heater = next(d for d in devices if d.device_url == url)
+    prog = heater.states["core:TimeProgramState"]
+    heater.states["core:TimeProgramState"] = [e for e in prog if "sunday" not in e]
+    r = build_house(root, devices).radiators["9312063"]
+    with pytest.raises(CommandError) as e:
+        plan_program(r, WEEK)  # Sunday left out: to keep, but never reported
+    assert (e.value.code, e.value.params) == ("program_day_unknown", {"day": "sunday"})
+    payload = plan_program(r, {**WEEK, "sunday": []}).commands[0].parameters[0]
+    assert payload[6] == {"sunday": [E, E, E]}  # named: written as asked

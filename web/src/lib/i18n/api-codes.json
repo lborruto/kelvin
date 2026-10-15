@@ -160,6 +160,12 @@
         ]
       }
     },
+    "program_day_unknown": {
+      "fr": "dimanche : le radiateur n’a pas rapporté ce jour ; renseignez-le pour envoyer le programme.",
+      "params": {
+        "day": "sunday"
+      }
+    },
     "program_overlap": {
       "fr": "mardi : des plages se chevauchent.",
       "params": {

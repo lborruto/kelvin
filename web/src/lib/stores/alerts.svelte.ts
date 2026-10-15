@@ -6,6 +6,16 @@ export class AlertsStore {
   list = $state<Alert[] | null>(null);
   /** The last load failed: the UI says so (with a retry) instead of « Aucune alerte. ». */
   error = $state(false);
+
+  /** The list came in, or its load failed: a page that waits on the alerts can draw (re-review). */
+  get answered(): boolean {
+    return this.list !== null || this.error;
+  }
+
+  /** Load once on first need; after a failure only the « Réessayer » button loads again. */
+  get due(): boolean {
+    return this.list === null && !this.error;
+  }
   summary = $state<AlertSummary>({ active: 0, highest: null });
   #gen = 0;
 

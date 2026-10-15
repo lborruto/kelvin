@@ -797,6 +797,7 @@ export const en: Messages = {
     program_time_invalid: (p: ApiParams) => `${day(p.day)}: invalid time “${p.value}” (HH:MM).`,
     day_unknown: (p: ApiParams) => `Unknown day: ${p.day}.`,
     program_too_many: (p: ApiParams) => `${day(p.day)}: 3 comfort periods at most.`,
+    program_day_unknown: (p: ApiParams) => `${day(p.day)}: the radiator hasn’t reported this day; fill it in to send the schedule.`,
     program_slot_invalid: (p: ApiParams) => `${day(p.day)}: the period ${p.start}–${p.end} isn’t valid.`,
     program_overlap: (p: ApiParams) => `${day(p.day)}: periods overlap.`,
     program_changed_elsewhere: () => 'Schedule changed elsewhere: reload it or replace it.',

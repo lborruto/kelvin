@@ -38,7 +38,7 @@
   let selectedBar = $state<number | null>(null);
 
   $effect(() => {
-    if (auth.loggedIn !== false && alerts.list === null) void alerts.load(); // not while signing out (a 401 would re-ask the login)
+    if (auth.loggedIn !== false && alerts.due) void alerts.load(); // not while signing out (a 401 would re-ask the login)
   });
   $effect(() => {
     api
@@ -84,10 +84,7 @@
   // moves (no CLS). It never waits on the live stream.
   // The alerts answer with the rest: their callouts then come in the same frame as the panels they sit
   // above, replacing the skeleton instead of pushing drawn panels down (CLS).
-  $effect(() => {
-    if (auth.loggedIn !== false && alerts.list === null) void alerts.load(); // load() settles the list on failure too
-  });
-  let ready = $derived(!!loaded && (!!linky || linkyFailed) && alerts.list !== null);
+  let ready = $derived(!!loaded && (!!linky || linkyFailed) && alerts.answered);
   let busy = $derived(data.loading || (!!data.error && loaded?.period !== data.period));
   let group = $derived(chart?.group ?? 'day');
   let unitWord = $derived(m.energyPage.unit[group]);

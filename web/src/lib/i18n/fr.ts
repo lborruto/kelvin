@@ -823,6 +823,8 @@ export const fr = {
       `${dayLower(p.day)}${NB}: heure invalide «${NB}${p.value}${NB}» (format HH:MM).`,
     day_unknown: (p: ApiParams) => `Jour inconnu${NB}: ${p.day}.`,
     program_too_many: (p: ApiParams) => `${dayLower(p.day)}${NB}: 3 plages confort au maximum.`,
+    program_day_unknown: (p: ApiParams) =>
+      `${dayLower(p.day)}${NB}: le radiateur n’a pas rapporté ce jour${NB}; renseignez-le pour envoyer le programme.`,
     program_slot_invalid: (p: ApiParams) => `${dayLower(p.day)}${NB}: la plage ${p.start}–${p.end} est invalide.`,
     program_overlap: (p: ApiParams) => `${dayLower(p.day)}${NB}: des plages se chevauchent.`,
     program_changed_elsewhere: () => `Programme modifié ailleurs${NB}: rechargez-le ou remplacez-le.`,

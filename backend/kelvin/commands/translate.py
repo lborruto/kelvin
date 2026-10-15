@@ -136,15 +136,21 @@ def plan_program(
 ) -> Planned:
     """Only the days `week` names are written (`[]` clears one). A day it leaves out, a day in
     `keep`, and a locked day (a midnight end, a shape Kelvin cannot read; spec QW8) are re-sent
-    exactly as this radiator reported them (final review C1). A day the radiator never reported
-    has nothing to keep and reads as no slot."""
+    exactly as this radiator reported them (final review C1). A day to keep that the radiator
+    never reported is refused (`program_day_unknown`): Kelvin never writes it empty unasked."""
     _require(r, r.heater_url, "setTimeProgram")
     kept = set(r.program_locked) | set(keep) | {d for d in DAY_ORDER if d not in week}
     payload = normalize_program({d: v for d, v in week.items() if d not in kept})
-    payload = [
-        (r.raw_day(day) or entry) if (day := next(iter(entry))) in kept else entry
-        for entry in payload
-    ]
+    out = []
+    for entry in payload:
+        day = next(iter(entry))
+        if day in kept:
+            raw = r.raw_day(day)
+            if raw is None:
+                raise CommandError("program_day_unknown", day=day)
+            entry = raw
+        out.append(entry)
+    payload = out
     return _one(r.heater_url, "setTimeProgram", (payload,), "core:TimeProgramState", payload)
 
 

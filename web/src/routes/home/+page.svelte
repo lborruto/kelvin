@@ -92,7 +92,7 @@
   });
   // Tarif, Linky and Réglages appear together, once both answers are in: nothing on screen moves. The
   // alerts' answer is one of them: their panel (above) takes its real height in that same frame.
-  let settled = $derived((!!settingsView || !!tariffError) && (!!linkyStatus || !!linkyError) && alerts.list !== null);
+  let settled = $derived((!!settingsView || !!tariffError) && (!!linkyStatus || !!linkyError) && alerts.answered);
   // The real panels are taller than their skeletons: once they render, land on the anchor again.
   let landed = false;
   $effect(() => {

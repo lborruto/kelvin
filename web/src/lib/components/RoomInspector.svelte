@@ -31,7 +31,7 @@
   }
   let { roomId, level = 'h2' }: Props = $props();
   $effect(() => {
-    if (auth.loggedIn !== false && alerts.list === null) void alerts.load(); // not while signing out (a 401 would re-ask the login)
+    if (auth.loggedIn !== false && alerts.due) void alerts.load(); // not while signing out (a 401 would re-ask the login)
   });
   // On the phone room page the figure arrives from the card it was tapped on (view transition).
   let vtName = $derived(level === 'h1' ? `temp-${house.rooms.findIndex((r) => r.id === roomId)}` : undefined);

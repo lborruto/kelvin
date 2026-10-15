@@ -237,6 +237,19 @@ describe('Maison alerts', () => {
     expect(screen.getAllByRole('button', { name: /^Masquer/ })).toHaveLength(1); // the unknown kind is not shown
     alerts.reset();
   });
+  it('a failing alerts load still renders the panels, with the error and a retry (re-review)', async () => {
+    alerts.reset();
+    vi.mocked(api.alerts).mockReset().mockRejectedValue(new Error('x'));
+    render(Page);
+    expect(await screen.findByText('Impossible de charger les alertes.')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Enregistrer le tarif' })).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(api.alerts).toHaveBeenCalledTimes(1); // no reload loop: retry is the button's
+    vi.mocked(api.alerts).mockResolvedValue([]);
+    await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(await screen.findByText('Aucune alerte.')).toBeInTheDocument();
+    alerts.reset();
+  });
   it('says so when nothing is active', async () => {
     alerts.reset();
     render(Page);

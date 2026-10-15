@@ -13,14 +13,14 @@
   let { hold = false }: Props = $props();
 
   $effect(() => {
-    if (auth.loggedIn !== false && alerts.list === null) void alerts.load(); // not while signing out (a 401 would re-ask the login)
+    if (auth.loggedIn !== false && alerts.due) void alerts.load(); // not while signing out (a 401 would re-ask the login)
   });
   // What the skeleton stands in for: the alert count that came with the snapshot (none before it).
   let expected = $derived(house.loaded ? alerts.summary.active : 0);
   let shown = $derived((alerts.list ?? []).filter((a) => alertText(a) !== null));
 </script>
 
-{#if alerts.error && alerts.list === null && !hold}
+{#if alerts.error && alerts.list === null}
   <p class="error" role="alert">{m.alerts.loadError} <button type="button" class="btn btn-sm" onclick={() => alerts.load()}
       >{m.common.retry}</button></p>
 {:else if alerts.list === null || hold}
