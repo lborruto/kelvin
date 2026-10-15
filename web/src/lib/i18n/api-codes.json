@@ -146,6 +146,10 @@
       "fr": "Connexion requise.",
       "params": {}
     },
+    "mcp_disabled": {
+      "fr": "L’accès MCP est désactivé sur ce serveur (KELVIN_MCP).",
+      "params": {}
+    },
     "mcp_token_limit": {
       "fr": "10 jetons MCP au plus : révoquez-en un d’abord.",
       "params": {
@@ -157,6 +161,10 @@
       "params": {
         "max": 40
       }
+    },
+    "mcp_token_unknown": {
+      "fr": "Ce jeton MCP n’existe plus.",
+      "params": {}
     },
     "med_quota": {
       "fr": "Quota MyElectricalData du jour atteint : réessayez demain.",

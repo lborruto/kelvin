@@ -260,3 +260,10 @@ class LinkyBody(BaseModel):
 
     prm: str = Field(max_length=64)
     token: str | None = Field(default=None, max_length=512)
+
+
+class McpTokenBody(BaseModel):
+    """A token's name (Plan 13). Unknown keys are refused: there is one scope, `read`."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(max_length=200)  # the store applies the real 1–40 rule and its code

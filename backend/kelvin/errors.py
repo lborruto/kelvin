@@ -37,6 +37,8 @@ TEMPLATES: dict[str, str] = {
     "session_unknown": "Cet appareil n’est plus connecté.",
     "mcp_token_name_invalid": "Nom de jeton invalide (1 à {max} caractères).",
     "mcp_token_limit": "{max} jetons MCP au plus : révoquez-en un d’abord.",
+    "mcp_token_unknown": "Ce jeton MCP n’existe plus.",
+    "mcp_disabled": "L’accès MCP est désactivé sur ce serveur (KELVIN_MCP).",
     "alert_unknown": "Alerte introuvable.",
     "header_missing": "En-tête X-Kelvin manquant.",
     "bad_credentials": "Cozytouch refuse cet email ou ce mot de passe.",

@@ -28,6 +28,7 @@ from kelvin.api.schemas import (
     LevelBody,
     LightBody,
     LinkyBody,
+    McpTokenBody,
     ModeBody,
     MoveBody,
     ProgramBody,
@@ -540,6 +541,46 @@ async def session_revoke(sid: str, request: Request) -> Response:
 async def sessions_revoke_others(request: Request) -> dict:
     ctx = request.app.state.ctx
     return {"revoked": ctx.sessions.revoke_others(request.cookies.get(COOKIE_NAME))}
+
+
+@router.get("/mcp/tokens")
+async def mcp_tokens_list(request: Request) -> dict:
+    """Maison › Compte › Accès MCP: the tokens, never a secret (spec MCP §5.4)."""
+    ctx = request.app.state.ctx
+    return {
+        "enabled": ctx.settings.kelvin_mcp,
+        "endpoint_path": "/mcp",
+        "tokens": ctx.mcp_tokens.listing(),
+    }
+
+
+@router.post("/mcp/tokens", status_code=201)
+async def mcp_token_create(body: McpTokenBody, request: Request) -> JSONResponse:
+    """The only response that ever carries a token's secret: not cached anywhere."""
+    ctx = request.app.state.ctx
+    if not ctx.settings.kelvin_mcp:
+        raise UserError("mcp_disabled", 409)
+    view, secret = ctx.mcp_tokens.create(body.name)
+    return JSONResponse(
+        status_code=201,
+        content={"token": view, "secret": secret},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.delete("/mcp/tokens/{tid}", status_code=204)
+async def mcp_token_revoke(tid: str, request: Request) -> Response:
+    if not request.app.state.ctx.mcp_tokens.revoke(tid):
+        raise UserError("mcp_token_unknown", 404)
+    return Response(status_code=204)
+
+
+@router.get("/mcp/audit")
+async def mcp_audit_recent(
+    request: Request, limit: int = Query(default=20, ge=1, le=200)
+) -> list[dict]:
+    ctx = request.app.state.ctx
+    return ctx.mcp_audit.recent(limit, ctx.mcp_tokens.names())
 
 
 _ALERT_ID = re.compile(r"[0-9]{1,12}")  # ASCII digits only
