@@ -3,7 +3,8 @@
   import { page } from '$app/state';
   import { ApiError } from '$lib/api/client';
   import { safeNext } from '$lib/auth';
-  import { errorText, m } from '$lib/i18n';
+  import Segmented from '$lib/components/Segmented.svelte';
+  import { errorText, LOCALE_NAMES, LOCALE_SHORT, LOCALES, locale, m, setLocale } from '$lib/i18n';
   import { tick } from 'svelte';
   import { auth } from '$lib/stores/auth.svelte';
 
@@ -79,6 +80,10 @@
     <!-- aria-disabled while busy: the focused button keeps focus through the round trip. -->
     <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? m.login.busy : m.login.submit}</button>
     {#if auth.simulator}<p class="muted small">{m.login.simulator}</p>{/if}
+    <div class="lang">
+      <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_SHORT[l], lang: l, ariaLabel: LOCALE_NAMES[l] }))}
+        value={locale.current} label={m.settings.language} onchange={setLocale} />
+    </div>
   </form>
 </main>
 
@@ -133,5 +138,10 @@
   .small {
     font-size: 12px;
     margin: 0;
+  }
+  .lang {
+    display: flex;
+    justify-content: center;
+    margin-top: 4px;
   }
 </style>

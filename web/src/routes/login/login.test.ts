@@ -127,3 +127,19 @@ describe('Login in English', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Enter the Cozytouch email and password.');
   });
 });
+
+describe('the login language switch', () => {
+  it('FR | EN switches the screen before login, and a backend error then reads in English', async () => {
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.', 'bad_credentials'));
+    render(Page);
+    const en = screen.getByRole('radio', { name: 'English' });
+    expect(en).toHaveTextContent('EN');
+    await fireEvent.click(en);
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
+    expect(localStorage.getItem('kelvin-locale')).toBe('en');
+    await fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'a@b.fr' } });
+    await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'x' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong Cozytouch email or password.');
+  });
+});

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
 import { api } from '$lib/api/client';
@@ -192,5 +192,27 @@ describe('Home in English', () => {
     await fireEvent.input(screen.getByLabelText(/Until/), { target: { value: '2020-01-01T10:00' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Start away mode' }));
     expect(screen.getByText('The end must be in the future.')).toBeInTheDocument();
+  });
+});
+
+describe('Réglages › Langue', () => {
+  it('switching re-renders nav, Segmented, chips and the title without remounting, and persists', async () => {
+    render(Page);
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1).toHaveTextContent('Maison');
+    expect(document.title).toBe('Maison · Kelvin');
+    const group = await screen.findByRole('radiogroup', { name: 'Langue' });
+    const fr = within(group).getByRole('radio', { name: 'Français' });
+    expect(fr).toHaveAttribute('lang', 'fr');
+    expect(fr).toHaveAttribute('aria-checked', 'true');
+    await fireEvent.click(within(group).getByRole('radio', { name: 'English' }));
+    expect(screen.getByRole('heading', { level: 1 })).toBe(h1);
+    expect(h1).toHaveTextContent('Home');
+    expect(document.title).toBe('Home · Kelvin');
+    expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'System' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Language' })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('en');
+    expect(localStorage.getItem('kelvin-locale')).toBe('en');
   });
 });

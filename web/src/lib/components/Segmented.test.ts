@@ -42,3 +42,18 @@ describe('Segmented', () => {
     expect(document.activeElement).toBe(a);
   });
 });
+
+it('an option can carry its own lang and accessible name', () => {
+  render(Segmented, {
+    options: [
+      { value: 'fr', label: 'FR', lang: 'fr', ariaLabel: 'Français' },
+      { value: 'en', label: 'EN', lang: 'en', ariaLabel: 'English' }
+    ],
+    value: 'fr',
+    label: 'Langue',
+    onchange: () => {}
+  });
+  const en = screen.getByRole('radio', { name: 'English' });
+  expect(en).toHaveAttribute('lang', 'en');
+  expect(en).toHaveTextContent('EN');
+});

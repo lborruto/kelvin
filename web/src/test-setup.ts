@@ -10,4 +10,11 @@ globalThis.ResizeObserver ??= class {
 } as unknown as typeof ResizeObserver;
 
 // Every test starts in French (the default), whatever a previous test switched to.
-beforeEach(() => applyLocale('fr'));
+beforeEach(() => {
+  applyLocale('fr');
+  try {
+    localStorage.removeItem('kelvin-locale');
+  } catch {
+    /* no storage */
+  }
+});

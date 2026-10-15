@@ -10,13 +10,16 @@
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
-  import { m } from '$lib/i18n';
+  import { initLocale, m } from '$lib/i18n';
   import { reducedMotion } from '$lib/motion';
   import { ROUTES } from '$lib/paths';
   import { announcer } from '$lib/stores/announcer.svelte';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { connectStream } from '$lib/stores/stream';
+
+  // Once per app start: the stored choice, else the browser's languages; reactive from here on.
+  initLocale();
 
   let { children } = $props();
   let now = $state(Date.now());

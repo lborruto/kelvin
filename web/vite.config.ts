@@ -27,6 +27,8 @@ export default defineConfig({
         id: '/',
         name: 'Kelvin',
         short_name: 'Kelvin',
+        // The manifest is static: it keeps the product default, French. The installed app's name
+        // and description do not follow the runtime language (Réglages › Langue); the UI does.
         description: 'Le chauffage de la maison',
         lang: 'fr',
         start_url: '/',

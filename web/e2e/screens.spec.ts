@@ -17,6 +17,7 @@ for (const path of ['/', '/rooms/p-salon', '/schedule', '/energy', '/home', '/lo
             await browser.newContext({
               ...info.project.use,
               colorScheme: scheme,
+              locale: 'fr-FR',
               storageState: { cookies: [], origins: [] }
             })
           ).newPage()

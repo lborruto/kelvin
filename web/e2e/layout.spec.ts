@@ -47,7 +47,7 @@ test.describe('layout', () => {
   });
 
   test('/login never scrolls sideways from 320 to 1440 px', async ({ browser }) => {
-    const page = await (await browser.newContext({ storageState: { cookies: [], origins: [] } })).newPage();
+    const page = await (await browser.newContext({ storageState: { cookies: [], origins: [] }, locale: 'fr-FR' })).newPage();
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/login');

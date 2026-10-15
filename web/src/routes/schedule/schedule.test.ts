@@ -280,3 +280,13 @@ describe('/schedule in English', () => {
     expect(screen.getByText(/\(before: no periods \(eco\)\)/)).toBeInTheDocument();
   });
 });
+
+it('a Programme draft survives the switch', async () => {
+  render(Page);
+  await fireEvent.click(await screen.findByRole('button', { name: 'Ajouter une plage le Lundi' }));
+  expect(screen.getByText('1 jour modifié')).toBeInTheDocument();
+  const { applyLocale } = await import('$lib/i18n');
+  applyLocale('en');
+  expect(await screen.findByText('1 day changed')).toBeInTheDocument();
+  expect(screen.getByLabelText('Monday, period 1, start')).toHaveValue('07:00');
+});

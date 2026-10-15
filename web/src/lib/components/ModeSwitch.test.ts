@@ -95,3 +95,11 @@ it('in English: Off / Manual / Schedule, “Sched.” when compact, and the pend
   expect(screen.getByRole('radio', { name: 'Manual (pending)' })).toBeInTheDocument();
   expect(screen.getByRole('radio', { name: 'Schedule' })).toBeInTheDocument();
 });
+
+it('the chips re-render on a switch, same buttons', () => {
+  render(ModeSwitch, { value: 'program', onchange: vi.fn() });
+  const radio = screen.getByRole('radio', { name: 'Programme' });
+  applyLocale('en');
+  flushSync();
+  expect(screen.getByRole('radio', { name: 'Schedule' })).toBe(radio);
+});

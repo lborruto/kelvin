@@ -9,7 +9,7 @@
   import Stepper from '$lib/components/Stepper.svelte';
   import TariffForm from '$lib/components/TariffForm.svelte';
   import { fmtAgo, fmtDateTime, fmtTemp } from '$lib/format';
-  import { apiMessage, m, statusError } from '$lib/i18n';
+  import { apiMessage, LOCALE_NAMES, LOCALES, locale, m, setLocale, statusError } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
@@ -206,6 +206,13 @@
         <dd>
           <Segmented options={THEMES.map((t) => ({ value: t, label: m.settings.themes[t] }))} value={themeChoice} label={m.settings.theme}
             onchange={setTheme} />
+        </dd>
+      </div>
+      <div class="item">
+        <dt>{m.settings.language}</dt>
+        <dd>
+          <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l], lang: l }))} value={locale.current}
+            label={m.settings.language} onchange={setLocale} />
         </dd>
       </div>
       <div class="item">
