@@ -71,3 +71,16 @@ test('undo: a deleted room comes back once, with its name, and the undo offers n
   await dialog.getByRole('button', { name: 'Supprimer la pièce' }).click();
   await expect(heading).toHaveCount(0, WAIT);
 });
+
+// /auth/me failing while the setup loads must not leave the page on its skeleton forever.
+test('/auth/me unreachable: an error with « Réessayer », and the retry brings the rooms', async ({ page }) => {
+  await page.route('**/api/auth/me', (route) => route.abort());
+  await page.goto('/home/devices');
+  const alert = page.getByRole('alert').filter({ hasText: 'Impossible de charger les appareils.' });
+  await expect(alert).toBeVisible();
+  await expect(page.locator('main [aria-busy="true"] .skeleton')).toHaveCount(0);
+  await page.unroute('**/api/auth/me');
+  await alert.getByRole('button', { name: 'Réessayer' }).click();
+  await expect(page.getByRole('heading', { name: 'Salon', exact: true })).toBeVisible(WAIT);
+  await expect(alert).toHaveCount(0);
+});

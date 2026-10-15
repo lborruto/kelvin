@@ -114,9 +114,11 @@ describe('api client', () => {
     expect(JSON.parse(fn.mock.calls[2][1].body)).toEqual({ prm: '12345678901234' });
     await api.putLinky('12345678901234', 'tok-123456789');
     expect(JSON.parse(fn.mock.calls[3][1].body)).toEqual({ prm: '12345678901234', token: 'tok-123456789' });
-    await api.putTariff({
-      option: 'hchp', kva: 12, hc_slots: [{ start: '22:00', end: '06:00' }],
-      subscription_eur_month: 19.5, hc_eur_kwh: 0.2, hp_eur_kwh: 0.27, valid_from: '2026-10-14'
+    await api.putTariffDoc({
+      kva: 12,
+      prices: [{ valid_from: '2026-10-14', option: 'hchp', subscription_eur_month: 19.5, rates: { hc: 0.2, hp: 0.27 } }],
+      hc_schedules: [{ valid_from: '2026-10-14', variants: [{ months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], slots: [{ start: '22:00', end: '06:00' }] }] }],
+      tempo_hours: { hc_start: '22:00', hc_end: '06:00' }
     });
     expect(fn.mock.calls[4][0]).toBe('/api/settings');
     expect(fn.mock.calls[4][1].method).toBe('PUT');

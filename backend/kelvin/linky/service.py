@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from kelvin.billing.compare import minus_years
 from kelvin.billing.costs import curve_complete, day_energy
 from kelvin.billing.day_detail import day_detail
+from kelvin.billing.pricing import Pricing
 from kelvin.billing.radiators import RadiatorDay
 from kelvin.billing.report import (
     Group,
@@ -25,10 +26,17 @@ from kelvin.billing.report import (
     unit_start,
 )
 from kelvin.billing.room_energy import room_energy
-from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
-from kelvin.billing.split import FallbackShares, Share
+from kelvin.billing.slots import Slot
+from kelvin.billing.split import FallbackShares
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
-from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds, local_day
+from kelvin.linky.models import (
+    Contract,
+    LinkyAuthError,
+    LinkyError,
+    LinkySource,
+    day_bounds,
+    local_day,
+)
 from kelvin.linky.radiator_cache import RadiatorDayCache
 from kelvin.linky.store import LinkyStore
 from kelvin.linky.sync import DAILY_BACKFILL_DAYS, DAILY_BUDGET, BudgetExceeded, LinkySync
@@ -78,6 +86,8 @@ class LinkyService:
         self.wall = wall
         self.store = LinkyStore(db, tz)
         self.tariffs = TariffStore(db)
+        # Tempo colour per Tempo day for [start, end): the grid store's, set by the runtime.
+        self.colours: Callable[[date, date], dict[date, str]] = lambda start, end: {}
         self.make_source = make_source
         self.simulator = simulator
         self.prm = credentials[0] if credentials else None
@@ -86,6 +96,24 @@ class LinkyService:
         self.radiator_days = RadiatorDayCache(self.tz)
         if credentials:
             self.sync.use_token(credentials[1])
+        self.sync.on_contract = self._on_contract
+
+    def _on_contract(self, contract: Contract) -> None:
+        """The monthly re-read: keep it for `hc_changed`, refresh the form's prefill and the
+        contract start. Nothing is applied to the tariff (spec §2.2)."""
+        self.tariffs.set_contract_last(contract, self.wall())
+        self.tariffs.set_prefill(contract)
+        if contract.activation_date:
+            self.sync.set_not_before(contract.activation_date)
+
+    def _contract_read(self, contract: Contract) -> None:
+        """A configure or prefill read counts as this month's re-read."""
+        self.tariffs.set_contract_last(contract, self.wall())
+        self.sync.mark_contract_read(self.today())
+
+    def spend_grid(self) -> bool:
+        """One grid call (Tempo, EcoWatt, Tempo prices) from the shared MED ledger."""
+        return self.sync.spend(kind="grid")
 
     def today(self) -> date:
         return datetime.fromtimestamp(self.wall(), self.tz).date()
@@ -135,6 +163,7 @@ class LinkyService:
             self.tariffs.clear_prefill()
         if contract is not None:
             self.tariffs.set_prefill(contract)
+            self._contract_read(contract)
         self.prm = prm
         self.sync.use_token(token)
         self.sync.set_source(  # wakes the sync loop: no inline run
@@ -156,11 +185,12 @@ class LinkyService:
             log.warning("linky contract fetch failed: %s", type(e).__name__)
             return
         self.tariffs.set_prefill(contract)
+        self._contract_read(contract)
         if contract.activation_date:
             self.sync.set_not_before(contract.activation_date)
 
     def seed_demo_tariff(self) -> None:
-        if self.tariffs.get() is None:
+        if not self.tariffs.stored():  # never over a stored document, even an invalid one
             self.tariffs.save(DEMO_TARIFF)
 
     async def run(self) -> None:
@@ -215,6 +245,7 @@ class LinkyService:
         daily_lo = min(load_lo, minus_years(min(start, p_lo), AVG4_YEARS))
         daily = self.store.daily(daily_lo if group == "year" else load_lo, load_hi)
         curve = self.store.curve(load_lo, load_hi)
+        colours = self.colours(load_lo, load_hi)  # Tempo colour per Tempo day
         if period is None:  # the same rule and data as the report's own default
             period = default_period(last_linky_day(daily, curve, self.tz), today, group)
         # Radiator half-hours over the window and the period: one range when they overlap or
@@ -226,7 +257,7 @@ class LinkyService:
         ranges = radiator_ranges((start, end), period)
         extent = recorder.energy_extent()
         radiators: dict[str, dict[date, RadiatorDay]] = self.radiator_days.days(
-            recorder, ranges, tariff, {rid: a for rid, (a, _) in extent.items()}
+            recorder, ranges, tariff, {rid: a for rid, (a, _) in extent.items()}, colours=colours
         )
         life = {
             rid: (local_day(a, self.tz), None if rid in rooms else local_day(b, self.tz))
@@ -252,6 +283,7 @@ class LinkyService:
             sample_stats=stats,
             linky_since=self.store.first_day(first_day),
             curve_since=self.store.first_curve_day(),
+            colours=colours,
         )
         return build_report(start, end, group, inputs, period)
 
@@ -267,11 +299,15 @@ class LinkyService:
         first = today - timedelta(days=days - 1)
         extent = recorder.energy_extent()
         # From 1 January of the window's first year: the € running sums are anchored there.
+        lo, hi = date(first.year, 1, 1), today + timedelta(days=1)
+        # Each half-hour is priced by `Pricing`: the day before holds the first Tempo day's night.
+        colours = self.colours(lo - timedelta(days=1), hi)
         per = self.radiator_days.days(
             recorder,
-            [(date(first.year, 1, 1), today + timedelta(days=1))],
+            [(lo, hi)],
             tariff,
             {rid: a for rid, (a, _) in extent.items()},
+            colours=colours,
         )
         life = {
             rid: (local_day(a, self.tz), None if rid in in_house else local_day(b, self.tz))
@@ -288,6 +324,7 @@ class LinkyService:
         nxt = day + timedelta(days=1)
         today = self.today()
         tariff = self.tariffs.get()
+        colours = self.colours(day - timedelta(days=1), nxt)  # the day before holds 00:00–06:00
         oldest = self.store.first_curve_day() or self.not_before() or today
         # The report's look-back for that window (see `report`).
         anchor = self.store.last_day() or today
@@ -305,20 +342,10 @@ class LinkyService:
         energy = None
         daily = self.store.daily(day, nxt).get(day) if counted else None
         if daily is not None or complete:
-            ranges = tariff.ranges() if tariff else None
-            shares = (
-                FallbackShares({d: p for d, p in full.items() if lo <= d < hi}, ranges, self.tz)
-                if ranges
-                else None
-            )
-            energy = day_energy(
-                day,
-                daily,
-                points,
-                ranges,
-                self.tz,
-                shares.for_day(day) if shares else Share(0.0, "slots"),
-            )
+            pricing = Pricing(tariff, self.tz, colours) if tariff else None
+            # The same pool as the report's for that window (`lo`/`hi`): one figure per day.
+            pool = FallbackShares({d: p for d, p in full.items() if lo <= d < hi}, self.tz)
+            energy = day_energy(day, daily, points, pricing, self.tz, pool.for_day(day))
         edges = local_edges(day, nxt, "halfhour", self.tz)
         radiators = recorder.energy_buckets(edges, recorder.energy_radiator_ids())
         # As in `report`: a radiator still in the house exists from its first reading on, one
@@ -339,6 +366,7 @@ class LinkyService:
                 rooms,
                 complete,
                 life=life,
+                colours=colours,
             ),
             "available": [
                 d.isoformat()
@@ -350,13 +378,20 @@ class LinkyService:
         }
 
     def curve_day(self, day: date) -> dict[str, Any]:
+        """`GET /api/linky/curve` (v1 alias): points with their off-peak share (0.0 when nothing
+        splits, as in v1) and the day's HC/HP from the curve."""
         points = self.store.curve(day, day + timedelta(days=1)).get(day, [])
         tariff = self.tariffs.get()
-        ranges = tariff.ranges() if tariff else None
+        pricing = (
+            Pricing(tariff, self.tz, self.colours(day - timedelta(days=1), day + timedelta(days=1)))
+            if tariff
+            else None
+        )
+        fs = [pricing.offpeak(p.ts, p.minutes * 60) if pricing else None for p in points]
         hc = hp = None
-        if ranges and points:
-            hc_wh, hp_wh = split_curve(points, ranges, self.tz)
-            hc, hp = round(hc_wh / 1000, 3), round(hp_wh / 1000, 3)
+        if points and all(f is not None for f in fs):
+            hc = round(sum(p.wh * f for p, f in zip(points, fs, strict=True)) / 1000, 3)  # type: ignore[operator]
+            hp = round(sum(p.wh * (1 - f) for p, f in zip(points, fs, strict=True)) / 1000, 3)  # type: ignore[operator]
         today = self.today()
         oldest = self.store.first_curve_day() or self.not_before() or today
         available = sorted(self.store.complete_curve_days(oldest, today))
@@ -367,9 +402,9 @@ class LinkyService:
                     "ts": p.ts,
                     "minutes": p.minutes,
                     "wh": p.wh,
-                    "offpeak": round(offpeak_fraction(p, ranges, self.tz), 4) if ranges else 0.0,
+                    "offpeak": round(f, 4) if f is not None else 0.0,
                 }
-                for p in points
+                for p, f in zip(points, fs, strict=True)
             ],
             "kwh": round(sum(p.wh for p in points) / 1000, 3) if points else None,
             "hc_kwh": hc,

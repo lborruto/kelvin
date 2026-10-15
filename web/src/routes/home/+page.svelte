@@ -2,12 +2,13 @@
   import { goto } from '$app/navigation';
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
-  import type { LinkyStatus, SettingsView } from '$lib/api/types';
+  import type { LinkyStatus, SettingsView, Slot } from '$lib/api/types';
   import AlertList from '$lib/components/AlertList.svelte';
   import HouseActions from '$lib/components/HouseActions.svelte';
   import LinkyPanel from '$lib/components/LinkyPanel.svelte';
   import SessionsPanel from '$lib/components/SessionsPanel.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
+  import SourcesPanel from '$lib/components/SourcesPanel.svelte';
   import SupportChip from '$lib/components/SupportChip.svelte';
   import Stepper from '$lib/components/Stepper.svelte';
   import TariffForm from '$lib/components/TariffForm.svelte';
@@ -183,7 +184,7 @@
   <section id={ANCHORS.tariff} class="panel">
     <h2>{m.home.tariff}</h2>
     {#if settingsView}
-      <TariffForm settings={settingsView} onsaved={tariffSaved} />
+      <TariffForm settings={settingsView} onsaved={tariffSaved} contractSlots={(alerts.of(['hc_changed'])[0]?.params.slots as Slot[] | undefined) ?? null} />
     {:else}
       <p class="error" role="alert">{tariffError?.()} <button type="button" class="btn btn-sm" onclick={loadTariff}>{m.common.retry}</button></p>
     {/if}
@@ -201,6 +202,11 @@
   <section id={ANCHORS.sessions} class="panel">
     <h2>{m.sessions.title}</h2>
     <SessionsPanel />
+  </section>
+
+  <section class="panel">
+    <h2>{m.sources.title}</h2>
+    <SourcesPanel />
   </section>
 
   <section class="panel">

@@ -8,6 +8,7 @@ import { parisDayStart } from './time';
 const lines = (text: string) => text.slice(BOM.length).split('\r\n').filter(Boolean);
 const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({
   kwh: 22.041, hc_kwh: 8.976, hp_kwh: 13.065, radiators_kwh: 14.2, energy_eur: 5.31, subscription_eur: 0.48, eur: 5.79,
+  tempo: null, by_rate: null, missing_colour_days: 0, retro_scheduled: false,
   days: 1, missing_days: 0, estimated_split: false, split_method: 'curve',
   prices: [{ valid_from: '2026-08-01', subscription_eur_month: 15, rates: { hc: 0.2068, hp: 0.27 } }],
   retro_priced: false, present_days: 1, curve: null,
@@ -182,7 +183,7 @@ describe('courbe_<date>.csv', () => {
   it('a DST day exports 50 rows with distinct offsets', () => {
     const a = parisDayStart('2026-10-25') / 1000;
     const intervals: EnergyInterval[] = Array.from({ length: 50 }, (_, i) => ({
-      ts: a + i * 1800, minutes: 30, wh: 367.4, w: 735, offpeak: i < 12 ? 1 : 0.6667, boundary: false, price: 0.2068,
+      ts: a + i * 1800, minutes: 30, wh: 367.4, w: 735, offpeak: i < 12 ? 1 : 0.6667, tempo_colour: null, boundary: false, price: 0.2068,
       eur: 0.07598, radiators_wh: i === 3 ? null : 210.6, radiators_known: i === 3 ? 1 : 2, radiators_total: 2, radiators_interp: false,
       radiators_apportioned: false, by_room: {}
     }));
@@ -202,7 +203,7 @@ describe('courbe_<date>.csv', () => {
   it('without a tariff, price, cost and HC share are empty cells', () => {
     const a = parisDayStart('2026-10-12') / 1000;
     const iv: EnergyInterval = {
-      ts: a, minutes: 30, wh: 0, w: 0, offpeak: null, boundary: false, price: null, eur: null, radiators_wh: 0,
+      ts: a, minutes: 30, wh: 0, w: 0, offpeak: null, tempo_colour: null, boundary: false, price: null, eur: null, radiators_wh: 0,
       radiators_known: 1, radiators_total: 1, radiators_interp: false, radiators_apportioned: false, by_room: {}
     };
     const [, row] = lines(curveCsv({ date: '2026-10-12', intervals: [iv] } as unknown as EnergyDay).text);
@@ -256,4 +257,15 @@ describe('CSV in the English UI (Decision 30): « , » between cells, a decimal 
     expect(csvSeparator()).toBe(';');
     expect(csvNum(1.5, 2)).toBe('1,50');
   });
+});
+
+it('couleur_tempo carries the Tempo colour in French, empty when unknown or not Tempo', () => {
+  const ts = 1_764_630_000;
+  const intervals = [
+    { ts, minutes: 30, wh: 500, w: 1000, offpeak: 1, boundary: false, tempo_colour: 'white', price: 0.1486, eur: 0.0743, radiators_wh: null },
+    { ts: ts + 1800, minutes: 30, wh: 500, w: 1000, offpeak: 0, boundary: false, tempo_colour: null, price: null, eur: null, radiators_wh: null }
+  ];
+  const lines = curveCsv({ date: '2026-12-02', intervals } as unknown as EnergyDay).text.split('\r\n');
+  expect(lines[1].split(';')[6]).toBe('blanc');
+  expect(lines[2].split(';')[6]).toBe('');
 });

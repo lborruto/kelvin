@@ -13,7 +13,8 @@ const buckets = [
 ] as unknown as EnergyReport['buckets'];
 const quality: Quality = {
   fallback_share: 0.362, fallback_method: 'fallback_window', estimated_days: 3, curve_vs_daily_pct: 1.4,
-  linky_since: '2025-11-01', curve_since: '2026-01-15', radiators_since: '2026-09-01', retro_priced_days: 6
+  linky_since: '2025-11-01', curve_since: '2026-01-15', radiators_since: '2026-09-01', retro_priced_days: 6,
+  missing_colour_days: 0, retro_scheduled_days: 0
 };
 
 describe('QualityPanel', () => {
@@ -129,4 +130,10 @@ it('in English: the heading, the legend, the hidden table and the facts', () => 
   expect(t).toContain('Off-peak/peak days estimated: 3 (fallback share 36.2%, method: ±15 days)');
   expect(t).toContain('First tariff’s price applied to 6 earlier days');
   expect(t).toContain('Curve available since 15 January 2026');
+});
+
+it('lists the days without a Tempo colour and those before the first off-peak hours', () => {
+  render(QualityPanel, { buckets, group: 'day', quality: { ...quality, missing_colour_days: 3, retro_scheduled_days: 5 } });
+  expect(screen.getByText(/Jours sans couleur Tempo/)).toBeTruthy();
+  expect(screen.getByText(/Jours avant les premières heures creuses/)).toBeTruthy();
 });

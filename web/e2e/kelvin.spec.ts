@@ -83,7 +83,8 @@ test('Chauffe temporaire: a sentence, then the room says it until « Arrêter »
   const disc = page.getByRole('button', { name: /^Chauffe temporaire/ });
   await expect(disc).toHaveAttribute('aria-expanded', 'false');
   await disc.click();
-  await expect(page.getByText(/^Puis retour au programme vers \d\d:\d\d\.$/)).toBeVisible();
+  // Any wall time: a 2 h boost started after 22:00 ends « demain ».
+  await expect(page.getByText(/^Puis retour au programme vers (demain )?\d\d:\d\d\.$/)).toBeVisible();
   await page.getByRole('button', { name: 'Lancer' }).click();
   const status = page.locator('.inspector .st');
   await expect(status).toContainText(/Chauffe temporaire · \d+,\d\s°C jusqu’à/, { timeout: 20_000 });

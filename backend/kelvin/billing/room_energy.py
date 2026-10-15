@@ -6,8 +6,11 @@ radiators' rows in the report's `by_radiator` for that day (`radiator_shares`: t
 from running sums anchored on 1 January, shared by largest remainder), so a room's day reads what
 Énergie's Par pièce shows for it, in every window, and windows add up to the cent. Today's
 measured half-hours enter the same running sum as its last point (`radiator_cents(extra=)`):
-nothing is rounded on its own. Unknown is None, never 0; a radiator never recorded lowers
-nothing, as in the report.
+nothing is rounded on its own. Each half-hour was priced by `Pricing` (its option, its slots or
+Tempo hours, its Tempo day's colour) when the radiator days were built. Unknown is None, never 0:
+no split under Base; a day without € (an unknown Tempo colour: a day before the first price row
+is priced by that row) adds nothing to `eur` and is counted in `missing_colour_days`, as in the
+report's radiator block; a radiator never recorded lowers nothing, as in the report.
 """
 
 from __future__ import annotations
@@ -62,6 +65,11 @@ def room_energy(
     ]
     found = whole.found or bool(now)
     has_eur = whole.priced or any(rd.eur is not None for rd in now)
+    # As the report's radiator block: the € are the priced days' (each as its Par pièce rows),
+    # and `missing_colour_days` counts the days they leave out (a Tempo colour not published, a
+    # day before the first price row), so a partial € always carries its reason. No priced day
+    # at all: unknown, never 0. HC/HP need every day's split (none under Base).
+    unpriced = len(whole.unpriced) + any(rd.eur is None for rd in now) if priced else 0
     eur = None
     if found and priced and has_eur:
         years = cache(lambda year: radiator_year_cum(per, counted, year))
@@ -75,7 +83,7 @@ def room_energy(
         extra = sum(rd.eur or 0.0 for rd in now)
         cents += radiator_cents(years, today, today, extra=extra)
         eur = cents / 100
-    split = found and has_eur
+    split = found and priced and whole.split and all(rd.hc_wh is not None for rd in now)
     hours = [heating_hours.get(rid) for rid in ids]
     return {
         "from": first.isoformat(),
@@ -99,4 +107,6 @@ def room_energy(
         "interpolated": whole.interpolated or any(rd.interpolated for rd in now),
         "apportioned": whole.apportioned or any(rd.apportioned for rd in now),
         "priced": priced,
+        # Days with energy but no € (under Tempo, a colour not published): left out of `eur`.
+        "missing_colour_days": unpriced,
     }

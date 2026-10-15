@@ -11,6 +11,7 @@ import Page from './+page.svelte';
 vi.mock('$lib/api/client', () => ({
   api: {
     setupDevices: vi.fn(),
+    me: vi.fn(),
     syncSetup: vi.fn(),
     tidyDevice: vi.fn(),
     createRoom: vi.fn().mockResolvedValue({ pending: null }),
@@ -23,6 +24,9 @@ vi.mock('$lib/api/client', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   house.reset();
+  auth.server = { id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true }; // canEditSetup(null) is false
+  auth.loggedIn = true; // the page waits for /auth/me
+  auth.meFailed = false;
 });
 
 describe('Rooms and devices page', () => {
@@ -45,6 +49,30 @@ describe('Rooms and devices page', () => {
     vi.mocked(api.setupDevices).mockRejectedValue(new Error('down'));
     render(Page);
     expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger les appareils.');
+  });
+
+  it('/auth/me failed while the setup loads: an error with « Réessayer », never a skeleton forever', async () => {
+    auth.loggedIn = null;
+    auth.meFailed = true;
+    vi.mocked(api.setupDevices).mockResolvedValue(setupFixture());
+    const { container } = render(Page);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger les appareils.');
+    expect(container.querySelector('.skeleton')).toBeNull();
+    vi.mocked(api.me).mockResolvedValueOnce({ email: 'demo@kelvin.local', logged_in: true, server: auth.server });
+    await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(api.me).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('heading', { name: 'Salon' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('/auth/me not answered yet: still the skeleton', async () => {
+    auth.loggedIn = null;
+    vi.mocked(api.setupDevices).mockResolvedValue(setupFixture());
+    const { container } = render(Page);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(container.querySelector('[aria-busy="true"] .skeleton')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('shows the sync line and the stray notice from the tree', async () => {

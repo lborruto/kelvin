@@ -4,8 +4,9 @@ export const LOCALES: Locale[] = ['fr', 'en'];
 export const INTL: Record<Locale, string> = { fr: 'fr-FR', en: 'en-GB' };
 
 export type PluralForms = Partial<Record<Intl.LDMLPluralRule, string>> & { other: string };
-/** Params of a backend code (api-codes.json): plain JSON values; a list holds keys (`days`). */
-export type ApiParams = Record<string, string | number | boolean | string[] | null | undefined>;
+/** Params of a backend code (api-codes.json): plain JSON values; a list holds keys (`days`) or months
+ * (`hc_months_missing`, `hc_months_overlap`). */
+export type ApiParams = Record<string, string | number | boolean | null | undefined | string[] | readonly number[]>;
 
 /** Each dictionary uses its own language's rules, whatever the active locale. */
 export function pluralFor(l: Locale): (n: number, forms: PluralForms) => string {

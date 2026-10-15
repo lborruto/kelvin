@@ -27,13 +27,24 @@ The default suite runs French (an `fr-FR` browser); `e2e/english.spec.ts` runs t
 English, and `e2e/layout.spec.ts` checks the layout in both languages.
 
 `npx playwright test` also starts a second simulator on port 4175 with a fresh `KELVIN_DATA`
-(`/tmp/kelvin-e2e-brands`): the `brands` project logs in choosing « Atlantic Cozytouch » and runs
+(`/tmp/kelvin-e2e-brands`). Parallel worktrees move them with `KELVIN_E2E_PORT` (main simulator,
+4174), `KELVIN_E2E_BRANDS_PORT` (4175) and `KELVIN_E2E_DATA` (`/tmp/kelvin-e2e`, the brands one is
+its `-brands` sibling). The `brands` project logs in choosing « Atlantic Cozytouch » and runs
 `e2e/brands.spec.ts` on the Atlantic house. With an external Kelvin (`KELVIN_E2E_URL`) it runs only
 if `KELVIN_E2E_BRANDS_URL` points at a fresh simulator (empty `KELVIN_DATA`).
 
 Screenshots (simulator only): `SCREENS=1 npx playwright test screens` writes them to
 `test-results/screens/` as `<scheme>_<locale>_<project>_<page>.png`; set `SCREENS_DIR` to write
 elsewhere, `SCREENS_SCHEME=dark` for the dark theme and `SCREENS_LOCALE=en` for English.
+
+## Components
+
+Grid and tariff pieces (`src/lib/components/`): `GridStrip` (the one-line strip; Tempo only when the
+API sends `tempo`), `TempoDot` (the only user of the `--tempo-*` tokens), `SourcesPanel` (Réglages ›
+Sources), `TariffForm` (option, dated prices, seasonal off-peak hours, Tempo hours and prefill; the
+document logic is in `src/lib/tariff.ts`), `TempoRows` (the six colour rows under Tempo) and
+`HcHpPanel` (Base, HC/HP or Tempo). Under Base the Énergie bars draw one « Consommation » series and
+`RoomsEnergy` drops its HC/HP columns.
 
 ## Languages and paths
 
@@ -111,8 +122,9 @@ PDL, token, email or id is exported; rooms and radiators appear by name.
   A counted day without Linky data keeps its `abonnement_eur`, with `total_eur` empty.
 - `courbe_<date>.csv` — one row per interval of the Courbe's day (46, 48 or 50):
   `debut;fin;minutes;wh;w_moyen;part_hc;couleur_tempo;prix;eur;radiateurs_wh`. Wh and W are integers,
-  `part_hc` a 4-decimal fraction, `prix` €/kWh and `eur` with 4 decimals; `couleur_tempo` is empty
-  until the Tempo option exists. `radiateurs_wh` is empty unless every radiator was measured in
+  `part_hc` a 4-decimal fraction, `prix` €/kWh and `eur` with 4 decimals; `couleur_tempo` is `bleu`, `blanc` or `rouge`
+  (the colour of the half-hour's Tempo day: before 06:00, the previous day's), empty when the half-hour
+  is not Tempo-priced or its colour is unknown. `radiateurs_wh` is empty unless every radiator was measured in
   that half-hour (never a partial sum).
 - `pieces_<from>_<to>.csv` — the period's elapsed days (up to yesterday), as Par pièce shows them;
   each room, then its radiators:

@@ -45,7 +45,16 @@
     return () => clearInterval(timer);
   });
 
-  let setup = $derived(house.setup);
+  // Rendered once with everything it depends on: the setup and the home's server (/auth/me),
+  // which decides the setup actions. Shown piecemeal, the actions arrived after the rooms and
+  // pushed them down (CLS, CI 2026-10-15).
+  let setup = $derived(auth.loggedIn === null ? null : house.setup);
+  // /auth/me failed (not merely late): the skeleton would never resolve, so say it and offer a retry.
+  let unavailable = $derived(failed || (auth.loggedIn === null && auth.meFailed));
+  function retryAll(): void {
+    void load();
+    if (auth.loggedIn === null) void auth.refresh();
+  }
   // Plan 12: rooms and devices are written on the Cozytouch servers only.
   let editable = $derived(canEditSetup(auth.server));
   // The house root is a room only while radiators are in no other room (decision 9).
@@ -110,11 +119,10 @@
 
 <a class="back btn btn-ghost" href={ROUTES.home}><Icon name="arrow-left" size={16} />{m.devices.home}</a>
 <h1>{m.devices.title}</h1>
-<p class="intro">{auth.server && !editable ? m.devices.introExperimental(auth.server.name) : m.devices.intro}</p>
-
 {#if !setup}
-  {#if failed}
-    <p class="error" role="alert">{m.devices.loadFailed} <button type="button" class="btn btn-sm" onclick={load}>{m.devices.reload}</button></p>
+  <p class="intro">{m.devices.intro}</p>
+  {#if unavailable}
+    <p class="error" role="alert">{m.devices.loadFailed} <button type="button" class="btn btn-sm" onclick={retryAll}>{m.devices.reload}</button></p>
   {:else}
     <div aria-busy="true">
       {#each [150, 110, 110] as h, i (i)}<div class="skeleton block" style:height="{h}px" aria-hidden="true"></div>{/each}
@@ -122,6 +130,7 @@
     </div>
   {/if}
 {:else}
+  <p class="intro">{auth.server && !editable ? m.devices.introExperimental(auth.server.name) : m.devices.intro}</p>
   {#if setup.sync}<SyncLine sync={setup.sync} {now} />{/if}
   {#if editable}<div class="new">
     {#if creating}

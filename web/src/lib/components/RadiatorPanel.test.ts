@@ -10,6 +10,7 @@ import { applyLocale } from '$lib/i18n';
 // Commands are possible: the stream is up.
 beforeEach(() => {
   house.connection = 'open';
+  auth.server = { id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true }; // canEditSetup(null) is false
 });
 
 vi.mock('$lib/api/client', () => ({

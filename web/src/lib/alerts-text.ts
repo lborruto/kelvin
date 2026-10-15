@@ -1,5 +1,6 @@
-import type { Alert, Pending } from '$lib/api/types';
+import type { Alert, EcowattRun, Pending } from '$lib/api/types';
 import { fmtDay, fmtTime } from '$lib/format';
+import { hoursText } from '$lib/grid';
 import { locale, m, pendingError, pendingLabel } from '$lib/i18n';
 import { ANCHORS, ROUTES } from '$lib/paths';
 import { roomName } from '$lib/setup';
@@ -67,6 +68,19 @@ export function alertText(a: Alert): AlertText | null {
         text: m.alerts.linkyStalled(fmtDay(str(p.last_day)), num(p.days) ?? 0),
         link: { href: `${ROUTES.home}#${ANCHORS.linky}`, label: 'Linky' }
       };
+    case 'tempo_red_tomorrow':
+      return { text: m.alerts.tempoRedTomorrow(fmtDayMonth(str(p.date))), link: null };
+    case 'ecowatt': {
+      const runs = Array.isArray(p.hours) ? (p.hours as EcowattRun[]) : null;
+      return { text: m.alerts.ecowatt(num(p.level) ?? 2, fmtDayMonth(str(p.date)), hoursText(runs)), link: null };
+    }
+    case 'hc_changed': {
+      const slots = (Array.isArray(p.slots) ? p.slots : []) as { start: string; end: string }[];
+      return {
+        text: m.alerts.hcChanged(slots.map((s) => `${s.start}–${s.end}`).join(', ')),
+        link: { href: `${ROUTES.home}#${ANCHORS.tariff}`, label: m.alerts.hcAdd }
+      };
+    }
     default:
       return null;
   }

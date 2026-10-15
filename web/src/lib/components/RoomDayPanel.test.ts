@@ -12,7 +12,7 @@ vi.mock('$lib/media.svelte', () => media);
 const t0 = Date.UTC(2026, 9, 12, 22) / 1000;
 const day = (room: string | null, date = '2026-10-13'): EnergyDay => ({
   date, complete: true, points: 1,
-  intervals: [{ ts: t0, minutes: 30, wh: 500, w: 1000, offpeak: null, boundary: false, price: null, eur: null, radiators_wh: 120, radiators_known: 1, radiators_total: 1, radiators_interp: false, radiators_apportioned: false, by_room: { salon: 120 } }],
+  intervals: [{ ts: t0, minutes: 30, wh: 500, w: 1000, offpeak: null, tempo_colour: null, boundary: false, price: null, eur: null, radiators_wh: 120, radiators_known: 1, radiators_total: 1, radiators_interp: false, radiators_apportioned: false, by_room: { salon: 120 } }],
   totals: { curve_kwh: 0.5, daily_kwh: null, hc_kwh: null, hp_kwh: null, split_method: null, hc_kwh_curve: null, hp_kwh_curve: null },
   power: { peak_w: null, peak_ts: null, base_w_p10: null, night_min_w: null, kva: null },
   available: [],

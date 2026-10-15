@@ -77,3 +77,19 @@ describe('a negative price difference (off-peak dearer than peak)', () => {
     expect(t).not.toContain('€−');
   });
 });
+
+it('Base says there are no off-peak hours; Tempo shows its six rows without the HP→HC line', () => {
+  const { unmount } = render(HcHpPanel, { lens: null, tariff: true, hpKwh: null, option: 'base', tempo: null });
+  expect(screen.getByText((_, el) => el?.textContent === 'Option base\u00a0: pas d’heures creuses.')).toBeTruthy();
+  unmount();
+  const tempoLens = {
+    rows: ['blue_hc', 'blue_hp', 'white_hc', 'white_hp', 'red_hc', 'red_hp'].map((key) => ({ key, kwh: 1, eur: 0.2 })),
+    days: { blue: 1, white: 0, red: 1, unknown: 0 },
+    unknown_kwh: null
+  };
+  const { container } = render(HcHpPanel, {
+    lens: { hc_share: 0.33, slot_share: 0.3333, avg_price: 0.21, delta_price: null }, tariff: true, hpKwh: 3, option: 'tempo', tempo: tempoLens
+  });
+  expect(container.querySelectorAll('tbody tr').length).toBe(6);
+  expect(container.querySelector('input[type="range"]')).toBeNull();
+});

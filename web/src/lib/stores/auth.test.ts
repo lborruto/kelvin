@@ -31,6 +31,17 @@ describe('AuthStore', () => {
     expect(await s.refresh()).toBe(null);
   });
 
+  it('meFailed says /auth/me failed (not merely not answered yet), until it answers', async () => {
+    const s = new AuthStore();
+    expect(s.meFailed).toBe(false);
+    vi.mocked(api.me).mockRejectedValueOnce(new ApiError(0, 'Kelvin est injoignable.'));
+    await s.refresh();
+    expect(s.meFailed).toBe(true);
+    vi.mocked(api.me).mockResolvedValueOnce({ email: 'demo@kelvin.local', logged_in: true });
+    await s.refresh();
+    expect(s.meFailed).toBe(false);
+  });
+
   it('login stores the email; logout forgets it', async () => {
     const s = new AuthStore();
     vi.mocked(api.login).mockResolvedValueOnce({ email: 'demo@kelvin.local', logged_in: true });

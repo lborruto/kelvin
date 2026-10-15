@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8');
@@ -92,5 +92,31 @@ describe('field boundary token', () => {
       expect(contrast(t['--mu'], t['--in'])).toBeGreaterThanOrEqual(3);
       expect(contrast(t['--mu'], t['--s2'])).toBeGreaterThanOrEqual(3);
     }
+  });
+});
+
+describe('Tempo day tokens (ruling 2)', () => {
+  it('blue and red reach 3:1 on every surface and stay off the heat and state hues; white is a colour', () => {
+    for (const [t, theme] of [[tokens(':root'), 'dark'], [tokens(":root[data-theme='light']"), 'light']] as const) {
+      for (const k of ['--tempo-blue', '--tempo-red']) {
+        expect(t[k], `${theme} ${k}`).toMatch(/^#[0-9a-f]{6}$/);
+        expect([t['--cool'], t['--warm'], t['--bad']]).not.toContain(t[k]);
+        for (const s of ['--s1', '--s2', '--bg']) expect(contrast(t[k], t[s]), `${theme} ${k} on ${s}`).toBeGreaterThanOrEqual(3);
+      }
+      expect(t['--tempo-white'], `${theme} --tempo-white`).toMatch(/^#[0-9a-f]{6}$/);
+    }
+  });
+  it('are used only by the Tempo day chip', () => {
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.(svelte|ts|css)$/.test(e.name) && !e.name.endsWith('.test.ts')) files.push(p);
+      }
+    };
+    walk(resolve(process.cwd(), 'src'));
+    const users = files.filter((f) => readFileSync(f, 'utf8').includes('var(--tempo-')).map((f) => f.split('/').pop());
+    expect(users).toEqual(['TempoDot.svelte']);
   });
 });

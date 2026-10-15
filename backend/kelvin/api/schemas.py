@@ -5,7 +5,15 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from kelvin.billing.slots import Slot as HcSlot
-from kelvin.billing.tariff import Prices, TariffUpdate
+from kelvin.billing.tariff import (
+    HcSchedule,
+    HcVariant,
+    PriceRow,
+    Prices,
+    Tariff,
+    TariffUpdate,
+    TempoHours,
+)
 from kelvin.errors import UserError
 from kelvin.house.model import DAY_ORDER
 
@@ -176,10 +184,73 @@ class TariffBody(BaseModel):
         )
 
 
+class PriceRowBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    valid_from: date
+    option: str = Field(max_length=10)
+    subscription_eur_month: float
+    rates: dict[Annotated[str, Field(max_length=16)], float] = Field(max_length=6)
+
+
+class HcVariantBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    months: list[int] = Field(min_length=1, max_length=12)
+    slots: list[HcSlotBody] = Field(min_length=1, max_length=3)
+
+
+class HcScheduleBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    valid_from: date
+    variants: list[HcVariantBody] = Field(min_length=1, max_length=4)
+
+
+class TempoHoursBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hc_start: str = Field(default="22:00", max_length=5)
+    hc_end: str = Field(default="06:00", max_length=5)
+    day_start: str | None = None  # echoed back by clients; fixed at 06:00, ignored
+
+
+class TariffDocBody(BaseModel):
+    """The tariff v2 document (spec §2.2), replaced as a whole. Codes come from
+    `Tariff.validate` (kelvin/errors.py)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kva: int
+    prices: list[PriceRowBody] = Field(max_length=100)
+    hc_schedules: list[HcScheduleBody] = Field(default_factory=list, max_length=24)
+    tempo_hours: TempoHoursBody = Field(default_factory=TempoHoursBody)
+
+    def to_tariff(self) -> Tariff:
+        return Tariff.build(
+            self.kva,
+            [
+                PriceRow.make(p.valid_from, p.option, p.subscription_eur_month, p.rates)
+                for p in self.prices
+            ],
+            [
+                HcSchedule(
+                    s.valid_from,
+                    tuple(
+                        HcVariant(tuple(v.months), tuple(HcSlot(x.start, x.end) for x in v.slots))
+                        for v in s.variants
+                    ),
+                )
+                for s in self.hc_schedules
+            ],
+            TempoHours(self.tempo_hours.hc_start, self.tempo_hours.hc_end),
+        )
+
+
 class SettingsBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    tariff: TariffBody
+    tariff: TariffDocBody | TariffBody
 
 
 class LinkyBody(BaseModel):

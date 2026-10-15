@@ -30,7 +30,7 @@ const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({
   prices: [{ valid_from: '2026-01-01', subscription_eur_month: 15, rates: { hc: 0.2, hp: 0.3 } }],
   retro_priced: false, present_days: 30, curve: null,
   radiators: { kwh: 140, hc_kwh: 60, hp_kwh: 80, eur: 35, interpolated: false, apportioned: false, coverage: 1 },
-  rest_kwh: 160, ...o
+  rest_kwh: 160, tempo: null, by_rate: null, missing_colour_days: 0, retro_scheduled: false, ...o
 });
 const NONE: Partial<EnergySummary> = {
   kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, eur: null, rest_kwh: null, present_days: 0, prices: []
@@ -48,11 +48,13 @@ const october = () =>
 
 const QUALITY: Quality = {
   fallback_share: null, fallback_method: null, estimated_days: 0, curve_vs_daily_pct: null, linky_since: '2025-11-01',
-  curve_since: '2025-11-01', radiators_since: '2026-09-01', retro_priced_days: 0
+  curve_since: '2025-11-01', radiators_since: '2026-09-01', retro_priced_days: 0,
+  missing_colour_days: 0, retro_scheduled_days: 0
 };
 
 function report(o: Partial<EnergyReport> = {}): EnergyReport {
   return {
+    option: 'hchp', tempo_lens: null,
     group: 'day', from: '2026-10-01', to: '2026-11-01', last_day: '2026-10-12', linky: true, tariff: true,
     buckets: october(),
     total: summary(),
@@ -92,8 +94,8 @@ function energyDay(date: string, o: Partial<EnergyDay> = {}): EnergyDay {
   return {
     date, complete: true, points: 2,
     intervals: [
-      { ts: a, minutes: 30, wh: 400, w: 800, offpeak: 1, boundary: false, price: 0.2, eur: 0.08, radiators_wh: 200, radiators_known: 1, radiators_total: 1, radiators_interp: false, radiators_apportioned: false, by_room: { salon: 200 } },
-      { ts: a + 1800, minutes: 30, wh: 300, w: 600, offpeak: 0, boundary: false, price: 0.3, eur: 0.09, radiators_wh: 100, radiators_known: 1, radiators_total: 1, radiators_interp: false, radiators_apportioned: false, by_room: { salon: 100 } }
+      { ts: a, minutes: 30, wh: 400, w: 800, offpeak: 1, tempo_colour: null, boundary: false, price: 0.2, eur: 0.08, radiators_wh: 200, radiators_known: 1, radiators_total: 1, radiators_interp: false, radiators_apportioned: false, by_room: { salon: 200 } },
+      { ts: a + 1800, minutes: 30, wh: 300, w: 600, offpeak: 0, tempo_colour: null, boundary: false, price: 0.3, eur: 0.09, radiators_wh: 100, radiators_known: 1, radiators_total: 1, radiators_interp: false, radiators_apportioned: false, by_room: { salon: 100 } }
     ],
     totals: { curve_kwh: 21.6, daily_kwh: 22.03, hc_kwh: 8.98, hp_kwh: 13.05, split_method: 'curve', hc_kwh_curve: 8.8, hp_kwh_curve: 12.8 },
     power: { peak_w: 6840, peak_ts: a + 3600 * 19, base_w_p10: 310, night_min_w: 280, kva: 12 },
@@ -410,6 +412,19 @@ describe('Énergie', () => {
     expect(container.querySelectorAll('line.gap')).toHaveLength(1);
   });
 
+  it('under Base the bars carry the whole consumption in one series, and the legend has no HC/HP', async () => {
+    const days = october().map((b, i) => (i < 12 ? { ...b, hc_kwh: null, hp_kwh: null } : b));
+    vi.mocked(api.energyReport).mockResolvedValue(report({ option: 'base', buckets: days, total: summary({ hc_kwh: null, hp_kwh: null }) }));
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
+    expect(cell(container, 'Consommation de la maison par jour', '3/10', 'Maison')).toMatch(/^10/);
+    expect(container.querySelectorAll('rect.part').length).toBeGreaterThan(0);
+    const legend = container.querySelector('ul.legend')!;
+    expect(legend).toHaveTextContent('Consommation');
+    expect(legend).not.toHaveTextContent('Heures creuses');
+    expect(legend).not.toHaveTextContent('Heures pleines');
+  });
+
   it('a failed curve says so, and Réessayer reads it again', async () => {
     vi.mocked(api.energyDay).mockRejectedValueOnce(new Error('boom'));
     render(Page);
@@ -435,6 +450,12 @@ describe('Énergie', () => {
     expect(screen.getByText('Répartition heures creuses / pleines estimée pour 3 jours sans courbe complète.')).toBeInTheDocument();
     expect(screen.getByText('Radiateurs : énergie répartie sur une interruption de l’enregistrement (est.).')).toBeInTheDocument();
     expect(screen.getByText('Prix du 5/10 appliqué aux jours antérieurs.')).toBeInTheDocument();
+  });
+
+  it('names the days whose energy has no Tempo colour (hero)', async () => {
+    vi.mocked(api.energyReport).mockResolvedValue(report(periodWith({ kwh: 300, missing_colour_days: 2 })));
+    render(Page);
+    expect(await screen.findByText(/énergie de 2 jours sans couleur Tempo non comptée/)).toBeInTheDocument();
   });
 
   it('Jour: the hero and Qualité describe the selected day, not the 7 days of bars (final review I-1)', async () => {

@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterable
 from datetime import date, timedelta
 from typing import Any
 
-from kelvin.billing.costs import DayEnergy, energy_eur
+from kelvin.billing.costs import DayEnergy
 from kelvin.billing.tariff import Tariff
 
 MAX_DROPPED = 0.2
@@ -55,7 +55,7 @@ def _r(v: float | None, n: int = 3) -> float | None:
 
 
 def _eur(e: DayEnergy, tariff: Tariff | None) -> float | None:
-    return energy_eur(e, tariff.prices_on(e.day)) if tariff else None
+    return e.energy_eur if tariff else None
 
 
 def _paired(

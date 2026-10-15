@@ -24,7 +24,7 @@ from kelvin.labels import Label
 from kelvin.overkiz.errors import GatewayError, SetupNotFoundError
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import DeviceUpdate, PlaceEvent, SetupEvent, SetupPlace
-from kelvin.overkiz.servers import DEFAULT_SERVER, is_cozytouch
+from kelvin.overkiz.servers import is_cozytouch
 from kelvin.setup.validate import clean_label, device_label, room_label
 
 log = logging.getLogger(__name__)
@@ -141,7 +141,7 @@ class SetupService:
         self._settle_due = False
         # Plan 12: Kelvin writes the setup (rooms, placement, labels) on the Cozytouch servers
         # only; on an experimental server the maker's app stays the place for that.
-        self.writable = is_cozytouch(getattr(gateway, "server", DEFAULT_SERVER))
+        self.writable = is_cozytouch(getattr(gateway, "server", ""))  # no server: not writable
         self._settle_final = False
         self._settle_at = float("-inf")  # not before (a failed settle read waits SETTLE_RETRY_S)
         self._settle_failures: dict[str, int] = {}

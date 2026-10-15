@@ -79,7 +79,9 @@
         ? m.quality.estimated(quality.estimated_days, fmtPct1(quality.fallback_share), m.quality.method[quality.fallback_method])
         : null,
       quality.curve_vs_daily_pct != null ? m.quality.gap(fmtPct1(quality.curve_vs_daily_pct / 100)) : null,
-      quality.retro_priced_days > 0 ? m.quality.retro(quality.retro_priced_days) : null
+      quality.retro_priced_days > 0 ? m.quality.retro(quality.retro_priced_days) : null,
+      quality.missing_colour_days > 0 ? m.energyTariff.qualityColours(quality.missing_colour_days) : null,
+      quality.retro_scheduled_days > 0 ? m.energyTariff.qualityRetro(quality.retro_scheduled_days) : null
     ].filter((x): x is string => !!x)
   );
 </script>

@@ -1,6 +1,7 @@
 import { api, ApiError } from '$lib/api/client';
 import type { Me, ServerInfo } from '$lib/api/types';
 import { alerts } from './alerts.svelte';
+import { grid } from './grid.svelte';
 import { history } from './history.svelte';
 import { house } from './house.svelte';
 import { resetRoomData } from './roomdata.svelte';
@@ -13,6 +14,8 @@ export class AuthStore {
   simulator = $state(false);
   /** The home's Overkiz server (Plan 12), once logged in. */
   server = $state<ServerInfo | null>(null);
+  /** The last /auth/me failed (Kelvin unreachable): « not known yet » will not resolve by itself. */
+  meFailed = $state(false);
 
   apply(me: Me): void {
     this.email = me.email;
@@ -26,8 +29,10 @@ export class AuthStore {
     try {
       const me = await api.me();
       this.apply(me);
+      this.meFailed = false;
       return me.logged_in;
     } catch {
+      this.meFailed = true;
       return null;
     }
   }
@@ -45,6 +50,7 @@ export class AuthStore {
     history.reset();
     resetRoomData();
     alerts.reset();
+    grid.reset();
   }
 
   /** A 401 means the session is already gone (success); any other failure rejects and changes nothing. */

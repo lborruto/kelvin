@@ -7,6 +7,7 @@
   import CurvePanel from '$lib/components/CurvePanel.svelte';
   import EnergyBars from '$lib/components/EnergyBars.svelte';
   import EnergyHero from '$lib/components/EnergyHero.svelte';
+  import GridStrip from '$lib/components/GridStrip.svelte';
   import ExportPanel from '$lib/components/ExportPanel.svelte';
   import HcHpPanel from '$lib/components/HcHpPanel.svelte';
   import HeatingPanel from '$lib/components/HeatingPanel.svelte';
@@ -91,8 +92,10 @@
   let unitWord = $derived(m.energyPage.unit[group]);
 
   let split = $derived(!!main?.tariff);
-  let names = $derived<Record<string, string>>(split ? { hc: m.energyPage.hc, hp: m.energyPage.hp } : { home: m.energyPage.home });
-  let colors = $derived<Record<string, string>>(split ? { hc: SERIES.hc, hp: SERIES.hp } : { home: SERIES.home });
+  // A bucket with no off-peak split (Base, or a Base day inside a longer bucket) draws its whole consumption as one series.
+  const splitOf = (b: { hc_kwh: number | null }) => split && b.hc_kwh != null;
+  let names = $derived<Record<string, string>>({ hc: m.energyPage.hc, hp: m.energyPage.hp, home: m.energyPage.consumption });
+  let colors = $derived<Record<string, string>>({ hc: SERIES.hc, hp: SERIES.hp, home: SERIES.home });
   // The house chart starts at the first counted bucket (Linky data, or a counted day without it, which pays its
   // subscription): earlier ones are not gaps.
   let trimmed = $derived(chart?.linky ? firstCounted(chart.buckets) : 0);
@@ -102,7 +105,7 @@
       label: bucketLabel(b.key, group),
       parts: !chart?.linky
         ? [{ key: 'rad', value: b.radiators?.kwh ?? null }]
-        : split
+        : splitOf(b)
           ? [{ key: 'hc', value: b.hc_kwh }, { key: 'hp', value: b.hp_kwh }]
           : [{ key: 'home', value: b.kwh }]
     }))
@@ -218,7 +221,8 @@
 {:else if linkyNote}
   <p class="callout" class:bad={linkyNote.bad} role="status">{linkyNote.text}{#if linkyNote.link}&nbsp;<a href="{ROUTES.home}#{ANCHORS.linky}">{linkyNote.link}</a>{/if}</p>
 {/if}
-{#if ready}{#each alerts.of(['price_change', 'consent_expiring', 'linky_stalled']) as a (a.id)}<AlertCallout alert={a} />{/each}{/if}
+{#if ready}{#each alerts.of(['price_change', 'consent_expiring', 'linky_stalled', 'hc_changed']) as a (a.id)}<AlertCallout alert={a} />{/each}{/if}
+{#if ready}<GridStrip />{/if}
 {#if ready && main?.last_day}<p class="muted fresh">{m.energyPage.fresh(fmtDay(main.last_day))}</p>{/if}
 {#if data.error}<p class="error" role="alert">{data.failed ? m.energyPage.failedPeriod(periodTitle(data.failed.view, data.failed.period), data.error()) : data.error()} <button type="button" class="btn btn-sm" onclick={() => navigate(() => data.retry())}>{m.energyPage.retry}</button></p>{/if}
 
@@ -251,11 +255,12 @@
         {drillLabel}
         onswipe={step} />
       <ul class="legend">
-        {#if split}
+        {#if bars.some(splitOf)}
           <li><span class="swatch" style:background={SERIES.hc}></span>{m.energyPage.hc}</li>
           <li><span class="swatch" style:background={SERIES.hp}></span>{m.energyPage.hp}</li>
-        {:else}
-          <li><span class="swatch" style:background={SERIES.home}></span>{m.energyPage.home}</li>
+        {/if}
+        {#if bars.some((b) => !splitOf(b))}
+          <li><span class="swatch" style:background={SERIES.home}></span>{m.energyPage.consumption}</li>
         {/if}
         <li><span class="line" style:background={SERIES.radiators}></span>{m.energyPage.radiators}</li>
       </ul>
@@ -307,7 +312,7 @@
     {#if loaded.view === 'day' || loaded.view === 'week'}
       <PowerPanel view={loaded.view} day={powerDay} week={main.period.curve} failed={!!data.dayError} class={trio.power} />
     {/if}
-    <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} class={trio.hchp} />
+    <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} option={main.option} tempo={main.tempo_lens} class={trio.hchp} />
     <HeatingPanel heating={main.heating} radiators={main.period.radiators} restKwh={main.period.rest_kwh} {running} class={trio.heating} />
   {/if}
 
@@ -317,7 +322,7 @@
     <ProjectionPanel projection={main.projection} last={main.last_day} today={today.iso} class="half" />
   {/if}
 
-  <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="wide" />
+  <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} split={main.option !== 'base'} class="wide" />
 
   <!-- Collapsed: where every estimate comes from, opened by the « est. » links (#quality). -->
   {#if main.linky}

@@ -1,4 +1,5 @@
 import asyncio
+import json
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -675,6 +676,53 @@ def test_rooms_duty_is_routed_before_any_room_id_route():
     paths = [r.path for r in router.routes]
     first_room = next(i for i, p in enumerate(paths) if p.startswith("/rooms/{room_id}"))
     assert paths.index("/rooms/duty") < first_room
+
+
+async def test_grid_and_sources_in_the_simulator(ctx):
+    c, rt, _ = ctx
+    rt.linky.sync.state.calls = 0  # a fresh MED day for this test
+    q = rt.broadcaster.subscribe()
+    await rt.grid.ecowatt_job()
+    [event] = [q.get_nowait() for _ in range(q.qsize())]
+    rt.broadcaster.unsubscribe(q)
+    assert event["event"] == "grid"  # SSE: the same object as GET /api/grid, after the fetch
+    g = (await c.get("/api/grid")).json()
+    assert g["tempo"] is None  # the simulator's tariff is HC/HP: no Tempo colour
+    assert [d["level"] for d in g["ecowatt"]["days"]][:2] == [1, 2]
+    s = (await c.get("/api/status")).json()["sources"]
+    assert s["ecowatt"]["state"] in ("never", "ok") and s["tempo"]["enabled"] is False
+    assert s["med"]["budget"] == rt.linky.sync.budget and s["med"]["grid_calls_today"] >= 1
+    assert rt.snapshot()["grid"] == g and json.loads(event["data"]) == g
+
+
+async def test_an_ecowatt_orange_day_becomes_an_alert_for_an_hc_hp_home(ctx):
+    c, rt, _ = ctx
+    rt.linky.sync.state.calls = 0  # a fresh MED day for this test
+    await rt.grid.ecowatt_job()  # the simulator: orange tomorrow
+    rt.alerts.evaluate()
+    kinds = {a["kind"]: a for a in (await c.get("/api/alerts")).json()}
+    assert kinds["ecowatt"]["params"]["level"] == 2 and kinds["ecowatt"]["severity"] == "warn"
+    assert "tempo_red_tomorrow" not in kinds
+
+
+async def test_the_grid_fetch_and_the_contract_re_read_ask_the_alerts_engine(ctx):
+    c, rt, _ = ctx
+    asked: list[int] = []
+    rt.alerts.request = lambda: asked.append(1)
+    rt.linky.sync.state.calls = 0  # a fresh MED day for this test
+    await rt.grid.ecowatt_job()
+    assert len(asked) == 1  # tempo_red_tomorrow, ecowatt
+    source = rt.linky.sync.source
+    source.contract_offpeak = "HC (23H00-7H00)"  # Enedis moved the off-peak hours
+    rt.linky.sync.on_contract(await source.fetch_contract())
+    assert len(asked) == 2  # hc_changed
+    assert rt.linky.tariffs.contract_last()["offpeak"] == [{"start": "23:00", "end": "07:00"}]
+    rt.alerts.evaluate()
+    [hc] = [a for a in (await c.get("/api/alerts")).json() if a["kind"] == "hc_changed"]
+    assert (hc["severity"], hc["params"]) == (
+        "info",
+        {"slots": [{"start": "23:00", "end": "07:00"}]},
+    )
 
 
 async def test_the_boost_end_follows_the_injected_wall_clock(tmp_path):

@@ -10,7 +10,7 @@ const a = parisDayStart('2026-10-13') / 1000;
 const day = (o: Partial<EnergyDay> = {}): EnergyDay => ({
   date: '2026-10-13', complete: true, points: 48,
   intervals: Array.from({ length: 48 }, (_, i) => ({
-    ts: a + i * 1800, minutes: 30, wh: 500, w: 1000, offpeak: 1, boundary: false, price: 0.25, eur: 0.125,
+    ts: a + i * 1800, minutes: 30, wh: 500, w: 1000, offpeak: 1, tempo_colour: null, boundary: false, price: 0.25, eur: 0.125,
     radiators_wh: null, radiators_known: 0, radiators_total: 0, radiators_interp: false, radiators_apportioned: false, by_room: {}
   })),
   totals: { curve_kwh: 24, daily_kwh: 24, hc_kwh: 8, hp_kwh: 16, split_method: 'curve', hc_kwh_curve: 8, hp_kwh_curve: 16 },

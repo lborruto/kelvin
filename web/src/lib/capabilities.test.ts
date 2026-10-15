@@ -73,6 +73,6 @@ describe('canEditSetup', () => {
   it('is false on an experimental server only', () => {
     expect(canEditSetup({ id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true })).toBe(true);
     expect(canEditSetup({ id: 'flexom', name: 'Flexom', tier: 'experimental', default: false })).toBe(false);
-    expect(canEditSetup(null)).toBe(true); // unknown: the backend still refuses (403 setup_experimental)
+    expect(canEditSetup(null)).toBe(false); // unknown yet: hidden until the server is known
   });
 });

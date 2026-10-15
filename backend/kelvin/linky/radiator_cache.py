@@ -11,7 +11,9 @@ complete day reads the same forever, unless
 - a radiator's power changes (it bounds what `clean_spans` accepts): that radiator's days go;
 - the recorder rewrites history (`Recorder.energy_epoch`: a reading that replaces or predates its
   radiator's last one, a sample not after the newest sample and reading, or pruned samples):
-  everything goes.
+  everything goes;
+- a complete day whose € is unknown (a Tempo colour not published yet) is never kept; it is
+  replayed until it is priced.
 Every other day (today, the days since a counter last moved, a gap) is computed on every request,
 as before; the days before a radiator's first reading hold nothing and are not computed at all.
 Bounded: at most `max_days` radiator-days, the least recently used out first.
@@ -21,6 +23,7 @@ from __future__ import annotations
 
 import threading
 from collections import OrderedDict
+from collections.abc import Mapping
 from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
@@ -67,10 +70,13 @@ class RadiatorDayCache:
         ranges: list[tuple[date, date]],
         tariff: Tariff | None,
         first_reading: dict[str, int],
+        *,
+        colours: Mapping[date, str] | None = None,
     ) -> dict[str, dict[date, RadiatorDay]]:
         """Each radiator's RadiatorDay over `ranges` ([lo, hi) local days), as `radiator_days`
         gives them from `recorder.energy_buckets`: the cached days as they are, the others
-        computed. `first_reading`: each recorded radiator's first reading time."""
+        computed. `first_reading`: each recorded radiator's first reading time. `colours`: Tempo
+        colour per Tempo day, forwarded to `radiator_days`."""
         ids = sorted(first_reading)
         out: dict[str, dict[date, RadiatorDay]] = {}
         with self._lock:
@@ -99,7 +105,9 @@ class RadiatorDayCache:
         for rid, lo, hi in todo:  # outside the lock: the long part
             edges = local_edges(lo, hi, "halfhour", self.tz)
             rows = recorder.energy_buckets(edges, [rid])
-            computed.append((rid, radiator_days(rows[rid], edges, tariff, self.tz)))
+            computed.append(
+                (rid, radiator_days(rows[rid], edges, tariff, self.tz, colours=colours))
+            )
         with self._lock:
             fresh = tariff == self._tariff and recorder.energy_epoch == self._epoch
             for rid, per in computed:
@@ -111,7 +119,9 @@ class RadiatorDayCache:
                 if not fresh or self._power.get(rid) != powers[rid] or power != powers[rid]:
                     continue
                 for d, rd in per.items():
-                    if rd.complete:
+                    # A day priced with an unknown Tempo colour is not final: it is computed again
+                    # until its colour arrives (a published colour never changes afterwards).
+                    if rd.complete and (tariff is None or rd.eur is not None):
                         self._days[(rid, d)] = rd
                         self._days.move_to_end((rid, d))
             while len(self._days) > self.max_days:

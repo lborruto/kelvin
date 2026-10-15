@@ -96,8 +96,12 @@ def plan_setpoint(r: Radiator, kind: str, value: float) -> Planned:
     value = float(value)
     p = r.profile
     if kind == "manual":
-        _check_temp(value, p.manual_min, r.max_temperature, "manual")
+        # The profile decides, not only the device: a pilot-wire heater declaring
+        # setTargetTemperature still has no manual setpoint (capabilities(r).manual is None).
         cmd = p.setpoint_command or "setTargetTemperature"
+        if p.setpoint_command is None or r.capabilities.manual is None:
+            raise CommandError("unsupported_command", command=cmd)
+        _check_temp(value, p.manual_min, r.max_temperature, "manual")
         state = p.setpoint_state or "core:TargetTemperatureState"
     elif kind == "comfort":
         _check_temp(value, COMFORT_MIN, r.max_temperature, "comfort")
