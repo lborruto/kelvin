@@ -22,14 +22,14 @@ describe('infoRows', () => {
     });
     expect(infoRows(base, now).map((x) => x.label)).toEqual(['Modèle', 'Puissance', 'Niveau de signal', 'Connexion', 'Dernier signal']);
   });
-  it('unreachable since today shows the time, since an earlier day the date', () => {
+  it('offline since today shows the time, since an earlier day the date', () => {
     applyLocale('fr');
     const today = { ...base, reachable: false, unreachable_since: Date.parse('2026-10-14T12:05:00Z') / 1000 };
-    expect(values(today).reach).toBe('Injoignable depuis 14:05');
-    expect(infoRows(today, now).find((x) => x.key === 'reach')!.bad).toBe(true);
+    expect(values(today).reach).toBe('Hors ligne depuis 14:05');
+    expect(infoRows(today, now).find((x) => x.key === 'reach')!.bad).toBe(false); // offline is a normal state here: muted, never red
     const earlier = { ...base, reachable: false, unreachable_since: Date.parse('2026-10-12T06:00:00Z') / 1000 };
-    expect(values(earlier).reach).toMatch(/^Injoignable depuis .*12.*08:00$/);
-    expect(values({ ...base, reachable: false, unreachable_since: null }).reach).toBe('Injoignable');
+    expect(values(earlier).reach).toMatch(/^Hors ligne depuis .*12.*08:00$/);
+    expect(values({ ...base, reachable: false, unreachable_since: null }).reach).toBe('Hors ligne');
   });
   it('Infos shows — for every unknown', () => {
     applyLocale('fr');
@@ -41,7 +41,7 @@ describe('infoRows', () => {
   it('English', () => {
     applyLocale('en');
     expect(values({ ...base, reachable: false, unreachable_since: Date.parse('2026-10-14T12:05:00Z') / 1000 })).toMatchObject({
-      reach: 'Unreachable since 14:05', last: `3${NB}min ago`
+      reach: 'Offline since 14:05', last: `3${NB}min ago`
     });
     expect(infoRows(base, now)[2].label).toBe('Signal level');
     applyLocale('fr');

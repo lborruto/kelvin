@@ -5,9 +5,9 @@ test.describe.configure({ mode: 'serial' });
 // The simulator applies a setup write 2 s after it is sent; the pump confirms it on its next poll.
 const WAIT = { timeout: 15_000 };
 
-test('rooms: create → move a radiator → Pièces updates → move back → delete the empty room', async ({ page, isMobile }) => {
-  // Pièces: a card is a button on the phone (expands in place) and a link on desktop (kelvin.spec.ts).
-  const card = isMobile ? 'button' : 'link';
+test('rooms: create → move a radiator → Pièces updates → move back → delete the empty room', async ({ page }) => {
+  // Pièces: every card is a link to its room (kelvin.spec.ts).
+  const card = 'link';
   await page.goto('/home/devices');
   await expect(page.getByRole('heading', { level: 1, name: 'Pièces et appareils' })).toBeVisible();
   const room = (name: string) => page.locator('section', { has: page.getByRole('heading', { name, exact: true }) });

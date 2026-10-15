@@ -1,316 +1,287 @@
 <script lang="ts">
-  import { roomName } from '$lib/setup';
-  import { fade, slide } from 'svelte/transition';
+  import { fade } from 'svelte/transition';
   import type { Room } from '$lib/api/types';
-  import { run, retry } from '$lib/actions';
-  import { api } from '$lib/api/client';
-  import { activityKey, dutyText } from '$lib/activity';
+  import { retry } from '$lib/actions';
   import { fmtTemp } from '$lib/format';
-  import { levelLabel, m, modeLabel } from '$lib/i18n';
-  import { heatColor } from '$lib/heat';
-  import { dur, easeOut, flash, T } from '$lib/motion';
-  import { Settle } from '$lib/settle.svelte';
-  import { fmtNextChange, nextChange } from '$lib/program';
+  import { m } from '$lib/i18n';
+  import { dur, flash, T } from '$lib/motion';
   import { ROUTES } from '$lib/paths';
-  import { agg } from '$lib/room';
+  import { Settle } from '$lib/settle.svelte';
+  import { roomName } from '$lib/setup';
+  import { roomReading, roomStatus } from '$lib/status';
   import { house } from '$lib/stores/house.svelte';
-  import { roomActivity, roomsDuty } from '$lib/stores/roomdata.svelte';
   import type { StripPoint } from '$lib/stores/history.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
   import Icon from './Icon.svelte';
-  import ModeSwitch from './ModeSwitch.svelte';
-  import OverrideBadge from './OverrideBadge.svelte';
   import PendingEdge from './PendingEdge.svelte';
   import PendingTag from './PendingTag.svelte';
-  import Stepper from './Stepper.svelte';
   import ThermalStrip from './ThermalStrip.svelte';
 
   interface Props {
     room: Room;
     now: number;
-    expanded: boolean;
     points: StripPoint[];
-    onselect: () => void;
-    /** Desktop: the card is a link to the room (its inspector); phone: a button that expands it. */
-    navigates?: boolean;
-    /** False for the card opened by default: it is simply there, not slid open under the cards below it. */
-    animate?: boolean;
+    /** Desktop: the room opens in the inspector beside the list (focus and scroll stay). Phone: its own page. */
+    desktop?: boolean;
     /** The room shown in the inspector (desktop). */
     selected?: boolean;
     /** This card's room is the page's URL (a room page, not "/"). */
     current?: boolean;
   }
-  let { room, now, expanded, points, onselect, navigates = false, animate = true, selected = false, current = false }: Props = $props();
-  const uid = $props.id();
+  let { room, now, points, desktop = false, selected = false, current = false }: Props = $props();
   // The phone card's figure becomes the room page's figure (a shared-element view transition).
   // Named by the room's position, which is unique whatever characters its id holds.
-  let vtName = $derived(navigates ? undefined : `temp-${house.rooms.findIndex((r) => r.id === room.id)}`);
+  let vtName = $derived(desktop ? undefined : `temp-${house.rooms.findIndex((r) => r.id === room.id)}`);
 
   let radiators = $derived(house.roomRadiators(room.id));
-  let unreachable = $derived(radiators.some((r) => r.reachable === false));
-  let first = $derived(radiators[0]);
   let expected = $derived(house.roomExpected(room.id));
   let pending = $derived(house.pendingFor(room.radiator_ids));
   let override = $derived(house.overrideFor(room.id));
-  let mode = $derived(expected.mode ?? room.mode);
-  let maxT = $derived(Math.min(...radiators.map((r) => r.max_temperature), 28));
+  let status = $derived(roomStatus(room, radiators, override, expected, now));
+  let offline = $derived(status.kind === 'offline');
+  // What the radiators report, without the request: the sentence closes solid when they match.
+  let reported = $derived(roomStatus(room, radiators, override, {}, now).text);
+  const settle = new Settle<string>(() => (status.pending ? status.text : null), () => reported);
+  let reading = $derived(roomReading(room, radiators));
+  let heating = $derived(!offline && status.kind !== 'off' && house.roomHeating(room.id));
   let start = $derived(parisMidnight(now));
   let end = $derived(addParisDays(start, 1));
-  let change = $derived(mode === 'program' && first ? nextChange(first.program, now) : null);
-  let heating = $derived(house.roomHeating(room.id));
-  let actKey = $derived(activityKey(room.id, start, Math.min(end, now)));
-  $effect(() => {
-    const [id, a, z] = [room.id, Math.floor(start / 1000), Math.floor(Math.min(end, now) / 1000)];
-    roomActivity.load(actKey, () => api.roomActivity(id, a, z));
-    roomsDuty.load('all', () => api.roomsDuty());
-  });
-  let activity = $derived(roomActivity.data[actKey]?.value ?? null);
-  let dutyEntry = $derived(roomsDuty.data.all);
-  let duty = $derived(dutyEntry?.value?.rooms[room.id]?.duty ?? null);
-  // Radiators that disagree leave the room value null: step from their mean, as the inspector does.
-  let aTarget = $derived(agg(radiators.map((r) => r.target)));
-  let aComfort = $derived(agg(radiators.map((r) => r.comfort)));
-  let level = $derived(room.mode === 'off' ? null : room.heating_level);
-  // The comfort asked for, underlined dashed on the setpoint until the radiators report it.
-  const comfortSettle = new Settle<number>(() => expected.comfort ?? null, () => aComfort.value);
-  // After the answer, the requested value stays only if the radiators confirmed it.
-  let shownComfort = $derived(
-    mode === 'program' ? (expected.comfort ?? (comfortSettle.confirmed ? comfortSettle.held?.v : undefined)) : undefined
+  let name = $derived(roomName(room));
+  let target = $derived(status.target == null ? null : m.room.target(fmtTemp(status.target)));
+  let partial = $derived(status.someOffline ? m.status.someOffline(status.someOffline.k, status.someOffline.n) : null);
+  // One sentence for screen readers, from the parts the card shows.
+  let label = $derived(
+    (
+      offline
+        ? [name, status.text, status.hint ?? '']
+        : [name, fmtTemp(reading), status.text, target ?? '', heating ? m.room.heatingNow : '', partial ?? ''].filter(Boolean)
+    ).join(', ')
   );
-
-  const setMode = (next: 'off' | 'manual' | 'program') => run(() => api.roomMode(room.id, next));
-  const setTarget = (v: number) => run(() => api.roomSetpoint(room.id, 'manual', v));
-  const setComfort = (v: number) => run(() => api.roomSetpoint(room.id, 'comfort', v));
+  let href = $derived(ROUTES.room(room.id));
 </script>
 
-{#snippet headInner()}
-  <span class="name">{roomName(room)}{#if !navigates}<span class="chev" aria-hidden="true"><Icon name="chevron" size={14} /></span>{/if}</span>
-  <span class="chips">
-    <span class="chip">{modeLabel(mode)}</span>
-    {#if level && level !== 'mixed' && levelLabel(level)}<span class="chip level">{levelLabel(level)}</span>{/if}
-    {#if room.window_open}<span class="chip warn"><Icon name="window" size={12} />{m.room.windowOpen}</span>{/if}
-    {#if unreachable}<span class="chip warn"><Icon name="alert" size={12} />{m.roomInfo.unreachableChip}</span>{/if}
-    <OverrideBadge {override} />
-    {#if heating && mode !== 'off'}<span class="chip heat">{m.room.heatingNow}</span>{/if}
-  </span>
-  <span class="temp num" style:view-transition-name={vtName}>{#key room.temperature}<span class="fig" style:color={heatColor(room.temperature)}
-      in:flash>{fmtTemp(room.temperature)}</span>{/key}</span>
-  <span class="setpoint num muted">
-    {#if mode === 'off'}{m.room.off}{:else if shownComfort !== undefined}<span class="pending-sp">→ {fmtTemp(shownComfort)}<PendingEdge
-          pending={expected.comfort !== undefined} confirmed={comfortSettle.confirmed} /></span>{:else}→ {fmtTemp(expected.target ?? room.effective_setpoint)}{/if}
-  </span>
-{/snippet}
-
-<article class="card" class:expanded class:selected class:link={navigates}>
-  {#if navigates}
-    <a class="head" href={ROUTES.room(room.id)} aria-current={current ? 'page' : undefined} data-sveltekit-keepfocus
-      data-sveltekit-noscroll>{@render headInner()}</a>
-  {:else}
-    <button type="button" class="head" aria-expanded={expanded} aria-controls="{uid}-controls" onclick={onselect}>{@render headInner()}</button>
-  {/if}
-
-  <ThermalStrip {points} {start} {end} {now} program={first?.program} mode={room.mode} comfort={room.comfort}
-    eco={room.eco} target={room.target} pendingTarget={expected.target ?? null} pendingComfort={expected.comfort ?? null}
-    axis={expanded} label={m.room.todayLabel(roomName(room))} {activity} />
-
-  <div class="foot">
-    <!-- The duty line's room is reserved from the first paint: a skeleton of its size until /rooms/duty answers. -->
-    <span class="muted next">{#if change}{fmtNextChange(change, now)}{/if}{#if dutyEntry}<span
-        title={m.room.dutyHint}>{change ? ' · ' : ''}{dutyText(duty)}</span>{:else}<span aria-hidden="true">{change ? ' · ' : ''}<span
-          class="skeleton duty-sk"></span></span>{/if}</span>
-    <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
-    {#if expanded}<a class="details" href={ROUTES.room(room.id)} in:fade={{ duration: dur(T.state) }}>{m.room.details}<Icon name="chevron" size={14} /></a>{/if}
-  </div>
-
-  {#if expanded}
-    <div class="controls" id="{uid}-controls" transition:slide={{ duration: animate ? dur(T.enter) : 0, easing: easeOut }}>
-      <ModeSwitch value={room.mode} pending={expected.mode ?? null} compact disabled={!house.online} onchange={setMode} />
-      {#if mode === 'manual'}
-        <div class="row"><span class="label">{m.room.setpoint}{#if aTarget.mixed && expected.target === undefined}<span class="note">{m.room.mixedMean}</span>{/if}</span>
-          <Stepper label={m.room.setpoint} announce={false} value={expected.target ?? aTarget.value} min={7} max={maxT} disabled={!house.online}
-            pending={expected.target !== undefined} onchange={setTarget} /></div>
-      {:else if mode === 'program'}
-        <div class="row"><span class="label">{m.room.comfort}{#if aComfort.mixed && expected.comfort === undefined}<span class="note">{m.room.mixedMean}</span>{/if}</span>
-          <Stepper label={m.room.comfort} announce={false} value={expected.comfort ?? aComfort.value} min={12} max={maxT} disabled={!house.online}
-            pending={expected.comfort !== undefined} onchange={setComfort} /></div>
-      {/if}
+{#if offline}
+  <article class="card off" class:selected>
+    <a class="cover" {href} aria-label={label} aria-current={current ? 'page' : undefined} data-sveltekit-keepfocus={desktop || undefined}
+      data-sveltekit-noscroll={desktop || undefined}><span class="name">{name}</span></a>
+    <span class="why">{status.text}<span class="sep" aria-hidden="true">{' · '}</span><span class="hint">{status.hint}</span></span>
+    <span class="plug" aria-hidden="true"><Icon name="plug-off" size={20} /></span>
+  </article>
+{:else}
+  <article class="card" class:selected>
+    <span class="nameline">
+      <a class="cover" {href} aria-label={label} aria-current={current ? 'page' : undefined} data-sveltekit-keepfocus={desktop || undefined}
+        data-sveltekit-noscroll={desktop || undefined}><span class="name">{name}</span></a>
+      {#if heating}<span class="heat" aria-hidden="true"><span class="dot"></span>{m.room.heatingNow}</span>{/if}
+      {#if partial}<span class="part" aria-hidden="true"><Icon name="plug-off" size={14} />{partial}</span>{/if}
+    </span>
+    <span class="temp num" style:view-transition-name={vtName} aria-hidden="true">{#key reading}<span class="fig"
+        in:flash>{fmtTemp(reading)}</span>{/key}</span>
+    <span class="status" aria-hidden="true">
+      {#key status.text}<span class="sentence" class:dashed={status.pending || settle.confirmed} in:fade={{ duration: dur(T.state) }}><span
+          class="lead {status.tone}">{#if status.kind === 'window'}<Icon name="window" size={14} />{/if}{status.lead}</span>{#if status.rest}{' · '}{status.rest}{/if}<PendingEdge
+            pending={status.pending} confirmed={!status.pending && settle.confirmed} /></span>{/key}
+    </span>
+    <span class="target num">
+      {#if pending}<PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />{:else if target}<span
+          class="muted" aria-hidden="true">{target}</span>{/if}
+    </span>
+    <div class="strip">
+      <ThermalStrip {points} {start} {end} {now} program={radiators[0]?.program} mode={room.mode} comfort={room.comfort} eco={room.eco}
+        target={room.target} pendingTarget={expected.target ?? null} pendingComfort={expected.comfort ?? null} height={32}
+        label={m.room.todayLabel(name)} />
     </div>
-  {/if}
-</article>
+  </article>
+{/if}
 
 <style>
   .card {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'name temp' 'status target' 'strip strip';
+    align-items: baseline;
+    column-gap: 12px;
     background: var(--s1);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     padding: 12px 14px;
-    display: grid;
-    gap: 8px;
     transition:
       border-color var(--t-state) ease,
       background-color var(--t-press) ease;
   }
   /* The card answers the pointer: a firmer edge on hover, a tone deeper while pressed. */
   @media (hover: hover) {
-    .card:has(.head:hover) {
+    .card:has(.cover:hover) {
       border-color: color-mix(in srgb, var(--line) 50%, var(--mu));
     }
   }
-  .card:has(.head:active) {
+  .card:has(.cover:active) {
     background: color-mix(in srgb, var(--s1) 60%, var(--s2));
+  }
+  /* The whole card is the link: its name stretches over it; the pending tag's buttons sit above. */
+  .cover {
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+    touch-action: manipulation;
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  .cover:focus-visible {
+    outline: none;
+  }
+  .card:has(.cover:focus-visible) {
+    outline: 2px solid var(--tx);
+    outline-offset: 2px;
   }
   /* The room in the inspector (desktop). */
   .card.selected {
     border-color: var(--mu);
   }
-  .head {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: 'name temp' 'chips setpoint';
-    align-items: baseline;
-    gap: 2px 12px;
-    background: none;
-    border: 0;
-    padding: 0;
-    text-align: left;
-    text-decoration: none;
-    cursor: pointer;
-    touch-action: manipulation;
-    border-radius: 6px;
-  }
   .name {
-    grid-area: name;
     font-weight: 600;
     font-size: 15px;
     overflow-wrap: anywhere;
   }
-  .chev {
-    display: inline-flex;
-    vertical-align: -2px;
-    margin-left: 6px;
-    color: var(--mu);
-    transform: rotate(90deg);
-    transition: transform var(--t-state) var(--ease-out);
-  }
-  .expanded .chev {
-    transform: rotate(-90deg);
-  }
-  .chips {
-    grid-area: chips;
+  .nameline {
+    grid-area: name;
+    min-width: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    align-items: baseline;
+    gap: 2px 10px;
   }
-  .chip {
+  .heat,
+  .part {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     font-size: 12px;
-    color: var(--mu);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 1px 6px;
+    white-space: nowrap;
   }
-  .chip.warn {
-    color: var(--bad);
-  }
-  /* Warm is the heating hue (DESIGN: blue and orange only for heat). */
-  .chip.heat {
+  /* Warm means heating (DESIGN: Heat Means Heat). */
+  .heat {
     color: var(--warm);
-    border-color: color-mix(in srgb, var(--warm) 40%, var(--line));
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--warm);
+  }
+  .part {
+    color: var(--mu);
   }
   .temp {
     grid-area: temp;
     font-size: 26px;
     font-weight: 600;
+    line-height: 1.15;
     letter-spacing: -0.02em;
     text-align: right;
   }
   .fig {
     display: inline-block;
   }
-  .setpoint {
-    grid-area: setpoint;
+  /* One line reserved on a wide card, two on a narrow one: a new sentence never moves the list. */
+  .status {
+    grid-area: status;
+    min-width: 0;
+    min-height: 20px;
     font-size: 13px;
-    text-align: right;
-    white-space: nowrap;
+    line-height: 20px;
   }
-  .pending-sp {
+  .sentence {
     position: relative;
+    display: inline;
+  }
+  .sentence.dashed {
     display: inline-block;
     padding-bottom: 2px;
   }
-  .foot {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    min-width: 0; /* a grid item: the nowrap line below must not widen the card */
-    min-height: 40px;
-    font-size: 13px;
-  }
-  /* Exactly two lines are reserved in both states (skeleton, then text), whatever the font: the foot's height depends neither
-     on the fallback font nor on the content (« 17:30 → Confort · chauffe 14 % sur 24 h » needs two at 320 px). */
-  .next {
-    flex: 1;
-    min-width: 0;
-    height: 40px;
-    line-height: 20px;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-  }
-  /* About the width of « chauffe 14 % sur 24 h » at the line's height, so the text lands in place. */
-  .duty-sk {
-    display: inline-block;
-    width: 20ch;
-    max-width: 100%;
-    height: 14px;
-    vertical-align: middle;
-  }
-  /* The 44 px link target spills into the gaps around the row instead of adding height. */
-  .expanded .foot {
-    margin-block: -12px;
-  }
-  .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .label {
-    font-size: 14px;
-  }
-  .note {
-    display: block;
-    font-size: 12px;
-    color: var(--mu);
-  }
-  .controls {
-    display: grid;
-    gap: 10px;
-    padding-top: 6px;
-    border-top: 1px solid var(--line);
-  }
-  .details {
+  .lead {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    min-height: 44px;
-    padding-left: 8px;
-    font-size: 13px;
+    gap: 4px;
+  }
+  .lead :global(svg) {
+    flex: none;
+  }
+  .lead.muted {
     color: var(--mu);
-    text-decoration: none;
-    transition: color var(--t-state) ease;
   }
-  .details:hover {
-    color: var(--tx);
+  .lead.warm {
+    color: var(--warm);
   }
-  @media (prefers-reduced-motion: reduce) {
-    .chev {
-      transition: none;
+  .lead.cool {
+    color: var(--cool);
+  }
+  .lead.bad {
+    color: var(--bad);
+  }
+  .status:has(.lead.muted) {
+    color: var(--mu);
+  }
+  .target {
+    grid-area: target;
+    position: relative;
+    z-index: 1;
+    justify-self: end;
+    max-width: 60cqi;
+    font-size: 13px;
+    line-height: 20px;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .target :global(.tag) {
+    white-space: normal;
+  }
+  .strip {
+    grid-area: strip;
+    margin-top: 8px;
+    height: 32px;
+  }
+  @container (max-width: 419px) {
+    .status {
+      min-height: 40px;
+    }
+  }
+
+  /* Offline: compact, muted, no figure, no strip, never red. */
+  .off .cover {
+    grid-area: name;
+  }
+  .card.off {
+    grid-template-areas: 'name plug' 'why plug';
+    align-items: center;
+    row-gap: 2px;
+    padding: 11px 14px;
+  }
+  .off .name {
+    color: color-mix(in srgb, var(--tx) 80%, transparent);
+  }
+  .why {
+    grid-area: why;
+    font-size: 13px;
+    line-height: 19px;
+    color: var(--mu);
+  }
+  .plug {
+    grid-area: plug;
+    display: inline-flex;
+    color: var(--mu);
+  }
+  @container (max-width: 419px) {
+    .sep {
+      display: none;
+    }
+    .hint {
+      display: block;
     }
   }
 </style>

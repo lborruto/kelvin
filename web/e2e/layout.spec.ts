@@ -205,33 +205,48 @@ test.describe('layout with alerts', () => {
       });
     }
   }
+});
 
-  test('/ cards keep their height when the duty line arrives, at 320 px', async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 900 });
-    // Late evening: no next change to announce, so the duty is all the foot says (the worst case).
-    const late = new Date();
-    late.setHours(23, 40, 0, 0);
-    await page.clock.install({ time: late });
-    // The duty answer is held until the cards are drawn, then released.
-    let release!: () => void;
-    const gate = new Promise<void>((r) => (release = r));
-    await page.route('**/api/rooms/duty', async (route) => {
-      await gate;
-      await route.continue();
-    });
-    await page.goto('/');
-    await page.clock.resume();
-    const cards = page.locator('article.card');
-    await expect(cards.first()).toBeVisible();
-    await page.waitForTimeout(800);
-    const heights = () => cards.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
-    const before = await heights();
-    await expect(page.getByText(/chauffe \d+\s?% sur 24/)).toHaveCount(0);
-    release();
-    await expect(page.getByText(/chauffe \d+\s?% sur 24/).first()).toBeVisible();
-    await page.waitForTimeout(800);
-    expect(await heights(), 'card heights before and after the duty').toEqual(before);
-    expect(await shifts(page), '/ at 320 px').toBeLessThan(0.05);
+// The Rooms page: cards, the offline group and the header keep their place while the data and the
+// fonts arrive, in both languages, whether the web font loads, loads late (wider than the fallback
+// for a moment) or never loads (CI).
+test.describe('Rooms without layout shift', () => {
+  test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
+  for (const lang of ['fr', 'en'])
+    for (const fonts of ['web fonts', 'late web fonts', 'fallback fonts only'])
+      test(`/ at 320, 390 and 1440 px (${lang}, ${fonts}): CLS < 0.05`, async ({ page }) => {
+        await countShifts(page);
+        await page.addInitScript((l) => localStorage.setItem('kelvin-locale', l), lang);
+        if (fonts === 'fallback fonts only') await page.route('**/*.woff2', (route) => route.abort());
+        if (fonts === 'late web fonts')
+          await page.route('**/*.woff2', async (route) => {
+            await new Promise((r) => setTimeout(r, 400));
+            await route.continue();
+          });
+        for (const width of [320, 390, 1440]) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.route('**/api/**', async (route) => {
+            await new Promise((r) => setTimeout(r, 150));
+            await route.continue();
+          });
+          await page.goto('/');
+          await settled(page);
+          await page.waitForTimeout(900);
+          await expect(page.locator('article.card.off')).toHaveCount(1);
+          expect(await shifts(page), `/ at ${width} px (${lang}, ${fonts})`).toBeLessThan(0.05);
+          expect(await overflow(page), `/ at ${width} px (${lang})`).toBeLessThanOrEqual(0);
+          await page.unroute('**/api/**');
+        }
+      });
+
+  test('/ cards have one height per width whatever their state', async ({ page }) => {
+    for (const width of [320, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/');
+      await settled(page);
+      const heights = await page.locator('article.card:not(.off)').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+      expect(new Set(heights).size, `online cards at ${width} px: ${heights}`).toBe(1);
+    }
   });
 });
 

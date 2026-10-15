@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { house } from '$lib/stores/house.svelte';
 import RoomList from './RoomList.svelte';
@@ -30,23 +30,31 @@ beforeEach(() => {
   } as never);
 });
 
-const head = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) });
-
-describe('RoomList on the phone', () => {
-  it('expands the room that needs attention once the house is loaded', () => {
+describe('RoomList', () => {
+  it('every card is a link to its room: no expansion in place', () => {
     render(RoomList);
-    expect(head('Chambre 1')).toHaveAttribute('aria-expanded', 'true');
-    expect(head('Salon')).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getAllByRole('radiogroup', { name: 'Mode' })).toHaveLength(1);
+    expect(screen.getByRole('link', { name: /^Salon,/ })).toHaveAttribute('href', '/rooms/salon');
+    expect(screen.getByRole('link', { name: /^Chambre 1,/ })).toHaveAttribute('href', '/rooms/ch1');
+    expect(screen.queryByRole('button', { expanded: true })).toBeNull();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
   });
 
-  it('keeps a card the user collapsed closed, even after navigating back', async () => {
-    const first = render(RoomList);
-    await fireEvent.click(head('Chambre 1'));
-    expect(head('Chambre 1')).toHaveAttribute('aria-expanded', 'false');
-    first.unmount();
+  it('offline rooms move to the end under « Hors ligne · n », the others keep their order', () => {
+    house.applySnapshot({
+      house: {
+        rooms: [room('ch2', 'Chambre 2', ['c']), room('salon', 'Salon', ['a']), room('ch1', 'Chambre 1', ['b'])],
+        radiators: [{ ...rad('c', 'ch2'), reachable: false }, rad('a', 'salon'), rad('b', 'ch1')]
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
+    } as never);
+    const { container } = render(RoomList);
+    const names = [...container.querySelectorAll('.list > *')].map((el) => el.querySelector('.name')?.textContent ?? el.textContent);
+    expect(names).toEqual(['Salon', 'Chambre 1', 'Hors ligne · 1', 'Chambre 2']);
+    expect(screen.getByRole('heading', { name: 'Hors ligne · 1' })).toBeInTheDocument();
+  });
+
+  it('no group label when every room answers', () => {
     render(RoomList);
-    expect(head('Chambre 1')).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.queryByRole('heading')).toBeNull();
   });
 });

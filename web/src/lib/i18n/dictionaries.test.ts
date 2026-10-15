@@ -31,6 +31,8 @@ export const ARGS: Record<string, unknown[]> = {
   'linky.throttledLater': ['12/10'],
   'linky.calls': [3, 10],
   'strip.summary': [['a', 'b']],
+  'rooms.summary': [1, 2],
+  'status.someOffline': [1, 2],
   'radiator.facts': ['HEKLA P', 1500],
   'program.nextOn': ['monday', '06:15', 'B'],
   'program.whenOn': ['monday', '06:15'],

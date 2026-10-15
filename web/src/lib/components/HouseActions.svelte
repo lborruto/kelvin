@@ -14,8 +14,10 @@
     program?: boolean;
     /** The « Absence… » link (not on Maison, where the Absence panel is the page itself). */
     away?: boolean;
+    /** Icon buttons with their names as labels (the phone Rooms header): one row whatever the font or language. */
+    icons?: boolean;
   }
-  let { stacked = false, program = false, away = true }: Props = $props();
+  let { stacked = false, program = false, away = true, icons = false }: Props = $props();
   // Mounted several times at once (sidebar, phone header, Maison): ids must be unique.
   const uid = $props.id();
 
@@ -40,11 +42,18 @@
 
 <div class="wrap" class:stacked>
   <div class="actions" class:stacked>
+    {#if icons}
+      <button type="button" class="btn btn-icon edged" aria-label={m.houseActions.allOff} title={m.houseActions.allOff} aria-disabled={blocked}
+        onclick={ask}><Icon name="power" size={18} /></button>
+      {#if away}<a class="btn btn-icon edged" href="{ROUTES.home}#{ANCHORS.away}" aria-label={m.houseActions.away} title={m.houseActions.away}><Icon
+            name="away" size={18} /></a>{/if}
+    {:else}
     <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={ask}><Icon name="power" size={16} />{m.houseActions.allOff}</button>
     {#if program}
       <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={() => !blocked && runHouse(() => api.houseProgram())}>{m.houseActions.allProgram}</button>
     {/if}
     {#if away}<a class="btn btn-sm" href="{ROUTES.home}#{ANCHORS.away}"><Icon name="away" size={16} />{m.houseActions.away}</a>{/if}
+    {/if}
   </div>
   <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
 </div>
@@ -76,6 +85,12 @@
   }
   .stacked {
     flex-direction: column;
+  }
+  /* The icon form keeps the bordered look of the labelled buttons. */
+  .edged {
+    border-color: var(--line);
+    background: var(--s1);
+    color: var(--tx);
   }
   .stacked > * {
     width: 100%;

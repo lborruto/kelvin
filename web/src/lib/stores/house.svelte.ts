@@ -285,23 +285,33 @@ export class HouseStore {
     );
   }
 
-  /** The room to show first: the first one needing attention (open window, command in flight, override), else the first. */
+  /** The room to show first: the first one needing attention (open window, command in flight, override), else the first
+   *  that answers (an offline room has nothing to show but its notice). */
   get defaultRoomId(): string | null {
     const active = Object.values(this.pending).filter((p) => ACTIVE.has(p.status));
     const needs = (r: Room) =>
       r.window_open ||
       !!this.overrideFor(r.id) ||
       active.some((p) => p.radiator_ids.some((i) => r.radiator_ids.includes(i)));
-    return (this.rooms.find(needs) ?? this.rooms[0])?.id ?? null;
+    const answers = (r: Room) => !this.roomRadiators(r.id).every((x) => x.reachable === false) || !r.radiator_ids.length;
+    return (this.rooms.find((r) => needs(r) && answers(r)) ?? this.rooms.find(answers) ?? this.rooms[0])?.id ?? null;
   }
 
   get away(): Override | undefined {
     return this.overrides.find((o) => o.kind === 'away');
   }
 
-  /** QW5: the room draws power now (any radiator's working rate above 0). */
+  /** QW5: the room draws power now (a radiator that answers has a working rate above 0; an offline one's last rate is stale). */
   roomHeating(roomId: string): boolean {
-    return this.roomRadiators(roomId).some((x) => (x.working_rate ?? 0) > 0);
+    return this.roomRadiators(roomId).some((x) => x.reachable !== false && (x.working_rate ?? 0) > 0);
+  }
+
+  /** Rooms whose every radiator is unreachable (switched off at the mains, out of range). */
+  get offlineCount(): number {
+    return this.rooms.filter((r) => {
+      const rads = this.roomRadiators(r.id);
+      return rads.length > 0 && rads.every((x) => x.reachable === false);
+    }).length;
   }
 
   get heatingCount(): number {

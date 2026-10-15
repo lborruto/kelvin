@@ -11,15 +11,15 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Pièces / Pièce | Rooms / Room | Nav, page title |
 | Sans pièce | No room | Énergie, unassigned radiators |
 | Programme (nav, page, mode) | Schedule | “Programme” is British for TV programmes; heating apps say schedule. Compact « Prog. » → “Sched.” |
-| Arrêt (mode) / Arrêté (status) | Off | |
+| Arrêt (mode and status) | Off | « Arrêté » left the UI: the status sentence says « Arrêt » |
 | Manuel | Manual | |
 | Autre / Mixte / Mixte (moyenne) | Other / Mixed / Mixed (average) | |
 | Confort | Comfort | Level and setpoint |
 | Éco | Eco | |
 | Abaissement éco | Eco setback | The offset below comfort |
 | Hors-gel | Frost protection | |
-| Repos (level off) | Idle | The heater is not calling for heat |
-| Consigne / Consigne active | Setpoint / Current setpoint | |
+| Repos (level off) | Idle | The heater is not calling for heat. Not shown on rooms any more: only « En chauffe » / “Heating”, when true |
+| Consigne / Consigne active | Setpoint / Current setpoint | Controls. The card and panel caption « consigne 21,0 °C » is “target 21.0 °C” |
 | Forcer / Forcé / Forçage / Forcer temporairement | Boost / Boosted / Boost / Temporary boost | « Annuler le forçage » → “Cancel boost” |
 | Absence | Away | « Activer l’absence » → “Start away mode”; « Absence en cours » → “Away mode on” |
 | Rétablissement… | Restoring… | |
@@ -66,6 +66,10 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Simulateur | Simulator | |
 | Envoi… / Confirmé / Réessayer / Échec de la commande | Sending… / Confirmed / Retry / Command failed | |
 | Fenêtre ouverte | Window open | |
+| Hors ligne / Hors ligne depuis 14:32 | Offline / Offline since 14:32 | A radiator or room that does not answer (switched off at the mains); replaces « Injoignable » on rooms and radiators. « Cozytouch injoignable » keeps “unreachable” |
+| Radiateur hors tension ou hors de portée | Radiator switched off or out of range | The offline hint |
+| En chauffe | Heating | « 1 pièce en chauffe · 2 hors ligne » → “1 room heating · 2 offline” |
+| Programme · Confort jusqu’à 23:00 | Schedule · Comfort until 23:00 | The room status sentence; « jusqu’à demain 06:30 » → “until tomorrow 06:30” |
 | Détection de fenêtre ouverte / de présence | Open-window detection / Presence detection | |
 | Veilleuse | Night light | |
 | Faire clignoter / identification | Blink | The button and the pending label (“Salon: blink”) |

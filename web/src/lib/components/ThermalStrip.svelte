@@ -29,10 +29,13 @@
     label: string;
     /** Window-open and presence runs the radiators reported (QW4). */
     activity?: RoomActivity | null;
+    /** Draw those runs (the room panel's chart, which has a legend). Cards leave them out and draw the setpoint dashed. */
+    events?: boolean;
   }
   let {
     points, start, end, now, program = {}, mode = null, comfort = null, eco = null,
-    target = null, pendingTarget = null, pendingComfort = null, axis = false, height = 36, label, activity = null
+    target = null, pendingTarget = null, pendingComfort = null, axis = false, height = 36, label, activity = null,
+    events = false
   }: Props = $props();
 
   const W = 300;
@@ -90,8 +93,8 @@
     a: Math.max(start, r.start * 1000),
     b: Math.min(end, r.end * 1000)
   });
-  let windowRuns = $derived((activity?.window ?? []).map((r) => ({ r, ...clip(r) })).filter((x) => x.b > x.a));
-  let presenceRuns = $derived((activity?.presence ?? []).map((r) => ({ r, ...clip(r) })).filter((x) => x.b > x.a));
+  let windowRuns = $derived((events ? (activity?.window ?? []) : []).map((r) => ({ r, ...clip(r) })).filter((x) => x.b > x.a));
+  let presenceRuns = $derived((events ? (activity?.presence ?? []) : []).map((r) => ({ r, ...clip(r) })).filter((x) => x.b > x.a));
 
   let tempPath = $derived(
     line<StripPoint>()
@@ -179,7 +182,7 @@
       <rect class="band" x={x(b.start)} y="0" width={Math.max(0.5, x(b.end) - x(b.start))} {height} />
       <line class="band-edge" x1={x(b.start)} x2={x(b.end)} y1="0.5" y2="0.5" vector-effect="non-scaling-stroke" />
     {/each}
-    {#if setpointPath}<path class="setpoint" d={setpointPath} vector-effect="non-scaling-stroke" />{/if}
+    {#if setpointPath}<path class="setpoint" class:quiet={!events} d={setpointPath} vector-effect="non-scaling-stroke" />{/if}
     {#if pendingComfortPath}
       <path class="pending-comfort" class:confirmed={held?.kind === 'comfort' && confirmed} d={pendingComfortPath}
         clip-path="url(#{uid}f)" vector-effect="non-scaling-stroke" />
@@ -236,6 +239,11 @@
     stroke: var(--mu);
     stroke-width: 1;
     opacity: 0.8;
+  }
+  /* Cards: the target is a quiet dashed step under the reading (the panel's chart draws it solid, with a legend). */
+  .setpoint.quiet {
+    stroke-dasharray: 3 3;
+    opacity: 0.7;
   }
   .pending-target,
   .pending-comfort {

@@ -118,22 +118,39 @@ export const en: Messages = {
     backToRooms: 'Back to rooms'
   },
   rooms: {
-    count: (n: number) => `${int(n)} ${plural(n, { one: 'room', other: 'rooms' })}`,
-    heating: (n: number) => (n === 0 ? 'none heating' : `${int(n)} heating`),
-    awayActive: 'Away mode on'
+    summary: (heating: number, offline: number) =>
+      `${heating ? `${int(heating)} ${plural(heating, { one: 'room', other: 'rooms' })} heating` : 'No room heating'}${offline ? ` · ${int(offline)} offline` : ''}`,
+    awayActive: 'Away mode on',
+    offlineGroup: (n: number) => `Offline · ${int(n)}`
+  },
+  status: {
+    offline: 'Offline',
+    offlineSince: (when: string) => `Offline since ${when}`,
+    onDate: (d: string) => d,
+    offlineHint: (n: number) =>
+      plural(n, { one: 'Radiator switched off or out of range', other: 'Radiators switched off or out of range' }),
+    someOffline: (k: number, n: number) => `${int(k)} of ${int(n)} ${plural(n, { one: 'radiator', other: 'radiators' })} offline`,
+    boost: 'Boost',
+    away: 'Away',
+    restoring: 'Restoring…',
+    until: (temp: string, when: string) => `${temp} until ${when}`,
+    comfortUntil: (when: string) => `Comfort until ${when}`,
+    ecoUntil: (when: string) => `Eco until ${when}`,
+    steady: (level: string) => `${level} all week`,
+    programsDiffer: 'radiators on different schedules',
+    mixed: 'Radiators in different modes'
   },
   room: {
     presence: (v: string) => `Presence: ${v}`,
     presenceDetected: 'detected',
     presenceNone: 'none',
     heatingNow: 'Heating',
+    target: (t: string) => `target ${t}`,
     duty: (pct: string) => `heating ${pct} of the last 24${NB}h`,
     dutyHint: 'Share of the last 24 hours the radiators heated, weighted by their power (5-minute readings).',
     title: 'Room',
     windowOpen: 'Window open',
-    off: 'Off',
     todayLabel: (name: string) => `${name}, today’s temperature`,
-    details: 'Details',
     setpoint: 'Setpoint',
     comfort: 'Comfort',
     eco: 'Eco setback',
@@ -351,9 +368,8 @@ export const en: Messages = {
     rssiHint: 'Raw value reported by the radiator; scale not verified.',
     reachability: 'Connection',
     reachable: 'Reachable',
-    unreachable: 'Unreachable',
-    unreachableSince: (t: string) => `Unreachable since ${t}`,
-    unreachableChip: 'Unreachable',
+    unreachable: 'Offline',
+    unreachableSince: (t: string) => `Offline since ${t}`,
     lastSignal: 'Last signal'
   },
   roomFigures: {

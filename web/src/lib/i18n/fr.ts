@@ -124,22 +124,39 @@ export const fr = {
     backToRooms: 'Retour aux pièces'
   },
   rooms: {
-    count: (n: number) => `${int(n)} ${plural(n, { one: 'pièce', other: 'pièces' })}`,
-    heating: (n: number) => `${int(n)} en chauffe`,
-    awayActive: 'Absence en cours'
+    summary: (heating: number, offline: number) =>
+      `${heating ? `${int(heating)} ${plural(heating, { one: 'pièce', other: 'pièces' })} en chauffe` : 'Aucune pièce en chauffe'}${offline ? ` · ${int(offline)} hors ligne` : ''}`,
+    awayActive: 'Absence en cours',
+    offlineGroup: (n: number) => `Hors ligne · ${int(n)}`,
+  },
+  status: {
+    offline: 'Hors ligne',
+    offlineSince: (when: string) => `Hors ligne depuis ${when}`,
+    onDate: (d: string) => `le ${d}`,
+    offlineHint: (n: number) =>
+      plural(n, { one: 'Radiateur hors tension ou hors de portée', other: 'Radiateurs hors tension ou hors de portée' }),
+    someOffline: (k: number, n: number) => `${int(k)} ${plural(k, { one: 'radiateur', other: 'radiateurs' })} sur ${int(n)} hors ligne`,
+    boost: 'Chauffe temporaire',
+    away: 'Absence',
+    restoring: 'Rétablissement…',
+    until: (temp: string, when: string) => `${temp} jusqu’à ${when}`,
+    comfortUntil: (when: string) => `Confort jusqu’à ${when}`,
+    ecoUntil: (when: string) => `Éco jusqu’à ${when}`,
+    steady: (level: string) => `${level} toute la semaine`,
+    programsDiffer: 'horaires différents selon les radiateurs',
+    mixed: 'Modes différents selon les radiateurs'
   },
   room: {
     presence: (v: string) => `Présence${NB}: ${v}`,
     presenceDetected: 'détectée',
     presenceNone: 'aucune',
     heatingNow: 'En chauffe',
+    target: (t: string) => `consigne ${t}`,
     duty: (pct: string) => `chauffe ${pct} sur 24${NB}h`,
     dutyHint: 'Part du temps où les radiateurs ont chauffé ces dernières 24 heures, pondérée par leur puissance (relevés toutes les 5 minutes).',
     title: 'Pièce',
     windowOpen: 'Fenêtre ouverte',
-    off: 'Arrêté',
     todayLabel: (name: string) => `${name}, température d’aujourd’hui`,
-    details: 'Détails',
     setpoint: 'Consigne',
     comfort: 'Confort',
     eco: 'Abaissement éco',
@@ -361,9 +378,8 @@ export const fr = {
     rssiHint: `Valeur brute rapportée par le radiateur${NB}; échelle non vérifiée.`,
     reachability: 'Connexion',
     reachable: 'Joignable',
-    unreachable: 'Injoignable',
-    unreachableSince: (t: string) => `Injoignable depuis ${t}`,
-    unreachableChip: 'Injoignable',
+    unreachable: 'Hors ligne',
+    unreachableSince: (t: string) => `Hors ligne depuis ${t}`,
     lastSignal: 'Dernier signal'
   },
   roomFigures: {

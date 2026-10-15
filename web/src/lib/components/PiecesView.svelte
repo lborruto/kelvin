@@ -22,16 +22,16 @@
 </script>
 
 {#if showList}
+  <!-- Fixed block sizes (a 44 px title row, one summary line): the header never reflows when a font arrives. -->
   <header class="top">
-    <div>
-      <h1>{m.nav.rooms}</h1>
-      {#if house.loaded}
-        <p class="muted">{m.rooms.count(house.rooms.length)} · {m.rooms.heating(house.heatingCount)}{#if house.away} · {m.rooms.awayActive}{/if}</p>
-      {:else}
-        <p class="sub-sk"><span class="skeleton" aria-hidden="true"></span></p>
-      {/if}
-    </div>
-    <div class="phone-only"><HouseActions /></div>
+    <h1>{m.nav.rooms}</h1>
+    {#if house.loaded}
+      {@const summary = `${m.rooms.summary(house.heatingCount, house.offlineCount)}${house.away ? ` · ${m.rooms.awayActive}` : ''}`}
+      <p class="muted sum" title={summary}>{summary}</p>
+    {:else}
+      <p class="sub-sk"><span class="skeleton" aria-hidden="true"></span></p>
+    {/if}
+    <div class="phone-only"><HouseActions icons /></div>
   </header>
 {:else}
   <a class="back" href={ROUTES.rooms}><Icon name="arrow-left" size={16} />{m.nav.rooms}</a>
@@ -44,21 +44,34 @@
 
 <style>
   .top {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: end;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'title actions' 'sum sum';
+    align-items: center;
+    column-gap: 12px;
     margin-bottom: 14px;
   }
   h1 {
+    grid-area: title;
     font-size: 22px;
+    line-height: 32px;
     margin: 0;
     letter-spacing: -0.01em;
   }
+  .phone-only {
+    grid-area: actions;
+    height: 44px;
+  }
   p {
+    grid-area: sum;
     margin: 2px 0 0;
     font-size: 13px;
+    line-height: 19px;
+  }
+  .sum {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .sub-sk {
     display: flex;

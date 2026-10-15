@@ -80,7 +80,8 @@ test.describe('key flows in English', () => {
     await page.goto('/');
     expect(await page.evaluate(() => document.documentElement.lang)).toBe('en');
     await expect(page.getByRole('heading', { name: 'Rooms', level: 1 })).toBeVisible();
-    await expect(page.getByText(/^\d+ rooms · (\d+|none) heating/)).toBeVisible();
+    await expect(page.getByText(/^(No room|\d+ rooms?) heating · 1 offline/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Offline · 1' })).toBeVisible();
     await expect(page).toHaveTitle('Rooms · Kelvin');
   });
 

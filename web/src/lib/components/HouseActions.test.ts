@@ -127,3 +127,12 @@ it('in English: the actions, the dialog and the away link', () => {
     'The radiators switch off. You can put them back on schedule from Home.'
   );
 });
+
+it('the icon form (phone Rooms header) keeps the names as labels and still asks before switching off', async () => {
+  render(HouseActions, { icons: true });
+  const off = screen.getByRole('button', { name: 'Tout éteindre' });
+  expect(off).not.toHaveTextContent('Tout éteindre');
+  expect(screen.getByRole('link', { name: 'Absence…' })).toHaveAttribute('href', '/home#away');
+  await fireEvent.click(off);
+  expect(document.querySelector('dialog')!.open).toBe(true);
+});

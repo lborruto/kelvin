@@ -8,6 +8,7 @@ interface Formats {
   fixed: readonly [Intl.NumberFormat, Intl.NumberFormat, Intl.NumberFormat, Intl.NumberFormat, Intl.NumberFormat];
   clock: Intl.DateTimeFormat;
   dateTime: Intl.DateTimeFormat;
+  dayShort: Intl.DateTimeFormat;
   dayLong: Intl.DateTimeFormat;
   monthYear: Intl.DateTimeFormat;
 }
@@ -28,6 +29,7 @@ function f(): Formats {
       fixed: [n(0), n(1), n(2), n(3), n(4)],
       clock: new Intl.DateTimeFormat(tag, { ...t, hour: '2-digit', minute: '2-digit' }),
       dateTime: new Intl.DateTimeFormat(tag, { ...t, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+      dayShort: new Intl.DateTimeFormat(tag, { timeZone: ZONE, day: 'numeric', month: 'short' }),
       dayLong: new Intl.DateTimeFormat(tag, { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' }),
       monthYear: new Intl.DateTimeFormat(tag, { timeZone: 'UTC', month: 'long', year: 'numeric' })
     };
@@ -92,6 +94,11 @@ export function fmtTime(ms: number): string {
 
 export function fmtDateTime(ms: number): string {
   return f().dateTime.format(new Date(ms));
+}
+
+/** A Paris calendar day, short: « 2 oct. », “2 Oct”. */
+export function fmtDayShort(ms: number): string {
+  return f().dayShort.format(new Date(ms));
 }
 
 export function fmtAgo(ms: number, now = Date.now()): string {

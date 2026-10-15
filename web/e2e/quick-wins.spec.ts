@@ -140,7 +140,7 @@ test('alerts: the simulated unreachable radiator shows in its room and in Home, 
   test.skip(isMobile, 'dismissal is shared state: one project runs it');
   await page.goto('/rooms/p-ch2');
   await expect(page.getByText(/Chambre 2\s:\sradiateur injoignable depuis/).first()).toBeVisible();
-  await expect(page.getByText(/Injoignable depuis \d\d:\d\d/).first()).toBeVisible(); // the Infos block
+  await expect(page.getByText(/Hors ligne depuis \d\d:\d\d/).first()).toBeVisible(); // the status and the Infos block
   await page.goto('/home#alerts');
   const list = page.locator('#alerts');
   const callout = list.getByText(/Chambre 2\s:\sradiateur injoignable/);

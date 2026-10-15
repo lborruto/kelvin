@@ -144,23 +144,29 @@ describe('activity bands', () => {
     window: [{ start: s + 3600, end: s + 4800, open: false }],
     presence: [{ start: s + 7200, end: s + 9000, open: false }, { start: s + 20_000, end: s + 21_000, open: false }]
   };
+  it('a card (no `events`) draws no runs and keeps its setpoint a quiet dashed step', () => {
+    const { container } = render(ThermalStrip, { props: { points: [], start, end, now: end, activity, label: 'Salon', mode: 'manual', target: 20 } });
+    expect(container.querySelectorAll('rect.window, rect.presence')).toHaveLength(0);
+    expect(container.querySelector('path.setpoint')).toHaveClass('quiet');
+  });
+
   it('draws hatched window bands and faint presence bands with exact times', () => {
-    const { container } = render(ThermalStrip, { points: [], start, end, now: end, activity, label: 'Salon' });
+    const { container } = render(ThermalStrip, { props: { points: [], start, end, now: end, activity, label: 'Salon', events: true } });
     expect(container.querySelectorAll('rect.window')).toHaveLength(1);
     expect(container.querySelectorAll('rect.presence')).toHaveLength(2);
     expect(container.querySelector('rect.window title')!.textContent).toContain('Fenêtre ouverte (signalée par le radiateur) 01:00–01:20');
     expect(container.querySelector('rect.window title')!.textContent).toContain('relevé toutes les 5');
   });
   it('says the counts in the text equivalent, and nothing without activity', () => {
-    const a = render(ThermalStrip, { points: [], start, end, now: end, activity, label: 'Salon' });
+    const a = render(ThermalStrip, { props: { points: [], start, end, now: end, activity, label: 'Salon', events: true } });
     expect(a.container.querySelector('.visually-hidden')!.textContent).toMatch(/fenêtre ouverte 1 fois.*présence signalée 2 fois/);
     a.unmount();
-    const b = render(ThermalStrip, { points: [], start, end, now: end, label: 'Salon' });
+    const b = render(ThermalStrip, { props: { points: [], start, end, now: end, label: 'Salon', events: true } });
     expect(b.container.querySelectorAll('rect.window, rect.presence')).toHaveLength(0);
   });
   it('English', () => {
     applyLocale('en');
-    const { container } = render(ThermalStrip, { points: [], start, end, now: end, activity, label: 'Salon' });
+    const { container } = render(ThermalStrip, { props: { points: [], start, end, now: end, activity, label: 'Salon', events: true } });
     expect(container.querySelector('.visually-hidden')!.textContent).toMatch(/window open 1 time.*presence reported 2 times/);
     applyLocale('fr');
   });

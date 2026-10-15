@@ -14,11 +14,20 @@ const roomMode = (page: Page) => page.getByRole('radiogroup', { name: 'Mode de l
 test('rooms load with temperatures and thermal strips', async ({ page, isMobile }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
-  // Phone: a card expands in place (a button); desktop: it opens the room (a link).
+  // Every card is a link to its room (the inspector on desktop, the room page on a phone).
   for (const name of ['Chambre 1', 'Salon', 'Chambre 2']) {
-    await expect(page.getByRole(isMobile ? 'button' : 'link', { name: new RegExp(`^${name}`) }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: new RegExp(`^${name},`) }).first()).toBeVisible();
   }
   await expect(page.locator('svg[aria-label^="Salon"]').first()).toBeVisible();
+  // « Chambre 2 » is offline in the simulator: last, under its group label, with no figure and no strip.
+  await expect(page.getByRole('heading', { name: 'Hors ligne · 1' })).toBeVisible();
+  const offline = page.locator('article.card.off');
+  await expect(offline).toHaveCount(1);
+  await expect(offline).toContainText(/Hors ligne depuis \d\d:\d\d/);
+  await expect(offline).not.toContainText('°C');
+  await expect(offline.locator('svg[role="img"]')).toHaveCount(0);
+  expect(await page.locator('article.card .name').allTextContents()).toEqual(['Chambre 1', 'Salon', 'Chambre 2']);
+  void isMobile;
 });
 
 test('a mode change shows pending then confirmed', async ({ page }) => {
@@ -116,16 +125,19 @@ test('the toast live regions are rendered (not display: none) before any toast',
   expect(displays).not.toContain('none');
 });
 
-test('"/" opens a default room: inspector on desktop, expanded card on the phone', async ({ page, isMobile }) => {
+test('"/" opens a default room in the inspector on desktop; a phone taps a card to its room page', async ({ page, isMobile }) => {
   await page.goto('/');
   if (isMobile) {
-    await expect(page.locator('button[aria-expanded="true"]')).toHaveCount(1);
-    await expect(page.getByRole('radiogroup', { name: 'Mode', exact: true })).toBeVisible();
-  } else {
-    await expect(page.getByRole('heading', { level: 2 })).toBeVisible();
+    // No expansion in place: the card is a link, the room page starts with the controls.
+    await expect(page.locator('[aria-expanded]')).toHaveCount(0);
+    await page.getByRole('link', { name: /^Salon,/ }).click();
+    await expect(page).toHaveURL(/\/rooms\/p-salon$/);
+    await expect(page.getByRole('heading', { name: 'Salon', level: 1 })).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeVisible();
-    // Cards never expand on desktop: the inspector holds the controls.
-    await expect(page.getByRole('radiogroup', { name: 'Mode', exact: true })).toHaveCount(0);
+  } else {
+    // The default room is one that answers, never the offline one.
+    await expect(page.getByRole('heading', { name: 'Chambre 1', level: 2 })).toBeVisible();
+    await expect(page.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeVisible();
   }
 });
 
