@@ -462,6 +462,7 @@ def test_radiator_hc_hp_and_euros_add_up_per_bucket():
         "hc_kwh": 1.0,
         "hp_kwh": 3.0,
         "eur": 1.1,
+        "missing_colour_days": 0,
         "interpolated": False,
         "apportioned": True,
         "coverage": 1.0,
@@ -1249,8 +1250,12 @@ def test_a_month_with_an_unknown_colour_never_reads_as_whole():
     assert m["energy_eur"] == pytest.approx(sum(priced), abs=1e-9)  # the days add up to the month
     assert m["energy_eur"] < f["energy_eur"]
     assert part["total"]["missing_colour_days"] == 2 and part["quality"]["missing_colour_days"] == 2
-    # The 12th from 06:00 (18 kWh) and the 13th before 06:00 (6 kWh) have no colour.
-    assert part["tempo_lens"]["unknown_kwh"] == pytest.approx(24.0)
+    # The lens prices whole days, as the hero: the 12th and the 13th (no €) are its kWh
+    # without a colour, and its € rows add up to the period's € to the cent.
+    lens = part["tempo_lens"]
+    assert lens["unknown_kwh"] == pytest.approx(48.0)
+    assert sum(x["kwh"] for x in lens["rows"]) == pytest.approx(31 * 24.0 - 48.0)
+    assert round(sum(x["eur"] for x in lens["rows"]) * 100) == round(m["energy_eur"] * 100)
 
 
 @settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.too_slow])
@@ -1261,10 +1266,15 @@ def test_a_month_with_an_unknown_colour_never_reads_as_whole():
 def test_shown_rate_parts_add_up_to_the_shown_kwh(wh, unknown):
     start = date(2026, 12, 1)
     span = list(days(start, start + timedelta(days=len(wh))))
-    daily = dict(zip(span, wh, strict=True))
+    # A day whose reading is a multiple of 5 has no daily row: its kWh is its curve's own sum,
+    # in half-Wh as MED gives it (W × 30 min).
+    daily = {d: w for d, w in zip(span, wh, strict=True) if w % 5}
     curve = {
-        d: [CurvePoint(p.ts, 30, p.wh * (1 + (i % 7) / 3)) for i, p in enumerate(flat(d, 24.0))]
-        for d in span
+        d: [
+            CurvePoint(p.ts, 30, round(p.wh * (1 + (i % 7) / 3) * 2 + w % 3) / 2)
+            for i, p in enumerate(flat(d, 24.0))
+        ]
+        for d, w in zip(span, wh, strict=True)
     }
     colours = {
         d: ("blue", "white", "red")[d.day % 3]
@@ -1290,7 +1300,106 @@ def test_shown_rate_parts_add_up_to_the_shown_kwh(wh, unknown):
     lens = r["tempo_lens"]
     shown = sum(x["kwh"] for x in lens["rows"]) + (lens["unknown_kwh"] or 0.0)
     assert round(shown * 1000) == round(r["period"]["kwh"] * 1000)
-    if not unknown:
-        assert round(sum(x["eur"] for x in lens["rows"]) * 100) == round(
-            r["period"]["energy_eur"] * 100
-        )
+    energy = r["period"]["energy_eur"]
+    if energy is None:  # every day unpriced: no € row
+        assert {x["eur"] for x in lens["rows"]} == {None}
+    else:  # the lens € add up to the period's €, missing colours or not
+        assert round(sum(x["eur"] for x in lens["rows"]) * 100) == round(energy * 100)
+
+
+def test_shown_parts_add_up_on_a_curve_only_day_with_a_half_wh_total():
+    """Review of batch 3 (Important 1): no daily row, so the day's kWh is the curve's own sum,
+    50 058.5 Wh; the parts add up to the kWh shown (50.059), not to another rounding of it."""
+    day = date(2026, 12, 3)
+    a, b = day_bounds(day, PARIS)
+    pts = [CurvePoint(ts, 30, 1000.0) for ts in range(a, b, 1800)]
+    pts[-1] = CurvePoint(pts[-1].ts, 30, 3058.5)
+    colours = {date(2026, 12, 2): "blue", day: "red"}
+    nxt = day + timedelta(days=1)
+    r = build_report(
+        day, nxt, "day", inputs({}, curve={day: pts}, t=tempo_tariff(), colours=colours, today=nxt)
+    )
+    [bucket] = r["buckets"]
+    assert bucket["kwh"] == 50.059
+    assert round(sum(bucket["by_rate"].values()), 3) == 50.059
+    lens = r["tempo_lens"]
+    assert round(sum(x["kwh"] for x in lens["rows"]), 3) == r["period"]["kwh"] == 50.059
+
+
+def test_the_tempo_lens_is_null_without_linky_data_in_the_period():
+    """Review of batch 3 (Important 4): missing is null, never six rows of 0."""
+    daily = {date(2026, 12, d): 24_000 for d in (1, 2, 3, 10, 11, 12)}
+    colours = {date(2026, 11, 30) + timedelta(days=i): "blue" for i in range(15)}
+    r = build_report(
+        date(2026, 12, 1),
+        date(2026, 12, 13),
+        "day",
+        inputs(daily, t=tempo_tariff(), colours=colours, today=date(2026, 12, 20)),
+        period=(date(2026, 12, 5), date(2026, 12, 8)),
+    )
+    assert r["period"]["kwh"] is None and r["tempo_lens"] is None
+
+
+def _rad_report(t, rads, colours=None):
+    span = list(days(date(2026, 12, 1), date(2026, 12, 11)))
+    return build_report(
+        span[0],
+        span[-1] + timedelta(days=1),
+        "month",
+        ReportInputs(
+            daily_wh={d: 24_000 for d in span},
+            curve={},
+            tariff=t,
+            tz=PARIS,
+            today=date(2026, 12, 20),
+            radiators={"r": rads(span)},
+            radiator_life={"r": (span[0], None)},
+            rooms={"r": "salon"},
+            colours=colours or {},
+        ),
+        period=(span[0], span[-1] + timedelta(days=1)),
+    )
+
+
+def test_radiator_euros_under_base_have_no_split():
+    """Review of batch 3 (Important 3): Base prices the radiators, it only has no HC/HP."""
+    base = Tariff.build(9, [PriceRow.make(date(2026, 1, 1), "base", 15.0, {"base": 0.1952})])
+    r = _rad_report(
+        base,
+        lambda span: {
+            d: RadiatorDay(5000.0, None, None, 5 * 0.1952, False, False, True) for d in span
+        },
+    )
+    block = r["buckets"][0]["radiators"]
+    assert (block["kwh"], block["hc_kwh"], block["hp_kwh"]) == (50.0, None, None)
+    assert block["eur"] == pytest.approx(9.76) and block["missing_colour_days"] == 0
+    [row] = r["by_radiator"]
+    assert row["eur"] == pytest.approx(9.76) and row["hc_kwh"] is None and row["coverage"] == 1.0
+
+
+def test_radiator_euros_with_an_unknown_colour_say_what_they_leave_out():
+    """Review of batch 3 (Important 3): one radiator-day of ten has no colour. Its kWh and HC/HP
+    count (the Tempo hours are known); its € do not, and the block says so (coverage 1.0 alone
+    never vouches for a partial €)."""
+    span = list(days(date(2026, 12, 1), date(2026, 12, 11)))
+    colours = {d: "blue" for d in [date(2026, 11, 30), *span] if d != span[4]}
+    r = _rad_report(
+        tempo_tariff(),
+        lambda span: {
+            d: RadiatorDay(
+                5000.0, 1000.0, 4000.0, None if d == span[4] else 1.0, False, False, True
+            )
+            for d in span
+        },
+        colours,
+    )
+    block = r["buckets"][0]["radiators"]
+    assert (block["kwh"], block["hc_kwh"], block["hp_kwh"], block["coverage"]) == (
+        50.0,
+        10.0,
+        40.0,
+        1.0,
+    )
+    assert block["eur"] == pytest.approx(9.0) and block["missing_colour_days"] == 1
+    [row] = r["by_radiator"]
+    assert row["eur"] == pytest.approx(9.0) and row["missing_colour_days"] == 1

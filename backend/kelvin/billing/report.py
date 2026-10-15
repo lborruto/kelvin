@@ -156,7 +156,9 @@ class RadiatorTotals:
     hc_wh: float
     hp_wh: float
     eur: float
-    priced: bool
+    priced: bool  # some radiator-day has €
+    split: bool  # every radiator-day with a figure has HC/HP (none under Base)
+    unpriced: frozenset[date]  # days with a figure but no € (under Tempo: a colour unknown)
     interpolated: bool
     apportioned: bool
     known: int
@@ -169,9 +171,13 @@ def radiator_totals(
 ) -> RadiatorTotals:
     """The report's radiator sum, unrounded. Every figure counts exactly the radiator-days
     `counted` admits: a day it leaves out (today, still running, or outside the radiator's life)
-    adds no kWh either, or coverage 1.0 could vouch for a sum holding a partial day (I2)."""
+    adds no kWh either, or coverage 1.0 could vouch for a sum holding a partial day (I2). The
+    HC/HP split and the € are separate: Base has € and no split, an unknown Tempo colour a split
+    and no €."""
     wh = hc = hp = eur = 0.0
     found = priced = interp = appor = False
+    split = True
+    unpriced: set[date] = set()
     known = recorded = 0
     for d in _days(a, b):
         for rid in ids:
@@ -186,10 +192,18 @@ def radiator_totals(
             recorded += rd.complete
             interp |= rd.interpolated
             appor |= rd.apportioned
-            if rd.hc_wh is not None and rd.hp_wh is not None and rd.eur is not None:
+            if rd.hc_wh is not None and rd.hp_wh is not None:
+                hc, hp = hc + rd.hc_wh, hp + rd.hp_wh
+            else:
+                split = False
+            if rd.eur is not None:
                 priced = True
-                hc, hp, eur = hc + rd.hc_wh, hp + rd.hp_wh, eur + rd.eur
-    return RadiatorTotals(wh, hc, hp, eur, priced, interp, appor, known, recorded, found)
+                eur += rd.eur
+            else:
+                unpriced.add(d)
+    return RadiatorTotals(
+        wh, hc, hp, eur, priced, split, frozenset(unpriced), interp, appor, known, recorded, found
+    )
 
 
 def radiator_year_cum(
@@ -262,7 +276,7 @@ def _shown_parts(exact: dict[str, float], total: float, n: int) -> dict[str, flo
     """Parts rounded to `n` decimals that add up to `total` rounded to `n` (largest remainder,
     spec §9.1-3): the shown kWh per rate add up to the shown kWh."""
     keys = list(exact)
-    units = _allocate([max(exact[k], 0.0) for k in keys], round(total * 10**n))
+    units = _allocate([max(exact[k], 0.0) for k in keys], round(round(total, n) * 10**n))
     return {k: u / 10**n for k, u in zip(keys, units, strict=True)}
 
 
@@ -357,11 +371,16 @@ class _Energy:
         t = radiator_totals(self.inp.radiators, self._known, ids, a, b)
         if not t.found:
             return None
+        # HC/HP only when every counted day has it (never under Base); € are the priced days'
+        # (as `_rad_year`), and `missing_colour_days` says which days they leave out, so a
+        # coverage of 1.0 never vouches for a partial € (review of batch 3, I-3).
+        priced = self.inp.tariff is not None
         return {
             "kwh": _r(t.wh / 1000),
-            "hc_kwh": _r(t.hc_wh / 1000) if t.priced else None,
-            "hp_kwh": _r(t.hp_wh / 1000) if t.priced else None,
+            "hc_kwh": _r(t.hc_wh / 1000) if t.split and priced else None,
+            "hp_kwh": _r(t.hp_wh / 1000) if t.split and priced else None,
             "eur": (t.eur if exact else _r(t.eur, 2)) if t.priced else None,
+            "missing_colour_days": len(t.unpriced) if priced else 0,
             "interpolated": t.interpolated,
             "apportioned": t.apportioned,
             "coverage": _r(t.recorded / t.known, 4) if t.known else None,
@@ -425,7 +444,12 @@ class _Energy:
                 {
                     "radiator_id": rid,
                     "room_id": self.inp.rooms.get(rid),
-                    **(s or dict.fromkeys(("kwh", "hc_kwh", "hp_kwh", "eur", "coverage"))),
+                    **(
+                        s
+                        or dict.fromkeys(
+                            ("kwh", "hc_kwh", "hp_kwh", "eur", "missing_colour_days", "coverage")
+                        )
+                    ),
                     "interpolated": bool(s and s["interpolated"]),
                     "apportioned": bool(s and s["apportioned"]),
                     "from": life[0].isoformat() if life else None,
@@ -599,10 +623,12 @@ class _Energy:
 
     def tempo_lens(self, a: date, b: date) -> dict[str, Any] | None:
         """Spec §3.2.6 under Tempo: kWh and € per colour and per off-peak/peak over [a, b), and
-        the Tempo days by colour. Each day is priced by its own row; unknown colours are counted
-        apart. None when no day of [a, b) is Tempo-priced. Shown parts add up: the kWh rows (and
-        the kWh without a colour) to the Tempo days' kWh, the € rows to the period's energy €
-        when every day of it is Tempo-priced and priced (else to their own total)."""
+        the Tempo days by colour. Each day is priced by its own row. A day without € (a colour
+        not published) counts whole in `unknown_kwh`, as the hero leaves it out whole, so the
+        rows hold the priced days only. None when no day of [a, b) is Tempo-priced or none has
+        Linky data. Shown parts add up: the kWh rows and `unknown_kwh` to the Tempo days' kWh;
+        the € rows to the period's energy € when every present day is Tempo-priced (else, as in
+        a month that switched to Tempo, to their own total)."""
         tariff = self.inp.tariff
         if self.pricing is None or tariff is None or self.first is None or self.last is None:
             return None
@@ -611,38 +637,30 @@ class _Energy:
             for d in _days(a, b)
             if self.first <= d <= self.last and tariff.option_on(d) == "tempo"
         ]
-        if not tempo_days:
-            return None
+        found = [e for d in tempo_days if (e := self.day(d)) is not None]
+        if not found:
+            return None  # missing is null, never six rows of 0
         keys = RATE_KEYS["tempo"]
         kwh = dict.fromkeys(keys, 0.0)
         eur = dict.fromkeys(keys, 0.0)
         unknown = 0.0
-        found = []
-        for d in tempo_days:
-            e = self.day(d)
-            if e is None:
+        for e in found:
+            if e.energy_eur is None:
+                unknown += e.kwh
                 continue
-            found.append(e)
-            row = self.pricing.row(d)
+            row = self.pricing.row(e.day)
             for k, v in e.by_rate:
-                if k in kwh:
-                    kwh[k] += v
-                    eur[k] += v * (row.rate(k) or 0.0)
-                else:
-                    unknown += v
+                kwh[k] += v
+                eur[k] += v * row.rate(k)  # type: ignore[operator]
         shown = _shown_parts({**kwh, "unknown": unknown}, sum(e.kwh for e in found), 3)
+        priced = any(e.energy_eur is not None for e in found)
         _, present = self._present(a, b)
-        whole = (
-            len(found) == len(present)
-            and bool(present)
-            and all(e.energy_eur is not None for e in present)
-        )
-        energy = self.costs(a, b)[0] if whole else None
+        energy = self.costs(a, b)[0] if len(found) == len(present) else None
         cents = round(energy * 100) if energy is not None else round(sum(eur.values()) * 100)
         units = _allocate([eur[k] for k in keys], cents)
         return {
             "rows": [
-                {"key": k, "kwh": shown[k], "eur": u / 100}
+                {"key": k, "kwh": shown[k], "eur": u / 100 if priced else None}
                 for k, u in zip(keys, units, strict=True)
             ],
             "days": _colour_counts(tempo_days, self.inp.colours),

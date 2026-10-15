@@ -421,11 +421,14 @@ class TariffStore:
         self.db.set_setting(TARIFF_KEY, tariff.view())
 
     def replace(self, tariff: Tariff) -> Tariff:
-        """The v2 document: validated as a whole, then stored as given. An invalid stored
-        document it replaces is kept first as `tariff_invalid` (saving is the user's way out of
-        it; a later, stricter validation must never erase their rows unseen)."""
+        """The v2 document: validated as a whole, then stored as given."""
         tariff.validate()
-        raw, current = self._load()
+        return self._store(tariff, *self._load())
+
+    def _store(self, tariff: Tariff, raw: dict[str, Any] | None, current: Tariff | None) -> Tariff:
+        """Stores a validated tariff over (raw, current), the document read before. An invalid
+        stored document it replaces is kept first as `tariff_invalid` (saving is the user's way
+        out of it; a later, stricter validation must never erase their rows unseen)."""
         if raw is not None and current is None:
             self.db.set_setting(TARIFF_INVALID_KEY, raw)
         self.save(tariff)
@@ -439,7 +442,7 @@ class TariffStore:
         if u.kva not in KVA_CHOICES:
             raise UserError("kva_unknown")
         slot_ranges(u.hc_slots)
-        current = self.get()
+        raw, current = self._load()  # one read: the guard below and the backup in `_store`
         if current is not None and current.options() != {"hchp"}:
             # A form from before the option changed (a stale tab) would overwrite Tempo or Base
             # rows with HC/HP ones: refused, the page must be reloaded.
@@ -453,7 +456,7 @@ class TariffStore:
         tariff = Tariff.build(
             u.kva, [*rows, u.prices], scheds, current.tempo_hours if current else None
         )
-        return self.replace(tariff)
+        return self._store(tariff.validate(), raw, current)
 
     def prefill(self) -> dict[str, Any] | None:
         return self.db.get_setting(PREFILL_KEY)

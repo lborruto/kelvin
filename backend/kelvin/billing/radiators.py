@@ -20,23 +20,12 @@ from kelvin.recorder.energy import Bucket
 @dataclass(frozen=True)
 class RadiatorDay:
     wh: float | None
-    hc_wh: float | None  # None without a tariff
+    hc_wh: float | None  # None without a tariff, or on a day with a Base half-hour (no split)
     hp_wh: float | None
-    eur: float | None  # energy only, no subscription
+    eur: float | None  # energy only, no subscription; None on a day with an unknown Tempo colour
     interpolated: bool
     apportioned: bool
     complete: bool  # every half-hour of the day lies inside a measured span
-
-
-def interval_offpeak(
-    start: int,
-    seconds: int,
-    tariff: Tariff,
-    tz: ZoneInfo,
-    colours: Mapping[date, str] | None = None,
-) -> float | None:
-    """Off-peak share of [start, start + seconds) under that day's option (None under base)."""
-    return Pricing(tariff, tz, colours).offpeak(start, seconds)
 
 
 def radiator_days(

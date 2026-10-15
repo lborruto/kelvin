@@ -120,15 +120,30 @@ async def test_a_stored_tempo_row_prices_every_route(api):
     assert colours == [COLOURS[date(2026, 11, 14)]] * 12 + [COLOURS[date(2026, 11, 15)]] * 36
     assert ivs[0]["price"] == TEMPO[f"{COLOURS[date(2026, 11, 14)]}_hc"]
     assert ivs[20]["price"] == TEMPO[f"{COLOURS[date(2026, 11, 15)]}_hp"]
-    assert any(iv["radiators_wh"] is not None for iv in ivs)  # the seeded radiators priced too
+    # The simulator seeds a week of radiator readings before the wall clock (13–20 November
+    # here), so the 15th has radiator half-hours, priced through the same Tempo row.
+    assert any(iv["radiators_wh"] is not None for iv in ivs)
     t = body["totals"]
     assert t["hc_kwh"] + t["hp_kwh"] == pytest.approx(t["daily_kwh"], abs=0.002)
 
     r = await c.get(
-        "/api/energy", params={"from": "2026-11-01", "to": "2026-12-01", "group": "month"}
+        "/api/energy",
+        params={
+            "from": "2026-11-01",
+            "to": "2026-12-01",
+            "group": "month",
+            "period_from": "2026-11-01",
+            "period_to": "2026-12-01",
+        },
     )
     assert r.status_code == 200, r.text
     nov = r.json()["buckets"][0]
+    # The Tempo lens agrees with the hero: its € rows are the priced days', to the cent, and
+    # the two days without a colour are its kWh without a colour, whole.
+    lens, period = r.json()["tempo_lens"], r.json()["period"]
+    assert round(sum(x["eur"] for x in lens["rows"]) * 100) == round(period["energy_eur"] * 100)
+    unpriced = buckets["2026-11-10"]["kwh"] + buckets["2026-11-11"]["kwh"]
+    assert lens["unknown_kwh"] == pytest.approx(unpriced, abs=0.002)
     # 10 and 11 November have no €: the month says so, and its € are the priced days' only.
     assert nov["missing_colour_days"] == 2 and nov["tempo"]["unknown"] == 1
     assert nov["energy_eur"] == pytest.approx(

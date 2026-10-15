@@ -23,11 +23,6 @@ def _r(v: float | None, n: int = 3) -> float | None:
     return None if v is None else round(v, n)
 
 
-def boundary_inside(start: int, minutes: int, tariff: Tariff, tz: ZoneInfo) -> bool:
-    """True when an off-peak edge falls strictly inside the interval (L11 « ≈ »)."""
-    return Pricing(tariff, tz).slice(start, minutes * 60).boundary
-
-
 def day_detail(
     day: date,
     points: list[CurvePoint],

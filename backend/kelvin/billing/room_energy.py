@@ -6,7 +6,9 @@ radiators' rows in the report's `by_radiator` for that day (`radiator_shares`: t
 from running sums anchored on 1 January, shared by largest remainder), so a room's day reads what
 Énergie's Par pièce shows for it, in every window, and windows add up to the cent. Today's
 measured half-hours enter the same running sum as its last point (`radiator_cents(extra=)`):
-nothing is rounded on its own. Unknown is None, never 0; a radiator never recorded lowers
+nothing is rounded on its own. Each half-hour was priced by `Pricing` (its option, its slots or
+Tempo hours, its Tempo day's colour) when the radiator days were built. Unknown is None, never 0:
+no split under Base, no € when a Tempo colour is unknown; a radiator never recorded lowers
 nothing, as in the report.
 """
 
@@ -62,8 +64,11 @@ def room_energy(
     ]
     found = whole.found or bool(now)
     has_eur = whole.priced or any(rd.eur is not None for rd in now)
+    # Every day must have its € (under Tempo a colour can be unknown): a room never shows a
+    # partial € as whole. HC/HP need every day's split (none under Base).
+    whole_eur = not whole.unpriced and all(rd.eur is not None for rd in now)
     eur = None
-    if found and priced and has_eur:
+    if found and priced and has_eur and whole_eur:
         years = cache(lambda year: radiator_year_cum(per, counted, year))
         mine = set(ids)
         cents = 0
@@ -75,7 +80,7 @@ def room_energy(
         extra = sum(rd.eur or 0.0 for rd in now)
         cents += radiator_cents(years, today, today, extra=extra)
         eur = cents / 100
-    split = found and has_eur
+    split = found and priced and whole.split and all(rd.hc_wh is not None for rd in now)
     hours = [heating_hours.get(rid) for rid in ids]
     return {
         "from": first.isoformat(),
