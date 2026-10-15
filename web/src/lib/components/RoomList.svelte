@@ -12,7 +12,7 @@
 
   interface Props {
     selectedId?: string | null;
-    /** The selected room is the page's URL ("/pieces/[id]"), not the default of "/". */
+    /** The selected room is the page's URL ("/rooms/[id]"), not the default of "/". */
     selectedIsPage?: boolean;
   }
   let { selectedId = null, selectedIsPage = false }: Props = $props();

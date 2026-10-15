@@ -1,5 +1,6 @@
 <script lang="ts">
   import { desktop } from '$lib/media.svelte';
+  import { ROUTES } from '$lib/paths';
   import { plural } from '$lib/plural';
   import { house } from '$lib/stores/house.svelte';
   import HouseActions from './HouseActions.svelte';
@@ -33,7 +34,7 @@
     <div class="phone-only"><HouseActions /></div>
   </header>
 {:else}
-  <a class="back" href="/"><Icon name="arrow-left" size={16} />Pièces</a>
+  <a class="back" href={ROUTES.rooms}><Icon name="arrow-left" size={16} />Pièces</a>
 {/if}
 
 <div class="cols">

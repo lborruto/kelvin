@@ -1,20 +1,14 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import Icon, { type IconName } from './Icon.svelte';
+  import { isActive, NAV, type NavKey } from '$lib/paths';
+  import Icon from './Icon.svelte';
 
-  const tabs: { href: string; label: string; icon: IconName }[] = [
-    { href: '/', label: 'Pièces', icon: 'rooms' },
-    { href: '/programme', label: 'Programme', icon: 'program' },
-    { href: '/energie', label: 'Énergie', icon: 'energy' },
-    { href: '/maison', label: 'Maison', icon: 'house' }
-  ];
-  const active = (href: string) =>
-    href === '/' ? page.url.pathname === '/' || page.url.pathname.startsWith('/pieces') : page.url.pathname.startsWith(href);
+  const LABEL: Record<NavKey, string> = { rooms: 'Pièces', schedule: 'Programme', energy: 'Énergie', home: 'Maison' };
 </script>
 
 <nav class="tabbar" aria-label="Navigation principale">
-  {#each tabs as t (t.href)}
-    <a href={t.href} aria-current={active(t.href) ? 'page' : undefined}><Icon name={t.icon} size={20} /><span>{t.label}</span></a>
+  {#each NAV as t (t.href)}
+    <a href={t.href} aria-current={isActive(page.url.pathname, t.href) ? 'page' : undefined}><Icon name={t.icon} size={20} /><span>{LABEL[t.key]}</span></a>
   {/each}
 </nav>
 

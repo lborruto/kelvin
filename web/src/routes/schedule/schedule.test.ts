@@ -50,7 +50,7 @@ async function editAndSend() {
   await fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
 }
 
-describe('/programme', () => {
+describe('/schedule', () => {
   it('keeps the edits when the send fails', async () => {
     vi.mocked(api.roomProgram).mockRejectedValue(new ApiError(502, 'Radiateur injoignable.'));
     await editAndSend();

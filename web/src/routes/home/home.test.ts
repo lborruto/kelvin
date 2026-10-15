@@ -149,7 +149,7 @@ describe('Maison', () => {
     vi.mocked(api.settings).mockRejectedValueOnce(new Error('x'));
     render(Page);
     const retry = await screen.findByRole('button', { name: 'Réessayer' });
-    expect(retry.closest('#tarif')).not.toBeNull();
+    expect(retry.closest('#tariff')).not.toBeNull();
     expect(screen.getByText(/Impossible de charger le tarif/)).toBeInTheDocument();
     await fireEvent.click(retry);
     expect(await screen.findByRole('button', { name: 'Enregistrer le tarif' })).toBeInTheDocument();
@@ -163,7 +163,7 @@ describe('Maison', () => {
   it('the Tarif and Linky anchors exist from the first render, skeleton included', () => {
     vi.mocked(api.settings).mockReturnValueOnce(new Promise(() => {}));
     render(Page);
-    expect(document.getElementById('tarif')).toHaveAttribute('aria-busy', 'true');
+    expect(document.getElementById('tariff')).toHaveAttribute('aria-busy', 'true');
     expect(document.getElementById('linky')).toBeInTheDocument();
   });
 });

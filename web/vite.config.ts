@@ -17,7 +17,7 @@ export default defineConfig({
     sveltekit(),
     SvelteKitPWA({
       // SvelteKit builds with a relative base ('./'): without an absolute base the app registers
-      // './sw.js' and links './manifest.webmanifest', which break on deep links like /pieces/x.
+      // './sw.js' and links './manifest.webmanifest', which break on deep links like /rooms/x.
       base: '/',
       scope: '/',
       registerType: 'autoUpdate',

@@ -175,7 +175,7 @@ describe('Énergie', () => {
     const sheet = hero.querySelector<HTMLElement>('.inspector.sheet')!;
     expect(hero.lastElementChild).toBe(sheet);
     expect(sheet.compareDocumentPosition(hero.querySelector('.sub')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-    sheet.querySelector<HTMLElement>('a[href="#qualite"]')?.focus();
+    sheet.querySelector<HTMLElement>('a[href="#quality"]')?.focus();
     await fireEvent.keyDown(sheet, { key: 'Escape' });
     await tick();
     expect(hero.querySelector('.inspector')).toBeNull();
@@ -276,7 +276,7 @@ describe('Énergie', () => {
     vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, configured: false, state: 'off', last_day: null });
     vi.mocked(api.energyReport).mockResolvedValue(report({ linky: false, last_day: null, projection: null, heating_share: null, ...periodWith({ kwh: null, eur: null }) }));
     render(Page);
-    expect(await screen.findByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/maison#linky');
+    expect(await screen.findByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/home#linky');
     expect(await screen.findByRole('img', { name: 'Consommation des radiateurs par jour' })).toBeInTheDocument();
     expect(api.energyDay).not.toHaveBeenCalled();
   });
@@ -285,7 +285,7 @@ describe('Énergie', () => {
     const { container } = render(Page);
     expect(await screen.findByRole('heading', { name: 'Courbe du 12 octobre 2026' })).toBeInTheDocument();
     expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
-    const notes = [...container.querySelectorAll('#courbe .note')].map((n) => n.textContent);
+    const notes = [...container.querySelectorAll('#curve .note')].map((n) => n.textContent);
     expect(notes).toContain('Courbe 21,60\u00a0kWh · relevé journalier 22,03\u00a0kWh (écart 2,0\u00a0%)');
     expect(notes).toContain('HC 8,98\u00a0kWh · HP 13,05\u00a0kWh, d’après le relevé journalier');
     expect(screen.getByRole('button', { name: 'Jour suivant' })).toHaveAttribute('aria-disabled', 'true');
@@ -302,7 +302,7 @@ describe('Énergie', () => {
     );
     const { container } = render(Page);
     await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' });
-    const notes = [...container.querySelectorAll('#courbe .note')].map((n) => n.textContent);
+    const notes = [...container.querySelectorAll('#curve .note')].map((n) => n.textContent);
     const caption = 'Consommation de la maison par jour';
     const row = bucketLabel('2026-10-12', 'day');
     const hc = cell(container, caption, row, 'Heures creuses');
@@ -439,7 +439,7 @@ describe('Énergie', () => {
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
     expect(await screen.findByText('Répartition heures creuses / pleines estimée pour 1 jour sans courbe complète.')).toBeInTheDocument();
     expect(screen.queryByText(/estimée pour 4 jours/)).toBeNull();
-    const q = container.querySelector('#qualite')!;
+    const q = container.querySelector('#quality')!;
     expect(q).toHaveTextContent('Jours HC/HP estimés : 1 (');
     expect(q).not.toHaveTextContent('Prix du premier tarif');
     // The strip has the selected day's cell only.
@@ -522,7 +522,7 @@ describe('Énergie', () => {
   it('Linky auth is an error with a way to renew the token', async () => {
     vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'auth', message: null });
     const { container } = render(Page);
-    expect(await screen.findByRole('link', { name: 'Renouveler le jeton' })).toHaveAttribute('href', '/maison#linky');
+    expect(await screen.findByRole('link', { name: 'Renouveler le jeton' })).toHaveAttribute('href', '/home#linky');
     expect(container.querySelector('.callout.bad')).toHaveTextContent('MyElectricalData refuse le jeton Linky.');
   });
 
@@ -530,7 +530,7 @@ describe('Énergie', () => {
     vi.mocked(api.linkyStatus).mockRejectedValue(new Error('boom'));
     const { container } = render(Page);
     expect(await screen.findByText(/État du Linky indisponible\./)).toBeInTheDocument();
-    expect(container.querySelector('.callout.bad a')).toHaveAttribute('href', '/maison#linky');
+    expect(container.querySelector('.callout.bad a')).toHaveAttribute('href', '/home#linky');
     expect(api.energyReport).toHaveBeenCalled(); // from yesterday's period, without a Linky day to anchor it
   });
 
@@ -593,12 +593,12 @@ describe('Énergie', () => {
     // Full width, straight under the Courbe whose scrubber it shares.
     const panel = h.closest('section')!;
     expect(panel).toHaveClass('wide');
-    expect(panel.previousElementSibling).toHaveAttribute('id', 'courbe');
+    expect(panel.previousElementSibling).toHaveAttribute('id', 'curve');
     // The first room in the Pièces order.
     await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'salon'));
     // The half-hour scrubbed on one chart is the other's.
     await fireEvent.keyDown(await screen.findByRole('slider', { name: 'Parcourir la journée de la pièce, demi-heure par demi-heure' }), { key: 'ArrowRight' });
-    expect(container.querySelector('#courbe .readout .when')).toHaveTextContent('00:00–00:30');
+    expect(container.querySelector('#curve .readout .when')).toHaveTextContent('00:00–00:30');
     await fireEvent.change(screen.getByRole('combobox', { name: 'Pièce' }), { target: { value: 'chambre' } });
     await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'chambre'));
     // Chambre's radiator has no figure that day: said, never a flat zero.
@@ -640,7 +640,7 @@ describe('Énergie', () => {
   it('Qualité des données is collapsed under the panels, and Exporter, the last panel, exports the period shown', async () => {
     const { container } = render(Page);
     const quality = (await screen.findByRole('heading', { name: 'Qualité des données' })).closest('section')!;
-    expect(quality).toHaveAttribute('id', 'qualite');
+    expect(quality).toHaveAttribute('id', 'quality');
     expect(within(quality).getByRole('button', { name: 'Qualité des données' })).toHaveAttribute('aria-expanded', 'false');
     const exporter = screen.getByRole('heading', { name: 'Exporter' }).closest('section')!;
     expect([...container.querySelectorAll('.panels > *')].at(-1)).toBe(exporter);

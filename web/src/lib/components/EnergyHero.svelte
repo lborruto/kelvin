@@ -5,6 +5,7 @@
   import { fmtChangeShare, fmtDay, fmtEurExact, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct1 } from '$lib/format';
   import { inspectBucket } from '$lib/inspector';
   import { desktop } from '$lib/media.svelte';
+  import { ANCHORS, ROUTES } from '$lib/paths';
   import { plural } from '$lib/plural';
   import { today } from '$lib/today.svelte';
 
@@ -126,7 +127,7 @@
   {#if change && prev}<p class="muted delta">{COPY.compare(change, prevName, prev.pairs)}</p>{/if}
   {#if noData}<p class="muted small">{COPY.noData}</p>{/if}
   {#each notes as n (n)}<p class="muted small">{n}</p>{/each}
-  {#if report.linky && !report.tariff}<p class="muted small"><a href="/maison#tarif">{COPY.tariffLink}</a>{COPY.tariffTail}</p>{/if}
+  {#if report.linky && !report.tariff}<p class="muted small"><a href="{ROUTES.home}#{ANCHORS.tariff}">{COPY.tariffLink}</a>{COPY.tariffTail}</p>{/if}
   <!-- Phone: the sheet docks at the hero's end, so the figure keeps its lines under it. -->
   {#if mode === 'sheet' && open}<ChartInspector {ins} mode="sheet" id="{uid}-ins" pinned onclose={close} />{/if}
 </section>

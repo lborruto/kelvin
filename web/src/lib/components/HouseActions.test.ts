@@ -50,7 +50,7 @@ it('is disabled while Kelvin is disconnected', () => {
 
 it('offers « Absence… » except where the Absence panel already is', () => {
   const a = render(HouseActions);
-  expect(screen.getByRole('link', { name: 'Absence…' })).toHaveAttribute('href', '/maison#absence');
+  expect(screen.getByRole('link', { name: 'Absence…' })).toHaveAttribute('href', '/home#away');
   a.unmount();
   render(HouseActions, { away: false });
   expect(screen.queryByRole('link', { name: 'Absence…' })).toBeNull();

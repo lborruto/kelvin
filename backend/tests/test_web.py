@@ -30,7 +30,7 @@ async def test_spa_serves_index_assets_and_keeps_api(tmp_path):
     async with LifespanManager(app):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
             assert "kelvin-index" in (await c.get("/")).text
-            assert "kelvin-index" in (await c.get("/pieces/p-salon")).text
+            assert "kelvin-index" in (await c.get("/rooms/p-salon")).text
             asset = await c.get("/_app/immutable/app.js")
             assert asset.text == "console.log(1)"
             assert "immutable" in asset.headers["cache-control"]
@@ -56,7 +56,7 @@ async def test_spa_catch_all_edges(tmp_path):
                 r = await c.request(method, "/api/unknown", headers={"X-Kelvin": "1"})
                 assert r.status_code == 404, method
                 assert r.json() == {"detail": "Introuvable."}
-            assert (await c.post("/pieces/p-salon")).status_code == 405
+            assert (await c.post("/rooms/p-salon")).status_code == 405
             assert (await c.get("/a%00b")).status_code == 404
             leak = await c.get("/leak")  # a symlink out of the build serves the index instead
             assert leak.status_code == 200 and "kelvin-index" in leak.text
@@ -126,7 +126,7 @@ async def test_security_headers_on_errors_and_authenticated_answers(tmp_path):
             r = await c.post("/api/auth/login", json={"email": "x@y.z", "password": "p"})
             assert r.status_code == 403  # no X-Kelvin
             _assert_headers(r, "403")
-            r = await c.post("/pieces/p-salon")
+            r = await c.post("/rooms/p-salon")
             assert r.status_code == 405
             _assert_headers(r, "405")
             r = await c.post("/api/auth/login", json={}, headers={"X-Kelvin": "1"})

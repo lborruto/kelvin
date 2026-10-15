@@ -3,6 +3,7 @@
   import { CARD_W } from '$lib/chart';
   import type { Inspection } from '$lib/inspector';
   import { dur, T } from '$lib/motion';
+  import { ANCHORS } from '$lib/paths';
 
   const COPY = {
     est: 'est.',
@@ -48,7 +49,7 @@
   {#if ins.notes.length}
     <ul class="notes">{#each ins.notes as n (n)}<li>{n}</li>{/each}</ul>
   {/if}
-  {#if hasEst}<p class="foot">{COPY.estNote} <a href="#qualite">{COPY.quality}</a>.</p>{/if}
+  {#if hasEst}<p class="foot">{COPY.estNote} <a href="#{ANCHORS.quality}">{COPY.quality}</a>.</p>{/if}
   {#if action}<button type="button" class="btn btn-sm" onclick={action.run}>{action.label}</button>{/if}
 {/snippet}
 

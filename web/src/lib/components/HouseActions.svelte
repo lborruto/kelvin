@@ -1,6 +1,7 @@
 <script lang="ts">
   import { retry, runHouse } from '$lib/actions';
   import { api } from '$lib/api/client';
+  import { ANCHORS, ROUTES } from '$lib/paths';
   import { house } from '$lib/stores/house.svelte';
   import Icon from './Icon.svelte';
   import PendingTag from './PendingTag.svelte';
@@ -42,7 +43,7 @@
     {#if program}
       <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={() => !blocked && runHouse(() => api.houseProgram())}>Tout remettre en programme</button>
     {/if}
-    {#if away}<a class="btn btn-sm" href="/maison#absence"><Icon name="away" size={16} />Absence…</a>{/if}
+    {#if away}<a class="btn btn-sm" href="{ROUTES.home}#{ANCHORS.away}"><Icon name="away" size={16} />Absence…</a>{/if}
   </div>
   <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
 </div>

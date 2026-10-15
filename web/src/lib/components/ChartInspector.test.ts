@@ -39,7 +39,7 @@ describe('ChartInspector', () => {
     expect(rows[0].querySelector('.est')).toBeNull();
     expect(rows[2]).toHaveClass('sub');
     expect(screen.getByText('2 jours manquants')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Qualité des données' })).toHaveAttribute('href', '#qualite');
+    expect(screen.getByRole('link', { name: 'Qualité des données' })).toHaveAttribute('href', '#quality');
   });
 
   it('a « — » says why', () => {

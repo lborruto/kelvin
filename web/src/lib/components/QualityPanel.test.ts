@@ -23,7 +23,7 @@ describe('QualityPanel', () => {
     const toggle = within(heading).getByRole('button', { name: 'Qualité des données', expanded: false });
     const body = document.getElementById(toggle.getAttribute('aria-controls')!)!;
     expect(body).not.toBeVisible();
-    expect(container.querySelector('#qualite')).toContainElement(body);
+    expect(container.querySelector('#quality')).toContainElement(body);
     await fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(body).toBeVisible();
@@ -41,7 +41,7 @@ describe('QualityPanel', () => {
 
   it('is collapsed, with a coverage strip per bucket and row: full, partial, missing', () => {
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
-    expect(container.querySelector('#qualite [aria-expanded]')).toHaveAttribute('aria-expanded', 'false');
+    expect(container.querySelector('#quality [aria-expanded]')).toHaveAttribute('aria-expanded', 'false');
     const MARKS = ['full', 'partial', 'missing', 'none'];
     const row = (i: number) =>
       [...container.querySelectorAll('.strip .row')[i].querySelectorAll('.cell')].map((c) => [...c.classList].find((x) => MARKS.includes(x)));
@@ -78,19 +78,19 @@ describe('QualityPanel', () => {
     expect(t).toContain('Prix du premier tarif appliqué à 6 jours antérieurs');
   });
 
-  it('opens when the page is reached at #qualite', () => {
-    window.location.hash = '#qualite';
+  it('opens when the page is reached at #quality', () => {
+    window.location.hash = '#quality';
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
-    expect(container.querySelector('#qualite [aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
+    expect(container.querySelector('#quality [aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
     window.location.hash = '';
   });
 
-  it('opens when an « est. » link to #qualite is followed', async () => {
-    const link = document.body.appendChild(Object.assign(document.createElement('a'), { href: '#qualite', textContent: 'est.' }));
+  it('opens when an « est. » link to #quality is followed', async () => {
+    const link = document.body.appendChild(Object.assign(document.createElement('a'), { href: '#quality', textContent: 'est.' }));
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
     link.click();
     await Promise.resolve();
-    expect(container.querySelector('#qualite [aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
+    expect(container.querySelector('#quality [aria-expanded]')).toHaveAttribute('aria-expanded', 'true');
     link.remove();
     window.location.hash = '';
   });

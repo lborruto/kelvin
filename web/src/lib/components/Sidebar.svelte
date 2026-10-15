@@ -1,22 +1,16 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { isActive, NAV, type NavKey } from '$lib/paths';
   import HouseActions from './HouseActions.svelte';
-  import Icon, { type IconName } from './Icon.svelte';
+  import Icon from './Icon.svelte';
 
-  const links: { href: string; label: string; icon: IconName }[] = [
-    { href: '/', label: 'Pièces', icon: 'rooms' },
-    { href: '/programme', label: 'Programme', icon: 'program' },
-    { href: '/energie', label: 'Énergie', icon: 'energy' },
-    { href: '/maison', label: 'Maison', icon: 'house' }
-  ];
-  const active = (href: string) =>
-    href === '/' ? page.url.pathname === '/' || page.url.pathname.startsWith('/pieces') : page.url.pathname.startsWith(href);
+  const LABEL: Record<NavKey, string> = { rooms: 'Pièces', schedule: 'Programme', energy: 'Énergie', home: 'Maison' };
 </script>
 
 <nav class="sidebar" aria-label="Navigation principale">
   <div class="brand">Kelvin</div>
-  {#each links as l (l.href)}
-    <a href={l.href} aria-current={active(l.href) ? 'page' : undefined}><Icon name={l.icon} />{l.label}</a>
+  {#each NAV as l (l.href)}
+    <a href={l.href} aria-current={isActive(page.url.pathname, l.href) ? 'page' : undefined}><Icon name={l.icon} />{LABEL[l.key]}</a>
   {/each}
   <div class="foot"><HouseActions stacked /></div>
 </nav>

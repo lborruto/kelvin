@@ -8,7 +8,7 @@ const text = (c: HTMLElement) => c.textContent!.replace(/\s+/g, ' ');
 describe('HcHpPanel', () => {
   it('asks for the tariff when there is none', () => {
     render(HcHpPanel, { lens: null, tariff: false, hpKwh: null });
-    expect(screen.getByRole('link', { name: 'Renseignez le tarif' })).toHaveAttribute('href', '/maison#tarif');
+    expect(screen.getByRole('link', { name: 'Renseignez le tarif' })).toHaveAttribute('href', '/home#tariff');
     expect(screen.getByText(/pour voir la répartition\./)).toBeInTheDocument();
   });
 

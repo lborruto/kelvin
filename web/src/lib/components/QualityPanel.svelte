@@ -2,6 +2,7 @@
   import type { EnergyGroup, EnergyReport, Quality, SplitMethod } from '$lib/api/types';
   import { bucketLabel, bucketSpan } from '$lib/energy';
   import { fmtDateLong, fmtPct1 } from '$lib/format';
+  import { ANCHORS } from '$lib/paths';
   import { plural } from '$lib/plural';
   import Icon from './Icon.svelte';
 
@@ -39,13 +40,13 @@
   const uid = $props.id();
   let open = $state(false);
 
-  // Opened by a link to #qualite (the « est. » footnotes) or a page reached at that anchor.
+  // Opened by a link to #quality (the « est. » footnotes) or a page reached at that anchor.
   $effect(() => {
     const check = () => {
-      if (location.hash === '#qualite') open = true;
+      if (location.hash === `#${ANCHORS.quality}`) open = true;
     };
     const onclick = (e: MouseEvent) => {
-      if ((e.target as Element | null)?.closest?.('a[href="#qualite"]')) open = true;
+      if ((e.target as Element | null)?.closest?.(`a[href="#${ANCHORS.quality}"]`)) open = true;
     };
     check();
     window.addEventListener('hashchange', check);
@@ -106,7 +107,7 @@
 
 <!-- A heading holding its toggle (the disclosure pattern), not an <h2> inside <summary>: a summary is a button, and
      some screen readers drop the heading role of what it holds, so « Qualité des données » left heading navigation. -->
-<section id="qualite" class="panel {cls}" class:open aria-labelledby="{uid}-title">
+<section id={ANCHORS.quality} class="panel {cls}" class:open aria-labelledby="{uid}-title">
   <h2 class="qtitle">
     <button type="button" id="{uid}-title" class="disclose" aria-expanded={open} aria-controls="{uid}-body" onclick={() => (open = !open)}>
       <span class="chev" class:on={open} aria-hidden="true"><Icon name="chevron" size={16} /></span>{COPY.title}

@@ -9,6 +9,7 @@
   import Stepper from '$lib/components/Stepper.svelte';
   import TariffForm from '$lib/components/TariffForm.svelte';
   import { fmtAgo, fmtDateTime, fmtTemp } from '$lib/format';
+  import { ANCHORS, ROUTES } from '$lib/paths';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
@@ -66,7 +67,7 @@
     } finally {
       loggingOut = false;
     }
-    await goto('/login', { replaceState: true });
+    await goto(ROUTES.login, { replaceState: true });
   }
 
   let settingsView = $state<SettingsView | null>(null);
@@ -94,7 +95,7 @@
     if (!settled || landed) return;
     landed = true;
     const id = location.hash.slice(1);
-    if (id !== 'tarif' && id !== 'linky') return;
+    if (id !== ANCHORS.tariff && id !== ANCHORS.linky) return;
     requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }));
   });
 
@@ -119,7 +120,7 @@
 
 <h1>Maison</h1>
 
-<section id="absence" class="panel">
+<section id={ANCHORS.away} class="panel">
   <h2>Absence</h2>
   <p class="muted">Tous les radiateurs passent à une température réduite, puis reprennent leur réglage à la date choisie.</p>
   <div class="row">
@@ -164,11 +165,11 @@
 
 {#if !settled}
   <!-- Tarif and Linky in their final shape until both answers are in. -->
-  <!-- The ids are there from the first render, so /maison#tarif and #linky land on their panel. -->
-  <section id="tarif" class="panel" aria-busy="true"><h2>Tarif</h2><div class="skeleton inset" style:height="340px" aria-hidden="true"></div></section>
-  <section id="linky" class="panel" aria-busy="true"><h2>Linky</h2><div class="skeleton inset" style:height="190px" aria-hidden="true"></div></section>
+  <!-- The ids are there from the first render, so /home#tariff and #linky land on their panel. -->
+  <section id={ANCHORS.tariff} class="panel" aria-busy="true"><h2>Tarif</h2><div class="skeleton inset" style:height="340px" aria-hidden="true"></div></section>
+  <section id={ANCHORS.linky} class="panel" aria-busy="true"><h2>Linky</h2><div class="skeleton inset" style:height="190px" aria-hidden="true"></div></section>
 {:else}
-  <section id="tarif" class="panel">
+  <section id={ANCHORS.tariff} class="panel">
     <h2>Tarif</h2>
     {#if settingsView}
       <TariffForm settings={settingsView} onsaved={tariffSaved} />
@@ -177,7 +178,7 @@
     {/if}
   </section>
 
-  <section id="linky" class="panel">
+  <section id={ANCHORS.linky} class="panel">
     <h2>Linky</h2>
     {#if linkyStatus}
       <LinkyPanel status={linkyStatus} onsaved={(s) => (linkyStatus = s)} />

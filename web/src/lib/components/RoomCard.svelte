@@ -8,6 +8,7 @@
   import { dur, easeOut, flash, T } from '$lib/motion';
   import { Settle } from '$lib/settle.svelte';
   import { fmtNextChange, nextChange } from '$lib/program';
+  import { ROUTES } from '$lib/paths';
   import { agg } from '$lib/room';
   import { house } from '$lib/stores/house.svelte';
   import type { StripPoint } from '$lib/stores/history.svelte';
@@ -83,7 +84,7 @@
 
 <article class="card" class:expanded class:selected class:link={navigates}>
   {#if navigates}
-    <a class="head" href="/pieces/{room.id}" aria-current={current ? 'page' : undefined} data-sveltekit-keepfocus
+    <a class="head" href={ROUTES.room(room.id)} aria-current={current ? 'page' : undefined} data-sveltekit-keepfocus
       data-sveltekit-noscroll>{@render headInner()}</a>
   {:else}
     <button type="button" class="head" aria-expanded={expanded} aria-controls="{uid}-controls" onclick={onselect}>{@render headInner()}</button>
@@ -97,7 +98,7 @@
     <div class="foot">
       <span class="muted next">{#if change}{fmtNextChange(change, now)}{/if}</span>
       <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
-      {#if expanded}<a class="details" href="/pieces/{room.id}" in:fade={{ duration: dur(T.state) }}>Détails<Icon name="chevron" size={14} /></a>{/if}
+      {#if expanded}<a class="details" href={ROUTES.room(room.id)} in:fade={{ duration: dur(T.state) }}>Détails<Icon name="chevron" size={14} /></a>{/if}
     </div>
   {/if}
 

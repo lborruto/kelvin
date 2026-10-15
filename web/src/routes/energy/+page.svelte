@@ -20,6 +20,7 @@
   import { fmtDateLong, fmtDay, fmtKwh, fmtTime, monthName } from '$lib/format';
   import { inspectBucket } from '$lib/inspector';
   import { reducedMotion } from '$lib/motion';
+  import { ANCHORS, ROUTES } from '$lib/paths';
   import { announcer } from '$lib/stores/announcer.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { today } from '$lib/today.svelte';
@@ -191,7 +192,7 @@
     navigate(() => data.drill(b.key));
     if (opensCurve) {
       announcer.say(COPY.curveShown(fmtDateLong(b.key)));
-      document.getElementById('courbe')?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+      document.getElementById(ANCHORS.curve)?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
     }
   }
   function drillLabel(i: number): string | null {
@@ -241,9 +242,9 @@
 {/if}
 
 {#if !ready}{:else if linky?.state === 'off'}
-  <p class="callout">{COPY.connect} <a href="/maison#linky">{COPY.settings}</a></p>
+  <p class="callout">{COPY.connect} <a href="{ROUTES.home}#{ANCHORS.linky}">{COPY.settings}</a></p>
 {:else if linkyNote}
-  <p class="callout" class:bad={linkyNote.bad} role="status">{linkyNote.text}{#if linkyNote.link}&nbsp;<a href="/maison#linky">{linkyNote.link}</a>{/if}</p>
+  <p class="callout" class:bad={linkyNote.bad} role="status">{linkyNote.text}{#if linkyNote.link}&nbsp;<a href="{ROUTES.home}#{ANCHORS.linky}">{linkyNote.link}</a>{/if}</p>
 {/if}
 {#if ready && main?.last_day}<p class="muted fresh">{COPY.fresh(fmtDay(main.last_day))}</p>{/if}
 {#if data.error}<p class="error" role="alert">{data.failed ? COPY.failedPeriod(periodTitle(data.failed.view, data.failed.period), data.error) : data.error} <button type="button" class="btn btn-sm" onclick={() => navigate(() => data.retry())}>{COPY.retry}</button></p>{/if}
@@ -345,7 +346,7 @@
 
   <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="wide" />
 
-  <!-- Collapsed: where every estimate comes from, opened by the « est. » links (#qualite). -->
+  <!-- Collapsed: where every estimate comes from, opened by the « est. » links (#quality). -->
   {#if main.linky}
     <QualityPanel buckets={periodBars} group={chart.group} quality={main.period.quality} class="wide" />
   {/if}

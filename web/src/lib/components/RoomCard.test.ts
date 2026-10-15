@@ -98,7 +98,7 @@ describe('RoomCard', () => {
   it('is a link to the room on desktop, marked current when it is the room shown', () => {
     render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn(), navigates: true, selected: true, current: true });
     const link = screen.getByRole('link', { name: /Salon/ });
-    expect(link).toHaveAttribute('href', '/pieces/salon');
+    expect(link).toHaveAttribute('href', '/rooms/salon');
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(link).not.toHaveAttribute('aria-expanded');
     // Focus stays on the card across the navigation (the list is not re-rendered).

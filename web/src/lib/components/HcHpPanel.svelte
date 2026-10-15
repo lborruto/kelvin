@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { HcLens } from '$lib/api/types';
   import { fmtAmount, fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
+  import { ANCHORS, ROUTES } from '$lib/paths';
   import { shiftValue } from '$lib/power';
 
   const COPY = {
@@ -36,7 +37,7 @@
 <section class="panel {cls}">
   <h2>{COPY.title}</h2>
   {#if !tariff}
-    <p class="line"><a href="/maison#tarif">{COPY.tariffLink}</a>{COPY.tariffTail}</p>
+    <p class="line"><a href="{ROUTES.home}#{ANCHORS.tariff}">{COPY.tariffLink}</a>{COPY.tariffTail}</p>
   {:else}
     <dl class="figs">
       <div>

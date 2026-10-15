@@ -4,6 +4,7 @@
   import type { EnergyDay } from '$lib/api/types';
   import { halfHoursIn, type View } from '$lib/energy';
   import { fmtDateLong, fmtKwhExact, fmtPct1, matchParts } from '$lib/format';
+  import { ANCHORS } from '$lib/paths';
 
   const COPY = {
     heading: (d: string) => `Courbe du ${d}`,
@@ -71,9 +72,9 @@
   });
 </script>
 
-<section class="panel wide" id="courbe" aria-labelledby="courbe-title">
+<section class="panel wide" id={ANCHORS.curve} aria-labelledby="{ANCHORS.curve}-title">
   <div class="head">
-    <h2 id="courbe-title">{COPY.heading(fmtDateLong(dayIso))}</h2>
+    <h2 id="{ANCHORS.curve}-title">{COPY.heading(fmtDateLong(dayIso))}</h2>
     {#if view !== 'day'}
       <!-- In Jour the navigator steps the day; elsewhere these step through the period's complete days. -->
       <div class="nav">
