@@ -906,7 +906,6 @@ export const en: Messages = {
     no_night_light: () => 'This radiator has no night light.',
     intensity_light_off: () => 'Brightness can only be set with the night light on.',
     intensity_range: () => 'Brightness must be between 1 and 100%.',
-    name_length: () => 'The name must be 1 to 32 characters.',
     slot_time_invalid: (p: ApiParams) => `Invalid time: ${p.value} (HH:MM).`,
     slots_none: () => 'Add at least one off-peak period.',
     slots_too_many: () => 'Three off-peak periods at most.',

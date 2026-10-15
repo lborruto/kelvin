@@ -61,10 +61,13 @@ depends on.
 - **Rooms are Cozytouch places:** a radiator's room is its heater's place and its name its
   heater's Cozytouch label (the device name when the label is Overkiz's generic one); Kelvin keeps
   no room mapping of its own.
-- **Labels shown, never serials:** a device label that is Cozytouch's generic « IO (…#n) » or
-  holds a serial or device URL is shown as its role. No device URL, serial, place id or gateway id
-  appears in an API body, an SSE event, a log or the UI (`setup/service.py` is in
-  `FRENCH_PASS_THROUGH` of `tests/test_error_codes.py` for that reason).
+- **Ids and labels:** device URLs and gateway ids never leave the backend (device ids in the
+  API are `<radiator id>#<n>` and `bridge-<n>`). Room ids are Cozytouch place oids, as they
+  always were (`rooms[].id`, `room_id`, a setup pending's `room_id`). `GET /api/setup/devices`
+  returns device labels as Cozytouch holds them, generic « IO (…#n) » ones included; the web
+  shows a generic label, or one holding a serial or a device URL, as the device's role
+  (`deviceLabel`, `radiatorName` in `web/src/lib/setup.ts`). Logs and `command_log` carry labels,
+  never ids.
 - **Radiator energy:** a meter reading is a value at the time Kelvin learned it; rows are
   written only when a counter changes, so an equal value is no reading and proves nothing
   (Overkiz's value can lag the meter). Every radiator kWh comes from `recorder/energy.py`

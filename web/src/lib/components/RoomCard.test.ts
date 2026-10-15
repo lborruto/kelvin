@@ -248,3 +248,11 @@ describe('heating now and duty', () => {
     expect(screen.queryByText('En chauffe')).toBeNull();
   });
 });
+
+it('the house root reads « Maison » in French and “Home” in English, whatever the backend calls it', () => {
+  const root = { ...room, id: 'p-house', name: 'Maison', is_root: true }; // i18n-ignore: the backend's root name, a data value
+  applyLocale('en');
+  render(RoomCard, { room: root, now, expanded: false, points: [], onselect: () => {}, navigates: true });
+  expect(screen.getByText('Home', { selector: '.name' })).toBeInTheDocument();
+  applyLocale('fr');
+});

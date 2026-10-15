@@ -934,7 +934,6 @@ export const fr = {
     no_night_light: () => 'Ce radiateur n’a pas de veilleuse.',
     intensity_light_off: () => 'L’intensité ne peut être réglée que veilleuse allumée.',
     intensity_range: () => `L’intensité doit être comprise entre 1 et 100${NB}%.`,
-    name_length: () => 'Le nom doit faire entre 1 et 32 caractères.',
     slot_time_invalid: (p: ApiParams) => `Heure invalide${NB}: ${p.value} (format HH:MM).`,
     slots_none: () => 'Indiquez au moins une plage d’heures creuses.',
     slots_too_many: () => 'Trois plages d’heures creuses au maximum.',

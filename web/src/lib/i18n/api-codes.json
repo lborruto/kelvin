@@ -116,10 +116,6 @@
         "mode": "turbo"
       }
     },
-    "name_length": {
-      "fr": "Le nom doit faire entre 1 et 32 caractères.",
-      "params": {}
-    },
     "no_confirmation": {
       "fr": "Pas de confirmation du radiateur.",
       "params": {}

@@ -36,6 +36,7 @@ ECHO_S = 60.0
 RECENT_KEEP = 300.0
 MAX_PLACE_LOOKUPS = 5
 MISSING_RETRY_S = 600.0  # a place that answered 404 is not looked up again before this
+SETTLE_RETRY_S = 30.0  # a settle read that failed is tried once more after this, then released
 
 Op = Literal["create", "rename", "delete", "relocate", "label"]
 # « unconfirmed »: sent, accepted, but not confirmed within SETUP_TIMEOUT. Not a refusal:
@@ -138,6 +139,8 @@ class SetupService:
         self._unsettled: dict[str, tuple[Step, SetupPending]] = {}
         self._settle_due = False
         self._settle_final = False
+        self._settle_at = float("-inf")  # not before (a failed settle read waits SETTLE_RETRY_S)
+        self._settle_failures: dict[str, int] = {}
 
     # --- state ---
 
@@ -156,6 +159,7 @@ class SetupService:
         """A full read was applied to the house: it shows what the unconfirmed writes did."""
         self._reserved.clear()
         self._unsettled.clear()
+        self._settle_failures.clear()
         self._missing.clear()
 
     def settle_soon(self) -> None:
@@ -177,6 +181,7 @@ class SetupService:
     def _release(self, key: str) -> None:
         self._reserved.discard(key)
         self._unsettled.pop(key, None)
+        self._settle_failures.pop(key, None)
 
     async def _settle(self) -> bool:
         """One targeted read per reserved label with a known place. Applied → the house has
@@ -185,6 +190,7 @@ class SetupService:
         read, or a final settle, decides). A renamed place that answers 404 is gone."""
         final, self._settle_due, self._settle_final = self._settle_final, False, False
         changed = False
+        retry = False
         for key, (st, p) in list(self._unsettled.items()):
             try:
                 place = await self.gateway.read_place(st.target)
@@ -196,7 +202,16 @@ class SetupService:
                     self._release(key)
                 continue
             except GatewayError as e:
-                log.info("setup settle read failed (%s)", type(e).__name__)
+                # A transient error must not keep a label reserved until the next full read
+                # (up to 24 h when the budget is down to the restart's read): try once more,
+                # then release (final review I2).
+                n = self._settle_failures.get(key, 0) + 1
+                self._settle_failures[key] = n
+                log.info("setup settle read failed (%s), attempt %d", type(e).__name__, n)
+                if n >= 2:
+                    self._release(key)
+                else:
+                    retry = True
                 continue
             if place.label == st.want:
                 changed |= self.house.put_place(place, st.parent)
@@ -206,6 +221,9 @@ class SetupService:
             elif final:
                 changed |= self.house.put_place(place, st.parent)
                 self._release(key)
+        if retry:
+            self._settle_due, self._settle_final = True, final
+            self._settle_at = self.clock() + SETTLE_RETRY_S
         return changed
 
     def _confirm_late(self, p: SetupPending) -> None:
@@ -456,7 +474,9 @@ class SetupService:
     # --- confirming ---
 
     def _judge(self, p: SetupPending) -> None:
-        if not p.active:
+        # Never while it is still being sent: an early event may mark the first steps done
+        # while a later write is on the wire; `_run` judges once every write went out.
+        if p.status != "pending":
             return
         sent = [s for s in p.steps if s.sent_at is not None]
         if not sent or not all(s.done for s in sent):
@@ -609,9 +629,14 @@ class SetupService:
             self._judge(p)
         changed |= await self._lookup_places()
         self._timeouts()
-        if self._settle_due:
+        if self._settle_due and self.clock() >= self._settle_at:
             changed |= await self._settle()
         return changed
+
+    def timeouts(self) -> None:
+        """Expire writes Cozytouch never confirmed. Sync: the pump calls it every poll, the
+        failing ones included (final review I1); `tick` calls it too."""
+        self._timeouts()
 
     async def _lookup_places(self) -> bool:
         """A device moved (in the app) to a place Kelvin does not know: read that one place."""

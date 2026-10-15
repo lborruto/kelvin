@@ -10,7 +10,6 @@ from kelvin.commands.translate import (
     plan_light,
     plan_mode,
     plan_program,
-    plan_rename,
     plan_setpoint,
 )
 from kelvin.house.model import build_house
@@ -151,14 +150,6 @@ def test_light_missing_is_an_error(r):
 def test_identify_has_no_expectation(r):
     p = plan_identify(r)
     assert p.commands[0].name in ("identify", "wink") and p.expectations == ()
-
-
-def test_rename(r):
-    assert plan_rename(r, "  Radiateur fenêtre ").commands[0].parameters == ("Radiateur fenêtre",)
-    with pytest.raises(CommandError):
-        plan_rename(r, "x" * 33)
-    with pytest.raises(CommandError):
-        plan_rename(r, "   ")
 
 
 def test_unsupported_command_rejected(r):

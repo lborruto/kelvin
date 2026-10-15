@@ -163,7 +163,13 @@ class EventPump:
                 if await self._resync(changed):
                     self._resync_due = False
             elif reason := self.refresher.due() if self.refresher is not None else None:
-                await self._full_read(changed, reason)
+                try:
+                    await self._full_read(changed, reason)
+                except QuotaError as e:
+                    # A refused refresh (« Synchroniser » on a spent Overkiz quota) is not a lost
+                    # connection: the events came through. The refresher already dropped it.
+                    log.warning("full setup read refused (%s)", safe_reason(e))
+                    self._quota_hold_until = self.clock() + self.state_interval
             elif self.clock() >= self._next_state_read and self._may_read_devices():
                 await self._read_next_radiator(changed)
                 self._next_state_read = self.clock() + self.state_interval
@@ -199,6 +205,8 @@ class EventPump:
         finally:
             # Idempotent; guarantees timeouts fire on the unexpected-exception path too.
             self._safe(self.commands.tick)
+            if self.setup is not None:  # setup writes time out during an outage too
+                self._safe(self.setup.timeouts)
         self.failures = 0
         self.last_error = None
         self.last_error_code = None

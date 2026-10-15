@@ -227,3 +227,20 @@ async def test_the_reserved_answer_says_the_day_when_the_next_sync_is_not_today(
     assert r.status_code == 409 and r.json()["code"] == "room_label_reserved"
     params = r.json()["params"]
     assert params["at"] and params["day"]  # tomorrow: « le 15/10 à … »
+
+
+async def test_the_runtime_house_follows_the_injected_clock(tmp_path):
+    """Final review I3: « Dernier signal » uses the same clock as the rest of the runtime."""
+    clock = ManualClock(5_000.0)
+    app = create_app(
+        Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
+        FakeGateway(clock=clock),
+        start_tasks=False,
+        wall=clock,
+    )
+    async with LifespanManager(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://t", headers={"X-Kelvin": "1"}
+        ) as c:
+            await login(c)
+            assert app.state.ctx.rt.house.wall() == 5_000.0

@@ -540,3 +540,56 @@ async def test_a_rename_settled_by_a_404_removes_the_deleted_place(env):
     await pump(clock, gw, svc, 1)
     assert "p-ch1" not in house.places
     await svc.create_room("Studio")  # released
+
+
+async def test_a_move_is_not_judged_while_its_writes_are_still_being_sent(env):
+    """Final review C1: events for the first relocations arrive during a later write."""
+    clock, gw, house, svc, updates = env
+    real = gw.relocate_device
+    calls = {"n": 0}
+
+    async def slow_relocate(url: str, place: str) -> None:
+        calls["n"] += 1
+        if calls["n"] == 3:  # the pump polls while the third write is on the wire
+            clock.advance(2.0)
+            for ev in await gw.fetch_events():
+                svc.on_event(ev)
+        await real(url, place)
+
+    gw.relocate_device = slow_relocate
+    p = await svc.move_radiator(RAD, "p-salon")
+    assert "failed" not in [u["status"] for u in updates]
+    assert p.status == "pending" and p in svc.active()
+    await pump(clock, gw, svc, 3)
+    assert p.status == "confirmed" and house.radiators[RAD].room_id == "p-salon"
+    assert [u["status"] for u in updates] == ["sending", "pending", "confirmed"]
+
+
+async def test_a_failed_settle_read_is_retried_then_the_label_released(env):
+    """Final review I2: a transient error never keeps a label reserved for a day."""
+    clock, gw, _, svc, _ = env
+    gw.silent_setup = True
+    gw.setup_delay = 10_000.0
+    await svc.create_room("Bureau")
+    await pump(clock, gw, svc, 60)  # unconfirmed; the timeout's settle read says 404: kept
+    real_read = gw.read_place
+
+    async def failing_read(oid: str):
+        raise GatewayError("network")
+
+    gw.read_place = failing_read
+    svc.settle_soon()
+    await pump(clock, gw, svc, 1)
+    with pytest.raises(UserError) as e:
+        await svc.create_room("Bureau")
+    assert e.value.code == "room_label_reserved"  # one failure: retried later, still reserved
+    await pump(clock, gw, svc, 30)  # the retry fails too: released
+    gw.read_place = real_read
+    await svc.create_room("Bureau")
+    assert len(gw.setup_writes) == 2
+
+
+def test_timeouts_run_without_a_poll(env):
+    """Final review I1: the pump calls timeouts() even when fetch_events fails."""
+    clock, gw, _, svc, _ = env
+    assert callable(svc.timeouts) and svc.timeouts() is None

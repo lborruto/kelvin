@@ -9,7 +9,7 @@ import pytest
 from kelvin.commands.service import CommandService
 from kelvin.house.model import build_house
 from kelvin.overkiz.budget import DAY_S, SetupReadGuard
-from kelvin.overkiz.errors import QuotaError
+from kelvin.overkiz.errors import GatewayError, QuotaError
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.overkiz.models import PlaceEvent
 from kelvin.overkiz.poller import EventPump
@@ -286,3 +286,20 @@ async def test_a_reservation_never_waits_a_day_for_a_full_read(stack):
     assert gw.snapshots == 0
     await setup.create_room("Bureau")  # settled by one targeted read: free again
     assert len(gw.setup_writes) == 2
+
+
+async def test_setup_pendings_time_out_while_the_events_fail(stack):
+    """Final review I1: an outage never leaves a write « Envoi… » for ever."""
+    clock, gw, _, setup, _, pump, _ = stack
+    p = await setup.rename_room("p-ch1", "Chambre d’amis")
+    gw.fail_fetch = GatewayError("down")
+    await run(pump, clock, 130)
+    assert p.status == "unconfirmed" and p not in setup.active()  # no longer « setup_busy »
+
+
+async def test_a_refused_manual_sync_does_not_mark_the_pump_disconnected(stack):
+    clock, gw, _, _, refresher, pump, _ = stack
+    refresher.request_manual()
+    gw.fail_snapshot = QuotaError("QUOTA_EXCEEDED")
+    await run(pump, clock, 1)
+    assert pump.connected is True and refresher.view()["requested"] is False

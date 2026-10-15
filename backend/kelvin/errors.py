@@ -76,7 +76,6 @@ TEMPLATES: dict[str, str] = {
     "no_night_light": "Ce radiateur n’a pas de veilleuse.",
     "intensity_light_off": "L’intensité ne peut être réglée que veilleuse allumée.",
     "intensity_range": "L’intensité doit être comprise entre 1 et 100 %.",
-    "name_length": "Le nom doit faire entre 1 et 32 caractères.",
     # Tariff
     "slot_time_invalid": "Heure invalide : {value} (format HH:MM).",
     "slots_none": "Indiquez au moins une plage d’heures creuses.",
