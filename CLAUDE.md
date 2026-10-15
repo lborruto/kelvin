@@ -181,7 +181,7 @@ depends on.
   does not write: unsorted, not three entries) are locked: `plan_program` re-sends them exactly
   as the radiator reported them, whatever the payload says. Only the days a programme body names
   are written (`[]` clears one); a day it leaves out or lists in `keep` is re-sent as read on
-  every radiator it reaches, so « Envoyer aussi à » or a mixed room never empties a day. The
+  every radiator it reaches, so « Aussi pour… » (sending to other rooms) or a mixed room never empties a day. The
   editor never makes an end after 23:45. Every editor send carries `base` (each radiator's
   programme when the editor loaded); the backend answers `409 program_changed_elsewhere`
   (`params.days` only) instead of overwriting a change made elsewhere, unless `force`; the editor

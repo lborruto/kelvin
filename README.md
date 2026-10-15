@@ -29,8 +29,11 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   as long as Kelvin's setup-read budget allows it (3 full reads in 24 h). The last read of the 24 h
   is always kept for a restart, so « Synchroniser » can say « not now » with the time it is
   possible again.
-- **Control:** off, manual, schedule; setpoint; the weekly schedule editor (the radiators'
-  own three slots a day); boost a room for a few hours; away for the whole house. Boost and away
+- **Control:** off, manual, schedule; setpoint; the weekly schedule (the radiators' own three
+  comfort periods a day): the week as a read-only picture with the times written out, the comfort
+  and eco temperatures and what happens next, and one day edited at a time (drag or type the
+  periods, « Copier vers… » weekdays, the weekend or every day; nothing is sent before « Envoyer »;
+  an offline room's schedule is shown read-only); boost a room for a few hours; away for the whole house. Boost and away
   restore what was there before. The night light's brightness (1–100 %). The programme editor
   never writes a day it cannot edit: a day ending at midnight or that Kelvin cannot read is shown
   and kept exactly as the radiator has it, and a programme changed in the Cozytouch app (or

@@ -75,6 +75,12 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Dernier signal | Last signal | The last event a radiator sent |
 | Masquer (une alerte) | Dismiss | |
 | Appareils connectés | Signed-in devices | Home › Settings; « Déconnecter » → “Sign out”, « Déconnecter les autres appareils » → “Sign out other devices” |
+| Copier vers… / Jours de semaine / Week-end / Tous les jours | Copy to… / Weekdays / Weekend / Every day | Programme day editor; « Copier sur 4 jours » → “Copy to 4 days” |
+| Aussi pour… / Envoyer aussi à | Also for… / Also send to | Programme send bar |
+| Maintenant : Confort · 23:00 → Éco | Now: Comfort · 23:00 → Eco | Programme plan line |
+| Hors ligne (pièce) / derniers connus | Offline / last known | Programme picker suffix « hors ligne » → “offline” |
+| modifié (jour) | edited | An unsent day in the Programme week |
+| Comment modifier ? | How to edit | Programme help disclosure |
 | Programme modifié ailleurs | Schedule changed elsewhere | « Recharger » → “Reload”, « Remplacer quand même » → “Replace anyway” |
 | Jeton MyElectricalData | MyElectricalData token | |
 | PDL (point de livraison) | PDL (delivery point) | |
