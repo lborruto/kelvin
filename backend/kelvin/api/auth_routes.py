@@ -9,6 +9,7 @@ from kelvin.auth.service import LoginRefused
 from kelvin.auth.service import login as auth_login
 from kelvin.auth.sessions import COOKIE_NAME, SESSION_TTL_S
 from kelvin.auth.throttle import client_key
+from kelvin.overkiz.servers import SERVERS
 
 public = APIRouter(dependencies=[Depends(require_kelvin_header)])
 
@@ -46,7 +47,13 @@ async def health(request: Request) -> dict:
 async def login(body: LoginBody, request: Request) -> JSONResponse:
     ctx = request.app.state.ctx
     try:
-        account = await auth_login(ctx, body.email, body.password, _client_ip(request))
+        account = await auth_login(
+            ctx,
+            body.email,
+            body.password,
+            _client_ip(request),
+            body.server.strip() if body.server else None,
+        )
     except LoginRefused as e:
         return JSONResponse(status_code=e.status, content=e.body())
     token = ctx.sessions.create(request.headers.get("user-agent"))
@@ -64,6 +71,16 @@ async def logout(request: Request) -> JSONResponse:
     return response
 
 
+@public.get("/auth/servers")
+async def servers(request: Request) -> dict:
+    """Open: the servers Kelvin offers, and the home's server once claimed (never its email)."""
+    ctx = request.app.state.ctx
+    return {
+        "servers": [s.view() for s in SERVERS.values()],
+        "current": ctx.account.server if ctx.account is not None else None,
+    }
+
+
 @public.get("/auth/me")
 async def me(request: Request) -> JSONResponse:
     ctx = request.app.state.ctx
@@ -77,6 +94,7 @@ async def me(request: Request) -> JSONResponse:
             "setup": ctx.mode == "setup",
             "reauth": ctx.mode == "reauth" or rejected,
             "simulator": ctx.settings.kelvin_fake,
+            "server": SERVERS[ctx.account.server].view() if logged_in and ctx.account else None,
         }
     )
     if logged_in and token:

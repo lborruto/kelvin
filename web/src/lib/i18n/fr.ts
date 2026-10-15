@@ -1077,7 +1077,14 @@ export const fr = {
     },
     send_internal: () => `Envoi impossible${NB}: erreur interne.`,
     radiator_refused: () => 'Le radiateur a refusé la commande.',
-    no_confirmation: () => 'Pas de confirmation du radiateur.'
+    no_confirmation: () => 'Pas de confirmation du radiateur.',
+    // Plan 12
+    server_unknown: () => 'Serveur inconnu.',
+    server_mismatch: (p: ApiParams) =>
+      `Cette maison est reliée au serveur ${p.server}. Pour changer de serveur, repartez d’une installation neuve (voir le README).`,
+    data_other_server: (p: ApiParams) =>
+      `Ce dossier de données appartient à une maison reliée au serveur ${p.server}${NB}: utilisez un autre dossier KELVIN_DATA.`,
+    bad_credentials_server: (p: ApiParams) => `Email ou mot de passe ${p.server} incorrect.`
   }
 };
 

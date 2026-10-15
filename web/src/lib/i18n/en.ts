@@ -1042,6 +1042,13 @@ export const en: Messages = {
     },
     send_internal: () => 'Couldn’t send: internal error.',
     radiator_refused: () => 'The radiator rejected the command.',
-    no_confirmation: () => 'No confirmation from the radiator.'
+    no_confirmation: () => 'No confirmation from the radiator.',
+    // Plan 12
+    server_unknown: () => 'Unknown server.',
+    server_mismatch: (p: ApiParams) =>
+      `This home is linked to the ${p.server} server. To change servers, start from a fresh install (see the README).`,
+    data_other_server: (p: ApiParams) =>
+      `This data folder belongs to a home linked to ${p.server}: use another KELVIN_DATA folder.`,
+    bad_credentials_server: (p: ApiParams) => `Wrong ${p.server} email or password.`
   }
 };

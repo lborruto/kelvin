@@ -8,6 +8,12 @@
       "fr": "Email ou mot de passe Cozytouch incorrect.",
       "params": {}
     },
+    "bad_credentials_server": {
+      "fr": "Email ou mot de passe Flexom incorrect.",
+      "params": {
+        "server": "Flexom"
+      }
+    },
     "cozytouch_unavailable": {
       "fr": "Cozytouch injoignable, réessayez plus tard.",
       "params": {}
@@ -15,6 +21,12 @@
     "cozytouch_unreachable": {
       "fr": "Cozytouch injoignable, réessayez dans un instant.",
       "params": {}
+    },
+    "data_other_server": {
+      "fr": "Ce dossier de données appartient à une maison reliée au serveur Sauter Cozytouch : utilisez un autre dossier KELVIN_DATA.",
+      "params": {
+        "server": "Sauter Cozytouch"
+      }
     },
     "day_unknown": {
       "fr": "Jour inconnu : funday.",
@@ -291,6 +303,16 @@
     },
     "send_internal": {
       "fr": "Envoi impossible : erreur interne.",
+      "params": {}
+    },
+    "server_mismatch": {
+      "fr": "Cette maison est reliée au serveur Sauter Cozytouch. Pour changer de serveur, repartez d’une installation neuve (voir le README).",
+      "params": {
+        "server": "Sauter Cozytouch"
+      }
+    },
+    "server_unknown": {
+      "fr": "Serveur inconnu.",
       "params": {}
     },
     "session_is_current": {

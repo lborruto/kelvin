@@ -16,7 +16,7 @@ from kelvin.overkiz.errors import GatewayError
 from kelvin.overkiz.fake import DEMO_EMAIL, FakeGateway
 from tests.conftest import DEMO, ManualClock, err, login
 
-OPEN = {"/api/health", "/api/auth/login", "/api/auth/logout", "/api/auth/me"}
+OPEN = {"/api/health", "/api/auth/login", "/api/auth/logout", "/api/auth/me", "/api/auth/servers"}
 
 
 def _app(tmp_path, gw=None, **settings):
@@ -77,6 +77,7 @@ async def test_setup_mode_guards_everything_but_health_and_auth(setup_mode):
         "setup": True,
         "reauth": False,
         "simulator": True,
+        "server": None,
     }
 
 

@@ -117,6 +117,8 @@ class AwayBody(BaseModel):
 class LoginBody(BaseModel):
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=1, max_length=256)
+    # Plan 12: an id from GET /api/auth/servers. Omitted: the home's server, else Sauter.
+    server: str | None = Field(default=None, max_length=40)
 
 
 class HcSlotBody(BaseModel):
