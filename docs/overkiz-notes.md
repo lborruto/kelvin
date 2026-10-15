@@ -163,3 +163,35 @@ and echoed back (see the `setTimeProgram` payloads above). A day in any other sh
 ending at midnight, unsorted slots, another entry count, other keys or key order, anything
 unreadable — is shown locked and re-sent exactly as read on every programme send. Whether the
 device ever reports another shape is not verified; record it here if seen.
+
+## Multi-brand (Plan 12, 2026-10-14) — UNVERIFIED
+
+Nothing in this section has been tried on a real device. It records what Kelvin sends for device
+kinds other than the Sauter radiators verified above, and where each name comes from. Move an entry
+to a verified section only after a real, reverted test (owner watching).
+
+- **Servers.** pyoverkiz 2.2.2: Sauter, Atlantic and Thermor Cozytouch share one endpoint
+  (`ha110-1.overkiz.com`) and pyoverkiz's Cozytouch login. Kelvin offers as « experimental » every
+  other server pyoverkiz logs in to with an email and a password (Somfy Europe/America/Oceania,
+  Hi Kumo x3, Flexom, Nexity, Brandt, Hexaom, SIMU LiveIn2, Ubiwizz). Rexel needs an OAuth code,
+  `Server.SOMFY` is marked experimental inside pyoverkiz: not offered.
+- **Classification.** By widget (`UIWidget`), then by UI class (`UIClass`): `WaterHeatingSystem` ->
+  water heater, `HeatPumpSystem` -> heat pump, `HeatingSystem` or a widget containing « Heater »
+  (not a sensor) -> unknown heater (read-only radiator). Every widget and UI class the simulator
+  houses use is a pyoverkiz 2.2.2 enum value (`tests/test_fake_houses.py` pins them).
+- **Adjustable-setpoint heaters on Atlantic/Thermor** (`AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint`):
+  the Sauter profile, unchanged (`setOperatingMode` `standby`/`basic`/`internal`, `setTargetTemperature`,
+  `setComfortTemperature`, `setEcoTemperature`, `setTimeProgram`). Expected to behave as on Sauter.
+- **Pilot-wire heaters** (`AtlanticElectricalHeater`): `setHeatingLevel(<level>)` with
+  `comfort`, `comfort-1`, `comfort-2`, `eco`, `frostprotection`, `off` (only the values the state
+  definition of `io:TargetHeatingLevelState` lists, when it lists any); confirmed by
+  `io:TargetHeatingLevelState`. Kelvin reads « Arrêt » for `off`, « Manuel » for any other known level.
+  Unknown: whether `core:OnOffState` also follows, and how quickly.
+- **Towel dryers** (`AtlanticElectricalTowelDryer`): modes through `setTowelDryerOperatingMode`
+  (`standby`, `external` = manual, `internal` = programme), confirmed by `core:OperatingModeState`;
+  manual setpoint `setTargetTemperature`; `setTowelDryerTemporaryState` `boost` / `drying` /
+  `permanentHeating` (back to normal), confirmed by `io:TowelDryerTemporaryStateState`. Kelvin's boost
+  and away restore the target, then the mode, as on Sauter: the order is unverified for dryers.
+  Not used: `setTowelDryerTimeProgram` (payload unknown), `setTowelDryerBoostModeDuration`,
+  `setDryingDuration`, `setDerogatedTargetTemperature`.
+- **Never commanded:** water heaters, heat pumps, unknown heating devices, any non-heating device.
