@@ -110,3 +110,12 @@ treats the command as done when `core:LightIntensityState` reports the value (bo
 the real capability dump). No real radiator was written to verify this (owner rule): until the
 owner uses it and the state is seen to follow, a slider change that the state never confirms
 ends as « Pas de confirmation du radiateur ». Record the observed behaviour here when it is known.
+
+## Programme days Kelvin does not rewrite (2026-10-15)
+
+Kelvin writes each day as its comfort slots sorted by start (`{"start", "end"}` in that key
+order), then `00:00–00:00` markers, three entries in all — the shape the real radiator reported
+and echoed back (see the `setTimeProgram` payloads above). A day in any other shape — a slot
+ending at midnight, unsorted slots, another entry count, other keys or key order, anything
+unreadable — is shown locked and re-sent exactly as read on every programme send. Whether the
+device ever reports another shape is not verified; record it here if seen.

@@ -1,6 +1,6 @@
 import math
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,6 +26,9 @@ class Slot(BaseModel):
     end: str
 
 
+DayName = Literal["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
 class ProgramBody(BaseModel):
     """Days left out have no comfort slot. Unknown keys are rejected, not dropped.
 
@@ -42,7 +45,9 @@ class ProgramBody(BaseModel):
     friday: list[Slot] = []
     saturday: list[Slot] = []
     sunday: list[Slot] = []
-    base: dict[str, dict[str, list[Slot]]] | None = Field(default=None, max_length=50)
+    base: dict[str, dict[DayName, Annotated[list[Slot], Field(max_length=3)]]] | None = Field(
+        default=None, max_length=50
+    )
     force: bool = False
 
     def week(self) -> dict[str, list[dict[str, str]]]:
@@ -65,7 +70,8 @@ class FeaturesBody(BaseModel):
 
 class LightBody(BaseModel):
     on: bool
-    intensity: int | None = Field(default=None, ge=1, le=100)
+    # No schema bound: `plan_light` refuses 0 or 101 with the worded `intensity_range`.
+    intensity: int | None = None
 
 
 class BoostBody(BaseModel):

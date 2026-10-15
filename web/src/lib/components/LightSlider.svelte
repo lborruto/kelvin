@@ -47,7 +47,11 @@
     if (p) sentId = p.id;
   }
   function oninput(e: Event) {
-    if (blocked) return;
+    if (blocked) {
+      // Paused: the native thumb must not stay where a drag left it.
+      (e.currentTarget as HTMLInputElement).value = String(value);
+      return;
+    }
     clearTimeout(timer); // a drag is still going: wait for the release
     draft = snapIntensity(Number((e.currentTarget as HTMLInputElement).value));
   }
@@ -109,6 +113,7 @@
   }
   input[aria-disabled='true'] {
     opacity: 0.5;
+    pointer-events: none;
   }
   .error {
     margin: 0;

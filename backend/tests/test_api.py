@@ -573,3 +573,10 @@ async def test_intensity_with_the_light_off_is_refused(ctx):
     c, _, _ = ctx
     r = await c.post("/api/radiators/8370011/light", json={"on": False, "intensity": 40})
     assert (r.status_code, r.json()["code"]) == (422, "intensity_light_off")
+
+
+async def test_an_intensity_out_of_range_reads_its_own_message(ctx):
+    c, _, _ = ctx
+    for value in (0, 101):
+        r = await c.post("/api/radiators/8370011/light", json={"on": True, "intensity": value})
+        assert (r.status_code, r.json()["code"]) == (422, "intensity_range"), value

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import re
 import time
 from collections.abc import Callable
@@ -76,7 +77,9 @@ def parse_day(slots: Any) -> tuple[list[dict[str, str]] | None, LockReason | Non
     `00:00–00:00` is the device's empty marker. `X–00:00` with X ≠ 00:00 reads as « until
     midnight » (`24:00`, ruling 3) and locks the day: nothing ever wrote one, so Kelvin shows it
     but never edits it. Anything else Kelvin cannot read whole locks the day as unrecognised
-    (slots None): it is shown as such and re-sent exactly as read (spec QW8)."""
+    (slots None): it is shown as such and re-sent exactly as read (spec QW8). So does a readable
+    day not in the exact shape Kelvin writes (its slots sorted, `start` then `end`, then empty
+    markers, three entries): a send would rewrite what Kelvin did not write (ruling, B2)."""
     if not isinstance(slots, list):
         return None, "unrecognised"
     parsed: list[tuple[int, int, dict[str, str]]] = []
@@ -98,6 +101,11 @@ def parse_day(slots: Any) -> tuple[list[dict[str, str]] | None, LockReason | Non
         parsed.append((a, b, {"start": s["start"], "end": end}))
     parsed.sort(key=lambda p: p[0])
     if len(parsed) > 3 or any(y[0] < x[1] for x, y in zip(parsed, parsed[1:], strict=False)):
+        return None, "unrecognised"
+    written = [{"start": s["start"], "end": s["end"]} for s in slots if s != EMPTY_SLOT]
+    canonical = sorted(written, key=lambda s: _minutes(s["start"]))
+    canonical += [dict(EMPTY_SLOT) for _ in range(3 - len(canonical))]
+    if json.dumps(slots) != json.dumps(canonical):
         return None, "unrecognised"
     return [p[2] for p in parsed], ("midnight" if midnight else None)
 

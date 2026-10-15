@@ -70,6 +70,19 @@ describe('LightSlider', () => {
     await vi.waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Pas de confirmation du radiateur.'));
   });
 
+  it('a drag while paused snaps the thumb back: nothing moves, nothing is sent', async () => {
+    house.connection = 'reconnecting';
+    render(LightSlider, { radiator: base });
+    const slider = screen.getByRole('slider') as HTMLInputElement;
+    slider.value = '80';
+    await fireEvent.input(slider);
+    await fireEvent.change(slider);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(slider.value).toBe('20');
+    expect(screen.getByText('20 %')).toBeInTheDocument();
+    expect(api.radiatorLight).not.toHaveBeenCalled();
+  });
+
   it('is inert while Kelvin is reconnecting', async () => {
     house.connection = 'reconnecting';
     render(LightSlider, { radiator: base });

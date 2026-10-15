@@ -37,10 +37,43 @@ def test_unrecognised_shapes_lock_the_day(slots):
     assert parse_day(slots) == (None, "unrecognised")
 
 
-def test_empty_markers_are_not_slots_and_slots_come_sorted():
+def test_empty_markers_are_not_slots():
     assert parse_day([E, E, E]) == ([], None)
-    got = parse_day([{"start": "17:30", "end": "22:30"}, {"start": "06:15", "end": "08:00"}, E])
+    got = parse_day([{"start": "06:15", "end": "08:00"}, {"start": "17:30", "end": "22:30"}, E])
     assert got == ([{"start": "06:15", "end": "08:00"}, {"start": "17:30", "end": "22:30"}], None)
+
+
+@pytest.mark.parametrize(
+    "slots",
+    [
+        # Readable, but not the shape Kelvin writes (sorted slots, then empty markers, three
+        # entries, `start` before `end`): a send would rewrite it, so it is locked (ruling, B2).
+        [{"start": "17:30", "end": "22:30"}, {"start": "06:15", "end": "08:00"}, E],
+        [E, {"start": "08:00", "end": "10:00"}, E],
+        [{"start": "08:00", "end": "10:00"}, E, E, E, E],
+        [{"start": "08:00", "end": "10:00"}, E],
+        [{"end": "10:00", "start": "08:00"}, E, E],
+        [{"start": "21:00", "end": "23:00"}, {"start": "06:00", "end": "00:00"}, E],
+    ],
+)
+def test_a_readable_day_not_in_kelvin_s_shape_is_locked_too(slots):
+    assert parse_day(slots) == (None, "unrecognised")
+
+
+def test_a_non_canonical_day_is_resent_byte_for_byte():
+    raw = [E, {"start": "08:00", "end": "10:00"}, E]
+    r = _house_with("tuesday", raw)
+    assert r.program_locked == {"tuesday": "unrecognised"}
+    payload = plan_program(r, {"tuesday": [{"start": "08:00", "end": "10:00"}]})
+    assert payload.commands[0].parameters[0][1] == {"tuesday": raw}
+
+
+def test_a_base_names_only_the_seven_days_and_at_most_three_slots():
+    with pytest.raises(ValueError):
+        ProgramBody.model_validate({"base": {"r": {"funday": []}}})
+    four = [{"start": f"0{h}:00", "end": f"0{h}:30"} for h in range(4)]
+    with pytest.raises(ValueError):
+        ProgramBody.model_validate({"base": {"r": {"monday": four}}})
 
 
 def test_parse_program_keeps_readable_days_and_lists_locked_ones():
@@ -177,3 +210,11 @@ def test_body_week_is_the_seven_days_only():
     assert body.base_programs() == {"r": {}}
     with pytest.raises(ValueError):
         ProgramBody.model_validate({"base": {f"r{i}": {} for i in range(51)}})
+
+
+def test_the_base_day_names_are_the_house_s_days():
+    from typing import get_args
+
+    from kelvin.api.schemas import DayName
+
+    assert get_args(DayName) == DAY_ORDER
