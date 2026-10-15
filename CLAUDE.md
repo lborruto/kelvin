@@ -196,7 +196,9 @@ depends on.
   price row in force is Tempo (the API answers `tempo: null` otherwise); EcoWatt is for every
   household. A Tempo switch made after the day's MED budget is spent gets its colours the next
   day. Periodic external calls run as jobs in `kelvin/scheduler.py`; EcoWatt hours stay hidden
-  until `ECOWATT_HOURS_VERIFIED`.
+  until `ECOWATT_HOURS_VERIFIED`. The `ecowatt`, `tempo_red_tomorrow` and `hc_changed` rules are
+  pure functions in `kelvin/alerts/rules.py`; the grid fetch and the monthly contract re-read ask
+  the engine for an evaluation.
 - **Network:** `/api/health` is open and says only the status word. Forwarded headers are
   ignored unless `KELVIN_TRUSTED_PROXIES` names the reverse proxy; nothing shipped enables them
   (`backend/tests/test_packaging.py` checks).

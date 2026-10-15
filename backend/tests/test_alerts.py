@@ -10,14 +10,18 @@ from kelvin.alerts.rules import (
     AlertContext,
     command_failed,
     consent_expiring,
+    ecowatt,
+    hc_changed,
     linky_stalled,
     price_change,
     radiator_unreachable,
+    tempo_red_tomorrow,
 )
 from kelvin.alerts.service import AlertService
 from kelvin.alerts.store import RETENTION_S, AlertStore, Candidate
 from kelvin.billing.slots import Slot
-from kelvin.billing.tariff import Prices, Tariff
+from kelvin.billing.tariff import ALL_MONTHS, HcSchedule, HcVariant, PriceRow, Prices, Tariff
+from kelvin.grid.models import EcowattDay
 from kelvin.house.model import build_house
 from kelvin.overkiz.models import StateChange
 from kelvin.overkiz.sample import SAMPLE_GATEWAY, sample_house
@@ -342,13 +346,16 @@ def test_linky_stalled(status, fires):
         assert got[0].params["days"] >= 4
 
 
-def test_rules_table_names_the_plan_8_kinds():
+def test_rules_table_names_the_plan_8_and_9_kinds():
     assert set(RULES) == {
         "price_change",
         "consent_expiring",
         "radiator_unreachable",
         "command_failed",
         "linky_stalled",
+        "tempo_red_tomorrow",
+        "ecowatt",
+        "hc_changed",
     }
 
 
@@ -459,3 +466,91 @@ def test_a_resolved_key_that_returns_is_shown_again_even_if_it_was_dismissed():
     emitted[:] = [cand("consent_expiring:2026-10-30:warn", "consent_expiring", "warn")]
     svc.evaluate()
     assert len(store.listing("active")) == 1
+
+
+PLAN9_TODAY = date(2026, 12, 1)
+TOMORROW = date(2026, 12, 2)
+TEMPO_RATES = {
+    "blue_hc": 0.1,
+    "blue_hp": 0.2,
+    "white_hc": 0.1,
+    "white_hp": 0.3,
+    "red_hc": 0.1,
+    "red_hp": 0.8,
+}
+HCHP9 = Tariff("hchp", 9, (Slot("22:00", "06:00"),), (Prices(date(2026, 1, 1), 15.0, 0.2, 0.3),))
+TEMPO9 = Tariff.build(9, [PriceRow.make(date(2026, 1, 1), "tempo", 15.0, TEMPO_RATES)])
+BASE9 = Tariff.build(9, [PriceRow.make(date(2026, 1, 1), "base", 15.0, {"base": 0.19})])
+
+
+def ctx9(tariff, **kw):
+    return AlertContext(
+        ZoneInfo("Europe/Paris"), PLAN9_TODAY, tariff, None, None, Database(":memory:"), **kw
+    )
+
+
+def test_tempo_red_tomorrow_needs_a_tempo_row_tomorrow():
+    assert tempo_red_tomorrow(ctx9(TEMPO9, tempo={TOMORROW: "red"}), 0) == [
+        Candidate(
+            "tempo_red_tomorrow", "tempo_red_tomorrow:2026-12-02", "warn", {"date": "2026-12-02"}
+        )
+    ]
+    assert tempo_red_tomorrow(ctx9(TEMPO9, tempo={TOMORROW: "white"}), 0) == []
+    assert tempo_red_tomorrow(ctx9(HCHP9, tempo={TOMORROW: "red"}), 0) == []  # HC/HP: no Tempo
+    assert tempo_red_tomorrow(ctx9(None, tempo={TOMORROW: "red"}), 0) == []
+    switch = Tariff.build(
+        9,
+        [
+            Prices(date(2026, 1, 1), 15.0, 0.2, 0.3),
+            PriceRow.make(TOMORROW, "tempo", 15.0, TEMPO_RATES),
+        ],
+        [HcSchedule(date(2026, 1, 1), (HcVariant(ALL_MONTHS, (Slot("22:00", "06:00"),)),))],
+    )
+    assert len(tempo_red_tomorrow(ctx9(switch, tempo={TOMORROW: "red"}), 0)) == 1
+
+
+@pytest.mark.parametrize("tariff", [None, HCHP9, TEMPO9, BASE9])
+def test_ecowatt_fires_for_every_option(tariff):
+    days = {
+        PLAN9_TODAY: EcowattDay(PLAN9_TODAY, 1, None),
+        TOMORROW: EcowattDay(TOMORROW, 3, None),
+    }
+    assert ecowatt(ctx9(tariff, ecowatt=days), 0) == [
+        Candidate(
+            "ecowatt",
+            "ecowatt:2026-12-02:3",
+            "bad",
+            {"date": "2026-12-02", "level": 3, "hours": None},
+        )
+    ]
+    orange = {PLAN9_TODAY: EcowattDay(PLAN9_TODAY, 2, tuple([1] * 18 + [2, 2] + [1] * 4))}
+    [c] = ecowatt(ctx9(tariff, ecowatt=orange), 0)
+    assert (c.key, c.severity) == ("ecowatt:2026-12-01:2", "warn")
+    assert c.params["hours"] == [{"start": "18:00", "end": "20:00", "level": 2}]  # verified
+    assert ecowatt(ctx9(tariff, ecowatt={TOMORROW: EcowattDay(TOMORROW, 1, None)}), 0) == []
+
+
+def test_hc_changed_compares_the_contract_with_today_s_and_planned_slots():
+    same = {"offpeak": [{"start": "22:00", "end": "06:00"}]}
+    moved = {"offpeak": [{"start": "23:00", "end": "07:00"}]}
+    assert hc_changed(ctx9(HCHP9, contract=same), 0) == []
+    assert hc_changed(ctx9(HCHP9, contract=moved), 0) == [
+        Candidate(
+            "hc_changed",
+            "hc_changed:23:00-07:00",
+            "info",
+            {"slots": [{"start": "23:00", "end": "07:00"}]},
+        )
+    ]
+    planned = Tariff.build(
+        9,
+        [Prices(date(2026, 1, 1), 15.0, 0.2, 0.3)],
+        [
+            HcSchedule(date(2026, 1, 1), (HcVariant(ALL_MONTHS, (Slot("22:00", "06:00"),)),)),
+            HcSchedule(date(2026, 12, 15), (HcVariant(ALL_MONTHS, (Slot("23:00", "07:00"),)),)),
+        ],
+    )
+    assert hc_changed(ctx9(planned, contract=moved), 0) == []  # already added from 15 December
+    assert hc_changed(ctx9(BASE9, contract=moved), 0) == []
+    assert hc_changed(ctx9(HCHP9, contract={"offpeak": []}), 0) == []
+    assert hc_changed(ctx9(HCHP9), 0) == []

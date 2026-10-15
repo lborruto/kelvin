@@ -49,6 +49,7 @@
       </div>
     </dl>
     {#if v && v.kwh != null && v.coverage != null && v.coverage < 0.999}<p class="note">{m.roomFigures.partial(fmtPct(v.coverage))}</p>{/if}
+    {#if v && v.priced && v.eur == null && v.missing_colour_days}<p class="note">{m.roomFigures.noColour(v.missing_colour_days)}</p>{/if}
   {/if}
 </div>
 

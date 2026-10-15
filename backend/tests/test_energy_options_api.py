@@ -172,3 +172,64 @@ async def test_a_stored_base_row_answers_without_a_split(api):
     assert {iv["price"] for iv in r.json()["intervals"]} == {0.1952}
     r = await c.get("/api/linky/curve", params={"date": "2026-11-15"})
     assert r.status_code == 200 and r.json()["hc_kwh"] is None
+
+
+async def _par_piece_day(c, rt, day: date) -> dict[str, list[dict]]:
+    """Each room's radiator rows in Énergie's Par pièce for `day` (Jour)."""
+    r = await c.get(
+        "/api/energy",
+        params={
+            "from": str(day),
+            "to": str(day + timedelta(days=1)),
+            "group": "day",
+            "period_from": str(day),
+            "period_to": str(day + timedelta(days=1)),
+        },
+    )
+    assert r.status_code == 200, r.text
+    rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
+    out: dict[str, list[dict]] = {}
+    for row in r.json()["by_radiator"]:
+        out.setdefault(rooms.get(row["radiator_id"]), []).append(row)
+    return out
+
+
+async def test_room_energy_under_tempo_prices_each_half_hour_by_its_colour(api):
+    """A room's day under Tempo is the sum of its Par pièce rows, priced by the Tempo day's
+    colour (spec QW3 under every option); a day without a colour has kWh and a split, no €."""
+    c, rt = api
+    rt.linky.tariffs.replace(tempo_switch())
+    day = date(2026, 11, 19)
+    rows = await _par_piece_day(c, rt, day)
+    checked = 0
+    for room in rt.house.rooms:
+        mine = rows.get(room, [])
+        if not mine or any(x["eur"] is None for x in mine):
+            continue
+        two = (await c.get(f"/api/rooms/{room}/energy", params={"days": 2})).json()
+        one = (await c.get(f"/api/rooms/{room}/energy", params={"days": 1})).json()
+        assert two["eur"] is not None and two["hc_kwh"] is not None, room
+        eur = round(sum(x["eur"] for x in mine) * 100)
+        assert round(two["eur"] * 100) - round((one["eur"] or 0.0) * 100) == eur, room
+        checked += 1
+    assert checked >= 1
+    # The 19th's colour unknown: its kWh and HC/HP stay, its € is null (never a partial €).
+    rt.linky.colours = lambda a, b: {
+        d: col for d, col in COLOURS.items() if a <= d < b and d != day
+    }
+    room = next(iter(rt.house.rooms))
+    blind = (await c.get(f"/api/rooms/{room}/energy", params={"days": 2})).json()
+    assert blind["eur"] is None and blind["kwh"] is not None and blind["hc_kwh"] is not None
+    assert blind["missing_colour_days"] == 1
+
+
+async def test_room_energy_under_base_has_euros_and_no_split(api):
+    c, rt = api
+    rt.linky.tariffs.replace(
+        Tariff.build(9, [PriceRow.make(date(2026, 1, 1), "base", 15.0, {"base": 0.1952})])
+    )
+    room = next(iter(rt.house.rooms))
+    body = (await c.get(f"/api/rooms/{room}/energy", params={"days": 3})).json()
+    assert body["kwh"] is not None and body["eur"] is not None
+    assert (body["hc_kwh"], body["hp_kwh"]) == (None, None)
+    assert body["eur"] == pytest.approx(body["kwh"] * 0.1952, abs=0.02)

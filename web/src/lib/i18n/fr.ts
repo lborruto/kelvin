@@ -334,13 +334,14 @@ export const fr = {
     title: (range: string) => `Énergie sur ${range}`,
     kwh: 'Consommation',
     eur: 'Coût (énergie)',
-    eurHint: 'Énergie seulement, hors abonnement, à vos prix heures creuses et heures pleines.',
+    eurHint: 'Énergie seulement, hors abonnement, à vos prix.',
     hours: 'Heures de chauffe',
     hoursHint: 'Équivalent pleine puissance.',
     noTariff: 'Renseignez le tarif',
     est: 'est.',
     estHint: `Estimation${NB}: une partie de l’énergie est répartie entre deux relevés du compteur.`,
-    partial: (pct: string) => `relevé sur ${pct} de la période`
+    partial: (pct: string) => `relevé sur ${pct} de la période`,
+    noColour: (n: number) => `coût non compté${NB}: ${int(n)} ${plural(n, { one: 'jour', other: 'jours' })} sans couleur Tempo`
   },
   roomEnergy: {
     noRoom: 'Sans pièce',
@@ -683,7 +684,12 @@ export const fr = {
     unreachableSince: (where: string, time: string) => `${where}${NB}: radiateur injoignable depuis ${time}.`,
     unreachableLong: (where: string) => `${where}${NB}: radiateur injoignable depuis plus de 30${NB}min.`,
     commandFailed: (time: string, label: string, error: string) => `Commande non aboutie à ${time}${NB}: ${label} — ${error}`,
-    linkyStalled: (day: string, days: number) => `Linky${NB}: pas de nouvelle donnée depuis le ${day} (${int(days)}${NB}jours).`
+    linkyStalled: (day: string, days: number) => `Linky${NB}: pas de nouvelle donnée depuis le ${day} (${int(days)}${NB}jours).`,
+    tempoRedTomorrow: (when: string) => `Jour Tempo Rouge demain (${when})${NB}: les heures pleines sont au prix rouge.`,
+    ecowatt: (level: number, when: string, hours: string | null) =>
+      `EcoWatt ${level >= 3 ? 'rouge' : 'orange'} le ${when}${hours ? `, ${hours}` : ''}${NB}: ${level >= 3 ? 'système électrique très tendu, coupures possibles' : 'système électrique tendu'}.`,
+    hcChanged: (slots: string) => `Enedis indique de nouvelles heures creuses${NB}: ${slots}.`,
+    hcAdd: 'Ajouter ces heures creuses'
   },
   sessions: {
     title: 'Appareils connectés',

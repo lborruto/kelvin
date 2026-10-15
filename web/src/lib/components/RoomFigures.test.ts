@@ -37,6 +37,11 @@ describe('RoomFigures', () => {
     expect(screen.getByRole('link', { name: 'Renseignez le tarif' })).toHaveAttribute('href', '/home#tariff');
     expect(screen.getByText(/relevé sur 50/)).toBeInTheDocument();
   });
+  it('a € without a Tempo colour reads — with its reason', async () => {
+    vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, eur: null, missing_colour_days: 2 });
+    render(RoomFigures, props);
+    expect(await screen.findByText(/coût non compté\s: 2\sjours sans couleur Tempo/)).toBeInTheDocument();
+  });
   it('unknown values read —, never 0', async () => {
     vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, kwh: null, eur: null, heating_hours: null, coverage: null });
     render(RoomFigures, props);

@@ -693,3 +693,33 @@ async def test_grid_and_sources_in_the_simulator(ctx):
     assert s["ecowatt"]["state"] in ("never", "ok") and s["tempo"]["enabled"] is False
     assert s["med"]["budget"] == rt.linky.sync.budget and s["med"]["grid_calls_today"] >= 1
     assert rt.snapshot()["grid"] == g and json.loads(event["data"]) == g
+
+
+async def test_an_ecowatt_orange_day_becomes_an_alert_for_an_hc_hp_home(ctx):
+    c, rt, _ = ctx
+    rt.linky.sync.state.calls = 0  # a fresh MED day for this test
+    await rt.grid.ecowatt_job()  # the simulator: orange tomorrow
+    rt.alerts.evaluate()
+    kinds = {a["kind"]: a for a in (await c.get("/api/alerts")).json()}
+    assert kinds["ecowatt"]["params"]["level"] == 2 and kinds["ecowatt"]["severity"] == "warn"
+    assert "tempo_red_tomorrow" not in kinds
+
+
+async def test_the_grid_fetch_and_the_contract_re_read_ask_the_alerts_engine(ctx):
+    c, rt, _ = ctx
+    asked: list[int] = []
+    rt.alerts.request = lambda: asked.append(1)
+    rt.linky.sync.state.calls = 0  # a fresh MED day for this test
+    await rt.grid.ecowatt_job()
+    assert len(asked) == 1  # tempo_red_tomorrow, ecowatt
+    source = rt.linky.sync.source
+    source.contract_offpeak = "HC (23H00-7H00)"  # Enedis moved the off-peak hours
+    rt.linky.sync.on_contract(await source.fetch_contract())
+    assert len(asked) == 2  # hc_changed
+    assert rt.linky.tariffs.contract_last()["offpeak"] == [{"start": "23:00", "end": "07:00"}]
+    rt.alerts.evaluate()
+    [hc] = [a for a in (await c.get("/api/alerts")).json() if a["kind"] == "hc_changed"]
+    assert (hc["severity"], hc["params"]) == (
+        "info",
+        {"slots": [{"start": "23:00", "end": "07:00"}]},
+    )

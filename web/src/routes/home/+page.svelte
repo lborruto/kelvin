@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
-  import type { LinkyStatus, SettingsView } from '$lib/api/types';
+  import type { LinkyStatus, SettingsView, Slot } from '$lib/api/types';
   import AlertList from '$lib/components/AlertList.svelte';
   import HouseActions from '$lib/components/HouseActions.svelte';
   import LinkyPanel from '$lib/components/LinkyPanel.svelte';
@@ -182,7 +182,7 @@
   <section id={ANCHORS.tariff} class="panel">
     <h2>{m.home.tariff}</h2>
     {#if settingsView}
-      <TariffForm settings={settingsView} onsaved={tariffSaved} />
+      <TariffForm settings={settingsView} onsaved={tariffSaved} contractSlots={(alerts.of(['hc_changed'])[0]?.params.slots as Slot[] | undefined) ?? null} />
     {:else}
       <p class="error" role="alert">{tariffError?.()} <button type="button" class="btn btn-sm" onclick={loadTariff}>{m.common.retry}</button></p>
     {/if}

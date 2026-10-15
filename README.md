@@ -46,8 +46,11 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   24 hours it heated.
 - **Alerts:** calm in-app notices when regulated prices change (1 February, 1 August) and your
   tariff has no new prices, when the Enedis consent nears its end, when a radiator has been
-  unreachable for 30 minutes, when a command failed, or when Linky stopped bringing new days.
-  Dismiss one and it stays hidden until it happens again.
+  unreachable for 30 minutes, when a command failed, when Linky stopped bringing new days, when
+  tomorrow is a red Tempo day (Tempo households only), when EcoWatt is orange or red today or
+  tomorrow (every household), or when Enedis lists new off-peak hours (with a link to add them
+  from a date; Kelvin never changes your tariff by itself). Dismiss one and it stays hidden until
+  it happens again.
 - **Signed-in devices:** Home › Settings lists the browsers signed in with the home's account and
   signs any of them out.
 - **Energy:** whole-home consumption from Linky (through MyElectricalData) by day, ISO week,
@@ -244,7 +247,7 @@ Early (0.x). Kelvin is developed against one installation: Sauter IPALA H and HE
 on io-homecontrol, with a Cozytouch bridge. Other heaters on the Atlantic group's Cozytouch
 server may work but are untested. The UI is in French and English (French by default; switch in
 Home › Settings, or on the sign-in screen). The Linky bill estimate supports the Base, HC/HP and
-Tempo options. Tempo and EcoWatt are shown but do not raise alerts yet.
+Tempo options; Tempo and EcoWatt are shown on Rooms and Energy and raise alerts.
 
 ## Licence
 

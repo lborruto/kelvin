@@ -50,7 +50,7 @@ test('an HC/HP home sees EcoWatt and no Tempo colour', async ({ page }) => {
   await page.goto('/energy');
   await expect(strip(page)).toContainText('EcoWatt orange demain');
   await page.goto('/home');
-  // (Task 18 adds the alert-list line « EcoWatt orange le … : système électrique tendu » here.)
+  await expect(page.getByText(/EcoWatt orange le .*système électrique tendu/)).toBeVisible();
   await expect(page.getByText('EcoWatt (RTE)')).toBeVisible();
   await expect(page.getByText('Tempo (RTE)')).toHaveCount(0);
 });

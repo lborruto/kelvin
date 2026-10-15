@@ -25,7 +25,7 @@ from kelvin.grid.service import GridService
 from kelvin.grid.store import GridStore
 from kelvin.house.model import House, build_house
 from kelvin.linky.fake import DEMO_PRM, FakeLinkySource
-from kelvin.linky.models import LinkySource
+from kelvin.linky.models import Contract, LinkySource
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import DAILY_BUDGET
 from kelvin.overkiz.budget import QuotaReadout, SetupReadGuard
@@ -129,13 +129,18 @@ class Runtime:
 def alert_context(rt: Runtime, now: float) -> AlertContext:
     """What the alert rules read, at `now` on the runtime's clock (tests pin it)."""
     tz = ZoneInfo(rt.settings.tz)
+    today = datetime.fromtimestamp(now, tz).date()
+    after = today + timedelta(days=2)
     return AlertContext(
         tz=tz,
-        today=datetime.fromtimestamp(now, tz).date(),
+        today=today,
         tariff=rt.linky.tariffs.get() if rt.linky else None,
         linky=rt.linky.status() if rt.linky else None,
         house=rt.house,
         db=rt.db,
+        tempo=rt.grid.store.tempo_colours(today, after) if rt.grid else {},
+        ecowatt=rt.grid.store.ecowatt(today, after) if rt.grid else {},
+        contract=rt.linky.tariffs.contract_last() if rt.linky else None,
     )
 
 
@@ -458,7 +463,8 @@ async def start_runtime(
         def on_grid() -> None:
             if runtime and runtime[0].grid is not None:
                 bc.publish("grid", runtime[0].grid.view())
-                # Task 18 (after Plan 8 merges) adds the alerts request here.
+                if runtime[0].alerts is not None:
+                    runtime[0].alerts.request()  # tempo_red_tomorrow, ecowatt
 
         grid_store = GridStore(db)
         grid = GridService(
@@ -499,6 +505,15 @@ async def start_runtime(
             publish=lambda s: bc.publish("alerts", s),
             wall=wall,
         )
+        on_contract = linky_service.sync.on_contract
+
+        def contract_and_alerts(contract: Contract) -> None:
+            if on_contract is not None:
+                on_contract(contract)
+            if rt.alerts is not None:
+                rt.alerts.request()  # hc_changed
+
+        linky_service.sync.on_contract = contract_and_alerts
         runtime.append(rt)
     except BaseException:
         try:

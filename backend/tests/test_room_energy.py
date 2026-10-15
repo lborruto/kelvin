@@ -152,3 +152,21 @@ def test_the_heating_hours_are_the_mean_of_the_radiators_as_in_par_piece():
     per = {"a": days_back(2, lambda i: rd(1000.0)), "b": days_back(2, lambda i: rd(1000.0))}
     out = room_energy(per, LIFE, ["a", "b"], 2, TODAY, {"a": 3.0, "b": 1.0}, priced=False)
     assert out["heating_hours"] == pytest.approx(2.0)
+
+
+def test_under_base_a_room_has_euros_and_no_split():
+    base = RadiatorDay(1000.0, None, None, 0.2, False, False, True)
+    per = {"a": days_back(3, lambda i: base)}
+    out = room_energy(per, LIFE, ["a"], 3, TODAY, {"a": 1.0}, priced=True)
+    assert out["kwh"] == pytest.approx(3.0) and out["eur"] == pytest.approx(0.6)
+    assert (out["hc_kwh"], out["hp_kwh"]) == (None, None) and out["missing_colour_days"] == 0
+
+
+def test_a_day_without_a_tempo_colour_leaves_the_split_and_no_euros():
+    per = {"a": days_back(3, lambda i: rd(1000.0, 0.2))}
+    per["a"][TODAY - timedelta(days=1)] = RadiatorDay(
+        1000.0, 500.0, 500.0, None, False, False, True
+    )
+    out = room_energy(per, LIFE, ["a"], 3, TODAY, {"a": 1.0}, priced=True)
+    assert out["eur"] is None and out["missing_colour_days"] == 1  # never a partial €, and why
+    assert out["kwh"] == pytest.approx(3.0) and out["hc_kwh"] == pytest.approx(1.5)

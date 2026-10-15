@@ -324,13 +324,14 @@ export const en: Messages = {
     title: (range: string) => `Energy over ${range}`,
     kwh: 'Consumption',
     eur: 'Cost (energy)',
-    eurHint: 'Energy only, without the standing charge, at your off-peak and peak prices.',
+    eurHint: 'Energy only, without the standing charge, at your prices.',
     hours: 'Heating hours',
     hoursHint: 'Full-power equivalent.',
     noTariff: 'Add your tariff',
     est: 'est.',
     estHint: 'Estimate: some energy is spread between two meter readings.',
-    partial: (pct: string) => `recorded over ${pct} of the period`
+    partial: (pct: string) => `recorded over ${pct} of the period`,
+    noColour: (n: number) => `cost not counted: ${int(n)} ${plural(n, { one: 'day', other: 'days' })} without a Tempo colour`
   },
   roomEnergy: {
     noRoom: 'No room',
@@ -659,7 +660,12 @@ export const en: Messages = {
     unreachableSince: (where: string, time: string) => `${where}: radiator unreachable since ${time}.`,
     unreachableLong: (where: string) => `${where}: radiator unreachable for over 30${NB}min.`,
     commandFailed: (time: string, label: string, error: string) => `Command not completed at ${time}: ${label} — ${error}`,
-    linkyStalled: (day: string, days: number) => `Linky: no new data since ${day} (${int(days)} ${plural(days, { one: 'day', other: 'days' })}).`
+    linkyStalled: (day: string, days: number) => `Linky: no new data since ${day} (${int(days)} ${plural(days, { one: 'day', other: 'days' })}).`,
+    tempoRedTomorrow: (when: string) => `Tempo Red day tomorrow (${when}): peak hours are at the red price.`,
+    ecowatt: (level: number, when: string, hours: string | null) =>
+      `EcoWatt ${level >= 3 ? 'red' : 'orange'} on ${when}${hours ? `, ${hours}` : ''}: ${level >= 3 ? 'the power grid is under severe strain; power cuts are possible' : 'the power grid is under strain'}.`,
+    hcChanged: (slots: string) => `Enedis lists new off-peak hours: ${slots}.`,
+    hcAdd: 'Add these off-peak hours'
   },
   sessions: {
     title: 'Signed-in devices',

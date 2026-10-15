@@ -66,7 +66,8 @@ def room_energy(
     has_eur = whole.priced or any(rd.eur is not None for rd in now)
     # Every day must have its € (under Tempo a colour can be unknown): a room never shows a
     # partial € as whole. HC/HP need every day's split (none under Base).
-    whole_eur = not whole.unpriced and all(rd.eur is not None for rd in now)
+    unpriced = len(whole.unpriced) + any(rd.eur is None for rd in now) if priced else 0
+    whole_eur = unpriced == 0
     eur = None
     if found and priced and has_eur and whole_eur:
         years = cache(lambda year: radiator_year_cum(per, counted, year))
@@ -104,4 +105,6 @@ def room_energy(
         "interpolated": whole.interpolated or any(rd.interpolated for rd in now),
         "apportioned": whole.apportioned or any(rd.apportioned for rd in now),
         "priced": priced,
+        # Days with energy but no € (under Tempo, a colour not published): why `eur` is null.
+        "missing_colour_days": unpriced,
     }

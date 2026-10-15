@@ -538,6 +538,8 @@ export interface RoomEnergy {
   interpolated: boolean;
   apportioned: boolean;
   priced: boolean;
+  /** Days with energy but no € (a Tempo colour not published): why `eur` is null. */
+  missing_colour_days?: number;
 }
 export interface Run {
   start: number;
@@ -566,7 +568,15 @@ export interface SessionInfo {
 }
 
 export type Severity = 'info' | 'warn' | 'bad';
-export type AlertKind = 'price_change' | 'consent_expiring' | 'radiator_unreachable' | 'command_failed' | 'linky_stalled';
+export type AlertKind =
+  | 'price_change'
+  | 'consent_expiring'
+  | 'radiator_unreachable'
+  | 'command_failed'
+  | 'linky_stalled'
+  | 'tempo_red_tomorrow'
+  | 'ecowatt'
+  | 'hc_changed';
 export interface Alert {
   id: number;
   /** A kind this bundle does not know (a newer server) is not shown. */
