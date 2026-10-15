@@ -244,20 +244,30 @@
     justify-content: space-between;
     align-items: center;
     gap: 8px;
-    min-height: 20px;
+    min-width: 0; /* a grid item: the nowrap line below must not widen the card */
+    min-height: 40px;
     font-size: 13px;
   }
+  /* Exactly two lines are reserved in both states (skeleton, then text), whatever the font: the foot's height depends neither
+     on the fallback font nor on the content (« 17:30 → Confort · chauffe 14 % sur 24 h » needs two at 320 px). */
   .next {
     flex: 1;
     min-width: 0;
+    height: 40px;
+    line-height: 20px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
   /* About the width of « chauffe 14 % sur 24 h » at the line's height, so the text lands in place. */
   .duty-sk {
     display: inline-block;
     width: 20ch;
     max-width: 100%;
-    height: 1em;
-    vertical-align: -0.15em;
+    height: 14px;
+    vertical-align: middle;
   }
   /* The 44 px link target spills into the gaps around the row instead of adding height. */
   .expanded .foot {
