@@ -21,7 +21,9 @@ from kelvin.billing.room_energy import MAX_ROOM_DAYS
 from kelvin.errors import UserError
 from kelvin.house.model import DAY_ORDER
 from kelvin.mcp import energy as en
+from kelvin.mcp import proposals as pr
 from kelvin.mcp import shape
+from kelvin.mcp.errors import tool_error
 from kelvin.mcp.runner import Runner
 
 READ_ONLY = ToolAnnotations(
@@ -502,6 +504,175 @@ async def day_detail(ctx: Any, day: date) -> dict[str, Any]:
     )
 
 
+PROPOSAL_DAYS_MIN, PROPOSAL_DAYS_MAX = 7, 31
+
+
+async def _room_facts(
+    ctx: Any, days: int, progs: list[dict[str, Any]], by_radiator: list[dict[str, Any]]
+) -> list[pr.RoomFacts]:
+    rt = ctx.rt
+    linky = views.linky_of(rt)
+    stats = {r["radiator_id"]: r for r in by_radiator}
+    facts = []
+    for room_id, room in rt.house.rooms.items():
+        rads = rt.house.room_radiators(room_id)
+        if not any(r.capabilities.energy for r in rads):
+            continue
+        body = await asyncio.to_thread(
+            linky.room_energy, [r.id for r in rads], days, rt.recorder, set(rt.house.radiators)
+        )
+        v = rt.house.room_view(room_id)
+        mine = [p for p in progs if p["room_id"] == room_id and p["comfort_peak_share"] is not None]
+        top = max(mine, key=lambda p: p["comfort_peak_share"], default=None)
+        facts.append(
+            pr.RoomFacts(
+                room_id=room_id,
+                name=room.name,
+                peak_kwh=body["hp_kwh"],
+                offpeak_kwh=body["hc_kwh"],
+                cost_eur=body["eur"],
+                coverage_share=body["coverage"],
+                comfort_c=v["comfort"],
+                eco_c=v["eco"],
+                heating_hours=body["heating_hours"],
+                radiators=[
+                    {
+                        "radiator_id": r.id,
+                        "temp_avg_c": stats.get(r.id, {}).get("temp_avg"),
+                        "setpoint_avg_c": stats.get(r.id, {}).get("setpoint_avg"),
+                    }
+                    for r in rads
+                ],
+                manual_setpoint=any(
+                    r.capabilities.manual is not None or r.capabilities.comfort is not None
+                    for r in rads
+                ),
+                in_programme=any(p["programme_applies"] for p in mine),
+                peak_share=top["comfort_peak_share"] if top else None,
+                comfort_minutes=top["comfort_minutes_per_week"] if top else None,
+            )
+        )
+    return facts
+
+
+async def savings(ctx: Any, days: int) -> dict[str, Any]:
+    rt = ctx.rt
+    linky = views.linky_of(rt)
+    today = linky.today()
+    first = today - timedelta(days=days)
+    report = await asyncio.to_thread(
+        linky.report, first, today, "day", rt.recorder, views.radiator_rooms(rt), (first, today)
+    )
+    tariff = linky.tariffs.get()
+    row = tariff.prices_on(today) if tariff else None
+    progs = (await programmes(ctx, None))["data"]["radiators"]
+    lens = report.get("tempo_lens") or {}
+    grid = rt.grid.view() if rt.grid else None
+    tomorrow = ((grid or {}).get("tempo") or {}).get("tomorrow") or {}
+    total = report["total"]
+    h = pr.HouseFacts(
+        days=days,
+        option=row.option if row else None,
+        rates=dict(row.rates) if row else {},
+        tempo_rows=lens.get("rows"),
+        tempo_days=lens.get("days"),
+        tomorrow_colour=tomorrow.get("colour"),
+        tempo_hours=tariff.view().get("tempo_hours") if tariff else None,
+        coverage_share=(total.get("radiators") or {}).get("coverage"),
+        missing_days=total.get("missing_days") or 0,
+        linky_last_day=report["last_day"],
+    )
+    rooms = await _room_facts(ctx, days, progs, report["by_radiator"])
+    found = pr.build_proposals(h, rooms)
+    data = {
+        "window_days": days,
+        "from_date": first.isoformat(),
+        "to_date_exclusive": today.isoformat(),
+        "tariff_option_today": h.option,
+        "applies_nothing": True,
+        "proposals": found,
+    }
+    return shape.envelope(
+        "propose_savings",
+        shape.neutral(data),
+        ctx=ctx,
+        sources=["linky", "radiator_meters", "tariff", "grid", "cozytouch"],
+        basis=shape.combine(*[p["basis"] for p in found]) if found else "unknown",
+        notes=[
+            "estimates are upper bounds or proportional estimates at equal consumption, not"
+            " outcomes; setpoint changes get no estimate (no thermal model)",
+            "Kelvin applies nothing: each proposal names where the owner can apply it",
+        ],
+    )
+
+
+async def evaluate(ctx: Any, room_id: str, week: dict[str, list[dict[str, str]]]) -> dict[str, Any]:
+    rt = ctx.rt
+    name, rads = views.room_radiators(rt, room_id)
+    progs = [r for r in rads if r.capabilities.program]
+    if not progs:
+        raise tool_error("invalid_argument")
+    locked = {d: why for r in progs for d, why in r.program_locked.items()}
+    problems = pr.check_week(week, locked)
+    tariff = rt.linky.tariffs.get() if rt.linky else None
+    today = _today(ctx)
+    monday = today - timedelta(days=today.weekday())
+    rows, before_peak, after_peak = [], 0, 0
+    for r in progs:
+        proposed = {
+            **r.program,
+            **{d: s for d, s in week.items() if d in DAY_ORDER and d not in r.program_locked},
+        }
+        before = week_overlap(monday, r.program, tariff) if tariff else None
+        after = week_overlap(monday, proposed, tariff) if tariff else None
+        if r.mode == "program" and before and after:
+            before_peak += before.hp_minutes
+            after_peak += after.hp_minutes
+        rows.append(
+            {
+                "radiator_id": r.id,
+                "name": r.name,
+                "programme_applies": r.mode == "program",
+                "before": before.view() if before else None,
+                "after": after.view() if after else None,
+            }
+        )
+    body = (
+        await asyncio.to_thread(
+            rt.linky.room_energy, [r.id for r in rads], 30, rt.recorder, set(rt.house.radiators)
+        )
+        if rt.linky
+        else {}
+    )
+    row = tariff.prices_on(today) if tariff else None
+    estimate = pr.programme_estimate(
+        option=row.option if row else None,
+        rates=dict(row.rates) if row else {},
+        peak_kwh=body.get("hp_kwh"),
+        before_peak_minutes=before_peak or None,
+        after_peak_minutes=after_peak,
+        days=30,
+    )
+    data = {
+        "room_id": room_id,
+        "name": name,
+        "valid": not [p for p in problems if p["code"] != "day_locked"],
+        "problems": problems,
+        "radiators": rows,
+        "estimate": estimate,
+        "sent": False,
+        "apply_in_app": {"path": "/schedule", "what": "enter this week in the room's programme"},
+    }
+    return shape.envelope(
+        "evaluate_programme",
+        shape.neutral(data),
+        ctx=ctx,
+        sources=["cozytouch", "tariff", "radiator_meters"],
+        basis="estimated" if estimate.get("estimated_eur") is not None else "static",
+        notes=["nothing was sent or stored", "a locked day is kept as the radiator holds it"],
+    )
+
+
 def register_tools(server: MCPServer, run: Runner) -> None:
     @server.tool(
         annotations=READ_ONLY,
@@ -660,4 +831,39 @@ def register_tools(server: MCPServer, run: Runner) -> None:
     async def get_day_detail(date: date) -> dict[str, Any]:  # noqa: A002 — the API's name
         return await run(
             "tool", "get_day_detail", {"date": date.isoformat()}, lambda c: day_detail(c, date)
+        )
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "Ways to pay less for heating, as data: per room and for the house, what was consumed"
+            " and paid where a change would act (peak hours, Tempo red days, setpoints,"
+            " programmes),"
+            " with an upper-bound estimate only when Kelvin's prices give one at equal consumption."
+            " Kelvin applies nothing; each proposal says where the owner can apply it."
+        ),
+    )
+    async def propose_savings(
+        days: Annotated[int, Field(ge=PROPOSAL_DAYS_MIN, le=PROPOSAL_DAYS_MAX)] = 30,
+    ) -> dict[str, Any]:
+        return await run("tool", "propose_savings", {"days": days}, lambda c: savings(c, days))
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "Check a draft weekly programme for a room without sending it: Kelvin's rules (at most"
+            " 3 comfort periods a day, no overlap, quarter hours, ends by 23:45, locked days), the"
+            " comfort time in peak hours before and after, and an estimate of the cost moved."
+            ' week: {"monday": [{"start": "06:30", "end": "08:00"}], …}; days left out'
+            " stay as they are."
+        ),
+    )
+    async def evaluate_programme(
+        room_id: str, week: dict[str, list[dict[str, str]]]
+    ) -> dict[str, Any]:
+        return await run(
+            "tool",
+            "evaluate_programme",
+            {"room_id": room_id, "week": week},
+            lambda c: evaluate(c, room_id, week),
         )
