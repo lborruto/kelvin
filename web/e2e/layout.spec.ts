@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Layout guards, run once (desktop project; widths are set per check).
 const WIDTHS = [320, 360, 390, 768, 1024, 1280, 1440];
-const ROUTES = ['/', '/rooms/p-salon', '/schedule', '/energy', '/home'];
+const ROUTES = ['/', '/rooms/p-salon', '/schedule', '/energy', '/home', '/home/devices'];
 
 /** The page is in its loaded state: a title, no skeleton left. */
 async function settled(page: Page) {
@@ -56,7 +56,7 @@ test.describe('layout', () => {
     }
   });
 
-  for (const path of ['/home', '/energy']) {
+  for (const path of ['/home', '/energy', '/home/devices']) {
     test(`${path} loads without layout shift (CLS < 0.05)`, async ({ page }) => {
       // Registered once: every navigation starts a fresh count.
       await page.addInitScript(() => {
@@ -186,6 +186,31 @@ test.describe('layout with alerts', () => {
     expect(await heights(), 'card heights before and after the duty').toEqual(before);
     expect(await shifts(page), '/ at 320 px').toBeLessThan(0.05);
   });
+});
+
+// The device screen with every disclosure open (details, long Cozytouch state names), in both
+// languages and both themes: the longest it gets.
+test.describe('layout of /home/devices fully open', () => {
+  test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
+  for (const lang of ['fr', 'en'])
+    for (const theme of ['light', 'dark'])
+      test(`${lang}, ${theme}: never scrolls sideways from 320 to 1440 px`, async ({ page }) => {
+        await page.addInitScript(
+          ([l, t]) => {
+            localStorage.setItem('kelvin-locale', l);
+            localStorage.setItem('kelvin-theme', t);
+          },
+          [lang, theme]
+        );
+        await page.goto('/home/devices');
+        await settled(page);
+        await page.evaluate(() => document.querySelectorAll('details').forEach((d) => (d.open = true)));
+        for (const width of WIDTHS) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.waitForTimeout(100);
+          expect(await overflow(page), `/home/devices open (${lang}, ${theme}) at ${width} px`).toBeLessThanOrEqual(0);
+        }
+      });
 });
 
 // The same guards with the English copy (Plan 7): English labels are often longer or shorter.

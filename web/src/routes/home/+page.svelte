@@ -169,6 +169,12 @@
   <AlertList hold={!settled} />
 </section>
 
+<section class="panel">
+  <h2>{m.devices.title}</h2>
+  <p>{m.devices.homeText}</p>
+  <a class="btn btn-sm" href={ROUTES.devices}>{m.devices.open}</a>
+</section>
+
 {#if !settled}
   <!-- Tarif and Linky in their final shape until both answers are in. -->
   <!-- The ids are there from the first render, so /home#tariff and #linky land on their panel. -->
@@ -192,7 +198,14 @@
       <p class="error" role="alert">{linkyError?.()} <button type="button" class="btn btn-sm" onclick={loadLinky}>{m.common.retry}</button></p>
     {/if}
   </section>
+{/if}
 
+<section id={ANCHORS.sessions} class="panel">
+  <h2>{m.sessions.title}</h2>
+  <SessionsPanel />
+</section>
+
+{#if settled}
   <section class="panel">
     <h2>{m.settings.title}</h2>
     <dl>
@@ -232,11 +245,6 @@
     </dl>
   </section>
 {/if}
-
-<section id={ANCHORS.sessions} class="panel">
-  <h2>{m.sessions.title}</h2>
-  <SessionsPanel />
-</section>
 
 <style>
   h1 {

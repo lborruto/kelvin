@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
 import { api } from '$lib/api/client';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale, m } from '$lib/i18n';
 import { alerts } from '$lib/stores/alerts.svelte';
 import { auth } from '$lib/stores/auth.svelte';
 import { history } from '$lib/stores/history.svelte';
@@ -174,6 +174,19 @@ describe('Maison', () => {
     render(Page);
     expect(document.getElementById('tariff')).toHaveAttribute('aria-busy', 'true');
     expect(document.getElementById('linky')).toBeInTheDocument();
+  });
+
+  it('links to the rooms and devices screen', async () => {
+    render(Page);
+    expect(await screen.findByRole('link', { name: 'Gérer les pièces et appareils' })).toHaveAttribute('href', '/home/devices');
+  });
+
+  it('orders the panels: Actions, alerts, rooms and devices, Tarif, Linky, signed-in devices, settings', async () => {
+    const { container } = render(Page);
+    await screen.findByRole('heading', { name: m.settings.title });
+    const titles = [...container.querySelectorAll('section.panel > h2')].map((h) => h.textContent);
+    const order = ['Actions', m.alerts.title, m.devices.title, m.home.tariff, 'Linky', m.sessions.title, m.settings.title];
+    expect(titles.filter((t) => order.includes(t ?? ''))).toEqual(order);
   });
 });
 

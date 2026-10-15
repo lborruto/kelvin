@@ -129,6 +129,7 @@ describe('frozenMessages', () => {
 export const DYNAMIC = [
   'devices.problem',
   'devices.detail',
+  'devices.role',
   'api',
   'action',
   'cozytouch',

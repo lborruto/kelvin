@@ -34,6 +34,8 @@ describe('RoomsEnergy', () => {
     const cells = [...table.querySelectorAll('tbody tr.room td')].map((t) => t.textContent!.replace(/\s+/g, ' ').trim());
     expect(cells).toEqual(['150,00', '100,0 %', '60,00', '90,00', '37,50', '19,4', '20,0', '3,0']);
     expect(table.querySelector('tbody tr.room th')).toHaveTextContent('partiel · 1 radiateur sur 2 enregistré à partir du 7/10');
+    // Spec §2.7, ruling 5: a radiator's past figures count toward its current room.
+    expect(container).toHaveTextContent('Pièces selon la répartition actuelle des radiateurs.');
   });
 
   it('a room expands to its radiators', async () => {

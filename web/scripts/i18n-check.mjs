@@ -14,7 +14,7 @@ export const FRENCH_LETTERS = /[àâäçéèêëîïôöùûüÿœæÀÂÄÇÉÈ
 // Not here on purpose: « absence » (English too; the label is matched case-sensitively below); short forms that are English words or names
 // (« Lun », « Mar », « Dim », « Sam », « S42 », « 7 j », « Prog. »); see i18n-check notes in check.test.ts.
 const WORDS = [
-  'fabricant', 'niveau', 'vacances',
+  'fabricant', 'niveau', 'vacances', 'appareil', 'appareils', 'pont', 'joignable',
   'abaissement', 'abandonner', 'abonnement', 'activer', 'actualiser', 'appliquer', 'confirmer', 'continuer', 'date de fin',
   'hors ligne', 'modifier', 'valider', 'ajouter', 'ajoutez', 'ajuster', 'aller', 'annuler', 'appel',
   'appels', 'assez', 'atteint', 'atteinte', 'attente', 'au', 'augmenter', 'aucun', 'aucune', 'aujourd', 'aussi', 'autre',
