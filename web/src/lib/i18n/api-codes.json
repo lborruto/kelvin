@@ -122,6 +122,10 @@
       "fr": "Connexion requise.",
       "params": {}
     },
+    "med_quota": {
+      "fr": "Quota MyElectricalData du jour atteint : réessayez demain.",
+      "params": {}
+    },
     "med_unreachable": {
       "fr": "MyElectricalData injoignable, réessayez plus tard.",
       "params": {}
@@ -396,6 +400,10 @@
     },
     "tempo_hours_invalid": {
       "fr": "Heures creuses Tempo invalides.",
+      "params": {}
+    },
+    "tempo_prices_unavailable": {
+      "fr": "Prix Tempo indisponibles pour le moment.",
       "params": {}
     },
     "token_missing": {

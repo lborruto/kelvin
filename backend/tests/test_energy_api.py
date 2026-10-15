@@ -844,3 +844,122 @@ async def test_a_room_s_day_reads_its_par_piece_row(api):
         assert round(two["eur"] * 100) - round(today_eur * 100) == eur, room
         kwh = sum(r["kwh"] for r in mine)
         assert two["kwh"] - today_kwh == pytest.approx(kwh, abs=0.002 * len(mine)), room
+
+
+TEMPO_RATES = {
+    "blue_hc": 0.1296,
+    "blue_hp": 0.1609,
+    "white_hc": 0.1486,
+    "white_hp": 0.1894,
+    "red_hc": 0.1568,
+    "red_hp": 0.7562,
+}
+
+
+def doc(**over):
+    start = str(today() - timedelta(days=60))
+    switch = str(today() - timedelta(days=30))
+    return {
+        "tariff": {
+            "kva": 9,
+            "prices": [
+                {
+                    "valid_from": start,
+                    "option": "hchp",
+                    "subscription_eur_month": 15.0,
+                    "rates": {"hc": 0.2068, "hp": 0.27},
+                },
+                {
+                    "valid_from": switch,
+                    "option": "tempo",
+                    "subscription_eur_month": 15.6,
+                    "rates": dict(TEMPO_RATES),
+                },
+            ],
+            "hc_schedules": [
+                {
+                    "valid_from": start,
+                    "variants": [
+                        {
+                            "months": list(range(1, 13)),
+                            "slots": [{"start": "22:00", "end": "06:00"}],
+                        }
+                    ],
+                }
+            ],
+            "tempo_hours": {"hc_start": "22:00", "hc_end": "06:00", "day_start": "06:00"},
+            **over,
+        }
+    }
+
+
+async def test_a_v2_tariff_document_is_saved_whole_and_read_back(api):
+    c, _, rt, _ = api
+    rt.linky.sync.state.calls = 0  # the fixture's first sync used most of the MED day
+    r = await c.put("/api/settings", json=doc())
+    assert r.status_code == 200, r.text
+    t = r.json()["tariff"]
+    assert t["option"] == "tempo" and [p["option"] for p in t["prices"]] == ["hchp", "tempo"]
+    assert t["prices"][1]["rates"] == TEMPO_RATES and t["tempo_hours"]["day_start"] == "06:00"
+    assert (await c.get("/api/settings")).json()["tariff"] == t
+    assert rt.scheduler.state["tempo"]["retry_at"] is not None  # colours asked for at once
+    await rt.grid.tempo_job()
+    g = (await c.get("/api/grid")).json()
+    assert g["tempo"]["today"]["colour"] in ("blue", "white", "red")
+
+
+async def test_v2_errors_carry_codes(api):
+    c, _, _, _ = api
+    bad = doc()
+    bad["tariff"]["hc_schedules"][0]["variants"][0]["months"] = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12]
+    r = await c.put("/api/settings", json=bad)
+    assert r.status_code == 422 and r.json() == err("hc_months_missing", months=[4])
+    bad = doc()
+    del bad["tariff"]["prices"][1]["rates"]["red_hp"]
+    r = await c.put("/api/settings", json=bad)
+    assert r.status_code == 422 and r.json() == err("tariff_rates_invalid", rate="red_hp")
+    bad = doc()
+    bad["tariff"]["prices"] = bad["tariff"]["prices"] * 51
+    assert (await c.put("/api/settings", json=bad)).json()["code"] == "invalid_request"
+    bad = doc()
+    bad["tariff"]["tempo_hours"] = {"hc_start": "22:00", "hc_end": "22:00"}
+    assert (await c.put("/api/settings", json=bad)).json() == err("tempo_hours_invalid")
+
+
+async def test_the_v1_body_still_works_and_becomes_a_schedule(api):
+    c, _, _, _ = api
+    r = await c.put("/api/settings", json=tariff_body())
+    assert r.status_code == 200
+    t = r.json()["tariff"]
+    assert t["option"] == "hchp" and t["hc_schedules"][-1]["variants"][0]["months"] == list(
+        range(1, 13)
+    )
+
+
+async def test_tempo_prices_prefill_costs_one_call_a_week(api):
+    c, _, rt, _ = api
+    rt.linky.sync.state.calls = 0  # the fixture's first sync used most of the MED day
+    before = rt.linky.sync.grid_calls_today()
+    r = await c.post("/api/grid/tempo-prices")
+    assert r.status_code == 200 and r.json()["rates"] == TEMPO_RATES
+    assert r.json()["source"] == "MyElectricalData"
+    assert (await c.post("/api/grid/tempo-prices")).json() == r.json()
+    assert rt.linky.sync.grid_calls_today() == before + 1
+    rt.db.execute("DELETE FROM settings WHERE key = 'tempo_price_prefill'")
+    rt.linky.sync.budget = rt.linky.sync.calls_today()
+    r = await c.post("/api/grid/tempo-prices")
+    assert r.status_code == 429 and r.json() == err("med_quota")
+
+
+async def test_after_a_v2_save_the_strip_follows_and_a_stale_v1_form_is_refused(api):
+    c, _, rt, _ = api
+    q = rt.broadcaster.subscribe()
+    assert (await c.put("/api/settings", json=doc())).status_code == 200
+    events = [q.get_nowait() for _ in range(q.qsize())]
+    rt.broadcaster.unsubscribe(q)
+    [grid] = [e for e in events if e["event"] == "grid"]
+    assert json.loads(grid["data"]) == (await c.get("/api/grid")).json()
+    before = (await c.get("/api/settings")).json()["tariff"]
+    r = await c.put("/api/settings", json=tariff_body())  # a tab opened before the switch
+    assert r.status_code == 422 and r.json() == err("tariff_form_outdated")
+    assert (await c.get("/api/settings")).json()["tariff"] == before

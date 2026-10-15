@@ -98,6 +98,8 @@ TEMPLATES: dict[str, str] = {
     # Énergie and Linky
     "linky_unavailable": "Linky indisponible.",
     "period_invalid": "Période invalide.",
+    "med_quota": "Quota MyElectricalData du jour atteint : réessayez demain.",
+    "tempo_prices_unavailable": "Prix Tempo indisponibles pour le moment.",
     "pdl_invalid": "Le PDL compte 14 chiffres.",
     "token_missing": "Collez le jeton MyElectricalData.",
     "linky_quota": "Quota Linky du jour atteint : réessayez demain.",
