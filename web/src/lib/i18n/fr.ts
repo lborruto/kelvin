@@ -1084,7 +1084,10 @@ export const fr = {
       `Cette maison est reliée au serveur ${p.server}. Pour changer de serveur, repartez d’une installation neuve (voir le README).`,
     data_other_server: (p: ApiParams) =>
       `Ce dossier de données appartient à une maison reliée au serveur ${p.server}${NB}: utilisez un autre dossier KELVIN_DATA.`,
-    bad_credentials_server: (p: ApiParams) => `Email ou mot de passe ${p.server} incorrect.`
+    bad_credentials_server: (p: ApiParams) => `Email ou mot de passe ${p.server} incorrect.`,
+    read_only_device: () => `Kelvin ne pilote pas cet appareil${NB}: il est affiché en lecture seule.`,
+    level_unknown: (p: ApiParams) => `Allure inconnue${NB}: ${p.level}.`,
+    dryer_action_unknown: (p: ApiParams) => `Action inconnue${NB}: ${p.action}.`
   }
 };
 

@@ -83,6 +83,10 @@ TEMPLATES: dict[str, str] = {
     "no_night_light": "Ce radiateur n’a pas de veilleuse.",
     "intensity_light_off": "L’intensité ne peut être réglée que veilleuse allumée.",
     "intensity_range": "L’intensité doit être comprise entre 1 et 100 %.",
+    # Plan 12: kinds the command layer refuses or does not know
+    "read_only_device": "Kelvin ne pilote pas cet appareil : il est affiché en lecture seule.",
+    "level_unknown": "Allure inconnue : {level}.",
+    "dryer_action_unknown": "Action inconnue : {action}.",
     # Tariff
     "slot_time_invalid": "Heure invalide : {value} (format HH:MM).",
     "slots_none": "Indiquez au moins une plage d’heures creuses.",
@@ -192,6 +196,8 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "server_mismatch": {"server": "Sauter Cozytouch"},
     "data_other_server": {"server": "Sauter Cozytouch"},
     "bad_credentials_server": {"server": "Flexom"},
+    "level_unknown": {"level": "turbo"},
+    "dryer_action_unknown": {"action": "spin"},
 }
 
 # Status.last_error_code: why the last Cozytouch poll failed.

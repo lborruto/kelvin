@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from kelvin.commands.service import CommandService, Pending
 from kelvin.commands.translate import CommandError, Planned, plan_mode, plan_setpoint
-from kelvin.house.model import MODES, House, Radiator
+from kelvin.house.model import House, Radiator
 from kelvin.labels import Label
 from kelvin.recorder.db import Database
 
@@ -191,12 +191,13 @@ class OverrideManager:
     def _intended(self, r: Radiator) -> tuple[str, float | None]:
         """Mode and target the radiator is heading to (in-flight expectations, else house)."""
         mode, target = r.mode, r.target
-        for p in self.commands.active():
-            for e in p.planned.expectations:
+        profile = r.profile  # Plan 12: the mode state and its values are the kind's
+        for pend in self.commands.active():
+            for e in pend.planned.expectations:
                 if e.device_url != r.heater_url:
                     continue
-                if e.name == "core:OperatingModeState":
-                    mode = MODES.get(e.value, "other")
+                if e.name == profile.mode_state:
+                    mode = profile.mode_of(e.value)
                 elif e.name == "core:TargetTemperatureState":
                     target = float(e.value)
         return mode, target
@@ -207,7 +208,7 @@ class OverrideManager:
         if mode == "other":
             # A mode Kelvin does not map (e.g. frost set on the panel) is a hand change;
             # a missing mode state means we simply do not know yet.
-            return None if r.get("heater", "core:OperatingModeState") is None else False
+            return None if r.get("heater", r.profile.mode_state or "") is None else False
         if mode == "manual" and target is None:
             return None
         return mode == "manual" and target is not None and abs(target - o.temperature) < 0.01

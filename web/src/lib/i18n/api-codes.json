@@ -46,6 +46,12 @@
       "fr": "Appareil inconnu.",
       "params": {}
     },
+    "dryer_action_unknown": {
+      "fr": "Action inconnue : spin.",
+      "params": {
+        "action": "spin"
+      }
+    },
     "end_in_past": {
       "fr": "La fin doit être dans le futur.",
       "params": {}
@@ -95,6 +101,12 @@
     "kva_unknown": {
       "fr": "Puissance souscrite inconnue.",
       "params": {}
+    },
+    "level_unknown": {
+      "fr": "Allure inconnue : turbo.",
+      "params": {
+        "level": "turbo"
+      }
     },
     "linky_quota": {
       "fr": "Quota Linky du jour atteint : réessayez demain.",
@@ -255,6 +267,10 @@
     },
     "radiator_unknown_id": {
       "fr": "Radiateur inconnu dans la demande.",
+      "params": {}
+    },
+    "read_only_device": {
+      "fr": "Kelvin ne pilote pas cet appareil : il est affiché en lecture seule.",
       "params": {}
     },
     "rename_alone": {
