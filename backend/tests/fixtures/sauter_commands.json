@@ -1,0 +1,1720 @@
+[
+  {
+    "request": [
+      "POST",
+      "/api/rooms/p-salon/mode",
+      {
+        "mode": "manual"
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ]
+    ],
+    "actions": [
+      2
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OperatingModeState",
+        "basic"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/rooms/p-salon/setpoint",
+      {
+        "kind": "manual",
+        "value": 21.5
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setTargetTemperature",
+        [
+          21.5
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setTargetTemperature",
+        [
+          21.5
+        ]
+      ]
+    ],
+    "actions": [
+      2
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:TargetTemperatureState",
+        21.5
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:TargetTemperatureState",
+        21.5
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/rooms/p-salon/setpoint",
+      {
+        "kind": "comfort",
+        "value": 19.5
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setComfortTemperature",
+        [
+          19.5
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setComfortTemperature",
+        [
+          19.5
+        ]
+      ]
+    ],
+    "actions": [
+      2
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:ComfortRoomTemperatureState",
+        19.5
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:ComfortRoomTemperatureState",
+        19.5
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/rooms/p-salon/setpoint",
+      {
+        "kind": "eco",
+        "value": 2.5
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setEcoTemperature",
+        [
+          2.5
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setEcoTemperature",
+        [
+          2.5
+        ]
+      ]
+    ],
+    "actions": [
+      2
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:EcoRoomTemperatureState",
+        2.5
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:EcoRoomTemperatureState",
+        2.5
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/rooms/p-salon/mode",
+      {
+        "mode": "program"
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ]
+    ],
+    "actions": [
+      2
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:OperatingModeState",
+        "internal"
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OperatingModeState",
+        "internal"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "PUT",
+      "/api/rooms/p-salon/program",
+      {
+        "monday": [
+          {
+            "start": "06:00",
+            "end": "08:00"
+          },
+          {
+            "start": "18:00",
+            "end": "22:00"
+          }
+        ],
+        "wednesday": [
+          {
+            "start": "07:30",
+            "end": "09:00"
+          }
+        ],
+        "saturday": [
+          {
+            "start": "09:00",
+            "end": "23:00"
+          }
+        ]
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setTimeProgram",
+        [
+          [
+            {
+              "monday": [
+                {
+                  "start": "06:00",
+                  "end": "08:00"
+                },
+                {
+                  "start": "18:00",
+                  "end": "22:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "tuesday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "wednesday": [
+                {
+                  "start": "07:30",
+                  "end": "09:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "thursday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "friday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "saturday": [
+                {
+                  "start": "09:00",
+                  "end": "23:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "sunday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            }
+          ]
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setTimeProgram",
+        [
+          [
+            {
+              "monday": [
+                {
+                  "start": "06:00",
+                  "end": "08:00"
+                },
+                {
+                  "start": "18:00",
+                  "end": "22:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "tuesday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "wednesday": [
+                {
+                  "start": "07:30",
+                  "end": "09:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "thursday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "friday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "saturday": [
+                {
+                  "start": "09:00",
+                  "end": "23:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "sunday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            }
+          ]
+        ]
+      ]
+    ],
+    "actions": [
+      2
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:TimeProgramState",
+        [
+          {
+            "monday": [
+              {
+                "start": "06:00",
+                "end": "08:00"
+              },
+              {
+                "start": "18:00",
+                "end": "22:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "tuesday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "wednesday": [
+              {
+                "start": "07:30",
+                "end": "09:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "thursday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "friday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "saturday": [
+              {
+                "start": "09:00",
+                "end": "23:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "sunday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          }
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:TimeProgramState",
+        [
+          {
+            "monday": [
+              {
+                "start": "06:00",
+                "end": "08:00"
+              },
+              {
+                "start": "18:00",
+                "end": "22:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "tuesday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "wednesday": [
+              {
+                "start": "07:30",
+                "end": "09:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "thursday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "friday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "saturday": [
+              {
+                "start": "09:00",
+                "end": "23:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "sunday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          }
+        ]
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/radiators/9312063/mode",
+      {
+        "mode": "off"
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOperatingMode",
+        [
+          "standby"
+        ]
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OperatingModeState",
+        "standby"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/radiators/9312063/mode",
+      {
+        "mode": "manual"
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OperatingModeState",
+        "basic"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/radiators/9312063/setpoint",
+      {
+        "kind": "manual",
+        "value": 20.0
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setTargetTemperature",
+        [
+          20.0
+        ]
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:TargetTemperatureState",
+        20.0
+      ]
+    ]
+  },
+  {
+    "request": [
+      "PUT",
+      "/api/radiators/8370022/program",
+      {
+        "monday": [
+          {
+            "start": "06:00",
+            "end": "08:00"
+          },
+          {
+            "start": "18:00",
+            "end": "22:00"
+          }
+        ],
+        "wednesday": [
+          {
+            "start": "07:30",
+            "end": "09:00"
+          }
+        ],
+        "saturday": [
+          {
+            "start": "09:00",
+            "end": "23:00"
+          }
+        ]
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setTimeProgram",
+        [
+          [
+            {
+              "monday": [
+                {
+                  "start": "06:00",
+                  "end": "08:00"
+                },
+                {
+                  "start": "18:00",
+                  "end": "22:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "tuesday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "wednesday": [
+                {
+                  "start": "07:30",
+                  "end": "09:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "thursday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "friday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "saturday": [
+                {
+                  "start": "09:00",
+                  "end": "23:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            },
+            {
+              "sunday": [
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                },
+                {
+                  "start": "00:00",
+                  "end": "00:00"
+                }
+              ]
+            }
+          ]
+        ]
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:TimeProgramState",
+        [
+          {
+            "monday": [
+              {
+                "start": "06:00",
+                "end": "08:00"
+              },
+              {
+                "start": "18:00",
+                "end": "22:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "tuesday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "wednesday": [
+              {
+                "start": "07:30",
+                "end": "09:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "thursday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "friday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "saturday": [
+              {
+                "start": "09:00",
+                "end": "23:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          },
+          {
+            "sunday": [
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              },
+              {
+                "start": "00:00",
+                "end": "00:00"
+              }
+            ]
+          }
+        ]
+      ]
+    ]
+  },
+  {
+    "request": [
+      "PATCH",
+      "/api/radiators/9312063/features",
+      {
+        "window_detection": false
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOpenWindowDetectionActivation",
+        [
+          "inactive"
+        ]
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OpenWindowDetectionActivationState",
+        "inactive"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "PATCH",
+      "/api/radiators/9312063/features",
+      {
+        "presence_detection": true
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOccupancyActivation",
+        [
+          "active"
+        ]
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OccupancyActivationState",
+        "active"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "PATCH",
+      "/api/radiators/9312063/features",
+      {
+        "name": "Salon 2"
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setName",
+        [
+          "Salon 2"
+        ]
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:NameState",
+        "Salon 2"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/radiators/9312063/light",
+      {
+        "on": true
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#6",
+        "on",
+        []
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/9312063#6",
+        "core:OnOffState",
+        "on"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/radiators/9312063/light",
+      {
+        "on": true,
+        "intensity": 40
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#6",
+        "on",
+        []
+      ],
+      [
+        "io://1234-5678-9012/9312063#6",
+        "setIntensity",
+        [
+          40
+        ]
+      ]
+    ],
+    "actions": [
+      2
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/9312063#6",
+        "core:OnOffState",
+        "on"
+      ],
+      [
+        "io://1234-5678-9012/9312063#6",
+        "core:LightIntensityState",
+        40
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/radiators/9312063/light",
+      {
+        "on": false
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#6",
+        "off",
+        []
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/9312063#6",
+        "core:OnOffState",
+        "off"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/radiators/9312063/identify",
+      null
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "identify",
+        []
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": []
+  },
+  {
+    "request": [
+      "POST",
+      "/api/rooms/p-ch1/boost",
+      {
+        "temperature": 23.0,
+        "duration_min": 60
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setTargetTemperature",
+        [
+          23.0
+        ]
+      ]
+    ],
+    "actions": [
+      2
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:TargetTemperatureState",
+        23.0
+      ]
+    ]
+  },
+  {
+    "request": [
+      "DELETE",
+      "/api/overrides/{id}",
+      null
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setTargetTemperature",
+        [
+          19.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ]
+    ],
+    "actions": [
+      2
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:TargetTemperatureState",
+        19.0
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:OperatingModeState",
+        "internal"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/house/away",
+      {
+        "temperature": 12.0,
+        "until": "+2h"
+      }
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setTargetTemperature",
+        [
+          12.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setTargetTemperature",
+        [
+          12.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setTargetTemperature",
+        [
+          12.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setTargetTemperature",
+        [
+          12.0
+        ]
+      ]
+    ],
+    "actions": [
+      8
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:TargetTemperatureState",
+        12.0
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:TargetTemperatureState",
+        12.0
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:TargetTemperatureState",
+        12.0
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:TargetTemperatureState",
+        12.0
+      ]
+    ]
+  },
+  {
+    "request": [
+      "DELETE",
+      "/api/overrides/{id}",
+      null
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setTargetTemperature",
+        [
+          21.5
+        ]
+      ],
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setTargetTemperature",
+        [
+          20.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setTargetTemperature",
+        [
+          19.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setTargetTemperature",
+        [
+          18.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ]
+    ],
+    "actions": [
+      8
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:TargetTemperatureState",
+        21.5
+      ],
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:OperatingModeState",
+        "internal"
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:TargetTemperatureState",
+        20.0
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:TargetTemperatureState",
+        19.0
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:OperatingModeState",
+        "internal"
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:TargetTemperatureState",
+        18.0
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:OperatingModeState",
+        "internal"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/house/off",
+      null
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setOperatingMode",
+        [
+          "standby"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOperatingMode",
+        [
+          "standby"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setOperatingMode",
+        [
+          "standby"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setOperatingMode",
+        [
+          "standby"
+        ]
+      ]
+    ],
+    "actions": [
+      4
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:OperatingModeState",
+        "standby"
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OperatingModeState",
+        "standby"
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:OperatingModeState",
+        "standby"
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:OperatingModeState",
+        "standby"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/house/program",
+      null
+    ],
+    "status": 202,
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ]
+    ],
+    "actions": [
+      4
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:OperatingModeState",
+        "internal"
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OperatingModeState",
+        "internal"
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:OperatingModeState",
+        "internal"
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:OperatingModeState",
+        "internal"
+      ]
+    ]
+  }
+]
