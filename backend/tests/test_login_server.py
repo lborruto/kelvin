@@ -161,3 +161,16 @@ async def test_wrong_credentials_name_the_server_outside_cozytouch(make_client):
         assert r.json()["code"] == "bad_credentials"
     finally:
         await _close(manager, c)
+
+
+async def test_a_blank_or_null_server_is_a_wrong_choice_not_an_omission(make_client):
+    """Only a body without the key means « the home's server, else Sauter »."""
+    manager, c, _, gw = await make_client()
+    try:
+        for server in ("", "   ", None):
+            r = await c.post("/api/auth/login", json={**DEMO, "server": server})
+            assert (r.status_code, r.json()["code"]) == (422, "server_unknown"), server
+        assert gw.logins == 0 and gw.checks == 0
+        assert (await c.post("/api/auth/login", json=DEMO)).status_code == 200
+    finally:
+        await _close(manager, c)

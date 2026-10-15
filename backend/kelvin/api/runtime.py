@@ -336,6 +336,11 @@ async def start_runtime(
         stored_server = db.get_setting(SERVER_KEY)
         if stored_server is not None and stored_server != gateway.server:
             raise DataServerMismatch(stored_server)  # before any Overkiz call
+        is_sim = isinstance(gateway, FakeGateway)
+        if not is_sim and db.get_setting(SIM_DB_KEY) is True:  # before any Overkiz call too
+            raise RuntimeError(
+                "KELVIN_DATA holds simulator data; use another directory for a real installation."
+            )
         stored = None
         if not guard.allowed():
             stored = stored_setup(db)
@@ -352,13 +357,8 @@ async def start_runtime(
             log.info("full setup read budget spent: starting from the stored setup")
             root, devices = stored
         house = build_house(root, devices, wall=wall)
-        is_sim = isinstance(gateway, FakeGateway)
         if is_sim:
             house.backdate_status(gateway.sim_status_since)
-        if not is_sim and db.get_setting(SIM_DB_KEY) is True:
-            raise RuntimeError(
-                "KELVIN_DATA holds simulator data; use another directory for a real installation."
-            )
         if stored_server is None:
             db.set_setting(SERVER_KEY, gateway.server)
         if settings.kelvin_fake and is_sim:  # simulator only, never a real installation

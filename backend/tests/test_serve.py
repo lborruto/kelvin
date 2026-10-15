@@ -6,7 +6,10 @@ import uvicorn
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from kelvin import serve
+from kelvin.account import Account, AccountStore
+from kelvin.api.runtime import SERVER_KEY
 from kelvin.config import Settings
+from kelvin.recorder.db import Database
 
 
 def _settings(tmp_path, **kw):
@@ -163,3 +166,45 @@ def test_a_network_is_trusted_by_uvicorn_exactly_as_kelvin_accepted_it(tmp_path)
     opts = serve.uvicorn_options(_settings(tmp_path, kelvin_trusted_proxies="10.0.0.0/24"))
     trusted = _TrustedHosts(opts["forwarded_allow_ips"])
     assert trusted.__contains__("10.0.0.5") and not trusted.__contains__("10.0.1.5")
+
+
+# Plan 12: a data folder bound to another Overkiz server stops the start with one clean line.
+
+
+def _held_by(data, server):
+    data.mkdir(exist_ok=True)
+    db = Database(data / "kelvin.db")
+    db.set_setting(SERVER_KEY, server)
+    db.close()
+
+
+def test_preflight_refuses_a_data_folder_of_another_server_with_a_clean_message(tmp_path):
+    data = tmp_path / "data"
+    _held_by(data, "sauter_cozytouch")
+    AccountStore(data).save(Account("me@example.fr", "Sup3r-1", server="thermor_cozytouch"))
+    with pytest.raises(serve.ConfigError) as e:
+        serve.preflight(_settings(tmp_path))
+    message = str(e.value)
+    assert "Sauter Cozytouch" in message and "Thermor Cozytouch" in message
+    assert "KELVIN_DATA" in message
+    assert "me@example.fr" not in message and "Sup3r" not in message
+
+
+def test_preflight_refuses_an_env_bootstrap_on_another_servers_data(tmp_path):
+    """Without this check the env would create account.json on the other server and every boot
+    would then stop on it (batch 2 review, minor 2)."""
+    data = tmp_path / "data"
+    _held_by(data, "thermor_cozytouch")
+    s = _settings(tmp_path, cozy_user="me@example.fr", cozy_pass="Sup3r-1", cozy_server="flexom")
+    with pytest.raises(serve.ConfigError) as e:
+        serve.preflight(s)
+    assert "Thermor Cozytouch" in str(e.value) and "Flexom" in str(e.value)
+    assert not (data / "account.json").exists()
+
+
+def test_preflight_accepts_a_matching_server_and_a_home_not_claimed_yet(tmp_path):
+    data = tmp_path / "data"
+    _held_by(data, "thermor_cozytouch")
+    serve.preflight(_settings(tmp_path))  # no account yet: the login decides (data_other_server)
+    AccountStore(data).save(Account("me@example.fr", "Sup3r-1", server="thermor_cozytouch"))
+    serve.preflight(_settings(tmp_path))

@@ -120,6 +120,13 @@ class LoginBody(BaseModel):
     # Plan 12: an id from GET /api/auth/servers. Omitted: the home's server, else Sauter.
     server: str | None = Field(default=None, max_length=40)
 
+    def chosen_server(self) -> str | None:
+        """None when the body names no server (the home's once claimed, else Sauter). A server
+        given as null or blank is a wrong choice (server_unknown), not an omission."""
+        if "server" not in self.model_fields_set:
+            return None
+        return (self.server or "").strip()
+
 
 class HcSlotBody(BaseModel):
     """Times are checked by the billing slots, which raise UserError codes (kelvin/errors.py)."""
