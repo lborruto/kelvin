@@ -112,7 +112,9 @@
       <span class="chev" class:on={open} aria-hidden="true"><Icon name="chevron" size={16} /></span>{COPY.title}
     </button>
   </h2>
-  <div id="{uid}-body" hidden={!open}>
+  <!-- Hidden until found: find-in-page still reaches the facts and opens the panel (`beforematch`); a browser without
+       it reads the value as plain `hidden`. -->
+  <div id="{uid}-body" hidden={open ? undefined : 'until-found'} onbeforematch={() => (open = true)}>
   <div class="strip" aria-hidden="true" style:--n={buckets.length}>
     {#each strip as row (row.label)}
       <div class="row">

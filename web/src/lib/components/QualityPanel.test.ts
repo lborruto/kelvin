@@ -29,6 +29,16 @@ describe('QualityPanel', () => {
     expect(body).toBeVisible();
   });
 
+  it('closed, its body stays findable: hidden until found, and a find-in-page match opens it', async () => {
+    render(QualityPanel, { buckets, group: 'day', quality });
+    const toggle = screen.getByRole('button', { name: 'Qualité des données' });
+    const body = document.getElementById(toggle.getAttribute('aria-controls')!)!;
+    expect(body).toHaveAttribute('hidden', 'until-found');
+    await fireEvent(body, new Event('beforematch', { bubbles: true }));
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(body).not.toHaveAttribute('hidden');
+  });
+
   it('is collapsed, with a coverage strip per bucket and row: full, partial, missing', () => {
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
     expect(container.querySelector('#qualite [aria-expanded]')).toHaveAttribute('aria-expanded', 'false');

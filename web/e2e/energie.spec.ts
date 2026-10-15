@@ -165,6 +165,7 @@ test.describe('Énergie', () => {
     const quality = page.locator('#qualite');
     const toggle = page.getByRole('heading', { level: 2, name: 'Qualité des données' }).getByRole('button', { name: 'Qualité des données' });
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(quality.getByText(/^Linky depuis le /)).toBeHidden(); // hidden until found while closed
     // HC/HP of a day without a complete curve are estimates: some bar of the month carries « est. ». Else open it at #qualite.
     const link = card.getByRole('link', { name: 'Qualité des données' });
     if (await link.count()) {
