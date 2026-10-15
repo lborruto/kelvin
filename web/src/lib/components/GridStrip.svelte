@@ -6,7 +6,13 @@
   import Icon from './Icon.svelte';
   import TempoDot from './TempoDot.svelte';
 
-  let lines = $derived(stripLines(grid.view, parisTodayIso()));
+  // A tab left open past midnight: « demain » becomes « aujourd’hui » without waiting for the next fetch.
+  let now = $state(Date.now());
+  $effect(() => {
+    const t = setInterval(() => (now = Date.now()), 60_000);
+    return () => clearInterval(t);
+  });
+  let lines = $derived(stripLines(grid.view, parisTodayIso(now)));
 </script>
 
 {#if lines}

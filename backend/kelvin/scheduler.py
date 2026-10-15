@@ -40,7 +40,7 @@ def _always() -> bool:
 class Job:
     name: str
     times: tuple[dtime, ...]
-    run: Callable[[], Awaitable[None]]
+    run: Callable[[], Awaitable[bool | None]]  # False: nothing to fetch, no call made
     enabled: Callable[[], bool] = _always
     jitter_s: int = 120
 
@@ -113,7 +113,7 @@ class Scheduler:
         st["slot"] = max([s for s in self._slots(job, now) if s <= now], default=now)
         st["last_attempt"] = now
         try:
-            await job.run()
+            fetched = await job.run()
         except Exception as e:
             nxt = min((s for s in self._slots(job, now) if s > now), default=now + BACKOFF_MAX_S)
             if getattr(e, "quota", False):
@@ -131,7 +131,9 @@ class Scheduler:
                 st["retry_at"] = min(retry, nxt)
                 log.warning("job %s failed: %s", job.name, type(e).__name__)
         else:
-            st.update(state="ok", last_ok=now, retry_at=None, backoff=None, error_since=None)
+            st.update(state="ok", retry_at=None, backoff=None, error_since=None)
+            if fetched is not False:  # a run that called nothing keeps the last fetch's time
+                st["last_ok"] = now
         self._save()
 
     def status(self, name: str) -> dict[str, Any]:

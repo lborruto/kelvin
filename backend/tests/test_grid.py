@@ -327,6 +327,50 @@ async def test_a_day_of_jobs_stays_within_the_grid_share():
         assert sum(c.startswith("ecowatt") for c in fake.calls) == 2
 
 
+class HoleyGridSource(FakeGridSource):
+    """MED's Tempo cache with one old day it never returns."""
+
+    HOLE = date(2026, 10, 10)
+
+    async def tempo(self, start, end):
+        out = await super().tempo(start, end)
+        out.pop(self.HOLE, None)
+        return out
+
+
+async def test_a_day_med_never_returns_costs_no_call_of_its_own():
+    clock, db, sync, tariff, _, svc = grid_env(TEMPO_T, datetime(2026, 12, 1, 0, 5, tzinfo=PARIS))
+    fake = svc.source = HoleyGridSource(wall=clock)
+    s = Scheduler(db, svc.jobs(), wall=clock)
+    s.state = {"tempo": {"slot": clock()}, "ecowatt": {"slot": clock()}}  # running since yesterday
+
+    async def run_day():
+        start = len(fake.calls)
+        for _ in range(24 * 12):  # every 5 minutes, 00:05 to 00:00 the next day
+            await s.run_due()
+            assert s.state.get("ecowatt", {}).get("state") != "quota"
+            if datetime.fromtimestamp(clock(), PARIS).time() == datetime.min.time().replace(
+                hour=14, minute=5
+            ):
+                last_ok = s.state["tempo"]["last_ok"]
+                s.request("tempo")  # a settings save: the hole was asked already, no call
+                await s.run_due()
+                assert s.state["tempo"]["last_ok"] == last_ok
+            clock.advance(300)
+        return fake.calls[start:]
+
+    day1 = await run_day()
+    # 06:30 today's colour with the history (the hole asked once), 11:15 tomorrow's colour
+    assert [c.split(":")[0] for c in day1].count("tempo") == 2
+    assert [c.split(":")[0] for c in day1].count("ecowatt") == 2  # 17:15 not refused
+    day2 = await run_day()
+    tempo2 = [c for c in day2 if c.startswith("tempo")]
+    assert len(tempo2) == 1  # 11:15 only; the hole rides in it
+    assert tempo2[0] == f"tempo:{HoleyGridSource.HOLE}:2026-12-04"
+    assert sum(c.startswith("ecowatt") for c in day2) == 2
+    assert HoleyGridSource.HOLE not in svc.store.tempo_colours(D - timedelta(days=60), D)
+
+
 async def test_planned_today_is_the_reserve_left_for_the_grid():
     clock, db, sync, tariff, fake, svc = grid_env(HCHP, datetime(2026, 12, 1, 8, 0, tzinfo=PARIS))
     assert svc.planned_today() == 2  # 17:15, and 07:15 not fetched yet (it runs at start)

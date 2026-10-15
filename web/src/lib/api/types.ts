@@ -384,7 +384,7 @@ export interface Comparisons {
 }
 export interface HcLens {
   hc_share: number | null;
-  slot_share: number;
+  slot_share: number | null;
   avg_price: number | null;
   /** P_hp − P_hc at today's prices. */
   delta_price: number | null;

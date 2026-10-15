@@ -8,9 +8,9 @@ from running sums anchored on 1 January, shared by largest remainder), so a room
 measured half-hours enter the same running sum as its last point (`radiator_cents(extra=)`):
 nothing is rounded on its own. Each half-hour was priced by `Pricing` (its option, its slots or
 Tempo hours, its Tempo day's colour) when the radiator days were built. Unknown is None, never 0:
-no split under Base; a day without € (a Tempo colour unknown, before the first price row) adds
-nothing to `eur` and is counted in `missing_colour_days`, as in the report's radiator block; a
-radiator never recorded lowers nothing, as in the report.
+no split under Base; a day without € (an unknown Tempo colour: a day before the first price row
+is priced by that row) adds nothing to `eur` and is counted in `missing_colour_days`, as in the
+report's radiator block; a radiator never recorded lowers nothing, as in the report.
 """
 
 from __future__ import annotations

@@ -135,3 +135,20 @@ async def test_the_loop_survives_an_error_computing_what_is_due():
     await asyncio.sleep(0.05)
     assert not task.done()
     task.cancel()
+
+
+async def test_a_run_that_called_nothing_keeps_the_last_fetch_time():
+    clock = ManualClock(at(7, 18))
+    fetched = {"v": True}
+
+    async def run():
+        return fetched["v"]
+
+    job, s = make(clock, run)
+    await s.run_due()
+    assert s.status("ecowatt")["last_ok"] == at(7, 18)
+    fetched["v"] = False
+    clock.t = at(17, 20)
+    assert await s.run_due() == ["ecowatt"]
+    st = s.status("ecowatt")
+    assert st["state"] == "ok" and st["last_ok"] == at(7, 18)

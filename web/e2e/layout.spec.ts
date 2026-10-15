@@ -188,6 +188,66 @@ test.describe('layout with alerts', () => {
   });
 });
 
+// The grid strip on Rooms (Plan 9) arrives with the stream's snapshot: its room is held from the
+// first paint, so the cards never move when it lands — under the HC/HP demo (an EcoWatt line) and
+// under Tempo (the colour pair as well, two lines on a phone), fonts loaded or blocked, fr and en.
+test.describe('layout of / with the grid strip', () => {
+  test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
+  test.describe.configure({ mode: 'serial' });
+  const H = { 'X-Kelvin': '1' };
+  const TEMPO = { blue_hc: 0.1296, blue_hp: 0.1609, white_hc: 0.1486, white_hp: 0.1894, red_hc: 0.1568, red_hp: 0.7562 };
+  const daysAgo = (n: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(Date.now() - n * 86_400_000));
+  type Row = { valid_from: string; option: string; subscription_eur_month: number; rates: Record<string, number> };
+  type View = { kva: number; prices: Row[]; hc_schedules: unknown[]; tempo_hours: { hc_start: string; hc_end: string } };
+  const doc = (t: View, prices: Row[]) => ({
+    kva: t.kva,
+    prices: prices.map((p) => ({ valid_from: p.valid_from, option: p.option, subscription_eur_month: p.subscription_eur_month, rates: p.rates })),
+    hc_schedules: t.hc_schedules,
+    tempo_hours: { hc_start: t.tempo_hours.hc_start, hc_end: t.tempo_hours.hc_end }
+  });
+  let original: View | null = null;
+
+  test.beforeAll(async ({ request }) => {
+    original = (await (await request.get('/api/settings')).json()).tariff as View;
+  });
+  test.afterAll(async ({ request }) => {
+    if (original) await request.put('/api/settings', { headers: H, data: { tariff: doc(original, original.prices) } });
+  });
+
+  for (const tariff of ['hchp', 'tempo'] as const) {
+    test(`/ under ${tariff} loads without layout shift at 320, 390 and 1440 px (CLS < 0.05)`, async ({ page, request }) => {
+      if (tariff === 'tempo' && original) {
+        const older = original.prices.filter((p) => p.valid_from < daysAgo(30));
+        const row = { valid_from: daysAgo(30), option: 'tempo', subscription_eur_month: 15, rates: TEMPO };
+        const r = await request.put('/api/settings', { headers: H, data: { tariff: doc(original, [...older, row]) } });
+        expect(r.ok(), await r.text()).toBe(true);
+        await expect.poll(async () => (await (await request.get('/api/grid')).json()).tempo?.today?.colour ?? null).not.toBeNull();
+      }
+      await countShifts(page);
+      for (const lang of ['fr', 'en'])
+        for (const fonts of ['loaded', 'blocked'])
+          for (const width of [320, 390, 1440]) {
+            await page.unrouteAll({ behavior: 'ignoreErrors' });
+            await page.addInitScript((l) => localStorage.setItem('kelvin-locale', l), lang);
+            await page.setViewportSize({ width, height: 900 });
+            if (fonts === 'blocked') await page.route(/\.woff2?(\?.*)?$/, (route) => route.abort());
+            // A cold load: the data arrives after the first paint, as on a real visit.
+            await page.route('**/api/**', async (route) => {
+              await new Promise((r) => setTimeout(r, 150));
+              await route.continue();
+            });
+            await page.goto('/');
+            await settled(page);
+            await expect(page.locator('section.strip')).toBeVisible();
+            if (tariff === 'tempo') await expect(page.locator('section.strip .tempo')).toBeVisible();
+            await page.waitForTimeout(800);
+            expect.soft(await shifts(page), `/ (${tariff}, ${lang}, fonts ${fonts}) at ${width} px`).toBeLessThan(0.05);
+          }
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+    });
+  }
+});
+
 // The device screen with every disclosure open (details, long Cozytouch state names), in both
 // languages and both themes: the longest it gets.
 test.describe('layout of /home/devices fully open', () => {

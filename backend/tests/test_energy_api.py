@@ -919,6 +919,9 @@ async def test_v2_errors_carry_codes(api):
     r = await c.put("/api/settings", json=bad)
     assert r.status_code == 422 and r.json() == err("tariff_rates_invalid", rate="red_hp")
     bad = doc()
+    bad["tariff"]["prices"][1]["rates"] = {"x" * 17: 0.2}  # a key is never echoed unbounded
+    assert (await c.put("/api/settings", json=bad)).json()["code"] == "invalid_request"
+    bad = doc()
     bad["tariff"]["prices"] = bad["tariff"]["prices"] * 51
     assert (await c.put("/api/settings", json=bad)).json()["code"] == "invalid_request"
     bad = doc()

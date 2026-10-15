@@ -195,8 +195,11 @@ depends on.
   once and ignored: it prices the history). Tempo colours are shown and fetched only when the
   price row in force is Tempo (the API answers `tempo: null` otherwise); EcoWatt is for every
   household. A Tempo switch made after the day's MED budget is spent gets its colours the next
-  day. Periodic external calls run as jobs in `kelvin/scheduler.py`; EcoWatt hours stay hidden
-  until `ECOWATT_HOURS_VERIFIED`. The `ecowatt`, `tempo_red_tomorrow` and `hc_changed` rules are
+  day. Periodic external calls run as jobs in `kelvin/scheduler.py` (a job returning False made
+  no call and keeps its last fetch time); EcoWatt hours are shown while `ECOWATT_HOURS_VERIFIED`.
+  Tempo calls only for today's or tomorrow's colour (06:30; 11:15/13:15), the history riding in
+  them: a history hole calls by itself only before the last range asked (`tempo_history_asked`),
+  so a day MED never returns costs nothing (a test runs a scheduler day with one). The `ecowatt`, `tempo_red_tomorrow` and `hc_changed` rules are
   pure functions in `kelvin/alerts/rules.py`; the grid fetch and the monthly contract re-read ask
   the engine for an evaluation.
 - **Network:** `/api/health` is open and says only the status word. Forwarded headers are

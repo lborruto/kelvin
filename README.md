@@ -145,7 +145,8 @@ reconnectez-vous » in French); log in once with the new one.
    counts in that budget, including the public Tempo and EcoWatt ones and a contract re-read once
    a month that tells you when Enedis moves your off-peak hours; Kelvin never changes your tariff
    by itself.
-4. Tempo colours are fetched only while a Tempo price row is in force; EcoWatt is shown to
+4. Tempo colours are fetched only while a Tempo price row is in force (at 06:30 if today's colour
+   is missing, at 11:15 and 13:15 while tomorrow's is); EcoWatt is shown to
    everyone. A Tempo colour, once stored, never changes (a correction by MyElectricalData is
    logged, not applied: it prices the history). If you switch to Tempo on a day whose
    MyElectricalData budget is already spent, the colours arrive the next day and the days in

@@ -5,7 +5,10 @@ missing makes none.
 - EcoWatt for everyone (ruling 1): 07:15 and 17:15, today and the next three days.
 - Tempo only when the tariff has a Tempo price row: 06:30 if today's colour is missing, 11:15
   and 13:15 while tomorrow's is (RTE publishes around 10:30–11:00). The same call carries the
-  Tempo history the tariff needs (from the first Tempo row, at most 366 days back).
+  Tempo history the tariff needs (from the first Tempo row, at most 366 days back). A history
+  hole alone calls once: the start of the last range asked is kept (`tempo_history_asked`), and
+  a hole at or after it waits for the next today/tomorrow call instead of calling by itself (a
+  day MED never returns costs no call of its own, at any slot or settings save).
 """
 
 from __future__ import annotations
@@ -31,6 +34,7 @@ TEMPO_HISTORY_DAYS = 366
 ECOWATT_DAYS = 4
 ECOWATT_KEEP_DAYS = 30
 PRICES_KEY = "tempo_price_prefill"
+ASKED_KEY = "tempo_history_asked"
 PRICES_TTL_S = 7 * 86400
 SOURCE = "MyElectricalData"
 # EcoWatt hours are served once their dating is verified (Task 15: dated by their own timestamps).
@@ -99,14 +103,17 @@ class GridService:
         )
 
     def tempo_window(self, now: float | None = None) -> tuple[date, date] | None:
-        """[from, to) for a Tempo call: the oldest Tempo-priced day without a colour (never more
-        than 366 days back) to tomorrow; None when nothing is missing (tomorrow counts as missing
-        only from 11:00)."""
+        """[from, to) for a Tempo call, or None when no call is due. A call is due when today's
+        colour is missing, when tomorrow's is (from 11:00), or when a history day is missing
+        before the start of the last range asked (a new, older Tempo row). The call then spans
+        the oldest Tempo-priced day without a colour (never more than 366 days back) to
+        tomorrow, so the history rides in it."""
         t = self.tariff()
         if t is None or not self.tempo_needed():
             return None
         local = datetime.fromtimestamp(now if now is not None else self.wall(), self.tz)
         today = local.date()
+        tomorrow = today + timedelta(days=1)
         first = min(p.valid_from for p in t.prices if p.option == "tempo")
         # The half-hours before 06:00 on the first Tempo day are priced by the previous day's
         # colour (the Tempo day starts at 06:00).
@@ -118,20 +125,36 @@ class GridService:
         missing = self.store.tempo_missing(lo, hi)
         if not missing:
             return None
-        return min(missing), today + timedelta(days=2)
+        asked = self._history_asked()
+        history = [d for d in missing if d < today]
+        due = (
+            today in missing
+            or tomorrow in missing
+            or (bool(history) and (asked is None or history[0] < asked))
+        )
+        if not due:
+            return None
+        return missing[0], today + timedelta(days=2)
 
-    async def tempo_job(self) -> None:
+    def _history_asked(self) -> date | None:
+        v = self.db.get_setting(ASKED_KEY)
+        return date.fromisoformat(v["from"]) if v else None
+
+    async def tempo_job(self) -> bool:
+        """True when it called MED (the scheduler's « relevé à » only moves then)."""
         window = self.tempo_window()
         if window is None:
-            return
+            return False
         if not self.spend():
             raise BudgetSpent("budget")
         colours = await self.source.tempo(*window)
         self.store.upsert_tempo(colours, self.wall())
+        self.db.set_setting(ASKED_KEY, {"from": window[0].isoformat()})
         if colours:
             self.on_change()
+        return True
 
-    async def ecowatt_job(self) -> None:
+    async def ecowatt_job(self) -> bool:
         if not self.spend():
             raise BudgetSpent("budget")
         today = self._now().date()
@@ -141,6 +164,7 @@ class GridService:
         self.store.upsert_ecowatt(days, self.wall())
         self.store.prune_ecowatt(today - timedelta(days=ECOWATT_KEEP_DAYS))
         self.on_change()
+        return True
 
     def jobs(self) -> list[Job]:
         return [

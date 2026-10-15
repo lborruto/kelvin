@@ -169,7 +169,7 @@ class PriceRowBody(BaseModel):
     valid_from: date
     option: str = Field(max_length=10)
     subscription_eur_month: float
-    rates: dict[str, float] = Field(max_length=6)
+    rates: dict[Annotated[str, Field(max_length=16)], float] = Field(max_length=6)
 
 
 class HcVariantBody(BaseModel):

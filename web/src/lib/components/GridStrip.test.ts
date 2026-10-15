@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { tick } from 'svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyLocale } from '$lib/i18n';
 import { grid } from '$lib/stores/grid.svelte';
 import GridStrip from './GridStrip.svelte';
@@ -9,6 +10,7 @@ const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).for
 const tomorrow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(Date.now() + 86_400_000));
 
 afterEach(() => {
+  vi.useRealTimers();
   grid.reset();
   applyLocale('fr');
 });
@@ -53,5 +55,16 @@ describe('GridStrip', () => {
     grid.apply({ tempo: null, ecowatt: { days: [{ date: today, level: 1, hours: null }], fetched_at: 1 }, source: 'MyElectricalData' });
     const { container } = render(GridStrip);
     expect(container.querySelector('section')).toBeNull();
+  });
+
+  it('a tab left open past midnight says « aujourd’hui » for what was « demain »', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-12-01T22:58:00Z')); // 23:58 in Paris
+    grid.apply({ tempo: null, ecowatt: { days: [{ date: '2026-12-02', level: 2, hours: null }], fetched_at: 1 }, source: 'MyElectricalData' });
+    const { container } = render(GridStrip);
+    expect(container.textContent).toContain('EcoWatt orange demain');
+    vi.advanceTimersByTime(3 * 60_000);
+    await tick();
+    expect(container.textContent).toContain('EcoWatt orange aujourd’hui');
   });
 });

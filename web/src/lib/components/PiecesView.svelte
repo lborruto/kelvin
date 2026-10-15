@@ -39,10 +39,15 @@
   <a class="back" href={ROUTES.rooms}><Icon name="arrow-left" size={16} />{m.nav.rooms}</a>
 {/if}
 
-<div class="cols">
-  {#if showList}<RoomList selectedId={desktop.matches ? roomId : null} selectedIsPage={!home} />{/if}
-  {#if showInspector}<div class="detail"><RoomInspector roomId={roomId ?? ''} level={showList ? 'h2' : 'h1'} /></div>{/if}
-</div>
+<!-- The strip's height is known only with the snapshot that loads the house (it holds the grid view
+     too), so no skeleton can reserve it. The skeleton columns are replaced as a whole by the loaded
+     ones, strip included, in the same frame: nothing on screen moves under the strip (CLS). -->
+{#key house.loaded}
+  <div class="cols">
+    {#if showList}<RoomList selectedId={desktop.matches ? roomId : null} selectedIsPage={!home} />{/if}
+    {#if showInspector}<div class="detail"><RoomInspector roomId={roomId ?? ''} level={showList ? 'h2' : 'h1'} /></div>{/if}
+  </div>
+{/key}
 
 <style>
   .top {

@@ -9,7 +9,8 @@ customer id 0000000000).
 - Kelvin's 10-call day counts **every** MyElectricalData call, the public Tempo/EcoWatt endpoints
   included (they take no PDL and may not count against MED's quota; Kelvin counts them anyway).
   The grid takes at most 4 (EcoWatt 07:15 and 17:15; Tempo only with a Tempo price row: 06:30 if
-  today's colour is missing, 11:15 and 13:15 while tomorrow's is). Linky's older curve chunks wait
+  today's colour is missing, 11:15 and 13:15 while tomorrow's is; the Tempo history rides in those
+  calls, and a history day MED never returns is asked by itself at most once). Linky's older curve chunks wait
   while grid calls are still planned. The contract is re-read on the first sync of each month
   (1 call) to detect new off-peak hours. The simulator's budget is 14.
 - `valid_access/{pdl}`: `valid`, `information`, `consent_expiration_date`, `call_number`,
