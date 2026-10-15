@@ -1,6 +1,7 @@
 import { render } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ThermalStrip from './ThermalStrip.svelte';
+import { applyLocale } from '$lib/i18n';
 
 const start = Date.parse('2026-10-12T22:00:00Z'); // Tue 00:00 Paris
 const end = start + 86_400_000;
@@ -110,5 +111,26 @@ describe('ThermalStrip', () => {
       expect(nowLabel.textContent).toBe('05:00');
       expect(container.querySelector('.axis')).toHaveAttribute('aria-hidden', 'true');
     });
+  });
+});
+
+describe('ThermalStrip text equivalent', () => {
+  // `target` is also a mount option: the props go under `props`.
+  const describe_ = (c: HTMLElement) => {
+    const svg = c.querySelector('svg')!;
+    return document.getElementById(svg.getAttribute('aria-describedby')!)!.textContent!.trim();
+  };
+  it('French: range, last reading, setpoint, joined by a no-break-spaced semicolon', () => {
+    const { container } = render(ThermalStrip, {
+      props: { points, start, end, now: start + 5 * 3_600_000, mode: 'manual', target: 20, label: 'x' }
+    });
+    expect(describe_(container)).toMatch(/^de 19,0\s°C à 20,0\s°C\u00a0; dernière mesure 20,0\s°C\u00a0; consigne 20,0\s°C\.$/);
+  });
+  it('English', () => {
+    applyLocale('en');
+    const { container } = render(ThermalStrip, {
+      props: { points, start, end, now: start + 5 * 3_600_000, mode: 'manual', target: 20, label: 'x' }
+    });
+    expect(describe_(container)).toMatch(/^19\.0\s°C to 20\.0\s°C; last reading 20\.0\s°C; setpoint 20\.0\s°C\.$/);
   });
 });

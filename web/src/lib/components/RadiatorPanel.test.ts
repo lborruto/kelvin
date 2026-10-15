@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import { house } from '$lib/stores/house.svelte';
 import RadiatorPanel from './RadiatorPanel.svelte';
+import { applyLocale } from '$lib/i18n';
 
 // Commands are possible: the stream is up.
 beforeEach(() => {
@@ -62,7 +63,7 @@ describe('RadiatorPanel', () => {
 
   it('titles an unnamed radiator by model and power', () => {
     render(RadiatorPanel, { radiator: { ...radiator, model: 'HEKLA V', power_w: 2000 }, showControls: false });
-    expect(screen.getByRole('heading', { name: 'HEKLA V · 2000 W' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'HEKLA V · 2000\u00a0W' })).toBeInTheDocument();
     expect(screen.getAllByText('HEKLA V · 2000 W')).toHaveLength(1);
   });
 
@@ -92,4 +93,14 @@ describe('RadiatorPanel', () => {
     house.applyPending({ ...p, status: 'confirmed' } as never);
     await waitFor(() => expect(light).not.toHaveClass('pending'));
   });
+});
+
+it('in English: facts, toggles and actions', () => {
+  applyLocale('en');
+  render(RadiatorPanel, { radiator, showControls: false });
+  expect(screen.getByText('Current setpoint')).toBeInTheDocument();
+  expect(screen.getByRole('switch', { name: 'Open-window detection' })).toBeInTheDocument();
+  expect(screen.getByRole('switch', { name: 'Presence detection' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Blink' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Rename' })).toBeInTheDocument();
 });

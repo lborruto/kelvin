@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { WeekProgram } from '$lib/api/types';
+  import { m } from '$lib/i18n';
   import { history } from '$lib/stores/history.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
@@ -36,5 +37,5 @@
 {#if room}
   <ThermalStrip points={history.data[key] ?? []} {start} {end} {now} program={program ?? first?.program} mode={room.mode}
     comfort={room.comfort} eco={room.eco} target={room.target} pendingTarget={expected.target ?? null}
-    pendingComfort={expected.comfort ?? null} {height} {axis} label={label ?? `${room.name}, température d’aujourd’hui`} />
+    pendingComfort={expected.comfort ?? null} {height} {axis} label={label ?? m.room.todayLabel(room.name)} />
 {/if}

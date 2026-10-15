@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { m } from '$lib/i18n';
   import { desktop } from '$lib/media.svelte';
   import { ROUTES } from '$lib/paths';
-  import { plural } from '$lib/plural';
   import { house } from '$lib/stores/house.svelte';
   import HouseActions from './HouseActions.svelte';
   import Icon from './Icon.svelte';
@@ -24,9 +24,9 @@
 {#if showList}
   <header class="top">
     <div>
-      <h1>Pièces</h1>
+      <h1>{m.nav.rooms}</h1>
       {#if house.loaded}
-        <p class="muted">{plural(house.rooms.length, 'pièce')} · {house.heatingCount} en chauffe{#if house.away} · Absence en cours{/if}</p>
+        <p class="muted">{m.rooms.count(house.rooms.length)} · {m.rooms.heating(house.heatingCount)}{#if house.away} · {m.rooms.awayActive}{/if}</p>
       {:else}
         <p class="sub-sk"><span class="skeleton" aria-hidden="true"></span></p>
       {/if}
@@ -34,7 +34,7 @@
     <div class="phone-only"><HouseActions /></div>
   </header>
 {:else}
-  <a class="back" href={ROUTES.rooms}><Icon name="arrow-left" size={16} />Pièces</a>
+  <a class="back" href={ROUTES.rooms}><Icon name="arrow-left" size={16} />{m.nav.rooms}</a>
 {/if}
 
 <div class="cols">

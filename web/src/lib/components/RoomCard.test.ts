@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import { house } from '$lib/stores/house.svelte';
 import RoomCard from './RoomCard.svelte';
+import { applyLocale } from '$lib/i18n';
 
 vi.mock('$lib/api/client', () => ({
   api: { roomMode: vi.fn().mockResolvedValue({ pending: null }), roomSetpoint: vi.fn().mockResolvedValue({ pending: null }) },
@@ -200,4 +201,13 @@ describe('RoomCard', () => {
       vi.useRealTimers();
     }
   });
+});
+
+it('in English: mode and level chips, the comfort row and the details link', () => {
+  applyLocale('en');
+  render(RoomCard, { room, now, expanded: true, points: [], onselect: vi.fn() });
+  expect(screen.getByText('Schedule', { selector: '.chip' })).toBeInTheDocument();
+  expect(screen.getByText('Eco', { selector: '.chip' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/rooms/salon');
+  expect(screen.getByRole('group', { name: 'Comfort' })).toBeInTheDocument();
 });

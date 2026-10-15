@@ -1,9 +1,10 @@
 import type { Messages } from './fr';
 import type { Day } from '$lib/api/types';
-import { intFor, own, type ApiParams } from './rules';
+import { intFor, own, pluralFor, type ApiParams } from './rules';
 
 const NB = '\u00a0';
 const int = intFor('en');
+const plural = pluralFor('en');
 
 const DAY: Record<Day, string> = {
   monday: 'Monday',
@@ -99,6 +100,62 @@ export const en: Messages = {
     notFound: 'Page not found.',
     error: 'Something went wrong.',
     backToRooms: 'Back to rooms'
+  },
+  rooms: {
+    count: (n: number) => `${int(n)} ${plural(n, { one: 'room', other: 'rooms' })}`,
+    heating: (n: number) => `${int(n)} heating`,
+    awayActive: 'Away active'
+  },
+  room: {
+    title: 'Room',
+    windowOpen: 'Window open',
+    off: 'Off',
+    todayLabel: (name: string) => `${name}, today’s temperature`,
+    details: 'Details',
+    setpoint: 'Setpoint',
+    comfort: 'Comfort',
+    eco: 'Eco setback',
+    mixedMean: 'Mixed (average)',
+    mixedMode: 'Mixed — the radiators aren’t in the same mode',
+    notFound: 'Room not found.',
+    radiatorCount: (n: number) => `${int(n)} ${plural(n, { one: 'radiator', other: 'radiators' })}`,
+    programsDiffer: 'Radiators have different schedules',
+    controls: 'Controls',
+    modeLabel: 'Room mode',
+    boostTitle: 'Temporary boost',
+    boostActive: (temp: string, until: string) => `Boosted to ${temp} until ${until}.`,
+    cancelBoost: 'Cancel boost',
+    boostTemp: 'Boost temperature',
+    duration: 'Duration',
+    boost: 'Boost',
+    history: 'History',
+    range: 'Period',
+    historyLabel: (name: string, range: string) => `${name}, temperature over ${range}`,
+    radiators: 'Radiators'
+  },
+  range: { day: `24${NB}h`, week: `7${NB}d`, month: `30${NB}d` },
+  radiator: {
+    default: 'Radiator',
+    facts: (model: string, watts: number | null) => (watts ? `${model} · ${watts}${NB}W` : model),
+    nameLabel: 'Radiator name',
+    rename: 'Rename',
+    setpointActive: 'Current setpoint',
+    energyTotal: 'Total consumption',
+    setpointLabel: (title: string) => `Setpoint ${title}`,
+    windowDetection: 'Open-window detection',
+    presenceDetection: 'Presence detection',
+    nightLight: 'Night light',
+    identify: 'Blink'
+  },
+  strip: {
+    range: (min: string, max: string) => `${min} to ${max}`,
+    last: (t: string) => `last reading ${t}`,
+    none: 'no reading yet',
+    setpoint: (t: string) => `setpoint ${t}`,
+    program: (comfort: string, eco: string) => `comfort ${comfort}, eco ${eco}`,
+    pendingSetpoint: (t: string) => `setpoint ${t} requested, pending`,
+    pendingComfort: (t: string) => `comfort ${t} requested, pending`,
+    summary: (parts: string[]) => `${parts.join('; ')}.`
   },
   cozytouch: {
     auth: 'Cozytouch refused the sign-in.',

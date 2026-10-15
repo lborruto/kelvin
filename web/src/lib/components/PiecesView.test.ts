@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { house } from '$lib/stores/house.svelte';
 import PiecesView from './PiecesView.svelte';
+import { applyLocale } from '$lib/i18n';
 
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
 vi.mock('$lib/media.svelte', () => media);
@@ -74,5 +75,19 @@ describe('PiecesView before the house is known', () => {
     media.desktop.matches = false;
     render(PiecesView, { roomId: 'nope' });
     expect(screen.getByText('Pièce introuvable.')).toBeInTheDocument();
+  });
+});
+
+describe('PiecesView in English', () => {
+  it('the title, the counted summary and the back link', () => {
+    applyLocale('en');
+    media.desktop.matches = true;
+    const a = render(PiecesView, { roomId: 'salon', home: true });
+    expect(screen.getByRole('heading', { name: 'Rooms', level: 1 })).toBeInTheDocument();
+    expect(screen.getByText(/^1 room · \d+ heating$/)).toBeInTheDocument();
+    a.unmount();
+    media.desktop.matches = false;
+    render(PiecesView, { roomId: 'salon' });
+    expect(screen.getByRole('link', { name: 'Rooms' })).toHaveAttribute('href', '/');
   });
 });

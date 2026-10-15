@@ -4,7 +4,7 @@
   import { run, retry } from '$lib/actions';
   import { api } from '$lib/api/client';
   import { fmtTemp } from '$lib/format';
-  import { levelLabel, modeLabel } from '$lib/i18n';
+  import { levelLabel, m, modeLabel } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
   import { dur, easeOut, flash, T } from '$lib/motion';
   import { Settle } from '$lib/settle.svelte';
@@ -62,7 +62,7 @@
     mode === 'program' ? (expected.comfort ?? (comfortSettle.confirmed ? comfortSettle.held?.v : undefined)) : undefined
   );
 
-  const setMode = (m: 'off' | 'manual' | 'program') => run(() => api.roomMode(room.id, m));
+  const setMode = (next: 'off' | 'manual' | 'program') => run(() => api.roomMode(room.id, next));
   const setTarget = (v: number) => run(() => api.roomSetpoint(room.id, 'manual', v));
   const setComfort = (v: number) => run(() => api.roomSetpoint(room.id, 'comfort', v));
 </script>
@@ -72,13 +72,13 @@
   <span class="chips">
     <span class="chip">{modeLabel(mode)}</span>
     {#if level && level !== 'mixed' && levelLabel(level)}<span class="chip level">{levelLabel(level)}</span>{/if}
-    {#if room.window_open}<span class="chip warn"><Icon name="window" size={12} />Fenêtre ouverte</span>{/if}
+    {#if room.window_open}<span class="chip warn"><Icon name="window" size={12} />{m.room.windowOpen}</span>{/if}
     <OverrideBadge {override} />
   </span>
   <span class="temp num" style:view-transition-name={vtName}>{#key room.temperature}<span class="fig" style:color={heatColor(room.temperature)}
       in:flash>{fmtTemp(room.temperature)}</span>{/key}</span>
   <span class="setpoint num muted">
-    {#if mode === 'off'}Arrêté{:else if shownComfort !== undefined}<span class="pending-sp">→ {fmtTemp(shownComfort)}<PendingEdge
+    {#if mode === 'off'}{m.room.off}{:else if shownComfort !== undefined}<span class="pending-sp">→ {fmtTemp(shownComfort)}<PendingEdge
           pending={expected.comfort !== undefined} confirmed={comfortSettle.confirmed} /></span>{:else}→ {fmtTemp(expected.target ?? room.effective_setpoint)}{/if}
   </span>
 {/snippet}
@@ -93,13 +93,13 @@
 
   <ThermalStrip {points} {start} {end} {now} program={first?.program} mode={room.mode} comfort={room.comfort}
     eco={room.eco} target={room.target} pendingTarget={expected.target ?? null} pendingComfort={expected.comfort ?? null}
-    axis={expanded} label="{room.name}, température d’aujourd’hui" />
+    axis={expanded} label={m.room.todayLabel(room.name)} />
 
   {#if change || pending || expanded}
     <div class="foot">
       <span class="muted next">{#if change}{fmtNextChange(change, now)}{/if}</span>
       <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
-      {#if expanded}<a class="details" href={ROUTES.room(room.id)} in:fade={{ duration: dur(T.state) }}>Détails<Icon name="chevron" size={14} /></a>{/if}
+      {#if expanded}<a class="details" href={ROUTES.room(room.id)} in:fade={{ duration: dur(T.state) }}>{m.room.details}<Icon name="chevron" size={14} /></a>{/if}
     </div>
   {/if}
 
@@ -107,12 +107,12 @@
     <div class="controls" id="{uid}-controls" transition:slide={{ duration: dur(T.enter), easing: easeOut }}>
       <ModeSwitch value={room.mode} pending={expected.mode ?? null} compact disabled={!house.online} onchange={setMode} />
       {#if mode === 'manual'}
-        <div class="row"><span class="label">Consigne{#if aTarget.mixed && expected.target === undefined}<span class="note">Mixte (moyenne)</span>{/if}</span>
-          <Stepper label="Consigne" announce={false} value={expected.target ?? aTarget.value} min={7} max={maxT} disabled={!house.online}
+        <div class="row"><span class="label">{m.room.setpoint}{#if aTarget.mixed && expected.target === undefined}<span class="note">{m.room.mixedMean}</span>{/if}</span>
+          <Stepper label={m.room.setpoint} announce={false} value={expected.target ?? aTarget.value} min={7} max={maxT} disabled={!house.online}
             pending={expected.target !== undefined} onchange={setTarget} /></div>
       {:else if mode === 'program'}
-        <div class="row"><span class="label">Confort{#if aComfort.mixed && expected.comfort === undefined}<span class="note">Mixte (moyenne)</span>{/if}</span>
-          <Stepper label="Confort" announce={false} value={expected.comfort ?? aComfort.value} min={12} max={maxT} disabled={!house.online}
+        <div class="row"><span class="label">{m.room.comfort}{#if aComfort.mixed && expected.comfort === undefined}<span class="note">{m.room.mixedMean}</span>{/if}</span>
+          <Stepper label={m.room.comfort} announce={false} value={expected.comfort ?? aComfort.value} min={12} max={maxT} disabled={!house.online}
             pending={expected.comfort !== undefined} onchange={setComfort} /></div>
       {/if}
     </div>

@@ -9,10 +9,13 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
 
 /** Sample arguments for messages whose parameters are not (number, string, string, …): a day key,
  * a list, an object. A task that adds such a message adds its line here. */
-export const ARGS: Record<string, unknown[]> = {};
+export const ARGS: Record<string, unknown[]> = {
+  'strip.summary': [['a', 'b']],
+  'radiator.facts': ['HEKLA P', 1500]
+};
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
-export const SAME = new Set<string>(['page.title']);
+export const SAME = new Set<string>(['page.title', 'range.day', 'radiator.facts']);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
   return Object.entries(o).flatMap(([k, v]) =>

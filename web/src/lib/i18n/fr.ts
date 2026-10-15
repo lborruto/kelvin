@@ -1,8 +1,9 @@
 import type { Day } from '$lib/api/types';
-import { intFor, own, type ApiParams } from './rules';
+import { intFor, own, pluralFor, type ApiParams } from './rules';
 
 const NB = '\u00a0';
 const int = intFor('fr');
+const plural = pluralFor('fr');
 
 const DAY_LOWER: Record<Day, string> = {
   monday: 'lundi',
@@ -103,6 +104,62 @@ export const fr = {
     notFound: 'Page introuvable.',
     error: 'Une erreur est survenue.',
     backToRooms: 'Retour aux pièces'
+  },
+  rooms: {
+    count: (n: number) => `${int(n)} ${plural(n, { one: 'pièce', other: 'pièces' })}`,
+    heating: (n: number) => `${int(n)} en chauffe`,
+    awayActive: 'Absence en cours'
+  },
+  room: {
+    title: 'Pièce',
+    windowOpen: 'Fenêtre ouverte',
+    off: 'Arrêté',
+    todayLabel: (name: string) => `${name}, température d’aujourd’hui`,
+    details: 'Détails',
+    setpoint: 'Consigne',
+    comfort: 'Confort',
+    eco: 'Abaissement éco',
+    mixedMean: 'Mixte (moyenne)',
+    mixedMode: 'Mixte — les radiateurs n’ont pas le même mode',
+    notFound: 'Pièce introuvable.',
+    radiatorCount: (n: number) => `${int(n)} ${plural(n, { one: 'radiateur', other: 'radiateurs' })}`,
+    programsDiffer: 'Programmes différents selon les radiateurs',
+    controls: 'Commande',
+    modeLabel: 'Mode de la pièce',
+    boostTitle: 'Forcer temporairement',
+    boostActive: (temp: string, until: string) => `Forcé à ${temp} jusqu’à ${until}.`,
+    cancelBoost: 'Annuler le forçage',
+    boostTemp: 'Température forcée',
+    duration: 'Durée',
+    boost: 'Forcer',
+    history: 'Historique',
+    range: 'Période',
+    historyLabel: (name: string, range: string) => `${name}, température sur ${range}`,
+    radiators: 'Radiateurs'
+  },
+  range: { day: `24${NB}h`, week: `7${NB}j`, month: `30${NB}j` },
+  radiator: {
+    default: 'Radiateur',
+    facts: (model: string, watts: number | null) => (watts ? `${model} · ${watts}${NB}W` : model),
+    nameLabel: 'Nom du radiateur',
+    rename: 'Renommer',
+    setpointActive: 'Consigne active',
+    energyTotal: 'Consommation totale',
+    setpointLabel: (title: string) => `Consigne ${title}`,
+    windowDetection: 'Détection de fenêtre ouverte',
+    presenceDetection: 'Détection de présence',
+    nightLight: 'Veilleuse',
+    identify: 'Faire clignoter'
+  },
+  strip: {
+    range: (min: string, max: string) => `de ${min} à ${max}`,
+    last: (t: string) => `dernière mesure ${t}`,
+    none: 'pas encore de mesure',
+    setpoint: (t: string) => `consigne ${t}`,
+    program: (comfort: string, eco: string) => `confort ${comfort}, éco ${eco}`,
+    pendingSetpoint: (t: string) => `consigne demandée ${t}, en attente`,
+    pendingComfort: (t: string) => `confort demandé ${t}, en attente`,
+    summary: (parts: string[]) => `${parts.join(`${NB}; `)}.`
   },
   cozytouch: {
     auth: 'Cozytouch refuse la connexion.',
