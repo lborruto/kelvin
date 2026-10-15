@@ -33,6 +33,8 @@ class SetupNotAllowed(Exception):
 
 # Device sub-operation words. A label equal to one of them (any case) would address that
 # operation: `PUT /setup/devices/{url}/metadata` updates metadata, `…/updateFirmware` flashes.
+# Best effort, not a proof: the label is typed by the owner and validated before it gets here
+# (setup/service.py), and the label is always one percent-encoded segment.
 RESERVED_SEGMENTS = frozenset(
     s.casefold()
     for s in (
@@ -148,17 +150,24 @@ class SetupHttp:
                 await c._refresh_token_if_expired()
                 headers = dict(await c._auth.auth_headers(path))
                 url = URL(f"{c._auth.endpoint}{path}", encoded=True)
+                # Never follow a redirect: a 307/308 would re-send the write elsewhere, and a
+                # 301/302/303 would turn it into a request the allowlist never saw.
                 async with c.session.request(
-                    method, url, json=payload, headers=headers, ssl=c._ssl
+                    method, url, json=payload, headers=headers, ssl=c._ssl, allow_redirects=False
                 ) as resp:
                     if resp.status == 404:
                         raise SetupNotFoundError("not found")
                     if resp.status in (200, 201, 204):
-                        body = None if resp.status == 204 else await resp.json(content_type=None)
+                        if resp.status == 204:
+                            return resp.status, None
+                        try:
+                            body = await resp.json(content_type=None)
+                        except ValueError as e:  # an HTML page (proxy, portal): no body text
+                            raise GatewayError("unexpected answer") from e
                         return resp.status, body
                     await check_response(resp)  # raises the typed pyoverkiz error
                     raise ox.OverkizError(f"unexpected status {resp.status}")
-        except SetupNotFoundError:
+        except GatewayError:  # SetupNotFoundError, or the unexpected answer above
             raise
         except ox.UnknownObjectError as e:  # 400 "Unknown object": the oid or URL is gone
             raise SetupNotFoundError("not found") from e

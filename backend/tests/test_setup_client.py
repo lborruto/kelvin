@@ -33,17 +33,20 @@ ROOT = "https://stub.example/enduser-mobile-web/enduserAPI/"
 
 
 class _Resp:
-    def __init__(self, status: int, body=None, *, hang: bool = False):
+    def __init__(self, status: int, body=None, *, hang: bool = False, raw: str | None = None):
         self.status = status
         self._body = body
         self.hang = hang
+        self.raw = raw  # a non-JSON body (a proxy's HTML page): json() raises like aiohttp's
         self.url = ROOT
 
     async def json(self, content_type=None):
+        if self.raw is not None:
+            return json.loads(self.raw)
         return self._body
 
     async def text(self):
-        return json.dumps(self._body)
+        return self.raw if self.raw is not None else json.dumps(self._body)
 
     async def __aenter__(self):
         if self.hang:
@@ -58,9 +61,11 @@ class _Session:
     def __init__(self, *responses):
         self.responses = list(responses)
         self.calls: list[tuple[str, object, object]] = []
+        self.redirects: list[bool] = []
 
-    def request(self, method, url, *, json=None, headers=None, ssl=None):
+    def request(self, method, url, *, json=None, headers=None, ssl=None, allow_redirects=True):
         self.calls.append((method, url, json))
+        self.redirects.append(allow_redirects)
         r = self.responses.pop(0)
         if isinstance(r, BaseException):
             raise r
@@ -218,6 +223,23 @@ async def test_errors_map_like_commands(status, body, expected):
     with pytest.raises(GatewayError) as e:
         await http.request("GET", place_path("p-salon"))
     assert type(e.value) is expected
+
+
+@pytest.mark.parametrize("status", [200, 201])
+async def test_a_non_json_success_body_is_a_gateway_error(status):
+    http, _ = _http(_Resp(status, raw="<html>portal</html>"))
+    with pytest.raises(GatewayError) as e:
+        await http.request("GET", place_path("p-salon"))
+    assert type(e.value) is GatewayError and "portal" not in str(e.value)
+
+
+async def test_redirects_are_never_followed():
+    """A 307/308 would re-send the write elsewhere; a 30x on POST would become an unchecked GET."""
+    http, client = _http(_Resp(200, {}), _Resp(307, {"error": "moved"}))
+    await http.request("GET", place_path("p-salon"))
+    with pytest.raises(GatewayError):
+        await http.request("POST", subplaces_path("p-house"), {"type": 7, "label": "Bureau"})
+    assert client.session.redirects == [False, False] and len(client.session.calls) == 2
 
 
 async def test_a_hung_request_times_out_as_a_gateway_error():
