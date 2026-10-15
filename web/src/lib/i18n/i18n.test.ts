@@ -49,3 +49,10 @@ it('the rooms summary never reads “0 heating” in English', () => {
   expect(en.rooms.heating(2)).toBe('2 heating');
   expect(dictionary('fr').rooms.heating(0)).toBe('0 en chauffe');
 });
+
+it('English counts agree with their noun (“0 of 1 day comparable”, “3 of 12 days”)', () => {
+  const en = dictionary('en');
+  expect(en.compare.tooFew(0, 1)).toBe('0 of 1 day comparable: no comparison');
+  expect(en.compare.tooFew(9, 13)).toBe('9 of 13 days comparable: no comparison');
+  expect(en.heatingPanel.days(1, 1)).toBe(' (1 of 1 day)');
+});

@@ -333,7 +333,7 @@ export const en: Messages = {
     perDay: (cur: string, prev: string) => `${cur} a day against ${prev}`,
     fewer: (n: number) => `over ${int(n)} comparable ${plural(n, { one: 'period', other: 'periods' })}`,
     nothing: 'no recorded day to compare',
-    tooFew: (n: number, of: number) => `${int(n)} of ${int(of)} days comparable: no comparison`,
+    tooFew: (n: number, of: number) => `${int(n)} of ${int(of)} ${plural(of, { one: 'day', other: 'days' })} comparable: no comparison`,
     zero: (view: EnergyGroup) => `nothing used ${view === 'day' ? 'that day' : 'over this period'}: no comparison`,
     noUnits: {
       day: 'none of the last 4 days is comparable',
