@@ -48,7 +48,57 @@ export const en: Messages = {
   pending: {
     failed: 'Command failed.',
     lost: 'Command not confirmed (connection lost).',
-    unknownResult: 'Unknown result (connection lost) — please check.'
+    unknownResult: 'Unknown result (connection lost) — please check.',
+    sending: 'Sending…',
+    confirmed: 'Confirmed',
+    announceSending: (label: string) => `${label} — sending…`,
+    announceConfirmed: (label: string) => `${label} — confirmed`,
+    unknownToast: (label: string) => `${label}: unknown result — please check.`,
+    cannotRetry: 'Can’t retry from here: do it again.'
+  },
+  banner: {
+    reconnecting: 'Reconnecting to Kelvin…',
+    passwordChanged: 'Cozytouch password changed: sign in again',
+    unreachable: 'Can’t reach Cozytouch',
+    unreachableSince: (ago: string) => `Can’t reach Cozytouch — last data ${ago}`,
+    signInAgain: 'Sign in again'
+  },
+  override: {
+    restoring: 'Restoring…',
+    boost: (temp: string, until: string) => `Boosted ${temp} → ${until}`,
+    away: (temp: string) => `Away ${temp}`
+  },
+  mode: { off: 'Off', manual: 'Manual', program: 'Schedule', other: 'Other', mixed: 'Mixed' },
+  modeSwitch: {
+    programShort: 'Sched.',
+    pending: (name: string) => `${name} (pending)`
+  },
+  level: { comfort: 'Comfort', eco: 'Eco', frostprotection: 'Frost protection', off: 'Idle', mixed: 'Mixed' },
+  stepper: {
+    decrease: (label: string) => `Decrease ${label}`,
+    increase: (label: string) => `Increase ${label}`,
+    announce: (label: string, value: string) => `${label}: ${value}`
+  },
+  nav: {
+    rooms: 'Rooms',
+    schedule: 'Schedule',
+    energy: 'Energy',
+    home: 'Home',
+    label: 'Main navigation',
+    skip: 'Skip to content'
+  },
+  houseActions: {
+    allOff: 'Turn everything off',
+    allProgram: 'Put everything back on schedule',
+    away: 'Away…',
+    confirmTitle: 'Turn everything off?',
+    confirmBody: 'The radiators switch off. You can put them back on schedule from Home.'
+  },
+  page: {
+    title: (name: string) => `${name} · Kelvin`,
+    notFound: 'Page not found.',
+    error: 'Something went wrong.',
+    backToRooms: 'Back to rooms'
   },
   cozytouch: {
     auth: 'Cozytouch refused the sign-in.',

@@ -3,7 +3,8 @@
   import type { Room } from '$lib/api/types';
   import { run, retry } from '$lib/actions';
   import { api } from '$lib/api/client';
-  import { fmtTemp, LEVEL_LABEL, MODE_LABEL } from '$lib/format';
+  import { fmtTemp } from '$lib/format';
+  import { levelLabel, modeLabel } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
   import { dur, easeOut, flash, T } from '$lib/motion';
   import { Settle } from '$lib/settle.svelte';
@@ -69,8 +70,8 @@
 {#snippet headInner()}
   <span class="name">{room.name}{#if !navigates}<span class="chev" aria-hidden="true"><Icon name="chevron" size={14} /></span>{/if}</span>
   <span class="chips">
-    <span class="chip">{MODE_LABEL[mode ?? 'other']}</span>
-    {#if level && level !== 'mixed' && LEVEL_LABEL[level]}<span class="chip level">{LEVEL_LABEL[level]}</span>{/if}
+    <span class="chip">{modeLabel(mode)}</span>
+    {#if level && level !== 'mixed' && levelLabel(level)}<span class="chip level">{levelLabel(level)}</span>{/if}
     {#if room.window_open}<span class="chip warn"><Icon name="window" size={12} />Fenêtre ouverte</span>{/if}
     <OverrideBadge {override} />
   </span>

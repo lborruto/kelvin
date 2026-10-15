@@ -1,16 +1,15 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { isActive, NAV, type NavKey } from '$lib/paths';
+  import { m } from '$lib/i18n';
+  import { isActive, NAV } from '$lib/paths';
   import HouseActions from './HouseActions.svelte';
   import Icon from './Icon.svelte';
-
-  const LABEL: Record<NavKey, string> = { rooms: 'Pièces', schedule: 'Programme', energy: 'Énergie', home: 'Maison' };
 </script>
 
-<nav class="sidebar" aria-label="Navigation principale">
+<nav class="sidebar" aria-label={m.nav.label}>
   <div class="brand">Kelvin</div>
   {#each NAV as l (l.href)}
-    <a href={l.href} aria-current={isActive(page.url.pathname, l.href) ? 'page' : undefined}><Icon name={l.icon} />{LABEL[l.key]}</a>
+    <a href={l.href} aria-current={isActive(page.url.pathname, l.href) ? 'page' : undefined}><Icon name={l.icon} />{m.nav[l.key]}</a>
   {/each}
   <div class="foot"><HouseActions stacked /></div>
 </nav>

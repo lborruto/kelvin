@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fmtTemp } from '$lib/format';
+  import { m } from '$lib/i18n';
   import { Settle } from '$lib/settle.svelte';
   import { announcer } from '$lib/stores/announcer.svelte';
   import Icon from './Icon.svelte';
@@ -96,7 +97,7 @@
 
   function commit() {
     // One announcement per settled choice, not per tap or hold step.
-    if (announce && local !== null) announcer.say(`${label} : ${format(local)}`);
+    if (announce && local !== null) announcer.say(m.stepper.announce(label, format(local)));
     if (local !== null && local !== value) {
       committed = true;
       fallbackTimer = setTimeout(release, FALLBACK_MS);
@@ -138,11 +139,11 @@
 </script>
 
 <div class="stepper" class:pending role="group" aria-label={label}>
-  <button type="button" aria-label="Diminuer {label}" aria-disabled={atMin}
+  <button type="button" aria-label={m.stepper.decrease(label)} aria-disabled={atMin}
     onpointerdown={(e) => startHold(e, -1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
     onkeydown={(e) => key(e, -1)}><Icon name="minus" /></button>
   <output class="num"><span class="val">{format(shown)}<PendingEdge {pending} confirmed={settle.confirmed} /></span></output>
-  <button type="button" aria-label="Augmenter {label}" aria-disabled={atMax}
+  <button type="button" aria-label={m.stepper.increase(label)} aria-disabled={atMax}
     onpointerdown={(e) => startHold(e, 1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
     onkeydown={(e) => key(e, 1)}><Icon name="plus" /></button>
 </div>

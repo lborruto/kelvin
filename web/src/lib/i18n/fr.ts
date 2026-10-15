@@ -52,7 +52,57 @@ export const fr = {
   pending: {
     failed: 'Échec de la commande.',
     lost: 'Commande non confirmée (connexion perdue).',
-    unknownResult: 'Résultat inconnu (connexion perdue) — vérifiez.'
+    unknownResult: 'Résultat inconnu (connexion perdue) — vérifiez.',
+    sending: 'Envoi…',
+    confirmed: 'Confirmé',
+    announceSending: (label: string) => `${label} — envoi…`,
+    announceConfirmed: (label: string) => `${label} — confirmé`,
+    unknownToast: (label: string) => `${label}${NB}: résultat inconnu — vérifiez.`,
+    cannotRetry: `Impossible de réessayer ici${NB}: refaites l’action.`
+  },
+  banner: {
+    reconnecting: 'Reconnexion à Kelvin…',
+    passwordChanged: `Mot de passe Cozytouch modifié${NB}: reconnectez-vous`,
+    unreachable: 'Cozytouch injoignable',
+    unreachableSince: (ago: string) => `Cozytouch injoignable — données ${ago}`,
+    signInAgain: 'Se reconnecter'
+  },
+  override: {
+    restoring: 'Rétablissement…',
+    boost: (temp: string, until: string) => `Forcé ${temp} → ${until}`,
+    away: (temp: string) => `Absence ${temp}`
+  },
+  mode: { off: 'Arrêt', manual: 'Manuel', program: 'Programme', other: 'Autre', mixed: 'Mixte' },
+  modeSwitch: {
+    programShort: 'Prog.',
+    pending: (name: string) => `${name} (en attente)`
+  },
+  level: { comfort: 'Confort', eco: 'Éco', frostprotection: 'Hors-gel', off: 'Repos', mixed: 'Mixte' },
+  stepper: {
+    decrease: (label: string) => `Diminuer ${label}`,
+    increase: (label: string) => `Augmenter ${label}`,
+    announce: (label: string, value: string) => `${label}${NB}: ${value}`
+  },
+  nav: {
+    rooms: 'Pièces',
+    schedule: 'Programme',
+    energy: 'Énergie',
+    home: 'Maison',
+    label: 'Navigation principale',
+    skip: 'Aller au contenu'
+  },
+  houseActions: {
+    allOff: 'Tout éteindre',
+    allProgram: 'Tout remettre en programme',
+    away: 'Absence…',
+    confirmTitle: `Tout éteindre${NB}?`,
+    confirmBody: 'Les radiateurs passent à l’arrêt. Vous pourrez les remettre en programme depuis Maison.'
+  },
+  page: {
+    title: (name: string) => `${name} · Kelvin`,
+    notFound: 'Page introuvable.',
+    error: 'Une erreur est survenue.',
+    backToRooms: 'Retour aux pièces'
   },
   cozytouch: {
     auth: 'Cozytouch refuse la connexion.',

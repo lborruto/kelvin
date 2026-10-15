@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   fmtAgo, fmtAmount, fmtDateLong, fmtDay, fmtDelta, fmtKwh, fmtPct, fmtPrice, fmtTemp, fmtTime, fmtWh,
-  LEVEL_LABEL, MODE_LABEL, monthName, monthYear, parseDecimal
+  monthName, monthYear, parseDecimal
 } from './format';
 
 const NB = ' ';
@@ -39,12 +39,6 @@ describe('format', () => {
     expect(fmtAgo(now - 12 * 60_000, now)).toBe(`il y a 12${NB}min`);
     expect(fmtAgo(now - 3 * 3_600_000, now)).toBe(`il y a 3${NB}h`);
     expect(fmtAgo(now - 3570_000, now)).toBe(`il y a 59${NB}min`);
-  });
-  it('labels', () => {
-    expect(MODE_LABEL.program).toBe('Programme');
-    expect(MODE_LABEL.mixed).toBe('Mixte');
-    expect(LEVEL_LABEL.eco).toBe('Éco');
-    expect(LEVEL_LABEL.comfort).toBe('Confort');
   });
 });
 

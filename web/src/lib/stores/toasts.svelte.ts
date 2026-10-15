@@ -1,6 +1,7 @@
 export interface Toast {
   id: number;
-  message: string;
+  /** A thunk: the toast reads its text at render, so a language switch re-renders it. */
+  text: () => string;
   kind: 'error' | 'info';
 }
 
@@ -12,9 +13,10 @@ class Toasts {
   items = $state<Toast[]>([]);
   #timers = new Map<number, { handle: ReturnType<typeof setTimeout> | null; left: number; since: number }>();
 
-  push(message: string, kind: Toast['kind'] = 'error', ttlMs: number = TTL[kind]): void {
+  push(message: string | (() => string), kind: Toast['kind'] = 'error', ttlMs: number = TTL[kind]): void {
     const id = ++seq;
-    this.items = [...this.items, { id, message, kind }];
+    const text = typeof message === 'function' ? message : () => message;
+    this.items = [...this.items, { id, text, kind }];
     this.#timers.set(id, { handle: null, left: ttlMs, since: 0 });
     this.resume(id);
   }

@@ -48,3 +48,12 @@ describe('+error', () => {
     vi.unstubAllGlobals();
   });
 });
+
+it('the 404 reads in English', async () => {
+  const { applyLocale } = await import('$lib/i18n');
+  applyLocale('en');
+  state.url = new URL('http://kelvin.test/nowhere');
+  render(ErrorPage);
+  expect(screen.getByRole('heading', { level: 1, name: 'Page not found.' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Back to rooms' })).toHaveAttribute('href', '/');
+});

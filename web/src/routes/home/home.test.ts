@@ -102,7 +102,7 @@ describe('Maison', () => {
     vi.mocked(api.logout).mockRejectedValueOnce(new Error('network'));
     render(Page);
     await fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
-    await vi.waitFor(() => expect(toasts.items.map((t) => t.message)).toContain('Déconnexion impossible. Réessayez.'));
+    await vi.waitFor(() => expect(toasts.items.map((t) => t.text())).toContain('Déconnexion impossible. Réessayez.'));
     expect(goto).not.toHaveBeenCalled();
     expect(auth.email).toBe('demo@kelvin.local');
     expect(screen.getByRole('button', { name: 'Se déconnecter' })).toHaveAttribute('aria-disabled', 'false');

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Pending, Radiator, Room, Snapshot } from '$lib/api/types';
-import { HouseStore, UNKNOWN_ERROR } from './house.svelte';
+import { HouseStore } from './house.svelte';
+import { LOST, pendingError, UNKNOWN } from '$lib/i18n';
 import { toasts } from './toasts.svelte';
 
 const rad = (id: string, room: string, extra: Partial<Radiator> = {}): Radiator => ({
@@ -91,7 +92,8 @@ describe('HouseStore', () => {
     s.applySnapshot(snap());
     expect(s.pending.ok).toBeUndefined();
     expect(s.pending.ko?.status).toBe('failed');
-    expect(s.pending.ko?.error).toBe('Commande non confirmée (connexion perdue).');
+    expect(s.pending.ko?.error_code).toBe(LOST);
+    expect(pendingError(s.pending.ko!)).toBe('Commande non confirmée (connexion perdue).');
   });
 
   it('a newer command re-sending the same values retires the old failure (no stale Réessayer)', () => {
@@ -125,8 +127,8 @@ describe('HouseStore', () => {
     s.applyPending(pending('prog', { label: 'Salon : programme', expected: {} }));
     s.applySnapshot(snap());
     expect(s.pending.prog?.status).toBe('failed');
-    expect(s.pending.prog?.error).toBe(UNKNOWN_ERROR);
-    expect(toasts.items.some((t) => /Salon : programme : résultat inconnu/.test(t.message))).toBe(true);
+    expect(s.pending.prog?.error_code).toBe(UNKNOWN);
+    expect(toasts.items.some((t) => /Salon : programme\s: résultat inconnu/.test(t.text()))).toBe(true);
   });
 
   it('resync: the real outcome from snapshot.recent wins over the guess', () => {

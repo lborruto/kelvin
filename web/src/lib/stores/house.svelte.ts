@@ -1,12 +1,11 @@
 import type { Expected, HouseView, Override, Pending, Radiator, Room, Snapshot, Status } from '$lib/api/types';
+import { LOST, m, pendingError, pendingLabel, UNKNOWN } from '$lib/i18n';
 import { announcer } from './announcer.svelte';
 import { toasts } from './toasts.svelte';
 
 type Scheduler = (fn: () => void, ms: number) => unknown;
 const ACTIVE = new Set(['sending', 'pending']);
 const CONFIRMED_LINGER_MS = 1500;
-export const LOST_ERROR = 'Commande non confirmée (connexion perdue).';
-export const UNKNOWN_ERROR = 'Résultat inconnu (connexion perdue) — vérifiez.';
 
 /** True when `next` re-sends what `failed` tried: same radiators (or more) and every value it set. */
 function covers(next: Pending, failed: Pending): boolean {
@@ -70,9 +69,9 @@ export class HouseStore {
     const was = prev ? (ACTIVE.has(prev.status) ? 'active' : prev.status) : null;
     const now = ACTIVE.has(next.status) ? 'active' : next.status;
     if (was === now) return;
-    if (now === 'active') announcer.say(`${next.label} — envoi…`);
-    else if (now === 'confirmed') announcer.say(`${next.label} — confirmé`);
-    else if (now === 'failed') announcer.say(`${next.label} — ${next.error ?? 'échec de la commande.'}`, true);
+    if (now === 'active') announcer.say(m.pending.announceSending(pendingLabel(next)));
+    else if (now === 'confirmed') announcer.say(m.pending.announceConfirmed(pendingLabel(next)));
+    else if (now === 'failed') announcer.say(`${pendingLabel(next)} — ${pendingError(next)}`, true);
     if (now !== 'active') this.watched.delete(next.id);
   }
 
@@ -95,10 +94,10 @@ export class HouseStore {
         }
       } else if (!Object.keys(p.expected ?? {}).length) {
         // No state to check it against (programme, toggles…): never report it as done.
-        next[p.id] = { ...p, status: 'failed', error: UNKNOWN_ERROR };
+        next[p.id] = { ...p, status: 'failed', error: null, error_code: UNKNOWN, error_params: {} };
         unknown.push(p);
       } else if (!this.matchesState(p)) {
-        next[p.id] = { ...p, status: 'failed', error: LOST_ERROR };
+        next[p.id] = { ...p, status: 'failed', error: null, error_code: LOST, error_params: {} };
       }
     }
     for (const p of s.pending) next[p.id] = p;
@@ -111,7 +110,7 @@ export class HouseStore {
     this.loaded = true;
     // A snapshot only ever arrives over an open stream.
     this.connection = 'open';
-    for (const p of unknown) toasts.push(`${p.label} : résultat inconnu — vérifiez.`);
+    for (const p of unknown) toasts.push(() => m.pending.unknownToast(pendingLabel(p)));
   }
 
   /** True when every expected value of the pending is already what the radiators report (never for none). */

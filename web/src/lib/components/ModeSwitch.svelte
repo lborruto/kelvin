@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Mode, RoomMode, SettableMode } from '$lib/api/types';
+  import { m } from '$lib/i18n';
   import { Settle } from '$lib/settle.svelte';
   import PendingEdge from './PendingEdge.svelte';
 
@@ -13,9 +14,9 @@
   }
   let { value, pending = null, disabled = false, compact = false, label = 'Mode', onchange }: Props = $props();
   let options = $derived([
-    { v: 'off' as const, l: 'Arrêt' },
-    { v: 'manual' as const, l: 'Manuel' },
-    { v: 'program' as const, l: compact ? 'Prog.' : 'Programme' }
+    { v: 'off' as const, l: m.mode.off },
+    { v: 'manual' as const, l: m.mode.manual },
+    { v: 'program' as const, l: compact ? m.modeSwitch.programShort : m.mode.program }
   ]);
   let current = $derived(pending ?? value);
   let waiting = $derived(pending !== null && pending !== value);
@@ -39,7 +40,7 @@
     {@const on = current === o.v}
     {@const isPending = waiting && pending === o.v}
     <button type="button" role="radio" aria-checked={on}
-      aria-label="{o.v === 'program' ? 'Programme' : o.l}{isPending ? ' (en attente)' : ''}"
+      aria-label={isPending ? m.modeSwitch.pending(o.v === 'program' ? m.mode.program : o.l) : o.v === 'program' ? m.mode.program : o.l}
       bind:this={buttons[i]} tabindex={tabStop === o.v ? 0 : -1} onkeydown={(e) => key(e, i)}
       class:on class:pending={isPending} aria-disabled={disabled}
       onclick={() => !disabled && current !== o.v && onchange(o.v)}>{o.l}{#if on}<PendingEdge shape="rect" rx={6.5} pending={isPending}

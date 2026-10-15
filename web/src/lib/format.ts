@@ -97,22 +97,6 @@ export function fmtAgo(ms: number, now = Date.now()): string {
   return m.ago.on(fmtDateTime(ms));
 }
 
-export const MODE_LABEL: Record<string, string> = {
-  off: 'Arrêt',
-  manual: 'Manuel',
-  program: 'Programme',
-  other: 'Autre',
-  mixed: 'Mixte'
-};
-
-export const LEVEL_LABEL: Record<string, string> = {
-  comfort: 'Confort',
-  eco: 'Éco',
-  frostprotection: 'Hors-gel',
-  off: 'Repos',
-  mixed: 'Mixte'
-};
-
 /** fr "0,2068 €/kWh"; en "€0.2068/kWh" (a negative: « −0,1000 €/kWh », “−€0.1000/kWh”). */
 export function fmtPrice(v: number | null | undefined): string {
   if (bad(v)) return '—';

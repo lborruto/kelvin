@@ -23,7 +23,7 @@ describe('actions', () => {
   it('run turns API errors into a toast and returns null', async () => {
     const res = await run(async () => { throw new ApiError(422, 'La consigne se règle par pas de 0,5 °C.'); });
     expect(res).toBeNull();
-    expect(toasts.items[0].message).toBe('La consigne se règle par pas de 0,5 °C.');
+    expect(toasts.items[0].text()).toBe('La consigne se règle par pas de 0,5 °C.');
   });
 
   it('retry dismisses the failure and re-sends the same request', async () => {
@@ -40,6 +40,16 @@ describe('actions', () => {
     house.applyPending(p('ghost', 'failed') as never);
     expect(await retry('ghost')).toBeNull();
     expect(house.pending.ghost).toBeDefined();
-    expect(toasts.items[0].message).toContain('Impossible de réessayer');
+    expect(toasts.items[0].text()).toContain('Impossible de réessayer');
+  });
+
+  it('a coded error toasts in the active language, even after a switch', async () => {
+    const { applyLocale } = await import('$lib/i18n');
+    await run(async () => {
+      throw new ApiError(422, 'La consigne se règle par pas de 0,5 °C.', 'temp_step', { kind: 'manual' });
+    });
+    expect(toasts.items[0].text()).toBe('La consigne se règle par pas de 0,5\u00a0°C.');
+    applyLocale('en');
+    expect(toasts.items[0].text()).toBe('The setpoint goes in steps of 0.5\u00a0°C.');
   });
 });

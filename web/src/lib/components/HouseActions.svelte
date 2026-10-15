@@ -1,6 +1,7 @@
 <script lang="ts">
   import { retry, runHouse } from '$lib/actions';
   import { api } from '$lib/api/client';
+  import { m } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
   import { house } from '$lib/stores/house.svelte';
   import Icon from './Icon.svelte';
@@ -39,21 +40,21 @@
 
 <div class="wrap" class:stacked>
   <div class="actions" class:stacked>
-    <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={ask}><Icon name="power" size={16} />Tout éteindre</button>
+    <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={ask}><Icon name="power" size={16} />{m.houseActions.allOff}</button>
     {#if program}
-      <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={() => !blocked && runHouse(() => api.houseProgram())}>Tout remettre en programme</button>
+      <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={() => !blocked && runHouse(() => api.houseProgram())}>{m.houseActions.allProgram}</button>
     {/if}
-    {#if away}<a class="btn btn-sm" href="{ROUTES.home}#{ANCHORS.away}"><Icon name="away" size={16} />Absence…</a>{/if}
+    {#if away}<a class="btn btn-sm" href="{ROUTES.home}#{ANCHORS.away}"><Icon name="away" size={16} />{m.houseActions.away}</a>{/if}
   </div>
   <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
 </div>
 
 <dialog bind:this={dialog} aria-labelledby="{uid}-all-off-title" aria-describedby="{uid}-all-off-body">
-  <h2 id="{uid}-all-off-title">Tout éteindre&nbsp;?</h2>
-  <p id="{uid}-all-off-body">Les radiateurs passent à l’arrêt. Vous pourrez les remettre en programme depuis Maison.</p>
+  <h2 id="{uid}-all-off-title">{m.houseActions.confirmTitle}</h2>
+  <p id="{uid}-all-off-body">{m.houseActions.confirmBody}</p>
   <div class="row">
-    <button type="button" class="btn" bind:this={cancel} onclick={() => dialog?.close()}>Annuler</button>
-    <button type="button" class="btn btn-danger" onclick={allOff}>Tout éteindre</button>
+    <button type="button" class="btn" bind:this={cancel} onclick={() => dialog?.close()}>{m.common.cancel}</button>
+    <button type="button" class="btn btn-danger" onclick={allOff}>{m.houseActions.allOff}</button>
   </div>
 </dialog>
 

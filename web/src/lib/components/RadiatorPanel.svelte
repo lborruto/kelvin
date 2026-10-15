@@ -2,7 +2,8 @@
   import type { Radiator } from '$lib/api/types';
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
-  import { fmtKwh, fmtTemp, MODE_LABEL } from '$lib/format';
+  import { fmtKwh, fmtTemp } from '$lib/format';
+  import { modeLabel } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
   import { house } from '$lib/stores/house.svelte';
   import Icon from './Icon.svelte';
@@ -60,7 +61,7 @@
   </header>
   {#if renamed}<p class="muted facts">{facts}</p>{/if}
   <dl class="grid">
-    <dt>Mode</dt><dd>{MODE_LABEL[radiator.mode]}</dd>
+    <dt>Mode</dt><dd>{modeLabel(radiator.mode)}</dd>
     <dt>Consigne active</dt><dd class="num">{fmtTemp(radiator.effective_setpoint)}</dd>
     {#if radiator.energy_wh}<dt>Consommation totale</dt><dd class="num">{fmtKwh(radiator.energy_wh.total / 1000)}</dd>{/if}
     {#if radiator.rssi != null}<dt>Signal</dt><dd class="num">{Math.round(radiator.rssi)}&nbsp;%</dd>{/if}

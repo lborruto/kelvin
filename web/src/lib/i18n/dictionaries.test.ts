@@ -12,7 +12,7 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
 export const ARGS: Record<string, unknown[]> = {};
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
-export const SAME = new Set<string>([]);
+export const SAME = new Set<string>(['page.title']);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
   return Object.entries(o).flatMap(([k, v]) =>

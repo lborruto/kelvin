@@ -1,14 +1,13 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { isActive, NAV, type NavKey } from '$lib/paths';
+  import { m } from '$lib/i18n';
+  import { isActive, NAV } from '$lib/paths';
   import Icon from './Icon.svelte';
-
-  const LABEL: Record<NavKey, string> = { rooms: 'Pièces', schedule: 'Programme', energy: 'Énergie', home: 'Maison' };
 </script>
 
-<nav class="tabbar" aria-label="Navigation principale">
+<nav class="tabbar" aria-label={m.nav.label}>
   {#each NAV as t (t.href)}
-    <a href={t.href} aria-current={isActive(page.url.pathname, t.href) ? 'page' : undefined}><Icon name={t.icon} size={20} /><span>{LABEL[t.key]}</span></a>
+    <a href={t.href} aria-current={isActive(page.url.pathname, t.href) ? 'page' : undefined}><Icon name={t.icon} size={20} /><span>{m.nav[t.key]}</span></a>
   {/each}
 </nav>
 

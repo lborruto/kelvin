@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { m } from '$lib/i18n';
   import { canonical, ROUTES } from '$lib/paths';
 
   // Defence in depth: app.html rewrites a French path before the router boots, and an in-app link
@@ -12,16 +13,18 @@
   });
 </script>
 
+<svelte:head><title>{m.page.title(page.status === 404 ? m.page.notFound : m.page.error)}</title></svelte:head>
+
 {#if page.status === 404}
   {#if !target}
-    <h1>Page introuvable.</h1>
-    <p><a href={ROUTES.rooms}>Retour aux pièces</a></p>
+    <h1>{m.page.notFound}</h1>
+    <p><a href={ROUTES.rooms}>{m.page.backToRooms}</a></p>
   {/if}
 {:else}
-  <h1>Une erreur est survenue.</h1>
+  <h1>{m.page.error}</h1>
   <p class="actions">
-    <button type="button" class="btn btn-sm" onclick={() => location.reload()}>Réessayer</button>
-    <a href={ROUTES.rooms}>Retour aux pièces</a>
+    <button type="button" class="btn btn-sm" onclick={() => location.reload()}>{m.common.retry}</button>
+    <a href={ROUTES.rooms}>{m.page.backToRooms}</a>
   </p>
 {/if}
 

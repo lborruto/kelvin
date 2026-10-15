@@ -76,7 +76,7 @@ describe('Stepper', () => {
     await tap(plus);
     expect(announcer.polite).toBe('');
     await vi.advanceTimersByTimeAsync(600);
-    expect(announcer.polite).toBe('Confort : 21,0\u00a0°C');
+    expect(announcer.polite).toBe('Confort\u00a0: 21,0\u00a0°C');
     expect(screen.getByRole('status')).not.toHaveAttribute('aria-live');
   });
 
@@ -215,4 +215,12 @@ describe('Stepper', () => {
     expect(val).toHaveTextContent('20,0');
     expect(val.querySelector('svg.edge')).not.toBeNull();
   });
+});
+
+it('in English: the buttons and the announcement', async () => {
+  const { applyLocale } = await import('$lib/i18n');
+  applyLocale('en');
+  render(Stepper, { value: 20, min: 7, max: 28, label: 'Setpoint', onchange: vi.fn() });
+  expect(screen.getByRole('button', { name: 'Decrease Setpoint' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Increase Setpoint' })).toBeInTheDocument();
 });

@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Status } from '$lib/api/types';
   import { fmtAgo } from '$lib/format';
+  import { m } from '$lib/i18n';
+  import { ROUTES } from '$lib/paths';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -11,11 +13,10 @@
   let { connection, status, now }: Props = $props();
   let rejected = $derived(connection === 'open' && !!status.auth_rejected);
   let message = $derived.by(() => {
-    if (connection === 'reconnecting') return 'Reconnexion à Kelvin…';
-    if (rejected) return 'Mot de passe Cozytouch modifié\u00a0: reconnectez-vous';
+    if (connection === 'reconnecting') return m.banner.reconnecting;
+    if (rejected) return m.banner.passwordChanged;
     if (connection === 'open' && !status.connected) {
-      const age = status.last_ok_at ? ` — données ${fmtAgo(status.last_ok_at * 1000, now)}` : '';
-      return `Cozytouch injoignable${age}`;
+      return status.last_ok_at ? m.banner.unreachableSince(fmtAgo(status.last_ok_at * 1000, now)) : m.banner.unreachable;
     }
     return '';
   });
@@ -25,7 +26,7 @@
 <div class="wrap" class:banner-on={!!message}>
   <div class="clip">
     <div class="banner" role="status">
-      {#if message}<Icon name="alert" size={16} /><span>{message}</span>{#if rejected}<a href="/login?reauth=1">Se reconnecter</a>{/if}{/if}
+      {#if message}<Icon name="alert" size={16} /><span>{message}</span>{#if rejected}<a href="{ROUTES.login}?reauth=1">{m.banner.signInAgain}</a>{/if}{/if}
     </div>
   </div>
 </div>

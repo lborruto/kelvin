@@ -1,7 +1,8 @@
 <script lang="ts">
   import { run, retry } from '$lib/actions';
   import { api } from '$lib/api/client';
-  import { fmtDelta, fmtTemp, fmtTime, LEVEL_LABEL } from '$lib/format';
+  import { fmtDelta, fmtTemp, fmtTime } from '$lib/format';
+  import { levelLabel } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
   import { flash } from '$lib/motion';
   import { fmtNextChange, nextChange } from '$lib/program';
@@ -83,7 +84,7 @@
         <svelte:element this={level} class="name">{room.name}</svelte:element>
         <p class="muted">
           {radiators.length} radiateur{radiators.length > 1 ? 's' : ''}
-          {#if room.heating_level && LEVEL_LABEL[room.heating_level]} · {LEVEL_LABEL[room.heating_level]}{/if}
+          {#if levelLabel(room.heating_level)} · {levelLabel(room.heating_level)}{/if}
           {#if mode === 'program' && !sameProgram} · Programmes différents selon les radiateurs{:else if change} · <span class="nowrap">{fmtNextChange(change, now)}</span>{/if}
         </p>
       </div>

@@ -10,6 +10,7 @@
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
+  import { m } from '$lib/i18n';
   import { reducedMotion } from '$lib/motion';
   import { ROUTES } from '$lib/paths';
   import { announcer } from '$lib/stores/announcer.svelte';
@@ -108,7 +109,7 @@
 {#if bare}
   {@render children()}
 {:else}
-  <a class="skip" href="#content">Aller au contenu</a>
+  <a class="skip" href="#content">{m.nav.skip}</a>
   {#if loadingRoute}<div class="progress" aria-hidden="true"></div>{/if}
   <div class="app">
     <div class="side"><Sidebar /></div>

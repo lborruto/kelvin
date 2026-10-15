@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Override } from '$lib/api/types';
   import { fmtTemp, fmtTime } from '$lib/format';
+  import { m } from '$lib/i18n';
 
   interface Props {
     override?: Override;
@@ -11,11 +12,11 @@
 {#if override}
   <span class="badge" class:away={override.kind === 'away'}>
     {#if override.restoring}
-      Rétablissement…
+      {m.override.restoring}
     {:else if override.kind === 'boost'}
-      Forcé {fmtTemp(override.temperature)} → {fmtTime(override.ends_at * 1000)}
+      {m.override.boost(fmtTemp(override.temperature), fmtTime(override.ends_at * 1000))}
     {:else}
-      Absence {fmtTemp(override.temperature)}
+      {m.override.away(fmtTemp(override.temperature))}
     {/if}
   </span>
 {/if}

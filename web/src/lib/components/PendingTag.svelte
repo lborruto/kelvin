@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import type { Pending } from '$lib/api/types';
+  import { m, pendingError } from '$lib/i18n';
   import { dur, T } from '$lib/motion';
   import Icon from './Icon.svelte';
 
@@ -22,18 +23,18 @@
   {#key phase}
     {#if pending && phase === 'sending'}
       <span class="tag" aria-hidden="true" in:fade={{ duration: dur(T.state) }} out:fade={{ duration: dur(T.exit) }}><span
-          class="dot"></span>Envoi…</span>
+          class="dot"></span>{m.pending.sending}</span>
     {:else if pending && phase === 'confirmed'}
       <span class="tag ok" aria-hidden="true" in:fade={{ duration: dur(T.state) }} out:fade={{ duration: dur(T.move) }}><svg
           class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
-          stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" /></svg>Confirmé</span>
+          stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" /></svg>{m.pending.confirmed}</span>
     {:else if pending && phase === 'failed'}
       {@const p = pending}
       <span class="tag bad" in:fade={{ duration: dur(T.state) }}>
         <Icon name="alert" size={14} />
-        <span>{p.error ?? 'Échec de la commande.'}</span>
-        <button type="button" class="btn btn-ghost" onclick={() => onretry(p.id)}>Réessayer</button>
-        <button type="button" class="btn btn-icon x" aria-label="Ignorer" onclick={() => ondismiss(p.id)}><Icon name="x" size={16} /></button>
+        <span>{pendingError(p)}</span>
+        <button type="button" class="btn btn-ghost" onclick={() => onretry(p.id)}>{m.common.retry}</button>
+        <button type="button" class="btn btn-icon x" aria-label={m.common.dismiss} onclick={() => ondismiss(p.id)}><Icon name="x" size={16} /></button>
       </span>
     {/if}
   {/key}
