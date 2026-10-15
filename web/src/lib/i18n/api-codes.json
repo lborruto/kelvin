@@ -22,6 +22,18 @@
         "day": "funday"
       }
     },
+    "device_in_place": {
+      "fr": "L’appareil est déjà dans la pièce de son radiateur.",
+      "params": {}
+    },
+    "device_label_invalid": {
+      "fr": "Le nom doit faire de 1 à 32 caractères, sans caractère invisible ni mot réservé.",
+      "params": {}
+    },
+    "device_unknown": {
+      "fr": "Appareil inconnu.",
+      "params": {}
+    },
     "end_in_past": {
       "fr": "La fin doit être dans le futur.",
       "params": {}
@@ -103,10 +115,6 @@
       "params": {
         "mode": "turbo"
       }
-    },
-    "name_length": {
-      "fr": "Le nom doit faire entre 1 et 32 caractères.",
-      "params": {}
     },
     "no_confirmation": {
       "fr": "Pas de confirmation du radiateur.",
@@ -197,6 +205,10 @@
       "fr": "Quotas indisponibles.",
       "params": {}
     },
+    "radiator_in_room": {
+      "fr": "Le radiateur est déjà dans cette pièce.",
+      "params": {}
+    },
     "radiator_refused": {
       "fr": "Le radiateur a refusé la commande.",
       "params": {}
@@ -207,6 +219,42 @@
     },
     "radiator_unknown_id": {
       "fr": "Radiateur inconnu dans la demande.",
+      "params": {}
+    },
+    "rename_alone": {
+      "fr": "Renommez le radiateur seul, sans autre réglage dans la même demande.",
+      "params": {}
+    },
+    "room_label_invalid": {
+      "fr": "Le nom de la pièce doit faire de 1 à 32 caractères, sans caractère invisible.",
+      "params": {}
+    },
+    "room_label_reserved": {
+      "fr": "« Studio » attend encore la confirmation de Cozytouch : réessayez après la prochaine synchronisation.",
+      "params": {
+        "at": null,
+        "day": null,
+        "label": "Studio"
+      }
+    },
+    "room_label_taken": {
+      "fr": "Une pièce s’appelle déjà « Salon ».",
+      "params": {
+        "label": "Salon"
+      }
+    },
+    "room_not_empty": {
+      "fr": "Videz d’abord la pièce : déplacez ses radiateurs et appareils vers une autre pièce.",
+      "params": {
+        "count": 2
+      }
+    },
+    "room_protected": {
+      "fr": "Cette pièce ne peut pas être supprimée : c’est la maison, ou elle contient le pont Cozytouch ou d’autres pièces.",
+      "params": {}
+    },
+    "room_type_unknown": {
+      "fr": "Créez d’abord une pièce dans l’application Cozytouch : Kelvin reprend son type.",
       "params": {}
     },
     "room_unknown": {
@@ -233,6 +281,37 @@
       "fr": "Type de consigne inconnu : turbo.",
       "params": {
         "kind": "turbo"
+      }
+    },
+    "setup_busy": {
+      "fr": "Une modification est déjà en cours pour cette pièce ou ce radiateur.",
+      "params": {}
+    },
+    "setup_failed": {
+      "fr": "Cozytouch a refusé la modification.",
+      "params": {}
+    },
+    "setup_move_partial": {
+      "fr": "Déplacement partiel (5 sur 6).",
+      "params": {
+        "done": 5,
+        "total": 6
+      }
+    },
+    "setup_no_confirmation": {
+      "fr": "Cozytouch n’a pas confirmé la modification : Kelvin vérifie au prochain relevé.",
+      "params": {}
+    },
+    "setup_not_found": {
+      "fr": "Cozytouch ne trouve plus cette pièce ou cet appareil.",
+      "params": {}
+    },
+    "setup_sync_spent": {
+      "fr": "Les lectures complètes de Cozytouch disponibles sur 24 h sont utilisées (la dernière reste pour un redémarrage) : réessayez plus tard.",
+      "params": {
+        "limit": 3,
+        "next_at": 1760500000.0,
+        "used": 3
       }
     },
     "slot_empty": {
@@ -375,6 +454,45 @@
       "fr": "Salon : réglages",
       "params": {
         "name": "Salon"
+      }
+    },
+    "setup_move": {
+      "fr": "Hekla : vers Salon",
+      "params": {
+        "name": "Hekla",
+        "room": "Salon"
+      }
+    },
+    "setup_rename_device": {
+      "fr": "Hekla : renommé « Studio »",
+      "params": {
+        "label": "Studio",
+        "name": "Hekla"
+      }
+    },
+    "setup_room_create": {
+      "fr": "Nouvelle pièce « Bureau »",
+      "params": {
+        "label": "Bureau"
+      }
+    },
+    "setup_room_delete": {
+      "fr": "Suppression de la pièce Bureau",
+      "params": {
+        "name": "Bureau"
+      }
+    },
+    "setup_room_rename": {
+      "fr": "Salon : renommée « Studio »",
+      "params": {
+        "label": "Studio",
+        "name": "Salon"
+      }
+    },
+    "setup_tidy": {
+      "fr": "Hekla : appareil rangé avec le radiateur",
+      "params": {
+        "name": "Hekla"
       }
     }
   },

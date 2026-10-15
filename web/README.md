@@ -44,7 +44,9 @@ elsewhere, `SCREENS_SCHEME=dark` for the dark theme and `SCREENS_LOCALE=en` for 
   `backend/scripts/export_codes.py`) and are translated by `src/lib/i18n/codes.ts`; the server's
   French `detail` is the fallback for an unknown code.
 - The PWA manifest cannot vary by user: it stays French (`lang: 'fr'`).
-- Paths are English: `/` (rooms), `/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/login`, with
+- Paths are English: `/` (rooms), `/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/home/devices` (rooms and
+  devices: the device tree reloads from memory every 30 s; setup writes and the sync come through
+  SSE `pending` and `layout`, and a confirmed write offers « Annuler » for 10 s), `/login`, with
   the Home anchors `#away`, `#tariff`, `#linky`, `#alerts`, `#sessions` and the Energy anchors `#quality`, `#curve`. The
   old French paths and anchors are rewritten before boot by `app.html` and by `canonical()` in
   `src/lib/paths.ts`, whose tables the tests keep equal (this README names no French path:

@@ -93,7 +93,7 @@
   // Tarif, Linky and Réglages appear together, once both answers are in: nothing on screen moves. The
   // alerts' answer is one of them: their panel (above) takes its real height in that same frame.
   let settled = $derived((!!settingsView || !!tariffError) && (!!linkyStatus || !!linkyError) && alerts.answered);
-  // The real panels are taller than their skeletons: once they render, land on the anchor again.
+  // The panels come after the anchors: once they render, land on the anchor again.
   let landed = false;
   $effect(() => {
     if (!settled || landed) return;
@@ -169,12 +169,15 @@
   <AlertList hold={!settled} />
 </section>
 
-{#if !settled}
-  <!-- Tarif and Linky in their final shape until both answers are in. -->
-  <!-- The ids are there from the first render, so /home#tariff and #linky land on their panel. -->
-  <section id={ANCHORS.tariff} class="panel" aria-busy="true"><h2>{m.home.tariff}</h2><div class="skeleton inset" style:height="340px" aria-hidden="true"></div></section>
-  <section id={ANCHORS.linky} class="panel" aria-busy="true"><h2>Linky</h2><div class="skeleton inset" style:height="190px" aria-hidden="true"></div></section>
-{:else}
+<!-- Everything below the alerts is drawn in the frame the alerts take their real height (it depends on how
+     their text wraps, so on the font): nothing that is already on screen is ever pushed down. -->
+{#if settled}
+  <section class="panel">
+    <h2>{m.devices.title}</h2>
+    <p>{m.devices.homeText}</p>
+    <a class="btn btn-sm" href={ROUTES.devices}>{m.devices.open}</a>
+  </section>
+
   <section id={ANCHORS.tariff} class="panel">
     <h2>{m.home.tariff}</h2>
     {#if settingsView}
@@ -191,6 +194,11 @@
     {:else}
       <p class="error" role="alert">{linkyError?.()} <button type="button" class="btn btn-sm" onclick={loadLinky}>{m.common.retry}</button></p>
     {/if}
+  </section>
+
+  <section id={ANCHORS.sessions} class="panel">
+    <h2>{m.sessions.title}</h2>
+    <SessionsPanel />
   </section>
 
   <section class="panel">
@@ -231,12 +239,11 @@
       </div>
     </dl>
   </section>
+{:else}
+  <!-- No height: the anchors exist from the first render (/home#tariff, #linky), the panels come with the rest. -->
+  <div id={ANCHORS.tariff} aria-busy="true"></div>
+  <div id={ANCHORS.linky} aria-busy="true"></div>
 {/if}
-
-<section id={ANCHORS.sessions} class="panel">
-  <h2>{m.sessions.title}</h2>
-  <SessionsPanel />
-</section>
 
 <style>
   h1 {

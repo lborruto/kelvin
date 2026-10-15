@@ -1,12 +1,22 @@
 import asyncio
 
 import pytest
+from pyoverkiz.converter import converter
 from pyoverkiz.enums import DataType, EventName, ExecutionState
 from pyoverkiz.models import DeviceStateChangedEvent, EventState, ExecutionStateChangedEvent
+from pyoverkiz.models import Event as OverkizEvent
+from pyoverkiz.models import Place as OverkizPlace
 
 from kelvin.overkiz.errors import GatewayError
-from kelvin.overkiz.models import DeviceCommand, ExecUpdate, StateChange
-from kelvin.overkiz.real import REQUEST_TIMEOUT_S, PyOverkizGateway, to_events
+from kelvin.overkiz.models import (
+    DeviceCommand,
+    DeviceUpdate,
+    ExecUpdate,
+    PlaceEvent,
+    RawPlace,
+    StateChange,
+)
+from kelvin.overkiz.real import REQUEST_TIMEOUT_S, PyOverkizGateway, to_events, to_raw_place
 
 
 def test_to_events_converts_state_and_execution_events():
@@ -60,3 +70,41 @@ async def test_a_hung_overkiz_call_becomes_a_gateway_error():
 def test_the_default_overkiz_timeout_is_thirty_seconds():
     assert REQUEST_TIMEOUT_S == 30.0
     assert PyOverkizGateway("me@example.fr", "pw")._timeout == REQUEST_TIMEOUT_S
+
+
+def test_to_events_maps_device_updates_and_payload_less_place_events():
+    raw = [
+        {"name": "PlaceCreatedEvent", "placeOID": "x", "timestamp": 1},
+        {"name": "PlaceUpdatedEvent", "timestamp": 2},
+        {"name": "PlaceDeletedEvent", "placeOID": "x", "timestamp": 3},
+        {
+            "name": "DeviceUpdatedEvent",
+            "deviceURL": "io://g/1#1",
+            "placeOID": "p2",
+            "label": "Bureau",
+            "timestamp": 4,
+        },
+        {"name": "GatewayAliveEvent", "gatewayId": "g", "timestamp": 5},
+    ]
+    out = to_events(converter.structure(raw, list[OverkizEvent]))
+    # pyoverkiz 2.2.2 keeps only the name of a place event: no oid, no label.
+    assert out == [
+        PlaceEvent("created"),
+        PlaceEvent("updated"),
+        PlaceEvent("deleted"),
+        DeviceUpdate("io://g/1#1", "p2", "Bureau"),
+    ]
+
+
+def test_to_raw_place_keeps_the_type():
+    place = converter.structure(
+        {
+            "oid": "h",
+            "label": "All House",
+            "type": 0,
+            "creationTime": 1,
+            "subPlaces": [{"oid": "a", "label": "Salon", "type": 7, "creationTime": 1}],
+        },
+        OverkizPlace,
+    )
+    assert to_raw_place(place) == RawPlace("h", "All House", (RawPlace("a", "Salon", (), 7),), 0)

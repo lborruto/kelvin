@@ -10,7 +10,13 @@ from kelvin.overkiz.models import (
     place_from_dict,
     place_to_dict,
 )
-from kelvin.overkiz.sample import SAMPLE_GATEWAY, sample_house
+from kelvin.overkiz.sample import (
+    HOUSE_TYPE,
+    ROOM_TYPE,
+    SAMPLE_GATEWAY,
+    SAMPLE_INTERNAL,
+    sample_house,
+)
 
 
 def test_place_roundtrip_and_preorder():
@@ -31,8 +37,9 @@ def test_sample_house_mirrors_the_home_dump():
     assert labels == ["All House", "Chambre 1", "Salon", "Chambre 2"]
     heaters = [d for d in devices if "Heater" in d.widget]
     assert len(heaters) == 4
-    assert all(d.device_url.startswith(SAMPLE_GATEWAY) for d in devices)
-    assert any(d.widget == "IOStack" for d in devices)
+    assert all(d.device_url.startswith((SAMPLE_GATEWAY, SAMPLE_INTERNAL)) for d in devices)
+    assert {"IOStack", "Pod", "Wifi"} <= {d.widget for d in devices}
+    assert root.type == HOUSE_TYPE and {c.type for c in root.children} == {ROOM_TYPE}
 
 
 def test_sample_heaters_do_not_share_time_program_state():
@@ -54,3 +61,9 @@ def test_sample_heaters_do_not_share_time_program_state():
     _, fresh = sample_house()
     fresh_heater = next(d for d in fresh if "Heater" in d.widget)
     assert fresh_heater.states["core:TimeProgramState"][0]["monday"][0]["start"] == "06:15"
+
+
+def test_place_type_roundtrips_and_old_dicts_still_load():
+    p = RawPlace("h", "All House", (RawPlace("a", "Salon", (), 7),), 0)
+    assert place_from_dict(json.loads(json.dumps(place_to_dict(p)))) == p
+    assert place_from_dict({"oid": "h", "label": "H", "children": []}).type is None

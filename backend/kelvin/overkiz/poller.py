@@ -7,7 +7,7 @@ import contextlib
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from kelvin.commands.service import CommandService
 from kelvin.errors import gateway_error_code, safe_reason
@@ -15,7 +15,11 @@ from kelvin.house.model import House
 from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
 from kelvin.overkiz.gateway import Gateway
-from kelvin.overkiz.models import RawDevice, RawPlace, StateChange
+from kelvin.overkiz.models import DeviceUpdate, PlaceEvent, RawDevice, RawPlace, StateChange
+
+if TYPE_CHECKING:  # types only: no import cycle at runtime
+    from kelvin.setup.refresh import Reason, SetupRefresher
+    from kelvin.setup.service import SetupService
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +46,9 @@ class EventPump:
         device_pause: float = 0.2,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         on_setup: Callable[[RawPlace, list[RawDevice]], None] | None = None,
+        setup: SetupService | None = None,
+        refresher: SetupRefresher | None = None,
+        on_layout: Callable[[], None] | None = None,
     ) -> None:
         self.gateway = gateway
         self.house = house
@@ -72,6 +79,10 @@ class EventPump:
         self._wake = asyncio.Event()
         self.auth_rejected = False
         self._published: tuple[bool, bool] = (False, False)
+        self.setup = setup
+        self.refresher = refresher
+        self.on_layout = on_layout or (lambda: None)
+        self._layout_dirty = False
 
     @property
     def connected(self) -> bool:
@@ -128,6 +139,9 @@ class EventPump:
                 if rid:
                     changed.add(rid)
                 self.commands.on_state(ev)
+            elif isinstance(ev, DeviceUpdate | PlaceEvent):
+                if self.setup is not None and self.setup.on_event(ev):
+                    self._layout_dirty = True
             else:
                 self.commands.on_exec(ev)
         except Exception:
@@ -148,9 +162,19 @@ class EventPump:
             if self._resync_due:
                 if await self._resync(changed):
                     self._resync_due = False
+            elif reason := self.refresher.due() if self.refresher is not None else None:
+                try:
+                    await self._full_read(changed, reason)
+                except QuotaError as e:
+                    # A refused refresh (« Synchroniser » on a spent Overkiz quota) is not a lost
+                    # connection: the events came through. The refresher already dropped it.
+                    log.warning("full setup read refused (%s)", safe_reason(e))
+                    self._quota_hold_until = self.clock() + self.state_interval
             elif self.clock() >= self._next_state_read and self._may_read_devices():
                 await self._read_next_radiator(changed)
                 self._next_state_read = self.clock() + self.state_interval
+            if self.setup is not None and await self.setup.tick():
+                self._layout_dirty = True
         except GatewayError as e:
             self.failures += 1
             self.last_error = safe_reason(e)
@@ -164,6 +188,7 @@ class EventPump:
                 self._quota_hold_until = self.clock() + self.state_interval
             self._safe(self.commands.tick)
             self._notify_status()
+            self._publish_layout()
             if changed:
                 self._safe(self.on_changed, changed)
             if isinstance(e, AuthError):
@@ -180,14 +205,18 @@ class EventPump:
         finally:
             # Idempotent; guarantees timeouts fire on the unexpected-exception path too.
             self._safe(self.commands.tick)
+            if self.setup is not None:  # setup writes time out during an outage too
+                self._safe(self.setup.timeouts)
         self.failures = 0
         self.last_error = None
         self.last_error_code = None
         self.last_ok_wall = self.wall()
         self._notify_status()
+        self._publish_layout()
         if changed:
             self._safe(self.on_changed, changed)
-        return self.busy_interval if self.commands.has_active else self.idle_interval
+        busy = self.commands.has_active or (self.setup is not None and self.setup.has_active)
+        return self.busy_interval if busy else self.idle_interval
 
     def _may_read_devices(self) -> bool:
         return self.clock() >= self._quota_hold_until
@@ -227,7 +256,7 @@ class EventPump:
         if self.guard.remaining() >= PUMP_RESERVE + 1:
             self.guard.record()
             root, devices = await self.gateway.snapshot()
-            changed |= self.house.reload(devices)
+            self._apply_full_read(root, devices, changed)
             self._safe(self.on_setup, root, devices)
         elif not self._may_read_devices():
             return False
@@ -237,6 +266,35 @@ class EventPump:
         self._next_state_read = self.clock() + self.state_interval  # everything was just read
         self.commands.evaluate_all()
         return True
+
+    def _apply_full_read(self, root: RawPlace, devices: list[RawDevice], changed: set[str]) -> None:
+        """A full read refreshes states, and also places, labels and placement (spec §2.7)."""
+        changed |= self.house.reload(devices)
+        if self.house.sync_setup(root, devices):
+            self._layout_dirty = True
+        if self.setup is not None:
+            self.setup.reconciled()  # what the unconfirmed writes did is in this read
+        if self.refresher is not None:
+            self.refresher.full_read_done()
+            self._layout_dirty = True  # the sync line changed
+
+    async def _full_read(self, changed: set[str], reason: Reason) -> None:
+        self.guard.record()
+        try:
+            root, devices = await self.gateway.snapshot()
+        except GatewayError:
+            if self.refresher is not None:
+                self.refresher.read_failed(reason)
+            raise
+        log.info("full setup read (%s)", reason)
+        self._apply_full_read(root, devices, changed)
+        self._safe(self.on_setup, root, devices)
+        self.commands.evaluate_all()
+
+    def _publish_layout(self) -> None:
+        if self._layout_dirty:
+            self._layout_dirty = False
+            self._safe(self.on_layout)
 
     async def _read_next_radiator(self, changed: set[str]) -> None:
         """Reconcile one radiator per state_interval, in turn: catches lost events without the

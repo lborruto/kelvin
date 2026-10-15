@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { roomName } from '$lib/setup';
   import { run, retry } from '$lib/actions';
   import { api } from '$lib/api/client';
   import { activityKey, dutyText } from '$lib/activity';
@@ -103,7 +104,7 @@
   <div class="inspector">
     <header>
       <div class="title">
-        <svelte:element this={level} class="name">{room.name}</svelte:element>
+        <svelte:element this={level} class="name">{roomName(room)}</svelte:element>
         <p class="muted">
           {m.room.radiatorCount(radiators.length)}
           {#if levelLabel(room.heating_level)} · {levelLabel(room.heating_level)}{/if}
@@ -175,7 +176,7 @@
         comfort={room.comfort} eco={room.eco} target={room.target} height={120}
         pendingTarget={range === 'day' ? (expected.target ?? null) : null}
         pendingComfort={range === 'day' ? (expected.comfort ?? null) : null} axis={range === 'day'}
-        label={m.room.historyLabel(room.name, m.range[range])} {activity} />
+        label={m.room.historyLabel(roomName(room), m.range[range])} {activity} />
       {#if activity && (activity.window.length || activity.presence.length)}
         <p class="legend" aria-hidden="true">
           {#if activity.window.length}<span class="key"><span class="sw window"></span>{m.strip.legendWindow}</span>{/if}

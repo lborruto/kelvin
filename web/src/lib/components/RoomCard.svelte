@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { roomName } from '$lib/setup';
   import { fade, slide } from 'svelte/transition';
   import type { Room } from '$lib/api/types';
   import { run, retry } from '$lib/actions';
@@ -83,7 +84,7 @@
 </script>
 
 {#snippet headInner()}
-  <span class="name">{room.name}{#if !navigates}<span class="chev" aria-hidden="true"><Icon name="chevron" size={14} /></span>{/if}</span>
+  <span class="name">{roomName(room)}{#if !navigates}<span class="chev" aria-hidden="true"><Icon name="chevron" size={14} /></span>{/if}</span>
   <span class="chips">
     <span class="chip">{modeLabel(mode)}</span>
     {#if level && level !== 'mixed' && levelLabel(level)}<span class="chip level">{levelLabel(level)}</span>{/if}
@@ -110,7 +111,7 @@
 
   <ThermalStrip {points} {start} {end} {now} program={first?.program} mode={room.mode} comfort={room.comfort}
     eco={room.eco} target={room.target} pendingTarget={expected.target ?? null} pendingComfort={expected.comfort ?? null}
-    axis={expanded} label={m.room.todayLabel(room.name)} {activity} />
+    axis={expanded} label={m.room.todayLabel(roomName(room))} {activity} />
 
   <div class="foot">
     <!-- The duty line's room is reserved from the first paint: a skeleton of its size until /rooms/duty answers. -->

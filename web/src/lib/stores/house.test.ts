@@ -214,3 +214,73 @@ describe('roomHeating', () => {
     expect([s.roomHeating('x'), s.roomHeating('y'), s.heatingCount]).toEqual([true, false, 1]);
   });
 });
+
+describe('rooms and devices (Plan 8b)', () => {
+  const layout = () => ({
+    house: { rooms: [room('salon', ['a', 'b', 'c'])], radiators: [rad('a', 'salon'), rad('b', 'salon'), rad('c', 'salon')] },
+    setup: {
+      rooms: [{ id: 'salon', name: 'Salon', is_root: false, radiator_ids: ['a', 'b', 'c'], device_count: 18, block: 'room_not_empty' as const }],
+      radiators: [], bridges: [],
+      sync: { used: 1, limit: 3, next_possible_at: null, last_full_at: 1, stale_since: null, requested: false, next_daily_at: 2 }
+    }
+  });
+
+  it('a layout replaces the rooms (one may vanish) and the device tree', () => {
+    const s = new HouseStore();
+    s.applySnapshot(snap());
+    s.applyLayout(layout());
+    expect(s.rooms.map((r) => r.id)).toEqual(['salon']);
+    expect(s.radiators.c.room_id).toBe('salon');
+    expect(s.setup?.rooms[0].block).toBe('room_not_empty');
+    s.reset();
+    expect(s.setup).toBeNull();
+  });
+
+  it('pendingForRoom finds the latest setup pending of a room', () => {
+    const s = new HouseStore();
+    s.applyPending(pending('p1', { radiator_ids: [], room_id: 'salon', created_at: 1 } as Partial<Pending>));
+    s.applyPending(pending('p2', { radiator_ids: [], room_id: 'salon', created_at: 2 } as Partial<Pending>));
+    expect(s.pendingForRoom('salon')?.id).toBe('p2');
+    expect(s.pendingForRoom('ch1')).toBeUndefined();
+  });
+
+  it('onSettle fires once when a pending settles', () => {
+    const s = new HouseStore();
+    const seen: string[] = [];
+    s.onSettle = (p) => seen.push(`${p.id}:${p.status}`);
+    s.applyPending(pending('p1'));
+    s.applyPending(pending('p1', { status: 'confirmed' }));
+    s.applyPending(pending('p1', { status: 'confirmed' }));
+    expect(seen).toEqual(['p1:confirmed']);
+  });
+
+  it('an override follows its radiators to their new room', () => {
+    const s = new HouseStore();
+    s.applySnapshot(snap());
+    s.applyOverrides([{ id: 'o1', kind: 'boost', room_id: 'salon', radiator_ids: ['a'], temperature: 22, ends_at: 9 } as never]);
+    s.applyLayout({ house: { rooms: [room('salon', ['b']), room('ch1', ['a', 'c'])], radiators: [rad('a', 'ch1'), rad('b', 'salon'), rad('c', 'ch1')] }, setup: layout().setup });
+    expect(s.overrideFor('ch1')?.id).toBe('o1');
+    expect(s.overrideFor('salon')).toBeUndefined();
+  });
+});
+
+describe('a write Cozytouch did not confirm in time (unconfirmed)', () => {
+  it('stays after a snapshot and is not an error', () => {
+    const s = new HouseStore();
+    s.applyPending(pending('p1', { radiator_ids: [], room_id: 'salon', kind: 'setup' } as Partial<Pending>));
+    s.applyPending(pending('p1', { radiator_ids: [], room_id: 'salon', kind: 'setup', status: 'unconfirmed' } as Partial<Pending>));
+    s.applySnapshot(snap());
+    expect(s.pending.p1?.status).toBe('unconfirmed');
+  });
+
+  it('a later confirmation from the server replaces it (review F2)', () => {
+    const later: (() => void)[] = [];
+    const s = new HouseStore((fn) => later.push(fn));
+    const base = { radiator_ids: [], room_id: 'salon', kind: 'setup' } as Partial<Pending>;
+    s.applyPending(pending('p1', { ...base, status: 'unconfirmed' }));
+    s.applySnapshot({ ...snap(), recent: [pending('p1', { ...base, status: 'confirmed' })] });
+    expect(s.pending.p1?.status).toBe('confirmed');
+    later.forEach((fn) => fn());
+    expect(s.pending.p1).toBeUndefined(); // dropped after its linger
+  });
+});

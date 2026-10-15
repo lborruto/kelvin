@@ -26,6 +26,12 @@ LABEL_TEMPLATES: dict[str, str] = {
     "all_program": "Tout en programme",
     "boost_end": "Fin du forçage",
     "away_end": "Fin de l’absence",
+    "setup_room_create": "Nouvelle pièce « {label} »",
+    "setup_room_rename": "{name} : renommée « {label} »",
+    "setup_room_delete": "Suppression de la pièce {name}",
+    "setup_move": "{name} : vers {room}",
+    "setup_rename_device": "{name} : renommé « {label} »",
+    "setup_tidy": "{name} : appareil rangé avec le radiateur",
 }
 LABEL_SAMPLES: dict[str, dict[str, Any]] = {
     "mode": {"name": "Salon", "mode": "manual"},
@@ -37,6 +43,13 @@ LABEL_SAMPLES: dict[str, dict[str, Any]] = {
     "identify": {"name": "Salon"},
     "boost": {"name": "Salon", "temperature": 21.5},
     "away": {"temperature": 12.0},
+    "setup_room_create": {"label": "Bureau"},
+    # Language-neutral: the web's strict scanner reads the English rendering too.
+    "setup_room_rename": {"name": "Salon", "label": "Studio"},
+    "setup_room_delete": {"name": "Bureau"},
+    "setup_move": {"name": "Hekla", "room": "Salon"},
+    "setup_rename_device": {"name": "Hekla", "label": "Studio"},
+    "setup_tidy": {"name": "Hekla"},
 }
 
 

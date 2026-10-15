@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { roomName } from '$lib/setup';
   import { fly } from 'svelte/transition';
   import { beforeNavigate } from '$app/navigation';
   import { DAYS, type Day, type Pending } from '$lib/api/types';
@@ -148,8 +149,11 @@
   let canSend = $derived(
     !busy && (changes.length > 0 || alsoRooms.length > 0) && !invalid && house.online && !conflict.length
   );
-  let roomName = (id: string) => house.room(id)?.name ?? id;
-  let roomOptions = $derived(house.rooms.map((r) => ({ value: r.id, label: r.name })));
+  let roomTitle = (id: string) => {
+    const r = house.room(id);
+    return r ? roomName(r) : id;
+  };
+  let roomOptions = $derived(house.rooms.map((r) => ({ value: r.id, label: roomName(r) })));
   // Phone: one day open at a time (today first), the others show only their bar.
   // null: nothing chosen yet (today is open); 'none': the user closed every day.
   let openDay = $state<Day | 'none' | null>(null);
@@ -287,7 +291,7 @@
       <section class="today">
         <h2>{m.program.today}</h2>
         <RoomTodayStrip {roomId} height={48} axis program={toWeekProgram(shown)}
-          label={m.program.previewLabel(roomName(roomId))} />
+          label={m.program.previewLabel(roomTitle(roomId))} />
       </section>
     {/if}
 
@@ -317,7 +321,7 @@
         <div class="chips">
           {#each house.rooms.filter((r) => r.id !== roomId) as r (r.id)}
             <label class="chip"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} disabled={busy} /><span
-                aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{r.name}</label>
+                aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{roomName(r)}</label>
           {/each}
         </div>
       {/if}
@@ -348,7 +352,7 @@
           <ul class="status">
             {#each statuses as { e, pending, stale } (e.roomId)}
               <li>
-                <span>{roomName(e.roomId)}</span>
+                <span>{roomTitle(e.roomId)}</span>
                 {#if stale}
                   <span class="stale"><Icon name="alert" size={14} /> {pendingError(pending!)} {m.program.staleHint}
                     <button type="button" class="btn btn-icon" aria-label={m.common.dismiss} onclick={() => house.dismiss(e.pendingId)}><Icon name="x" size={16} /></button></span>

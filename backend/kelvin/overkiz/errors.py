@@ -16,3 +16,7 @@ class BadCredentialsError(AuthError):
 
 class SetupBudgetSpent(GatewayError):
     """Kelvin's own daily budget of full setup reads is spent (no call was made)."""
+
+
+class SetupNotFoundError(GatewayError):
+    """Overkiz answered 404 for a place or a device (deleted, or never there)."""

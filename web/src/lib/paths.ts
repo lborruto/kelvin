@@ -8,6 +8,7 @@ export const ROUTES = {
   schedule: '/schedule',
   energy: '/energy',
   home: '/home',
+  devices: '/home/devices',
   login: '/login'
 } as const;
 

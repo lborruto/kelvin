@@ -178,10 +178,16 @@
       {/each}
     </ul>
     <p class="muted note">{m.roomsEnergy.hoursNote}{#if tariff}{' '}{m.roomsEnergy.eurNote}{/if}{#if anyEst}{' '}{m.roomsEnergy.estNote}{/if}</p>
+    <p class="foot">{m.devices.byCurrentPlacement}</p>
   {/if}
 </section>
 
 <style>
+  .foot {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--mu);
+  }
   /* The panel answers to its own width: a table from 640 px (nine columns need it; a half-width panel
      on a wide screen is about 540 px), a list below. The query sits at the end so it wins over the base rules. */
   .rooms {

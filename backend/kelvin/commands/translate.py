@@ -186,11 +186,3 @@ def plan_identify(r: Radiator) -> Planned:
     cmd = "identify" if "identify" in r.commands.get(r.heater_url, []) else "wink"
     _require(r, r.heater_url, cmd)
     return _one(r.heater_url, cmd, ())
-
-
-def plan_rename(r: Radiator, name: str) -> Planned:
-    name = name.strip()
-    if not 1 <= len(name) <= 32:
-        raise CommandError("name_length")
-    _require(r, r.heater_url, "setName")
-    return _one(r.heater_url, "setName", (name,), "core:NameState", name)

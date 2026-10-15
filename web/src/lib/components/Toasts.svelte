@@ -22,6 +22,10 @@
           onpointerenter={() => toasts.pause(t.id)} onpointerleave={() => toasts.resume(t.id)}
           onfocusin={() => toasts.pause(t.id)} onfocusout={() => toasts.resume(t.id)}>
           <span>{t.text()}</span>
+          {#if t.action}
+            {@const action = t.action}
+            <button type="button" class="btn btn-ghost" onclick={() => { action.run(); toasts.remove(t.id); }}>{action.label()}</button>
+          {/if}
           <button type="button" class="btn btn-icon" aria-label={m.common.close} onclick={() => toasts.remove(t.id)}><Icon name="x" size={18} /></button>
         </div>
       {/each}

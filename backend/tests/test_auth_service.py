@@ -653,7 +653,8 @@ async def test_a_spent_budget_starts_from_the_stored_setup_and_reads_device_by_d
         await ctx.rt.pump.run_once()  # reconcile device by device
         assert gw.snapshots == 0 and gw.state_reads == len(house.device_urls())
         assert ctx.rt.pump.connected is True
-        assert "Renamed" in {r.name for r in house.radiators.values()}
+        # The state read landed (the name is the Cozytouch label now, ruling 4).
+        assert "Renamed" in {r.get("heater", "core:NameState") for r in house.radiators.values()}
         assert all(r.energy_wh is not None for r in house.radiators.values())
     finally:
         await ctx.close()

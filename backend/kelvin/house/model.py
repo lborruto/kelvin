@@ -4,12 +4,20 @@ import copy
 import json
 import re
 import time
-from collections.abc import Callable
+from collections import Counter
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from statistics import mean
 from typing import Any, Literal
 
-from kelvin.overkiz.models import RawDevice, RawPlace, StateChange, iter_places
+from kelvin.overkiz.models import (
+    DeviceUpdate,
+    RawDevice,
+    RawPlace,
+    SetupPlace,
+    StateChange,
+    iter_places,
+)
 
 MODES = {"standby": "off", "basic": "manual", "internal": "program"}
 OVERKIZ_MODES = {v: k for k, v in MODES.items()}
@@ -43,6 +51,87 @@ class Signal:
     wall: Callable[[], float] = time.time
     last_event_ts: dict[str, float] = field(default_factory=dict)
     status_seen: dict[str, StatusSeen] = field(default_factory=dict)
+
+
+ROOT_NAME = "Maison"  # the house root shown as a room (the web names it in its own language)
+GENERIC_LABEL = re.compile(r"IO \(.*\)")  # Overkiz's default label for a sub-device
+BRIDGE_WIDGETS = frozenset({"IOStack", "Pod", "Wifi", "ZigbeeStack"})
+# Read-only states the device screen shows (spec "API coverage", Plan 8b), in display order.
+DETAIL_STATES = (
+    "io:ModelState",
+    "core:ManufacturerNameState",
+    "io:PowerState",
+    "io:TensionState",
+    "core:VersionState",
+    "io:UptimeState",
+    "core:RSSILevelState",
+    "core:DiscreteRSSILevelState",
+    "internal:SignalStrengthState",
+    "core:ConnectivityState",
+    "io:RunningState",
+    "io:CurrentWorkingRateState",
+    "io:MaximumHeatingLevelState",
+    "io:CumulatedLoweringState",
+    "core:HolidaysModeState",
+    "core:DerogatedTargetTemperatureState",
+    "io:PeakNoticeState",
+    "io:PeakWarningState",
+)
+
+
+@dataclass
+class Place:
+    oid: str
+    label: str
+    type: int | None
+    parent: str | None
+
+
+@dataclass
+class DeviceMeta:
+    device_url: str
+    label: str
+    widget: str
+    place_oid: str | None
+
+
+def device_role(widget: str, heater: bool) -> str:
+    if heater:
+        return "heater"
+    if widget in ROLE_BY_WIDGET:
+        return ROLE_BY_WIDGET[widget]
+    if widget in ("IOStack", "ZigbeeStack"):
+        return "bridge"
+    return {"Pod": "box", "Wifi": "wifi"}.get(widget, "other")
+
+
+def _walk(p: RawPlace, parent: str | None = None) -> Iterator[tuple[str | None, RawPlace]]:
+    yield parent, p
+    for c in p.children:
+        yield from _walk(c, p.oid)
+
+
+def _reachable(states: dict[str, Any]) -> bool | None:
+    status = states.get("core:StatusState")
+    if status is not None:
+        return status == "available"
+    connectivity = states.get("core:ConnectivityState")
+    if connectivity is not None:
+        return connectivity == "online"
+    return None
+
+
+def _details(states: dict[str, Any]) -> dict[str, Any]:
+    return {
+        k: states[k]
+        for k in DETAIL_STATES
+        if k in states and isinstance(states[k], str | int | float | bool)
+    }
+
+
+def _sub_index(url: str) -> int:
+    tail = url.rsplit("#", 1)[-1]
+    return int(tail) if "#" in url and tail.isdigit() else 0
 
 
 def base_url(device_url: str) -> str:
@@ -149,6 +238,7 @@ class Radiator:
     states: dict[str, dict[str, Any]]
     commands: dict[str, list[str]] = field(default_factory=dict)
     signal: Signal | None = field(default=None, repr=False, compare=False)
+    label: str = ""  # the heater's Cozytouch label (spec ruling 4)
 
     def get(self, role: str, name: str, default: Any = None) -> Any:
         url = self.urls.get(role)
@@ -158,6 +248,11 @@ class Radiator:
 
     @property
     def name(self) -> str:
+        """The heater's Cozytouch label (ruling 4); `core:NameState` when the label is empty
+        or Overkiz's generic « IO (…) »."""
+        label = self.label.strip()
+        if label and not GENERIC_LABEL.fullmatch(label):
+            return label
         return self.get("heater", "core:NameState") or "Radiateur"
 
     @property
@@ -361,6 +456,11 @@ class House:
         self._by_url: dict[str, str] = {
             url: rid for rid, r in radiators.items() for url in r.states
         }
+        self.wall = wall
+        self.root_oid: str | None = None
+        self.places: dict[str, Place] = {}
+        self.meta: dict[str, DeviceMeta] = {}
+        self.others: dict[str, dict[str, Any]] = {}  # bridge devices' states (Pod, Wifi, IOStack)
         self.signal = Signal(wall)
         now = wall()
         for r in radiators.values():
@@ -371,7 +471,8 @@ class House:
 
     @property
     def last_event_ts(self) -> dict[str, float]:
-        """Device URL → wall time of its last state event (memory only; Plan 8b reads it)."""
+        """Device URL → wall time of its last state event, radiators' and bridges' (memory only;
+        the device screen's « Dernier signal »)."""
         return self.signal.last_event_ts
 
     def _track_status(self, device_url: str, value: Any) -> None:
@@ -411,6 +512,11 @@ class House:
         Reads (startup, resync, per-device state reads) pass event=False."""
         rid = self._by_url.get(change.device_url)
         if rid is None:
+            states = self.others.get(change.device_url)
+            if states is not None:  # a bridge device: tracked for the device screen only
+                if event:
+                    self.last_event_ts[change.device_url] = self.wall()
+                states[change.name] = change.value
             return None
         if event:
             self.signal.last_event_ts[change.device_url] = self.signal.wall()
@@ -447,6 +553,185 @@ class House:
         """Replace one device's states with a fresh read (`GET /setup/devices/{url}/states`)."""
         return self.reload([RawDevice(device_url, "", "", None, states)])
 
+    # --- places and placement (spec §2.7): Cozytouch is the source of truth ---
+
+    def layout_key(self) -> tuple[Any, ...]:
+        return (
+            tuple((p.oid, p.label, p.type, p.parent) for p in self.places.values()),
+            tuple(sorted((u, m.label, m.place_oid) for u, m in self.meta.items())),
+        )
+
+    def sync_setup(self, root: RawPlace, devices: list[RawDevice]) -> bool:
+        """Places, labels, placement and bridge states from a full setup read. True when the
+        rooms, the placement or a label changed."""
+        before = self.layout_key()
+        self.root_oid = root.oid
+        self.places = {p.oid: Place(p.oid, p.label, p.type, parent) for parent, p in _walk(root)}
+        self.meta = {
+            d.device_url: DeviceMeta(d.device_url, d.label, d.widget, d.place_oid) for d in devices
+        }
+        self.others = {
+            d.device_url: dict(d.states) for d in devices if d.device_url not in self._by_url
+        }
+        self._rebuild()
+        return self.layout_key() != before
+
+    def _rebuild(self) -> None:
+        """Rooms from placement: a radiator's room is its heater's place."""
+        for r in self.radiators.values():
+            meta = self.meta.get(r.heater_url)
+            if meta is None:
+                continue
+            r.label = meta.label
+            r.room_id = (
+                meta.place_oid if meta.place_oid in self.places else self.root_oid or r.room_id
+            )
+        rooms: dict[str, Room] = {}
+        for p in self.places.values():
+            rids = sorted(rid for rid, r in self.radiators.items() if r.room_id == p.oid)
+            if rids:
+                rooms[p.oid] = Room(id=p.oid, name=self.room_name(p.oid), radiator_ids=rids)
+        self.rooms = rooms
+
+    def room_name(self, oid: str) -> str:
+        return ROOT_NAME if oid == self.root_oid else self.places[oid].label.strip()
+
+    def apply_device_update(self, u: DeviceUpdate) -> bool:
+        """A device's place or label changed (an event or a targeted read). True if the layout
+        changed."""
+        meta = self.meta.get(u.device_url)
+        if meta is None:
+            return False
+        before = (meta.place_oid, meta.label)
+        if u.place_oid is not None:
+            meta.place_oid = u.place_oid
+        if u.label is not None:
+            meta.label = u.label
+        if (meta.place_oid, meta.label) == before:
+            return False
+        self._rebuild()
+        return True
+
+    def put_place(self, p: SetupPlace, parent: str | None = None) -> bool:
+        """A place as a targeted read returned it (new or renamed). True if it changed."""
+        old = self.places.get(p.oid)
+        if old is not None:
+            parent = old.parent
+        elif parent is None:
+            parent = self.root_oid
+        new = Place(p.oid, p.label, p.type, parent)
+        if old == new:
+            return False
+        self.places[p.oid] = new
+        self._rebuild()
+        return True
+
+    def remove_place(self, oid: str) -> bool:
+        if oid not in self.places or oid == self.root_oid:
+            return False
+        del self.places[oid]
+        self._rebuild()
+        return True
+
+    def unknown_places(self) -> set[str]:
+        return {
+            m.place_oid
+            for m in self.meta.values()
+            if m.place_oid and m.place_oid not in self.places
+        }
+
+    def room_type(self) -> int | None:
+        """A new room's type: the most common among the house's sub-places (spec §2.7)."""
+        types = [
+            p.type for p in self.places.values() if p.parent == self.root_oid and p.type is not None
+        ]
+        return Counter(types).most_common(1)[0][0] if types else None
+
+    def devices_in(self, oid: str) -> list[DeviceMeta]:
+        return [m for m in self.meta.values() if m.place_oid == oid]
+
+    def delete_block(self, oid: str) -> str | None:
+        """The error code saying why this room cannot be deleted, or None. Kelvin moves
+        nothing implicitly: a room must be empty (spec §2.7); `devices_in(oid)` gives the count."""
+        if oid not in self.places:
+            return "room_unknown"
+        inside = self.devices_in(oid)
+        if (
+            oid == self.root_oid
+            or any(m.widget in BRIDGE_WIDGETS for m in inside)
+            or any(p.parent == oid for p in self.places.values())
+        ):
+            return "room_protected"
+        if inside:
+            return "room_not_empty"
+        return None
+
+    def device_ids(self) -> dict[str, str]:
+        """Public device ids: `<radiator id>#<n>` for radiator sub-devices, `bridge-<n>` for
+        the others in URL order. Device URLs never leave the backend."""
+        out = {url: f"{radiator_id(url)}#{_sub_index(url)}" for url in self._by_url}
+        bridges = sorted(u for u in self.meta if u not in self._by_url)
+        out.update({u: f"bridge-{i}" for i, u in enumerate(bridges, 1)})
+        return out
+
+    def device_url_for(self, device_id: str) -> str | None:
+        return next((u for u, i in self.device_ids().items() if i == device_id), None)
+
+    def setup_view(self) -> dict[str, Any]:
+        """The device tree of `GET /api/setup/devices`, from memory (no Overkiz call)."""
+        ids = self.device_ids()
+
+        def device(url: str) -> dict[str, Any] | None:
+            m = self.meta.get(url)
+            if m is None:
+                return None
+            rid = self._by_url.get(url)
+            heater = rid is not None and url == self.radiators[rid].heater_url
+            if rid is not None:
+                states = self.radiators[rid].states.get(url, {})
+                heater_meta = self.meta.get(self.radiators[rid].heater_url)
+                misplaced = heater_meta is not None and m.place_oid != heater_meta.place_oid
+            else:
+                states, misplaced = self.others.get(url, {}), False
+            return {
+                "id": ids[url],
+                "role": device_role(m.widget, heater),
+                "label": m.label,
+                "widget": m.widget,
+                "room_id": m.place_oid if m.place_oid in self.places else None,
+                "misplaced": misplaced,
+                "reachable": _reachable(states),
+                "last_event_at": self.last_event_ts.get(url),
+                "details": _details(states),
+            }
+
+        rooms = [
+            {
+                "id": p.oid,
+                "name": self.room_name(p.oid),
+                "is_root": p.oid == self.root_oid,
+                "radiator_ids": sorted(
+                    rid for rid, r in self.radiators.items() if r.room_id == p.oid
+                ),
+                "device_count": len(self.devices_in(p.oid)),
+                "block": self.delete_block(p.oid),
+            }
+            for p in self.places.values()
+        ]
+        radiators = [
+            {
+                "id": r.id,
+                "room_id": r.room_id,
+                "name": r.name,
+                "devices": [
+                    d for u in sorted(r.states, key=_sub_index) if (d := device(u)) is not None
+                ],
+            }
+            for r in sorted(self.radiators.values(), key=lambda r: (r.name.casefold(), r.id))
+        ]
+        bridges = [d for u in sorted(self.others) if (d := device(u)) is not None]
+        return {"rooms": rooms, "radiators": radiators, "bridges": bridges}
+
     def room_view(self, room_id: str) -> dict[str, Any]:
         room = self.rooms[room_id]
         rads = self.room_radiators(room_id)
@@ -454,6 +739,7 @@ class House:
         return {
             "id": room.id,
             "name": room.name,
+            "is_root": room.id == self.root_oid,
             "radiator_ids": list(room.radiator_ids),
             "temperature": round(mean(temps), 1) if temps else None,
             "mode": _common([r.mode for r in rads], "mixed"),
@@ -509,4 +795,6 @@ def build_house(
         if rids:
             name = "Maison" if p.oid == root.oid else labels[p.oid]
             rooms.append(Room(id=p.oid, name=name, radiator_ids=rids))
-    return House(rooms, radiators, wall=wall)
+    house = House(rooms, radiators, wall=wall)
+    house.sync_setup(root, devices)
+    return house

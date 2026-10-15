@@ -76,7 +76,6 @@ TEMPLATES: dict[str, str] = {
     "no_night_light": "Ce radiateur n’a pas de veilleuse.",
     "intensity_light_off": "L’intensité ne peut être réglée que veilleuse allumée.",
     "intensity_range": "L’intensité doit être comprise entre 1 et 100 %.",
-    "name_length": "Le nom doit faire entre 1 et 32 caractères.",
     # Tariff
     "slot_time_invalid": "Heure invalide : {value} (format HH:MM).",
     "slots_none": "Indiquez au moins une plage d’heures creuses.",
@@ -101,6 +100,43 @@ TEMPLATES: dict[str, str] = {
     "linky_status_quota": "Quota Linky du jour atteint : reprise demain.",
     "linky_status_error": "Synchronisation Linky en échec.",
     "linky_status_throttled": "Enedis limite les requêtes : nouvel essai à {at}.",
+    # Rooms and devices (Cozytouch setup, spec §2.7)
+    "room_label_invalid": (
+        "Le nom de la pièce doit faire de 1 à 32 caractères, sans caractère invisible."
+    ),
+    "room_label_taken": "Une pièce s’appelle déjà « {label} ».",
+    "room_label_reserved": (
+        "« {label} » attend encore la confirmation de Cozytouch : "
+        "réessayez après la prochaine synchronisation."
+    ),
+    "room_not_empty": (
+        "Videz d’abord la pièce : déplacez ses radiateurs et appareils vers une autre pièce."
+    ),
+    "room_protected": (
+        "Cette pièce ne peut pas être supprimée : c’est la maison, ou elle contient "
+        "le pont Cozytouch ou d’autres pièces."
+    ),
+    "room_type_unknown": (
+        "Créez d’abord une pièce dans l’application Cozytouch : Kelvin reprend son type."
+    ),
+    "setup_busy": "Une modification est déjà en cours pour cette pièce ou ce radiateur.",
+    "setup_not_found": "Cozytouch ne trouve plus cette pièce ou cet appareil.",
+    "setup_failed": "Cozytouch a refusé la modification.",
+    "setup_no_confirmation": (
+        "Cozytouch n’a pas confirmé la modification : Kelvin vérifie au prochain relevé."
+    ),
+    "radiator_in_room": "Le radiateur est déjà dans cette pièce.",
+    "device_in_place": "L’appareil est déjà dans la pièce de son radiateur.",
+    "device_unknown": "Appareil inconnu.",
+    "setup_move_partial": "Déplacement partiel ({done} sur {total}).",
+    "rename_alone": "Renommez le radiateur seul, sans autre réglage dans la même demande.",
+    "setup_sync_spent": (
+        "Les lectures complètes de Cozytouch disponibles sur 24 h sont utilisées "
+        "(la dernière reste pour un redémarrage) : réessayez plus tard."
+    ),
+    "device_label_invalid": (
+        "Le nom doit faire de 1 à 32 caractères, sans caractère invisible ni mot réservé."
+    ),
     # Pending failures
     "send_failed": "Envoi impossible : {reason}.",
     "send_internal": "Envoi impossible : erreur interne.",
@@ -126,6 +162,11 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "feature_unknown": {"feature": "turbo"},
     "slot_time_invalid": {"value": "24:00"},
     "linky_status_throttled": {"at": "14:30"},
+    "room_label_taken": {"label": "Salon"},
+    "room_label_reserved": {"label": "Studio", "at": None, "day": None},
+    "room_not_empty": {"count": 2},
+    "setup_move_partial": {"done": 5, "total": 6},
+    "setup_sync_spent": {"used": 3, "limit": 3, "next_at": 1760500000.0},
 }
 
 # Status.last_error_code: why the last Cozytouch poll failed.

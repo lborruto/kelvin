@@ -94,6 +94,7 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
     });
     listen(source, 'house', (d) => store.applyHouse(d));
     listen(source, 'pending', (d) => store.applyPending(d));
+    listen(source, 'layout', (d) => store.applyLayout(d));
     listen(source, 'overrides', (d) => store.applyOverrides(d));
     listen(source, 'status', (d) => store.applyStatus(d));
     listen(source, 'alerts', (d: AlertSummary) => onAlerts(d));

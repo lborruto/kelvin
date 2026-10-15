@@ -9,8 +9,12 @@ from typing import Any
 from kelvin.overkiz.models import RawDevice, RawPlace
 
 SAMPLE_GATEWAY = "io://1234-5678-9012"
+SAMPLE_INTERNAL = "internal://1234-5678-9012"
 # The simulator's « Chambre 2 » heater is unreachable for a while after start (spec §10.2).
 DEMO_OUTAGE_RID = "8370022"
+# Invented place types. Cozytouch's real values are recorded in docs/overkiz-notes.md (Plan 8b).
+HOUSE_TYPE = 0
+ROOM_TYPE = 7
 DAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 EMPTY_SLOT = {"start": "00:00", "end": "00:00"}
 # An invented programme: two comfort periods on weekdays, one long one at the weekend.
@@ -81,6 +85,10 @@ def _heater(
         "core:OccupancyActivationState": "inactive",
         "io:CurrentWorkingRateState": 0.0,
         "core:RSSILevelState": 100.0,
+        "core:DiscreteRSSILevelState": "good",
+        "core:VersionState": "1.4.0",
+        "io:UptimeState": 864000,
+        "io:TensionState": 231,
         "core:TimeProgramState": copy.deepcopy(program or WEEK_PROGRAM),
     }
     return RawDevice(
@@ -148,10 +156,11 @@ def sample_house() -> tuple[RawPlace, list[RawDevice]]:
         "p-house",
         "All House",
         (
-            RawPlace("p-ch1", "Chambre 1 "),
-            RawPlace("p-salon", "Salon"),
-            RawPlace("p-ch2", "Chambre 2 "),
+            RawPlace("p-ch1", "Chambre 1 ", (), ROOM_TYPE),
+            RawPlace("p-salon", "Salon", (), ROOM_TYPE),
+            RawPlace("p-ch2", "Chambre 2 ", (), ROOM_TYPE),
         ),
+        HOUSE_TYPE,
     )
     devices: list[RawDevice] = [
         _heater(
@@ -214,6 +223,26 @@ def sample_house() -> tuple[RawPlace, list[RawDevice]]:
             "p-house",
             {},
             ["discoverActuators"],
+        ),
+        RawDevice(
+            f"{SAMPLE_INTERNAL}/pod/0",
+            "Box Cozytouch",
+            "Pod",
+            "p-house",
+            {
+                "core:ConnectivityState": "online",
+                "core:NameState": "Box",
+                "core:CountryCodeState": "FR",
+            },
+            [],
+        ),
+        RawDevice(
+            f"{SAMPLE_INTERNAL}/wifi/0",
+            "Wifi",
+            "Wifi",
+            "p-house",
+            {"internal:SignalStrengthState": 72, "internal:WifiModeState": "infrastructure"},
+            [],
         ),
     ]
     return root, devices

@@ -10,10 +10,36 @@ from pyoverkiz import exceptions as ox
 from pyoverkiz.auth.credentials import UsernamePasswordCredentials
 from pyoverkiz.client import OverkizClient
 from pyoverkiz.enums import Server
-from pyoverkiz.models import Action, Command, DeviceStateChangedEvent, ExecutionStateChangedEvent
+from pyoverkiz.models import (
+    Action,
+    Command,
+    DeviceStateChangedEvent,
+    DeviceUpdatedEvent,
+    ExecutionStateChangedEvent,
+)
 
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
-from kelvin.overkiz.models import DeviceCommand, Event, ExecUpdate, RawDevice, RawPlace, StateChange
+from kelvin.overkiz.models import (
+    DeviceCommand,
+    DeviceUpdate,
+    Event,
+    ExecUpdate,
+    PlaceEvent,
+    PlaceKind,
+    RawDevice,
+    RawPlace,
+    SetupDevice,
+    SetupPlace,
+    StateChange,
+)
+from kelvin.setup.client import (
+    SetupHttp,
+    device_path,
+    label_path,
+    place_path,
+    relocate_path,
+    subplaces_path,
+)
 
 _QUOTA = (
     ox.TooManyRequestsError,
@@ -40,7 +66,12 @@ def _map_error(e: BaseException) -> GatewayError:
 
 
 def to_raw_place(p: Any) -> RawPlace:
-    return RawPlace(oid=p.oid, label=p.label, children=tuple(to_raw_place(c) for c in p.sub_places))
+    return RawPlace(
+        oid=p.oid,
+        label=p.label,
+        children=tuple(to_raw_place(c) for c in p.sub_places),
+        type=p.type,
+    )
 
 
 def to_raw_device(d: Any) -> RawDevice:
@@ -54,6 +85,41 @@ def to_raw_device(d: Any) -> RawDevice:
     )
 
 
+def to_setup_place(body: Any) -> SetupPlace:
+    if not isinstance(body, dict) or not isinstance(body.get("oid"), str):
+        raise GatewayError("unexpected place answer")
+    t = body.get("type")
+    subs = body.get("subPlaces") or []
+    return SetupPlace(
+        oid=body["oid"],
+        label=body.get("label") if isinstance(body.get("label"), str) else "",
+        type=t if isinstance(t, int) and not isinstance(t, bool) else None,
+        metadata=body.get("metadata"),
+        children=tuple(
+            c["oid"] for c in subs if isinstance(c, dict) and isinstance(c.get("oid"), str)
+        ),
+    )
+
+
+def to_setup_device(body: Any) -> SetupDevice:
+    if not isinstance(body, dict) or not isinstance(body.get("deviceURL"), str):
+        raise GatewayError("unexpected device answer")
+    place = body.get("placeOID")
+    label = body.get("label")
+    return SetupDevice(
+        body["deviceURL"],
+        label if isinstance(label, str) else "",
+        place if isinstance(place, str) else None,
+    )
+
+
+PLACE_KINDS: dict[str, PlaceKind] = {
+    "PlaceCreatedEvent": "created",
+    "PlaceUpdatedEvent": "updated",
+    "PlaceDeletedEvent": "deleted",
+}
+
+
 def to_events(events: list[Any]) -> list[Event]:
     out: list[Event] = []
     for e in events:
@@ -61,6 +127,11 @@ def to_events(events: list[Any]) -> list[Event]:
             out.extend(StateChange(e.device_url, s.name, s.value) for s in e.device_states)
         elif isinstance(e, ExecutionStateChangedEvent):
             out.append(ExecUpdate(e.exec_id, str(e.new_state), e.failure_type))
+        elif isinstance(e, DeviceUpdatedEvent):
+            out.append(DeviceUpdate(e.device_url, e.place_oid, e.label))
+        elif str(getattr(e, "name", "")) in PLACE_KINDS:
+            # pyoverkiz 2.2.2 structures Place*Event into its base Event: the name only.
+            out.append(PlaceEvent(PLACE_KINDS[str(e.name)]))
     return out
 
 
@@ -118,6 +189,41 @@ class PyOverkizGateway:
     async def quotas(self) -> Any:
         # pyoverkiz 2.2.2 has no wrapper for this endpoint; `_get` is its own GET helper.
         return await self._call(self._c()._get("setup/quotas"))
+
+    def _setup(self) -> SetupHttp:
+        return SetupHttp(self._c, timeout=self._timeout, map_error=_map_error)
+
+    async def read_place(self, oid: str) -> SetupPlace:
+        _, body = await self._setup().request("GET", place_path(oid))
+        return to_setup_place(body)
+
+    async def read_device(self, device_url: str) -> SetupDevice:
+        _, body = await self._setup().request("GET", device_path(device_url))
+        return to_setup_device(body)
+
+    async def create_place(self, parent_oid: str, label: str, type_: int) -> str:
+        _, body = await self._setup().request(
+            "POST", subplaces_path(parent_oid), {"type": type_, "label": label}
+        )
+        oid = body.get("placeOID") if isinstance(body, dict) else None
+        if not isinstance(oid, str) or not oid:
+            raise GatewayError("place created without an oid")
+        return oid
+
+    async def update_place(self, oid: str, label: str, type_: int | None, metadata: Any) -> None:
+        payload: dict[str, Any] = {"type": type_, "label": label}
+        if metadata is not None:
+            payload["metadata"] = metadata
+        await self._setup().request("PUT", place_path(oid), payload)
+
+    async def delete_place(self, oid: str) -> None:
+        await self._setup().request("DELETE", place_path(oid))
+
+    async def relocate_device(self, device_url: str, place_oid: str) -> None:
+        await self._setup().request("PUT", relocate_path(device_url, place_oid))
+
+    async def rename_device(self, device_url: str, label: str) -> None:
+        await self._setup().request("PUT", label_path(device_url, label))
 
     async def fetch_events(self) -> list[Event]:
         return to_events(await self._call(self._c().fetch_events()))

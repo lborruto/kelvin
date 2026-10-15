@@ -145,6 +145,16 @@ describe('connectStream', () => {
     expect(store.connection).toBe('open');
     stop();
   });
+
+  it('applies a layout event', () => {
+    const { store } = setup();
+    FakeES.all[0].emit('snapshot', snapshot);
+    FakeES.all[0].emit('layout', {
+      house: { rooms: [], radiators: [] },
+      setup: { rooms: [], radiators: [], bridges: [], sync: null }
+    });
+    expect(store.setup).toEqual({ rooms: [], radiators: [], bridges: [], sync: null });
+  });
 });
 
 describe('alerts over the stream', () => {

@@ -79,7 +79,15 @@ class ProgramBody(BaseModel):
 class FeaturesBody(BaseModel):
     window_detection: bool | None = None
     presence_detection: bool | None = None
-    name: str | None = None
+    name: str | None = Field(default=None, max_length=200)  # 1–32 after trim: setup/validate
+
+
+class LabelBody(BaseModel):
+    label: str = Field(max_length=200)  # the real rule (1–32 after trim) is checked in setup/
+
+
+class MoveBody(BaseModel):
+    room_id: str = Field(min_length=1, max_length=200)
 
 
 class LightBody(BaseModel):
