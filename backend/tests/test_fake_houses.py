@@ -153,7 +153,8 @@ def test_the_house_follows_the_login_server_unless_named(tmp_path):
     def urls(settings, server):
         gw = make_gateway(settings, "demo@kelvin.local", "kelvin", server)
         assert isinstance(gw, FakeGateway) and gw.server == server
-        return {u.split("/")[0] + "//" + u.split("/")[2] for u in gw.devices}
+        # io:// devices only: 8b's sample house also has internal:// Pod and Wifi devices
+        return {u.split("/")[0] + "//" + u.split("/")[2] for u in gw.devices if u.startswith("io:")}
 
     plain = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
     assert urls(plain, "sauter_cozytouch") == {SAMPLE_GATEWAY}
