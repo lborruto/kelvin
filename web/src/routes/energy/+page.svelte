@@ -91,8 +91,10 @@
   let unitWord = $derived(m.energyPage.unit[group]);
 
   let split = $derived(!!main?.tariff);
-  let names = $derived<Record<string, string>>(split ? { hc: m.energyPage.hc, hp: m.energyPage.hp } : { home: m.energyPage.home });
-  let colors = $derived<Record<string, string>>(split ? { hc: SERIES.hc, hp: SERIES.hp } : { home: SERIES.home });
+  // A bucket with no off-peak split (Base, or a Base day inside a longer bucket) draws its whole consumption as one series.
+  const splitOf = (b: { hc_kwh: number | null }) => split && b.hc_kwh != null;
+  let names = $derived<Record<string, string>>({ hc: m.energyPage.hc, hp: m.energyPage.hp, home: m.energyPage.consumption });
+  let colors = $derived<Record<string, string>>({ hc: SERIES.hc, hp: SERIES.hp, home: SERIES.home });
   // The house chart starts at the first counted bucket (Linky data, or a counted day without it, which pays its
   // subscription): earlier ones are not gaps.
   let trimmed = $derived(chart?.linky ? firstCounted(chart.buckets) : 0);
@@ -102,7 +104,7 @@
       label: bucketLabel(b.key, group),
       parts: !chart?.linky
         ? [{ key: 'rad', value: b.radiators?.kwh ?? null }]
-        : split
+        : splitOf(b)
           ? [{ key: 'hc', value: b.hc_kwh }, { key: 'hp', value: b.hp_kwh }]
           : [{ key: 'home', value: b.kwh }]
     }))
@@ -252,11 +254,12 @@
         {drillLabel}
         onswipe={step} />
       <ul class="legend">
-        {#if split}
+        {#if bars.some(splitOf)}
           <li><span class="swatch" style:background={SERIES.hc}></span>{m.energyPage.hc}</li>
           <li><span class="swatch" style:background={SERIES.hp}></span>{m.energyPage.hp}</li>
-        {:else}
-          <li><span class="swatch" style:background={SERIES.home}></span>{m.energyPage.home}</li>
+        {/if}
+        {#if bars.some((b) => !splitOf(b))}
+          <li><span class="swatch" style:background={SERIES.home}></span>{m.energyPage.consumption}</li>
         {/if}
         <li><span class="line" style:background={SERIES.radiators}></span>{m.energyPage.radiators}</li>
       </ul>
@@ -318,7 +321,7 @@
     <ProjectionPanel projection={main.projection} last={main.last_day} today={today.iso} class="half" />
   {/if}
 
-  <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="wide" />
+  <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} split={main.option !== 'base'} class="wide" />
 
   <!-- Collapsed: where every estimate comes from, opened by the « est. » links (#quality). -->
   {#if main.linky}

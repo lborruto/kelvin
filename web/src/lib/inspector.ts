@@ -233,7 +233,7 @@ export function readInterval(iv: EnergyInterval | null, ctx: ReadoutCtx): Inspec
     { key: 'power', label: m.inspector.power, value: iv ? fmtW(iv.w) : '—' },
     { key: 'energy', label: m.inspector.energyWh, value: iv ? fmtWh(iv.wh) : '—' }
   ];
-  const split = any((x) => x.offpeak);
+  const split = ctx.intervals.some((x) => x.offpeak != null);
   if (ctx.tariff && (split || any((x) => x.price))) {
     // A chosen half-hour without a price says why (spec §9.1); nothing chosen is the idle « — ».
     const why = (v: number | null | undefined) => (iv && v == null ? m.inspector.noPrice : undefined);

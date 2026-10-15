@@ -622,7 +622,7 @@ export const fr = {
     radChart: (unit: string) => `Consommation des radiateurs par ${unit}`,
     hc: 'Heures creuses',
     hp: 'Heures pleines',
-    home: 'Maison',
+    consumption: 'Consommation',
     radiators: 'Radiateurs',
     linkySince: (d: string) => `Historique Linky depuis le ${d}.`,
     drillMonth: (month: string) => `Voir ${month}`,

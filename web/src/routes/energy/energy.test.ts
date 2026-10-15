@@ -412,6 +412,19 @@ describe('Énergie', () => {
     expect(container.querySelectorAll('line.gap')).toHaveLength(1);
   });
 
+  it('under Base the bars carry the whole consumption in one series, and the legend has no HC/HP', async () => {
+    const days = october().map((b, i) => (i < 12 ? { ...b, hc_kwh: null, hp_kwh: null } : b));
+    vi.mocked(api.energyReport).mockResolvedValue(report({ option: 'base', buckets: days, total: summary({ hc_kwh: null, hp_kwh: null }) }));
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
+    expect(cell(container, 'Consommation de la maison par jour', '3/10', 'Maison')).toMatch(/^10/);
+    expect(container.querySelectorAll('rect.part').length).toBeGreaterThan(0);
+    const legend = container.querySelector('ul.legend')!;
+    expect(legend).toHaveTextContent('Consommation');
+    expect(legend).not.toHaveTextContent('Heures creuses');
+    expect(legend).not.toHaveTextContent('Heures pleines');
+  });
+
   it('a failed curve says so, and Réessayer reads it again', async () => {
     vi.mocked(api.energyDay).mockRejectedValueOnce(new Error('boom'));
     render(Page);

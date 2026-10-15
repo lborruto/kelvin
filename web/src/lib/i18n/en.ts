@@ -598,7 +598,7 @@ export const en: Messages = {
     radChart: (unit: string) => `Radiator consumption by ${unit}`,
     hc: 'Off-peak',
     hp: 'Peak',
-    home: 'Home',
+    consumption: 'Consumption',
     radiators: 'Radiators',
     linkySince: (d: string) => `Linky history since ${d}.`,
     drillMonth: (month: string) => `Show ${month}`,

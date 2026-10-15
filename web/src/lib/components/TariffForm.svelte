@@ -175,7 +175,7 @@
     <div class="row">
       <button type="button" class="btn btn-ghost" aria-disabled={busy} onclick={prefillTempo}>{m.tariff.tempoPrefill}</button>
     </div>
-    {#if prefilled}<p class="muted note" role="status">{m.tariff.tempoPrefillNote(fmtDateLong(new Date(prefilled * 1000).toISOString().slice(0, 10)))}</p>{/if}
+    {#if prefilled}<p class="muted note" role="status">{m.tariff.tempoPrefillNote(fmtDateLong(parisTodayIso(prefilled * 1000)))}</p>{/if}
     <fieldset>
       <legend>{m.tariff.tempoHours}</legend>
       <div class="grid">
