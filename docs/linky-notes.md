@@ -6,6 +6,12 @@ customer id 0000000000).
 
 - Base `https://www.myelectricaldata.fr`, header `Authorization: <token>`. Quota 50 calls/day,
   reset at 23:59:59 (`valid_access`). Kelvin's own budget is 10/day.
+- Kelvin's 10-call day counts **every** MyElectricalData call, the public Tempo/EcoWatt endpoints
+  included (they take no PDL and may not count against MED's quota; Kelvin counts them anyway).
+  The grid takes at most 4 (EcoWatt 07:15 and 17:15; Tempo only with a Tempo price row: 06:30 if
+  today's colour is missing, 11:15 and 13:15 while tomorrow's is). Linky's older curve chunks wait
+  while grid calls are still planned. The contract is re-read on the first sync of each month
+  (1 call) to detect new off-peak hours. The simulator's budget is 14.
 - `valid_access/{pdl}`: `valid`, `information`, `consent_expiration_date`, `call_number`,
   `quota_limit`, `quota_reached`, `quota_reset_at`, `last_call`, `ban`.
 - `contracts/{pdl}`: `subscribed_power` e.g. "9 kVA", `offpeak_hours` e.g. "HC (22H00-6H00)",

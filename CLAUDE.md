@@ -180,6 +180,23 @@ depends on.
 - **Sessions:** a session's `id` is an opaque random value, never derived from the token or its
   hash; the API lists browser and system names only, never the user agent or the token. The
   current session cannot be signed out through the list.
+- **Tariff and pricing:** every € comes from `kelvin/billing/pricing.py` (`Pricing.slice`/`rate`):
+  each price row has its own option (`base` | `hchp` | `tempo`), HC/HP days use the dated and
+  seasonal schedule of their date, Tempo days the Tempo hours and the colour of the **Tempo day**
+  (wall clock: a half-hour starting before 06:00 belongs to the previous day, never `t − 6 h`).
+  An unknown Tempo colour prices nothing: its kWh count, its € is null (`missing_colour_days`).
+  A day without a complete curve splits by the fallback profile (`billing/split.py`), scaled to the
+  daily reading. A v1 tariff setting is migrated on first read (`tariff_v1` keeps the original).
+- **MyElectricalData budget:** every MED call (Linky, the monthly contract re-read, the public
+  Tempo/EcoWatt endpoints, the Tempo price prefill) goes through `LinkySync.spend(kind=…)`:
+  ≤ 10 a Paris day, grid ≤ 4, `backfill` yields to the grid calls still planned. The simulator's
+  budget is 14 (`SIMULATOR_EXTRA_CALLS`). Never add a MED call that bypasses it.
+- **Grid signals:** a stored Tempo colour never changes (a different colour from MED is logged
+  once and ignored: it prices the history). Tempo colours are shown and fetched only when the
+  price row in force is Tempo (the API answers `tempo: null` otherwise); EcoWatt is for every
+  household. A Tempo switch made after the day's MED budget is spent gets its colours the next
+  day. Periodic external calls run as jobs in `kelvin/scheduler.py`; EcoWatt hours stay hidden
+  until `ECOWATT_HOURS_VERIFIED`.
 - **Network:** `/api/health` is open and says only the status word. Forwarded headers are
   ignored unless `KELVIN_TRUSTED_PROXIES` names the reverse proxy; nothing shipped enables them
   (`backend/tests/test_packaging.py` checks).
@@ -192,6 +209,7 @@ depends on.
   before data, never placeholder values; no horizontal scroll from 320 px and CLS < 0.05
   (e2e checks both). Buttons use the global `.btn-*` classes. Svelte 5 transitions on an element
   that a parent mounts inside its own `{#if}` (ChartInspector) need `|global`, or they never play.
+  `--tempo-*` tokens are used only by `TempoDot` (DESIGN « Tempo day chip »).
 - **Énergie figures:** formatted through the precision functions in `$lib/format.ts` (spec
   §3.2.1), and every inspector, readout, hidden table and announcement built from
   `$lib/inspector.ts`, so a value reads the same everywhere. Shown sums add up: a total shown

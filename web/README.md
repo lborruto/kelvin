@@ -30,6 +30,15 @@ Screenshots (simulator only): `SCREENS=1 npx playwright test screens` writes the
 `test-results/screens/` as `<scheme>_<locale>_<project>_<page>.png`; set `SCREENS_DIR` to write
 elsewhere, `SCREENS_SCHEME=dark` for the dark theme and `SCREENS_LOCALE=en` for English.
 
+## Components
+
+Grid and tariff pieces (`src/lib/components/`): `GridStrip` (the one-line strip; Tempo only when the
+API sends `tempo`), `TempoDot` (the only user of the `--tempo-*` tokens), `SourcesPanel` (Réglages ›
+Sources), `TariffForm` (option, dated prices, seasonal off-peak hours, Tempo hours and prefill; the
+document logic is in `src/lib/tariff.ts`), `TempoRows` (the six colour rows under Tempo) and
+`HcHpPanel` (Base, HC/HP or Tempo). Under Base the Énergie bars draw one « Consommation » series and
+`RoomsEnergy` drops its HC/HP columns.
+
 ## Languages and paths
 
 - Messages live in `src/lib/i18n/fr.ts` (the source) and `en.ts` (typed from it); components read

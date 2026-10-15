@@ -38,6 +38,12 @@ colors:
   series-2-light: "#0f8577"
   series-3-light: "#8f6d00"
   series-4-light: "#b8327a"
+  tempo-blue: "#6c8cff"
+  tempo-white: "#e8eaf0"
+  tempo-red: "#ff5c7a"
+  tempo-blue-light: "#3355cc"
+  tempo-white-light: "#ffffff"
+  tempo-red-light: "#c2185b"
 typography:
   display:
     fontFamily: "'Onest Variable', system-ui, -apple-system, 'Segoe UI', sans-serif"
@@ -272,6 +278,9 @@ A near-monochrome graphite world where the only saturated colours are the heat r
 - **State Green** (ok): confirmation only: the "Confirmé" pending tag and a saved form (« Tarif enregistré. »).
 - **State Red** (bad): failures and warnings: the failed-command tag, error text, the open-window chip, the disconnection banner (bad at 14 % over s1), the error toast's border (bad at 60 % over line), and the Énergie Linky callout when the token is refused or sync fails. Progress states are never red.
 
+### Tempo Day Chip (named exception)
+The Tempo days are named after colours, so their chip carries the colour: an 8 px dot (blue, white with a field-line ring, red) always beside the colour's name. Only `TempoDot` uses the `tempo-*` tokens (`tokens.test.ts` checks, contrast 3:1 in both themes); they never colour a chart, a series or anything else. A day whose colour is not published yet shows a dashed dot. EcoWatt has no colour of its own: orange is neutral text with the alert glyph, red uses State Red.
+
 ### Neutral
 - **Graphite Ground** (bg): page background, sidebar, the knob of an "on" toggle, text on primary buttons.
 - **Raised Graphite** (s1): cards, the desktop inspector panel, Énergie panels, the active sidebar item.
@@ -284,7 +293,7 @@ A near-monochrome graphite world where the only saturated colours are the heat r
 - **Faint** (fa): axis ticks, inactive tab-bar items, the "off" toggle track, the text of disabled controls (which keep their fill), unknown temperatures.
 
 ### Named Rules
-**The Heat Means Heat Rule.** Blue, grey-neutral and orange in the cool/neutral/warm hues come only from the heat ramp, and the heat ramp only ever encodes temperature or heating (a reading, a comfort band, a boost or away override). An "on" switch is ink, not blue; a chart series is violet, never orange. If a new element is coloured by a heat token, it must be answering "how warm".
+**The Heat Means Heat Rule.** (The one exception is the Tempo day chip, whose colours name a tariff day, never a temperature.) Blue, grey-neutral and orange in the cool/neutral/warm hues come only from the heat ramp, and the heat ramp only ever encodes temperature or heating (a reading, a comfort band, a boost or away override). An "on" switch is ink, not blue; a chart series is violet, never orange. If a new element is coloured by a heat token, it must be answering "how warm".
 
 **The One Ramp Rule.** Every heat colour is computed by `heatColor()` from the three theme tokens. Never hard-code a heat hex, never add a second scale, and never interpolate in another space; the ramp then follows the active theme for free.
 
@@ -465,14 +474,25 @@ An estimate (a fallback HC/HP split, radiator energy spread between readings, a 
 
 **« — » always says why.** A figure the API leaves `null` reads « — » with its reason, never 0 and never a partial sum passed off as whole: « jour en cours, compté une fois terminé » (radiators count up to yesterday), « 2 sur 3 radiateurs mesurés » (a half-hour whose radiator sum is unknown), « radiateur sans relevé » (a room's half-hour), « aucun relevé sur la période » (a radiator or room), « antérieure au premier jour compté » (a day before the counted range), « Radiateurs au-dessus du compteur : écart de mesure » (a negative rest); a partial radiator sum says its coverage.
 
+- **Under Tempo** the HC/HP panel lists the six colour rows (dot, name, kWh, €, tabular) and « Jours rouges : N »; the inspector gains « Jours Tempo »; the Courbe readout says « Heures pleines · Rouge ». **Under Base** the panel is one sentence, « Option base : pas d’heures creuses. », the bars draw the whole consumption as one series (legend « Consommation »), and the by-room table drops its HC/HP columns (the € column stays); a bucket mixing Base and split days draws its Base days whole. Days without a Tempo colour keep their kWh and say « énergie de N jours sans couleur Tempo non comptée »; never 0 €.
+
 ### Linky status wording
 One status, two places (the Énergie callout and the Linky panel on Maison). Progress is neutral and offers no link, because there is nothing to fix: never synced (« première synchronisation en attente »), quota (« historique en cours de récupération, la suite arrive demain ») and throttled (« Enedis limite les requêtes, nouvel essai à 14:30 ») read as plain or muted text. Only `auth` (« MyElectricalData refuse le jeton Linky. » with « Renouveler le jeton ») and `error` (with « Réglages ») use the bad colour and an alert role. Not connected at all is a neutral invitation with a « Réglages » link. In the panel the good state reads « Relié · données jusqu’au 13/10 · synchro il y a 5 min ».
 
 ### Form fields
 A field is a label wrapping its control: a 12 px muted caption, 4 px, then a 44 px well (in, field-line edge, 8 px, 0 × 10 px padding) set in 15 px body with tabular figures, 16 px below 1024 px so iOS never zooms on focus (`--fs-field`). The base style is global in `app.css`; components add only layout. Selects share the input's exact geometry. Placeholders are muted (never the browser grey) and never carry the only instruction: a hint is a 12 px muted caption under the field, linked with `aria-describedby` (Linky: « Enregistré », then « Laissez vide pour garder le jeton. »). An invalid field is `aria-invalid`, edged in bad, linked to its error and focused. Units live in the caption, never in the field: « Abonnement (€/mois) », « Prix heures creuses (€/kWh) ». Decimal fields accept a comma or a point. Groups of fields auto-fit in a grid; a repeated group (Heures creuses slots) sits in a hairline-topped fieldset whose legend is a section label, with ghost « Retirer » / « Ajouter une plage » buttons. Errors follow in 13 px bad (alert), success in 13 px ok (status), then one primary button, left-aligned.
 
+### Grid strip
+One 13 px line under the page header on Rooms and Energy, wrapping on a phone: the Tempo pair « Aujourd’hui : ● Bleu · Demain : ● Rouge » (only while the price row in force is Tempo; « Demain : couleur pas encore publiée (vers 11:00) » before publication, « couleur inconnue » when a day has none), then « EcoWatt orange demain, 18:00–20:00 » with the alert glyph (muted; red in State Red; the hours stay hidden until their dating is verified), then the muted source « RTE via MyElectricalData · 11:20 ». Nothing when there is nothing to say (EcoWatt green, no Tempo). It arrives with the snapshot and is updated by the SSE `grid` event, so it never shifts the page.
+
+### Sources
+Réglages › Sources: one row per grid source (« à jour, relevé à 11:20 · prochain relevé 17:15 », « indisponible depuis 08:15 » in State Red text, « quota du jour atteint, reprise demain »), then the muted MyElectricalData calls line (« … : 6 sur 10 (dont 2 pour Tempo et EcoWatt) »). The Tempo row appears only with a Tempo tariff.
+
+### Tariff form
+The option Segmented (Base · HC/HP · Tempo) heads the form; the fields follow the option: one price, two, or six in a two-column grid (each colour's off-peak then peak). HC/HP has its own « Applicable à partir du » and an optional season split: each season is a hairline-topped block with twelve 44 px month chips (copy-chip style) and up to three slots. Tempo has its two hour fields and the note on the 06:00 day; « Préremplir avec les prix Tempo publiés » is a ghost button whose result states its source and date (the Paris day) and saves nothing. Enedis' new off-peak hours appear as a calm callout inside the HC section with a date and « Ajouter ces heures creuses à partir du … ». Both time fields stay whole at 320 px.
+
 ### Price history (Tarif)
-A 13 px table under the form: « Depuis » (long date), then « Abonnement (€/mois) », « HC (€/kWh) », « HP (€/kWh) », the units in the headers so the mono cells are bare figures (« 15,00 », « 0,2068 »). Headers muted 500, hairline rows, cells never wrap, the wrapper scrolls inside the panel rather than the page. Below 600 px it is replaced by a list, one hairline-separated entry per price with the same labels on the left and mono values on the right.
+A 13 px table under the form: « Depuis » (long date), « Option », « Abonnement (€/mois) » and « Prix (€/kWh) » (the row's rates, « HC 0,2068 · HP 0,2700 », « Bleu HC … »), the units in the headers so the mono cells are bare figures (« 15,00 »); below, « Heures creuses successives », one line per schedule with its seasons. Headers muted 500, hairline rows, cells never wrap, the wrapper scrolls inside the panel rather than the page. Below 600 px it is replaced by a list, one hairline-separated entry per price with the same labels on the left and mono values on the right.
 
 ### Login
 Outside the shell, one centred 360 px column: the « Kelvin » brand (700), « Connexion » as a headline, a 13 px muted lead « Utilisez le compte Cozytouch de la maison. », two labelled 44 px fields (Email, Mot de passe), the error line when there is one, then a full-width ink primary « Se connecter » (« Connexion… » while busy). With the simulator a 12 px muted line gives the demo account. After a password change the screen adds a neutral note (s1, hairline, 10 px, 13 px, role status) « Reconnectez-vous avec le compte Cozytouch. »: being asked to sign in again is not an error. At the bottom of the column, centred, a compact « FR | EN » Segmented (each option with its `lang`, named « Français » / “English” by `ariaLabel`, the group named by the current language's « Langue » / “Language”) switches the language before signing in, without a reload; the choice is remembered on the device. In English the screen reads “Sign in”, “Use the home’s Cozytouch account.”, “Email”, “Password”.
@@ -534,6 +554,7 @@ the active language. This file quotes the French copy; the English is the same k
 | Relative time | « à l’instant », « il y a 5 min » | “just now”, “5 min ago” |
 | Punctuation | no-break space before `: ; ? !`, « » with no-break spaces | “ ”, no space before `: ; ? !` |
 | Tone | « vous » and imperatives (« Collez le jeton ») | plain imperatives (“Paste your token”), contractions in sentences, sentence case, “Sign in” |
+| Tariff terms | « Option tarifaire », « Applicable à partir du », « Heures creuses différentes selon la saison », « Jours Tempo », « Signaux du réseau électrique » | “Tariff option”, “Valid from”, “Off-peak hours differ by season”, “Tempo days”, “Power grid signals” (the full list: `docs/glossary.md`) |
 | Both | the true minus `−`, « — » for a missing value, typographic `’`, Paris time | |
 
 Plan 8 adds the pairs Infos / Details, Joignable / Reachable, Injoignable / Unreachable, Dernier signal / Last signal, Intensité / Brightness, Appareils connectés / Signed-in devices, Déconnecter / Sign out, Alertes / Alerts, Masquer / Dismiss, Programme modifié ailleurs / Schedule changed elsewhere, Recharger / Reload, Remplacer quand même / Replace anyway (also in `docs/glossary.md`). An alert's text is composed in the web from its kind and params (`alert-text`), never by the backend.
