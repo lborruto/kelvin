@@ -8,6 +8,14 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Salon : Manuel",
+      "mode",
+      {
+        "name": "Salon",
+        "mode": "manual"
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/14172536#1",
@@ -50,6 +58,15 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Salon : consigne 21,5 °C",
+      "setpoint",
+      {
+        "name": "Salon",
+        "kind": "manual",
+        "value": 21.5
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/14172536#1",
@@ -92,6 +109,15 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Salon : confort 19,5 °C",
+      "setpoint",
+      {
+        "name": "Salon",
+        "kind": "comfort",
+        "value": 19.5
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/14172536#1",
@@ -134,6 +160,15 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Salon : abaissement éco 2,5 °C",
+      "setpoint",
+      {
+        "name": "Salon",
+        "kind": "eco",
+        "value": 2.5
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/14172536#1",
@@ -175,6 +210,14 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Salon : Programme",
+      "mode",
+      {
+        "name": "Salon",
+        "mode": "program"
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/14172536#1",
@@ -237,6 +280,13 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Salon : programme",
+      "program",
+      {
+        "name": "Salon"
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/14172536#1",
@@ -730,6 +780,14 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Radiateur : Arrêt",
+      "mode",
+      {
+        "name": "Radiateur",
+        "mode": "off"
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/9312063#1",
@@ -759,6 +817,14 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Radiateur : Manuel",
+      "mode",
+      {
+        "name": "Radiateur",
+        "mode": "manual"
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/9312063#1",
@@ -789,6 +855,15 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Radiateur : consigne 20 °C",
+      "setpoint",
+      {
+        "name": "Radiateur",
+        "kind": "manual",
+        "value": 20.0
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/9312063#1",
@@ -839,6 +914,13 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Radiateur : programme",
+      "program",
+      {
+        "name": "Radiateur"
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/8370022#1",
@@ -1087,6 +1169,43 @@
   },
   {
     "request": [
+      "POST",
+      "/api/radiators/8370022/mode",
+      {
+        "mode": "off"
+      }
+    ],
+    "status": 202,
+    "label": [
+      "Radiateur : Arrêt",
+      "mode",
+      {
+        "name": "Radiateur",
+        "mode": "off"
+      }
+    ],
+    "commands": [
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setOperatingMode",
+        [
+          "standby"
+        ]
+      ]
+    ],
+    "actions": [
+      1
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:OperatingModeState",
+        "standby"
+      ]
+    ]
+  },
+  {
+    "request": [
       "PATCH",
       "/api/radiators/9312063/features",
       {
@@ -1094,6 +1213,13 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Radiateur : réglages",
+      "settings",
+      {
+        "name": "Radiateur"
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/9312063#1",
@@ -1123,6 +1249,13 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Radiateur : réglages",
+      "settings",
+      {
+        "name": "Radiateur"
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/9312063#1",
@@ -1152,6 +1285,13 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Radiateur : réglages",
+      "settings",
+      {
+        "name": "Radiateur"
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/9312063#1",
@@ -1174,6 +1314,68 @@
   },
   {
     "request": [
+      "PATCH",
+      "/api/radiators/9312063/features",
+      {
+        "window_detection": true,
+        "presence_detection": false,
+        "name": "Radiateur"
+      }
+    ],
+    "status": 202,
+    "label": [
+      "Salon 2 : réglages",
+      "settings",
+      {
+        "name": "Salon 2"
+      }
+    ],
+    "commands": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOpenWindowDetectionActivation",
+        [
+          "active"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOccupancyActivation",
+        [
+          "inactive"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setName",
+        [
+          "Radiateur"
+        ]
+      ]
+    ],
+    "actions": [
+      3
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OpenWindowDetectionActivationState",
+        "active"
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OccupancyActivationState",
+        "inactive"
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:NameState",
+        "Radiateur"
+      ]
+    ]
+  },
+  {
+    "request": [
       "POST",
       "/api/radiators/9312063/light",
       {
@@ -1181,6 +1383,14 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Radiateur : veilleuse allumée",
+      "night_light",
+      {
+        "name": "Radiateur",
+        "on": true
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/9312063#6",
@@ -1209,6 +1419,14 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Radiateur : veilleuse allumée",
+      "night_light",
+      {
+        "name": "Radiateur",
+        "on": true
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/9312063#6",
@@ -1248,6 +1466,14 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Radiateur : veilleuse éteinte",
+      "night_light",
+      {
+        "name": "Radiateur",
+        "on": false
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/9312063#6",
@@ -1273,6 +1499,13 @@
       null
     ],
     "status": 202,
+    "label": [
+      "Radiateur : identification",
+      "identify",
+      {
+        "name": "Radiateur"
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/9312063#1",
@@ -1295,6 +1528,14 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Chambre 1 : forcé à 23 °C",
+      "boost",
+      {
+        "name": "Chambre 1",
+        "temperature": 23.0
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/8370011#1",
@@ -1334,6 +1575,11 @@
       null
     ],
     "status": 202,
+    "label": [
+      "Fin du forçage",
+      "boost_end",
+      {}
+    ],
     "commands": [
       [
         "io://1234-5678-9012/8370011#1",
@@ -1376,6 +1622,13 @@
       }
     ],
     "status": 202,
+    "label": [
+      "Absence à 12 °C",
+      "away",
+      {
+        "temperature": 12.0
+      }
+    ],
     "commands": [
       [
         "io://1234-5678-9012/14172536#1",
@@ -1487,6 +1740,11 @@
       null
     ],
     "status": 202,
+    "label": [
+      "Fin de l’absence",
+      "away_end",
+      {}
+    ],
     "commands": [
       [
         "io://1234-5678-9012/14172536#1",
@@ -1541,7 +1799,7 @@
         "io://1234-5678-9012/8370022#1",
         "setOperatingMode",
         [
-          "internal"
+          "standby"
         ]
       ]
     ],
@@ -1587,7 +1845,244 @@
       [
         "io://1234-5678-9012/8370022#1",
         "core:OperatingModeState",
+        "standby"
+      ]
+    ]
+  },
+  {
+    "request": [
+      "POST",
+      "/api/house/away",
+      {
+        "temperature": 14.0,
+        "until": "+2h"
+      }
+    ],
+    "status": 202,
+    "label": [
+      "Absence à 14 °C",
+      "away",
+      {
+        "temperature": 14.0
+      }
+    ],
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setTargetTemperature",
+        [
+          14.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setTargetTemperature",
+        [
+          14.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setTargetTemperature",
+        [
+          14.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setTargetTemperature",
+        [
+          14.0
+        ]
+      ]
+    ],
+    "actions": [
+      8
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:TargetTemperatureState",
+        14.0
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:TargetTemperatureState",
+        14.0
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:TargetTemperatureState",
+        14.0
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:TargetTemperatureState",
+        14.0
+      ]
+    ]
+  },
+  {
+    "request": [
+      "EXPIRE",
+      "away",
+      null
+    ],
+    "status": null,
+    "label": [
+      "Fin de l’absence",
+      "away_end",
+      {}
+    ],
+    "commands": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setTargetTemperature",
+        [
+          21.5
+        ]
+      ],
+      [
+        "io://1234-5678-9012/14172536#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setTargetTemperature",
+        [
+          20.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "setOperatingMode",
+        [
+          "basic"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setTargetTemperature",
+        [
+          19.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "setOperatingMode",
+        [
+          "internal"
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setTargetTemperature",
+        [
+          18.0
+        ]
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "setOperatingMode",
+        [
+          "standby"
+        ]
+      ]
+    ],
+    "actions": [
+      8
+    ],
+    "expect": [
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:TargetTemperatureState",
+        21.5
+      ],
+      [
+        "io://1234-5678-9012/14172536#1",
+        "core:OperatingModeState",
         "internal"
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:TargetTemperatureState",
+        20.0
+      ],
+      [
+        "io://1234-5678-9012/9312063#1",
+        "core:OperatingModeState",
+        "basic"
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:TargetTemperatureState",
+        19.0
+      ],
+      [
+        "io://1234-5678-9012/8370011#1",
+        "core:OperatingModeState",
+        "internal"
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:TargetTemperatureState",
+        18.0
+      ],
+      [
+        "io://1234-5678-9012/8370022#1",
+        "core:OperatingModeState",
+        "standby"
       ]
     ]
   },
@@ -1598,6 +2093,11 @@
       null
     ],
     "status": 202,
+    "label": [
+      "Tout éteindre",
+      "all_off",
+      {}
+    ],
     "commands": [
       [
         "io://1234-5678-9012/14172536#1",
@@ -1661,6 +2161,11 @@
       null
     ],
     "status": 202,
+    "label": [
+      "Tout en programme",
+      "all_program",
+      {}
+    ],
     "commands": [
       [
         "io://1234-5678-9012/14172536#1",
