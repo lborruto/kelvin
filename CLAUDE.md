@@ -8,8 +8,10 @@ depends on.
 ## Where truth lives
 
 - `PRODUCT.md`: who it is for and the product principles.
-- `DESIGN.md`: the design system as built (tokens, components, French copy). It is the design
-  reference; UI work follows it.
+- `DESIGN.md`: the design system as built (tokens, components, copy rules in French and
+  English). It is the design reference; UI work follows it.
+- `docs/glossary.md`: the French ↔ English terms every English string follows; a new term goes
+  there first. `docs/i18n-catalogue.md` is the design snapshot behind the dictionaries.
 - `docs/overkiz-notes.md`: Overkiz behaviour verified on real radiators. Read it before adding
   or changing any device command, and record every new verification there (no ids or serials).
 - `docs/linky-notes.md`: MyElectricalData behaviour and quotas.
@@ -85,13 +87,28 @@ depends on.
   that delete or migrate work in fixed batches.
 - **Restore order:** a restore sets the previous target first, then the mode, in one action. In
   programme mode the target is the remembered manual setpoint.
-- **Language:** user-facing strings (errors, labels, UI) are French and follow DESIGN.md
-  (no-break space before units, `−`, `—` for a missing value, typographic `’`). Code, logs and
+- **Language:** user-facing strings (errors, labels, UI) exist in French and English and live
+  only in `web/src/lib/i18n/fr.ts` and `en.ts` (`en` is typed from `fr`, so a missing key fails
+  `npm run check`; `dictionaries.test.ts` checks both take the same parameters); never
+  hard-code copy in a component or module. French is the default; English is en-GB and follows `docs/glossary.md`. Both follow
+  DESIGN.md "Copy" (French: no-break space before units and `%`; English: `42%`, `€16.20`, never
+  "HC"/"HP"; both: `−`, `—` for a missing value, typographic `’`). Messages are never read at
+  module scope or in a plain `const`: arrays hold keys or getters and templates or `$derived`
+  read `m.*`, so a language switch (no reload) reaches every label. Numbers and dates go through
+  `$lib/format`, which follows the active language. The strict scan (`web/scripts/i18n-check.mjs
+  --strict`, also run by `npx vitest run`) fails on hard-coded French, an unused key or a
+  message read at module scope; a line that must keep a French literal (an upstream device
+  default, a data value) is marked `// i18n-ignore: <why>`. Its blind spots are short forms
+  that read as English or code (« Prog. », « Lun », « S42 », « 7 j »): `SCANNER_BLIND` in
+  `dictionaries.test.ts` lists them, so review those by eye. The CSV export keeps French headers
+  and file names in both languages. The PWA manifest is static and stays French. Code, logs and
   docs are English.
 - **API errors:** raise a `UserError` code (`backend/kelvin/errors.py`, labels in
   `kelvin/labels.py`); never a bare `HTTPException`. Every error body keeps its French `detail`
-  as a fallback and adds `code` and `params`. Backend French lives only in those two files;
-  after adding or changing a code, run `cd backend && uv run python scripts/export_codes.py`.
+  as a fallback and adds `code` and `params`; the web translates by code
+  (`web/src/lib/i18n/codes.ts`) and the API never reads `Accept-Language`. Backend French lives
+  only in those two files; after adding or changing a code, run
+  `cd backend && uv run python scripts/export_codes.py`.
   Params hold keys and figures only: never an id, email, PDL, token or other secret, and
   third-party text (a gateway's message) goes through `errors.scrub` before any API body, SSE
   or log.
@@ -127,8 +144,8 @@ depends on.
   the web, so a day reads the same figure in Jour, Semaine, Mois, Année and the CSV. A « — »
   always carries its reason. The Courbe readout's fields stack every text they take over the day
   in one cell, so scrubbing never reflows them; keep that when adding a field. Énergie strings
-  live in the `$lib/i18n` dictionaries like every other string (one group per component or module); the CSV export is a
-  machine contract documented in `web/README.md` (French headers in every locale; `;` and a
+  live in the `$lib/i18n` dictionaries like every other string (one group per component or
+  module: `m.hero`, `m.inspector`, …); the CSV export is a machine contract documented in `web/README.md` (French headers in every locale; `;` and a
   decimal comma in French, `,` and a point in English; no ids, no PDL).
 - **Time in tests:** tests that depend on the time of day use the injected clock
   (`create_app(wall=…)` / `start_runtime(wall=…)` in the backend, `EnergieData(now)` in the web),
@@ -139,4 +156,6 @@ depends on.
 - backend: `cd backend && uv run pytest -q && uv run ruff check . && uv run ruff format --check .`
 - property tests use `hypothesis` (dev dependency); keep their example counts as written.
 - web: `cd web && npx vitest run && npm run check && npx playwright test`
+- i18n and paths: part of `npx vitest run` (`web/scripts/i18n-check.mjs --strict` and
+  `web/scripts/check-paths.mjs` also run alone).
 - image (Dockerfile, compose or launcher changes): `bash scripts/docker-smoke.sh`

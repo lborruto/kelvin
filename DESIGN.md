@@ -256,7 +256,7 @@ The system is honest about delay. A command to a radiator takes seconds, so ever
 - The thermal strip repeats on room cards, the inspector and Programme.
 - Every chart has a visually hidden data table behind it; a missing value is « — », never a zero.
 - Pending is dashed, confirmed is solid; a failure stays plain and says so.
-- 44 px touch targets everywhere, WCAG AA in both themes, French copy with NBSP before units.
+- 44 px touch targets everywhere, WCAG AA in both themes, copy in French (default) and English, each with its own typography.
 
 ## Colors
 
@@ -363,7 +363,7 @@ A 44 px × value × 44 px well (in, field-line edge, 10 px) with − and + icon 
 A three-way radiogroup (Arrêt / Manuel / Programme, "Prog." when compact) in a well with 2 px padding and gap. Segments are 44 px tall, 13 px 600 muted (ink on hover); the current segment is s2 with ink text and a muted edge (3:1 against the well). That edge is the signature mark (PendingEdge, an SVG rect): dashed while the mode is requested, closing solid when the radiator reports it. While pending the group is `aria-busy` and the segment is named « Manuel (en attente) ». Keyboard is **manual activation**, because a mode is a device command: roving tabindex (the current mode is the tab stop), arrows only move focus (wrapping), and Enter/Space sends. Choosing the current mode again sends nothing. Transitions 160 ms ease.
 
 ### Segmented
-The view-only sibling of ModeSwitch for choices that change what is shown, never a device: Énergie's Jour / Semaine / Mois / Année, the inspector's 24 h / 7 j / 30 j, Réglages' Système / Sombre / Clair. Same well (in, hairline, 10 px, 2 px padding and gap) and the same 7 px segments, but inline-width with 14 px side padding; 44 px, 13 px 600 muted (ink on hover), the checked segment s2 with ink and a muted border (3:1 against the well). It also picks the room on Programme, scrolling inside itself when the rooms are wider than the page. A WAI-ARIA radiogroup with roving tabindex, and **automatic activation**: arrows (and Home/End) move focus and select at once. No pending state; nothing waits on a device.
+The view-only sibling of ModeSwitch for choices that change what is shown, never a device: Énergie's Jour / Semaine / Mois / Année, the inspector's 24 h / 7 j / 30 j, Réglages' Système / Sombre / Clair and Langue (« Français » / “English”, each option named in its own language with its `lang`, never translated). An option may carry `lang` and an `ariaLabel` (its accessible name when the visible label is short, as on Login). Same well (in, hairline, 10 px, 2 px padding and gap) and the same 7 px segments, but inline-width with 14 px side padding; 44 px, 13 px 600 muted (ink on hover), the checked segment s2 with ink and a muted border (3:1 against the well). It also picks the room on Programme, scrolling inside itself when the rooms are wider than the page. A WAI-ARIA radiogroup with roving tabindex, and **automatic activation**: arrows (and Home/End) move focus and select at once. No pending state; nothing waits on a device.
 
 **The Command Keyboard Rule.** If a choice sends a command to a radiator, arrows move focus and only Enter/Space sends (ModeSwitch). If it only changes the view, arrows select (Segmented). Both look the same; the keyboard tells them apart.
 
@@ -437,7 +437,7 @@ Every figure goes through `$lib/format.ts`:
 | % | integer (`fmtPct`); sets of shares by largest remainder (`fmtShares`) | 1 decimal (`fmtPct1`) | 4-decimal fraction | « — » |
 | Change | « +12 % » / « −8 % » (`fmtChangeShare`), muted | with « −14,20 kWh · −3,61 € » (`fmtSigned`) | — | omitted |
 
-The CSV writes a decimal comma with `;` between cells and no grouping (the French spreadsheet convention).
+The CSV follows the UI language for its numbers: in French a decimal comma with `;` between cells, in English a decimal point with `,`; never grouping. Its headers and file names stay French in both (a machine contract, `web/README.md`).
 
 **Shown parts add up.** Wherever a total and its parts are shown together (hero kWh and HC/HP, an inspector's « dont » rows, a room's HC/HP), the parts go through `matchParts`: rounded to the total's decimals by largest remainder, so the shown parts add up to the shown total. Parts that are not a decomposition (one is missing) are rounded on their own.
 
@@ -457,7 +457,7 @@ A field is a label wrapping its control: a 12 px muted caption, 4 px, then a 44 
 A 13 px table under the form: « Depuis » (long date), then « Abonnement (€/mois) », « HC (€/kWh) », « HP (€/kWh) », the units in the headers so the mono cells are bare figures (« 15,00 », « 0,2068 »). Headers muted 500, hairline rows, cells never wrap, the wrapper scrolls inside the panel rather than the page. Below 600 px it is replaced by a list, one hairline-separated entry per price with the same labels on the left and mono values on the right.
 
 ### Login
-Outside the shell, one centred 360 px column: the « Kelvin » brand (700), « Connexion » as a headline, a 13 px muted lead « Utilisez le compte Cozytouch de la maison. », two labelled 44 px fields (Email, Mot de passe), the error line when there is one, then a full-width ink primary « Se connecter » (« Connexion… » while busy). With the simulator a 12 px muted line gives the demo account. After a password change the screen adds a neutral note (s1, hairline, 10 px, 13 px, role status) « Reconnectez-vous avec le compte Cozytouch. »: being asked to sign in again is not an error.
+Outside the shell, one centred 360 px column: the « Kelvin » brand (700), « Connexion » as a headline, a 13 px muted lead « Utilisez le compte Cozytouch de la maison. », two labelled 44 px fields (Email, Mot de passe), the error line when there is one, then a full-width ink primary « Se connecter » (« Connexion… » while busy). With the simulator a 12 px muted line gives the demo account. After a password change the screen adds a neutral note (s1, hairline, 10 px, 13 px, role status) « Reconnectez-vous avec le compte Cozytouch. »: being asked to sign in again is not an error. At the bottom of the column, centred, a compact « FR | EN » Segmented (each option with its `lang`, named « Français » / “English” by `ariaLabel`, the group named by the current language's « Langue » / “Language”) switches the language before signing in, without a reload; the choice is remembered on the device. In English the screen reads “Sign in”, “Use the home’s Cozytouch account.”, “Email”, “Password”.
 
 ### Buttons
 One system in `app.css`: `.btn` plus a variant; components never restyle a button.
@@ -502,6 +502,30 @@ One curve and a few durations, as tokens in `app.css` and as `T`/`easeOut` in `$
 ### Raster provenance
 `web/static/icon.svg` is hand-authored: a graphite tile with a heat-ramp sparkline and an ink now-marker (the strip in miniature). `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` (56 px safe padding) and `apple-touch-icon.png` (180 px) are rendered from it on a bg ground by `web/scripts/icons.mjs` (`npm run icons`). Edit the SVG, then re-render; never edit the PNGs.
 
+### Copy (French and English)
+French is the default; English is en-GB and follows `docs/glossary.md`. Every string lives in
+`web/src/lib/i18n/{fr,en}.ts`; numbers, dates and units go through `$lib/format`, which follows
+the active language. This file quotes the French copy; the English is the same key in `en.ts`.
+
+| | French | English |
+|---|---|---|
+| Units | no-break space before every unit and `%`: « 20,5 °C », « 2 400 kWh », « 42 % », « 16,20 € » | no-break space before °C, kWh, Wh, W, kVA; none before `%`: “20.5 °C”, “2,400 kWh”, “42%” |
+| Money | « 16,20 € », « 0,2068 €/kWh » | “€16.20”, “€0.2068/kWh”, “−€0.1000/kWh” |
+| Decimals | comma; inputs accept a comma or a point | point; inputs accept a comma or a point |
+| Dates and times | « 13 octobre 2026 », « mar. 13 oct., 18:05 », 24 h | “13 October 2026”, “Tue 13 Oct, 18:05”, 24 h |
+| Relative time | « à l’instant », « il y a 5 min » | “just now”, “5 min ago” |
+| Punctuation | no-break space before `: ; ? !`, « » with no-break spaces | “ ”, no space before `: ; ? !` |
+| Tone | « vous » and imperatives (« Collez le jeton ») | plain imperatives (“Paste your token”), contractions in sentences, sentence case, “Sign in” |
+| Both | the true minus `−`, « — » for a missing value, typographic `’`, Paris time | |
+
+Comparison bases are named in both (« sur 12 jours comparables » / “over 12 comparable days”). English never says “HC” or
+“HP”: “Off-peak”, “Peak”. A label that would not fit in English is fixed in the layout, never by
+shortening the French; the layout guards (no sideways scroll from 320 px) run in both languages.
+The language is chosen per device: in Maison › Réglages › Langue or on Login, a stored choice
+wins, else the browser's languages; `<html lang>` follows it from the first paint, and a switch
+never reloads. URL paths are English in both languages (`/rooms`, `/schedule`, `/energy`,
+`/home`). The PWA manifest is static and stays French.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -517,7 +541,7 @@ One curve and a few durations, as tokens in `app.css` and as `T`/`easeOut` in `$
 - **Do** use `.btn-*` for every button, `.skeleton` for every loading state, `dur()` for every Svelte transition and the shared Settle/PendingEdge for every pending mark.
 - **Do** keep the light block and the `prefers-color-scheme: light` block in `app.css` identical.
 - **Do** focus with a 2 px ink outline, 2 px offset.
-- **Do** format numbers in fr-FR with a no-break space (U+00A0) before units: "20,1 °C", "2 400 kWh", "100 %"; use the true minus "−" for negative deltas; use "—" for a missing value. Times are Europe/Paris, 24 h ("06:15"); relative times read "à l’instant", "il y a 5 min". All UI copy is French with typographic apostrophes (’).
+- **Do** format numbers, dates and units through `$lib/format` in the active language, and take every word from the dictionaries (`m.*`), following "Copy (French and English)"; never hard-code copy in a component, and never read a message at module scope.
 - **Do** separate with hairlines and tone, and nest without re-boxing.
 - **Do** make a view-only choice a Segmented (arrows select) and a device command a ModeSwitch-style manual-activation group (arrows move, Enter/Space sends).
 

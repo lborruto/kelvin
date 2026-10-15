@@ -13,7 +13,7 @@ The backend is Python because the Overkiz protocol client (`pyoverkiz`, also use
 
 ## Users
 
-Households with Sauter electric radiators on Cozytouch, on phones (primary) and desktop, at home or away over a VPN such as Tailscale. Moments of use: "it's cold, warm this room now", "we're leaving for the weekend", "why is the bill high", "fix the weekly schedule". The UI is in French.
+Households with Sauter electric radiators on Cozytouch, on phones (primary) and desktop, at home or away over a VPN such as Tailscale. Moments of use: "it's cold, warm this room now", "we're leaving for the weekend", "why is the bill high", "fix the weekly schedule". The UI is in French (the default) and English.
 
 ## Product Purpose
 
@@ -43,7 +43,7 @@ Built around each installation's own devices: rooms and radiators come from its 
 
 ## Brand Commitments
 
-Name: **Kelvin** (repo `kelvin`). Short, technical, unit-of-temperature. UI copy in French.
+Name: **Kelvin** (repo `kelvin`). Short, technical, unit-of-temperature. UI copy in French and English; French by default.
 Modern, intuitive at first glance, detailed when needed; it must look and feel like a real professional app with polished animation.
 Visual direction: **B · Précision**. It is a crisp, dark-first, data-forward tool in the Linear/Vercel family, with a 24 h thermal strip per room as its signature.
 
@@ -61,4 +61,4 @@ No brand assets or logo from the device makers are used. Never fabricate consump
 
 ## Accessibility & Inclusion
 
-French UI. Must be fully usable on phones one-handed, with large touch targets; WCAG AA contrast; respects reduced-motion.
+French (default) and English UI, chosen per device; `<html lang>` follows the choice. Must be fully usable on phones one-handed, with large touch targets; WCAG AA contrast; respects reduced-motion.

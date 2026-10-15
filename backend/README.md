@@ -83,7 +83,8 @@ nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: same-origin`.
 Commands return `202 {"pending": …}` and resolve over SSE (`pending` and `house` events). Errors return `{"detail": "<French message>", "code": "<snake_case>", "params": {…}}` with the
 HTTP status (mostly 422; 401, 403, 404, 429, 503 where they apply). `code` and `params` are the
 stable contract the web app translates (`web/src/lib/i18n/api-codes.json` lists every code);
-`detail` stays French for curl, logs and older clients. The full list is `kelvin/errors.py`.
+`detail` stays French for curl, logs and older clients (the API never reads `Accept-Language`). The
+full list is `kelvin/errors.py`.
 `DELETE /api/overrides/{id}` may return `202 {"pending": null}` when there is nothing to restore.
 A pending's `label` and `error` stay French; `label_code`/`label_params` and
 `error_code`/`error_params` are the codes the web translates, and `reason_code` (`quota`, `auth`,
