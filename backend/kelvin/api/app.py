@@ -3,8 +3,10 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ASGIApp
 
@@ -68,13 +70,29 @@ def create_app(
     async def user_error(request: Request, exc: UserError) -> JSONResponse:
         return JSONResponse(status_code=exc.status, content=exc.body())
 
+    @app.exception_handler(StarletteHTTPException)
+    async def framework_error(request: Request, exc: StarletteHTTPException):
+        """The router's own 404/405 (no SPA catch-all mounted) answer with codes too."""
+        code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code)
+        if code is None:
+            return await http_exception_handler(request, exc)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=UserError(code, exc.status_code).body(),
+            headers=getattr(exc, "headers", None),
+        )
+
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         field, msg = "", ""
         errors = exc.errors()
-        if errors:
+        if errors and errors[0].get("type") != "json_invalid":  # its loc is a byte offset
             e = errors[0]
-            field = ".".join(str(x) for x in e.get("loc", ()) if x not in ("body", "query", "path"))
+            field = ".".join(
+                str(x)
+                for x in e.get("loc", ())
+                if x not in ("body", "query", "path") and not isinstance(x, int)
+            )
             msg = str(e.get("msg", ""))
         return JSONResponse(
             status_code=422,

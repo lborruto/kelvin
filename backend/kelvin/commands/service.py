@@ -166,7 +166,7 @@ class CommandService:
                     "failed",
                     "send_failed",
                     reason_code=gateway_error_code(e),
-                    reason=safe_reason(e),
+                    detail_reason=safe_reason(e),
                 )
             self._release(p)
             return p
@@ -256,13 +256,17 @@ class CommandService:
         code: str | None = None,
         *,
         reason_code: str | None = None,
+        detail_reason: str | None = None,
         **params: Any,
     ) -> None:
+        """`params` go to the API as `error_params`; `detail_reason` (scrubbed gateway text) only
+        into the French `error` (kelvin.errors.DETAIL_ONLY)."""
         p.status = status
         p.error_code = code
         p.error_params = params
         p.reason_code = reason_code
-        p.error = french(code, params) if code else None
+        shown = params if detail_reason is None else params | {"reason": detail_reason}
+        p.error = french(code, shown) if code else None
         self._pending.pop(p.id, None)
         self._recent.pop(p.id, None)
         self._recent[p.id] = (self.clock(), p)

@@ -10,7 +10,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from kelvin.commands.service import CommandService
-from kelvin.errors import gateway_error_code
+from kelvin.errors import gateway_error_code, safe_reason
 from kelvin.house.model import House
 from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
@@ -131,7 +131,7 @@ class EventPump:
             else:
                 self.commands.on_exec(ev)
         except Exception:
-            log.exception("failed to handle event %r", ev)
+            log.exception("failed to handle event %s", type(ev).__name__)
 
     async def run_once(self) -> float:
         if self.auth_rejected:
@@ -153,7 +153,7 @@ class EventPump:
                 self._next_state_read = self.clock() + self.state_interval
         except GatewayError as e:
             self.failures += 1
-            self.last_error = str(e) or type(e).__name__
+            self.last_error = safe_reason(e)
             self.last_error_code = gateway_error_code(e)
             log.warning("overkiz poll failed (%s): %s", self.failures, self.last_error)
             if not events_ok:
@@ -174,7 +174,7 @@ class EventPump:
                     log.warning("overkiz re-login refused: the stored Cozytouch password is wrong")
                     self._notify_status()
                 except GatewayError as login_err:
-                    log.warning("overkiz re-login failed: %s", login_err)
+                    log.warning("overkiz re-login failed: %s", safe_reason(login_err))
             exponent = min(self.failures - 1, 16)
             return min(self.max_backoff, self.idle_interval * 2**exponent)
         finally:

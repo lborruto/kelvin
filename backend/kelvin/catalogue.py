@@ -8,14 +8,17 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from kelvin.errors import SAMPLES, STATUS_CODES, TEMPLATES, french
+from kelvin.errors import DETAIL_ONLY, SAMPLES, STATUS_CODES, TEMPLATES, french
 from kelvin.labels import LABEL_SAMPLES, LABEL_TEMPLATES, Label
 
 
 def catalogue() -> dict[str, Any]:
     return {
         "errors": {
-            c: {"params": SAMPLES.get(c, {}), "fr": french(c, SAMPLES.get(c, {}))}
+            c: {
+                "params": SAMPLES.get(c, {}),
+                "fr": french(c, {**SAMPLES.get(c, {}), **DETAIL_ONLY.get(c, {})}),
+            }
             for c in sorted(TEMPLATES)
         },
         "labels": {

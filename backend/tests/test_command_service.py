@@ -111,7 +111,7 @@ async def test_send_error_fails_immediately(env):
     assert p.status == "failed" and p.error == "Envoi impossible : réseau"
     assert (p.error_code, p.error_params, p.reason_code) == (
         "send_failed",
-        {"reason": "réseau"},
+        {},
         "network",
     )
     assert p.view()["reason_code"] == "network"
@@ -323,3 +323,15 @@ async def test_a_label_gives_the_pending_its_code_and_french_text(env):
         {"name": "Salon", "mode": "manual"},
     )
     assert labels == ["Salon : Manuel"]  # Overkiz gets the French text, never the Label
+
+
+async def test_gateway_text_reaches_the_french_error_scrubbed_and_never_the_params(env):
+    _, gw, house, svc, _ = env
+    gw.fail_next_execute = GatewayError(
+        "connect to [2001:db8::1]:443; serial 1234-5678-9012 token=x"
+    )
+    r = house.radiators["9312063"]
+    p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
+    v = p.view()
+    assert v["error"] == "Envoi impossible : connect to …; serial … …"
+    assert (v["error_code"], v["error_params"], v["reason_code"]) == ("send_failed", {}, "network")

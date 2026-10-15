@@ -320,3 +320,14 @@ async def test_a_full_read_hands_the_setup_on_for_storage(env):
     pump.request_resync()
     await pump.run_once()
     assert seen == [(gw.root.oid, len(gw.devices))]
+
+
+async def test_gateway_text_in_status_and_logs_is_scrubbed(env, caplog):
+    from kelvin.overkiz.errors import GatewayError
+
+    _, gw, _, _, pump, _, _ = env
+    gw.fail_fetch = GatewayError("connect to 192.168.1.20:8443 failed for io://1234-5678-9012/1")
+    with caplog.at_level("WARNING"):
+        await pump.run_once()
+    assert pump.status()["last_error"] == "connect to … failed for …"
+    assert "192.168" not in caplog.text and "1234-5678" not in caplog.text

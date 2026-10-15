@@ -88,6 +88,13 @@ depends on.
 - **Language:** user-facing strings (errors, labels, UI) are French and follow DESIGN.md
   (no-break space before units, `−`, `—` for a missing value, typographic `’`). Code, logs and
   docs are English.
+- **API errors:** raise a `UserError` code (`backend/kelvin/errors.py`, labels in
+  `kelvin/labels.py`); never a bare `HTTPException`. Every error body keeps its French `detail`
+  as a fallback and adds `code` and `params`. Backend French lives only in those two files;
+  after adding or changing a code, run `cd backend && uv run python scripts/export_codes.py`.
+  Params hold keys and figures only: never an id, email, PDL, token or other secret, and
+  third-party text (a gateway's message) goes through `errors.scrub` before any API body, SSE
+  or log.
 - **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`; anchors
   `#away`, `#tariff`, `#linky`, `#quality`, `#curve`) and come from `web/src/lib/paths.ts`. Old
   French paths are redirected only by its legacy table and the marked block in `app.html` (a test

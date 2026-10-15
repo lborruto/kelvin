@@ -89,6 +89,8 @@ A pending's `label` and `error` stay French; `label_code`/`label_params` and
 `error_code`/`error_params` are the codes the web translates, and `reason_code` (`quota`, `auth`,
 `network`, `unknown`) says why a send failed. `GET /api/status` carries the same kind of code in
 `overkiz.last_error_code`. Params hold keys and figures only, never an id, an email or a token.
+A send failure's gateway text appears only, scrubbed of addresses, ids and secrets, in the French
+`error` (as in `overkiz.last_error`), never in `error_params`.
 An ended boost or away stays listed with `"restoring": true` until the device confirms the restore;
 a restore the device does not confirm is retried after 30 s, then less and less often, at most every 30 min.
 

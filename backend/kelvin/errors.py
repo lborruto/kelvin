@@ -116,7 +116,6 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "feature_unknown": {"feature": "turbo"},
     "slot_time_invalid": {"value": "24:00"},
     "linky_status_throttled": {"at": "14:30"},
-    "send_failed": {"reason": "timeout"},
 }
 
 # Status.last_error_code: why the last Cozytouch poll failed.
@@ -157,16 +156,47 @@ def invalid_request_detail(field: str, msg: str) -> str:
     return f"Requête invalide : {field} — {msg}" if field else TEMPLATES["invalid_request"]
 
 
-# A URL (Overkiz device URLs hold the gateway id) or an email address in a third-party message.
-_ADDRESS = re.compile(r"\S+://\S+|\S+@\S+")
+# Third-party text (a gateway's error message) may hold addresses, ids and secrets. `scrub`
+# replaces each shape below with « … » before that text reaches an API body, SSE or a log.
+# Best effort: it knows the shapes Overkiz, aiohttp and HTTP produce, not every possible one.
+_SCRUB = re.compile(
+    "|".join(
+        (
+            r"[A-Za-z][\w+.-]*://\S+",  # any URL, Overkiz device URLs (io://gateway/device#n)
+            r"[^\s@]+@[^\s@]+",  # an email address
+            r"\bBearer\s+\S+",  # an Authorization value
+            # token=…, JSESSIONID=…, api_key: …, password=… (name and value)
+            r"\b\w*(?:token|key|session|secret|password|passwd|auth|cookie)\w*\s*[=:]\s*(?:Bearer\s+)?[^\s;,]+",
+            r"\S*\?\S*",  # a path with a query string
+            r"\[[0-9A-Fa-f:.%\w]+\](?::\d+)?",  # a bracketed IPv6 literal, with its port
+            r"\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b",  # an IPv4 address, with its port
+            # a bare IPv6 address: with « :: », or at least four groups (not a time like 14:30:00)
+            r"(?<![\w:])(?:[0-9A-Fa-f]{0,4}:){1,7}:[0-9A-Fa-f]{0,4}(?:%\w+)?(?![\w:])",
+            r"(?<![\w:])(?:[0-9A-Fa-f]{1,4}:){3,7}[0-9A-Fa-f]{1,4}(?:%\w+)?(?![\w:])",
+            r"\b\d{4}-\d{4}-\d{4}(?:/[\w.#-]*)?",  # an Overkiz gateway id, with a device path
+            r"\b[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\b",  # a UUID
+            r"\b[A-Za-z0-9_-]{32,}\b",  # a long opaque token or session id
+            r"\b\d{6,}\b",  # a device id, a serial, a PDL
+        )
+    ),
+    re.IGNORECASE,
+)
 REASON_MAX = 200
+
+# Free text a code's French detail shows but its params never carry (the web builds its own
+# message from the pending's `reason_code`). Values are samples for the catalogue.
+DETAIL_ONLY: dict[str, dict[str, str]] = {"send_failed": {"reason": "timeout"}}
+
+
+def scrub(text: str) -> str:
+    """`text` without any address, id or secret shape (see _SCRUB)."""
+    return _SCRUB.sub("…", text)
 
 
 def safe_reason(e: BaseException) -> str:
-    """The `reason` param of `send_failed`: the gateway's message without any address in it
-    (it reaches API bodies and logs), never empty, bounded."""
-    text = _ADDRESS.sub("…", str(e)).strip()
-    return text[:REASON_MAX] or type(e).__name__
+    """A gateway exception as text fit for an API body, SSE or a log: scrubbed, bounded, never
+    empty."""
+    return scrub(str(e)).strip()[:REASON_MAX].rstrip() or type(e).__name__
 
 
 def gateway_error_code(e: BaseException) -> str:

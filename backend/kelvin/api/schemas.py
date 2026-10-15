@@ -100,9 +100,9 @@ class TariffBody(BaseModel):
     def to_update(self) -> TariffUpdate:
         prices = Prices(
             self.valid_from,
-            _price(self.subscription_eur_month, 1000, "price_subscription_invalid"),
-            _price(self.hc_eur_kwh, 10, "price_hc_invalid"),
-            _price(self.hp_eur_kwh, 10, "price_hp_invalid"),
+            _price(self.subscription_eur_month, 1000, code="price_subscription_invalid"),
+            _price(self.hc_eur_kwh, 10, code="price_hc_invalid"),
+            _price(self.hp_eur_kwh, 10, code="price_hp_invalid"),
         )
         return TariffUpdate(
             kva=self.kva,

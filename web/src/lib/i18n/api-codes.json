@@ -197,9 +197,7 @@
     },
     "send_failed": {
       "fr": "Envoi impossible : timeout",
-      "params": {
-        "reason": "timeout"
-      }
+      "params": {}
     },
     "send_internal": {
       "fr": "Envoi impossible : erreur interne.",
