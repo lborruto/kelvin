@@ -675,3 +675,29 @@ def test_rooms_duty_is_routed_before_any_room_id_route():
     paths = [r.path for r in router.routes]
     first_room = next(i for i, p in enumerate(paths) if p.startswith("/rooms/{room_id}"))
     assert paths.index("/rooms/duty") < first_room
+
+
+async def test_the_boost_end_follows_the_injected_wall_clock(tmp_path):
+    """The override manager judges `ends_at` with the injected wall clock, so the route must
+    compute it from the same clock: with the real time a pinned test clock (or a stepped system
+    clock) would end the boost at once or never."""
+    wall = ManualClock(1_760_000_000.0)  # far from the real time of any test run
+    gw = FakeGateway(clock=wall)
+    app = create_app(
+        Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
+        gw,
+        start_tasks=False,
+        wall=wall,
+    )
+    async with LifespanManager(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://t", headers={"X-Kelvin": "1"}
+        ) as c:
+            await login(c)
+            rt = app.state.ctx.rt
+            r = await c.post(
+                f"/api/rooms/{salon_id(rt)}/boost", json={"temperature": 21, "duration_min": 45}
+            )
+            assert r.status_code == 202, r.text
+            (o,) = rt.overrides.active()
+            assert o["ends_at"] == wall() + 45 * 60
