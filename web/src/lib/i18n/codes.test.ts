@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '$lib/api/client';
-import type { Pending } from '$lib/api/types';
+import type { Pending, Status } from '$lib/api/types';
 import { applyLocale } from '$lib/i18n';
 import codes from './api-codes.json';
 import { apiMessage, errorText, LOST, pendingError, pendingLabel, statusError } from './codes';
@@ -86,7 +86,7 @@ describe('pending and status', () => {
       'The radiator rejected the command.'
     );
     expect(pendingError(pending({ error_code: 'send_failed', error_params: {}, reason_code: 'quota' }))).toBe(
-      'Couldn’t send: Cozytouch rate limit.'
+      'Couldn’t send: Cozytouch request limit reached.'
     );
     expect(pendingError(pending({ error_code: LOST }))).toBe('Command not confirmed (connection lost).');
     expect(pendingError(pending({}))).toBe('Command failed.');
@@ -98,5 +98,60 @@ describe('pending and status', () => {
     );
     expect(statusError({ connected: false, last_ok_at: null, last_error: 'x' })).toBe('Cozytouch error.');
     expect(statusError({ connected: true, last_ok_at: 1, last_error: null })).toBeNull();
+  });
+});
+
+describe('codes are looked up as own keys only', () => {
+  it('a code named after an Object.prototype member never resolves to it', () => {
+    for (const l of ['fr', 'en'] as const) {
+      applyLocale(l);
+      for (const k of ['toString', 'constructor', '__proto__', 'hasOwnProperty']) {
+        expect(apiMessage(k, {}, 'Texte du serveur.'), k).toBe('Texte du serveur.');
+        expect(pendingLabel(pending({ label_code: k, label: 'Salon : Manuel' })), k).toBe('Salon : Manuel');
+        const reason_code = k as Pending['reason_code'];
+        expect(pendingError(pending({ error_code: 'send_failed', reason_code })), k).toMatch(/^(Envoi impossible|Couldn’t send)\.$/);
+        const last_error_code = k as Status['last_error_code'];
+        expect(statusError({ connected: false, last_ok_at: null, last_error: 'x', last_error_code }), k).toBe(
+          l === 'en' ? 'Cozytouch error.' : 'Erreur Cozytouch.'
+        );
+        // Lookups inside the messages: mode names, setpoint kinds, subjects, days.
+        expect(norm(apiMessage('mode_unknown', { mode: k })), k).toMatch(new RegExp(`: ${k}\\.$`));
+        expect(apiMessage('temp_step', { kind: k }), k).toMatch(new RegExp(`^${k} `));
+        expect(apiMessage('day_unknown', { day: k }), k).toMatch(new RegExp(`: ${k}\\.$`));
+        expect(apiMessage('program_overlap', { day: k }), k).toMatch(new RegExp(`^${k}`));
+        expect(norm(pendingLabel(pending({ label_code: 'mode', label_params: { name: 'Salon', mode: k } }))), k).toBe(`Salon : ${k}`.replace(' :', l === 'en' ? ':' : ' :'));
+        expect(norm(pendingLabel(pending({ label_code: 'setpoint', label_params: { name: 'S', kind: k, value: 20 } }))), k).toMatch(
+          new RegExp(`: ${k} 20`)
+        );
+      }
+    }
+  });
+});
+
+describe('English copy: one term per condition', () => {
+  it('the Cozytouch request limit and an unreachable Cozytouch read the same everywhere', () => {
+    applyLocale('en');
+    expect(pendingError(pending({ error_code: 'send_failed', reason_code: 'quota' }))).toBe(
+      'Couldn’t send: Cozytouch request limit reached.'
+    );
+    expect(statusError({ connected: false, last_ok_at: null, last_error: 'x', last_error_code: 'quota' })).toBe(
+      'Cozytouch request limit reached.'
+    );
+    expect(pendingError(pending({ error_code: 'send_failed', reason_code: 'network' }))).toBe(
+      'Couldn’t send: can’t reach Cozytouch.'
+    );
+    expect(statusError({ connected: false, last_ok_at: null, last_error: 'x', last_error_code: 'network' })).toBe(
+      'Can’t reach Cozytouch.'
+    );
+    expect(apiMessage('quotas_unavailable')).toBe('Cozytouch request limits unavailable.');
+  });
+  it('identify is “blink”, as on the button; subjects all take “The”', () => {
+    applyLocale('en');
+    expect(pendingLabel(pending({ label_code: 'identify', label_params: { name: 'Salon' } }))).toBe('Salon: blink');
+    expect(['manual', 'comfort', 'eco'].map((kind) => apiMessage('temp_step', { kind }))).toEqual([
+      'The setpoint goes in steps of 0.5 °C.',
+      'The comfort temperature goes in steps of 0.5 °C.',
+      'The eco setback goes in steps of 0.5 °C.'
+    ]);
   });
 });

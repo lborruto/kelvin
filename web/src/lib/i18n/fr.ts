@@ -1,5 +1,5 @@
 import type { Day } from '$lib/api/types';
-import { intFor, type ApiParams } from './rules';
+import { intFor, own, type ApiParams } from './rules';
 
 const NB = '\u00a0';
 const int = intFor('fr');
@@ -13,9 +13,9 @@ const DAY_LOWER: Record<Day, string> = {
   saturday: 'samedi',
   sunday: 'dimanche'
 };
-const dayLower = (d: unknown) => DAY_LOWER[d as Day] ?? String(d);
+const dayLower = (d: unknown) => own(DAY_LOWER, d) ?? String(d);
 const SUBJECT: Record<string, string> = { manual: 'La consigne', comfort: 'La température confort', eco: 'L’abaissement éco' };
-const subject = (k: unknown) => SUBJECT[String(k)] ?? String(k);
+const subject = (k: unknown) => own(SUBJECT, k) ?? String(k);
 const MODE_NAME: Record<string, string> = { off: 'Arrêt', manual: 'Manuel', program: 'Programme', other: 'Autre', mixed: 'Mixte' };
 const KIND: Record<string, string> = { manual: 'consigne', comfort: 'confort', eco: 'abaissement éco' };
 /** A number as the backend writes it in a label (Python `{:g}` with a comma): 19,5 — 12. */
@@ -61,8 +61,8 @@ export const fr = {
     unknown: 'Erreur Cozytouch.'
   },
   action: {
-    mode: (p: ApiParams) => `${p.name}${NB}: ${MODE_NAME[String(p.mode)] ?? p.mode}`,
-    setpoint: (p: ApiParams) => `${p.name}${NB}: ${KIND[String(p.kind)] ?? p.kind} ${num(p.value)}${NB}°C`,
+    mode: (p: ApiParams) => `${p.name}${NB}: ${own(MODE_NAME, p.mode) ?? p.mode}`,
+    setpoint: (p: ApiParams) => `${p.name}${NB}: ${own(KIND, p.kind) ?? p.kind} ${num(p.value)}${NB}°C`,
     program: (p: ApiParams) => `${p.name}${NB}: programme`,
     settings: (p: ApiParams) => `${p.name}${NB}: réglages`,
     night_light: (p: ApiParams) => `${p.name}${NB}: veilleuse ${p.on ? 'allumée' : 'éteinte'}`,
@@ -133,7 +133,7 @@ export const fr = {
     linky_status_error: () => 'Synchronisation Linky en échec.',
     linky_status_throttled: (p: ApiParams) => `Enedis limite les requêtes${NB}: nouvel essai à ${p.at}.`,
     send_failed: (p: ApiParams) => {
-      const why = REASON[String(p.reason_code)];
+      const why = own(REASON, p.reason_code);
       return why ? `Envoi impossible${NB}: ${why}.` : 'Envoi impossible.';
     },
     send_internal: () => `Envoi impossible${NB}: erreur interne.`,

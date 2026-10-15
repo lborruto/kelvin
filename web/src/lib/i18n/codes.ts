@@ -1,6 +1,6 @@
 import { ApiError } from '$lib/api/client';
 import type { Pending, Status } from '$lib/api/types';
-import type { ApiParams } from './rules';
+import { own, type ApiParams } from './rules';
 import { m } from './state.svelte';
 
 type Fn = (p: ApiParams) => string;
@@ -13,7 +13,7 @@ export const UNKNOWN = 'client_unknown';
  * `detail`; nothing at all shows the generic message. Never empty, never "undefined". */
 export function apiMessage(code: string | null | undefined, params?: ApiParams | null, detail?: string | null): string {
   if (code === 'network' || code === 'unexpected' || code === 'server') return m.error[code];
-  const fn = code ? (m.api as Record<string, Fn | undefined>)[code] : undefined;
+  const fn = code ? own(m.api as Record<string, Fn>, code) : undefined;
   if (fn) return fn(params ?? {});
   return detail || m.error.unexpected;
 }
@@ -24,7 +24,7 @@ export function errorText(e: unknown): string {
 }
 
 export function pendingLabel(p: Pending): string {
-  const fn = p.label_code ? (m.action as Record<string, Fn | undefined>)[p.label_code] : undefined;
+  const fn = p.label_code ? own(m.action as Record<string, Fn>, p.label_code) : undefined;
   return fn ? fn(p.label_params ?? {}) : p.label;
 }
 
@@ -38,5 +38,5 @@ export function pendingError(p: Pending): string {
 /** Why the last Cozytouch poll failed, in a sentence; the raw error stays in a title= for support. */
 export function statusError(s: Status): string | null {
   if (!s.last_error) return null;
-  return (m.cozytouch as Record<string, string | undefined>)[s.last_error_code ?? 'unknown'] ?? m.cozytouch.unknown;
+  return own(m.cozytouch as Record<string, string>, s.last_error_code ?? 'unknown') ?? m.cozytouch.unknown;
 }

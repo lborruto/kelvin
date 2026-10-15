@@ -59,14 +59,15 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Fenêtre ouverte | Window open | |
 | Détection de fenêtre ouverte / de présence | Open-window detection / Presence detection | |
 | Veilleuse | Night light | |
-| Faire clignoter | Blink | |
+| Faire clignoter / identification | Blink | The button and the pending label (“Salon: blink”) |
 | Radiateur(s) | Radiator(s) | The upstream default name « Radiateur » is device data, never translated |
 | Détails / Historique / Commande | Details / History / Controls | |
 | Jeton MyElectricalData | MyElectricalData token | |
 | PDL (point de livraison) | PDL (delivery point) | |
 | Relié / Non relié | Connected / Not connected | Linky |
 | Synchro | Sync | |
-| Injoignable / Connecté | Unreachable / Connected | |
+| Injoignable / Connecté | Unreachable / Connected | A status word. In a sentence, « Cozytouch injoignable » / « Kelvin est injoignable » → “Can’t reach Cozytouch” / “Can’t reach Kelvin” (one phrasing everywhere) |
+| Limite de requêtes Cozytouch atteinte | Cozytouch request limit reached | The quota condition, one phrasing everywhere (never “rate limit”) |
 | à l’instant / il y a 5 min | just now / 5 min ago | |
 | Aujourd’hui / demain / la veille | Today / tomorrow / the previous day | |
 | Jour / Semaine / Mois / Année | Day / Week / Month / Year | |

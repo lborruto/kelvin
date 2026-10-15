@@ -1,6 +1,6 @@
 import type { Messages } from './fr';
 import type { Day } from '$lib/api/types';
-import { intFor, type ApiParams } from './rules';
+import { intFor, own, type ApiParams } from './rules';
 
 const NB = '\u00a0';
 const int = intFor('en');
@@ -14,15 +14,15 @@ const DAY: Record<Day, string> = {
   saturday: 'Saturday',
   sunday: 'Sunday'
 };
-const day = (d: unknown) => DAY[d as Day] ?? String(d);
-const SUBJECT: Record<string, string> = { manual: 'The setpoint', comfort: 'Comfort temperature', eco: 'Eco setback' };
-const subject = (k: unknown) => SUBJECT[String(k)] ?? String(k);
+const day = (d: unknown) => own(DAY, d) ?? String(d);
+const SUBJECT: Record<string, string> = { manual: 'The setpoint', comfort: 'The comfort temperature', eco: 'The eco setback' };
+const subject = (k: unknown) => own(SUBJECT, k) ?? String(k);
 const MODE_NAME: Record<string, string> = { off: 'Off', manual: 'Manual', program: 'Schedule', other: 'Other', mixed: 'Mixed' };
 const KIND: Record<string, string> = { manual: 'setpoint', comfort: 'comfort', eco: 'eco setback' };
 const REASON: Record<string, string> = {
-  quota: 'Cozytouch rate limit',
+  quota: 'Cozytouch request limit reached',
   auth: 'Cozytouch refused the sign-in',
-  network: 'Cozytouch unreachable',
+  network: 'can’t reach Cozytouch',
   unknown: 'unknown error'
 };
 
@@ -52,17 +52,17 @@ export const en: Messages = {
   },
   cozytouch: {
     auth: 'Cozytouch refused the sign-in.',
-    network: 'Cozytouch isn’t answering.',
+    network: 'Can’t reach Cozytouch.',
     quota: 'Cozytouch request limit reached.',
     unknown: 'Cozytouch error.'
   },
   action: {
-    mode: (p: ApiParams) => `${p.name}: ${MODE_NAME[String(p.mode)] ?? p.mode}`,
-    setpoint: (p: ApiParams) => `${p.name}: ${KIND[String(p.kind)] ?? p.kind} ${p.value}${NB}°C`,
+    mode: (p: ApiParams) => `${p.name}: ${own(MODE_NAME, p.mode) ?? p.mode}`,
+    setpoint: (p: ApiParams) => `${p.name}: ${own(KIND, p.kind) ?? p.kind} ${p.value}${NB}°C`,
     program: (p: ApiParams) => `${p.name}: schedule`,
     settings: (p: ApiParams) => `${p.name}: settings`,
     night_light: (p: ApiParams) => `${p.name}: night light ${p.on ? 'on' : 'off'}`,
-    identify: (p: ApiParams) => `${p.name}: identify`,
+    identify: (p: ApiParams) => `${p.name}: blink`,
     boost: (p: ApiParams) => `${p.name}: boost to ${p.temperature}${NB}°C`,
     away: (p: ApiParams) => `Away at ${p.temperature}${NB}°C`,
     all_off: () => 'Turn everything off',
@@ -77,7 +77,7 @@ export const en: Messages = {
     wrong_account: () => 'This Cozytouch account isn’t the one for this home.',
     cozytouch_unreachable: () => 'Can’t reach Cozytouch. Try again in a moment.',
     cozytouch_unavailable: () => 'Can’t reach Cozytouch. Try again later.',
-    quotas_unavailable: () => 'Cozytouch quotas unavailable.',
+    quotas_unavailable: () => 'Cozytouch request limits unavailable.',
     too_many_attempts: (p: ApiParams) => `Too many attempts. Try again in ${p.minutes}${NB}min.`,
     not_found: () => 'Not found.',
     method_not_allowed: () => 'Method not allowed.',
@@ -128,7 +128,7 @@ export const en: Messages = {
     linky_status_error: () => 'Linky sync failed.',
     linky_status_throttled: (p: ApiParams) => `Enedis is limiting requests: next try at ${p.at}.`,
     send_failed: (p: ApiParams) => {
-      const why = REASON[String(p.reason_code)];
+      const why = own(REASON, p.reason_code);
       return why ? `Couldn’t send: ${why}.` : 'Couldn’t send.';
     },
     send_internal: () => 'Couldn’t send: internal error.',

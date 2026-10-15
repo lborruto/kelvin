@@ -64,3 +64,36 @@ describe('dictionaries', () => {
     }
   });
 });
+
+/** A function's parameter names, read from its source (arrow or plain function). */
+function params(fn: Fn): string[] {
+  const src = fn.toString();
+  const m = /^(?:function[^(]*)?\(([^)]*)\)|^([\w$]+)\s*=>/.exec(src);
+  const list = m ? (m[1] ?? m[2] ?? '') : '';
+  return list
+    .split(',')
+    .map((s) => s.replace(/[=:].*$/s, '').trim())
+    .filter(Boolean);
+}
+
+describe('English messages take the same parameters as French', () => {
+  const frFns = leaves(fr).filter(([, v]) => typeof v === 'function') as [string, Fn][];
+  const enFns = new Map(leaves(en).filter(([, v]) => typeof v === 'function') as [string, Fn][]);
+  it('same arity and the same parameter names', () => {
+    expect(frFns.length).toBeGreaterThan(0);
+    for (const [p, f] of frFns) {
+      const e = enFns.get(p);
+      expect(typeof e, p).toBe('function');
+      expect(e!.length, `${p} arity`).toBe(f.length);
+      expect(params(e!), `${p} names`).toEqual(params(f));
+    }
+    for (const p of enFns.keys()) expect(frFns.some(([q]) => q === p), p).toBe(true);
+  });
+  it('the check notices a dropped parameter', () => {
+    const fewer: Fn = () => 'x';
+    const more: Fn = ((n: number) => `${n}`) as Fn;
+    expect(fewer.length).not.toBe(more.length);
+    expect(params(more)).toEqual(['n']);
+    expect(params(((a: string, b: number) => a + b) as Fn)).toEqual(['a', 'b']);
+  });
+});

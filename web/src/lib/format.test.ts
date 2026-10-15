@@ -257,7 +257,9 @@ describe('review fixes: signs, ties, digits, parts', () => {
 import { fmtDateTime, parisTodayIso } from './format';
 
 /** Every formatter over a grid of values, in French: pins that French output is byte-identical to
- * Plan 6's (taken before the formatters followed the locale). Only fmtAgo's spaces changed since. */
+ * Plan 6's (taken before the formatters followed the locale). Changed since, on purpose: fmtAgo's
+ * spaces; negatives in fmtTemp, fmtKwh, fmtWh, fmtPrice, fmtAmount and fmtPct (true minus, no sign
+ * on a figure that rounds to zero, fmtKwh's decimals judged on the magnitude: −1 235 kWh). */
 function frenchGrid(): Record<string, unknown> {
   const nums = [
     -1234.567, -999.96, -3.5, -0.125, -0.004, -0, 0, 0.001, 0.0049, 0.00005, 0.125, 0.152, 0.2068, 0.384,
@@ -391,4 +393,53 @@ describe('shown parts add up in both languages (matchParts is digits only)', () 
       }
     });
   }
+});
+
+describe('negatives use the true minus in every formatter, in both languages', () => {
+  const NB = ' ';
+  const NN = ' ';
+  it('French', () => {
+    expect([fmtTemp(-3.5), fmtTemp(-3.5, false), fmtTemp(-0.04)]).toEqual([`−3,5${NB}°C`, '−3,5', `0,0${NB}°C`]);
+    expect([fmtKwh(-12.34), fmtKwh(-2400), fmtKwh(-0.01, false)]).toEqual([`−12,3${NB}kWh`, `−2${NN}400${NB}kWh`, '0,0']);
+    expect([fmtWh(-1500), fmtWh(-0.4)]).toEqual([`−1${NN}500${NB}Wh`, `0${NB}Wh`]);
+    expect([fmtAmount(-3.5, 2), fmtAmount(-0.1, 4), fmtAmount(-0.001, 2)]).toEqual(['−3,50', '−0,1000', '0,00']);
+    expect([fmtPct(-0.12), fmtPct(-0.004)]).toEqual([`−12${NB}%`, `0${NB}%`]);
+    expect([fmtPrice(-0.1), fmtPrice(-0.00001)]).toEqual([`−0,1000${NB}€/kWh`, `0,0000${NB}€/kWh`]);
+  });
+  it('English: the sign comes before the euro', () => {
+    applyLocale('en');
+    expect([fmtTemp(-3.5), fmtKwh(-2400), fmtWh(-1500)]).toEqual([`−3.5${NB}°C`, `−2,400${NB}kWh`, `−1,500${NB}Wh`]);
+    expect([fmtAmount(-3.5, 2), fmtPct(-0.12), fmtPct(-0.004)]).toEqual(['−3.50', '−12%', '0%']);
+    expect([fmtPrice(-0.1), fmtPrice(0.1), fmtPrice(-0.00001)]).toEqual(['−€0.1000/kWh', '€0.1000/kWh', '€0.0000/kWh']);
+  });
+  it('no formatter ever prints an ASCII hyphen as a sign', () => {
+    for (const l of ['fr', 'en'] as const) {
+      applyLocale(l);
+      for (const v of [-1234.567, -3.5, -0.125, -0.004, -0]) {
+        const out = [
+          fmtTemp(v), fmtKwh(v), fmtWh(v), fmtPrice(v), fmtAmount(v, 2), fmtAmount(v, 4), fmtPct(v), fmtKwhHero(v),
+          fmtKwhExact(v), fmtW(v), fmtEurHero(v), fmtEurExact(v), fmtEurHalfHour(v), fmtPct1(v), fmtSigned(v, '€'),
+          fmtSignedPrice(v), fmtHours(v), fmtDelta(v), fmtChangeShare(v) ?? ''
+        ];
+        for (const s of out) expect(s, `${l} ${v}`).not.toMatch(/-/);
+      }
+    }
+  });
+});
+
+describe('parseDecimal: separators', () => {
+  it('a lone comma or point is the decimal mark; with both, the other one only groups thousands', () => {
+    expect(parseDecimal('1,234')).toBe(1.234);
+    expect(parseDecimal('1.234')).toBe(1.234);
+    expect(parseDecimal('1.234.567,5')).toBe(1234567.5);
+    expect(parseDecimal('1,234,567.5')).toBe(1234567.5);
+  });
+  it('ambiguous mixed separators are rejected', () => {
+    expect(parseDecimal('1,2.3')).toBeNull();
+    expect(parseDecimal('12,34.5')).toBeNull();
+    expect(parseDecimal('1.2,3')).toBeNull();
+    expect(parseDecimal('1,234,5.6')).toBeNull();
+    expect(parseDecimal('1.234,567.8')).toBeNull();
+    expect(parseDecimal(',5.0')).toBeNull();
+  });
 });

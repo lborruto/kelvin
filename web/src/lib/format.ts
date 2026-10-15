@@ -59,7 +59,7 @@ const pct = (s: string) => (english() ? `${s}%` : `${s}${NB}%`);
 
 export function fmtTemp(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
-  const s = one().format(v);
+  const s = signed(one(), v);
   return unit ? `${s}${NB}°C` : s;
 }
 
@@ -72,13 +72,13 @@ export function fmtDelta(v: number | null | undefined): string {
 /** "2 050 kWh", "12,5 kWh" (en "2,050 kWh"); `unit: false` for a column whose header carries the unit. */
 export function fmtKwh(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
-  const s = v >= 100 ? whole().format(v) : one().format(v);
+  const s = signed(Math.abs(v) >= 100 ? whole() : one(), v);
   return unit ? `${s}${NB}kWh` : s;
 }
 
 export function fmtWh(v: number | null | undefined): string {
   if (bad(v)) return '—';
-  return `${whole().format(v)}${NB}Wh`;
+  return `${signed(whole(), v)}${NB}Wh`;
 }
 
 export function fmtTime(ms: number): string {
@@ -113,32 +113,40 @@ export const LEVEL_LABEL: Record<string, string> = {
   mixed: 'Mixte'
 };
 
-/** fr "0,2068 €/kWh"; en "€0.2068/kWh". */
+/** fr "0,2068 €/kWh"; en "€0.2068/kWh" (a negative: « −0,1000 €/kWh », “−€0.1000/kWh”). */
 export function fmtPrice(v: number | null | undefined): string {
   if (bad(v)) return '—';
-  const s = four().format(v);
-  return english() ? `€${s}/kWh` : `${s}${NB}€/kWh`;
+  const s = signed(four(), v);
+  return english() ? `${euro(s)}/kWh` : `${s}${NB}€/kWh`;
 }
 
 /** A bare figure for a column whose header carries the unit: "0,2068", "16,20" (en "0.2068", "16.20"). */
 export function fmtAmount(v: number | null | undefined, digits: 2 | 4): string {
   if (bad(v)) return '—';
-  return (digits === 4 ? four() : two()).format(v);
+  return signed(digits === 4 ? four() : two(), v);
 }
 
 export function fmtPct(share: number | null | undefined): string {
   if (bad(share)) return '—';
-  return pct(whole().format(share * 100));
+  return pct(signed(whole(), share * 100));
 }
 
-/** "0,2068", "19.5", "1 234,5", "1,234.5" → number, in either language (prices are pasted from
- * bills); null for anything else, negatives included. With both a comma and a point, the last
- * one is the decimal mark. */
+/**
+ * "0,2068", "19.5", "1 234,5", "1,234.5" → number, in either language (prices are pasted from
+ * bills); null for anything else, negatives included. Spaces are ignored. The rule:
+ * - a lone comma or a lone point is the decimal mark, whatever the language: "1,234" is 1.234
+ *   (Kelvin's inputs, €/month and €/kWh, never reach 1 000);
+ * - with both marks, the last one is the decimal mark and the other may only group thousands
+ *   ("1.234,5", "1,234,567.5"); anything else, like "1,2.3" or "12,34.5", is ambiguous → null.
+ */
 export function parseDecimal(s: string): number | null {
   let t = s.trim().replace(/[\s\u00a0\u202f]/g, '');
   if (t.includes(',') && t.includes('.')) {
     const dec = Math.max(t.lastIndexOf(','), t.lastIndexOf('.'));
-    t = `${t.slice(0, dec).replace(/[.,]/g, '')}.${t.slice(dec + 1)}`;
+    const group = t[dec] === ',' ? '.' : ',';
+    const int = t.slice(0, dec);
+    if (!(group === '.' ? /^\d{1,3}(\.\d{3})+$/ : /^\d{1,3}(,\d{3})+$/).test(int)) return null;
+    t = `${int.replaceAll(group, '')}.${t.slice(dec + 1)}`;
   } else t = t.replace(',', '.');
   return /^\d+(\.\d+)?$/.test(t) ? Number(t) : null;
 }

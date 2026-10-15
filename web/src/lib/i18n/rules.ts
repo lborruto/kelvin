@@ -22,3 +22,10 @@ export function listFor(l: Locale): (items: string[]) => string {
   const f = new Intl.ListFormat(INTL[l], { type: 'conjunction' });
   return (items) => f.format(items);
 }
+
+/** `table[key]` when the table itself has that key: a code such as `toString` or `__proto__`
+ * never resolves to an Object.prototype member. */
+export function own<T>(table: Record<string, T>, key: unknown): T | undefined {
+  const k = String(key);
+  return Object.hasOwn(table, k) ? table[k] : undefined;
+}
