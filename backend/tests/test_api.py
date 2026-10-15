@@ -602,7 +602,7 @@ async def test_alerts_api_list_dismiss_and_snapshot(ctx):
     assert (await c.post(f"/api/alerts/{aid}/dismiss")).status_code == 204
     assert (await c.get("/api/alerts")).json() == []
     assert len((await c.get("/api/alerts", params={"state": "all"})).json()) == 1
-    for bad in ("99999", "abc", "-1"):
+    for bad in ("99999", "abc", "-1", "\u0663"):  # an Arabic-Indic digit is no id
         r = await c.post(f"/api/alerts/{bad}/dismiss")
         assert (r.status_code, r.json()["code"]) == (404, "alert_unknown")
     r = await c.get("/api/alerts", params={"state": "nope"})
@@ -637,3 +637,31 @@ async def test_an_unreachable_radiator_becomes_an_alert(ctx):
     rt.alerts.evaluate()
     kinds = [(a["kind"], a["params"]["radiator_id"]) for a in (await c.get("/api/alerts")).json()]
     assert ("radiator_unreachable", "8370022") in kinds
+
+
+async def test_a_failed_command_alert_resolves_after_24_hours_on_the_runtime_clock(tmp_path):
+    """The pending's time and the alert rule read the same injected clock (review B3 #1)."""
+    from kelvin.overkiz.errors import GatewayError
+
+    wall = ManualClock(1_760_000_000.0)
+    gw = FakeGateway(clock=ManualClock())
+    app = create_app(
+        Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
+        gw,
+        start_tasks=False,
+        wall=wall,
+    )
+    async with LifespanManager(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://t", headers={"X-Kelvin": "1"}
+        ) as c:
+            await login(c)
+            rt = app.state.ctx.rt
+            gw.fail_next_execute = GatewayError("timeout")
+            r = await c.post(f"/api/rooms/{salon_id(rt)}/mode", json={"mode": "manual"})
+            assert r.json()["pending"]["created_at"] == wall()
+            rt.alerts.evaluate()
+            assert [a["kind"] for a in (await c.get("/api/alerts")).json()] == ["command_failed"]
+            wall.advance(86_400 + 1)
+            rt.alerts.evaluate()
+            assert [a["kind"] for a in (await c.get("/api/alerts")).json()] == []

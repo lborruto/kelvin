@@ -133,7 +133,10 @@ def linky_stalled(ctx: AlertContext, now: float) -> list[Candidate]:
     last = st.get("last_day")
     if not st.get("configured") or not last:
         return []
-    days = (ctx.today - date.fromisoformat(last)).days
+    try:
+        days = (ctx.today - date.fromisoformat(last)).days
+    except (TypeError, ValueError):
+        return []  # a malformed date is not a stall (and must not fail every evaluation)
     if days < STALL_DAYS:
         return []
     if st.get("state") in ("quota", "throttled") and (st.get("last_ok_at") or 0) >= now - 86400:

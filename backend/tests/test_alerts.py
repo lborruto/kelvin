@@ -143,6 +143,36 @@ def test_an_unknown_severity_is_a_programming_error():
         svc.store.sync([cand(severity="loud")], {"command_failed"})
 
 
+def test_alerts_of_a_kind_no_rule_runs_any_more_are_resolved():
+    svc, store, _, _ = make({"command_failed": lambda ctx, now: [cand()]})
+    svc.evaluate()
+    svc.rules = {}  # the rule was removed or renamed
+    svc.evaluate()
+    assert store.listing("active") == []
+    assert store.listing("all")[0]["resolved_at"] is not None
+
+
+def test_a_failing_rule_is_not_a_removed_rule():
+    state = {"fail": False}
+
+    def flaky(ctx, now):
+        if state["fail"]:
+            raise RuntimeError("boom")
+        return [cand()]
+
+    svc, store, _, _ = make({"command_failed": flaky})
+    svc.evaluate()
+    state["fail"] = True
+    svc.evaluate()
+    assert len(store.listing("active")) == 1
+
+
+def test_the_first_evaluation_publishes_nothing_when_nothing_changed():
+    svc, _, _, published = make()
+    svc.evaluate()
+    assert published == []
+
+
 def test_dismissing_an_unknown_id_is_false():
     svc, _, _, _ = make()
     assert svc.dismiss(12345) is False
@@ -320,3 +350,8 @@ def test_rules_table_names_the_plan_8_kinds():
         "command_failed",
         "linky_stalled",
     }
+
+
+def test_linky_stalled_ignores_a_malformed_last_day():
+    st = {"configured": True, "state": "ok", "last_day": "2026-13-45", "last_ok_at": 0}
+    assert linky_stalled(actx(linky=st), 2_000_000_000.0) == []

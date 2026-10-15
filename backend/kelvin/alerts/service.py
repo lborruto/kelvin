@@ -32,7 +32,9 @@ class AlertService:
         self.context = context
         self.publish = publish
         self.wall = wall
-        self._published: dict[str, Any] | None = None
+        # What clients already have (the snapshot carries it): the first evaluation publishes
+        # only a change.
+        self._published: dict[str, Any] | None = store.summary()
         self._wake = asyncio.Event()
 
     def _publish_if_changed(self) -> dict[str, Any]:
@@ -56,6 +58,7 @@ class AlertService:
             candidates += [c for c in found if c.kind == kind]
             ran.add(kind)
         self.store.sync(candidates, ran)
+        self.store.resolve_kinds_except(set(self.rules))
         self.store.prune()
         return self._publish_if_changed()
 

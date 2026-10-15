@@ -304,7 +304,8 @@ async def start_runtime(
                 if p.status == "failed" and runtime and runtime[0].alerts:
                     runtime[0].alerts.request()  # command_failed shows within seconds
 
-        commands = CommandService(gateway, house, on_update=on_update)
+        # The runtime's clock: a pending's time is what the command_failed rule compares with.
+        commands = CommandService(gateway, house, wall=wall, on_update=on_update)
 
         recorder_ref: list[Recorder] = []
 

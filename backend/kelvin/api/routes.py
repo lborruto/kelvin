@@ -463,6 +463,9 @@ async def sessions_revoke_others(request: Request) -> dict:
     return {"revoked": ctx.sessions.revoke_others(request.cookies.get(COOKIE_NAME))}
 
 
+_ALERT_ID = re.compile(r"[0-9]{1,12}")  # ASCII digits only
+
+
 def _alerts(rt: Runtime):
     if rt.alerts is None:
         raise UserError("alert_unknown", 404)
@@ -478,7 +481,7 @@ async def alerts_list(request: Request, state: Literal["active", "all"] = "activ
 @router.post("/alerts/{aid}/dismiss", status_code=204)
 async def alert_dismiss(aid: str, request: Request) -> Response:
     svc = _alerts(_rt(request))
-    if not aid.isdigit() or len(aid) > 12 or not svc.dismiss(int(aid)):
+    if not _ALERT_ID.fullmatch(aid) or not svc.dismiss(int(aid)):
         raise UserError("alert_unknown", 404)
     return Response(status_code=204)
 

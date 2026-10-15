@@ -167,6 +167,8 @@ class Database:
         self.conn.executescript(SCHEMA)
         try:
             migrate(self.conn)
+            # Every start, not only at v2: a session an older build wrote has no id (downgrade).
+            _v2_session_ids(self.conn)
         except BaseException:
             self.conn.close()  # an interrupted migration is finished by the next start
             raise

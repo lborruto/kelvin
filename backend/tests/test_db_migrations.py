@@ -181,3 +181,16 @@ def test_v3_adds_command_log_codes(tmp_path):
     assert {"label_code", "label_params", "error_code", "error_params", "reason_code"} <= cols
     assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION == 3
     db.close()
+
+
+def test_a_session_without_id_gets_one_at_every_start(tmp_path):
+    """A session written by an older build after v2 ran (a downgrade) is backfilled too."""
+    db = Database(tmp_path / "k.db")
+    db.execute(
+        "INSERT INTO sessions (hash, created, last_seen, user_agent) VALUES ('h', 1, 1, NULL)"
+    )
+    db.close()
+    again = Database(tmp_path / "k.db")
+    [row] = again.query("SELECT id FROM sessions")
+    assert row["id"] is not None and len(row["id"]) == 16
+    again.close()

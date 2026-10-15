@@ -50,6 +50,16 @@ class AlertStore:
                         "UPDATE alerts SET resolved_at = ? WHERE key = ?", (now, row["key"])
                     )
 
+    def resolve_kinds_except(self, kinds: set[str]) -> None:
+        """Resolve the open alerts of every kind no rule produces any more (removed, renamed),
+        so they leave the list and are pruned like the others."""
+        now = self.wall()
+        marks = ",".join("?" * len(kinds))
+        where = f"kind NOT IN ({marks}) AND " if kinds else ""
+        self.db.execute(
+            f"UPDATE alerts SET resolved_at = ? WHERE {where}resolved_at IS NULL", (now, *kinds)
+        )
+
     def prune(self) -> int:
         return self.db.execute(
             "DELETE FROM alerts WHERE resolved_at IS NOT NULL AND resolved_at < ?",
