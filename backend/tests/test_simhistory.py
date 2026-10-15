@@ -8,7 +8,7 @@ from kelvin.config import Settings
 from kelvin.house.model import build_house
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.overkiz.sample import sample_house
-from kelvin.overkiz.simhistory import seed_history
+from kelvin.overkiz.simhistory import SIM_PRESENCE, SIM_WINDOW, seed_history
 from kelvin.recorder.db import Database
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -221,3 +221,22 @@ def test_heating_duty_is_proportional_and_every_radiator_draws(env):
             (rid,),
         )
         assert rows[0]["b"] > rows[0]["a"], rid
+
+
+def test_seeded_samples_have_a_morning_window_run_and_evening_presence(tmp_path):
+    db = Database(tmp_path / "k.db")
+    root, devices = sample_house()
+    house = build_house(root, devices)
+    seed_history(db, house, 1_760_000_000.0)
+    tz = ZoneInfo("Europe/Paris")
+    rows = db.query("SELECT ts, radiator_id, window_open, occupied FROM samples")
+    for rid, lo, hi, col in ((*SIM_WINDOW, "window_open"), (*SIM_PRESENCE, "occupied")):
+        for r in rows:
+            if r["radiator_id"] != rid:
+                continue
+            local = datetime.fromtimestamp(r["ts"], tz)
+            minute = local.hour * 60 + local.minute
+            assert r[col] == (1 if lo <= minute < hi else 0)
+    others = [r for r in rows if r["radiator_id"] not in (SIM_WINDOW[0], SIM_PRESENCE[0])]
+    assert all(r["window_open"] == 0 and r["occupied"] == 0 for r in others)
+    db.close()

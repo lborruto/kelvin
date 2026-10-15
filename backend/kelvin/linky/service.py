@@ -24,6 +24,7 @@ from kelvin.billing.report import (
     last_linky_day,
     unit_start,
 )
+from kelvin.billing.room_energy import room_energy
 from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
 from kelvin.billing.split import FallbackShares, Share
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
@@ -253,6 +254,32 @@ class LinkyService:
             curve_since=self.store.first_curve_day(),
         )
         return build_report(start, end, group, inputs, period)
+
+    def room_energy(
+        self, ids: list[str], days: int, recorder: Recorder, in_house: set[str]
+    ) -> dict[str, Any]:
+        """`GET /api/rooms/{id}/energy` (spec QW3): the room's radiators over the last `days`
+        local days, today included, from the report's RadiatorDay figures (the radiator cache)
+        and its € rule (`billing/room_energy.py`). Linky is not involved. Every recorded
+        radiator is gathered, as the report does: a day's cents are the house's, shared."""
+        today = self.today()
+        tariff = self.tariffs.get()
+        first = today - timedelta(days=days - 1)
+        extent = recorder.energy_extent()
+        # From 1 January of the window's first year: the € running sums are anchored there.
+        per = self.radiator_days.days(
+            recorder,
+            [(date(first.year, 1, 1), today + timedelta(days=1))],
+            tariff,
+            {rid: a for rid, (a, _) in extent.items()},
+        )
+        life = {
+            rid: (local_day(a, self.tz), None if rid in in_house else local_day(b, self.tz))
+            for rid, (a, b) in extent.items()
+        }
+        stats = recorder.sample_stats(ids, day_bounds(first, self.tz)[0], int(self.wall()))
+        hours = {rid: stats.get(rid, {}).get("heating_hours") for rid in ids}
+        return room_energy(per, life, ids, days, today, hours, priced=tariff is not None)
 
     def day_detail(self, day: date, recorder: Recorder, rooms: dict[str, str]) -> dict[str, Any]:
         """`GET /api/energy/day` without the room block (the route adds it). A day without a

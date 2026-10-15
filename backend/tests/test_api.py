@@ -439,3 +439,239 @@ async def test_framework_404_and_405_answer_with_codes_without_the_spa(ctx):
     r = await c.post("/api/status")
     assert r.status_code == 405 and r.json() == err("method_not_allowed")
     assert "GET" in r.headers["allow"]
+
+
+async def test_the_simulator_starts_with_chambre_2_unreachable(tmp_path):
+    from kelvin.api.runtime import make_gateway
+
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    gw = make_gateway(settings, "demo@kelvin.local", "kelvin")
+    url = next(u for u in gw.devices if u.endswith("/8370022#1"))
+    assert gw.devices[url].states["core:StatusState"] == "unavailable"
+    assert time.time() - gw.sim_status_since[url] >= 2700 - 5
+
+
+async def test_the_demo_outage_ends_on_the_runtime_clock(tmp_path):
+    from kelvin.api.runtime import DEMO_OUTAGE_AFTER_S, make_gateway
+    from kelvin.overkiz.models import StateChange
+
+    wall = ManualClock(1_760_000_000.0)
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    gw = make_gateway(settings, "demo@kelvin.local", "kelvin", wall=wall)
+    url = next(u for u in gw.devices if u.endswith("/8370022#1"))
+    assert gw.sim_status_since[url] == wall() - 2700
+    wall.advance(DEMO_OUTAGE_AFTER_S)
+    changes = [e for e in await gw.fetch_events() if isinstance(e, StateChange)]
+    assert changes == [StateChange(url, "core:StatusState", "available")]
+
+
+async def test_house_view_carries_signal_fields(ctx):
+    c, _, _ = ctx
+    body = (await c.get("/api/house")).json()["house"]
+    r = body["radiators"][0]
+    assert {"reachable", "unreachable_since", "last_event_at"} <= set(r)
+    assert all("presence" in room for room in body["rooms"])
+
+
+async def test_room_energy_route(ctx):
+    c, rt, _ = ctx
+    r = await c.get(f"/api/rooms/{salon_id(rt)}/energy", params={"days": 7})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert {
+        "from",
+        "to",
+        "days",
+        "kwh",
+        "hc_kwh",
+        "hp_kwh",
+        "eur",
+        "heating_hours",
+        "coverage",
+        "priced",
+    } <= set(body)
+    assert body["days"] == 7 and body["to"] == rt.linky.today().isoformat()
+    assert body["kwh"] is not None and body["kwh"] >= 0  # the simulator seeded a week
+    assert body["priced"] is True and body["eur"] is not None  # the simulator seeds a tariff
+    assert (await c.get(f"/api/rooms/{salon_id(rt)}/energy")).json()["days"] == 1
+
+
+async def test_room_energy_bounds(ctx):
+    c, rt, _ = ctx
+    room = salon_id(rt)
+    for days in (0, 40, "x"):
+        r = await c.get(f"/api/rooms/{room}/energy", params={"days": days})
+        assert (r.status_code, r.json()["code"]) == (422, "invalid_request"), days
+    r = await c.get("/api/rooms/nope/energy", params={"days": 7})
+    assert (r.status_code, r.json()["code"]) == (404, "room_unknown")
+
+
+async def test_room_activity_route_returns_runs_from_the_seeded_week(ctx):
+    c, rt, _ = ctx
+    ch1 = next(r.id for r in rt.house.rooms.values() if r.name == "Chambre 1")
+    now = time.time()
+    body = (
+        await c.get(f"/api/rooms/{ch1}/activity", params={"start": now - 7 * 86400, "end": now})
+    ).json()
+    assert body["step"] == 300
+    assert len(body["window"]) >= 6  # one 20-minute run a morning
+    assert all(1200 - 300 <= w["end"] - w["start"] <= 1200 + 300 for w in body["window"][1:-1])
+    r = await c.get(f"/api/rooms/{ch1}/activity", params={"start": now - 40 * 86400, "end": now})
+    assert (r.status_code, r.json()["code"]) == (422, "period_invalid")
+
+
+async def test_duty_route_gives_every_room_over_24h(ctx):
+    c, rt, _ = ctx
+    body = (await c.get("/api/rooms/duty")).json()
+    assert body["to"] - body["from"] == 86400
+    assert set(body["rooms"]) == set(rt.house.rooms)
+    for v in body["rooms"].values():
+        assert v["coverage"] >= 0.5 and 0.0 <= v["duty"] <= 1.0
+
+
+async def test_activity_and_duty_read_the_runtime_clock(tmp_path):
+    """Both routes read the injected wall clock (CLAUDE.md « Time in tests »), never the host's."""
+    pinned = 1_760_000_000.0
+    app = create_app(
+        Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
+        FakeGateway(clock=ManualClock()),
+        start_tasks=False,
+        wall=lambda: pinned,
+    )
+    async with LifespanManager(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://t", headers={"X-Kelvin": "1"}
+        ) as c:
+            await login(c)
+            rt = app.state.ctx.rt
+            body = (await c.get("/api/rooms/duty")).json()
+            assert body["to"] == int(pinned)
+            assert all(v["duty"] is not None for v in body["rooms"].values())
+            ch1 = next(r.id for r in rt.house.rooms.values() if r.name == "Chambre 1")
+            p = {"start": pinned - 7 * 86400, "end": pinned + 86400}  # end clamped to the clock
+            win = (await c.get(f"/api/rooms/{ch1}/activity", params=p)).json()["window"]
+            assert win and max(w["end"] for w in win) <= pinned
+
+
+async def test_light_intensity_has_its_label_and_expected_value(ctx):
+    c, rt, clock = ctx
+    rid = "8370011"
+    r = await c.post(f"/api/radiators/{rid}/light", json={"on": True, "intensity": 40})
+    p = r.json()["pending"]
+    assert (p["label_code"], p["label_params"]) == (
+        "night_light_intensity",
+        {"name": "Radiateur", "intensity": 40},
+    )
+    assert p["label"] == "Radiateur : veilleuse à 40 %"
+    assert p["expected"][rid]["light_intensity"] == 40
+    await settle(rt, clock)
+    light = rt.house.radiators[rid].view()["light"]
+    assert light == {"on": True, "intensity": 40}
+
+
+async def test_intensity_with_the_light_off_is_refused(ctx):
+    c, _, _ = ctx
+    r = await c.post("/api/radiators/8370011/light", json={"on": False, "intensity": 40})
+    assert (r.status_code, r.json()["code"]) == (422, "intensity_light_off")
+
+
+async def test_an_intensity_out_of_range_reads_its_own_message(ctx):
+    c, _, _ = ctx
+    for value in (0, 101):
+        r = await c.post("/api/radiators/8370011/light", json={"on": True, "intensity": value})
+        assert (r.status_code, r.json()["code"]) == (422, "intensity_range"), value
+
+
+async def test_alerts_api_list_dismiss_and_snapshot(ctx):
+    from kelvin.alerts.store import Candidate
+
+    c, rt, _ = ctx
+    rt.alerts.rules = {
+        "command_failed": lambda cx, now: [
+            Candidate("command_failed", "command_failed:p1", "bad", {"label_code": "all_off"})
+        ]
+    }
+    rt.alerts.evaluate()
+    body = (await c.get("/api/alerts")).json()
+    assert [(a["kind"], a["severity"], a["dismissed"]) for a in body] == [
+        ("command_failed", "bad", False)
+    ]
+    assert (await c.get("/api/house")).json()["alerts"] == {"active": 1, "highest": "bad"}
+    aid = body[0]["id"]
+    assert (await c.post(f"/api/alerts/{aid}/dismiss", headers={"X-Kelvin": ""})).status_code == 403
+    assert (await c.post(f"/api/alerts/{aid}/dismiss")).status_code == 204
+    assert (await c.get("/api/alerts")).json() == []
+    assert len((await c.get("/api/alerts", params={"state": "all"})).json()) == 1
+    for bad in ("99999", "abc", "-1", "\u0663"):  # an Arabic-Indic digit is no id
+        r = await c.post(f"/api/alerts/{bad}/dismiss")
+        assert (r.status_code, r.json()["code"]) == (404, "alert_unknown")
+    r = await c.get("/api/alerts", params={"state": "nope"})
+    assert r.status_code == 422
+
+
+async def test_a_failed_command_becomes_an_alert(ctx):
+    from kelvin.overkiz.errors import GatewayError
+
+    c, rt, _ = ctx
+    rt.gateway.fail_next_execute = GatewayError("timeout")
+    r = await c.post(f"/api/rooms/{salon_id(rt)}/mode", json={"mode": "manual"})
+    pid = r.json()["pending"]["id"]
+    rt.alerts.evaluate()
+    [a] = (await c.get("/api/alerts")).json()
+    assert (a["kind"], a["params"]["pending_id"], a["params"]["label_code"]) == (
+        "command_failed",
+        pid,
+        "mode",
+    )
+    assert a["params"]["reason_code"] is not None  # R10: the worded reason survives the log
+
+
+async def test_an_unreachable_radiator_becomes_an_alert(ctx):
+    from kelvin.overkiz.sample import SAMPLE_GATEWAY
+
+    c, rt, clock = ctx
+    url = f"{SAMPLE_GATEWAY}/8370022#1"
+    rt.gateway.push_state(url, "core:StatusState", "unavailable")
+    await settle(rt, clock)
+    rt.house.backdate_status({url: time.time() - 3600})
+    rt.alerts.evaluate()
+    kinds = [(a["kind"], a["params"]["radiator_id"]) for a in (await c.get("/api/alerts")).json()]
+    assert ("radiator_unreachable", "8370022") in kinds
+
+
+async def test_a_failed_command_alert_resolves_after_24_hours_on_the_runtime_clock(tmp_path):
+    """The pending's time and the alert rule read the same injected clock (review B3 #1)."""
+    from kelvin.overkiz.errors import GatewayError
+
+    wall = ManualClock(1_760_000_000.0)
+    gw = FakeGateway(clock=ManualClock())
+    app = create_app(
+        Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
+        gw,
+        start_tasks=False,
+        wall=wall,
+    )
+    async with LifespanManager(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://t", headers={"X-Kelvin": "1"}
+        ) as c:
+            await login(c)
+            rt = app.state.ctx.rt
+            gw.fail_next_execute = GatewayError("timeout")
+            r = await c.post(f"/api/rooms/{salon_id(rt)}/mode", json={"mode": "manual"})
+            assert r.json()["pending"]["created_at"] == wall()
+            rt.alerts.evaluate()
+            assert [a["kind"] for a in (await c.get("/api/alerts")).json()] == ["command_failed"]
+            wall.advance(86_400 + 1)
+            rt.alerts.evaluate()
+            assert [a["kind"] for a in (await c.get("/api/alerts")).json()] == []
+
+
+def test_rooms_duty_is_routed_before_any_room_id_route():
+    """FastAPI takes the first match: `/rooms/duty` must come before `/rooms/{room_id}…` so a
+    later `GET /rooms/{room_id}` cannot shadow it (final review, merge note)."""
+    from kelvin.api.routes import router
+
+    paths = [r.path for r in router.routes]
+    first_room = next(i for i, p in enumerate(paths) if p.startswith("/rooms/{room_id}"))
+    assert paths.index("/rooms/duty") < first_room

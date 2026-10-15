@@ -1,6 +1,6 @@
 <script lang="ts">
   import { slide } from 'svelte/transition';
-  import type { Day } from '$lib/api/types';
+  import type { Day, DayLock } from '$lib/api/types';
   import { m } from '$lib/i18n';
   import { dur, easeOut, T } from '$lib/motion';
   import Icon from './Icon.svelte';
@@ -16,11 +16,16 @@
     open?: boolean;
     ontoggle?: () => void;
     onchange: (segs: Seg[]) => void;
+    /** QW8: shown, never edited (re-sent as read). */
+    locked?: DayLock | null;
   }
-  let { day, segs, nowMinute = null, pending = false, collapsible = false, open = true, ontoggle, onchange }: Props = $props();
+  let { day, segs, nowMinute = null, pending = false, collapsible = false, open = true, ontoggle, onchange, locked = null }: Props =
+    $props();
   const uid = $props.id();
   let label = $derived(m.days[day]);
   let shut = $derived(collapsible && !open);
+  // A pending send or a locked day: nothing here edits it.
+  let inert = $derived(pending || !!locked);
   let dragging = $state(false);
 
   let bar = $state<HTMLDivElement>();
@@ -36,14 +41,14 @@
 
   function down(e: PointerEvent, i: number, kind: 'move' | 'start' | 'end') {
     e.stopPropagation();
-    if (pending) return;
+    if (inert) return;
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     drag = { i, kind, origin: minuteAt(e.clientX), base: segs };
     dragging = true;
     moved = false;
   }
   function move(e: PointerEvent) {
-    if (!drag || pending) return;
+    if (!drag || inert) return;
     const at = minuteAt(e.clientX);
     moved = true;
     onchange(drag.kind === 'move' ? moveSlot(drag.base, drag.i, at - drag.origin) : resizeSlot(drag.base, drag.i, drag.kind, at));
@@ -61,7 +66,7 @@
       ontoggle?.();
       return;
     }
-    if (pending) return;
+    if (inert) return;
     if (moved) {
       moved = false;
       return;
@@ -70,7 +75,7 @@
     if (next) onchange(next);
   }
   function addFirstFree() {
-    if (pending || segs.length >= 3) return;
+    if (inert || segs.length >= 3) return;
     for (const at of [420, 1080, 720, 0, 60, 180, 300, 540, 840, 960, 1200, 1320]) {
       const next = addSlot(segs, at);
       if (next) return onchange(next);
@@ -78,7 +83,7 @@
   }
   function setTime(el: HTMLInputElement, i: number, edge: 'start' | 'end') {
     const value = el.value;
-    if (pending || !segs[i]) return;
+    if (inert || !segs[i]) return;
     let shown = segs[i][edge];
     if (/^\d{2}:\d{2}$/.test(value)) {
       const next = resizeSlot(segs, i, edge, toMin(value));
@@ -89,7 +94,7 @@
     el.value = fromMin(shown);
   }
   function key(e: KeyboardEvent, i: number) {
-    if (pending) return;
+    if (inert) return;
     const delta = e.key === 'ArrowRight' ? 15 : e.key === 'ArrowLeft' ? -15 : 0;
     if (delta) {
       e.preventDefault();
@@ -106,7 +111,9 @@
     {#if collapsible}
       <button type="button" class="dayhead" aria-expanded={open} aria-controls="{uid}-slots" onclick={() => ontoggle?.()}>
         <span class="label">{label}</span>
-        <span class="slots-sum">{segs.map((s) => `${fromMin(s.start)}–${fromMin(s.end)}`).join(' · ') || m.program.ecoAllDay}</span>
+        <span class="slots-sum">{locked === 'unrecognised'
+            ? m.program.lockedUnrecognised
+            : segs.map((s) => `${fromMin(s.start)}–${fromMin(s.end)}`).join(' · ') || m.program.ecoAllDay}</span>
         <span class="chev" aria-hidden="true"><Icon name="chevron" size={14} /></span>
       </button>
     {:else}
@@ -115,22 +122,31 @@
   </div>
   <span class="visually-hidden" id="{uid}-hint">{m.program.blockHint}</span>
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div class="bar" class:pending class:dragging data-testid="bar-{day}" bind:this={bar} onclick={addAt} onpointerdown={barDown}
-    onpointermove={move} onpointerup={up} onpointercancel={up}>
+  <div class="bar" class:pending class:dragging class:locked={!!locked} class:unknown={locked === 'unrecognised'}
+    aria-label={locked === 'unrecognised' ? m.program.unknownDayLabel(label) : undefined} data-testid="bar-{day}" bind:this={bar}
+    onclick={addAt} onpointerdown={barDown} onpointermove={move} onpointerup={up} onpointercancel={up}>
     {#each [6, 12, 18] as h (h)}<span class="tick" style:left={pct(h * 60)}></span>{/each}
-    {#each segs as s, i (i)}
-      <div class="block" role="button" tabindex="0" aria-roledescription={m.program.slotRole} aria-describedby="{uid}-hint"
+    {#each locked === 'unrecognised' ? [] : segs as s, i (i)}
+      <div class="block" role="button" tabindex={locked ? -1 : 0} aria-roledescription={m.program.slotRole} aria-describedby="{uid}-hint"
         aria-label="{label} {fromMin(s.start)}–{fromMin(s.end)}"
         style:left={pct(s.start)} style:width={pct(s.end - s.start)}
         onpointerdown={(e) => down(e, i, 'move')} onkeydown={(e) => key(e, i)}
         onclick={(e) => e.stopPropagation()}>
-        <span class="handle start" onpointerdown={(e) => down(e, i, 'start')} aria-hidden="true"></span>
-        <span class="handle end" onpointerdown={(e) => down(e, i, 'end')} aria-hidden="true"></span>
+        {#if !locked}
+          <span class="handle start" onpointerdown={(e) => down(e, i, 'start')} aria-hidden="true"></span>
+          <span class="handle end" onpointerdown={(e) => down(e, i, 'end')} aria-hidden="true"></span>
+        {/if}
       </div>
     {/each}
     {#if nowMinute != null}<span class="now" style:left={pct(nowMinute)}></span>{/if}
   </div>
-  {#if !shut}
+  {#if !shut && locked === 'midnight'}
+    <p class="slots-text">{#each segs as s, i (i)}<span class="num">{fromMin(s.start)}–{fromMin(s.end)}</span>{/each}</p>
+  {/if}
+  {#if locked}
+    <p class="locked"><Icon name="alert" size={12} />{locked === 'midnight' ? m.program.lockedMidnight : m.program.lockedUnrecognised}</p>
+  {/if}
+  {#if !shut && !locked}
     <ul class="slots" id="{uid}-slots" transition:slide={{ duration: dur(collapsible ? T.enter : 0), easing: easeOut }}>
       {#each segs as s, i (i)}
         <li>
@@ -153,6 +169,30 @@
 </div>
 
 <style>
+  .bar.unknown {
+    background: repeating-linear-gradient(45deg, var(--s2) 0 4px, color-mix(in srgb, var(--mu) 18%, var(--s2)) 4px 8px);
+  }
+  .locked {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--mu);
+  }
+  .bar.locked {
+    cursor: default;
+  }
+  .locked .block {
+    cursor: default;
+  }
+  .slots-text {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin: 0;
+    font-size: 13px;
+  }
   .day {
     display: grid;
     /* One column no wider than the page: a day with three periods ellipsises its summary

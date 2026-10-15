@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
 import { api } from '$lib/api/client';
 import { applyLocale } from '$lib/i18n';
+import { alerts } from '$lib/stores/alerts.svelte';
 import { auth } from '$lib/stores/auth.svelte';
 import { history } from '$lib/stores/history.svelte';
 import { house } from '$lib/stores/house.svelte';
@@ -15,6 +16,11 @@ vi.mock('$lib/api/client', () => ({
     houseProgram: vi.fn().mockResolvedValue({ pending: null }),
     houseOff: vi.fn().mockResolvedValue({ pending: null }),
     cancelOverride: vi.fn().mockResolvedValue({ pending: null }),
+    alerts: vi.fn().mockResolvedValue([]),
+    dismissAlert: vi.fn(),
+    sessions: vi.fn().mockResolvedValue([]),
+    revokeSession: vi.fn(),
+    revokeOtherSessions: vi.fn(),
     settings: vi.fn().mockResolvedValue({ tariff: null, prefill: null }),
     linkyStatus: vi.fn().mockResolvedValue({
       configured: false, prm: null, token_set: false, simulator: false, state: 'off', message: null,
@@ -33,6 +39,8 @@ vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 beforeEach(() => {
   vi.clearAllMocks();
   auth.email = null;
+  alerts.reset();
+  auth.loggedIn = true;
   toasts.items = [];
   house.houseCommandId = null;
   house.applySnapshot({
@@ -142,7 +150,7 @@ describe('Maison', () => {
     house.reset();
     const { container } = render(Page);
     expect(screen.queryByText('Aucun forçage ni absence.')).toBeNull();
-    expect(container.querySelectorAll('.skeleton').length).toBe(3);
+    expect(container.querySelectorAll('.skeleton').length).toBe(6); // + the two rows of the devices panel and the alerts line
     expect(screen.queryByText('Chargement…')).toBeNull();
   });
 
@@ -214,5 +222,37 @@ describe('Réglages › Langue', () => {
     expect(screen.getByRole('radiogroup', { name: 'Language' })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('en');
     expect(localStorage.getItem('kelvin-locale')).toBe('en');
+  });
+});
+
+describe('Maison alerts', () => {
+  it('lists the active alerts, or says there are none', async () => {
+    vi.mocked(api.alerts).mockResolvedValueOnce([
+      { id: 1, kind: 'linky_stalled', severity: 'warn', params: { last_day: '2026-10-10', days: 4 }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false },
+      { id: 2, kind: 'tempo_red_tomorrow', severity: 'info', params: {}, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false }
+    ]);
+    alerts.reset();
+    render(Page);
+    expect(await screen.findByText(/pas de nouvelle donnée depuis le 10\/10/)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^Masquer/ })).toHaveLength(1); // the unknown kind is not shown
+    alerts.reset();
+  });
+  it('a failing alerts load still renders the panels, with the error and a retry (re-review)', async () => {
+    alerts.reset();
+    vi.mocked(api.alerts).mockReset().mockRejectedValue(new Error('x'));
+    render(Page);
+    expect(await screen.findByText('Impossible de charger les alertes.')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Enregistrer le tarif' })).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(api.alerts).toHaveBeenCalledTimes(1); // no reload loop: retry is the button's
+    vi.mocked(api.alerts).mockResolvedValue([]);
+    await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(await screen.findByText('Aucune alerte.')).toBeInTheDocument();
+    alerts.reset();
+  });
+  it('says so when nothing is active', async () => {
+    alerts.reset();
+    render(Page);
+    expect(await screen.findByText('Aucune alerte.')).toBeInTheDocument();
   });
 });

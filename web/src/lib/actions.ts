@@ -7,7 +7,12 @@ const MAX_REPLAYS = 50;
 const replays = new Map<string, () => Promise<CommandResult>>();
 
 /** Send a command, show its pending state, remember how to re-send it. */
-export async function run(fn: () => Promise<CommandResult>): Promise<Pending | null> {
+export interface RunOptions {
+  /** Return true when the error was handled here (no toast). */
+  onError?: (e: unknown) => boolean;
+}
+
+export async function run(fn: () => Promise<CommandResult>, opts: RunOptions = {}): Promise<Pending | null> {
   try {
     const { pending } = await fn();
     if (pending) {
@@ -18,7 +23,7 @@ export async function run(fn: () => Promise<CommandResult>): Promise<Pending | n
     }
     return pending;
   } catch (e) {
-    toasts.push(() => errorText(e));
+    if (!opts.onError?.(e)) toasts.push(() => errorText(e));
     return null;
   }
 }

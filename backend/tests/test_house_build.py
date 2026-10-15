@@ -117,20 +117,24 @@ def test_home_dump_fixture_is_generated_from_the_simulator():
 
 
 @pytest.mark.parametrize(
-    ("value", "expected"),
+    ("value", "expected", "locked"),
     [
-        ([{"monday": "garbage"}], {}),
-        ([{"monday": [None, 3, {"start": 1, "end": "02:00"}, {"start": "06:00"}]}], {"monday": []}),
-        ([{"tuesday": None}, "x", 7], {}),
+        ([{"monday": "garbage"}], {}, {"monday": "unrecognised"}),
+        (
+            [{"monday": [None, 3, {"start": 1, "end": "02:00"}, {"start": "06:00"}]}],
+            {},
+            {"monday": "unrecognised"},
+        ),
+        ([{"tuesday": None}, "x", 7], {}, {"tuesday": "unrecognised"}),
     ],
 )
-def test_malformed_program_state_does_not_break_view(house, value, expected):
+def test_malformed_program_state_does_not_break_view(house, value, expected, locked):
     r = house.radiators["9312063"]
     r.states[r.heater_url]["core:TimeProgramState"] = value
-    view = house.view()
-    assert next(x for x in view["radiators"] if x["id"] == "9312063")["program"] == expected
+    view = next(x for x in house.view()["radiators"] if x["id"] == "9312063")
+    assert (view["program"], view["program_locked"]) == (expected, locked)
 
 
-def test_program_from_state_keeps_valid_slots_among_malformed():
+def test_a_day_with_any_malformed_slot_is_not_half_read():
     value = [{"monday": [None, {"start": "06:00", "end": "08:00"}, {"start": 6}]}]
-    assert program_from_state(value) == {"monday": [{"start": "06:00", "end": "08:00"}]}
+    assert program_from_state(value) == {}

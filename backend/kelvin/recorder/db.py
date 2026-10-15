@@ -1,5 +1,6 @@
 import json
 import logging
+import secrets
 import sqlite3
 import threading
 import time
@@ -29,6 +30,10 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS linky_daily (day TEXT PRIMARY KEY, wh INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS linky_curve (
   ts INTEGER PRIMARY KEY, minutes INTEGER NOT NULL, wh REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS alerts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, key TEXT NOT NULL UNIQUE,
+  severity TEXT NOT NULL, params TEXT NOT NULL, first_seen REAL NOT NULL,
+  last_seen REAL NOT NULL, resolved_at REAL, dismissed_at REAL);
 """
 
 SCHEMA_VERSION_KEY = "schema_version"
@@ -104,7 +109,29 @@ def _v1_energy_counters(conn: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS = {1: _v1_energy_counters}
+def _v2_session_ids(conn: sqlite3.Connection) -> None:
+    """v2 (Plan 8): sessions get an opaque id the API can name (spec §2.5). Random, never
+    derived from the token or its hash. Idempotent: an interrupted run is finished next start."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}
+    if "id" not in cols:
+        conn.execute("ALTER TABLE sessions ADD COLUMN id TEXT")
+    for (h,) in conn.execute("SELECT hash FROM sessions WHERE id IS NULL").fetchall():
+        _in_transaction(
+            conn, "UPDATE sessions SET id = ? WHERE hash = ?", (secrets.token_hex(8), h)
+        )
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS sessions_id ON sessions(id)")
+
+
+def _v3_command_log_codes(conn: sqlite3.Connection) -> None:
+    """v3 (Plan 8): the command log keeps the label and error codes and the reason code, so the
+    `command_failed` alert can be worded in either language after a restart (ruling R10)."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(command_log)")}
+    for col in ("label_code", "label_params", "error_code", "error_params", "reason_code"):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE command_log ADD COLUMN {col} TEXT")
+
+
+MIGRATIONS = {1: _v1_energy_counters, 2: _v2_session_ids, 3: _v3_command_log_codes}
 SCHEMA_VERSION = max(MIGRATIONS)  # a new migration is the new version
 
 
@@ -140,6 +167,8 @@ class Database:
         self.conn.executescript(SCHEMA)
         try:
             migrate(self.conn)
+            # Every start, not only at v2: a session an older build wrote has no id (downgrade).
+            _v2_session_ids(self.conn)
         except BaseException:
             self.conn.close()  # an interrupted migration is finished by the next start
             raise
@@ -183,8 +212,9 @@ class Database:
 
     def log_command(self, view: dict[str, Any], commands: list[dict[str, Any]]) -> None:
         self.execute(
-            "INSERT OR REPLACE INTO command_log"
-            " (id, ts, label, radiator_ids, commands, status, error) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO command_log (id, ts, label, radiator_ids, commands, status,"
+            " error, label_code, label_params, error_code, error_params, reason_code)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 view["id"],
                 view["created_at"],
@@ -193,6 +223,11 @@ class Database:
                 json.dumps(commands, ensure_ascii=False, default=str),
                 view["status"],
                 view["error"],
+                view.get("label_code"),
+                json.dumps(view.get("label_params") or {}, ensure_ascii=False),
+                view.get("error_code"),
+                json.dumps(view.get("error_params") or {}, ensure_ascii=False),
+                view.get("reason_code"),
             ),
         )
 

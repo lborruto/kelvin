@@ -13,6 +13,7 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
 export const ARGS: Record<string, unknown[]> = {
   'tariff.prefilled': ['6', ['22:00–06:00', '12:00–14:00']],
   'linky.ok': ['12/10'],
+  'alerts.linkyStalled': ['10/10', 4],
   'linky.quota': ['12/10'],
   'linky.throttledAt': ['12/10', '14:30'],
   'linky.throttledLater': ['12/10'],
@@ -40,7 +41,8 @@ export const ARGS: Record<string, unknown[]> = {
 export const SAME = new Set<string>([
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
-  'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est'
+  'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
+  'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
@@ -144,7 +146,8 @@ describe('English messages take the same parameters as French', () => {
 const SCANNER_BLIND = new Set([
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
   'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',
-  'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share'
+  'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
+  'roomInfo.title', 'roomInfo.signal', 'roomInfo.reachable', 'roomInfo.lastSignal', 'program.reload', 'sessions.thisDevice', 'alerts.title'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

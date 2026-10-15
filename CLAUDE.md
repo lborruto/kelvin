@@ -113,7 +113,7 @@ depends on.
   third-party text (a gateway's message) goes through `errors.scrub` before any API body, SSE
   or log.
 - **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`; anchors
-  `#away`, `#tariff`, `#linky`, `#quality`, `#curve`) and come from `web/src/lib/paths.ts`. Old
+  `#away`, `#tariff`, `#linky`, `#quality`, `#curve`, `#alerts`, `#sessions`) and come from `web/src/lib/paths.ts`. Old
   French paths are redirected only by its legacy table and the marked block in `app.html` (a test
   keeps them equal; `scripts/check-paths.mjs` fails on a French path anywhere else).
 - **API header:** mutating API routes require the header `X-Kelvin: 1`.
@@ -123,6 +123,35 @@ depends on.
   `$KELVIN_DATA/account.json` (0600): never in logs, API responses, the DB or git. The Linky
   token is write-only; the PDL is never logged.
 - **Missing data is `null`, never 0**, in the API, and « — » in the UI.
+- **Programme days Kelvin cannot edit** (a slot ending at midnight, any shape it cannot parse or
+  does not write: unsorted, not three entries) are locked: `plan_program` re-sends them exactly
+  as the radiator reported them, whatever the payload says. Only the days a programme body names
+  are written (`[]` clears one); a day it leaves out or lists in `keep` is re-sent as read on
+  every radiator it reaches, so « Envoyer aussi à » or a mixed room never empties a day. The
+  editor never makes an end after 23:45. Every editor send carries `base` (each radiator's
+  programme when the editor loaded); the backend answers `409 program_changed_elsewhere`
+  (`params.days` only) instead of overwriting a change made elsewhere, unless `force`; the editor
+  stops a multi-room send at the first 409.
+- **Alerts:** a rule is a pure `(context, now) -> list[Candidate]` in `kelvin/alerts/rules.py`;
+  keys embed the occurrence (a dismissed alert returns only when its key changes, or when it was
+  resolved and comes back); the backend stores kinds and params, never text: the web writes the
+  words in both dictionaries (`alertText`).
+  A new kind needs its rule, its `alertText` case and its two messages in the same PR. Alert
+  params may name Kelvin's own room and radiator ids (already in the house view), never a device
+  URL, serial or secret (error params stay id-free).
+- **Injected clock everywhere:** the house, the outage demo, alerts, the command service and
+  `alert_context(rt, now)` take `wall`; nothing in them reads `time.time()` or `datetime.now()`.
+- **A room's € is the sum of its radiators' Par pièce cents** (`report.radiator_shares`, day by
+  day), never re-priced or rounded on its own.
+- **Device signal:** `House.last_event_ts` is memory only and counts listener events, not state
+  reads (`House.apply(…, event=False)` for reads). Reachability comes from `core:StatusState`,
+  whether an event or a read brings it (a status change seen by a read starts or ends a run too);
+  its timing is memory only. `radiator_unreachable` needs 30 continuous minutes; an outage
+  already alerted on keeps its key across restarts (one seen only from a start is keyed
+  `startup`), so a dismissal holds until the radiator is seen reachable again.
+- **Sessions:** a session's `id` is an opaque random value, never derived from the token or its
+  hash; the API lists browser and system names only, never the user agent or the token. The
+  current session cannot be signed out through the list.
 - **Network:** `/api/health` is open and says only the status word. Forwarded headers are
   ignored unless `KELVIN_TRUSTED_PROXIES` names the reverse proxy; nothing shipped enables them
   (`backend/tests/test_packaging.py` checks).
@@ -141,7 +170,10 @@ depends on.
   with its parts goes through `matchParts` (largest remainder at the total's decimals). € are
   rounded once, in `billing/report.py`, from running sums anchored on 1 January (a span's cents
   are round(cum(to)) − round(cum(from))); never round a bucket's € on its own, in the backend or
-  the web, so a day reads the same figure in Jour, Semaine, Mois, Année and the CSV. A « — »
+  the web, so a day reads the same figure in Jour, Semaine, Mois, Année and the CSV. A room's
+  figures (`billing/room_energy.py`, `GET /api/rooms/{id}/energy`) take each elapsed day's € as the
+  sum of its radiators' `by_radiator` € for that day (`report.radiator_shares`), so a room's day
+  reads what Par pièce shows; a test pins it. A « — »
   always carries its reason. The Courbe readout's fields stack every text they take over the day
   in one cell, so scrubbing never reflows them; keep that when adding a field. Énergie strings
   live in the `$lib/i18n` dictionaries like every other string (one group per component or

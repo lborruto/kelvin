@@ -75,6 +75,10 @@ class FakeGateway:
         self.failed_state_reads = 0
         self._scheduled: list[tuple[float, str, list[DeviceCommand]]] = []
         self._events: list[Event] = []
+        # States the simulator changes by itself once a clock reaches a time (the demo outage).
+        self._timed: list[tuple[float, Callable[[], float], str, str, Any]] = []
+        # Simulator only: wall time a demo status began, before Kelvin started.
+        self.sim_status_since: dict[str, float] = {}
 
     def _accepts(self, username: str, password: str) -> bool:
         return (
@@ -144,6 +148,10 @@ class FakeGateway:
         if self.fail_fetch is not None:
             raise self.fail_fetch
         now = self.clock()
+        timed = [t for t in self._timed if t[0] <= t[1]()]
+        self._timed = [t for t in self._timed if t not in timed]
+        for _, _, url, name, value in timed:
+            self._set(url, name, value, emit=True)
         due = [s for s in self._scheduled if s[0] <= now]
         self._scheduled = [s for s in self._scheduled if s[0] > now]
         for _, exec_id, commands in due:
@@ -168,6 +176,30 @@ class FakeGateway:
 
     def set_state_silently(self, device_url: str, name: str, value: Any) -> None:
         self._set(device_url, name, value, emit=False)
+
+    def schedule_state(
+        self,
+        after_s: float,
+        device_url: str,
+        name: str,
+        value: Any,
+        *,
+        clock: Callable[[], float] | None = None,
+    ) -> None:
+        """The device reports `name = value` by itself, `after_s` seconds from now on `clock`
+        (the fake's own clock by default)."""
+        clock = clock or self.clock
+        self._timed.append((clock() + after_s, clock, device_url, name, value))
+
+    def demo_outage(
+        self, rid: str, *, before_s: float, after_s: float, wall: Callable[[], float]
+    ) -> None:
+        """Simulator scenario (spec §10.2): this radiator's heater has been unreachable since
+        `before_s` before now and comes back `after_s` from now, both on the runtime's `wall`."""
+        url = next(u for u in self.devices if u.endswith(f"/{rid}#1"))
+        self._set(url, "core:StatusState", "unavailable", emit=False)
+        self.sim_status_since[url] = wall() - before_s
+        self.schedule_state(after_s, url, "core:StatusState", "available", clock=wall)
 
     def _set(self, device_url: str, name: str, value: Any, *, emit: bool) -> None:
         dev = self.devices[device_url]

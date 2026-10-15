@@ -33,6 +33,9 @@ KIND_SUBJECT_FR = {
 TEMPLATES: dict[str, str] = {
     # Auth and platform
     "login_required": "Connexion requise.",
+    "session_is_current": "Utilisez « Se déconnecter » pour cet appareil.",
+    "session_unknown": "Cet appareil n’est plus connecté.",
+    "alert_unknown": "Alerte introuvable.",
     "header_missing": "En-tête X-Kelvin manquant.",
     "bad_credentials": "Email ou mot de passe Cozytouch incorrect.",
     "wrong_account": "Ce compte Cozytouch n’est pas celui de cette maison.",
@@ -62,8 +65,13 @@ TEMPLATES: dict[str, str] = {
     "program_time_invalid": "{day_fr} : heure invalide « {value} » (format HH:MM).",
     "day_unknown": "Jour inconnu : {day}.",
     "program_too_many": "{day_fr} : 3 plages confort au maximum.",
+    "program_day_unknown": (
+        "{day_fr} : le radiateur n’a pas rapporté ce jour ;"
+        " renseignez-le pour envoyer le programme."
+    ),
     "program_slot_invalid": "{day_fr} : la plage {start}–{end} est invalide.",
     "program_overlap": "{day_fr} : des plages se chevauchent.",
+    "program_changed_elsewhere": "Programme modifié ailleurs : rechargez-le ou remplacez-le.",
     "feature_unknown": "Fonction inconnue : {feature}.",
     "no_night_light": "Ce radiateur n’a pas de veilleuse.",
     "intensity_light_off": "L’intensité ne peut être réglée que veilleuse allumée.",
@@ -111,8 +119,10 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "program_time_invalid": {"day": "monday", "value": "25:00"},
     "day_unknown": {"day": "funday"},
     "program_too_many": {"day": "sunday"},
+    "program_day_unknown": {"day": "sunday"},
     "program_slot_invalid": {"day": "monday", "start": "10:00", "end": "09:00"},
     "program_overlap": {"day": "tuesday"},
+    "program_changed_elsewhere": {"days": ["monday"]},
     "feature_unknown": {"feature": "turbo"},
     "slot_time_invalid": {"value": "24:00"},
     "linky_status_throttled": {"at": "14:30"},

@@ -1,5 +1,7 @@
 import type {
+  Alert,
   CommandResult,
+  Day,
   EnergyBucket,
   EnergyDay,
   EnergyGroup,
@@ -7,6 +9,10 @@ import type {
   HistoryPoint,
   LinkyStatus,
   Me,
+  RoomActivity,
+  RoomEnergy,
+  SessionInfo,
+  RoomsDuty,
   SetpointKind,
   SettableMode,
   SettingsView,
@@ -15,6 +21,7 @@ import type {
   WeekProgram
 } from './types';
 import type { ApiParams } from '$lib/i18n';
+import type { Base } from '$lib/program';
 
 export class ApiError extends Error {
   status: number;
@@ -79,6 +86,18 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 
 const cmd = (method: string, path: string, body?: unknown) => call<CommandResult>(method, path, body);
 
+export interface ProgramOpts {
+  base?: Base;
+  force?: boolean;
+  /** Days to leave as each radiator reported them (a locked day): never written, never emptied. */
+  keep?: Day[];
+}
+const programOpts = (o: ProgramOpts) => ({
+  ...(o.base ? { base: o.base } : {}),
+  ...(o.force ? { force: true } : {}),
+  ...(o.keep?.length ? { keep: o.keep } : {})
+});
+
 export const api = {
   me: () => call<Me>('GET', '/auth/me'),
   login: (email: string, password: string) => call<Me>('POST', '/auth/login', { email, password }),
@@ -88,14 +107,25 @@ export const api = {
   roomMode: (roomId: string, mode: SettableMode) => cmd('POST', `/rooms/${enc(roomId)}/mode`, { mode }),
   roomSetpoint: (roomId: string, kind: SetpointKind, value: number) =>
     cmd('POST', `/rooms/${enc(roomId)}/setpoint`, { kind, value }),
-  roomProgram: (roomId: string, week: WeekProgram) => cmd('PUT', `/rooms/${enc(roomId)}/program`, week),
+  roomProgram: (roomId: string, week: WeekProgram, opts: ProgramOpts = {}) =>
+    cmd('PUT', `/rooms/${enc(roomId)}/program`, { ...week, ...programOpts(opts) }),
+  alerts: (state: 'active' | 'all' = 'active') => call<Alert[]>('GET', `/alerts?state=${state}`),
+  dismissAlert: (id: number) => call<void>('POST', `/alerts/${id}/dismiss`),
+  sessions: () => call<SessionInfo[]>('GET', '/sessions'),
+  revokeSession: (id: string) => call<void>('DELETE', `/sessions/${enc(id)}`),
+  revokeOtherSessions: () => call<{ revoked: number }>('POST', '/sessions/revoke-others'),
+  roomEnergy: (roomId: string, days: number) => call<RoomEnergy>('GET', `/rooms/${enc(roomId)}/energy?days=${days}`),
+  roomActivity: (roomId: string, start: number, end: number) =>
+    call<RoomActivity>('GET', `/rooms/${enc(roomId)}/activity?start=${start}&end=${end}`),
+  roomsDuty: () => call<RoomsDuty>('GET', '/rooms/duty'),
   roomBoost: (roomId: string, temperature: number, durationMin: number) =>
     cmd('POST', `/rooms/${enc(roomId)}/boost`, { temperature, duration_min: durationMin }),
 
   radiatorMode: (id: string, mode: SettableMode) => cmd('POST', `/radiators/${enc(id)}/mode`, { mode }),
   radiatorSetpoint: (id: string, kind: SetpointKind, value: number) =>
     cmd('POST', `/radiators/${enc(id)}/setpoint`, { kind, value }),
-  radiatorProgram: (id: string, week: WeekProgram) => cmd('PUT', `/radiators/${enc(id)}/program`, week),
+  radiatorProgram: (id: string, week: WeekProgram, opts: ProgramOpts = {}) =>
+    cmd('PUT', `/radiators/${enc(id)}/program`, { ...week, ...programOpts(opts) }),
   radiatorFeatures: (
     id: string,
     patch: { window_detection?: boolean; presence_detection?: boolean; name?: string }

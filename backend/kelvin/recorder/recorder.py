@@ -226,6 +226,27 @@ class Recorder:
             for r in rows
         ]
 
+    def activity_samples(
+        self, radiator_ids: list[str], start: int, end: int
+    ) -> dict[str, list[tuple[int, int | None, int | None, float | None]]]:
+        """Raw 5-min samples (ts, window_open, occupied, working_rate) per radiator, in time
+        order. Callers bound the window (at most 31 days, so at most ~9 000 rows a radiator)."""
+        out: dict[str, list[tuple[int, int | None, int | None, float | None]]] = {
+            rid: [] for rid in radiator_ids
+        }
+        if not radiator_ids or end <= start:
+            return out
+        marks = ",".join("?" * len(radiator_ids))
+        for r in self.db.query(
+            f"SELECT radiator_id, ts, window_open, occupied, working_rate FROM samples"
+            f" WHERE radiator_id IN ({marks}) AND ts >= ? AND ts < ? ORDER BY radiator_id, ts",
+            (*radiator_ids, int(start), int(end)),
+        ):
+            out[r["radiator_id"]].append(
+                (r["ts"], r["window_open"], r["occupied"], r["working_rate"])
+            )
+        return out
+
     def _first_ts(self, rid: str, col: str) -> int | None:
         rows = self.db.rows(
             f"SELECT MIN(ts) FROM energy WHERE radiator_id = ? AND {col} IS NOT NULL", (rid,)

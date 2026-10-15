@@ -36,6 +36,9 @@ describe('RadiatorPanel', () => {
   it('shows facts and toggles features', async () => {
     render(RadiatorPanel, { radiator, showControls: false });
     expect(screen.getByText('HEKLA P · 1500 W')).toBeInTheDocument();
+    expect(screen.queryByText(/100\s%/)).toBeNull();
+    expect(screen.getByText('RSSI 100')).toBeInTheDocument();
+    expect(screen.getByText('Infos')).toBeInTheDocument();
     expect(screen.getByText('2 400 kWh', { normalizer: exact })).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('switch', { name: 'Détection de fenêtre ouverte' }));
     expect(api.radiatorFeatures).toHaveBeenCalledWith('9312063', { window_detection: false });
@@ -49,7 +52,8 @@ describe('RadiatorPanel', () => {
     render(RadiatorPanel, { radiator: { ...radiator, light: null, energy_wh: null, temperature: null }, showControls: false });
     expect(screen.queryByRole('switch', { name: 'Veilleuse' })).toBeNull();
     expect(screen.queryByText(/NaN/)).toBeNull();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    // The missing temperature, and Infos' own unknowns (this fixture predates reachability).
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renames on submit', async () => {
@@ -103,4 +107,17 @@ it('in English: facts, toggles and actions', () => {
   expect(screen.getByRole('switch', { name: 'Presence detection' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Blink' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Rename' })).toBeInTheDocument();
+});
+
+describe('night-light slider placement', () => {
+  it('only while the light is on and reports its brightness', () => {
+    const a = render(RadiatorPanel, { radiator: { ...radiator, light: { on: false, intensity: 1 } }, showControls: false });
+    expect(screen.queryByRole('slider')).toBeNull();
+    a.unmount();
+    const b = render(RadiatorPanel, { radiator: { ...radiator, light: { on: true, intensity: null } }, showControls: false });
+    expect(screen.queryByRole('slider')).toBeNull();
+    b.unmount();
+    render(RadiatorPanel, { radiator: { ...radiator, light: { on: true, intensity: 30 } }, showControls: false });
+    expect(screen.getByRole('slider', { name: 'Intensité de la veilleuse' })).toBeInTheDocument();
+  });
 });

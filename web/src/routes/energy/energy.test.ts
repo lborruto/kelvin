@@ -7,6 +7,7 @@ import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus, Quality } fro
 import { download } from '$lib/csv';
 import { addDays, bucketLabel } from '$lib/energy';
 import { fmtTime } from '$lib/format';
+import { alerts } from '$lib/stores/alerts.svelte';
 import { announcer } from '$lib/stores/announcer.svelte';
 import { house } from '$lib/stores/house.svelte';
 import { parisDayStart } from '$lib/time';
@@ -19,7 +20,8 @@ vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn(
 // The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
 vi.mock('$lib/api/client', async (orig) => ({
   ...(await orig<typeof import('$lib/api/client')>()),
-  api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]) }
+  api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]),
+    alerts: vi.fn().mockResolvedValue([]), dismissAlert: vi.fn() }
 }));
 
 const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({
@@ -144,6 +146,16 @@ describe('Énergie', () => {
     expect(container.querySelector('.hero .breakdown')).toHaveTextContent('Énergie 92,11 € + abonnement 6,29 €');
     expect(screen.getByText('−4 % de consommation par rapport à septembre 2026, sur 12 jours comparables')).toBeInTheDocument();
     expect(screen.getByText('Linky : données jusqu’au 12/10')).toBeInTheDocument();
+  });
+
+  it('renders the report although the alerts cannot be loaded (re-review)', async () => {
+    alerts.reset();
+    vi.mocked(api.alerts).mockRejectedValue(new Error('x'));
+    const { container } = render(Page);
+    expect(await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' })).toBeInTheDocument();
+    expect(container.querySelector('.hero .big')).toHaveTextContent('98,40 €');
+    vi.mocked(api.alerts).mockResolvedValue([]);
+    alerts.reset();
   });
 
   it('omits the comparison when too few days are comparable', async () => {

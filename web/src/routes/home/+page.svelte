@@ -3,14 +3,17 @@
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
   import type { LinkyStatus, SettingsView } from '$lib/api/types';
+  import AlertList from '$lib/components/AlertList.svelte';
   import HouseActions from '$lib/components/HouseActions.svelte';
   import LinkyPanel from '$lib/components/LinkyPanel.svelte';
+  import SessionsPanel from '$lib/components/SessionsPanel.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
   import Stepper from '$lib/components/Stepper.svelte';
   import TariffForm from '$lib/components/TariffForm.svelte';
   import { fmtAgo, fmtDateTime, fmtTemp } from '$lib/format';
   import { apiMessage, LOCALE_NAMES, LOCALES, locale, m, setLocale, statusError } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
+  import { alerts } from '$lib/stores/alerts.svelte';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
@@ -87,8 +90,9 @@
     loadTariff();
     loadLinky();
   });
-  // Tarif, Linky and Réglages appear together, once both answers are in: nothing on screen moves.
-  let settled = $derived((!!settingsView || !!tariffError) && (!!linkyStatus || !!linkyError));
+  // Tarif, Linky and Réglages appear together, once both answers are in: nothing on screen moves. The
+  // alerts' answer is one of them: their panel (above) takes its real height in that same frame.
+  let settled = $derived((!!settingsView || !!tariffError) && (!!linkyStatus || !!linkyError) && alerts.answered);
   // The real panels are taller than their skeletons: once they render, land on the anchor again.
   let landed = false;
   $effect(() => {
@@ -159,6 +163,12 @@
   </div>
 </section>
 
+<!-- Below the always-drawn panels, so the alerts' arrival moves nothing that is already there. -->
+<section id={ANCHORS.alerts} class="panel">
+  <h2>{m.alerts.title}</h2>
+  <AlertList hold={!settled} />
+</section>
+
 {#if !settled}
   <!-- Tarif and Linky in their final shape until both answers are in. -->
   <!-- The ids are there from the first render, so /home#tariff and #linky land on their panel. -->
@@ -222,6 +232,11 @@
     </dl>
   </section>
 {/if}
+
+<section id={ANCHORS.sessions} class="panel">
+  <h2>{m.sessions.title}</h2>
+  <SessionsPanel />
+</section>
 
 <style>
   h1 {

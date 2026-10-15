@@ -134,3 +134,34 @@ describe('ThermalStrip text equivalent', () => {
     expect(describe_(container)).toMatch(/^19\.0\s°C to 20\.0\s°C; last reading 20\.0\s°C; setpoint 20\.0\s°C\.$/);
   });
 });
+
+describe('activity bands', () => {
+  const start = Date.parse('2026-10-13T22:00:00Z');
+  const end = start + 86_400_000;
+  const s = start / 1000;
+  const activity = {
+    step: 300,
+    window: [{ start: s + 3600, end: s + 4800, open: false }],
+    presence: [{ start: s + 7200, end: s + 9000, open: false }, { start: s + 20_000, end: s + 21_000, open: false }]
+  };
+  it('draws hatched window bands and faint presence bands with exact times', () => {
+    const { container } = render(ThermalStrip, { points: [], start, end, now: end, activity, label: 'Salon' });
+    expect(container.querySelectorAll('rect.window')).toHaveLength(1);
+    expect(container.querySelectorAll('rect.presence')).toHaveLength(2);
+    expect(container.querySelector('rect.window title')!.textContent).toContain('Fenêtre ouverte (signalée par le radiateur) 01:00–01:20');
+    expect(container.querySelector('rect.window title')!.textContent).toContain('relevé toutes les 5');
+  });
+  it('says the counts in the text equivalent, and nothing without activity', () => {
+    const a = render(ThermalStrip, { points: [], start, end, now: end, activity, label: 'Salon' });
+    expect(a.container.querySelector('.visually-hidden')!.textContent).toMatch(/fenêtre ouverte 1 fois.*présence signalée 2 fois/);
+    a.unmount();
+    const b = render(ThermalStrip, { points: [], start, end, now: end, label: 'Salon' });
+    expect(b.container.querySelectorAll('rect.window, rect.presence')).toHaveLength(0);
+  });
+  it('English', () => {
+    applyLocale('en');
+    const { container } = render(ThermalStrip, { points: [], start, end, now: end, activity, label: 'Salon' });
+    expect(container.querySelector('.visually-hidden')!.textContent).toMatch(/window open 1 time.*presence reported 2 times/);
+    applyLocale('fr');
+  });
+});

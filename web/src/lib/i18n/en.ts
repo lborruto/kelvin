@@ -111,6 +111,12 @@ export const en: Messages = {
     awayActive: 'Away mode on'
   },
   room: {
+    presence: (v: string) => `Presence: ${v}`,
+    presenceDetected: 'detected',
+    presenceNone: 'none',
+    heatingNow: 'Heating',
+    duty: (pct: string) => `heating ${pct} of the last 24${NB}h`,
+    dutyHint: 'Share of the last 24 hours the radiators heated, weighted by their power (5-minute readings).',
     title: 'Room',
     windowOpen: 'Window open',
     off: 'Off',
@@ -149,6 +155,8 @@ export const en: Messages = {
     windowDetection: 'Open-window detection',
     presenceDetection: 'Presence detection',
     nightLight: 'Night light',
+    brightness: 'Brightness',
+    brightnessLabel: 'Night-light brightness',
     identify: 'Blink'
   },
   days: {
@@ -162,6 +170,14 @@ export const en: Messages = {
   },
   daysShort: { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' },
   program: {
+    lockedMidnight: 'Ends at midnight: edit this day in the Cozytouch app',
+    lockedUnrecognised: 'Unrecognised period: edit this day in the Cozytouch app',
+    midnightCap: 'Ending at midnight isn’t supported yet.',
+    unknownDayLabel: (day: string) => `${day}: unrecognised periods`,
+    changedElsewhere: 'Schedule changed elsewhere',
+    changedElsewhereDays: (days: string) => `Changed in the Cozytouch app or on another device: ${days}. Reload to see the current version, or replace it with your changes.`,
+    reload: 'Reload',
+    replaceAnyway: 'Replace anyway',
     nextTomorrow: (time: string, level: string) => `tomorrow ${time} → ${level}`,
     nextOn: (day: Day, time: string, level: string) => `${DAY[day]} ${time} → ${level}`,
     dayError: {
@@ -206,6 +222,13 @@ export const en: Messages = {
     send: 'Send'
   },
   strip: {
+    windowRun: (a: string, b: string) => `Window open (reported by the radiator) ${a}–${b}`,
+    presenceRun: (a: string, b: string) => `Presence reported ${a}–${b}`,
+    sampled: `5${NB}min readings`,
+    windowCount: (n: number) => `window open ${int(n)} ${plural(n, { one: 'time', other: 'times' })}`,
+    presenceCount: (n: number) => `presence reported ${int(n)} ${plural(n, { one: 'time', other: 'times' })}`,
+    legendWindow: 'Window open',
+    legendPresence: 'Presence',
     range: (min: string, max: string) => `${min} to ${max}`,
     last: (t: string) => `last reading ${t}`,
     none: 'no reading yet',
@@ -279,6 +302,33 @@ export const en: Messages = {
       base: 'Base rate', hc: 'Off-peak', hp: 'Peak', blue_hc: 'Blue off-peak', blue_hp: 'Blue peak',
       white_hc: 'White off-peak', white_hp: 'White peak', red_hc: 'Red off-peak', red_hp: 'Red peak'
     } as Record<string, string>
+  },
+  roomInfo: {
+    title: 'Details',
+    model: 'Model',
+    power: 'Power',
+    watts: (w: number) => `${w}${NB}W`,
+    signal: 'Signal level',
+    rssi: (v: number) => `RSSI ${v}`,
+    rssiHint: 'Raw value reported by the radiator; scale not verified.',
+    reachability: 'Connection',
+    reachable: 'Reachable',
+    unreachable: 'Unreachable',
+    unreachableSince: (t: string) => `Unreachable since ${t}`,
+    unreachableChip: 'Unreachable',
+    lastSignal: 'Last signal'
+  },
+  roomFigures: {
+    title: (range: string) => `Energy over ${range}`,
+    kwh: 'Consumption',
+    eur: 'Cost (energy)',
+    eurHint: 'Energy only, without the standing charge, at your off-peak and peak prices.',
+    hours: 'Heating hours',
+    hoursHint: 'Full-power equivalent.',
+    noTariff: 'Add your tariff',
+    est: 'est.',
+    estHint: 'Estimate: some energy is spread between two meter readings.',
+    partial: (pct: string) => `recorded over ${pct} of the period`
   },
   roomEnergy: {
     noRoom: 'No room',
@@ -595,6 +645,36 @@ export const en: Messages = {
     linkyLoadFailed: 'Couldn’t load the Linky status.',
     logoutFailed: 'Couldn’t sign out. Try again.'
   },
+  alerts: {
+    title: 'Alerts',
+    none: 'No alerts.',
+    loadError: 'Couldn’t load the alerts.',
+    dismissLabel: (text: string) => `Dismiss: ${text}`,
+    priceChange: (when: string) => `If your plan follows the regulated tariff, prices change on ${when}: add the new prices.`,
+    addPrices: 'Add the prices',
+    consentExpiring: (when: string) => `Your Enedis consent expires on ${when}: renew it on MyElectricalData.`,
+    consentExpired: (when: string) => `Your Enedis consent expired on ${when}: renew it on MyElectricalData.`,
+    unreachableSince: (where: string, time: string) => `${where}: radiator unreachable since ${time}.`,
+    unreachableLong: (where: string) => `${where}: radiator unreachable for over 30${NB}min.`,
+    commandFailed: (time: string, label: string, error: string) => `Command not completed at ${time}: ${label} — ${error}`,
+    linkyStalled: (day: string, days: number) => `Linky: no new data since ${day} (${int(days)} ${plural(days, { one: 'day', other: 'days' })}).`
+  },
+  sessions: {
+    title: 'Signed-in devices',
+    intro: 'Browsers signed in to Kelvin with the home’s account.',
+    unknownBrowser: 'Unknown browser',
+    thisDevice: 'this device',
+    lastActive: (ago: string) => `last active ${ago}`,
+    created: (when: string) => `signed in ${when}`,
+    signOut: 'Sign out',
+    signOutLabel: (device: string) => `Sign out ${device}`,
+    signOutOthers: 'Sign out other devices',
+    confirmTitle: 'Sign out other devices?',
+    confirmBody: 'They’ll need to sign in again with the home’s Cozytouch account. This device stays signed in.',
+    revoked: (n: number) => `${int(n)} ${plural(n, { one: 'device', other: 'devices' })} signed out.`,
+    loadError: 'Couldn’t load the signed-in devices.',
+    retry: 'Try again'
+  },
   settings: {
     title: 'Settings',
     account: 'Account',
@@ -677,6 +757,7 @@ export const en: Messages = {
     program: (p: ApiParams) => `${p.name}: schedule`,
     settings: (p: ApiParams) => `${p.name}: settings`,
     night_light: (p: ApiParams) => `${p.name}: night light ${p.on ? 'on' : 'off'}`,
+    night_light_intensity: (p: ApiParams) => `${p.name}: night light at ${p.intensity}%`,
     identify: (p: ApiParams) => `${p.name}: blink`,
     boost: (p: ApiParams) => `${p.name}: boost to ${p.temperature}${NB}°C`,
     away: (p: ApiParams) => `Away at ${p.temperature}${NB}°C`,
@@ -687,6 +768,9 @@ export const en: Messages = {
   },
   api: {
     login_required: () => 'Please sign in.',
+    session_is_current: () => 'Use “Sign out” for this device.',
+    session_unknown: () => 'That device is no longer signed in.',
+    alert_unknown: () => 'Alert not found.',
     header_missing: () => 'Missing X-Kelvin header.',
     bad_credentials: () => 'Wrong Cozytouch email or password.',
     wrong_account: () => 'This Cozytouch account isn’t the one for this home.',
@@ -713,8 +797,10 @@ export const en: Messages = {
     program_time_invalid: (p: ApiParams) => `${day(p.day)}: invalid time “${p.value}” (HH:MM).`,
     day_unknown: (p: ApiParams) => `Unknown day: ${p.day}.`,
     program_too_many: (p: ApiParams) => `${day(p.day)}: 3 comfort periods at most.`,
+    program_day_unknown: (p: ApiParams) => `${day(p.day)}: the radiator hasn’t reported this day; fill it in to send the schedule.`,
     program_slot_invalid: (p: ApiParams) => `${day(p.day)}: the period ${p.start}–${p.end} isn’t valid.`,
     program_overlap: (p: ApiParams) => `${day(p.day)}: periods overlap.`,
+    program_changed_elsewhere: () => 'Schedule changed elsewhere: reload it or replace it.',
     feature_unknown: (p: ApiParams) => `Unknown feature: ${p.feature}.`,
     no_night_light: () => 'This radiator has no night light.',
     intensity_light_off: () => 'Brightness can only be set with the night light on.',

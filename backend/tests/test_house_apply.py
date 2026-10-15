@@ -14,9 +14,10 @@ def test_apply_updates_and_returns_radiator_id():
     assert house.radiators["9312063"].temperature == 21.0
 
 
-def test_apply_same_value_returns_none():
+def test_apply_same_value_is_an_event_but_not_a_change():
     house = build_house(*sample_house())
-    assert house.apply(StateChange(TEMP_URL, "core:TemperatureState", 20.2)) is None
+    assert house.apply(StateChange(TEMP_URL, "core:TemperatureState", 20.2)) == "9312063"
+    assert house.apply(StateChange(TEMP_URL, "core:TemperatureState", 20.2), event=False) is None
 
 
 def test_apply_unknown_device_returns_none():

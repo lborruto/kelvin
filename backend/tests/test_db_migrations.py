@@ -42,7 +42,7 @@ def test_v1_nulls_legacy_zeros_of_registers_in_use_and_keeps_a_copy(tmp_path):
     path = tmp_path / "k.db"
     legacy_db(path)
     db = Database(path)
-    assert db.get_setting(SCHEMA_VERSION_KEY) == 1
+    assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION
     assert rows(db) == [
         ("a", 0, 1_500_000.0, 900_000.0, 0.0),
         ("a", 3600, 1_501_000.0, None, 0.0),
@@ -151,3 +151,46 @@ def test_v1_logs_its_start_and_finish_without_ids(tmp_path, caplog):
     text = caplog.text
     assert "schema v1: 5 energy rows" in text and "schema v1 done" in text
     assert "'a'" not in text and " a " not in text
+
+
+def test_v2_backfills_session_ids_for_existing_rows(tmp_path):
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
+        "INSERT INTO settings VALUES ('schema_version', '1');"
+        "CREATE TABLE sessions (hash TEXT PRIMARY KEY, created REAL NOT NULL,"
+        " last_seen REAL NOT NULL, user_agent TEXT);"
+        "INSERT INTO sessions VALUES ('h1', 1, 1, 'ua'), ('h2', 2, 2, NULL);"
+    )
+    conn.commit()
+    conn.close()
+    db = Database(path)
+    ids = [r["id"] for r in db.query("SELECT id FROM sessions ORDER BY hash")]
+    assert len(set(ids)) == 2 and all(len(i) == 16 for i in ids)
+    assert db.get_setting("schema_version") >= 2
+    db.close()
+    again = Database(path)  # idempotent
+    assert [r["id"] for r in again.query("SELECT id FROM sessions ORDER BY hash")] == ids
+    again.close()
+
+
+def test_v3_adds_command_log_codes(tmp_path):
+    db = Database(tmp_path / "k.db")  # the module imports Database and SCHEMA_VERSION already
+    cols = {r["name"] for r in db.query("PRAGMA table_info(command_log)")}
+    assert {"label_code", "label_params", "error_code", "error_params", "reason_code"} <= cols
+    assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION == 3
+    db.close()
+
+
+def test_a_session_without_id_gets_one_at_every_start(tmp_path):
+    """A session written by an older build after v2 ran (a downgrade) is backfilled too."""
+    db = Database(tmp_path / "k.db")
+    db.execute(
+        "INSERT INTO sessions (hash, created, last_seen, user_agent) VALUES ('h', 1, 1, NULL)"
+    )
+    db.close()
+    again = Database(tmp_path / "k.db")
+    [row] = again.query("SELECT id FROM sessions")
+    assert row["id"] is not None and len(row["id"]) == 16
+    again.close()

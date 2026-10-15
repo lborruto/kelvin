@@ -122,7 +122,7 @@ def open_context(
         if gateway is not None:  # injected (tests): the same fake, given these credentials
             await gateway.set_credentials(username, password)
             return gateway
-        return make_gateway(settings, username, password)
+        return make_gateway(settings, username, password, wall=wall)
 
     return AppContext(
         settings=settings,

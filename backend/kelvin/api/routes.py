@@ -11,7 +11,7 @@ from operator import add
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
@@ -31,8 +31,9 @@ from kelvin.api.schemas import (
     SettingsBody,
 )
 from kelvin.api.sse import event_stream
-from kelvin.auth.sessions import COOKIE_NAME
+from kelvin.auth.sessions import COOKIE_NAME, SessionIsCurrent
 from kelvin.billing.report import next_unit, unit_start
+from kelvin.billing.room_energy import MAX_ROOM_DAYS
 from kelvin.commands.translate import (
     Planned,
     plan_feature,
@@ -44,13 +45,22 @@ from kelvin.commands.translate import (
     plan_setpoint,
 )
 from kelvin.errors import UserError
-from kelvin.house.model import Radiator
+from kelvin.house.model import DAY_ORDER, Radiator
 from kelvin.labels import Label
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled, day_bounds
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import BudgetExceeded
 from kelvin.overkiz.budget import QuotasUnavailable
 from kelvin.overkiz.errors import GatewayError
+from kelvin.recorder.activity import (
+    DUTY_WINDOW_S,
+    MAX_SPAN_S,
+    STEP,
+    radiator_duty,
+    room_duty,
+    runs,
+    union,
+)
 
 router = APIRouter(dependencies=[Depends(require_kelvin_header), Depends(require_session)])
 MAX_REPORT_DAYS = 4 * 366
@@ -132,6 +142,29 @@ async def stream(request: Request) -> EventSourceResponse:
     )
 
 
+@router.get("/rooms/duty")
+async def rooms_duty(request: Request) -> dict:
+    """Each room's share of time heating over the last 24 h (spec QW5)."""
+    rt = _rt(request)
+    end = int(rt.recorder.wall())  # the runtime's injected clock
+    start = end - DUTY_WINDOW_S
+    samples = await asyncio.to_thread(
+        rt.recorder.activity_samples, list(rt.house.radiators), start, end
+    )
+    out: dict[str, dict] = {}
+    for room in rt.house.rooms.values():
+        rads = rt.house.room_radiators(room.id)
+        per = {
+            r.id: radiator_duty(((s[0], s[3]) for s in samples.get(r.id, [])), start, end)
+            for r in rads
+        }
+        out[room.id] = {
+            "duty": room_duty(per, {r.id: r.power_w for r in rads}),
+            "coverage": min((c for _, c in per.values()), default=0.0),
+        }
+    return {"from": start, "to": end, "rooms": out}
+
+
 @router.post("/rooms/{room_id}/mode")
 async def room_mode(room_id: str, body: ModeBody, request: Request):
     rt = _rt(request)
@@ -153,12 +186,71 @@ async def room_setpoint(room_id: str, body: SetpointBody, request: Request):
     )
 
 
+def _check_base(body: ProgramBody, rads: list[Radiator]) -> None:
+    """Refuse to overwrite a programme that changed since the editor loaded it."""
+    base = body.base_programs()
+    if base is None or body.force:
+        return
+    changed = [r for r in rads if base.get(r.id) != r.program]
+    if not changed:
+        return
+    days = [
+        d
+        for d in DAY_ORDER
+        if any((base.get(r.id) or {}).get(d) != r.program.get(d) for r in changed)
+    ]
+    raise UserError("program_changed_elsewhere", 409, days=days)  # day keys only, never an id
+
+
 @router.put("/rooms/{room_id}/program")
 async def room_program(room_id: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
-    week = body.week()
-    return await _submit(rt, Label.of("program", name=name), rads, lambda r: plan_program(r, week))
+    _check_base(body, rads)
+    week, keep = body.week(), body.kept()
+    return await _submit(
+        rt, Label.of("program", name=name), rads, lambda r: plan_program(r, week, keep=keep)
+    )
+
+
+@router.get("/rooms/{room_id}/energy")
+async def room_energy_route(
+    room_id: str, request: Request, days: int = Query(default=1, ge=1, le=MAX_ROOM_DAYS)
+) -> dict:
+    """The room's radiator energy over the last `days` local days, today included (spec QW3):
+    the Énergie report's own figures and € rule, never a bucket rounded on its own."""
+    rt = _rt(request)
+    _, rads = _room_radiators(rt, room_id)
+    linky = _linky(rt)
+    ids = [r.id for r in rads]
+    # Off the event loop: the first request of a year replays the half-hours since 1 January.
+    return await asyncio.to_thread(
+        linky.room_energy, ids, days, rt.recorder, set(rt.house.radiators)
+    )
+
+
+def _window(start: float, end: float, now: float) -> tuple[int, int]:
+    """An epoch window for the activity routes: from 2000-01-01, `end` after `start` (clamped to
+    now), at most MAX_SPAN_S long; `422 period_invalid` otherwise, as `_check_span`."""
+    end = min(end, now)
+    if not FIRST_TS <= start < end or end - start > MAX_SPAN_S:
+        raise UserError("period_invalid")
+    return int(start), int(end)
+
+
+@router.get("/rooms/{room_id}/activity")
+async def room_activity(room_id: str, request: Request, start: float, end: float) -> dict:
+    """Window-open and presence runs the radiators reported (spec QW4)."""
+    rt = _rt(request)
+    _, rads = _room_radiators(rt, room_id)
+    a, z = _window(start, end, rt.recorder.wall())
+    samples = await asyncio.to_thread(rt.recorder.activity_samples, [r.id for r in rads], a, z)
+    window: list[dict] = []
+    presence: list[dict] = []
+    for rows in samples.values():
+        window += runs(((s[0], s[1]) for s in rows), a, z)
+        presence += runs(((s[0], s[2]) for s in rows), a, z)
+    return {"step": STEP, "window": union(window), "presence": union(presence)}
 
 
 @router.post("/radiators/{rid}/mode")
@@ -186,8 +278,11 @@ async def radiator_setpoint(rid: str, body: SetpointBody, request: Request):
 async def radiator_program(rid: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
-    week = body.week()
-    return await _submit(rt, Label.of("program", name=r.name), [r], lambda x: plan_program(x, week))
+    _check_base(body, [r])
+    week, keep = body.week(), body.kept()
+    return await _submit(
+        rt, Label.of("program", name=r.name), [r], lambda x: plan_program(x, week, keep=keep)
+    )
 
 
 @router.patch("/radiators/{rid}/features")
@@ -212,7 +307,11 @@ async def radiator_features(rid: str, body: FeaturesBody, request: Request):
 async def radiator_light(rid: str, body: LightBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
-    label = Label.of("night_light", name=r.name, on=body.on)
+    label = (
+        Label.of("night_light_intensity", name=r.name, intensity=body.intensity)
+        if body.intensity is not None
+        else Label.of("night_light", name=r.name, on=body.on)
+    )
     return await _submit(rt, label, [r], lambda x: plan_light(x, body.on, body.intensity))
 
 
@@ -343,6 +442,54 @@ async def energy_radiators(
     return await asyncio.to_thread(rt.recorder.radiator_energy, ids, start, end, group)  # type: ignore[arg-type]
 
 
+@router.get("/sessions")
+async def sessions_list(request: Request) -> list[dict]:
+    """The household's signed-in devices (spec §2.5): no hash, no raw user agent."""
+    ctx = request.app.state.ctx
+    return ctx.sessions.listing(request.cookies.get(COOKIE_NAME))
+
+
+@router.delete("/sessions/{sid}", status_code=204)
+async def session_revoke(sid: str, request: Request) -> Response:
+    ctx = request.app.state.ctx
+    try:
+        ok = ctx.sessions.revoke(sid, request.cookies.get(COOKIE_NAME))
+    except SessionIsCurrent:
+        raise UserError("session_is_current", 409) from None
+    if not ok:
+        raise UserError("session_unknown", 404)
+    return Response(status_code=204)
+
+
+@router.post("/sessions/revoke-others")
+async def sessions_revoke_others(request: Request) -> dict:
+    ctx = request.app.state.ctx
+    return {"revoked": ctx.sessions.revoke_others(request.cookies.get(COOKIE_NAME))}
+
+
+_ALERT_ID = re.compile(r"[0-9]{1,12}")  # ASCII digits only
+
+
+def _alerts(rt: Runtime):
+    if rt.alerts is None:
+        raise UserError("alert_unknown", 404)
+    return rt.alerts
+
+
+@router.get("/alerts")
+async def alerts_list(request: Request, state: Literal["active", "all"] = "active") -> list[dict]:
+    """Kinds and params only: the web writes the words (spec §2.4)."""
+    return _alerts(_rt(request)).store.listing(state)
+
+
+@router.post("/alerts/{aid}/dismiss", status_code=204)
+async def alert_dismiss(aid: str, request: Request) -> Response:
+    svc = _alerts(_rt(request))
+    if not _ALERT_ID.fullmatch(aid) or not svc.dismiss(int(aid)):
+        raise UserError("alert_unknown", 404)
+    return Response(status_code=204)
+
+
 def _linky(rt: Runtime) -> LinkyService:
     if rt.linky is None:
         raise UserError("linky_unavailable", 503)
@@ -443,13 +590,16 @@ async def get_settings(request: Request) -> dict:
 
 @router.put("/settings")
 async def put_settings(body: SettingsBody, request: Request) -> dict:
-    linky = _linky(_rt(request))
+    rt = _rt(request)
+    linky = _linky(rt)
     try:
         linky.tariffs.update(body.tariff.to_update())
     except UserError:  # coded: prices, power, option, slots
         raise
     except ValueError as e:  # anything the codes do not cover is still a 422, never a 500
         raise UserError("invalid_request") from e
+    if rt.alerts:
+        rt.alerts.request()  # a saved price row resolves price_change at once
     return linky.settings_view()
 
 
@@ -463,7 +613,8 @@ async def put_linky(body: LinkyBody, request: Request) -> dict:
     """The token is write-only: never in a response, a log or an error. Left out (or blank), the
     stored one is reused."""
     ctx = request.app.state.ctx
-    linky = _linky(_rt(request))
+    rt = _rt(request)
+    linky = _linky(rt)
     prm = body.prm.strip()
     if not _PRM.fullmatch(prm):
         raise UserError("pdl_invalid")
@@ -487,4 +638,6 @@ async def put_linky(body: LinkyBody, request: Request) -> dict:
         if ctx.account is not None:
             ctx.account = replace(ctx.account, med_prm=prm, med_token=token)
             ctx.accounts.save(ctx.account)
+    if rt.alerts:
+        rt.alerts.request()  # a new token resolves linky_stalled after its sync
     return linky.status()

@@ -107,3 +107,20 @@ it('in English: day name, slot fields, buttons and the day error', () => {
   expect(screen.getByRole('button', { name: 'Remove period 1 from Monday' })).toBeInTheDocument();
   expect(screen.getByRole('alert')).toHaveTextContent('Periods overlap.');
 });
+
+describe('locked days', () => {
+  it('a midnight day shows its 24:00 end, read-only, with the hint', () => {
+    render(ProgramDay, { day: 'sunday', segs: [{ start: 1200, end: 1440 }], locked: 'midnight', onchange: vi.fn() });
+    expect(screen.getByText(/Fin à minuit\s:\smodifiez ce jour dans l’app Cozytouch/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ajouter une plage/ })).toBeNull();
+    expect(screen.queryByLabelText(/plage 1, début/)).toBeNull();
+    expect(screen.getByText(/20:00–24:00/)).toBeInTheDocument();
+  });
+  it('an unrecognised day is hatched, never all eco', () => {
+    applyLocale('en');
+    const { container } = render(ProgramDay, { day: 'saturday', segs: [], locked: 'unrecognised', onchange: vi.fn() });
+    expect(container.querySelector('.bar.unknown')).not.toBeNull();
+    expect(screen.getByText(/Unrecognised period: edit this day in the Cozytouch app/)).toBeInTheDocument();
+    applyLocale('fr');
+  });
+});

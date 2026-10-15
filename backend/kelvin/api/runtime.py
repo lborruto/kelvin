@@ -7,10 +7,13 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from kelvin.alerts.rules import RULES, AlertContext
+from kelvin.alerts.service import AlertService
+from kelvin.alerts.store import AlertStore
 from kelvin.api.sse import Broadcaster
 from kelvin.commands.overrides import OverrideManager
 from kelvin.commands.service import CommandService, Pending
@@ -32,12 +35,18 @@ from kelvin.overkiz.models import (
     place_to_dict,
 )
 from kelvin.overkiz.poller import EventPump
+from kelvin.overkiz.sample import DEMO_OUTAGE_RID
 from kelvin.overkiz.simhistory import SIM_DB_KEY, seed_history
 from kelvin.recorder.db import Database
 from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
 
 log = logging.getLogger(__name__)
+
+# Simulator demo (spec §10.2): « Chambre 2 » unreachable from 45 min before start to 2 h after,
+# so the Infos block and the radiator_unreachable alert show in demos and e2e runs.
+DEMO_OUTAGE_BEFORE_S = 2700
+DEMO_OUTAGE_AFTER_S = 7200
 
 # The structure of the last full setup read (places, devices without their states), so a
 # start with the day's full reads spent can still build the house (final review I1).
@@ -60,6 +69,7 @@ class Runtime:
     closed: bool = False
     owns_db: bool = True
     linky: LinkyService | None = None
+    alerts: AlertService | None = None
     quotas: QuotaReadout | None = None
 
     def snapshot(self) -> dict[str, Any]:
@@ -70,6 +80,9 @@ class Runtime:
             "recent": [p.view() for p in self.commands.recent()],
             "overrides": self.overrides.active(),
             "status": self.pump.status(),
+            "alerts": (
+                self.alerts.store.summary() if self.alerts else {"active": 0, "highest": None}
+            ),
         }
 
     def publish_overrides(self) -> None:
@@ -84,7 +97,26 @@ class Runtime:
             self.publish_overrides()
 
 
-def make_gateway(settings: Settings, username: str, password: str) -> Gateway:
+def alert_context(rt: Runtime, now: float) -> AlertContext:
+    """What the alert rules read, at `now` on the runtime's clock (tests pin it)."""
+    tz = ZoneInfo(rt.settings.tz)
+    return AlertContext(
+        tz=tz,
+        today=datetime.fromtimestamp(now, tz).date(),
+        tariff=rt.linky.tariffs.get() if rt.linky else None,
+        linky=rt.linky.status() if rt.linky else None,
+        house=rt.house,
+        db=rt.db,
+    )
+
+
+def make_gateway(
+    settings: Settings,
+    username: str,
+    password: str,
+    *,
+    wall: Callable[[], float] = time.time,
+) -> Gateway:
     if settings.kelvin_fake:
         fixture = settings.kelvin_data / "fake_home.json"
         if fixture.exists():
@@ -95,7 +127,14 @@ def make_gateway(settings: Settings, username: str, password: str) -> Gateway:
                 username=username,
                 password=password,
             )
-        return FakeGateway(username=username, password=password)
+        gw = FakeGateway(username=username, password=password)
+        gw.demo_outage(
+            DEMO_OUTAGE_RID,
+            before_s=DEMO_OUTAGE_BEFORE_S,
+            after_s=DEMO_OUTAGE_AFTER_S,
+            wall=wall,
+        )
+        return gw
     from kelvin.overkiz.real import PyOverkizGateway
 
     return PyOverkizGateway(username, password)
@@ -204,7 +243,7 @@ async def start_runtime(
     a documented daily limit is better than a home without heating control for up to 24 h.
     Beyond that overdraft, SetupBudgetSpent is raised before any Overkiz call."""
     gateway = gateway or make_gateway(
-        settings, settings.cozy_user, settings.cozy_pass.get_secret_value()
+        settings, settings.cozy_user, settings.cozy_pass.get_secret_value(), wall=wall
     )
     owns_db = db is None
     opened: Database | None = None
@@ -229,8 +268,10 @@ async def start_runtime(
         else:
             log.info("full setup read budget spent: starting from the stored setup")
             root, devices = stored
-        house = build_house(root, devices)
+        house = build_house(root, devices, wall=wall)
         is_sim = isinstance(gateway, FakeGateway)
+        if is_sim:
+            house.backdate_status(gateway.sim_status_since)
         if not is_sim and db.get_setting(SIM_DB_KEY) is True:
             raise RuntimeError(
                 "KELVIN_DATA holds simulator data; use another directory for a real installation."
@@ -260,8 +301,11 @@ async def start_runtime(
                         for c in p.planned.commands
                     ],
                 )
+                if p.status == "failed" and runtime and runtime[0].alerts:
+                    runtime[0].alerts.request()  # command_failed shows within seconds
 
-        commands = CommandService(gateway, house, on_update=on_update)
+        # The runtime's clock: a pending's time is what the command_failed rule compares with.
+        commands = CommandService(gateway, house, wall=wall, on_update=on_update)
 
         recorder_ref: list[Recorder] = []
 
@@ -329,6 +373,13 @@ async def start_runtime(
         )
         rt.quotas = QuotaReadout(lambda: gateway.quotas())  # lazy: stub gateways need no quotas()
         rt.published_overrides = overrides.active()
+        rt.alerts = AlertService(
+            AlertStore(db, wall=wall),
+            dict(RULES),
+            lambda: alert_context(rt, wall()),
+            publish=lambda s: bc.publish("alerts", s),
+            wall=wall,
+        )
         runtime.append(rt)
     except BaseException:
         try:
@@ -345,6 +396,7 @@ async def start_runtime(
             asyncio.create_task(recorder.run()),
             asyncio.create_task(_override_loop(rt)),
             asyncio.create_task(linky_service.run()),
+            asyncio.create_task(rt.alerts.run()),
         ]
     return rt
 

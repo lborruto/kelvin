@@ -102,3 +102,35 @@ the setup once over the budget (at most once per 24 h). It never sends `states/r
   radiators in off mode: 0 errors; only `core:TemperatureState` changes (8 events from 2
   devices), median gap ≈ 900 s, max 3000 s; no energy, tariff counter, working-rate or
   running-state events. The heating-time cadence remains unverified.
+
+## Night-light brightness (unverified, 2026-10-14)
+
+Kelvin's slider sends `on` then `setIntensity(<1–100>)` to the `DimmerLight` device (`#6`) and
+treats the command as done when `core:LightIntensityState` reports the value (both names are in
+the real capability dump). No real radiator was written to verify this (owner rule): until the
+owner uses it and the state is seen to follow, a slider change that the state never confirms
+ends as « Pas de confirmation du radiateur ». Record the observed behaviour here when it is known.
+
+## Midnight slot ends (read-only check, 2026-10-14)
+
+Every real heater's `core:TimeProgramState` was read (no write): each day has three slots and
+the third is the empty marker `00:00–00:00`; no slot ends at midnight. So the device encoding of
+a midnight end is unverified. Kelvin reads `X–00:00` (X ≠ 00:00) as « until midnight » (24:00),
+locks that day, and never writes such a slot; the editor's latest end is 23:45. A day Kelvin
+cannot parse is locked the same way and re-sent exactly as read.
+
+## Reachability and last signal (read-only)
+
+`core:StatusState` (`available` / `unavailable`) is in the real capability dump of the heater
+and of each sensor. Kelvin shows the heater's value and raises `radiator_unreachable` after 30
+continuous minutes of `unavailable` (counted from Kelvin's own observation). `core:RSSILevelState`
+is shown raw (« RSSI 87 »): its scale is not recorded yet; record it here when known.
+
+## Programme days Kelvin does not rewrite (2026-10-15)
+
+Kelvin writes each day as its comfort slots sorted by start (`{"start", "end"}` in that key
+order), then `00:00–00:00` markers, three entries in all — the shape the real radiator reported
+and echoed back (see the `setTimeProgram` payloads above). A day in any other shape — a slot
+ending at midnight, unsorted slots, another entry count, other keys or key order, anything
+unreadable — is shown locked and re-sent exactly as read on every programme send. Whether the
+device ever reports another shape is not verified; record it here if seen.

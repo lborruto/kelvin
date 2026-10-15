@@ -16,13 +16,27 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   `OVERRIDEMODE_ERROR` on commands that did apply.
 - **Control:** off, manual, schedule; setpoint; the weekly schedule editor (the radiators'
   own three slots a day); boost a room for a few hours; away for the whole house. Boost and away
-  restore what was there before.
+  restore what was there before. The night light's brightness (1–100 %). The programme editor
+  never writes a day it cannot edit: a day ending at midnight or that Kelvin cannot read is shown
+  and kept exactly as the radiator has it, and a programme changed in the Cozytouch app (or
+  another browser) since you opened the editor is never overwritten without asking.
 - **History:** temperature and setpoint per room, a 24-hour thermal strip, radiator energy from
   their own meters. Overkiz reports a meter only when it moves; Kelvin spreads the energy
   between two readings over the time between them, by the radiator's own heating rate when it
   knows it, and marks such figures as estimates. A reading that cannot be true (above what the
   radiator can draw, or a drop) is never counted as energy, and the time after a meter's last
   change stays unknown until it moves again.
+- **Room details:** per radiator its model, power, raw signal level, whether Cozytouch can reach
+  it (and since when it cannot) and its last signal; per room the radiators' energy, its cost at
+  your prices (energy only) and heating hours for the chart's period, when the window was
+  reported open and presence detected, whether the room is heating now and the share of the last
+  24 hours it heated.
+- **Alerts:** calm in-app notices when regulated prices change (1 February, 1 August) and your
+  tariff has no new prices, when the Enedis consent nears its end, when a radiator has been
+  unreachable for 30 minutes, when a command failed, or when Linky stopped bringing new days.
+  Dismiss one and it stays hidden until it happens again.
+- **Signed-in devices:** Home › Settings lists the browsers signed in with the home's account and
+  signs any of them out.
 - **Energy:** whole-home consumption from Linky (through MyElectricalData) by day, ISO week,
   month or year, with a period navigator. Every bar, half-hour and figure shows its exact value on
   hover, tap or keyboard: off-peak/peak, radiators and the rest of the home, energy and standing charge €,
@@ -48,6 +62,9 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   email and password against Cozytouch. The first login on a fresh install decides which
   account the install belongs to. Anyone who can log in to Cozytouch with that account can log
   in to Kelvin. Logins are throttled per client (5 failures per 15 min) and overall.
+- **Sessions:** every signed-in browser is listed in Home › Settings › Signed-in devices (browser
+  and system only; the raw user agent and the session token never leave the server). Signing a
+  device out takes effect on its next request and closes its live stream within 30 seconds.
 - **Kelvin stores that password** in `/data/account.json` (mode 0600), because it must
   re-login to Cozytouch unattended. Protect and back up the data volume like a password store.
 - **Keep it on your LAN or a VPN** such as Tailscale or WireGuard. Kelvin serves plain HTTP.

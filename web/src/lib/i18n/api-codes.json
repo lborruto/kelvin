@@ -1,5 +1,9 @@
 {
   "errors": {
+    "alert_unknown": {
+      "fr": "Alerte introuvable.",
+      "params": {}
+    },
     "bad_credentials": {
       "fr": "Email ou mot de passe Cozytouch incorrect.",
       "params": {}
@@ -148,6 +152,20 @@
       "fr": "Prix de l’abonnement invalide.",
       "params": {}
     },
+    "program_changed_elsewhere": {
+      "fr": "Programme modifié ailleurs : rechargez-le ou remplacez-le.",
+      "params": {
+        "days": [
+          "monday"
+        ]
+      }
+    },
+    "program_day_unknown": {
+      "fr": "dimanche : le radiateur n’a pas rapporté ce jour ; renseignez-le pour envoyer le programme.",
+      "params": {
+        "day": "sunday"
+      }
+    },
     "program_overlap": {
       "fr": "mardi : des plages se chevauchent.",
       "params": {
@@ -201,6 +219,14 @@
     },
     "send_internal": {
       "fr": "Envoi impossible : erreur interne.",
+      "params": {}
+    },
+    "session_is_current": {
+      "fr": "Utilisez « Se déconnecter » pour cet appareil.",
+      "params": {}
+    },
+    "session_unknown": {
+      "fr": "Cet appareil n’est plus connecté.",
       "params": {}
     },
     "setpoint_kind_unknown": {
@@ -322,6 +348,13 @@
       "params": {
         "name": "Salon",
         "on": true
+      }
+    },
+    "night_light_intensity": {
+      "fr": "Salon : veilleuse à 40 %",
+      "params": {
+        "intensity": 40,
+        "name": "Salon"
       }
     },
     "program": {

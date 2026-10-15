@@ -243,8 +243,13 @@ export class HouseStore {
     return this.overrides.find((o) => o.kind === 'away');
   }
 
+  /** QW5: the room draws power now (any radiator's working rate above 0). */
+  roomHeating(roomId: string): boolean {
+    return this.roomRadiators(roomId).some((x) => (x.working_rate ?? 0) > 0);
+  }
+
   get heatingCount(): number {
-    return this.rooms.filter((r) => this.roomRadiators(r.id).some((x) => (x.working_rate ?? 0) > 0)).length;
+    return this.rooms.filter((r) => this.roomHeating(r.id)).length;
   }
 }
 

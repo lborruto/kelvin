@@ -117,6 +117,12 @@ export const fr = {
     awayActive: 'Absence en cours'
   },
   room: {
+    presence: (v: string) => `Présence${NB}: ${v}`,
+    presenceDetected: 'détectée',
+    presenceNone: 'aucune',
+    heatingNow: 'En chauffe',
+    duty: (pct: string) => `chauffe ${pct} sur 24${NB}h`,
+    dutyHint: 'Part du temps où les radiateurs ont chauffé ces dernières 24 heures, pondérée par leur puissance (relevés toutes les 5 minutes).',
     title: 'Pièce',
     windowOpen: 'Fenêtre ouverte',
     off: 'Arrêté',
@@ -155,6 +161,8 @@ export const fr = {
     windowDetection: 'Détection de fenêtre ouverte',
     presenceDetection: 'Détection de présence',
     nightLight: 'Veilleuse',
+    brightness: 'Intensité',
+    brightnessLabel: 'Intensité de la veilleuse',
     identify: 'Faire clignoter'
   },
   days: {
@@ -168,6 +176,14 @@ export const fr = {
   },
   daysShort: { monday: 'Lun', tuesday: 'Mar', wednesday: 'Mer', thursday: 'Jeu', friday: 'Ven', saturday: 'Sam', sunday: 'Dim' },
   program: {
+    lockedMidnight: `Fin à minuit${NB}: modifiez ce jour dans l’app Cozytouch`,
+    lockedUnrecognised: `Plage non reconnue${NB}: modifiez ce jour dans l’app Cozytouch`,
+    midnightCap: 'Une fin à minuit n’est pas encore prise en charge.',
+    unknownDayLabel: (day: string) => `${day}${NB}: plages non reconnues`,
+    changedElsewhere: 'Programme modifié ailleurs',
+    changedElsewhereDays: (days: string) => `Modifié dans l’app Cozytouch ou sur un autre appareil${NB}: ${days}. Rechargez pour voir la version actuelle, ou remplacez-la par vos modifications.`,
+    reload: 'Recharger',
+    replaceAnyway: 'Remplacer quand même',
     nextTomorrow: (time: string, level: string) => `demain ${time} → ${level}`,
     nextOn: (day: Day, time: string, level: string) => `${DAY_LOWER[day]} ${time} → ${level}`,
     dayError: {
@@ -212,6 +228,13 @@ export const fr = {
     send: 'Envoyer'
   },
   strip: {
+    windowRun: (a: string, b: string) => `Fenêtre ouverte (signalée par le radiateur) ${a}–${b}`,
+    presenceRun: (a: string, b: string) => `Présence signalée ${a}–${b}`,
+    sampled: `relevé toutes les 5${NB}min`,
+    windowCount: (n: number) => `fenêtre ouverte ${int(n)} fois`,
+    presenceCount: (n: number) => `présence signalée ${int(n)} fois`,
+    legendWindow: 'Fenêtre ouverte',
+    legendPresence: 'Présence',
     range: (min: string, max: string) => `de ${min} à ${max}`,
     last: (t: string) => `dernière mesure ${t}`,
     none: 'pas encore de mesure',
@@ -289,6 +312,33 @@ export const fr = {
       base: 'Base', hc: 'HC', hp: 'HP', blue_hc: 'Bleu HC', blue_hp: 'Bleu HP', white_hc: 'Blanc HC', white_hp: 'Blanc HP',
       red_hc: 'Rouge HC', red_hp: 'Rouge HP'
     } as Record<string, string>
+  },
+  roomInfo: {
+    title: 'Infos',
+    model: 'Modèle',
+    power: 'Puissance',
+    watts: (w: number) => `${w}${NB}W`,
+    signal: 'Niveau de signal',
+    rssi: (v: number) => `RSSI ${v}`,
+    rssiHint: `Valeur brute rapportée par le radiateur${NB}; échelle non vérifiée.`,
+    reachability: 'Connexion',
+    reachable: 'Joignable',
+    unreachable: 'Injoignable',
+    unreachableSince: (t: string) => `Injoignable depuis ${t}`,
+    unreachableChip: 'Injoignable',
+    lastSignal: 'Dernier signal'
+  },
+  roomFigures: {
+    title: (range: string) => `Énergie sur ${range}`,
+    kwh: 'Consommation',
+    eur: 'Coût (énergie)',
+    eurHint: 'Énergie seulement, hors abonnement, à vos prix heures creuses et heures pleines.',
+    hours: 'Heures de chauffe',
+    hoursHint: 'Équivalent pleine puissance.',
+    noTariff: 'Renseignez le tarif',
+    est: 'est.',
+    estHint: `Estimation${NB}: une partie de l’énergie est répartie entre deux relevés du compteur.`,
+    partial: (pct: string) => `relevé sur ${pct} de la période`
   },
   roomEnergy: {
     noRoom: 'Sans pièce',
@@ -619,6 +669,36 @@ export const fr = {
     linkyLoadFailed: 'Impossible de charger l’état du Linky.',
     logoutFailed: 'Déconnexion impossible. Réessayez.'
   },
+  alerts: {
+    title: 'Alertes',
+    none: 'Aucune alerte.',
+    loadError: 'Impossible de charger les alertes.',
+    dismissLabel: (text: string) => `Masquer${NB}: ${text}`,
+    priceChange: (when: string) => `Si votre offre suit le tarif réglementé, les prix changent le ${when}${NB}: ajoutez les nouveaux prix.`,
+    addPrices: 'Ajouter les prix',
+    consentExpiring: (when: string) => `Le consentement Enedis expire le ${when}${NB}: renouvelez-le sur MyElectricalData.`,
+    consentExpired: (when: string) => `Le consentement Enedis a expiré le ${when}${NB}: renouvelez-le sur MyElectricalData.`,
+    unreachableSince: (where: string, time: string) => `${where}${NB}: radiateur injoignable depuis ${time}.`,
+    unreachableLong: (where: string) => `${where}${NB}: radiateur injoignable depuis plus de 30${NB}min.`,
+    commandFailed: (time: string, label: string, error: string) => `Commande non aboutie à ${time}${NB}: ${label} — ${error}`,
+    linkyStalled: (day: string, days: number) => `Linky${NB}: pas de nouvelle donnée depuis le ${day} (${int(days)}${NB}jours).`
+  },
+  sessions: {
+    title: 'Appareils connectés',
+    intro: 'Les navigateurs connectés à Kelvin avec le compte de la maison.',
+    unknownBrowser: 'Navigateur inconnu',
+    thisDevice: 'cet appareil',
+    lastActive: (ago: string) => `dernière activité ${ago}`,
+    created: (when: string) => `connecté le ${when}`,
+    signOut: 'Déconnecter',
+    signOutLabel: (device: string) => `Déconnecter ${device}`,
+    signOutOthers: 'Déconnecter les autres appareils',
+    confirmTitle: `Déconnecter les autres appareils${NB}?`,
+    confirmBody: 'Ils devront se reconnecter avec le compte Cozytouch de la maison. Cet appareil reste connecté.',
+    revoked: (n: number) => `${int(n)} ${plural(n, { one: 'appareil déconnecté', other: 'appareils déconnectés' })}.`,
+    loadError: 'Impossible de charger les appareils connectés.',
+    retry: 'Réessayer'
+  },
   settings: {
     title: 'Réglages',
     account: 'Compte',
@@ -702,6 +782,7 @@ export const fr = {
     program: (p: ApiParams) => `${p.name}${NB}: programme`,
     settings: (p: ApiParams) => `${p.name}${NB}: réglages`,
     night_light: (p: ApiParams) => `${p.name}${NB}: veilleuse ${p.on ? 'allumée' : 'éteinte'}`,
+    night_light_intensity: (p: ApiParams) => `${p.name}${NB}: veilleuse à ${p.intensity}${NB}%`,
     identify: (p: ApiParams) => `${p.name}${NB}: identification`,
     boost: (p: ApiParams) => `${p.name}${NB}: forcé à ${num(p.temperature)}${NB}°C`,
     away: (p: ApiParams) => `Absence à ${num(p.temperature)}${NB}°C`,
@@ -712,6 +793,9 @@ export const fr = {
   },
   api: {
     login_required: () => 'Connexion requise.',
+    session_is_current: () => `Utilisez «${NB}Se déconnecter${NB}» pour cet appareil.`,
+    session_unknown: () => 'Cet appareil n’est plus connecté.',
+    alert_unknown: () => 'Alerte introuvable.',
     header_missing: () => 'En-tête X-Kelvin manquant.',
     bad_credentials: () => 'Email ou mot de passe Cozytouch incorrect.',
     wrong_account: () => 'Ce compte Cozytouch n’est pas celui de cette maison.',
@@ -739,8 +823,11 @@ export const fr = {
       `${dayLower(p.day)}${NB}: heure invalide «${NB}${p.value}${NB}» (format HH:MM).`,
     day_unknown: (p: ApiParams) => `Jour inconnu${NB}: ${p.day}.`,
     program_too_many: (p: ApiParams) => `${dayLower(p.day)}${NB}: 3 plages confort au maximum.`,
+    program_day_unknown: (p: ApiParams) =>
+      `${dayLower(p.day)}${NB}: le radiateur n’a pas rapporté ce jour${NB}; renseignez-le pour envoyer le programme.`,
     program_slot_invalid: (p: ApiParams) => `${dayLower(p.day)}${NB}: la plage ${p.start}–${p.end} est invalide.`,
     program_overlap: (p: ApiParams) => `${dayLower(p.day)}${NB}: des plages se chevauchent.`,
+    program_changed_elsewhere: () => `Programme modifié ailleurs${NB}: rechargez-le ou remplacez-le.`,
     feature_unknown: (p: ApiParams) => `Fonction inconnue${NB}: ${p.feature}.`,
     no_night_light: () => 'Ce radiateur n’a pas de veilleuse.',
     intensity_light_off: () => 'L’intensité ne peut être réglée que veilleuse allumée.',

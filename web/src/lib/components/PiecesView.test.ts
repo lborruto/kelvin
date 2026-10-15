@@ -7,7 +7,16 @@ import { applyLocale } from '$lib/i18n';
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
 vi.mock('$lib/media.svelte', () => media);
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
-vi.mock('$lib/api/client', () => ({ api: { history: vi.fn().mockResolvedValue([]) }, ApiError: class extends Error {} }));
+vi.mock('$lib/api/client', () => ({
+  // The room figures stay a skeleton here: RoomFigures has its own tests.
+  api: {
+    history: vi.fn().mockResolvedValue([]),
+    roomEnergy: vi.fn(() => new Promise(() => {})),
+    roomActivity: vi.fn(() => new Promise(() => {})),
+    roomsDuty: vi.fn(() => new Promise(() => {}))
+  },
+  ApiError: class extends Error {}
+}));
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
 
 const rad = {

@@ -1,12 +1,13 @@
 import math
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from kelvin.billing.slots import Slot as HcSlot
 from kelvin.billing.tariff import Prices, TariffUpdate
 from kelvin.errors import UserError
+from kelvin.house.model import DAY_ORDER
 
 
 class ModeBody(BaseModel):
@@ -25,21 +26,54 @@ class Slot(BaseModel):
     end: str
 
 
+DayName = Literal["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
 class ProgramBody(BaseModel):
-    """Days left out have no comfort slot. Unknown keys are rejected, not dropped."""
+    """Only the days the body names are written (`[]` clears a day); a day left out, or listed in
+    `keep`, is re-sent exactly as each radiator reported it (final review C1: a send to several
+    rooms or radiators must never empty a day it does not mean to change). Unknown keys are
+    rejected, not dropped.
+
+    `base`: per radiator, the programme the editor started from. When it no longer matches what
+    the radiator reports (changed in the Cozytouch app or another tab), the send is refused unless
+    `force` (owner addition, 2026-10-14)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    monday: list[Slot] = []
-    tuesday: list[Slot] = []
-    wednesday: list[Slot] = []
-    thursday: list[Slot] = []
-    friday: list[Slot] = []
-    saturday: list[Slot] = []
-    sunday: list[Slot] = []
+    monday: list[Slot] | None = None
+    tuesday: list[Slot] | None = None
+    wednesday: list[Slot] | None = None
+    thursday: list[Slot] | None = None
+    friday: list[Slot] | None = None
+    saturday: list[Slot] | None = None
+    sunday: list[Slot] | None = None
+    # Days to leave as each radiator reported them, even when the body also names them.
+    keep: list[DayName] = Field(default=[], max_length=7)
+    base: dict[str, dict[DayName, Annotated[list[Slot], Field(max_length=3)]]] | None = Field(
+        default=None, max_length=50
+    )
+    force: bool = False
 
     def week(self) -> dict[str, list[dict[str, str]]]:
-        return {day: [s.model_dump() for s in slots] for day, slots in self}
+        """The days to write: those the body names and does not keep."""
+        kept = self.kept()
+        return {
+            day: [s.model_dump() for s in slots]
+            for day in DAY_ORDER
+            if (slots := getattr(self, day)) is not None and day not in kept
+        }
+
+    def kept(self) -> set[str]:
+        return set(self.keep)
+
+    def base_programs(self) -> dict[str, dict[str, list[dict[str, str]]]] | None:
+        if self.base is None:
+            return None
+        return {
+            rid: {day: [s.model_dump() for s in slots] for day, slots in prog.items()}
+            for rid, prog in self.base.items()
+        }
 
 
 class FeaturesBody(BaseModel):
@@ -50,7 +84,8 @@ class FeaturesBody(BaseModel):
 
 class LightBody(BaseModel):
     on: bool
-    intensity: int | None = Field(default=None, ge=1, le=100)
+    # No schema bound: `plan_light` refuses 0 or 101 with the worded `intensity_range`.
+    intensity: int | None = None
 
 
 class BoostBody(BaseModel):

@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { fly } from 'svelte/transition';
   import { beforeNavigate } from '$app/navigation';
   import { DAYS, type Day, type Pending } from '$lib/api/types';
   import { run, retry } from '$lib/actions';
-  import { api } from '$lib/api/client';
+  import { api, ApiError } from '$lib/api/client';
   import Icon from '$lib/components/Icon.svelte';
   import PendingTag from '$lib/components/PendingTag.svelte';
   import ProgramDay from '$lib/components/ProgramDay.svelte';
@@ -12,7 +13,18 @@
   import { desktop } from '$lib/media.svelte';
   import { dur, easeOut, T } from '$lib/motion';
   import { m, pendingError } from '$lib/i18n';
-  import { changedDays, fromMin, fromWeekProgram, toWeekProgram, validateDay, type Week } from '$lib/program';
+  import {
+    baseOf,
+    changedDays,
+    fromMin,
+    fromWeekProgram,
+    lockedDays,
+    toWeekProgram,
+    validateDay,
+    type Base,
+    type Week
+  } from '$lib/program';
+  import { follow } from '$lib/schedule-sync';
   import { house } from '$lib/stores/house.svelte';
   import { parisMinuteOfDay, parisParts } from '$lib/time';
 
@@ -35,6 +47,13 @@
   let sentList = $state<SentEntry[]>([]);
   // True while the sends of one Envoyer are in flight: no second send, no edits that would be lost.
   let sending = $state(false);
+  // Per radiator, the programme the editor started from (sent as `base`): the backend refuses to
+  // overwrite a programme changed elsewhere meanwhile (owner addition, 2026-10-14).
+  let base = $state<Base>({});
+  // Days changed elsewhere that also hold unsent edits; non-empty shows the notice.
+  let conflict = $state<Day[]>([]);
+  // After a 409 mid-send: the rooms not written yet (the first of them refused); null otherwise.
+  let unsentRooms = $state<string[] | null>(null);
 
   $effect(() => {
     const t = setInterval(() => (now = Date.now()), 60_000);
@@ -47,18 +66,42 @@
 
   let radiators = $derived(roomId ? house.roomRadiators(roomId) : []);
   let source = $derived(radiators[0]?.program ?? {});
+  // Days no radiator of the room may have edited (QW8): shown read-only, never in the payload.
+  let dayLocks = $derived(lockedDays(radiators));
+  let lockedList = $derived(Object.keys(dayLocks) as Day[]);
+  // « Du » never rests on a locked day (it is not in the list): the first unlocked day takes over.
+  $effect(() => {
+    if (dayLocks[copyFrom]) copyFrom = DAYS.find((d) => !dayLocks[d]) ?? copyFrom;
+  });
   let mismatch = $derived(radiators.some((r) => JSON.stringify(r.program) !== JSON.stringify(radiators[0]?.program)));
   let dirty = $derived(!!draft && !!baseline && changedDays(baseline, draft).length > 0);
 
-  // Load the radiator's programme into the editor whenever it changes upstream and the user has no edits.
+  // Load the radiator's programme into the editor whenever it changes upstream. With unsent edits,
+  // untouched days follow and a change on an edited day becomes a conflict (`follow`).
   $effect(() => {
     const fresh = fromWeekProgram(source);
+    const freshBase = baseOf(radiators);
     if (lock && lock.roomId === roomId) return;
-    // Compare by value: assigning a new-but-equal object would re-trigger this effect forever.
-    if (!dirty && JSON.stringify(fresh) !== JSON.stringify(baseline)) {
-      draft = fresh;
-      baseline = fresh;
-    }
+    untrack(() => {
+      if (!dirty) {
+        // Compare by value: assigning a new-but-equal object would re-trigger this effect forever.
+        if (JSON.stringify(fresh) !== JSON.stringify(baseline)) {
+          draft = fresh;
+          baseline = fresh;
+        }
+        if (JSON.stringify(freshBase) !== JSON.stringify(base)) base = freshBase;
+        if (conflict.length) conflict = [];
+        unsentRooms = null;
+        return;
+      }
+      const r = follow({ draft: draft!, baseline: baseline!, base }, fresh, freshBase);
+      if (JSON.stringify(r.next) !== JSON.stringify({ draft, baseline, base })) {
+        draft = r.next.draft;
+        baseline = r.next.baseline;
+        base = r.next.base;
+      }
+      if (r.conflict.length && JSON.stringify(r.conflict) !== JSON.stringify(conflict)) conflict = r.conflict;
+    });
   });
 
   // React to the answer of the send that locks the editor.
@@ -101,7 +144,10 @@
   let invalid = $derived(draft ? DAYS.some((d) => validateDay(draft![d]) !== null) : true);
   let today = $derived(parisParts(now).weekday);
   // aria-disabled, never disabled: Envoyer keeps focus through the send.
-  let canSend = $derived(!busy && (changes.length > 0 || alsoRooms.length > 0) && !invalid && house.online);
+  // A conflict offers its own two choices (Recharger, Remplacer quand même).
+  let canSend = $derived(
+    !busy && (changes.length > 0 || alsoRooms.length > 0) && !invalid && house.online && !conflict.length
+  );
   let roomName = (id: string) => house.room(id)?.name ?? id;
   let roomOptions = $derived(house.rooms.map((r) => ({ value: r.id, label: r.name })));
   // Phone: one day open at a time (today first), the others show only their bar.
@@ -136,6 +182,9 @@
     roomId = id;
     draft = null;
     baseline = null;
+    base = {};
+    conflict = [];
+    unsentRooms = null;
     alsoRooms = [];
   }
   function applyCopy() {
@@ -146,27 +195,60 @@
     draft = next;
     copyTo = [];
   }
-  async function send() {
-    if (!draft || !roomId || !canSend) return;
+  /** `only`: after a 409, « Remplacer quand même » sends the rooms not written yet, once each. */
+  async function send(force = false, only: string[] | null = null) {
+    if (!draft || !roomId || !(canSend || (force && !busy && house.online && !invalid))) return;
     const week = draft;
-    const payload = toWeekProgram(week);
-    const ids = [roomId, ...alsoRooms];
+    const ids = only ?? [roomId, ...alsoRooms];
     const results: (Pending | null)[] = [];
+    let stopped = false;
     sending = true;
     try {
-      for (const id of ids) results.push(await run(() => api.roomProgram(id, payload)));
+      for (const [i, id] of ids.entries()) {
+        const b = id === roomId ? base : baseOf(house.roomRadiators(id));
+        // Locked days are kept as each radiator reports them, in this room and every other
+        // (final review C1): a send never empties a day it does not mean to change.
+        const opts = { base: b, ...(lockedList.length ? { keep: lockedList } : {}), ...(force ? { force: true } : {}) };
+        results.push(
+          await run(() => api.roomProgram(id, toWeekProgram(week, lockedList), opts), {
+            onError: (e) => {
+              if (!(e instanceof ApiError) || e.code !== 'program_changed_elsewhere') return false;
+              const days = ((e.params?.days as Day[] | undefined) ?? []).filter((d) => DAYS.includes(d));
+              conflict = days.length ? days : changes;
+              unsentRooms = ids.slice(i);
+              stopped = true;
+              return true;
+            }
+          })
+        );
+        // A change made elsewhere stops the whole send: nothing more is written (final review I2).
+        if (stopped) break;
+      }
     } finally {
       sending = false;
     }
-    sentList = ids.flatMap((id, i) => {
+    const sentNow = ids.flatMap((id, i) => {
       const p = results[i];
       return p ? [{ roomId: id, pendingId: p.id, week }] : [];
     });
-    // Any failure keeps the edits as they are; the toast already explains.
-    if (results.some((p) => p === null)) return;
+    sentList = only ? [...sentList.filter((e) => !ids.includes(e.roomId)), ...sentNow] : sentNow;
+    // Any failure keeps the edits as they are; the toast or the notice already explains.
+    if (stopped || results.some((p) => p === null)) return;
     alsoRooms = [];
-    lock = { roomId: ids[0], pendingId: results[0]!.id, week };
+    conflict = [];
+    unsentRooms = null;
+    const mine = sentList.find((e) => e.roomId === roomId);
+    if (mine) lock = { roomId, pendingId: mine.pendingId, week };
   }
+  function reload() {
+    const fresh = fromWeekProgram(source);
+    draft = fresh;
+    baseline = fresh;
+    base = baseOf(radiators);
+    conflict = [];
+    unsentRooms = null;
+  }
+  const replace = () => !busy && house.online && send(true, unsentRooms);
   async function retryEntry(id: string) {
     const entry = sentList.find((e) => e.pendingId === id);
     const np = await retry(id);
@@ -199,7 +281,7 @@
     {#if mismatch}
       <p class="warn"><Icon name="alert" size={14} /> {m.program.mismatch}</p>
     {/if}
-    <p class="muted legend">{lg.before}<strong>{lg.comfort}</strong>{lg.middle}<strong>{lg.eco}</strong>{lg.after}</p>
+    <p class="muted legend">{lg.before}<strong>{lg.comfort}</strong>{lg.middle}<strong>{lg.eco}</strong>{lg.after} {m.program.midnightCap}</p>
 
     {#if roomId}
       <section class="today">
@@ -213,18 +295,18 @@
       {#each DAYS as d (d)}
         <ProgramDay day={d} segs={shown[d]} pending={busy} nowMinute={d === today ? parisMinuteOfDay(now) : null}
           collapsible={!desktop.matches} open={shownDay === d} ontoggle={() => (openDay = shownDay === d ? 'none' : d)}
-          onchange={(segs) => (draft = { ...draft!, [d]: segs })} />
+          onchange={(segs) => (draft = { ...draft!, [d]: segs })} locked={dayLocks[d] ?? null} />
       {/each}
     </div>
 
     <section class="tools">
       <h2>{m.program.copy}</h2>
       <div class="row">
-        <label class="from">{m.program.copyFrom} <select bind:value={copyFrom} disabled={busy}>{#each DAYS as d (d)}<option value={d}>{m.days[d]}</option>{/each}</select></label>
+        <label class="from">{m.program.copyFrom} <select bind:value={copyFrom} disabled={busy}>{#each DAYS.filter((d) => !dayLocks[d]) as d (d)}<option value={d}>{m.days[d]}</option>{/each}</select></label>
         <span>{m.program.copyTo}</span>
       </div>
       <div class="chips">
-        {#each DAYS.filter((d) => d !== copyFrom) as d (d)}
+        {#each DAYS.filter((d) => d !== copyFrom && !dayLocks[d]) as d (d)}
           <label class="chip"><input class="visually-hidden" type="checkbox" value={d} bind:group={copyTo} disabled={busy} /><span
               aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{m.daysShort[d]}</label>
         {/each}
@@ -240,6 +322,17 @@
         </div>
       {/if}
     </section>
+
+    {#if conflict.length}
+      <div class="conflict" role="alert">
+        <p><Icon name="alert" size={14} /><strong>{m.program.changedElsewhere}</strong></p>
+        <p class="muted">{m.program.changedElsewhereDays(conflict.map((d) => m.days[d]).join(', '))}</p>
+        <div class="row">
+          <button type="button" class="btn btn-sm" onclick={reload}>{m.program.reload}</button>
+          <button type="button" class="btn btn-sm btn-danger" aria-disabled={busy || !house.online} onclick={replace}>{m.program.replaceAnyway}</button>
+        </div>
+      </div>
+    {/if}
 
     {#if changes.length || statuses.length}
       <section class="send">
@@ -276,7 +369,7 @@
         <div class="bar-actions">
           <button type="button" class="btn" aria-disabled={busy || !changes.length} onclick={() => !busy && changes.length && (draft = baseline)}>{m.program.undo}</button>
           <button type="button" class="btn btn-primary" aria-disabled={!canSend}
-            onclick={send}>{m.program.send}</button>
+            onclick={() => send()}>{m.program.send}</button>
         </div>
       </div>
     {/if}
@@ -284,6 +377,29 @@
 {/if}
 
 <style>
+  .conflict {
+    display: grid;
+    gap: 6px;
+    max-width: 65ch;
+    margin: 12px 0;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--bad) 60%, var(--line));
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--bad) 8%, var(--s1));
+    font-size: 13px;
+  }
+  .conflict p {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .conflict .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
   h1 {
     font-size: 22px;
     margin: 0 0 12px;

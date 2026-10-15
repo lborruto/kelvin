@@ -1,6 +1,7 @@
 import logging
 import re
 import stat
+from contextlib import asynccontextmanager
 
 import pytest
 from asgi_lifespan import LifespanManager
@@ -241,3 +242,73 @@ async def test_startup_while_cozytouch_is_down_waits_offline(tmp_path):
             await login(c)
             assert (await c.get("/api/health")).json() == {"status": "ok"}
             assert (await c.get("/api/house")).status_code == 200
+
+
+@asynccontextmanager
+async def _second_client(app, ua: str):
+    """Another signed-in device with its own cookie jar."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://t",
+        headers={"X-Kelvin": "1", "User-Agent": ua},
+    ) as c2:
+        await login(c2)
+        yield c2
+
+
+FIREFOX = "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0"
+
+
+async def test_sessions_list_and_revoked_session_gets_401_on_the_next_request(setup_mode):
+    c, app, _ = setup_mode
+    await login(c)
+    async with _second_client(app, FIREFOX) as c2:
+        rows = (await c.get("/api/sessions")).json()
+        assert len(rows) == 2
+        assert sum(r["current"] for r in rows) == 1
+        other = next(r for r in rows if not r["current"])
+        assert (other["browser"], other["os"]) == ("Firefox", "Linux")
+        assert "hash" not in other and "user_agent" not in other
+        r = await c.delete(f"/api/sessions/{other['id']}")
+        assert r.status_code == 204
+        r = await c2.get("/api/house")
+        assert (r.status_code, r.json()["code"]) == (401, "login_required")
+
+
+async def test_current_session_cannot_be_revoked_and_unknown_ids_are_404(setup_mode):
+    c, _, _ = setup_mode
+    await login(c)
+    me = next(r for r in (await c.get("/api/sessions")).json() if r["current"])
+    r = await c.delete(f"/api/sessions/{me['id']}")
+    assert (r.status_code, r.json()["code"]) == (409, "session_is_current")
+    for bad in ("0123456789abcdef", "nope", "ABCDEF0123456789"):
+        r = await c.delete(f"/api/sessions/{bad}")
+        assert (r.status_code, r.json()["code"]) == (404, "session_unknown"), bad
+
+
+async def test_revoke_others_needs_the_header_and_spares_the_current(setup_mode):
+    c, app, _ = setup_mode
+    await login(c)
+    async with _second_client(app, FIREFOX) as c2:
+        r = await c.post("/api/sessions/revoke-others", headers={"X-Kelvin": ""})
+        assert r.status_code == 403
+        r = await c.post("/api/sessions/revoke-others")
+        assert r.json() == {"revoked": 1}
+        assert (await c.get("/api/house")).status_code == 200
+        assert (await c2.get("/api/house")).status_code == 401
+
+
+async def test_the_stream_of_a_revoked_session_ends(setup_mode):
+    c, app, _ = setup_mode
+    await login(c)
+    async with _second_client(app, FIREFOX) as c2:
+        ctx = app.state.ctx
+        token2 = c2.cookies.get("kelvin_session")
+        gen = event_stream(
+            ctx.rt, alive=lambda: ctx.sessions.validate(token2), check_every_s=0, ping_s=0.01
+        )
+        assert (await anext(gen))["event"] == "snapshot"
+        assert (await anext(gen))["event"] == "ping"
+        await c.post("/api/sessions/revoke-others")
+        with pytest.raises(StopAsyncIteration):
+            await anext(gen)

@@ -11,8 +11,8 @@ export const ROUTES = {
   login: '/login'
 } as const;
 
-/** Section anchors: Home (away, tariff, linky) and Energy (quality, curve). */
-export const ANCHORS = { away: 'away', tariff: 'tariff', linky: 'linky', quality: 'quality', curve: 'curve' } as const;
+/** Section anchors: Home (away, tariff, linky, alerts, sessions) and Energy (quality, curve). */
+export const ANCHORS = { away: 'away', tariff: 'tariff', linky: 'linky', quality: 'quality', curve: 'curve', alerts: 'alerts', sessions: 'sessions' } as const;
 
 export type NavKey = 'rooms' | 'schedule' | 'energy' | 'home';
 /** The four destinations of the sidebar and the tab bar; labels come from m.nav[key]. */
