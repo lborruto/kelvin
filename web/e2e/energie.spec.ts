@@ -21,11 +21,19 @@ async function settled(page: Page) {
   await page.waitForTimeout(500);
 }
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-/** « 412,6 kWh » → 412.6 and its decimals. */
-function frNumber(s: string): { value: number; digits: number } {
-  const t = s.replace(/[^\d,]/g, '');
-  return { value: Number(t.replace(',', '.')), digits: t.includes(',') ? t.split(',')[1].length : 0 };
+/** A figure as the page shows it: « 1 412,6 kWh » → « 1412.6 » (its own decimals, no grouping). */
+function shown(s: string): string {
+  return s.replace(/[^\d,−-]/g, '').replace('−', '-').replace(',', '.');
 }
+/** A CSV cell (decimal comma) rounded as the page rounds (Intl: a decimal tie rounds up), never by binary rounding. */
+function rounded(cell: string, digits: number): string {
+  const v = Number(cell.replace(',', '.'));
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false }).format(v);
+}
+const decimals = (s: string) => (s.includes('.') ? s.split('.')[1].length : 0);
+/** « 2026-10-14 » → « 14 octobre 2026 », as the page's long dates. */
+const longDate = (iso: string) =>
+  new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T12:00:00Z`));
 /** The previous month: complete in the simulator, every bar has data and every day is over. */
 async function previousMonth(page: Page) {
   const label = page.locator('#period-label');
@@ -181,7 +189,9 @@ test.describe('Énergie', () => {
     const n = Number(await slider.getAttribute('aria-valuemax')) + 1;
     // On a 48-interval day, six half-hours on is 03:00; a DST day names its repeated or skipped hour instead.
     if (n === 48) await expect(when).toHaveText('03:00–03:30');
-    await expect(slider).toHaveAttribute('aria-valuetext', new RegExp(`^${(await when.textContent())!.trim()}, `));
+    // A DST day's label holds parentheses (« 02:00–02:30 (heure d’hiver) »): compared as text, never as a pattern.
+    const label = (await when.textContent())!.trim();
+    expect((await slider.getAttribute('aria-valuetext'))!.startsWith(`${label}, `)).toBe(true);
     await expect(page.locator('#courbe line.cross')).toHaveCount(1);
     await page.keyboard.press('End');
     await expect(slider).toHaveAttribute('aria-valuenow', String(n - 1));
@@ -216,19 +226,19 @@ test.describe('Énergie', () => {
       expect(c).toHaveLength(16);
       expect(c[1]).toMatch(ISO_LOCAL);
       expect(c[2]).toMatch(ISO_LOCAL);
-      for (const v of [...c.slice(3, 6), ...c.slice(7, 8), ...c.slice(9, 13), c[15]]) expect(v).toMatch(/^(-?\d+\.\d+)?$/);
+      for (const v of [...c.slice(3, 6), ...c.slice(7, 8), ...c.slice(9, 13), c[15]]) expect(v).toMatch(/^(-?\d+,\d+)?$/); // decimal comma, no grouping
     }
     const days = period.rows.slice(1, -1);
     expect(days.length).toBeGreaterThanOrEqual(28);
     const total = period.rows.at(-1)!.split(';');
     expect(total[0]).toBe('total');
     // The file's total is the hero's figures, at the hero's precision: kWh, and € (the big figure and its breakdown).
-    const hero = frNumber((await page.locator('.hero .sub .figs').textContent())!.split(' · ')[0]);
-    expect(Number(total[3]).toFixed(hero.digits)).toBe(hero.value.toFixed(hero.digits));
-    const big = frNumber((await page.locator('.hero .big').textContent())!);
-    expect(Number(total[12]).toFixed(big.digits)).toBe(big.value.toFixed(big.digits));
-    const breakdown = (await page.locator('.hero .breakdown').textContent())!.match(/\d[\d\s\u202f]*,\d\d/g)!.map((s) => frNumber(s).value.toFixed(2));
-    expect([total[10], total[11]]).toEqual(breakdown);
+    const kwh = shown((await page.locator('.hero .sub .figs').textContent())!.split(' · ')[0]);
+    expect(rounded(total[3], decimals(kwh))).toBe(kwh);
+    const big = shown((await page.locator('.hero .big').textContent())!);
+    expect(rounded(total[12], decimals(big))).toBe(big);
+    const breakdown = (await page.locator('.hero .breakdown').textContent())!.match(/\d[\d\s\u202f]*,\d\d/g)!.map(shown);
+    expect([rounded(total[10], 2), rounded(total[11], 2)]).toEqual(breakdown);
     // A day not yet published reads empty, never 0.
     for (const l of days) if (l.split(';')[3] === '') expect(l.split(';')[12]).toBe('');
 
@@ -248,7 +258,8 @@ test.describe('Énergie', () => {
       expect(c[6]).toBe(''); // couleur_tempo: until the Tempo option
     }
     expect(curve.rows[1].startsWith(`${curve.name.slice(7, 17)}T00:00:00+0`)).toBe(true);
-    expect(day.length).toBeGreaterThan(0);
+    // The file is the Courbe's day.
+    expect(day.toLowerCase()).toBe(longDate(curve.name.slice(7, 17)));
   });
 
   test('CSV: a day exports the € and kWh its bar shows, the same in the month and in Jour', async ({ page }) => {
@@ -263,13 +274,13 @@ test.describe('Énergie', () => {
     await page.keyboard.press('ArrowRight'); // the 3rd
     const inspector = page.locator('.inspector').filter({ visible: true }).last();
     await expect(inspector.locator('.title')).toHaveText(/^\p{L}+ 3 /u);
-    const cost = frNumber(await rowValue(inspector, 'Coût estimé')).value.toFixed(2);
-    const kwh = frNumber(await rowValue(inspector, 'Maison')).value.toFixed(2);
+    const cost = shown(await rowValue(inspector, 'Coût estimé'));
+    const kwh = shown(await rowValue(inspector, 'Maison'));
     const month = await csvRows(page, page.getByRole('button', { name: 'Exporter la période (CSV)' }));
     const key = month.name.slice(8, 15) + '-03';
     const row = month.rows.find((r) => r.startsWith(`${key};`))!;
-    expect(row.split(';')[12]).toBe(cost);
-    expect((Math.round(Number(row.split(';')[3]) * 100) / 100).toFixed(2)).toBe(kwh);
+    expect(rounded(row.split(';')[12], 2)).toBe(cost);
+    expect(rounded(row.split(';')[3], 2)).toBe(kwh);
     // Enter on the bar opens that day's Courbe; Jour then shows that day: its file holds the same row.
     await keys.nth(2).focus();
     await page.keyboard.press('Enter');
