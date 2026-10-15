@@ -70,7 +70,12 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Veilleuse | Night light | |
 | Faire clignoter / identification | Blink | The button and the pending label (“Salon: blink”) |
 | Radiateur(s) | Radiator(s) | The upstream default name « Radiateur » is device data, never translated |
-| Détails / Historique / Commande | Details / History / Controls | |
+| Détails / Historique / Commande | Details / History / Controls | « Infos » is the radiator’s Details section (Infos / Details) |
+| Intensité (veilleuse) | Brightness | |
+| Dernier signal | Last signal | The last event a radiator sent |
+| Masquer (une alerte) | Dismiss | |
+| Appareils connectés | Signed-in devices | Home › Settings; « Déconnecter » → “Sign out”, « Déconnecter les autres appareils » → “Sign out other devices” |
+| Programme modifié ailleurs | Schedule changed elsewhere | « Recharger » → “Reload”, « Remplacer quand même » → “Replace anyway” |
 | Jeton MyElectricalData | MyElectricalData token | |
 | PDL (point de livraison) | PDL (delivery point) | |
 | Relié / Non relié | Connected / Not connected | Linky |

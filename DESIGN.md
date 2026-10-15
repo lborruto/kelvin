@@ -380,10 +380,28 @@ s1 card, hairline, 10 px, 12 × 14 px padding. Head grid: name (15/600, wraps an
 The desktop right column (s1 panel, 16 px padding) and the phone room page: title (h2 at 20 px in the column; on the phone room page an h1 at 22 px, since it is the page title) and display reading (it arrives from the tapped card in a shared-element view transition), a status line, then hairline-opened sections with section labels: Commande (ModeSwitch, steppers for Confort and Abaissement éco), Forcer temporairement (stepper, duration select, primary "Forcer"), Historique (a Segmented 24 h / 7 j / 30 j over a strip), Radiateurs. Before the house is known it shows its skeleton (title bar and three section blocks), never « Pièce introuvable ».
 
 ### RadiatorPanel
-One per radiator inside the inspector, separated by hairlines: name with a 44 px edit icon button and its reading, a muted/right-aligned definition list (13 px), toggles, and a ghost « Faire clignoter ».
+One per radiator inside the inspector, separated by hairlines: name with a 44 px edit icon button and its reading, a muted/right-aligned definition list (13 px), toggles, the night-light slider, an **Infos** section (« Infos »: modèle, puissance, niveau de signal as the raw « RSSI n » with its scale marked unverified, « Joignable » or « Injoignable depuis … », « Dernier signal », each « — » when unknown) and a ghost « Faire clignoter ». A room's inspector also shows **RoomFigures** under its history (« Énergie sur 7 j »: consommation, coût (énergie), heures de chauffe, « est. » when part is spread between two readings, « relevé sur N % de la période » when partial), and its room cards a « chauffe 42 % sur 24 h » foot.
 
 ### ProgramDay
 A day row (hairline below): label, a 32 px well bar (field-line edge; 40 px below 600 px) with hour ticks, comfort blocks (warm at 75 % over the well, 4 px) that drag and resize by 10 px edge handles with a wider invisible grip, and a 2 px ink now-marker. Below, editable time slots (44 px inputs and buttons). Blocks are `aria-roledescription="plage"` with a hidden hint (arrows move by 15 min, Suppr removes). The page does not scroll under a finger while a block is dragged. Phone: every day keeps its bar but at most one day shows its slots (today first); the label is a 44 px disclosure button with the day's slots summarised and a chevron that opens or closes its day (closing leaves every day closed), and a tap on a closed day's bar opens it. While pending, blocks become dashed muted outlines and lock.
+
+### Alert callout
+A calm notice on the screen it concerns: s1, hairline, 10 px, 13 px text, an alert glyph; bad alerts take the bad tint (8 % over s1, 60 % edge) and are an `alert` region, others a `status`. A 44 px « Masquer » icon button ends the row. Never stacked more than the screen's own kinds (Énergie and the room); Home lists them all (`#alerts`). The callouts and the list hold their space while loading, so they never shift the layout (CLS ≤ 0.0003 measured).
+
+### Night-light slider
+Under « Veilleuse » while it is on: « Intensité » and the value on one line, a native range (44 px), 1 % then steps of 5 %, keyboard ±5, PageUp/PageDown ±25, Home/End to 1 % and 100 %; sent 600 ms after the last move; the thumb is dashed until the radiator reports the value. Paused with `aria-disabled` (no pointer events), never `disabled`.
+
+### Strip bands
+Window open: a neutral 45° hatch; presence: a 10 % neutral fill; both under the comfort wash, with their exact times in a title and their counts in the text equivalent. They are what the radiators reported, edges ±5 min: reports, not heat, so never a heat hue.
+
+### Locked programme day
+A hatched bar for a day Kelvin cannot read, the slots as text for a midnight end, and a 12 px muted note with the alert glyph; no handles, inputs or add button. The day stays exactly as the radiator has it.
+
+### Conflict notice
+Shown when a send answers `program_changed_elsewhere` (« Programme modifié ailleurs »): bad tint, the two choices « Recharger » and « Remplacer quand même » (danger).
+
+### Signed-in devices
+Rows of 56 px: the device in 600, « dernière activité … » muted; « Déconnecter » per row (none on « cet appareil »); « Déconnecter les autres appareils » asks in the Dialog. The panel lives in Maison › Réglages (`#sessions`).
 
 ### EnergyBars
 Stacked SVG bars, drawn at the measured width and a fixed 160 px height (so a phone keeps tall bars and true corners); bars grow from the baseline (360 ms, 12 ms stagger capped at 180 ms) on first draw and on each period change, one series colour per part (2 px corners), hairline grid at four ticks, micro faint axis labels thinned so each keeps 44 px. The radiators are an **overlay mark**: a 2.5 px round-capped line across the bar at its value, in series-3, over a 4 px s1 knockout so it reads on any bar; the y-scale includes it. Missing parts are never drawn as zero: an interior bucket with no data (data on both sides) gets a faint 2 px dashed (3/3) baseline tick; leading and trailing empties stay blank. With `details` the bars are inspectable: the whole plot is the hit area and the nearest bar wins; a mouse hover shows its ChartInspector, a click or tap pins it, a second tap unpins; while a bar is pinned, hovering another only gives it a muted outline and the card stays. A horizontal touch swipe of 48 px (at least twice its vertical travel) steps the period instead. Each bar has an invisible full-height button in a roving-tabindex group (« Barres du graphique : … ») whose name carries its values: `←`/`→`/`Home`/`End` move and pin, `Enter` drills down (a month opens Mois, a day its Courbe, another day of Jour its own Jour) or, with nothing to drill, pins the bar, and `Esc` clears; Esc inside the card closes it and puts focus back on its bar. The inspected bar takes a 1 px ink outline, never animated. No SVG `<title>`. Empty: « Pas encore de données. » The legend below uses 10 px swatches (3 px) for stacked series and a 14 × 2 px line for the radiator mark.
@@ -517,6 +535,8 @@ the active language. This file quotes the French copy; the English is the same k
 | Punctuation | no-break space before `: ; ? !`, « » with no-break spaces | “ ”, no space before `: ; ? !` |
 | Tone | « vous » and imperatives (« Collez le jeton ») | plain imperatives (“Paste your token”), contractions in sentences, sentence case, “Sign in” |
 | Both | the true minus `−`, « — » for a missing value, typographic `’`, Paris time | |
+
+Plan 8 adds the pairs Infos / Details, Joignable / Reachable, Injoignable / Unreachable, Dernier signal / Last signal, Intensité / Brightness, Appareils connectés / Signed-in devices, Déconnecter / Sign out, Alertes / Alerts, Masquer / Dismiss, Programme modifié ailleurs / Schedule changed elsewhere, Recharger / Reload, Remplacer quand même / Replace anyway (also in `docs/glossary.md`). An alert's text is composed in the web from its kind and params (`alert-text`), never by the backend.
 
 Comparison bases are named in both (« sur 12 jours comparables » / “over 12 comparable days”). English never says “HC” or
 “HP”: “Off-peak”, “Peak”. A label that would not fit in English is fixed in the layout, never by

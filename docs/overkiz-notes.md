@@ -111,6 +111,21 @@ the real capability dump). No real radiator was written to verify this (owner ru
 owner uses it and the state is seen to follow, a slider change that the state never confirms
 ends as « Pas de confirmation du radiateur ». Record the observed behaviour here when it is known.
 
+## Midnight slot ends (read-only check, 2026-10-14)
+
+Every real heater's `core:TimeProgramState` was read (no write): each day has three slots and
+the third is the empty marker `00:00–00:00`; no slot ends at midnight. So the device encoding of
+a midnight end is unverified. Kelvin reads `X–00:00` (X ≠ 00:00) as « until midnight » (24:00),
+locks that day, and never writes such a slot; the editor's latest end is 23:45. A day Kelvin
+cannot parse is locked the same way and re-sent exactly as read.
+
+## Reachability and last signal (read-only)
+
+`core:StatusState` (`available` / `unavailable`) is in the real capability dump of the heater
+and of each sensor. Kelvin shows the heater's value and raises `radiator_unreachable` after 30
+continuous minutes of `unavailable` (counted from Kelvin's own observation). `core:RSSILevelState`
+is shown raw (« RSSI 87 »): its scale is not recorded yet; record it here when known.
+
 ## Programme days Kelvin does not rewrite (2026-10-15)
 
 Kelvin writes each day as its comfort slots sorted by start (`{"start", "end"}` in that key

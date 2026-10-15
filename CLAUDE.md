@@ -123,6 +123,28 @@ depends on.
   `$KELVIN_DATA/account.json` (0600): never in logs, API responses, the DB or git. The Linky
   token is write-only; the PDL is never logged.
 - **Missing data is `null`, never 0**, in the API, and « — » in the UI.
+- **Programme days Kelvin cannot edit** (a slot ending at midnight, any shape it cannot parse or
+  does not write: unsorted, not three entries) are locked: `plan_program` re-sends them exactly
+  as the radiator reported them, whatever the payload says. The editor never makes an end after
+  23:45. Every editor send carries `base` (each radiator's programme when the editor loaded); the
+  backend answers `409 program_changed_elsewhere` (`params.days` only) instead of overwriting a
+  change made elsewhere, unless `force`.
+- **Alerts:** a rule is a pure `(context, now) -> list[Candidate]` in `kelvin/alerts/rules.py`;
+  keys embed the occurrence (a dismissed alert returns only when its key changes); the backend
+  stores kinds and params, never text: the web writes the words in both dictionaries (`alertText`).
+  A new kind needs its rule, its `alertText` case and its two messages in the same PR. Alert
+  params may name Kelvin's own room and radiator ids (already in the house view), never a device
+  URL, serial or secret (error params stay id-free).
+- **Injected clock everywhere:** the house, the outage demo, alerts, the command service and
+  `alert_context(rt, now)` take `wall`; nothing in them reads `time.time()` or `datetime.now()`.
+- **A room's € is the sum of its radiators' Par pièce cents** (`report.radiator_shares`, day by
+  day), never re-priced or rounded on its own.
+- **Device signal:** `House.last_event_ts` and `core:StatusState` timing are memory only and
+  count listener events, not state reads (`House.apply(…, event=False)` for reads). Reachability
+  comes from `core:StatusState`; `radiator_unreachable` needs 30 continuous minutes.
+- **Sessions:** a session's `id` is an opaque random value, never derived from the token or its
+  hash; the API lists browser and system names only, never the user agent or the token. The
+  current session cannot be signed out through the list.
 - **Network:** `/api/health` is open and says only the status word. Forwarded headers are
   ignored unless `KELVIN_TRUSTED_PROXIES` names the reverse proxy; nothing shipped enables them
   (`backend/tests/test_packaging.py` checks).

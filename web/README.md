@@ -45,10 +45,16 @@ elsewhere, `SCREENS_SCHEME=dark` for the dark theme and `SCREENS_LOCALE=en` for 
   French `detail` is the fallback for an unknown code.
 - The PWA manifest cannot vary by user: it stays French (`lang: 'fr'`).
 - Paths are English: `/` (rooms), `/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/login`, with
-  the Home anchors `#away`, `#tariff`, `#linky` and the Energy anchors `#quality`, `#curve`. The
+  the Home anchors `#away`, `#tariff`, `#linky`, `#alerts`, `#sessions` and the Energy anchors `#quality`, `#curve`. The
   old French paths and anchors are rewritten before boot by `app.html` and by `canonical()` in
   `src/lib/paths.ts`, whose tables the tests keep equal (this README names no French path:
   `scripts/check-paths.mjs` scans it).
+- Alerts and sessions: the backend sends kinds and params only (`GET /api/alerts`, the SSE `alerts`
+  event); `alertText` (`src/lib/alerts-text.ts`) writes the words from both dictionaries, so a new kind
+  needs its `alertText` case and its two messages. `AlertCallout` shows the screen's own kinds
+  (Energy, the room), Home lists them all; the store follows the stream and dismisses through
+  `POST /api/alerts/{id}/dismiss`. `SessionsPanel` (Home › Settings) lists `GET /api/sessions` and
+  signs devices out; a 404 `session_unknown` just removes the row.
 - Checks: `node scripts/i18n-check.mjs [--strict]` lists hard-coded French, unused keys and
   messages read at module scope (a line that must keep a French literal is marked
   `// i18n-ignore: <why>`); `node scripts/check-paths.mjs` lists French paths; both also run
