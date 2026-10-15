@@ -1,5 +1,8 @@
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { flattenKeys, scanSource, unusedKeys } from '../../../scripts/i18n-check.mjs';
+import { flattenKeys, frozenMessages, scanFiles, scanSource, unusedKeys } from '../../../scripts/i18n-check.mjs';
+import { fr } from './fr';
 
 const ts = (s: string) => scanSource(s, false).map((f) => f.text);
 const svelte = (s: string) => scanSource(s, true).map((f) => f.text);
@@ -33,6 +36,36 @@ describe('scanSource', () => {
   });
 });
 
+describe('scanSource limits (batch-1 review M2)', () => {
+  it('an attribute whose name ends like a skipped one is still copy', () => {
+    expect(svelte('<input aria-invalid="Erreur" />')).toEqual(['Erreur']);
+    expect(svelte('<p data-hint="Maison"></p>')).toEqual(['Maison']);
+    expect(svelte('<p id="maison"></p>')).toEqual([]);
+  });
+  it('a regex literal holding a quote does not hide the next string', () => {
+    expect(ts("const r = /'/; const t = 'Pièces';")).toEqual(['Pièces']);
+    expect(ts('const s = x.replace(/"/g, \'\'); const t = "Maison";')).toEqual(['Maison']);
+    expect(ts("const r = /[/']/; const t = 'Maison';")).toEqual(['Maison']);
+    expect(ts("const q = a / b; const t = 'Maison' + c / d;")).toEqual(['Maison']);
+    expect(ts("if (/^fr\\b/i.test(l)) return 'Réglages';")).toEqual(['Réglages']);
+  });
+  it('finds accent-free French outside the old word list', () => {
+    expect(ts("const a = 'Retour aux pieces';")).toEqual(['Retour aux pieces']);
+    expect(ts("const a = 'non relie';")).toEqual(['non relie']);
+    expect(ts("const a = 'Semaine';")).toEqual(['Semaine']);
+    expect(ts("const a = 'HC 42 %';")).toEqual(['HC 42 %']);
+    expect(ts('const a = `${x}${NB}: ${y}`;')).toEqual([':']); // a no-break space before « : » is French typography
+    expect(svelte('<p>Simulateur&nbsp;: démo</p><p>Total&nbsp;: 3</p>')).toEqual(['Simulateur&nbsp;: démo', 'Total&nbsp;: 3']);
+    expect(ts("const a = 'l’accord';")).toEqual(['l’accord']);
+  });
+  it('English copy and data values are not French', () => {
+    expect(ts("const a = 'Can’t reach Kelvin.'; const b = 'the home’s radiators’ meters';")).toEqual([]);
+    expect(ts("const a = 'No figure in the absence of a curve.';")).toEqual([]);
+    expect(ts("if (mode === 'programme') x(); switch (k) { case 'programme': break; }")).toEqual([]);
+    expect(ts("const k = ['hc', 'hp']; const c = 'hc_kwh';")).toEqual([]);
+  });
+});
+
 describe('keys', () => {
   it('flattens nested groups; functions are leaves', () => {
     expect(flattenKeys({ nav: { rooms: 'Pièces' }, rooms: { count: (n: number) => `${n}` } })).toEqual([
@@ -46,5 +79,65 @@ describe('keys', () => {
       'nav.home',
       'nav.roomsX'
     ]);
+  });
+});
+
+describe('frozenMessages', () => {
+  it('flags a module-level const that reads a message, not a getter or a derived', () => {
+    expect(frozenMessages("export const LABELS = [m.nav.rooms, m.nav.home];", false).map((f) => f.line)).toEqual([1]);
+    expect(frozenMessages("const t = m.common.cancel;", false)).toHaveLength(1);
+    expect(frozenMessages("const t = () => m.common.cancel;", false)).toEqual([]);
+    expect(frozenMessages("function f() {\n  const t = m.common.cancel;\n}", false)).toEqual([]);
+    expect(frozenMessages("<script>\n  const t = m.common.cancel;\n  let u = $derived(m.common.cancel);\n</script>", true).map((f) => f.line)).toEqual([2]);
+  });
+});
+
+/** Parents whose children are read by index (m.mode[mode]); a key under one counts as used. */
+export const DYNAMIC = [
+  'api',
+  'action',
+  'cozytouch',
+  'error',
+  'mode',
+  'level',
+  'nav',
+  'days',
+  'daysShort',
+  'range',
+  'program.dayError',
+  'energy.views',
+  'energyPage.unit',
+  'inspector.rateLabels',
+  'compare.avg4',
+  'compare.noUnits',
+  'projection.method',
+  'quality.mark',
+  'quality.method',
+  'settings.themes',
+  'home.kind'
+];
+
+const SRC = resolve(process.cwd(), 'src');
+function sources(dir: string): string[] {
+  return readdirSync(dir).flatMap((n) => {
+    const p = join(dir, n);
+    return statSync(p).isDirectory() ? sources(p) : /\.(svelte|ts)$/.test(n) && !/\.test\.ts$/.test(n) ? [p] : [];
+  });
+}
+
+describe('the web source (strict)', () => {
+  const files = sources(SRC);
+  it('has no hard-coded French outside the dictionaries', () => {
+    expect(scanFiles([SRC], SRC)).toEqual([]);
+  });
+  it('reads every dictionary key somewhere', () => {
+    const corpus = files.filter((f) => !/lib\/i18n\/(fr|en)\.ts$/.test(f)).map((f) => readFileSync(f, 'utf8')).join('\n');
+    expect(unusedKeys(flattenKeys(fr), corpus, DYNAMIC)).toEqual([]);
+  });
+  it('never resolves a message at module scope', () => {
+    const found = files.flatMap((f) =>
+      frozenMessages(readFileSync(f, 'utf8'), f.endsWith('.svelte')).map((x) => `${f.slice(SRC.length + 1)}:${x.line}: ${x.text}`)
+    );
+    expect(found).toEqual([]);
   });
 });

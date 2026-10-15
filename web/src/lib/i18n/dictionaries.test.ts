@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isFrench } from '../../../scripts/i18n-check.mjs';
 import codes from './api-codes.json';
 import { en } from './en';
 import { fr } from './fr';
@@ -135,5 +136,27 @@ describe('English messages take the same parameters as French', () => {
     expect(paramMismatches(ref, { g: { a: (n: number, s: string) => `${n}${s}` } })).toEqual(['g.b: missing']);
     expect(paramMismatches(ref, { g: { ...ref.g, c: (y: string) => y } })).toEqual(['g.c: extra']);
     expect(paramMismatches(ref, ref)).toEqual([]);
+  });
+});
+
+/** French the strict scanner cannot tell from English or code, so a hard-coded copy of it would
+ * slip through: short forms that are English words or names, a bare figure. Kept small on purpose. */
+const SCANNER_BLIND = new Set([
+  'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
+  'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',
+  'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share'
+]);
+
+describe('the strict scanner against the real copy (Task 17)', () => {
+  it('reads every French message as French', () => {
+    const missed = FR.filter(([p, t]) => !SAME.has(p) && !SCANNER_BLIND.has(p) && !isFrench(t)).map(([p, t]) => `${p}: ${t}`);
+    expect(missed).toEqual([]);
+  });
+  it('never reads an English message as French', () => {
+    const flagged = [...EN].filter(([, t]) => isFrench(t)).map(([p, t]) => `${p}: ${t}`);
+    expect(flagged).toEqual([]);
+  });
+  it('the blind list holds only messages the scanner really misses', () => {
+    expect(FR.filter(([p, t]) => SCANNER_BLIND.has(p) && isFrench(t)).map(([p]) => p)).toEqual([]);
   });
 });

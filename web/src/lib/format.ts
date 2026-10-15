@@ -55,7 +55,7 @@ function euro(s: string): string {
   return `${sign}€${s.slice(sign.length)}`;
 }
 /** « 42 % » (no-break space) in French, “42%” in English. */
-const pct = (s: string) => (english() ? `${s}%` : `${s}${NB}%`);
+const pct = (s: string) => (english() ? `${s}%` : `${s}${NB}%`); // i18n-ignore: the typography rule itself, chosen by locale
 
 export function fmtTemp(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';

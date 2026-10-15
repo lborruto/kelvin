@@ -18,13 +18,13 @@ import { isoParis, parisDayStart } from './time';
 export const BOM = '﻿';
 export const ENERGY_HEADER = [
   'periode', 'debut', 'fin', 'maison_kwh', 'hc_kwh', 'hp_kwh', 'split_estime', 'radiateurs_kwh', 'radiateurs_interp',
-  'reste_kwh', 'energie_eur', 'abonnement_eur', 'total_eur', 'prix', 'jours_manquants',
+  'reste_kwh', 'energie_eur', 'abonnement_eur', 'total_eur', 'prix', 'jours_manquants', // i18n-ignore: CSV machine contract
   // R1: a partial radiator sum never reads as whole. `radiateurs_jusqu_au` is the last day the radiator sum counts
   // (a period running into today counts up to yesterday, while `fin` stays the period's end); `radiateurs_couverture`
   // (last) is the share of the radiator-days up to that day that were fully measured.
   'radiateurs_jusqu_au', 'radiateurs_couverture'
 ];
-export const CURVE_HEADER = ['debut', 'fin', 'minutes', 'wh', 'w_moyen', 'part_hc', 'couleur_tempo', 'prix', 'eur', 'radiateurs_wh'];
+export const CURVE_HEADER = ['debut', 'fin', 'minutes', 'wh', 'w_moyen', 'part_hc', 'couleur_tempo', 'prix', 'eur', 'radiateurs_wh']; // i18n-ignore: CSV machine contract
 export const ROOMS_HEADER = [
   'piece', 'radiateur', 'kwh', 'part', 'hc_kwh', 'hp_kwh', 'eur', 'temp_moy', 'consigne_moy', 'heures_chauffe', 'couverture', 'depuis' // i18n-ignore: CSV machine contract, French headers in every locale
 ];
