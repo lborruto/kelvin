@@ -335,7 +335,7 @@ async def radiator_features(rid: str, body: FeaturesBody, request: Request):
         # The rename is a Cozytouch setup write (the label, ruling 4), not a device command.
         if body.window_detection is not None or body.presence_detection is not None:
             raise UserError("rename_alone")
-        if not r.capabilities.rename:  # Plan 12: a read-only device is never renamed by Kelvin
+        if r.support == "readonly":  # Plan 12: a read-only device is never renamed by Kelvin
             raise CommandError("read_only_device")
         return _setup_accepted(rt, await _setup(rt).rename_radiator(r.id, body.name))
     parts: list[Callable[[Radiator], Planned]] = []

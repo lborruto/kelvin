@@ -23,6 +23,7 @@ vi.mock('$lib/api/client', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   house.reset();
+  auth.server = { id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true }; // canEditSetup(null) is false
 });
 
 describe('Rooms and devices page', () => {

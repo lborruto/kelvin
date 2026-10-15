@@ -76,4 +76,5 @@ export function programRooms(rooms: Room[], radiatorsOf: (id: string) => Radiato
 }
 
 /** Room and device writes (Plan 8b) are offered on the Cozytouch servers only (Plan 12). */
-export const canEditSetup = (server: ServerInfo | null): boolean => server?.tier !== 'experimental';
+export const canEditSetup = (server: ServerInfo | null): boolean =>
+  server !== null && server.tier !== 'experimental';

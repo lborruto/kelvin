@@ -121,7 +121,8 @@ def test_rename_is_a_label_write_offered_on_every_device_kelvin_drives():
     plain = _house(_pilot(None)).radiators["1"]
     assert plain.capabilities.rename and plain.view()["capabilities"]["rename"] is True
     unknown = _house(_pilot(None), server="somfy_europe").radiators["1"]
-    assert unknown.capabilities.rename  # the server decides the setup write (setup_experimental)
+    # An experimental server refuses every setup write (403 setup_experimental): no pencil.
+    assert not unknown.capabilities.rename
 
 
 def test_a_pilot_wire_heater_without_listed_values_offers_every_level():

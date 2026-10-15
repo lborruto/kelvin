@@ -16,8 +16,17 @@ from tests.conftest import ManualClock
 
 @pytest.fixture
 def client_for(tmp_path):
-    async def open_(name: str, server: str, move: dict[str, str] | None = None):
+    async def open_(
+        name: str,
+        server: str,
+        move: dict[str, str] | None = None,
+        declare: dict[str, list[str]] | None = None,
+    ):
         root, devices = HOUSES[name]()
+        if declare:  # extra commands a device declares (device URL → command names)
+            devices = [
+                replace(d, commands=d.commands + declare.get(d.device_url, [])) for d in devices
+            ]
         if move:  # put a radiator's devices in another place (a mixed room for the test)
             devices = [
                 replace(d, place_oid=move.get(d.device_url.split("#")[0], d.place_oid))
@@ -180,6 +189,26 @@ async def test_mixed_room_off_turns_every_heater_off(client_for):
         sent = _sent(gw, n)
         assert ("21000002#1", "setHeatingLevel", ("off",)) in sent
         assert {x[0] for x in sent} == {"21000001#1", "21000002#1"}
+    finally:
+        await _close(manager, c)
+
+
+async def test_a_pilot_wire_heater_refuses_a_manual_setpoint_it_declares(client_for):
+    """The profile decides: a pilot-wire heater declaring setTargetTemperature has no manual
+    setpoint in its capabilities, so the single-radiator route refuses it too."""
+    manager, c, rt, gw, clock = await client_for(
+        "atlantic",
+        "atlantic_cozytouch",
+        declare={f"{ATLANTIC_GATEWAY}/21000002#1": ["setTargetTemperature"]},
+    )
+    try:
+        r = rt.house.radiators["21000002"]
+        assert "setTargetTemperature" in r.commands[r.heater_url]
+        assert r.capabilities.manual is None
+        n = len(gw.executed)
+        r = await c.post("/api/radiators/21000002/setpoint", json={"kind": "manual", "value": 20})
+        assert (r.status_code, r.json()["code"]) == (422, "unsupported_command")
+        assert gw.executed[n:] == []
     finally:
         await _close(manager, c)
 

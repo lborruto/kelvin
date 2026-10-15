@@ -126,6 +126,7 @@ def capabilities(r: Radiator) -> Capabilities:
         night_light_intensity=light_url is not None and C.SET_INTENSITY.value in light,
         identify=bool({C.IDENTIFY.value, C.WINK.value} & heater),
         energy=energy,
-        # Plan 8b: a rename is the heater's Cozytouch label (a setup write), not setName.
-        rename=True,
+        # Plan 8b: a rename is the heater's Cozytouch label (a setup write), not setName; an
+        # experimental server refuses every setup write (403 setup_experimental).
+        rename=r.support != "experimental",
     )

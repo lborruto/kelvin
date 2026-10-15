@@ -1,5 +1,7 @@
 """The command layer per kind (Plan 12). Sauter itself is pinned by test_sauter_golden.py."""
 
+from dataclasses import replace
+
 import pytest
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
@@ -104,6 +106,19 @@ def test_a_pilot_wire_heater_takes_levels(house):
         with pytest.raises(CommandError) as e:
             attempt()
         assert e.value.code == "unsupported_command"
+
+
+def test_a_pilot_wire_heater_declaring_a_setpoint_still_refuses_it():
+    devices = _devices()
+    devices[0] = replace(devices[0], commands=["setHeatingLevel", "setTargetTemperature"])
+    r = build_house(ROOT, devices, server="atlantic_cozytouch").radiators["1"]
+    assert r.kind == "pilot_wire_heater" and r.capabilities.manual is None
+    with pytest.raises(CommandError) as e:
+        plan_setpoint(r, "manual", 20.0)
+    assert (e.value.code, e.value.params) == (
+        "unsupported_command",
+        {"command": "setTargetTemperature"},
+    )
 
 
 def test_a_towel_dryer_takes_its_modes_setpoint_and_temporary_states(house):
