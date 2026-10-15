@@ -6,7 +6,9 @@ import { applyLocale } from '$lib/i18n';
 
 vi.mock('$lib/api/client', () => ({
   api: { roomMode: vi.fn(), roomSetpoint: vi.fn(), roomBoost: vi.fn(), cancelOverride: vi.fn(), history: vi.fn().mockResolvedValue([]),
-    roomEnergy: vi.fn(() => new Promise(() => {})) },
+    roomEnergy: vi.fn(() => new Promise(() => {})),
+    roomActivity: vi.fn().mockResolvedValue({ step: 300, window: [], presence: [] }),
+    roomsDuty: vi.fn().mockResolvedValue({ from: 0, to: 86400, rooms: { salon: { duty: 0.38, coverage: 1 } } }) },
   ApiError: class extends Error {}
 }));
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
@@ -24,7 +26,7 @@ beforeEach(() => {
   house.applySnapshot({
     house: {
       rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a', 'b'], temperature: 20, mode: 'mixed', target: 20, comfort: 20, eco: 17,
-        effective_setpoint: 17, heating_level: 'eco', window_open: false, occupied: false }],
+        effective_setpoint: 17, heating_level: 'eco', window_open: false, occupied: false, presence: true }],
       radiators: [a, b]
     },
     pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
@@ -71,5 +73,24 @@ describe('RoomInspector in English', () => {
     applyLocale('en');
     render(RoomInspector, { roomId: 'nope' });
     expect(screen.getByText('Room not found.')).toBeInTheDocument();
+  });
+});
+
+describe('presence state and legend', () => {
+  it('« Présence : détectée », « — » when not reported', async () => {
+    render(RoomInspector, { roomId: 'salon' });
+    expect(screen.getByText(/Présence\s:\sdétectée/)).toBeInTheDocument();
+  });
+  it('« — » when no radiator reports presence', () => {
+    house.applySnapshot({
+      house: {
+        rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a', 'b'], temperature: 20, mode: 'mixed', target: 20, comfort: 20,
+          eco: 17, effective_setpoint: 17, heating_level: 'eco', window_open: false, occupied: false, presence: null }],
+        radiators: [a, b]
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
+    } as never);
+    render(RoomInspector, { roomId: 'salon' });
+    expect(screen.getByText(/Présence\s:\s—/)).toBeInTheDocument();
   });
 });

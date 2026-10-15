@@ -2,7 +2,8 @@
   import { untrack } from 'svelte';
   import { scaleLinear } from 'd3-scale';
   import { curveMonotoneX, curveStepAfter, line } from 'd3-shape';
-  import type { RoomMode, WeekProgram } from '$lib/api/types';
+  import { runText } from '$lib/activity';
+  import type { RoomActivity, RoomMode, WeekProgram } from '$lib/api/types';
   import { fmtTemp, fmtTime } from '$lib/format';
   import { heatColor } from '$lib/heat';
   import { m } from '$lib/i18n';
@@ -26,10 +27,12 @@
     axis?: boolean;
     height?: number;
     label: string;
+    /** Window-open and presence runs the radiators reported (QW4). */
+    activity?: RoomActivity | null;
   }
   let {
     points, start, end, now, program = {}, mode = null, comfort = null, eco = null,
-    target = null, pendingTarget = null, pendingComfort = null, axis = false, height = 36, label
+    target = null, pendingTarget = null, pendingComfort = null, axis = false, height = 36, label, activity = null
   }: Props = $props();
 
   const W = 300;
@@ -82,6 +85,13 @@
       .range([height - 2, 2])
   );
   let bands = $derived(mode === 'program' ? comfortBands(program, start, end) : []);
+  let long = $derived(end - start > 86_400_000 + 3_600_000);
+  const clip = (r: { start: number; end: number }) => ({
+    a: Math.max(start, r.start * 1000),
+    b: Math.min(end, r.end * 1000)
+  });
+  let windowRuns = $derived((activity?.window ?? []).map((r) => ({ r, ...clip(r) })).filter((x) => x.b > x.a));
+  let presenceRuns = $derived((activity?.presence ?? []).map((r) => ({ r, ...clip(r) })).filter((x) => x.b > x.a));
 
   let tempPath = $derived(
     line<StripPoint>()
@@ -128,6 +138,8 @@
     else if (mode === 'program' && comfort != null && eco != null) parts.push(m.strip.program(fmtTemp(comfort), fmtTemp(eco)));
     if (shownTarget != null) parts.push(m.strip.pendingSetpoint(fmtTemp(shownTarget)));
     else if (shownComfort != null) parts.push(m.strip.pendingComfort(fmtTemp(shownComfort)));
+    if (windowRuns.length) parts.push(m.strip.windowCount(windowRuns.length));
+    if (presenceRuns.length) parts.push(m.strip.presenceCount(presenceRuns.length));
     return m.strip.summary(parts);
   });
 
@@ -151,7 +163,18 @@
         <stop offset="1" style:stop-color={heatColor(15)} />
       </linearGradient>
       <clipPath id="{uid}f"><rect x={nowX} y="-4" width={W - nowX} height={height + 8} /></clipPath>
+      <pattern id="{uid}h" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="4" class="hatch" />
+      </pattern>
     </defs>
+    {#each presenceRuns as p, i (i)}
+      <rect class="presence" x={x(p.a)} y="0" width={Math.max(0.5, x(p.b) - x(p.a))} {height}><title
+          >{runText(p.r, long, 'presence')} · {m.strip.sampled}</title></rect>
+    {/each}
+    {#each windowRuns as w, i (i)}
+      <rect class="window" x={x(w.a)} y="0" width={Math.max(0.5, x(w.b) - x(w.a))} {height} fill="url(#{uid}h)"><title
+          >{runText(w.r, long, 'window')} · {m.strip.sampled}</title></rect>
+    {/each}
     {#each bands as b, i (i)}
       <rect class="band" x={x(b.start)} y="0" width={Math.max(0.5, x(b.end) - x(b.start))} {height} />
       <line class="band-edge" x1={x(b.start)} x2={x(b.end)} y1="0.5" y2="0.5" vector-effect="non-scaling-stroke" />
@@ -179,6 +202,16 @@
 </div>
 
 <style>
+  /* Presence: a faint neutral fill; window open: a hatch (not a heat hue: it is a report, not heat). */
+  .presence {
+    fill: var(--mu);
+    opacity: 0.1;
+  }
+  .hatch {
+    stroke: var(--mu);
+    stroke-width: 1.5;
+    opacity: 0.45;
+  }
   .strip {
     position: relative;
     min-width: 0;

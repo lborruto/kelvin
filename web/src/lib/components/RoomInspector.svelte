@@ -1,6 +1,7 @@
 <script lang="ts">
   import { run, retry } from '$lib/actions';
   import { api } from '$lib/api/client';
+  import { activityKey, dutyText } from '$lib/activity';
   import { fmtDelta, fmtTemp, fmtTime } from '$lib/format';
   import { levelLabel, m } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
@@ -9,6 +10,7 @@
   import { history } from '$lib/stores/history.svelte';
   import { agg } from '$lib/room';
   import { house } from '$lib/stores/house.svelte';
+  import { roomActivity, roomsDuty } from '$lib/stores/roomdata.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
   import ModeSwitch from './ModeSwitch.svelte';
   import OverrideBadge from './OverrideBadge.svelte';
@@ -53,6 +55,18 @@
   let end = $derived(range === 'day' ? addParisDays(parisMidnight(now), 1) : now);
   let start = $derived(range === 'day' ? parisMidnight(now) : now - RANGES[range].days * 86_400_000);
   let key = $derived(`${roomId}|${range}|${range === 'day' ? start : Math.floor(now / 3_600_000)}`);
+  let actKey = $derived(activityKey(roomId, start, Math.min(end, now)));
+  $effect(() => {
+    if (!room) return;
+    const [id, a, z] = [roomId, Math.floor(start / 1000), Math.floor(Math.min(end, now) / 1000)];
+    roomActivity.load(actKey, () => api.roomActivity(id, a, z));
+    roomsDuty.load('all', () => api.roomsDuty());
+  });
+  let activity = $derived(roomActivity.data[actKey]?.value ?? null);
+  let dutyEntry = $derived(roomsDuty.data.all);
+  let presenceText = $derived(
+    room?.presence === undefined ? null : m.room.presence(room.presence == null ? '—' : room.presence ? m.room.presenceDetected : m.room.presenceNone)
+  );
   const stable = (o: unknown): string =>
     JSON.stringify(o, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v));
   let sameProgram = $derived(radiators.every((r) => stable(r.program) === stable(first?.program)));
@@ -88,6 +102,8 @@
           {m.room.radiatorCount(radiators.length)}
           {#if levelLabel(room.heating_level)} · {levelLabel(room.heating_level)}{/if}
           {#if mode === 'program' && !sameProgram} · {m.room.programsDiffer}{:else if change} · <span class="nowrap">{fmtNextChange(change, now)}</span>{/if}
+          {#if presenceText} · <span class="nowrap">{presenceText}</span>{/if}{#if dutyEntry} · <span class="nowrap"
+              title={m.room.dutyHint}>{dutyText(dutyEntry.value?.rooms[roomId]?.duty)}</span>{/if}
         </p>
       </div>
       <span class="temp num" style:view-transition-name={vtName}>{#key room.temperature}<span class="fig"
@@ -152,7 +168,14 @@
         comfort={room.comfort} eco={room.eco} target={room.target} height={120}
         pendingTarget={range === 'day' ? (expected.target ?? null) : null}
         pendingComfort={range === 'day' ? (expected.comfort ?? null) : null} axis={range === 'day'}
-        label={m.room.historyLabel(room.name, m.range[range])} />
+        label={m.room.historyLabel(room.name, m.range[range])} {activity} />
+      {#if activity && (activity.window.length || activity.presence.length)}
+        <p class="legend" aria-hidden="true">
+          {#if activity.window.length}<span class="key"><span class="sw window"></span>{m.strip.legendWindow}</span>{/if}
+          {#if activity.presence.length}<span class="key"><span class="sw presence"></span>{m.strip.legendPresence}</span>{/if}
+          <span class="muted">{m.strip.sampled}</span>
+        </p>
+      {/if}
       <RoomFigures {roomId} days={RANGES[range].days} {now} rangeLabel={m.range[range]} />
     </section>
 
@@ -166,6 +189,29 @@
 {/if}
 
 <style>
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin: 0;
+    font-size: 12px;
+  }
+  .key {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sw {
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+  }
+  .sw.window {
+    background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--mu) 45%, transparent) 0 1.5px, transparent 1.5px 4px);
+  }
+  .sw.presence {
+    background: color-mix(in srgb, var(--mu) 10%, transparent);
+  }
   .inspector {
     display: grid;
     gap: 18px;

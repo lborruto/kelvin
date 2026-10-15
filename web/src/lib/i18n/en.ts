@@ -111,6 +111,12 @@ export const en: Messages = {
     awayActive: 'Away mode on'
   },
   room: {
+    presence: (v: string) => `Presence: ${v}`,
+    presenceDetected: 'detected',
+    presenceNone: 'none',
+    heatingNow: 'Heating',
+    duty: (pct: string) => `heating ${pct} of the last 24${NB}h`,
+    dutyHint: 'Share of the last 24 hours the radiators heated, weighted by their power (5-minute readings).',
     title: 'Room',
     windowOpen: 'Window open',
     off: 'Off',
@@ -208,6 +214,13 @@ export const en: Messages = {
     send: 'Send'
   },
   strip: {
+    windowRun: (a: string, b: string) => `Window open (reported by the radiator) ${a}–${b}`,
+    presenceRun: (a: string, b: string) => `Presence reported ${a}–${b}`,
+    sampled: `5${NB}min readings`,
+    windowCount: (n: number) => `window open ${int(n)} ${plural(n, { one: 'time', other: 'times' })}`,
+    presenceCount: (n: number) => `presence reported ${int(n)} ${plural(n, { one: 'time', other: 'times' })}`,
+    legendWindow: 'Window open',
+    legendPresence: 'Presence',
     range: (min: string, max: string) => `${min} to ${max}`,
     last: (t: string) => `last reading ${t}`,
     none: 'no reading yet',

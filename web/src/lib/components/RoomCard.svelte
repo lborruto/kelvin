@@ -3,6 +3,7 @@
   import type { Room } from '$lib/api/types';
   import { run, retry } from '$lib/actions';
   import { api } from '$lib/api/client';
+  import { activityKey, dutyText } from '$lib/activity';
   import { fmtTemp } from '$lib/format';
   import { levelLabel, m, modeLabel } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
@@ -12,6 +13,7 @@
   import { ROUTES } from '$lib/paths';
   import { agg } from '$lib/room';
   import { house } from '$lib/stores/house.svelte';
+  import { roomActivity, roomsDuty } from '$lib/stores/roomdata.svelte';
   import type { StripPoint } from '$lib/stores/history.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
   import Icon from './Icon.svelte';
@@ -52,6 +54,16 @@
   let start = $derived(parisMidnight(now));
   let end = $derived(addParisDays(start, 1));
   let change = $derived(mode === 'program' && first ? nextChange(first.program, now) : null);
+  let heating = $derived(house.roomHeating(room.id));
+  let actKey = $derived(activityKey(room.id, start, Math.min(end, now)));
+  $effect(() => {
+    const [id, a, z] = [room.id, Math.floor(start / 1000), Math.floor(Math.min(end, now) / 1000)];
+    roomActivity.load(actKey, () => api.roomActivity(id, a, z));
+    roomsDuty.load('all', () => api.roomsDuty());
+  });
+  let activity = $derived(roomActivity.data[actKey]?.value ?? null);
+  let dutyEntry = $derived(roomsDuty.data.all);
+  let duty = $derived(dutyEntry?.value?.rooms[room.id]?.duty ?? null);
   // Radiators that disagree leave the room value null: step from their mean, as the inspector does.
   let aTarget = $derived(agg(radiators.map((r) => r.target)));
   let aComfort = $derived(agg(radiators.map((r) => r.comfort)));
@@ -76,6 +88,7 @@
     {#if room.window_open}<span class="chip warn"><Icon name="window" size={12} />{m.room.windowOpen}</span>{/if}
     {#if unreachable}<span class="chip warn"><Icon name="alert" size={12} />{m.roomInfo.unreachableChip}</span>{/if}
     <OverrideBadge {override} />
+    {#if heating && mode !== 'off'}<span class="chip heat">{m.room.heatingNow}</span>{/if}
   </span>
   <span class="temp num" style:view-transition-name={vtName}>{#key room.temperature}<span class="fig" style:color={heatColor(room.temperature)}
       in:flash>{fmtTemp(room.temperature)}</span>{/key}</span>
@@ -95,11 +108,12 @@
 
   <ThermalStrip {points} {start} {end} {now} program={first?.program} mode={room.mode} comfort={room.comfort}
     eco={room.eco} target={room.target} pendingTarget={expected.target ?? null} pendingComfort={expected.comfort ?? null}
-    axis={expanded} label={m.room.todayLabel(room.name)} />
+    axis={expanded} label={m.room.todayLabel(room.name)} {activity} />
 
-  {#if change || pending || expanded}
+  {#if change || pending || expanded || dutyEntry}
     <div class="foot">
-      <span class="muted next">{#if change}{fmtNextChange(change, now)}{/if}</span>
+      <span class="muted next">{#if change}{fmtNextChange(change, now)}{/if}{#if change && dutyEntry} · {/if}{#if dutyEntry}<span
+          title={m.room.dutyHint}>{dutyText(duty)}</span>{/if}</span>
       <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
       {#if expanded}<a class="details" href={ROUTES.room(room.id)} in:fade={{ duration: dur(T.state) }}>{m.room.details}<Icon name="chevron" size={14} /></a>{/if}
     </div>
@@ -196,6 +210,11 @@
   }
   .chip.warn {
     color: var(--bad);
+  }
+  /* Warm is the heating hue (DESIGN: blue and orange only for heat). */
+  .chip.heat {
+    color: var(--warm);
+    border-color: color-mix(in srgb, var(--warm) 40%, var(--line));
   }
   .temp {
     grid-area: temp;

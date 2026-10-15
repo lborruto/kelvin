@@ -199,3 +199,18 @@ describe('HouseStore', () => {
     });
   });
 });
+
+describe('roomHeating', () => {
+  it('is true when any radiator of the room draws power now', () => {
+    const s = new HouseStore();
+    const r = (id: string, working_rate: number | null) => ({ id, room_id: 'x', working_rate, program: {} }) as never;
+    s.applySnapshot({
+      house: {
+        rooms: [{ id: 'x', name: 'X', radiator_ids: ['a', 'b'] } as never, { id: 'y', name: 'Y', radiator_ids: ['c'] } as never],
+        radiators: [r('a', 0), r('b', 35), r('c', null)]
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
+    });
+    expect([s.roomHeating('x'), s.roomHeating('y'), s.heatingCount]).toEqual([true, false, 1]);
+  });
+});

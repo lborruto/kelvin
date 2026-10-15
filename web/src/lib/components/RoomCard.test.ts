@@ -3,11 +3,17 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import { house } from '$lib/stores/house.svelte';
+import { resetRoomData } from '$lib/stores/roomdata.svelte';
 import RoomCard from './RoomCard.svelte';
 import { applyLocale } from '$lib/i18n';
 
 vi.mock('$lib/api/client', () => ({
-  api: { roomMode: vi.fn().mockResolvedValue({ pending: null }), roomSetpoint: vi.fn().mockResolvedValue({ pending: null }) },
+  api: {
+    roomMode: vi.fn().mockResolvedValue({ pending: null }),
+    roomSetpoint: vi.fn().mockResolvedValue({ pending: null }),
+    roomActivity: vi.fn().mockResolvedValue({ step: 300, window: [], presence: [] }),
+    roomsDuty: vi.fn().mockResolvedValue({ from: 0, to: 86400, rooms: { salon: { duty: 0.38, coverage: 1 } } })
+  },
   ApiError: class extends Error {}
 }));
 
@@ -25,6 +31,7 @@ const room = {
 };
 
 beforeEach(() => {
+  resetRoomData();
   house.applySnapshot({
     house: { rooms: [room], radiators: [radiator] }, pending: [], overrides: [],
     status: { connected: true, last_ok_at: 1, last_error: null }
@@ -220,5 +227,21 @@ describe('reachability on the card', () => {
     });
     render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn() });
     expect(screen.getByText('Injoignable')).toBeInTheDocument();
+  });
+});
+
+describe('heating now and duty', () => {
+  it('« En chauffe » while a radiator draws power, and the 24 h duty', async () => {
+    house.applySnapshot({
+      house: { rooms: [room], radiators: [{ ...radiator, working_rate: 40 }] },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
+    });
+    render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn() });
+    expect(screen.getByText('En chauffe')).toBeInTheDocument();
+    expect(await screen.findByText(/chauffe 38\s%\ssur 24\sh/)).toBeInTheDocument();
+  });
+  it('no mark when nothing heats', () => {
+    render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn() });
+    expect(screen.queryByText('En chauffe')).toBeNull();
   });
 });

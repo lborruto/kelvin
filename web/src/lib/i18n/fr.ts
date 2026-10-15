@@ -117,6 +117,12 @@ export const fr = {
     awayActive: 'Absence en cours'
   },
   room: {
+    presence: (v: string) => `Présence${NB}: ${v}`,
+    presenceDetected: 'détectée',
+    presenceNone: 'aucune',
+    heatingNow: 'En chauffe',
+    duty: (pct: string) => `chauffe ${pct} sur 24${NB}h`,
+    dutyHint: 'Part du temps où les radiateurs ont chauffé ces dernières 24 heures, pondérée par leur puissance (relevés toutes les 5 minutes).',
     title: 'Pièce',
     windowOpen: 'Fenêtre ouverte',
     off: 'Arrêté',
@@ -214,6 +220,13 @@ export const fr = {
     send: 'Envoyer'
   },
   strip: {
+    windowRun: (a: string, b: string) => `Fenêtre ouverte (signalée par le radiateur) ${a}–${b}`,
+    presenceRun: (a: string, b: string) => `Présence signalée ${a}–${b}`,
+    sampled: `relevé toutes les 5${NB}min`,
+    windowCount: (n: number) => `fenêtre ouverte ${int(n)} fois`,
+    presenceCount: (n: number) => `présence signalée ${int(n)} fois`,
+    legendWindow: 'Fenêtre ouverte',
+    legendPresence: 'Présence',
     range: (min: string, max: string) => `de ${min} à ${max}`,
     last: (t: string) => `dernière mesure ${t}`,
     none: 'pas encore de mesure',

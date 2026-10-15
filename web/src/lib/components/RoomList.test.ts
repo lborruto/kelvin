@@ -4,7 +4,11 @@ import { house } from '$lib/stores/house.svelte';
 import RoomList from './RoomList.svelte';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
-vi.mock('$lib/api/client', () => ({ api: { history: vi.fn().mockResolvedValue([]) }, ApiError: class extends Error {} }));
+vi.mock('$lib/api/client', () => ({
+  // Activity and duty stay unloaded here: RoomCard has their tests.
+  api: { history: vi.fn().mockResolvedValue([]), roomActivity: vi.fn(() => new Promise(() => {})), roomsDuty: vi.fn(() => new Promise(() => {})) },
+  ApiError: class extends Error {}
+}));
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
 
 const rad = (id: string, room_id: string) => ({
