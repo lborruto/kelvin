@@ -9,7 +9,7 @@
  * are exported (the backend anchors them on 1 January).
  */
 import type { EnergyDay, EnergyReport, EnergySummary, PriceRow } from './api/types';
-import { bucketSpan, leadingMissing, type Span } from './energy';
+import { addDays, bucketSpan, leadingMissing, type Span } from './energy';
 import type { RoomRow } from './roomEnergy';
 import { isoParis, parisDayStart } from './time';
 
@@ -17,8 +17,10 @@ export const BOM = '﻿';
 export const ENERGY_HEADER = [
   'periode', 'debut', 'fin', 'maison_kwh', 'hc_kwh', 'hp_kwh', 'split_estime', 'radiateurs_kwh', 'radiateurs_interp',
   'reste_kwh', 'energie_eur', 'abonnement_eur', 'total_eur', 'prix', 'jours_manquants',
-  // R1: a partial radiator sum (coverage < 1, or a running period counted up to yesterday) never reads as whole.
-  'radiateurs_couverture'
+  // R1: a partial radiator sum never reads as whole. `radiateurs_jusqu_au` is the last day the radiator sum counts
+  // (a period running into today counts up to yesterday, while `fin` stays the period's end); `radiateurs_couverture`
+  // (last) is the share of the radiator-days up to that day that were fully measured.
+  'radiateurs_jusqu_au', 'radiateurs_couverture'
 ];
 export const CURVE_HEADER = ['debut', 'fin', 'minutes', 'wh', 'w_moyen', 'part_hc', 'couleur_tempo', 'prix', 'eur', 'radiateurs_wh'];
 export const ROOMS_HEADER = [
@@ -74,7 +76,15 @@ export function pricesCsv(prices: PriceRow[]): string {
   return prices.map((p) => `${p.valid_from}:${one(p)}`).join(' ');
 }
 
-function summaryRow(label: string, s: EnergySummary, span: Span): string[] {
+/** The last day a radiator sum over `span` counts: its last day, or yesterday while it runs into today (the API's
+ * radiator sums count elapsed days only). */
+function radiatorsUntil(span: Span, today: string): string {
+  const last = addDays(span.to, -1);
+  const yesterday = addDays(today, -1);
+  return last < yesterday ? last : yesterday;
+}
+
+function summaryRow(label: string, s: EnergySummary, span: Span, today: string): string[] {
   const rad = s.radiators;
   return [
     csvText(label),
@@ -92,20 +102,22 @@ function summaryRow(label: string, s: EnergySummary, span: Span): string[] {
     csvNum(s.eur, 2),
     csvText(pricesCsv(s.prices)),
     String(s.missing_days),
+    rad ? radiatorsUntil(span, today) : '',
     csvNum(rad?.coverage, 4)
   ];
 }
 
 /** The selected period's bars, then its total (the hero's figures). Like the chart, a home with Linky starts at its
- * first bucket with Linky data: earlier ones are not gaps, and are not rows. */
-export function energyCsv(chart: EnergyReport, main: EnergyReport, period: Span): CsvFile {
+ * first bucket with Linky data: earlier ones are not gaps, and are not rows. `today`: Paris's ISO day, which no
+ * radiator sum counts yet. */
+export function energyCsv(chart: EnergyReport, main: EnergyReport, period: Span, today: string): CsvFile {
   const first = chart.linky ? leadingMissing(chart.buckets.map((b) => b.kwh)) : 0;
   const rows = chart.buckets
     .slice(first)
     .map((b) => ({ b, span: bucketSpan(b.key, chart.group) }))
     .filter(({ span }) => span.from >= period.from && span.to <= period.to)
-    .map(({ b, span }) => summaryRow(b.key, b, span));
-  rows.push(summaryRow('total', main.period, period));
+    .map(({ b, span }) => summaryRow(b.key, b, span, today));
+  rows.push(summaryRow('total', main.period, period, today));
   return file(`energie_${period.from}_${period.to}_${chart.group}.csv`, ENERGY_HEADER, rows);
 }
 

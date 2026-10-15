@@ -75,7 +75,8 @@ describe('energie_<from>_<to>_<group>.csv', () => {
         radiators: { kwh: 23.7, hc_kwh: 10.2, hp_kwh: 13.5, eur: 5.75, interpolated: false, apportioned: true, coverage: 0.8333 } })
     }
   } as unknown as EnergyReport;
-  const file = energyCsv(chart, main, { from: '2026-10-11', to: '2026-10-14' });
+  const TODAY = '2026-10-20'; // the period is over: every radiator sum runs to its last day
+  const file = energyCsv(chart, main, { from: '2026-10-11', to: '2026-10-14' }, TODAY);
   const [head, ...rows] = lines(file.text);
 
   it('exports exactly the period: its buckets, then the total; UTF-8 BOM, « ; », CRLF, decimal commas, ISO times with offset', () => {
@@ -84,15 +85,15 @@ describe('energie_<from>_<to>_<group>.csv', () => {
     expect(file.text.endsWith('\r\n')).toBe(true);
     expect(file.text.slice(BOM.length).split('\n').every((l) => l === '' || l.endsWith('\r'))).toBe(true);
     expect(head).toBe(
-      'periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_couverture'
+      'periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_jusqu_au;radiateurs_couverture'
     );
     expect(rows).toHaveLength(4);
-    expect(rows[0]).toBe('2026-10-11;2026-10-11T00:00:00+02:00;2026-10-12T00:00:00+02:00;22,041;8,976;13,065;0;14,200;0;7,841;5,31;0,48;5,79;hc=0,2068|hp=0,2700;0;1,0000');
+    expect(rows[0]).toBe('2026-10-11;2026-10-11T00:00:00+02:00;2026-10-12T00:00:00+02:00;22,041;8,976;13,065;0;14,200;0;7,841;5,31;0,48;5,79;hc=0,2068|hp=0,2700;0;2026-10-11;1,0000');
     for (const r of rows) expect(r.split(';')).toHaveLength(ENERGY_HEADER.length);
   });
 
   it('a missing value is an empty cell, never 0; the subscription a counted day pays stays', () => {
-    expect(rows[1]).toBe('2026-10-12;2026-10-12T00:00:00+02:00;2026-10-13T00:00:00+02:00;;;;;;;;;0,48;;;1;');
+    expect(rows[1]).toBe('2026-10-12;2026-10-12T00:00:00+02:00;2026-10-13T00:00:00+02:00;;;;;;;;;0,48;;;1;;');
   });
 
   it('R1: a partial radiator sum carries its coverage (the last column), and estimates say so', () => {
@@ -101,15 +102,33 @@ describe('energie_<from>_<to>_<group>.csv', () => {
     expect(c.at(-1)).toBe('0,5000');
   });
 
+  it('R1, final review I-3: a running period’s radiator sum names the last day it counts, never reads as whole', () => {
+    // Today is 13 October: the period runs to the 14th, its radiators count up to yesterday (the 12th).
+    const running = energyCsv(chart, main, { from: '2026-10-11', to: '2026-10-14' }, '2026-10-13');
+    const [h, ...body] = lines(running.text);
+    const cols = h.split(';');
+    const at = (r: string, name: string) => r.split(';')[cols.indexOf(name)];
+    expect(cols.at(-1)).toBe('radiateurs_couverture');
+    expect(cols.at(-2)).toBe('radiateurs_jusqu_au');
+    const total = body.at(-1)!;
+    expect(at(total, 'fin')).toBe('2026-10-14T00:00:00+02:00'); // the period
+    expect(at(total, 'radiateurs_jusqu_au')).toBe('2026-10-12'); // what the radiator sum counts
+    // A bar running into today: the same rule.
+    const bar = body.find((r) => r.startsWith('2026-10-13;'))!;
+    expect(at(bar, 'radiateurs_jusqu_au')).toBe('2026-10-12');
+    // A bar wholly past: its own last day.
+    expect(at(body.find((r) => r.startsWith('2026-10-11;'))!, 'radiateurs_jusqu_au')).toBe('2026-10-11');
+  });
+
   it('the total row is the hero’s period, its own figures (never a sum recomputed here)', () => {
     expect(rows[3]).toBe(
-      'total;2026-10-11T00:00:00+02:00;2026-10-14T00:00:00+02:00;44,082;8,976;13,065;0;23,700;1;;10,62;1,44;12,06;hc=0,2068|hp=0,2700;1;0,8333'
+      'total;2026-10-11T00:00:00+02:00;2026-10-14T00:00:00+02:00;44,082;8,976;13,065;0;23,700;1;;10,62;1,44;12,06;hc=0,2068|hp=0,2700;1;2026-10-13;0,8333'
     );
   });
 
   it('a day’s figures are its bucket’s, whatever period is exported', () => {
-    const week = energyCsv(chart, main, { from: '2026-10-10', to: '2026-10-15' });
-    const one = energyCsv(chart, main, { from: '2026-10-11', to: '2026-10-12' });
+    const week = energyCsv(chart, main, { from: '2026-10-10', to: '2026-10-15' }, TODAY);
+    const one = energyCsv(chart, main, { from: '2026-10-11', to: '2026-10-12' }, TODAY);
     const row = (f: { text: string }) => lines(f.text).find((l) => l.startsWith('2026-10-11;'));
     expect(row(week)).toBe(rows[0]);
     expect(row(one)).toBe(rows[0]);
@@ -124,7 +143,7 @@ describe('energie_<from>_<to>_<group>.csv', () => {
         { key: '2026-10-13', ...summary({ kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, eur: null, rest_kwh: null, present_days: 0, missing_days: 1, prices: [], radiators: null }) }
       ]
     } as unknown as EnergyReport;
-    const body = lines(energyCsv(early, main, { from: '2026-10-11', to: '2026-10-14' }).text).slice(1);
+    const body = lines(energyCsv(early, main, { from: '2026-10-11', to: '2026-10-14' }, TODAY).text).slice(1);
     expect(body.map((l) => l.split(';')[0])).toEqual(['2026-10-12', '2026-10-13', 'total']);
   });
 
@@ -133,7 +152,7 @@ describe('energie_<from>_<to>_<group>.csv', () => {
       group: 'month',
       buckets: ['2025-12', '2026-01', '2026-02'].map((key) => ({ key, ...summary({ days: 31 }) }))
     } as unknown as EnergyReport;
-    const f = energyCsv(year, main, { from: '2026-01-01', to: '2027-01-01' });
+    const f = energyCsv(year, main, { from: '2026-01-01', to: '2027-01-01' }, TODAY);
     expect(f.name).toBe('energie_2026-01-01_2027-01-01_month.csv');
     const body = lines(f.text).slice(1);
     expect(body.map((l) => l.split(';').slice(0, 3).join(';'))).toEqual([

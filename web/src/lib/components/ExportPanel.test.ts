@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EnergyDay, EnergyReport } from '$lib/api/types';
 import { download, energyCsv } from '$lib/csv';
 import { house } from '$lib/stores/house.svelte';
+import { today } from '$lib/today.svelte';
 import ExportPanel from './ExportPanel.svelte';
 
 vi.mock('$lib/csv', async (orig) => ({ ...(await orig<typeof import('$lib/csv')>()), download: vi.fn() }));
@@ -43,9 +44,9 @@ describe('ExportPanel', () => {
     const period = { from: '2026-10-01', to: '2026-11-01' };
     render(ExportPanel, { chart, main, period, roomSpan: { from: '2026-10-01', to: '2026-10-13' }, day });
     await fireEvent.click(screen.getByRole('button', { name: 'Exporter la période (CSV)' }));
-    expect(vi.mocked(download).mock.calls[0][0]).toEqual(energyCsv(chart, main, period));
+    expect(vi.mocked(download).mock.calls[0][0]).toEqual(energyCsv(chart, main, period, today.iso));
     const text = vi.mocked(download).mock.calls[0][0].text;
-    expect(text.split('\r\n')[1]).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;;;;;;;;;;;;0;');
+    expect(text.split('\r\n')[1]).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;;;;;;;;;;;;0;;');
   });
 
   it('holds the rooms file until the house is known (aria-disabled, never disabled)', async () => {

@@ -5,6 +5,7 @@
   import { fmtDay } from '$lib/format';
   import { roomEnergy } from '$lib/roomEnergy';
   import { house } from '$lib/stores/house.svelte';
+  import { today } from '$lib/today.svelte';
 
   const COPY = {
     title: 'Exporter',
@@ -35,7 +36,7 @@
 <section class="panel {cls}">
   <h2>{COPY.title}</h2>
   <div class="actions">
-    <button type="button" class="btn btn-ghost" onclick={() => download(energyCsv(chart, main, period))}>{COPY.period}</button>
+    <button type="button" class="btn btn-ghost" onclick={() => download(energyCsv(chart, main, period, today.iso))}>{COPY.period}</button>
     {#if day && day.points > 0}
       <button type="button" class="btn btn-ghost num" onclick={() => download(curveCsv(day))}>{COPY.curve(fmtDay(day.date))}</button>
     {/if}

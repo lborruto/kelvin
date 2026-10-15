@@ -6,7 +6,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 // needs every bar to hold data opens the previous month, which is always complete.
 
 const ENERGY_HEADER =
-  'periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_couverture';
+  'periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_jusqu_au;radiateurs_couverture';
 const CURVE_HEADER = 'debut;fin;minutes;wh;w_moyen;part_hc;couleur_tempo;prix;eur;radiateurs_wh';
 const ISO_LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00[+-]\d{2}:\d{2}$/;
 const SCRUB = 'Parcourir la courbe, demi-heure par demi-heure';
@@ -223,15 +223,22 @@ test.describe('Énergie', () => {
     expect(period.rows[0]).toBe(ENERGY_HEADER);
     for (const l of period.rows.slice(1)) {
       const c = l.split(';');
-      expect(c).toHaveLength(16);
+      expect(c).toHaveLength(17);
       expect(c[1]).toMatch(ISO_LOCAL);
       expect(c[2]).toMatch(ISO_LOCAL);
-      for (const v of [...c.slice(3, 6), ...c.slice(7, 8), ...c.slice(9, 13), c[15]]) expect(v).toMatch(/^(-?\d+,\d+)?$/); // decimal comma, no grouping
+      for (const v of [...c.slice(3, 6), ...c.slice(7, 8), ...c.slice(9, 13), c[16]]) expect(v).toMatch(/^(-?\d+,\d+)?$/); // decimal comma, no grouping
+      expect(c[15]).toMatch(c[7] === '' ? /^$/ : /^\d{4}-\d{2}-\d{2}$/); // radiateurs_jusqu_au
     }
     const days = period.rows.slice(1, -1);
     expect(days.length).toBeGreaterThanOrEqual(28);
     const total = period.rows.at(-1)!.split(';');
     expect(total[0]).toBe('total');
+    // The current month runs into today: its radiator sum counts up to yesterday and says so (R1), while `fin` is the
+    // month's end.
+    const todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+    const yesterday = new Date(`${todayIso}T12:00:00Z`);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    if (total[7] !== '') expect(total[15]).toBe(yesterday.toISOString().slice(0, 10));
     // The file's total is the hero's figures, at the hero's precision: kWh, and € (the big figure and its breakdown).
     const kwh = shown((await page.locator('.hero .sub .figs').textContent())!.split(' · ')[0]);
     expect(rounded(total[3], decimals(kwh))).toBe(kwh);
