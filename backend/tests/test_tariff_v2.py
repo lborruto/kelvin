@@ -69,8 +69,11 @@ def test_a_v1_setting_is_migrated_once_with_no_user_action():
     db = Database(":memory:")
     db.set_setting(TARIFF_KEY, V1)
     store = TariffStore(db)
+    read = store.get()  # a read never writes: the migration runs once, at startup
+    assert db.get_setting(TARIFF_KEY) == V1 and db.get_setting(TARIFF_V1_KEY) is None
+    assert store.migrate() is True
     t = store.get()
-    assert t is not None and t.option == "hchp" and t.kva == 9
+    assert t == read and t is not None and t.option == "hchp" and t.kva == 9
     [s] = t.hc_schedules
     assert s.valid_from == date(2025, 1, 15)  # the earliest price's date
     assert s.variants == (HcVariant(ALL_MONTHS, NIGHT),)
@@ -80,13 +83,50 @@ def test_a_v1_setting_is_migrated_once_with_no_user_action():
     ]
     stored = db.get_setting(TARIFF_KEY)
     assert "hc_schedules" in stored and db.get_setting(TARIFF_V1_KEY) == V1
-    assert (
-        store.get() == t and db.get_setting(TARIFF_KEY) == stored
-    )  # a second read changes nothing
+    assert store.migrate() is False and db.get_setting(TARIFF_KEY) == stored  # once only
     db.set_setting(TARIFF_V1_KEY, {"kept": True})
     db.set_setting(TARIFF_KEY, V1)
-    store.get()
+    store.migrate()
     assert db.get_setting(TARIFF_V1_KEY) == {"kept": True}  # the first copy is never overwritten
+
+
+def test_an_invalid_setting_is_neither_migrated_nor_priced(caplog):
+    db = Database(":memory:")
+    store = TariffStore(db)
+    assert store.migrate() is False and store.get() is None  # nothing stored: nothing to do
+    bad = {**V1, "kva": 7}
+    db.set_setting(TARIFF_KEY, bad)
+    assert store.migrate() is False
+    assert db.get_setting(TARIFF_KEY) == bad and db.get_setting(TARIFF_V1_KEY) is None
+    assert store.get() is None  # never priced silently wrong
+    assert "kva_unknown" in caplog.text
+    # A v2 document with HC/HP rows and no schedule (only by editing the database by hand).
+    v2 = seasonal().view()
+    db.set_setting(TARIFF_KEY, {**v2, "hc_schedules": []})
+    assert store.get() is None and "hc_schedules_missing" in caplog.text
+    db.set_setting(TARIFF_KEY, {"kva": 9})  # malformed: no crash, no tariff
+    assert store.migrate() is False and store.get() is None
+
+
+def test_the_v1_body_is_refused_once_a_row_is_not_hc_hp():
+    db = Database(":memory:")
+    store = TariffStore(db)
+    store.replace(
+        Tariff.build(
+            9,
+            [
+                Prices(date(2025, 1, 15), 15.0, 0.2, 0.27),
+                PriceRow.make(date(2026, 11, 1), "tempo", 15.6, TEMPO),
+            ],
+            [HcSchedule(date(2025, 1, 15), (HcVariant(ALL_MONTHS, NIGHT),))],
+        )
+    )
+    before = db.get_setting(TARIFF_KEY)
+    for day in (date(2026, 11, 1), date(2026, 12, 1), date(2026, 1, 1)):
+        with pytest.raises(UserError) as e:
+            store.update(TariffUpdate(9, NIGHT, Prices(day, 15.5, 0.21, 0.31)))
+        assert (e.value.code, e.value.params) == ("tariff_form_outdated", {})
+    assert db.get_setting(TARIFF_KEY) == before  # the Tempo rows are kept
 
 
 def test_the_v1_constructor_and_names_still_work():

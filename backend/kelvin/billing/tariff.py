@@ -378,17 +378,36 @@ class TariffStore:
     def __init__(self, db: Database) -> None:
         self.db = db
 
-    def get(self) -> Tariff | None:
+    def _load(self) -> tuple[dict[str, Any] | None, Tariff | None]:
+        """The stored document and its tariff; an invalid one gives no tariff (logged by code):
+        figures then read « — », never priced by a tariff the form could not have saved."""
         raw = self.db.get_setting(TARIFF_KEY)
         if not raw:
-            return None
-        tariff = Tariff.from_view(raw)
-        if "hc_schedules" not in raw:  # v1: migrate once, keep the original once
-            if self.db.get_setting(TARIFF_V1_KEY) is None:
-                self.db.set_setting(TARIFF_V1_KEY, raw)
-            self.save(tariff)
-            log.info("tariff setting migrated to v2")
-        return tariff
+            return None, None
+        try:
+            return raw, Tariff.from_view(raw).validate()
+        except UserError as e:
+            log.warning("tariff setting invalid: %s", e.code)
+            return raw, None
+        except (KeyError, TypeError, ValueError, AttributeError) as e:  # a malformed document
+            log.warning("tariff setting unreadable: %s", type(e).__name__)
+            return raw, None
+
+    def get(self) -> Tariff | None:
+        """The tariff (a v1 document not migrated yet reads the same, in memory). Never writes."""
+        return self._load()[1]
+
+    def migrate(self) -> bool:
+        """Once, at startup: a valid v1 document becomes v2 (spec §2.2, no user action); the
+        original is kept once as `tariff_v1`. True when it migrated."""
+        raw, tariff = self._load()
+        if raw is None or tariff is None or "hc_schedules" in raw:
+            return False
+        if self.db.get_setting(TARIFF_V1_KEY) is None:
+            self.db.set_setting(TARIFF_V1_KEY, raw)  # the backup first, then the overwrite
+        self.save(tariff)
+        log.info("tariff setting migrated to v2")
+        return True
 
     def save(self, tariff: Tariff) -> None:
         self.db.set_setting(TARIFF_KEY, tariff.view())
@@ -407,6 +426,10 @@ class TariffStore:
             raise UserError("kva_unknown")
         slot_ranges(u.hc_slots)
         current = self.get()
+        if current is not None and current.options() != {"hchp"}:
+            # A form from before the option changed (a stale tab) would overwrite Tempo or Base
+            # rows with HC/HP ones: refused, the page must be reloaded.
+            raise UserError("tariff_form_outdated")
         day = u.prices.valid_from
         rows = [p for p in (current.prices if current else ()) if p.valid_from != day]
         scheds = list(current.hc_schedules) if current else []

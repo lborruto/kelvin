@@ -2,13 +2,15 @@
 
 The golden file holds `/api/energy` (a year by month, by week and by day) and `/api/energy/day`
 (both DST days, a price change day, a day with recorded radiators) on the simulator, with the
-wall clock pinned and a v1 `tariff` setting, as computed by the code before the tariff model v2
-(main 36e8e66). Here the same v1 setting is migrated on its first read and every figure must come
-out the same. Later fields are allowed (a response may grow); a value the golden holds may not
-change.
+wall clock pinned and a v1 `tariff` setting, first computed by the code before the tariff model
+v2 (main 36e8e66). Here the same v1 setting is in the database before Kelvin starts, the startup
+migrates it, and every figure must come out the same. Later fields are allowed (a response may
+grow); a value the golden holds may not change.
 
-Regenerate only on purpose, from the pre-v2 code: `KELVIN_WRITE_GOLDEN=1 uv run pytest -q
-tests/test_tariff_migration_figures.py`.
+Regenerate (`KELVIN_WRITE_GOLDEN=1 uv run pytest -q tests/test_tariff_migration_figures.py`)
+only in the commit that changes a figure by design, on that commit's code, and review the
+fixture's diff: every changed value must be one that change explains (say which in the commit).
+The file is written one value per line with sorted keys, so that diff is readable.
 """
 
 import json
@@ -23,6 +25,7 @@ from httpx import ASGITransport, AsyncClient
 from kelvin.api.app import create_app
 from kelvin.config import Settings
 from kelvin.overkiz.fake import FakeGateway
+from kelvin.recorder.db import Database
 from tests.conftest import ManualClock, login
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -60,6 +63,9 @@ V1 = {
 
 
 async def _figures(tmp_path) -> dict:
+    db = Database(tmp_path / "kelvin.db")  # the v1 setting an upgraded installation holds
+    db.set_setting("tariff", V1)
+    db.close()
     app = create_app(
         Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
         FakeGateway(clock=ManualClock()),
@@ -72,6 +78,7 @@ async def _figures(tmp_path) -> dict:
         ) as c:
             await login(c)
             rt = app.state.ctx.rt
+            assert "hc_schedules" in rt.db.get_setting("tariff")  # migrated at startup
             await rt.linky.sync.run_once()
             # A whole year of curve (the sync's quota would take weeks), straight from the source.
             store, source = rt.linky.sync.store, rt.linky.sync.source
@@ -80,7 +87,6 @@ async def _figures(tmp_path) -> dict:
                 end = min(day + timedelta(days=7), date(2027, 4, 15))
                 store.upsert_curve(await source.fetch_curve(day, end))
                 day = end
-            rt.db.set_setting("tariff", V1)
             out: dict = {}
             for group in ("month", "week", "day"):
                 r = await c.get(
@@ -115,9 +121,10 @@ async def test_the_migrated_v1_tariff_reproduces_every_figure(tmp_path):
     got = await _figures(tmp_path)
     if os.environ.get("KELVIN_WRITE_GOLDEN"):
         golden = {k: v for k, v in got.items() if k != "v1_kept"}
-        GOLDEN.write_text(json.dumps(golden, ensure_ascii=False, separators=(",", ":")) + "\n")
+        text = json.dumps(golden, ensure_ascii=False, indent=1, sort_keys=True)
+        GOLDEN.write_text(text + "\n")
         return
-    assert got.pop("v1_kept") == V1  # migrated on the first read, the original kept
+    assert got.pop("v1_kept") == V1  # migrated, the original kept
     golden = json.loads(GOLDEN.read_text())
     assert golden.keys() == got.keys()
     assert golden["energy_month"]["buckets"] and golden["day_2026-10-25"]["intervals"]

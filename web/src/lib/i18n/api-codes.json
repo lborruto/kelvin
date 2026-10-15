@@ -362,6 +362,10 @@
         "date": "2026-11-01"
       }
     },
+    "tariff_form_outdated": {
+      "fr": "Votre tarif a changé d’option : rechargez la page pour le modifier.",
+      "params": {}
+    },
     "tariff_option_unsupported": {
       "fr": "Option tarifaire inconnue.",
       "params": {}

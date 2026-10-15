@@ -919,6 +919,7 @@ export const en: Messages = {
     hc_months_missing: () => 'Every month needs its off-peak hours.',
     hc_months_overlap: () => 'A month can belong to one season only.',
     tempo_hours_invalid: () => 'Invalid Tempo off-peak hours.',
+    tariff_form_outdated: () => 'Your tariff’s option has changed: reload the page to edit it.',
     kva_unknown: () => 'Unknown subscribed power.',
     price_subscription_invalid: () => 'Invalid standing charge.',
     price_hc_invalid: () => 'Invalid off-peak price per kWh.',

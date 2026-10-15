@@ -411,6 +411,7 @@ async def start_runtime(
             simulator=settings.kelvin_fake,
             wall=wall,
         )
+        linky_service.tariffs.migrate()  # a v1 tariff becomes v2 once, before any read
         if settings.kelvin_fake and is_sim:
             linky_service.seed_demo_tariff()
         rt = Runtime(

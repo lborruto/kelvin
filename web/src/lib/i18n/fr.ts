@@ -947,6 +947,7 @@ export const fr = {
     hc_months_missing: () => 'Chaque mois doit avoir ses heures creuses.',
     hc_months_overlap: () => 'Un mois ne peut appartenir qu’à une seule saison.',
     tempo_hours_invalid: () => 'Heures creuses Tempo invalides.',
+    tariff_form_outdated: () => `Votre tarif a changé d’option${NB}: rechargez la page pour le modifier.`,
     kva_unknown: () => 'Puissance souscrite inconnue.',
     price_subscription_invalid: () => 'Prix de l’abonnement invalide.',
     price_hc_invalid: () => 'Prix du kWh en heures creuses invalide.',
