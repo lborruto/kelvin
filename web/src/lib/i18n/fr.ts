@@ -718,6 +718,7 @@ export const fr = {
     retry: 'Réessayer'
   },
   settings: {
+    server: 'Serveur',
     title: 'Réglages',
     account: 'Compte',
     signOut: 'Se déconnecter',

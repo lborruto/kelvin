@@ -3,7 +3,7 @@
  * capabilities; a backend from before Plan 12 sends none, and its radiators were all Sauter
  * adjustable-setpoint heaters with every control. A control no radiator supports is absent.
  */
-import type { Capabilities, PilotLevel, Radiator, Room, SettableMode } from '$lib/api/types';
+import type { Capabilities, PilotLevel, Radiator, Room, ServerInfo, SettableMode } from '$lib/api/types';
 
 export const MODE_ORDER: SettableMode[] = ['off', 'manual', 'program'];
 export const LEVEL_ORDER: PilotLevel[] = ['comfort', 'comfort-1', 'comfort-2', 'eco', 'frostprotection', 'off'];
@@ -73,3 +73,6 @@ export function roomRange(rads: Radiator[], key: 'manual' | 'comfort' | 'eco'): 
 export function programRooms(rooms: Room[], radiatorsOf: (id: string) => Radiator[]): Room[] {
   return rooms.filter((room) => radiatorsOf(room.id).some((r) => capsOf(r).program));
 }
+
+/** Room and device writes (Plan 8b) are offered on the Cozytouch servers only (Plan 12). */
+export const canEditSetup = (server: ServerInfo | null): boolean => server?.tier !== 'experimental';

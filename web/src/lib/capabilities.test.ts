@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Capabilities, Radiator, Room } from '$lib/api/types';
-import { capsOf, isReadOnly, programRooms, roomControls, roomRange } from './capabilities';
+import { canEditSetup, capsOf, isReadOnly, programRooms, roomControls, roomRange } from './capabilities';
 
 const BASE = {
   id: 'a', room_id: 'r', name: 'Radiateur', model: null, power_w: null, temperature: 20, mode: 'program' as const,
@@ -66,5 +66,13 @@ describe('room controls', () => {
     const rooms = [{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }] as Room[];
     const of = (id: string) => ({ r1: [sauter], r2: [pilot, zone], r3: [dryer, sauter] })[id] ?? [];
     expect(programRooms(rooms, of).map((r) => r.id)).toEqual(['r1', 'r3']);
+  });
+});
+
+describe('canEditSetup', () => {
+  it('is false on an experimental server only', () => {
+    expect(canEditSetup({ id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true })).toBe(true);
+    expect(canEditSetup({ id: 'flexom', name: 'Flexom', tier: 'experimental', default: false })).toBe(false);
+    expect(canEditSetup(null)).toBe(true); // unknown: the backend still refuses (403 setup_experimental)
   });
 });

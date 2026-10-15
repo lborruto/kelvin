@@ -694,6 +694,7 @@ export const en: Messages = {
     retry: 'Try again'
   },
   settings: {
+    server: 'Server',
     title: 'Settings',
     account: 'Account',
     signOut: 'Sign out',
