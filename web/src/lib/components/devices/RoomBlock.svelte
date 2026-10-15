@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { SetupDevice, SetupRadiator, SetupRoom } from '$lib/api/types';
+  import type { Pending, SetupDevice, SetupRadiator, SetupRoom } from '$lib/api/types';
+  import PendingEdge from '../PendingEdge.svelte';
   import { m } from '$lib/i18n';
   import { roomName } from '$lib/setup';
   import RadiatorDevices from './RadiatorDevices.svelte';
@@ -12,12 +13,15 @@
     actions?: Snippet;
     radiatorActions?: Snippet<[SetupRadiator]>;
     deviceActions?: Snippet<[SetupDevice]>;
+    pending?: Pending;
+    radiatorPending?: (id: string) => Pending | undefined;
   }
-  let { room, radiators, now, actions, radiatorActions, deviceActions }: Props = $props();
+  let { room, radiators, now, actions, radiatorActions, deviceActions, pending, radiatorPending }: Props = $props();
   const uid = $props.id();
 </script>
 
 <section class="panel room" aria-labelledby="{uid}-name">
+  <PendingEdge shape="rect" rx={10} pending={pending?.status === 'sending' || pending?.status === 'pending'} confirmed={pending?.status === 'confirmed'} />
   <header>
     <div class="title">
       <h2 id="{uid}-name">{roomName(room)}</h2>
@@ -28,7 +32,7 @@
   {#if radiators.length}
     <ul class="radiators">
       {#each radiators as r (r.id)}
-        <RadiatorDevices radiator={r} {now} {deviceActions}>{@render radiatorActions?.(r)}</RadiatorDevices>
+        <RadiatorDevices radiator={r} {now} {deviceActions} pending={radiatorPending?.(r.id)}>{@render radiatorActions?.(r)}</RadiatorDevices>
       {/each}
     </ul>
   {/if}
@@ -43,6 +47,7 @@
     margin-bottom: 14px;
     max-width: 720px;
     min-width: 0;
+    position: relative;
   }
   header {
     display: flex;

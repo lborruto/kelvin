@@ -18,4 +18,14 @@ describe('RoomBlock', () => {
     render(RoomBlock, { room: s.rooms[2], radiators: [], now: 0 });
     expect(screen.getByText('Pièce vide')).toBeInTheDocument();
   });
+
+  it('a setup write in flight draws the dashed edge, closing solid when confirmed', () => {
+    const s = setupFixture();
+    const pending = { id: 's1', kind: 'setup', label: 'x', radiator_ids: [], room_id: 'p-bureau', status: 'pending',
+      error: null, created_at: 1, expected: {} } as never;
+    const { container, rerender } = render(RoomBlock, { room: s.rooms[2], radiators: [], now: 0, pending });
+    expect(container.querySelector('svg.edge.pending')).toBeInTheDocument();
+    rerender({ room: s.rooms[2], radiators: [], now: 0, pending: { ...(pending as object), status: 'confirmed' } as never });
+    expect(container.querySelector('svg.edge.confirmed')).toBeInTheDocument();
+  });
 });

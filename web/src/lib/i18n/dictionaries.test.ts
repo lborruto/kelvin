@@ -14,6 +14,8 @@ export const ARGS: Record<string, unknown[]> = {
   'devices.done': ['Salon'],
   'devices.lastSignal': ['12:10'],
   'devices.detailsOf': ['Hekla'],
+  'devices.deleteTitle': ['Bureau'],
+  'devices.moveTitle': ['R1'],
   'devices.syncedAgo': ['12:10'],
   'devices.budget': [1, 3],
   'devices.dailyAt': ['04:30'],

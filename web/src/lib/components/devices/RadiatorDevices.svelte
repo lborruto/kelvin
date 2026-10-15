@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { SetupDevice, SetupRadiator } from '$lib/api/types';
+  import type { Pending, SetupDevice, SetupRadiator } from '$lib/api/types';
+  import PendingEdge from '../PendingEdge.svelte';
   import { m } from '$lib/i18n';
   import DeviceRow from './DeviceRow.svelte';
 
@@ -10,13 +11,15 @@
     /** The radiator's actions (rename, move), Task 11. */
     children?: Snippet;
     deviceActions?: Snippet<[SetupDevice]>;
+    pending?: Pending;
   }
-  let { radiator, now, children, deviceActions }: Props = $props();
+  let { radiator, now, children, deviceActions, pending }: Props = $props();
 </script>
 
 <li class="radiator">
   <div class="top">
     <span class="name">{radiator.name}</span>
+    <PendingEdge pending={pending?.status === 'sending' || pending?.status === 'pending'} confirmed={pending?.status === 'confirmed'} />
     {@render children?.()}
   </div>
   <details>
@@ -36,6 +39,7 @@
     border-top: 1px solid var(--line);
   }
   .top {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
