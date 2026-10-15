@@ -13,6 +13,12 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
 export const ARGS: Record<string, unknown[]> = {
   'devices.done': ['Salon'],
   'devices.lastSignal': ['12:10'],
+  'devices.syncedAgo': ['12:10'],
+  'devices.budget': [1, 3],
+  'devices.dailyAt': ['04:30'],
+  'devices.spent': ['14:10'],
+  'devices.atTime': ['14:10'],
+  'devices.onDate': ['15/10 08:00'],
   'devices.watts': ['1 500'],
   'tariff.prefilled': ['6', ['22:00–06:00', '12:00–14:00']],
   'linky.ok': ['12/10'],

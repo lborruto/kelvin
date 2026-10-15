@@ -4,6 +4,9 @@
   import Icon from '$lib/components/Icon.svelte';
   import RoomBlock from '$lib/components/devices/RoomBlock.svelte';
   import DeviceRow from '$lib/components/devices/DeviceRow.svelte';
+  import StrayNotice from '$lib/components/devices/StrayNotice.svelte';
+  import SyncLine from '$lib/components/devices/SyncLine.svelte';
+  import type { SetupDevice } from '$lib/api/types';
   import { m } from '$lib/i18n';
   import { ROUTES } from '$lib/paths';
   import { installUndo } from '$lib/setupActions';
@@ -54,8 +57,10 @@
     </div>
   {/if}
 {:else}
+  {#if setup.sync}<SyncLine sync={setup.sync} {now} />{/if}
   {#each rooms as room (room.id)}
-    <RoomBlock {room} radiators={setup.radiators.filter((r) => r.room_id === room.id)} {now} />
+    <RoomBlock {room} radiators={setup.radiators.filter((r) => r.room_id === room.id)} {now} {deviceActions} />
+
   {/each}
   <section class="panel" aria-labelledby="bridges-title">
     <h2 id="bridges-title">{m.devices.bridges}</h2>
@@ -64,6 +69,13 @@
     </ul>
   </section>
 {/if}
+
+{#snippet deviceActions(d: SetupDevice)}
+  {#if d.misplaced}
+    {@const rid = d.id.split('#')[0]}
+    <StrayNotice device={d} pending={house.pendingFor([rid])?.label_code === 'setup_tidy' ? house.pendingFor([rid]) : undefined} />
+  {/if}
+{/snippet}
 
 <style>
   .back {

@@ -6,7 +6,7 @@ import { house } from '$lib/stores/house.svelte';
 import Page from './+page.svelte';
 
 vi.mock('$lib/api/client', () => ({
-  api: { setupDevices: vi.fn() },
+  api: { setupDevices: vi.fn(), syncSetup: vi.fn(), tidyDevice: vi.fn() },
   ApiError: class extends Error {}
 }));
 
@@ -35,5 +35,14 @@ describe('Rooms and devices page', () => {
     vi.mocked(api.setupDevices).mockRejectedValue(new Error('down'));
     render(Page);
     expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger les appareils.');
+  });
+
+  it('shows the sync line and the stray notice from the tree', async () => {
+    const s = setupFixture();
+    s.radiators[0].devices[2] = { ...s.radiators[0].devices[2], misplaced: true, room_id: 'p-bureau' };
+    vi.mocked(api.setupDevices).mockResolvedValue(s);
+    render(Page);
+    expect(await screen.findByRole('button', { name: 'Synchroniser' })).toBeInTheDocument();
+    expect(screen.getByText('Pas dans la même pièce que son radiateur')).toBeInTheDocument();
   });
 });

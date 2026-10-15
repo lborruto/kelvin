@@ -1,5 +1,6 @@
 /** Rooms and devices (spec §6): label checks that mirror the backend, detail rows, sync status. */
 import type { SetupDevice, SyncStatus } from '$lib/api/types';
+import { fmtDateTime, fmtTime, parisTodayIso } from '$lib/format';
 import { locale, m } from '$lib/i18n';
 
 export const MAX_LABEL = 32;
@@ -109,4 +110,9 @@ export function syncInfo(s: SyncStatus): SyncInfo {
 /** A room's name in the active language: the house root is « Maison » / “Home”. */
 export function roomName(r: { name: string; is_root?: boolean }): string {
   return r.is_root ? m.devices.home : r.name;
+}
+
+/** « à 14:10 » the same Paris day, « le 15 oct. 08:00 » otherwise (active language). */
+export function whenText(ms: number, now: number): string {
+  return parisTodayIso(ms) === parisTodayIso(now) ? m.devices.atTime(fmtTime(ms)) : m.devices.onDate(fmtDateTime(ms));
 }

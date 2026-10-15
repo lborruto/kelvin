@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { SetupDevice, SyncStatus } from '$lib/api/types';
 import { applyLocale } from '$lib/i18n';
-import { detailRows, labelProblem, roomName, syncInfo } from './setup';
+import { detailRows, labelProblem, roomName, syncInfo, whenText } from './setup';
 
 const NB = ' ';
 afterEach(() => applyLocale('fr'));
@@ -72,5 +72,15 @@ describe('syncInfo and roomName', () => {
     applyLocale('en');
     expect(roomName({ name: 'Maison', is_root: true })).toBe('Home');
     expect(roomName({ name: 'Salon', is_root: false })).toBe('Salon');
+  });
+});
+
+describe('whenText', () => {
+  const now = Date.parse('2026-10-14T10:00:00Z'); // 12:00 in Paris
+  it('a time today, a date otherwise, in the active language', () => {
+    expect(whenText(Date.parse('2026-10-14T12:10:00Z'), now)).toBe('à 14:10');
+    expect(whenText(Date.parse('2026-10-15T08:00:00Z'), now)).toMatch(/^le .*10:00$/);
+    applyLocale('en');
+    expect(whenText(Date.parse('2026-10-14T12:10:00Z'), now)).toBe('at 14:10');
   });
 });
