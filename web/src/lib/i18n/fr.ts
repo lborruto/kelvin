@@ -792,7 +792,10 @@ export const fr = {
     away_end: () => 'Fin de l’absence',
     setup_room_create: (p: ApiParams) => `Nouvelle pièce «${NB}${p.label}${NB}»`,
     setup_room_rename: (p: ApiParams) => `${p.name}${NB}: renommée «${NB}${p.label}${NB}»`,
-    setup_room_delete: (p: ApiParams) => `Suppression de la pièce ${p.name}`
+    setup_room_delete: (p: ApiParams) => `Suppression de la pièce ${p.name}`,
+    setup_move: (p: ApiParams) => `${p.name}${NB}: vers ${p.room}`,
+    setup_rename_device: (p: ApiParams) => `${p.name}${NB}: renommé «${NB}${p.label}${NB}»`,
+    setup_tidy: (p: ApiParams) => `${p.name}${NB}: appareil rangé avec le radiateur`
   },
   api: {
     login_required: () => 'Connexion requise.',
@@ -868,6 +871,10 @@ export const fr = {
     setup_not_found: () => 'Cozytouch ne trouve plus cette pièce ou cet appareil.',
     setup_failed: () => 'Cozytouch a refusé la modification.',
     setup_no_confirmation: () => 'Pas de confirmation de Cozytouch.',
+    radiator_in_room: () => 'Le radiateur est déjà dans cette pièce.',
+    device_in_place: () => 'L’appareil est déjà dans la pièce de son radiateur.',
+    device_unknown: () => 'Appareil inconnu.',
+    setup_move_partial: (p: ApiParams) => `Déplacement partiel (${p.done} sur ${p.total}).`,
     device_label_invalid: () => `Le nom doit faire de 1 à 32${NB}caractères, sans caractère invisible ni mot réservé.`,
     send_failed: (p: ApiParams) => {
       const why = own(REASON, p.reason_code);

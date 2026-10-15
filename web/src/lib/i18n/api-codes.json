@@ -22,8 +22,16 @@
         "day": "funday"
       }
     },
+    "device_in_place": {
+      "fr": "L’appareil est déjà dans la pièce de son radiateur.",
+      "params": {}
+    },
     "device_label_invalid": {
       "fr": "Le nom doit faire de 1 à 32 caractères, sans caractère invisible ni mot réservé.",
+      "params": {}
+    },
+    "device_unknown": {
+      "fr": "Appareil inconnu.",
       "params": {}
     },
     "end_in_past": {
@@ -201,6 +209,10 @@
       "fr": "Quotas indisponibles.",
       "params": {}
     },
+    "radiator_in_room": {
+      "fr": "Le radiateur est déjà dans cette pièce.",
+      "params": {}
+    },
     "radiator_refused": {
       "fr": "Le radiateur a refusé la commande.",
       "params": {}
@@ -270,6 +282,13 @@
     "setup_failed": {
       "fr": "Cozytouch a refusé la modification.",
       "params": {}
+    },
+    "setup_move_partial": {
+      "fr": "Déplacement partiel (5 sur 6).",
+      "params": {
+        "done": 5,
+        "total": 6
+      }
     },
     "setup_no_confirmation": {
       "fr": "Pas de confirmation de Cozytouch.",
@@ -421,6 +440,20 @@
         "name": "Salon"
       }
     },
+    "setup_move": {
+      "fr": "Hekla : vers Salon",
+      "params": {
+        "name": "Hekla",
+        "room": "Salon"
+      }
+    },
+    "setup_rename_device": {
+      "fr": "Hekla : renommé « Studio »",
+      "params": {
+        "label": "Studio",
+        "name": "Hekla"
+      }
+    },
     "setup_room_create": {
       "fr": "Nouvelle pièce « Bureau »",
       "params": {
@@ -438,6 +471,12 @@
       "params": {
         "label": "Studio",
         "name": "Salon"
+      }
+    },
+    "setup_tidy": {
+      "fr": "Hekla : appareil rangé avec le radiateur",
+      "params": {
+        "name": "Hekla"
       }
     }
   },

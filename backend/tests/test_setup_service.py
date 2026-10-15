@@ -4,10 +4,10 @@ import pytest
 
 from kelvin.errors import UserError
 from kelvin.house.model import build_house
-from kelvin.overkiz.errors import QuotaError
+from kelvin.overkiz.errors import GatewayError, QuotaError
 from kelvin.overkiz.fake import FakeGateway, setup_failures
 from kelvin.overkiz.models import DeviceUpdate, PlaceEvent
-from kelvin.overkiz.sample import ROOM_TYPE
+from kelvin.overkiz.sample import ROOM_TYPE, SAMPLE_GATEWAY
 from kelvin.setup.service import SetupService
 from kelvin.setup.validate import device_label
 from tests.conftest import ManualClock
@@ -207,3 +207,157 @@ def test_device_labels_refuse_operation_words(raw):
         device_label(raw)
     assert e.value.code == "device_label_invalid"
     assert device_label("  Radiateur fenêtre ") == "Radiateur fenêtre"
+
+
+S = SAMPLE_GATEWAY
+RAD = "8370011"  # alone in « Chambre 1 »
+HEATER = f"{S}/{RAD}#1"
+
+
+def _order(rid: str) -> list[str]:
+    return [f"{S}/{rid}#{n}" for n in (2, 3, 4, 5, 6, 1)]
+
+
+async def test_a_move_relocates_the_sub_devices_then_the_heater(env):
+    clock, gw, house, svc, updates = env
+    p = await svc.move_radiator(RAD, "p-salon")
+    assert [w[1] for w in gw.setup_writes] == _order(RAD)
+    assert house.radiators[RAD].room_id == "p-ch1"  # nothing applied before Cozytouch says so
+    await pump(clock, gw, svc, 2)
+    assert p.status == "confirmed" and house.radiators[RAD].room_id == "p-salon"
+    assert "p-ch1" not in house.rooms and "p-ch1" in house.places
+    assert updates[-1]["progress"] == {"done": 6, "total": 6}
+    assert updates[-1]["label_params"] == {"name": "Radiateur", "room": "Salon"}
+    assert gw.device_reads == 0  # the events confirmed every step
+
+
+async def test_a_move_is_confirmed_by_re_reads_when_events_are_lost(env):
+    clock, gw, house, svc, _ = env
+    gw.silent_setup = True
+    p = await svc.move_radiator(RAD, "p-salon")
+    await pump(clock, gw, svc, 5)
+    assert p.status == "confirmed" and gw.device_reads == 6
+    assert house.radiators[RAD].room_id == "p-salon"
+
+
+async def test_a_heater_that_refuses_leaves_a_partial_move_and_the_radiator_where_it_was(env):
+    clock, gw, house, svc, updates = env
+    gw.refuse_relocate[HEATER] = GatewayError("refused")
+    p = await svc.move_radiator(RAD, "p-salon")
+    assert len(gw.setup_writes) == 5
+    await pump(clock, gw, svc, 2)
+    assert (p.status, p.error_code, p.error_params) == (
+        "failed",
+        "setup_move_partial",
+        {"done": 5, "total": 6},
+    )
+    assert updates[-1]["error"] == "Déplacement partiel (5 sur 6)."
+    assert house.radiators[RAD].room_id == "p-ch1"
+    rad = next(r for r in house.setup_view()["radiators"] if r["id"] == RAD)
+    assert sum(d["misplaced"] for d in rad["devices"]) == 5
+
+
+async def test_retry_moves_only_what_is_still_elsewhere(env):
+    clock, gw, house, svc, updates = env
+    gw.refuse_relocate[HEATER] = GatewayError("refused")
+    await svc.move_radiator(RAD, "p-salon")
+    await pump(clock, gw, svc, 2)
+    del gw.refuse_relocate[HEATER]
+    gw.setup_writes.clear()
+    p = await svc.move_radiator(RAD, "p-salon")
+    assert gw.setup_writes == [("relocate_device", HEATER, "p-salon")]
+    await pump(clock, gw, svc, 2)
+    assert p.status == "confirmed" and updates[-1]["progress"] == {"done": 6, "total": 6}
+    assert house.radiators[RAD].room_id == "p-salon"
+
+
+async def test_nothing_accepted_fails_at_once(env):
+    _, gw, house, svc, _ = env
+    gw.fail_setup = setup_failures("relocate_device")
+    p = await svc.move_radiator(RAD, "p-salon")
+    assert (p.status, p.error_code, p.reason_code) == ("failed", "setup_failed", "network")
+    assert house.radiators[RAD].room_id == "p-ch1"
+
+
+@pytest.mark.parametrize(
+    ("rid", "room", "code", "status"),
+    [
+        (RAD, "p-ch1", "radiator_in_room", 409),
+        (RAD, "p-house", "room_protected", 409),
+        (RAD, "p-nope", "room_unknown", 404),
+        ("nope", "p-salon", "radiator_unknown", 404),
+    ],
+)
+async def test_impossible_moves_are_refused_before_anything_is_sent(env, rid, room, code, status):
+    _, gw, _, svc, _ = env
+    with pytest.raises(UserError) as e:
+        await svc.move_radiator(rid, room)
+    assert (e.value.code, e.value.status) == (code, status)
+    assert gw.setup_writes == []
+
+
+async def test_a_room_being_moved_into_cannot_be_deleted(env):
+    clock, gw, _, svc, _ = env
+    created = await svc.create_room("Bureau")
+    await pump(clock, gw, svc, 2)
+    await svc.move_radiator(RAD, created.room_id)
+    with pytest.raises(UserError) as e:
+        await svc.delete_room(created.room_id)
+    assert e.value.code in ("setup_busy", "room_not_empty")
+
+
+async def test_rename_radiator_sets_the_cozytouch_label_only(env):
+    clock, gw, house, svc, _ = env
+    heater = f"{S}/9312063#1"
+    p = await svc.rename_radiator("9312063", " Radiateur fenêtre ")
+    assert gw.setup_writes == [("rename_device", heater, "Radiateur fenêtre")]
+    await pump(clock, gw, svc, 2)
+    assert p.status == "confirmed" and house.radiators["9312063"].name == "Radiateur fenêtre"
+    assert gw.devices[heater].states["core:NameState"] == "Radiateur"
+    assert gw.executed == []  # no device command (setName is no longer used)
+    for raw in ("metadata", "..", ""):
+        with pytest.raises(UserError) as e:
+            await svc.rename_radiator("9312063", raw)
+        assert e.value.code == "device_label_invalid"
+
+
+async def test_tidy_relocates_a_stray_to_its_heater_s_room(env):
+    clock, gw, house, svc, _ = env
+    stray = f"{S}/{RAD}#3"
+    gw.outside_move(stray, "p-salon")
+    await pump(clock, gw, svc, 1)
+    with pytest.raises(UserError) as e:
+        await svc.tidy(f"{RAD}#2")
+    assert (e.value.code, e.value.status) == ("device_in_place", 409)
+    for unknown in ("nope#9", "bridge-1"):
+        with pytest.raises(UserError) as e:
+            await svc.tidy(unknown)
+        assert (e.value.code, e.value.status) == ("device_unknown", 404)
+    p = await svc.tidy(f"{RAD}#3")
+    assert gw.setup_writes == [("relocate_device", stray, "p-ch1")]
+    await pump(clock, gw, svc, 2)
+    assert p.status == "confirmed" and p.label.code == "setup_tidy"
+    rad = next(r for r in house.setup_view()["radiators"] if r["id"] == RAD)
+    assert not any(d["misplaced"] for d in rad["devices"])
+
+
+async def test_a_device_moved_in_the_cozytouch_app_updates_the_rooms(env):
+    clock, gw, house, svc, _ = env
+    for url in _order(RAD):
+        gw.outside_move(url, "p-salon")
+    await pump(clock, gw, svc, 1)
+    assert house.radiators[RAD].room_id == "p-salon" and "p-ch1" not in house.rooms
+    assert gw.place_reads == gw.device_reads == gw.snapshots == 0
+
+
+async def test_a_device_moved_to_an_unknown_place_reads_that_place_only(env):
+    clock, gw, house, svc, _ = env
+    outside: list[int] = []
+    svc.on_outside_change = lambda: outside.append(1)
+    oid = gw.outside_create_place("Bureau")
+    for url in _order(RAD):
+        gw.outside_move(url, oid)
+    await pump(clock, gw, svc, 1)
+    assert house.radiators[RAD].room_id == oid and house.rooms[oid].name == "Bureau"
+    assert gw.place_reads == 1 and gw.snapshots == 0
+    assert outside == [1]  # the bare PlaceCreatedEvent: the refresher decides (Task 6)

@@ -19,12 +19,12 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from kelvin.errors import UserError, french, gateway_error_code
-from kelvin.house.model import House
+from kelvin.house.model import House, Radiator, _sub_index
 from kelvin.labels import Label
 from kelvin.overkiz.errors import GatewayError, SetupNotFoundError
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import DeviceUpdate, PlaceEvent, SetupEvent, SetupPlace
-from kelvin.setup.validate import room_label
+from kelvin.setup.validate import device_label, room_label
 
 log = logging.getLogger(__name__)
 
@@ -230,6 +230,75 @@ class SetupService:
             oid,
             (),
             [Step("delete", oid, "")],
+        )
+        return await self._run(p)
+
+    # --- radiator actions ---
+
+    def _radiator(self, rid: str) -> Radiator:
+        r = self.house.radiators.get(rid)
+        if r is None:
+            raise UserError("radiator_unknown", 404)
+        return r
+
+    async def move_radiator(self, rid: str, room_id: str) -> SetupPending:
+        """Relocate every sub-device, then the heater: the room changes once all is there."""
+        r = self._radiator(rid)
+        if room_id == self.house.root_oid:
+            raise UserError("room_protected", 409)
+        if room_id not in self.house.places:
+            raise UserError("room_unknown", 404)
+        urls = sorted((u for u in r.states if u != r.heater_url), key=_sub_index)
+        steps = []
+        for url in [*urls, r.heater_url]:
+            meta = self.house.meta.get(url)
+            steps.append(
+                Step("relocate", url, room_id, done=meta is not None and meta.place_oid == room_id)
+            )
+        if all(s.done for s in steps):
+            raise UserError("radiator_in_room", 409)
+        self._busy({room_id, r.room_id}, {rid})
+        label = Label.of("setup_move", name=r.name, room=self.house.room_name(room_id))
+        return await self._run(self._new("move", label, room_id, (rid,), steps))
+
+    async def rename_radiator(self, rid: str, raw: str) -> SetupPending:
+        """Set the heater's Cozytouch label (ruling 4); no device command."""
+        r = self._radiator(rid)
+        label = device_label(raw)
+        if label == r.name:
+            raise UserError("nothing_to_change")
+        self._busy(set(), {rid})
+        p = self._new(
+            "rename_radiator",
+            Label.of("setup_rename_device", name=r.name, label=label),
+            None,
+            (rid,),
+            [Step("label", r.heater_url, label)],
+        )
+        return await self._run(p)
+
+    async def tidy(self, device_id: str) -> SetupPending:
+        """« Ranger avec le radiateur »: a sub-device back in its heater's place."""
+        url = self.house.device_url_for(device_id)
+        rid = self.house.radiator_for_url(url) if url else None
+        if url is None or rid is None:
+            raise UserError("device_unknown", 404)
+        r = self.house.radiators[rid]
+        heater_meta = self.house.meta.get(r.heater_url)
+        place = heater_meta.place_oid if heater_meta else None
+        if (
+            place is None
+            or place not in self.house.places
+            or self.house.meta[url].place_oid == place
+        ):
+            raise UserError("device_in_place", 409)
+        self._busy({place}, {rid})
+        p = self._new(
+            "tidy",
+            Label.of("setup_tidy", name=r.name),
+            place,
+            (rid,),
+            [Step("relocate", url, place)],
         )
         return await self._run(p)
 

@@ -767,7 +767,10 @@ export const en: Messages = {
     away_end: () => 'Away ended',
     setup_room_create: (p: ApiParams) => `New room “${p.label}”`,
     setup_room_rename: (p: ApiParams) => `${p.name}: renamed “${p.label}”`,
-    setup_room_delete: (p: ApiParams) => `Delete room ${p.name}`
+    setup_room_delete: (p: ApiParams) => `Delete room ${p.name}`,
+    setup_move: (p: ApiParams) => `${p.name}: to ${p.room}`,
+    setup_rename_device: (p: ApiParams) => `${p.name}: renamed “${p.label}”`,
+    setup_tidy: (p: ApiParams) => `${p.name}: device moved back with the radiator`
   },
   api: {
     login_required: () => 'Please sign in.',
@@ -840,6 +843,10 @@ export const en: Messages = {
     setup_not_found: () => 'Cozytouch can no longer find this room or device.',
     setup_failed: () => 'Cozytouch refused the change.',
     setup_no_confirmation: () => 'No confirmation from Cozytouch.',
+    radiator_in_room: () => 'The radiator is already in this room.',
+    device_in_place: () => 'The device is already in its radiator’s room.',
+    device_unknown: () => 'Unknown device.',
+    setup_move_partial: (p: ApiParams) => `Partly moved (${p.done} of ${p.total}).`,
     device_label_invalid: () => 'A name must be 1 to 32 characters, with no invisible characters or reserved words.',
     send_failed: (p: ApiParams) => {
       const why = own(REASON, p.reason_code);
