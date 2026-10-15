@@ -583,13 +583,16 @@ async def get_settings(request: Request) -> dict:
 
 @router.put("/settings")
 async def put_settings(body: SettingsBody, request: Request) -> dict:
-    linky = _linky(_rt(request))
+    rt = _rt(request)
+    linky = _linky(rt)
     try:
         linky.tariffs.update(body.tariff.to_update())
     except UserError:  # coded: prices, power, option, slots
         raise
     except ValueError as e:  # anything the codes do not cover is still a 422, never a 500
         raise UserError("invalid_request") from e
+    if rt.alerts:
+        rt.alerts.request()  # a saved price row resolves price_change at once
     return linky.settings_view()
 
 
@@ -603,7 +606,8 @@ async def put_linky(body: LinkyBody, request: Request) -> dict:
     """The token is write-only: never in a response, a log or an error. Left out (or blank), the
     stored one is reused."""
     ctx = request.app.state.ctx
-    linky = _linky(_rt(request))
+    rt = _rt(request)
+    linky = _linky(rt)
     prm = body.prm.strip()
     if not _PRM.fullmatch(prm):
         raise UserError("pdl_invalid")
@@ -627,4 +631,6 @@ async def put_linky(body: LinkyBody, request: Request) -> dict:
         if ctx.account is not None:
             ctx.account = replace(ctx.account, med_prm=prm, med_token=token)
             ctx.accounts.save(ctx.account)
+    if rt.alerts:
+        rt.alerts.request()  # a new token resolves linky_stalled after its sync
     return linky.status()

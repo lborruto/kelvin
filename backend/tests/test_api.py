@@ -607,3 +607,33 @@ async def test_alerts_api_list_dismiss_and_snapshot(ctx):
         assert (r.status_code, r.json()["code"]) == (404, "alert_unknown")
     r = await c.get("/api/alerts", params={"state": "nope"})
     assert r.status_code == 422
+
+
+async def test_a_failed_command_becomes_an_alert(ctx):
+    from kelvin.overkiz.errors import GatewayError
+
+    c, rt, _ = ctx
+    rt.gateway.fail_next_execute = GatewayError("timeout")
+    r = await c.post(f"/api/rooms/{salon_id(rt)}/mode", json={"mode": "manual"})
+    pid = r.json()["pending"]["id"]
+    rt.alerts.evaluate()
+    [a] = (await c.get("/api/alerts")).json()
+    assert (a["kind"], a["params"]["pending_id"], a["params"]["label_code"]) == (
+        "command_failed",
+        pid,
+        "mode",
+    )
+    assert a["params"]["reason_code"] is not None  # R10: the worded reason survives the log
+
+
+async def test_an_unreachable_radiator_becomes_an_alert(ctx):
+    from kelvin.overkiz.sample import SAMPLE_GATEWAY
+
+    c, rt, clock = ctx
+    url = f"{SAMPLE_GATEWAY}/8370022#1"
+    rt.gateway.push_state(url, "core:StatusState", "unavailable")
+    await settle(rt, clock)
+    rt.house.backdate_status({url: time.time() - 3600})
+    rt.alerts.evaluate()
+    kinds = [(a["kind"], a["params"]["radiator_id"]) for a in (await c.get("/api/alerts")).json()]
+    assert ("radiator_unreachable", "8370022") in kinds

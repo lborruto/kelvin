@@ -122,7 +122,16 @@ def _v2_session_ids(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS sessions_id ON sessions(id)")
 
 
-MIGRATIONS = {1: _v1_energy_counters, 2: _v2_session_ids}
+def _v3_command_log_codes(conn: sqlite3.Connection) -> None:
+    """v3 (Plan 8): the command log keeps the label and error codes and the reason code, so the
+    `command_failed` alert can be worded in either language after a restart (ruling R10)."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(command_log)")}
+    for col in ("label_code", "label_params", "error_code", "error_params", "reason_code"):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE command_log ADD COLUMN {col} TEXT")
+
+
+MIGRATIONS = {1: _v1_energy_counters, 2: _v2_session_ids, 3: _v3_command_log_codes}
 SCHEMA_VERSION = max(MIGRATIONS)  # a new migration is the new version
 
 
@@ -201,8 +210,9 @@ class Database:
 
     def log_command(self, view: dict[str, Any], commands: list[dict[str, Any]]) -> None:
         self.execute(
-            "INSERT OR REPLACE INTO command_log"
-            " (id, ts, label, radiator_ids, commands, status, error) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO command_log (id, ts, label, radiator_ids, commands, status,"
+            " error, label_code, label_params, error_code, error_params, reason_code)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 view["id"],
                 view["created_at"],
@@ -211,6 +221,11 @@ class Database:
                 json.dumps(commands, ensure_ascii=False, default=str),
                 view["status"],
                 view["error"],
+                view.get("label_code"),
+                json.dumps(view.get("label_params") or {}, ensure_ascii=False),
+                view.get("error_code"),
+                json.dumps(view.get("error_params") or {}, ensure_ascii=False),
+                view.get("reason_code"),
             ),
         )
 

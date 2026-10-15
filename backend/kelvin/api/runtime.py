@@ -7,10 +7,11 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from kelvin.alerts.rules import RULES, AlertContext
 from kelvin.alerts.service import AlertService
 from kelvin.alerts.store import AlertStore
 from kelvin.api.sse import Broadcaster
@@ -94,6 +95,19 @@ class Runtime:
             return
         if self.overrides.active() != self.published_overrides:
             self.publish_overrides()
+
+
+def alert_context(rt: Runtime, now: float) -> AlertContext:
+    """What the alert rules read, at `now` on the runtime's clock (tests pin it)."""
+    tz = ZoneInfo(rt.settings.tz)
+    return AlertContext(
+        tz=tz,
+        today=datetime.fromtimestamp(now, tz).date(),
+        tariff=rt.linky.tariffs.get() if rt.linky else None,
+        linky=rt.linky.status() if rt.linky else None,
+        house=rt.house,
+        db=rt.db,
+    )
 
 
 def make_gateway(
@@ -287,6 +301,8 @@ async def start_runtime(
                         for c in p.planned.commands
                     ],
                 )
+                if p.status == "failed" and runtime and runtime[0].alerts:
+                    runtime[0].alerts.request()  # command_failed shows within seconds
 
         commands = CommandService(gateway, house, on_update=on_update)
 
@@ -358,10 +374,10 @@ async def start_runtime(
         rt.published_overrides = overrides.active()
         rt.alerts = AlertService(
             AlertStore(db, wall=wall),
-            {},  # Task 9 installs the rules
-            lambda: None,
+            dict(RULES),
+            lambda: alert_context(rt, wall()),
             publish=lambda s: bc.publish("alerts", s),
-            wall=wall,  # the runtime's clock, as the recorder and the overrides (tests pin it)
+            wall=wall,
         )
         runtime.append(rt)
     except BaseException:

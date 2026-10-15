@@ -173,3 +173,11 @@ def test_v2_backfills_session_ids_for_existing_rows(tmp_path):
     again = Database(path)  # idempotent
     assert [r["id"] for r in again.query("SELECT id FROM sessions ORDER BY hash")] == ids
     again.close()
+
+
+def test_v3_adds_command_log_codes(tmp_path):
+    db = Database(tmp_path / "k.db")  # the module imports Database and SCHEMA_VERSION already
+    cols = {r["name"] for r in db.query("PRAGMA table_info(command_log)")}
+    assert {"label_code", "label_params", "error_code", "error_params", "reason_code"} <= cols
+    assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION == 3
+    db.close()
