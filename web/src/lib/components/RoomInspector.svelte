@@ -14,6 +14,7 @@
   import OverrideBadge from './OverrideBadge.svelte';
   import PendingTag from './PendingTag.svelte';
   import RadiatorPanel from './RadiatorPanel.svelte';
+  import RoomFigures from './RoomFigures.svelte';
   import Segmented from './Segmented.svelte';
   import Stepper from './Stepper.svelte';
   import ThermalStrip from './ThermalStrip.svelte';
@@ -152,6 +153,7 @@
         pendingTarget={range === 'day' ? (expected.target ?? null) : null}
         pendingComfort={range === 'day' ? (expected.comfort ?? null) : null} axis={range === 'day'}
         label={m.room.historyLabel(room.name, m.range[range])} />
+      <RoomFigures {roomId} days={RANGES[range].days} {now} rangeLabel={m.range[range]} />
     </section>
 
     <section>

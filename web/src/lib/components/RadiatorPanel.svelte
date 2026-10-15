@@ -2,12 +2,13 @@
   import type { Radiator } from '$lib/api/types';
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
-  import { fmtKwh, fmtPct, fmtTemp } from '$lib/format';
+  import { fmtKwh, fmtTemp } from '$lib/format';
   import { m, modeLabel } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
   import { house } from '$lib/stores/house.svelte';
   import Icon from './Icon.svelte';
   import LightSlider from './LightSlider.svelte';
+  import RadiatorInfo from './RadiatorInfo.svelte';
   import ModeSwitch from './ModeSwitch.svelte';
   import Stepper from './Stepper.svelte';
   import Toggle from './Toggle.svelte';
@@ -65,8 +66,8 @@
     <dt>Mode</dt><dd>{modeLabel(radiator.mode)}</dd>
     <dt>{m.radiator.setpointActive}</dt><dd class="num">{fmtTemp(radiator.effective_setpoint)}</dd>
     {#if radiator.energy_wh}<dt>{m.radiator.energyTotal}</dt><dd class="num">{fmtKwh(radiator.energy_wh.total / 1000)}</dd>{/if}
-    {#if radiator.rssi != null}<dt>Signal</dt><dd class="num">{fmtPct(radiator.rssi / 100)}</dd>{/if}
   </dl>
+  <RadiatorInfo {radiator} />
 
   {#if showControls}
     <div class="controls">

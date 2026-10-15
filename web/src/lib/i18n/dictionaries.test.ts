@@ -40,7 +40,8 @@ export const ARGS: Record<string, unknown[]> = {
 export const SAME = new Set<string>([
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
-  'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est'
+  'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
+  'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
@@ -144,7 +145,8 @@ describe('English messages take the same parameters as French', () => {
 const SCANNER_BLIND = new Set([
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
   'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',
-  'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share'
+  'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
+  'roomInfo.title', 'roomInfo.signal', 'roomInfo.reachable', 'roomInfo.lastSignal'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

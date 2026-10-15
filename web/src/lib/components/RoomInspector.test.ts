@@ -5,7 +5,8 @@ import RoomInspector from './RoomInspector.svelte';
 import { applyLocale } from '$lib/i18n';
 
 vi.mock('$lib/api/client', () => ({
-  api: { roomMode: vi.fn(), roomSetpoint: vi.fn(), roomBoost: vi.fn(), cancelOverride: vi.fn(), history: vi.fn().mockResolvedValue([]) },
+  api: { roomMode: vi.fn(), roomSetpoint: vi.fn(), roomBoost: vi.fn(), cancelOverride: vi.fn(), history: vi.fn().mockResolvedValue([]),
+    roomEnergy: vi.fn(() => new Promise(() => {})) },
   ApiError: class extends Error {}
 }));
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));

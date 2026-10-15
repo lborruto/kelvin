@@ -36,6 +36,9 @@ describe('RadiatorPanel', () => {
   it('shows facts and toggles features', async () => {
     render(RadiatorPanel, { radiator, showControls: false });
     expect(screen.getByText('HEKLA P · 1500 W')).toBeInTheDocument();
+    expect(screen.queryByText(/100\s%/)).toBeNull();
+    expect(screen.getByText('RSSI 100')).toBeInTheDocument();
+    expect(screen.getByText('Infos')).toBeInTheDocument();
     expect(screen.getByText('2 400 kWh', { normalizer: exact })).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('switch', { name: 'Détection de fenêtre ouverte' }));
     expect(api.radiatorFeatures).toHaveBeenCalledWith('9312063', { window_detection: false });
@@ -49,7 +52,8 @@ describe('RadiatorPanel', () => {
     render(RadiatorPanel, { radiator: { ...radiator, light: null, energy_wh: null, temperature: null }, showControls: false });
     expect(screen.queryByRole('switch', { name: 'Veilleuse' })).toBeNull();
     expect(screen.queryByText(/NaN/)).toBeNull();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    // The missing temperature, and Infos' own unknowns (this fixture predates reachability).
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renames on submit', async () => {

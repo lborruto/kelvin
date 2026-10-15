@@ -6,6 +6,7 @@ export type SettableMode = 'off' | 'manual' | 'program';
 export type SetpointKind = 'manual' | 'comfort' | 'eco';
 export const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 export type Day = (typeof DAYS)[number];
+export type DayLock = 'midnight' | 'unrecognised';
 
 export interface Slot {
   start: string;
@@ -37,6 +38,14 @@ export interface Radiator {
   working_rate: number | null;
   rssi: number | null;
   program: WeekProgram;
+  /** core:StatusState: null when the radiator does not report it (Plan 8). */
+  reachable?: boolean | null;
+  /** When Kelvin saw it become unreachable (epoch s); null when that is unknown. */
+  unreachable_since?: number | null;
+  /** Last state event from any of its devices since Kelvin started (epoch s). */
+  last_event_at?: number | null;
+  /** Days Kelvin shows but never edits (QW8). */
+  program_locked?: Partial<Record<Day, DayLock>>;
 }
 
 export interface Room {
@@ -52,6 +61,7 @@ export interface Room {
   heating_level: string | null;
   window_open: boolean;
   occupied: boolean;
+  presence?: boolean | null;
 }
 
 export interface Expected {
@@ -432,4 +442,38 @@ export interface EnergyDay {
     samples: RoomSample[];
     overrides: { id: string; kind: string; temperature: number | null; ends_at: number | null }[];
   } | null;
+}
+
+/** `GET /api/rooms/{id}/energy?days=`: the last `days` local days, today included (Plan 8, QW3). */
+export interface RoomEnergy {
+  /** Local ISO days: the window runs from `from` 00:00 to now; `to` is today. */
+  from: string;
+  to: string;
+  days: number;
+  kwh: number | null;
+  hc_kwh: number | null;
+  hp_kwh: number | null;
+  /** Energy only, no standing charge; whole cents by the report's 1-January rule, never rounded here. */
+  eur: number | null;
+  heating_hours: number | null;
+  /** Elapsed days only (today is still running): radiator-days fully measured / radiator-days that existed; null with none. */
+  coverage: number | null;
+  interpolated: boolean;
+  apportioned: boolean;
+  priced: boolean;
+}
+export interface Run {
+  start: number;
+  end: number;
+  open: boolean;
+}
+export interface RoomActivity {
+  step: number;
+  window: Run[];
+  presence: Run[];
+}
+export interface RoomsDuty {
+  from: number;
+  to: number;
+  rooms: Record<string, { duty: number | null; coverage: number }>;
 }

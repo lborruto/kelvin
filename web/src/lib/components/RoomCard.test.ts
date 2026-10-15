@@ -211,3 +211,14 @@ it('in English: mode and level chips, the comfort row and the details link', () 
   expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/rooms/salon');
   expect(screen.getByRole('group', { name: 'Comfort' })).toBeInTheDocument();
 });
+
+describe('reachability on the card', () => {
+  it('says « Injoignable » when a radiator is unreachable', () => {
+    house.applySnapshot({
+      house: { rooms: [room], radiators: [{ ...radiator, reachable: false, unreachable_since: null }] },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
+    });
+    render(RoomCard, { room, now, expanded: false, points: [], onselect: vi.fn() });
+    expect(screen.getByText('Injoignable')).toBeInTheDocument();
+  });
+});

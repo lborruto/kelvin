@@ -292,6 +292,33 @@ export const fr = {
       red_hc: 'Rouge HC', red_hp: 'Rouge HP'
     } as Record<string, string>
   },
+  roomInfo: {
+    title: 'Infos',
+    model: 'Modèle',
+    power: 'Puissance',
+    watts: (w: number) => `${w}${NB}W`,
+    signal: 'Niveau de signal',
+    rssi: (v: number) => `RSSI ${v}`,
+    rssiHint: `Valeur brute rapportée par le radiateur${NB}; échelle non vérifiée.`,
+    reachability: 'Connexion',
+    reachable: 'Joignable',
+    unreachable: 'Injoignable',
+    unreachableSince: (t: string) => `Injoignable depuis ${t}`,
+    unreachableChip: 'Injoignable',
+    lastSignal: 'Dernier signal'
+  },
+  roomFigures: {
+    title: (range: string) => `Énergie sur ${range}`,
+    kwh: 'Consommation',
+    eur: 'Coût (énergie)',
+    eurHint: 'Énergie seulement, hors abonnement, à vos prix heures creuses et heures pleines.',
+    hours: 'Heures de chauffe',
+    hoursHint: 'Équivalent pleine puissance.',
+    noTariff: 'Renseignez le tarif',
+    est: 'est.',
+    estHint: `Estimation${NB}: une partie de l’énergie est répartie entre deux relevés du compteur.`,
+    partial: (pct: string) => `relevé sur ${pct} de la période`
+  },
   roomEnergy: {
     noRoom: 'Sans pièce',
     removed: 'Radiateur retiré',

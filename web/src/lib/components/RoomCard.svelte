@@ -42,6 +42,7 @@
   let vtName = $derived(navigates ? undefined : `temp-${house.rooms.findIndex((r) => r.id === room.id)}`);
 
   let radiators = $derived(house.roomRadiators(room.id));
+  let unreachable = $derived(radiators.some((r) => r.reachable === false));
   let first = $derived(radiators[0]);
   let expected = $derived(house.roomExpected(room.id));
   let pending = $derived(house.pendingFor(room.radiator_ids));
@@ -73,6 +74,7 @@
     <span class="chip">{modeLabel(mode)}</span>
     {#if level && level !== 'mixed' && levelLabel(level)}<span class="chip level">{levelLabel(level)}</span>{/if}
     {#if room.window_open}<span class="chip warn"><Icon name="window" size={12} />{m.room.windowOpen}</span>{/if}
+    {#if unreachable}<span class="chip warn"><Icon name="alert" size={12} />{m.roomInfo.unreachableChip}</span>{/if}
     <OverrideBadge {override} />
   </span>
   <span class="temp num" style:view-transition-name={vtName}>{#key room.temperature}<span class="fig" style:color={heatColor(room.temperature)}

@@ -282,6 +282,33 @@ export const en: Messages = {
       white_hc: 'White off-peak', white_hp: 'White peak', red_hc: 'Red off-peak', red_hp: 'Red peak'
     } as Record<string, string>
   },
+  roomInfo: {
+    title: 'Details',
+    model: 'Model',
+    power: 'Power',
+    watts: (w: number) => `${w}${NB}W`,
+    signal: 'Signal level',
+    rssi: (v: number) => `RSSI ${v}`,
+    rssiHint: 'Raw value reported by the radiator; scale not verified.',
+    reachability: 'Connection',
+    reachable: 'Reachable',
+    unreachable: 'Unreachable',
+    unreachableSince: (t: string) => `Unreachable since ${t}`,
+    unreachableChip: 'Unreachable',
+    lastSignal: 'Last signal'
+  },
+  roomFigures: {
+    title: (range: string) => `Energy over ${range}`,
+    kwh: 'Consumption',
+    eur: 'Cost (energy)',
+    eurHint: 'Energy only, without the standing charge, at your off-peak and peak prices.',
+    hours: 'Heating hours',
+    hoursHint: 'Full-power equivalent.',
+    noTariff: 'Add your tariff',
+    est: 'est.',
+    estHint: 'Estimate: some energy is spread between two meter readings.',
+    partial: (pct: string) => `recorded over ${pct} of the period`
+  },
   roomEnergy: {
     noRoom: 'No room',
     removed: 'Removed radiator',

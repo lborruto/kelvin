@@ -7,6 +7,9 @@ import type {
   HistoryPoint,
   LinkyStatus,
   Me,
+  RoomActivity,
+  RoomEnergy,
+  RoomsDuty,
   SetpointKind,
   SettableMode,
   SettingsView,
@@ -89,6 +92,10 @@ export const api = {
   roomSetpoint: (roomId: string, kind: SetpointKind, value: number) =>
     cmd('POST', `/rooms/${enc(roomId)}/setpoint`, { kind, value }),
   roomProgram: (roomId: string, week: WeekProgram) => cmd('PUT', `/rooms/${enc(roomId)}/program`, week),
+  roomEnergy: (roomId: string, days: number) => call<RoomEnergy>('GET', `/rooms/${enc(roomId)}/energy?days=${days}`),
+  roomActivity: (roomId: string, start: number, end: number) =>
+    call<RoomActivity>('GET', `/rooms/${enc(roomId)}/activity?start=${start}&end=${end}`),
+  roomsDuty: () => call<RoomsDuty>('GET', '/rooms/duty'),
   roomBoost: (roomId: string, temperature: number, durationMin: number) =>
     cmd('POST', `/rooms/${enc(roomId)}/boost`, { temperature, duration_min: durationMin }),
 
