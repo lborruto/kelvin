@@ -132,3 +132,25 @@ export function roomStatus(room: Room, rads: Radiator[], override: Override | un
   const level = room.heating_level && room.heating_level !== 'off' && room.heating_level !== 'mixed' ? levelLabel(room.heating_level) : null;
   return make('other', modeLabel(mode), level ?? '', 'tx', room.effective_setpoint, flag);
 }
+
+const REQ_KEYS = ['mode', 'target', 'comfort', 'eco_delta'] as const;
+
+/** What a pending room command asks for, as a stable key (null when nothing is pending): the
+ * status sentence's dashed mark closes solid only when the radiators report exactly these values,
+ * never because the sentence's text happens to read the same (a comfort change leaves it as it was). */
+export function requestKey(e: Expected): string | null {
+  const o: Record<string, unknown> = {};
+  for (const k of REQ_KEYS) if (e[k] !== undefined) o[k] = e[k];
+  return Object.keys(o).length ? JSON.stringify(o) : null;
+}
+
+/** The radiators' reported values for the keys of `request`, in the same form (a key they disagree on is null). */
+export function reportedKey(rads: Radiator[], request: string | null): string | null {
+  if (!request) return null;
+  const o: Record<string, unknown> = {};
+  for (const k of Object.keys(JSON.parse(request)) as (typeof REQ_KEYS)[number][]) {
+    const vs = rads.map((r) => r[k]).filter((v) => v != null);
+    o[k] = vs.length && vs.every((v) => v === vs[0]) ? vs[0] : null;
+  }
+  return JSON.stringify(o);
+}

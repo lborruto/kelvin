@@ -1,3 +1,4 @@
+import { flushSync } from 'svelte';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
@@ -262,6 +263,33 @@ describe('the room panel, in order', () => {
     expect(screen.getByText('22,0 °C jusqu’à 21:45')).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Arrêter' }));
     expect(api.cancelOverride).toHaveBeenCalledWith('o1');
+  });
+
+  it('a failed comfort change never plays the confirmation on the status sentence', () => {
+    load(one());
+    house.applyPending({
+      id: 'c1', label: 'Salon : Confort', radiator_ids: ['a'], status: 'pending', error: null, created_at: 2, expected: { a: { comfort: 23 } }
+    });
+    const { container } = render(RoomInspector, { roomId: 'salon' });
+    expect(container.querySelector('.st svg.edge')).toHaveClass('pending');
+    house.applyPending({
+      id: 'c1', label: 'Salon : Confort', radiator_ids: ['a'], status: 'failed', error: 'x', created_at: 2, expected: { a: { comfort: 23 } }
+    });
+    flushSync();
+    expect(container.querySelector('.st svg.edge')).not.toHaveClass('confirmed');
+    expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument();
+  });
+
+  it('desktop: a compact sticky bar (name and reading) for when the header scrolls away; none on the phone page', () => {
+    load(one());
+    const a = render(RoomInspector, { roomId: 'salon' });
+    const mini = a.container.querySelector('.mini-wrap');
+    expect(mini).toHaveAttribute('aria-hidden', 'true');
+    expect(mini).toHaveTextContent('Salon');
+    expect(mini).toHaveTextContent('19,5 °C');
+    a.unmount();
+    const b = render(RoomInspector, { roomId: 'salon', level: 'h1' });
+    expect(b.container.querySelector('.mini-wrap')).toBeNull();
   });
 
   it('a window open is a notice to fix', () => {

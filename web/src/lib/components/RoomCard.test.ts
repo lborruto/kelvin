@@ -141,6 +141,17 @@ describe('RoomCard offline', () => {
     expect(container.querySelector('.why')).toHaveTextContent('Hors ligne depuis 12:32 · Radiateur hors tension ou hors de portée');
   });
 
+  it('a command in flight when it went offline keeps its tag (Réessayer) on the compact card, outside the link', () => {
+    house.applyPending({
+      id: 'p5', label: 'Salon : Manuel', radiator_ids: ['a'], status: 'failed', error: 'x', created_at: 2,
+      expected: { a: { mode: 'manual' } }
+    });
+    const { container } = render(RoomCard, { room, now, points: [] });
+    const retry = screen.getByRole('button', { name: 'Réessayer' });
+    expect(retry.closest('a')).toBeNull();
+    expect(container.querySelector('.why')).toHaveAttribute('aria-hidden', 'true');
+  });
+
   it('its link is named by the sentence', () => {
     render(RoomCard, { room, now, points: [] });
     expect(screen.getByRole('link')).toHaveAccessibleName('Salon, Hors ligne depuis 12:32, Radiateur hors tension ou hors de portée');
@@ -177,6 +188,45 @@ describe('pending on the card', () => {
       expect(edge()).toHaveClass('confirmed');
       await vi.advanceTimersByTimeAsync(300);
       expect(edge()).not.toHaveClass('confirmed');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a requested comfort the radiators did not take: the dash goes at once, never the solid morph', () => {
+    house.applyPending({
+      id: 'p8', label: 'Salon : Confort', radiator_ids: ['a'], status: 'pending', error: null, created_at: 2,
+      expected: { a: { comfort: 23 } }
+    });
+    const { container } = render(RoomCard, { room, now, points: [] });
+    const edge = () => container.querySelector('.status svg.edge');
+    // The sentence reads the same (eco now): the request still marks it dashed.
+    expect(edge()).toHaveClass('pending');
+    house.applyPending({
+      id: 'p8', label: 'Salon : Confort', radiator_ids: ['a'], status: 'failed', error: 'x', created_at: 2,
+      expected: { a: { comfort: 23 } }
+    });
+    flushSync();
+    expect(edge()).not.toHaveClass('pending');
+    expect(edge()).not.toHaveClass('confirmed');
+    expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument();
+  });
+
+  it('a comfort change confirmed by the radiators closes solid, though the sentence text never changed', async () => {
+    vi.useFakeTimers();
+    try {
+      house.applyPending({
+        id: 'p10', label: 'Salon : Confort', radiator_ids: ['a'], status: 'pending', error: null, created_at: 2,
+        expected: { a: { comfort: 21 } }
+      });
+      const { container } = render(RoomCard, { room, now, points: [] });
+      house.applyHouse({ rooms: [], radiators: [{ ...radiator, comfort: 21 }] } as never);
+      house.applyPending({
+        id: 'p10', label: 'Salon : Confort', radiator_ids: ['a'], status: 'confirmed', error: null, created_at: 2,
+        expected: { a: { comfort: 21 } }
+      });
+      flushSync();
+      expect(container.querySelector('.status svg.edge')).toHaveClass('confirmed');
     } finally {
       vi.useRealTimers();
     }

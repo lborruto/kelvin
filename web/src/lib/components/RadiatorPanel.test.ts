@@ -143,6 +143,18 @@ describe('RadiatorPanel', () => {
     expect(screen.getByRole('button', { name: 'Faire clignoter' })).toBeInTheDocument();
   });
 
+  it('an offline radiator pauses its commands (aria-disabled, never disabled) and says why', () => {
+    house.connection = 'open';
+    render(RadiatorPanel, { radiator: { ...radiator, reachable: false, unreachable_since: null }, showControls: true, expanded: true });
+    expect(screen.getByText('Les commandes reprendront quand il sera rallumé.')).toBeInTheDocument();
+    for (const sw of screen.getAllByRole('switch')) expect(sw).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Faire clignoter' })).toHaveAttribute('aria-disabled', 'true');
+    for (const r of screen.getAllByRole('radio')) {
+      expect(r).toHaveAttribute('aria-disabled', 'true');
+      expect(r).not.toHaveAttribute('disabled');
+    }
+  });
+
   it('an offline radiator: « Hors ligne depuis … » muted, no reading', () => {
     const since = Date.now() / 1000 - 600;
     const { container } = render(RadiatorPanel, { radiator: { ...radiator, reachable: false, unreachable_since: since }, showControls: false });

@@ -239,6 +239,21 @@ test.describe('Rooms without layout shift', () => {
         }
       });
 
+  test('desktop room panel: scrolled, a compact bar names the room; nothing shifts', async ({ page }) => {
+    await countShifts(page);
+    await page.setViewportSize({ width: 1280, height: 700 });
+    await page.goto('/rooms/p-salon');
+    await settled(page);
+    const mini = page.locator('.detail .mini');
+    await expect(mini).toBeHidden();
+    await page.locator('.detail').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    await expect(mini).toBeVisible();
+    await expect(mini).toContainText('Salon');
+    await page.locator('.detail').evaluate((el) => el.scrollTo(0, 0));
+    await expect(mini).toBeHidden();
+    expect(await shifts(page), '/rooms/p-salon scrolled').toBeLessThan(0.05);
+  });
+
   test('/ cards have one height per width whatever their state', async ({ page }) => {
     for (const width of [320, 1440]) {
       await page.setViewportSize({ width, height: 900 });

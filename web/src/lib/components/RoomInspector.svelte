@@ -12,9 +12,7 @@
   import { agg } from '$lib/room';
   import { Settle } from '$lib/settle.svelte';
   import { roomName, whenText as atText } from '$lib/setup';
-  import { roomReading, roomStatus, sharedProgram, whenText } from '$lib/status';
-  import { alerts } from '$lib/stores/alerts.svelte';
-  import { auth } from '$lib/stores/auth.svelte';
+  import { reportedKey, requestKey, roomReading, roomStatus, sharedProgram, whenText } from '$lib/status';
   import { history } from '$lib/stores/history.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { roomActivity, roomsDuty } from '$lib/stores/roomdata.svelte';
@@ -37,9 +35,6 @@
   }
   let { roomId, level = 'h2' }: Props = $props();
   const uid = $props.id();
-  $effect(() => {
-    if (auth.loggedIn !== false && alerts.due) void alerts.load(); // not while signing out (a 401 would re-ask the login)
-  });
   // On the phone room page the figure arrives from the card it was tapped on (view transition).
   let vtName = $derived(level === 'h1' ? `temp-${house.rooms.findIndex((r) => r.id === roomId)}` : undefined);
 
@@ -72,8 +67,8 @@
   let pending = $derived(room ? house.pendingFor(room.radiator_ids) : undefined);
   let override = $derived(house.overrideFor(roomId));
   let status = $derived(room ? roomStatus(room, radiators, override, expected, now) : null);
-  let reported = $derived(room ? roomStatus(room, radiators, override, {}, now).text : null);
-  const settle = new Settle<string>(() => (status?.pending ? status.text : null), () => reported);
+  // The request's values, not the sentence's text (a comfort change reads the same): see requestKey.
+  const settle: Settle<string> = new Settle<string>(() => requestKey(expected), () => reportedKey(radiators, settle.held?.v ?? null));
   let offline = $derived(status?.kind === 'offline');
   // Controls pause while Kelvin is disconnected, and while every radiator is offline (nothing would answer).
   let paused = $derived(!house.online || offline);
@@ -166,6 +161,18 @@
   });
   let durations = $derived(HOURS.map((h) => ({ h, label: fmtDuration(h * 60) })));
 
+  // Desktop column: once the header scrolls out of the panel, a compact bar keeps the room's name and reading
+  // on top. It is a zero-height sticky layer that only fades: it never moves the content (CLS).
+  let headerEl = $state<HTMLElement>();
+  let stuck = $state(false);
+  $effect(() => {
+    const el = headerEl;
+    if (!el || level !== 'h2' || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => (stuck = !e.isIntersecting && e.boundingClientRect.top < (e.rootBounds?.top ?? 0) + 100));
+    io.observe(el);
+    return () => io.disconnect();
+  });
+
   const boost = () => !busy && !paused && run(() => api.roomBoost(roomId, boostTemp, boostHours * 60));
   const setEco = (v: number) => comfortNow != null && run(() => api.roomSetpoint(roomId, 'eco', Math.round((comfortNow - v) * 2) / 2));
 </script>
@@ -182,7 +189,15 @@
 {:else}
   {#key roomId}
   <div class="inspector" in:fade={{ duration: dur(T.state) }}>
-    <header>
+    {#if level === 'h2'}
+      <div class="mini-wrap" aria-hidden="true">
+        <div class="mini" class:on={stuck}>
+          <span class="mini-name">{roomName(room)}</span>
+          {#if !offline}<span class="mini-temp num">{fmtTemp(reading)}</span>{:else}<span class="muted mini-st">{status.lead}</span>{/if}
+        </div>
+      </div>
+    {/if}
+    <header bind:this={headerEl}>
       <div class="title">
         <svelte:element this={level} class="name">{roomName(room)}</svelte:element>
         <p class="st" class:muted={status.tone === 'muted'}>
@@ -343,6 +358,59 @@
     display: grid;
     gap: 18px;
     min-width: 0;
+  }
+  /* The compact bar: sticky at the panel's top edge (its 16 px padding), drawn over the content, no layout of its own. */
+  .mini-wrap {
+    position: sticky;
+    top: -16px;
+    height: 0;
+    margin-bottom: -18px; /* the grid gap: the bar takes no row */
+    z-index: 3;
+  }
+  .mini {
+    position: absolute;
+    top: 0;
+    left: -16px;
+    right: -16px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px 10px;
+    background: var(--s1);
+    border-bottom: 1px solid var(--line);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity var(--t-state) ease,
+      visibility var(--t-state) allow-discrete;
+  }
+  .mini.on {
+    opacity: 1;
+    visibility: visible;
+  }
+  .mini-name {
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mini-temp {
+    flex: none;
+    font-size: 17px;
+    font-weight: 600;
+  }
+  .mini-st {
+    flex: none;
+    font-size: 13px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mini {
+      transition: none;
+    }
   }
   header {
     display: flex;

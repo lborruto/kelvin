@@ -36,6 +36,8 @@
     return () => clearInterval(t);
   });
   let offline = $derived(radiator.reachable === false);
+  // An offline radiator answers nothing: its commands pause (aria-disabled), as when Kelvin is disconnected.
+  let paused = $derived(!house.online || offline);
   let reach = $derived(reachText(radiator, now).text);
   let expected = $derived(house.expectedFor(radiator.id));
   // Plan 12: only what this device supports is shown; a device Kelvin does not drive says so.
@@ -124,25 +126,26 @@
   {#if readOnly}
     <p class="note">{m.support.readonlyHint}</p>
   {:else}
+    {#if offline}<p class="note">{m.room.offlineBody}</p>{/if}
     {#if caps.levels.length}
       <CommandSwitch label={m.pilot.label} options={levelOptions} value={level}
-        pending={(expected.level as PilotLevel | undefined) ?? null} disabled={!house.online}
+        pending={(expected.level as PilotLevel | undefined) ?? null} disabled={paused}
         onchange={(v) => run(() => api.radiatorLevel(radiator.id, v))} />
     {/if}
     {#if caps.dryer.length}
       <CommandSwitch label={m.dryer.label} options={dryerOptions} value={radiator.dryer ?? 'normal'}
-        pending={dryerPending} disabled={!house.online}
+        pending={dryerPending} disabled={paused}
         onchange={(v) => run(() => api.radiatorDryer(radiator.id, dryerAction(v)))} />
     {/if}
     {#if showControls}
       <div class="controls">
         {#if caps.modes.length}
           <ModeSwitch label="Mode — {title}" value={radiator.mode} pending={expected.mode ?? null} compact modes={caps.modes}
-            disabled={!house.online} onchange={(next) => run(() => api.radiatorMode(radiator.id, next))} />
+            disabled={paused} onchange={(next) => run(() => api.radiatorMode(radiator.id, next))} />
         {/if}
         {#if (expected.mode ?? radiator.mode) === 'manual' && caps.manual}
           <Stepper label={m.radiator.setpointLabel(title)} announce={false} value={expected.target ?? radiator.target} min={caps.manual[0]}
-            max={caps.manual[1]} pending={expected.target !== undefined} disabled={!house.online}
+            max={caps.manual[1]} pending={expected.target !== undefined} disabled={paused}
             onchange={(v) => run(() => api.radiatorSetpoint(radiator.id, 'manual', v))} />
         {/if}
       </div>
@@ -150,25 +153,25 @@
 
     <div class="switches">
       {#if caps.window_detection}
-        <Toggle label={m.radiator.windowDetection} checked={radiator.window_detection} pending={busy('window')} disabled={!house.online}
+        <Toggle label={m.radiator.windowDetection} checked={radiator.window_detection} pending={busy('window')} disabled={paused}
           onchange={(v) => toggle('window', () => api.radiatorFeatures(radiator.id, { window_detection: v }))} />
       {/if}
       {#if caps.presence_detection}
-        <Toggle label={m.radiator.presenceDetection} checked={radiator.presence_detection} pending={busy('presence')} disabled={!house.online}
+        <Toggle label={m.radiator.presenceDetection} checked={radiator.presence_detection} pending={busy('presence')} disabled={paused}
           onchange={(v) => toggle('presence', () => api.radiatorFeatures(radiator.id, { presence_detection: v }))} />
       {/if}
       {#if radiator.light && caps.night_light}
-        <Toggle label={m.radiator.nightLight} checked={radiator.light.on} pending={busy('light')} disabled={!house.online}
+        <Toggle label={m.radiator.nightLight} checked={radiator.light.on} pending={busy('light')} disabled={paused}
           onchange={(v) => toggle('light', () => api.radiatorLight(radiator.id, v))} />
-        {#if radiator.light.on && radiator.light.intensity != null && caps.night_light_intensity}<LightSlider {radiator} />{/if}
+        {#if radiator.light.on && radiator.light.intensity != null && caps.night_light_intensity && !paused}<LightSlider {radiator} />{/if}
       {/if}
     </div>
     <div class="acts">
       {#if caps.rename && canEditSetup(auth.server) && !renaming}<button type="button" class="btn btn-ghost" onclick={startRename}><Icon
             name="edit" size={16} />{m.radiator.rename}</button>{/if}
       {#if caps.identify}
-        <button type="button" class="btn btn-ghost identify" aria-disabled={!house.online}
-          onclick={() => house.online && run(() => api.identify(radiator.id))}>{m.radiator.identify}</button>
+        <button type="button" class="btn btn-ghost identify" aria-disabled={paused}
+          onclick={() => !paused && run(() => api.identify(radiator.id))}>{m.radiator.identify}</button>
       {/if}
     </div>
   {/if}

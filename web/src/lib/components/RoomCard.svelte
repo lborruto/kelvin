@@ -8,7 +8,7 @@
   import { ROUTES } from '$lib/paths';
   import { Settle } from '$lib/settle.svelte';
   import { roomName } from '$lib/setup';
-  import { roomReading, roomStatus } from '$lib/status';
+  import { reportedKey, requestKey, roomReading, roomStatus } from '$lib/status';
   import { house } from '$lib/stores/house.svelte';
   import type { StripPoint } from '$lib/stores/history.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
@@ -39,9 +39,8 @@
   let override = $derived(house.overrideFor(room.id));
   let status = $derived(roomStatus(room, radiators, override, expected, now));
   let offline = $derived(status.kind === 'offline');
-  // What the radiators report, without the request: the sentence closes solid when they match.
-  let reported = $derived(roomStatus(room, radiators, override, {}, now).text);
-  const settle = new Settle<string>(() => (status.pending ? status.text : null), () => reported);
+  // The request's values, not the sentence's text: the mark closes solid only when the radiators report them.
+  const settle: Settle<string> = new Settle<string>(() => requestKey(expected), () => reportedKey(radiators, settle.held?.v ?? null));
   let reading = $derived(roomReading(room, radiators));
   let heating = $derived(!offline && status.kind !== 'off' && house.roomHeating(room.id));
   let start = $derived(parisMidnight(now));
@@ -64,8 +63,9 @@
   <article class="card off" class:selected>
     <a class="cover" {href} aria-label={label} aria-current={current ? 'page' : undefined} data-sveltekit-keepfocus={desktop || undefined}
       data-sveltekit-noscroll={desktop || undefined}><span class="name">{name}</span></a>
-    <span class="why">{status.text}<span class="sep" aria-hidden="true">{' · '}</span><span class="hint">{status.hint}</span></span>
+    <span class="why" aria-hidden="true">{status.text}<span class="sep">{' · '}</span><span class="hint">{status.hint}</span></span>
     <span class="plug" aria-hidden="true"><Icon name="plug-off" size={20} /></span>
+    {#if pending}<span class="off-tag"><PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} /></span>{/if}
   </article>
 {:else}
   <article class="card" class:selected>
@@ -270,6 +270,13 @@
     font-size: 13px;
     line-height: 19px;
     color: var(--mu);
+  }
+  .off-tag {
+    grid-column: 1 / -1;
+    position: relative;
+    z-index: 1;
+    margin-top: 4px;
+    font-size: 13px;
   }
   .plug {
     grid-area: plug;
