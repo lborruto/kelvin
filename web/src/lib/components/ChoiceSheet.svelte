@@ -32,14 +32,15 @@
 
 <dialog bind:this={dialog} aria-labelledby="{uid}-title" onclose={closed}
   onclick={(e) => e.target === dialog && dialog?.close?.()}>
-  {#if open}
+  <!-- Only the backdrop closes: a tap anywhere in the sheet (its padding too) lands on .body. -->
+  {#if open}<div class="body">
     <div class="grab" aria-hidden="true"></div>
     <div class="head">
       <h2 id="{uid}-title">{title}</h2>
       <button type="button" class="btn btn-icon" aria-label={m.common.close} onclick={() => dialog?.close?.()}><Icon name="x" size={18} /></button>
     </div>
     {@render children()}
-  {/if}
+  </div>{/if}
 </dialog>
 
 <style>
@@ -47,7 +48,7 @@
     width: min(400px, calc(100vw - 32px));
     max-height: calc(100dvh - 32px);
     overflow: auto;
-    padding: 12px 16px 16px;
+    padding: 0;
     background: var(--s1);
     color: var(--tx);
     border: 1px solid var(--line);
@@ -84,6 +85,9 @@
       background: transparent;
     }
   }
+  .body {
+    padding: 12px 16px 16px;
+  }
   .grab {
     display: none;
   }
@@ -106,7 +110,6 @@
       width: 100%;
       max-width: 100%;
       margin: auto 0 0;
-      padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
       border-width: 1px 0 0;
       border-radius: var(--radius) var(--radius) 0 0;
       transform: translateY(100%);
@@ -119,6 +122,9 @@
       dialog[open] {
         transform: translateY(100%);
       }
+    }
+    .body {
+      padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
     }
     .grab {
       display: block;

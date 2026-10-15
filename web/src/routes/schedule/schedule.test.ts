@@ -422,6 +422,23 @@ describe('/schedule: links and the phone', () => {
     expect(row('Lundi')).toHaveAccessibleName(/, modifié$/); // the edits stay
   });
 
+  it('on a phone « Aussi pour… » opens from the day view, and « ← Semaine » never reopens it', async () => {
+    media.desktop.matches = false;
+    twoRooms();
+    render(Page);
+    await fireEvent.click(await screen.findByRole('button', { name: /^Lundi,/ }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Aussi pour…' }));
+    expect(screen.getByRole('dialog', { name: 'Envoyer aussi à' })).toHaveAttribute('open');
+    await fireEvent.click(screen.getByRole('checkbox', { name: 'Chambre' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Aussi pour\u00a0: Chambre' })).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('link', { name: 'Semaine · Salon' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Programme' })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).toBeNull(); // the sheet stays closed
+  });
+
   it('on a phone ?day= opens that day directly', async () => {
     media.desktop.matches = false;
     state.page.url = new URL('http://kelvin.test/schedule?day=wednesday');
@@ -534,6 +551,24 @@ describe('sending to other rooms (final review C1, I2)', () => {
     expect(screen.getByRole('button', { name: 'Aussi pour\u00a0: Chambre' })).toHaveFocus();
     await fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
   }
+
+  it('a room chosen there that goes offline before Envoyer is dropped from the send', async () => {
+    twoRooms();
+    vi.mocked(api.roomProgram).mockResolvedValue({ pending: pending('pending') as never });
+    render(Page);
+    await editMonday();
+    await fireEvent.click(screen.getByRole('button', { name: 'Aussi pour…' }));
+    await fireEvent.click(screen.getByRole('checkbox', { name: 'Chambre' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
+    house.applyHouse({ rooms: [], radiators: [{ ...house.radiators['b'], reachable: false }] } as never);
+    // No other room can take it now: the choice is gone from the bar, and from the send.
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Aussi pour/ })).toBeNull());
+    expect(sendBar()).toHaveTextContent('1 jour modifié');
+    await fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
+    await waitFor(() => expect(api.roomProgram).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(vi.mocked(api.roomProgram).mock.calls.map((c) => c[0])).toEqual(['salon']);
+  });
 
   it('days locked in the source room are kept, never emptied, on every room sent to', async () => {
     twoRooms({ sunday: 'midnight' });

@@ -195,10 +195,14 @@
   let invalid = $derived(draft ? DAYS.some((d) => validateDay(draft![d]) !== null) : true);
   let today = $derived(parisParts(now).weekday);
   let nowMinute = $derived(parisMinuteOfDay(now));
+  // « Aussi pour… »: the other rooms that can take this week now (offline rooms cannot).
+  let alsoOptions = $derived(rooms.filter((r) => r.id !== roomId && !isOffline(r.id)));
+  // The rooms chosen there that can still take it: one gone offline since is dropped from the send.
+  let alsoTargets = $derived(alsoRooms.filter((id) => alsoOptions.some((r) => r.id === id)));
   // aria-disabled, never disabled: Envoyer keeps focus through the send.
   // A conflict offers its own two choices (Recharger, Remplacer quand même).
   let canSend = $derived(
-    !busy && (changes.length > 0 || alsoRooms.length > 0) && !invalid && house.online && !conflict.length && !offline
+    !busy && (changes.length > 0 || alsoTargets.length > 0) && !invalid && house.online && !conflict.length && !offline
   );
   let roomTitle = (id: string) => {
     const r = house.room(id);
@@ -208,12 +212,10 @@
   let roomOptions = $derived(
     rooms.map((r) => ({ value: r.id, label: roomName(r), hint: isOffline(r.id) ? m.program.offline : undefined }))
   );
-  // « Aussi pour… »: the other rooms that can take this week now (offline rooms cannot).
-  let alsoOptions = $derived(rooms.filter((r) => r.id !== roomId && !isOffline(r.id)));
   // The phone shows one day at a time once a day is opened (`?day=`); desktop shows both.
   let phoneDay = $derived(!desktop.matches && dayView && !offline);
   // The sticky send bar: there is something to send, or a send is on its way.
-  let bar = $derived(changes.length > 0 || alsoRooms.length > 0 || busy);
+  let bar = $derived(changes.length > 0 || alsoTargets.length > 0 || busy);
   let barText = $derived(busy ? m.program.sending : changes.length ? m.program.daysChanged(changes.length) : m.program.noDaysChanged);
   // A retry would overwrite later edits of the room being edited, so it is only offered while the draft is the sent week.
   let statuses = $derived(
@@ -279,7 +281,7 @@
   async function send(force = false, only: string[] | null = null) {
     if (!draft || !roomId || !(canSend || (force && !busy && house.online && !invalid && !offline))) return;
     const week = draft;
-    const ids = only ?? [roomId, ...alsoRooms];
+    const ids = only ?? [roomId, ...alsoTargets];
     const results: (Pending | null)[] = [];
     let stopped = false;
     sending = true;
@@ -396,7 +398,7 @@
         <span class="count" class:muted={busy}>{barText}</span>
         {#if alsoOptions.length && !busy}
           <button type="button" class="also" bind:this={alsoTrigger} aria-haspopup="dialog" onclick={() => (alsoOpen = true)}>
-            {alsoRooms.length ? m.program.alsoForRooms(alsoRooms.map(roomTitle).join(', ')) : m.program.alsoFor}</button>
+            {alsoTargets.length ? m.program.alsoForRooms(alsoTargets.map(roomTitle).join(', ')) : m.program.alsoFor}</button>
         {/if}
       </div>
       <div class="bar-actions">
@@ -489,16 +491,20 @@
     </div>
     {#if !desktop.matches || offline}<div class="foot">{@render sendArea()}</div>{/if}
 
-    <ChoiceSheet title={m.program.alsoSend} open={alsoOpen} trigger={alsoTrigger} onclose={() => (alsoOpen = false)}>
-      <div class="chips">
-        {#each alsoOptions as r (r.id)}
-          <label class="chip"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} /><span
-              aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{roomName(r)}</label>
-        {/each}
-      </div>
-      <p class="note">{m.program.alsoNote}</p>
-    </ChoiceSheet>
   {/if}
+{/if}
+
+<!-- Outside the week/day branches: the day view's send bar opens it too. -->
+{#if house.loaded && rooms.length}
+  <ChoiceSheet title={m.program.alsoSend} open={alsoOpen} trigger={alsoTrigger} onclose={() => (alsoOpen = false)}>
+    <div class="chips">
+      {#each alsoOptions as r (r.id)}
+        <label class="chip"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} /><span
+            aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{roomName(r)}</label>
+      {/each}
+    </div>
+    <p class="note">{m.program.alsoNote}</p>
+  </ChoiceSheet>
 {/if}
 
 <style>

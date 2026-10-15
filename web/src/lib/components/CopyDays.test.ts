@@ -79,3 +79,13 @@ describe('CopyDays', () => {
     expect(screen.getByText('Nothing is sent until you press Send.')).toBeInTheDocument();
   });
 });
+
+it('a tap inside the sheet (its padding too) never closes it; only the backdrop does', async () => {
+  render(CopyDays, { source: 'monday', oncopy: vi.fn() });
+  await fireEvent.click(screen.getByRole('button', { name: 'Copier vers…' }));
+  const dialog = screen.getByRole('dialog', { name: 'Copier lundi vers…' });
+  await fireEvent.click(dialog.querySelector('.body')!);
+  expect(dialog).toHaveAttribute('open');
+  await fireEvent.click(dialog); // the backdrop: a click whose target is the dialog itself
+  expect(dialog).not.toHaveAttribute('open');
+});
