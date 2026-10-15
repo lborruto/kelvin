@@ -54,6 +54,8 @@ export class EnergieData {
   /** The Courbe's day was picked by the page (L9), not by the user: an incomplete answer still falls back to an
    * older complete day, even when the same day is asked again meanwhile (a room change, a retry). */
   private autoDay = false;
+  /** `last` came from Linky; without it, it is yesterday and moves at midnight. */
+  private linkyLast = false;
   private daySeq = 0;
   private readonly now: () => number;
 
@@ -86,8 +88,20 @@ export class EnergieData {
 
   /** First load, once the Linky status is known (`last_day`, or null without Linky). */
   start(lastDay: string | null): void {
+    this.linkyLast = !!lastDay;
     this.last = lastDay ?? addDays(parisTodayIso(this.now()), -1);
     this.period = periodOf(this.view, this.last);
+    void this.load();
+  }
+
+  /** Midnight in Paris with the page open: « yesterday » moved, so the period on screen is asked again (its radiators
+   * count up to yesterday, a running period grows by a day). Without a Linky day the last day is yesterday and moves with
+   * it; a page on the latest period follows it to the new one. */
+  newDay(): void {
+    if (!this.period) return;
+    const wasLatest = this.latest;
+    if (!this.linkyLast) this.last = addDays(parisTodayIso(this.now()), -1);
+    if (wasLatest && this.last) this.period = periodOf(this.view, this.last);
     void this.load();
   }
 

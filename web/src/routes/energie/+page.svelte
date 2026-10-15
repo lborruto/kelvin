@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { api } from '$lib/api/client';
   import type { LinkyStatus } from '$lib/api/types';
   import ComparePanel from '$lib/components/ComparePanel.svelte';
@@ -16,11 +17,12 @@
   import RoomsEnergy from '$lib/components/RoomsEnergy.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
   import { addDays, bucketLabel, bucketSpan, dataSpan, leadingMissing, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
-  import { fmtDateLong, fmtDay, fmtKwh, fmtTime, monthName, parisTodayIso } from '$lib/format';
+  import { fmtDateLong, fmtDay, fmtKwh, fmtTime, monthName } from '$lib/format';
   import { inspectBucket } from '$lib/inspector';
   import { reducedMotion } from '$lib/motion';
   import { announcer } from '$lib/stores/announcer.svelte';
   import { house } from '$lib/stores/house.svelte';
+  import { today } from '$lib/today.svelte';
   import { EnergieData } from './energie.svelte';
 
   const COPY = {
@@ -88,6 +90,14 @@
     const first = house.rooms.find((r) => r.radiator_ids.length > 0);
     if (house.loaded && data.room == null && first) data.setRoom(first.id);
   });
+  // Midnight with the page open: today moved, so the period on screen is asked again (see EnergieData.newDay).
+  let shownToday = untrack(() => today.iso);
+  $effect(() => {
+    const d = today.iso;
+    if (d === shownToday) return;
+    shownToday = d;
+    untrack(() => data.newDay());
+  });
   // A new period or a new day: nothing stays selected from the previous one.
   $effect.pre(() => {
     void data.data;
@@ -137,7 +147,7 @@
             linky: loaded.main.linky,
             // A null radiator sum reads « — » with its reason (today counts once it is over).
             radiators: loaded.main.quality.radiators_since != null,
-            today: parisTodayIso()
+            today: today.iso
           })
         )
       : []
@@ -156,9 +166,9 @@
   // Puissance in Jour reads the period's own day, never another day still on screen.
   let powerDay = $derived(loaded && (loaded.view !== 'day' || data.day?.date === loaded.period.from) ? data.day : null);
   // A period running into today counts its radiators up to yesterday.
-  let running = $derived(!!loaded && loaded.period.to > parisTodayIso());
+  let running = $derived(!!loaded && loaded.period.to > today.iso);
   // The radiator figures and room stats count elapsed days only, up to yesterday (not up to the last Linky day).
-  let elapsed = $derived(loaded ? dataSpan(loaded.period, addDays(parisTodayIso(), -1)) : null);
+  let elapsed = $derived(loaded ? dataSpan(loaded.period, addDays(today.iso, -1)) : null);
 
   /** Runs a navigation and, when it changes the view or the period, says the new period once (all four ways in:
    * the views, ‹ ›, « Dernier jour », a bar drill). A failure is said by the error line (role alert). */
@@ -326,7 +336,7 @@
   {#if main.linky}
     <!-- A pair in every view, so neither sits alone beside an empty half. -->
     <ComparePanel comparison={main.comparison} view={loaded.view} tariff={main.tariff} class="half" />
-    <ProjectionPanel projection={main.projection} last={main.last_day} today={parisTodayIso()} class="half" />
+    <ProjectionPanel projection={main.projection} last={main.last_day} today={today.iso} class="half" />
   {/if}
 
   <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} class="wide" />

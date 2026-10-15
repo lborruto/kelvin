@@ -77,6 +77,33 @@ describe('EnergieData', () => {
     expect(api.energyDay).not.toHaveBeenCalled(); // no Linky, no Courbe
   });
 
+  it('a new day asks for the period again; without Linky, yesterday moves and the latest period follows it', async () => {
+    let now = Date.parse('2026-10-31T21:00:00Z'); // 31 October, 22:00 in Paris
+    vi.mocked(api.energyReport).mockResolvedValue(rep({ last_day: null, linky: false }));
+    const d = new EnergieData(() => now);
+    d.start(null);
+    await flush();
+    expect(d.last).toBe('2026-10-30');
+    expect(d.period).toEqual({ from: '2026-10-01', to: '2026-11-01' });
+    vi.mocked(api.energyReport).mockClear();
+    now = Date.parse('2026-10-31T23:30:00Z'); // 1 November, 00:30
+    d.newDay();
+    await flush();
+    expect(d.last).toBe('2026-10-31');
+    expect(d.period).toEqual({ from: '2026-10-01', to: '2026-11-01' }); // yesterday is still in October
+    expect(api.energyReport).toHaveBeenCalledWith('2026-10-01', '2026-11-01', 'day', d.period);
+    // With Linky, the last day is Linky's: the period stays, and is asked again.
+    vi.mocked(api.energyReport).mockResolvedValue(rep());
+    const l = new EnergieData(NOW);
+    l.start('2026-10-12');
+    await flush();
+    vi.mocked(api.energyReport).mockClear();
+    l.newDay();
+    await flush();
+    expect(l.last).toBe('2026-10-12');
+    expect(api.energyReport).toHaveBeenCalledWith('2026-10-01', '2026-11-01', 'day', { from: '2026-10-01', to: '2026-11-01' });
+  });
+
   it('steps between the first period with data and the last day’s period', async () => {
     const d = new EnergieData(NOW);
     expect(d.canPrev).toBe(false);

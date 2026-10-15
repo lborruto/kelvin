@@ -2,10 +2,11 @@
   import ChartInspector from './ChartInspector.svelte';
   import type { EnergyReport } from '$lib/api/types';
   import { dataSpan, previousName, spanLabel, type View } from '$lib/energy';
-  import { fmtChangeShare, fmtDay, fmtEurExact, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct1, parisTodayIso } from '$lib/format';
+  import { fmtChangeShare, fmtDay, fmtEurExact, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct1 } from '$lib/format';
   import { inspectBucket } from '$lib/inspector';
   import { desktop } from '$lib/media.svelte';
   import { plural } from '$lib/plural';
+  import { today } from '$lib/today.svelte';
 
   const COPY = {
     estimate: 'estimation',
@@ -76,7 +77,7 @@
       span: { from: p.from, to: p.to },
       linky: report.linky,
       radiators: report.quality.radiators_since != null,
-      today: parisTodayIso()
+      today: today.iso
     })
   );
   // `basis: 'days'` (a custom period) compares with as many days just before; the views here are whole units.
@@ -84,11 +85,19 @@
   let open = $state(false);
   let hovering = $state(false);
   let mode = $derived<'card' | 'sheet'>(desktop.matches ? 'card' : 'sheet');
+  let figBtn: HTMLButtonElement | undefined = $state();
+  /** Esc inside the card or sheet closes it and gives focus back to the figure. */
+  function close() {
+    figBtn?.focus();
+    open = false;
+    hovering = false;
+  }
 </script>
 
 <section class="panel hero wide" aria-labelledby="period-label">
   <div class="fig-wrap">
     <button
+      bind:this={figBtn}
       type="button"
       class="figure"
       aria-expanded={open}
@@ -108,16 +117,17 @@
       <span class="visually-hidden">{COPY.details}</span>
     </button>
     {#if mode === 'card' && (open || hovering)}
-      <ChartInspector {ins} mode="card" id="{uid}-ins" top={46} pinned={open} />
+      <ChartInspector {ins} mode="card" id="{uid}-ins" top={46} pinned={open} onclose={close} />
     {/if}
   </div>
-  {#if mode === 'sheet' && open}<ChartInspector {ins} mode="sheet" id="{uid}-ins" pinned />{/if}
   <p class="sub num"><span class="figs">{figures}</span>{#if range}<span class="range"><span class="sep">{' · '}</span>{range}</span>{/if}</p>
   {#if breakdown}<p class="muted breakdown num">{breakdown}</p>{/if}
   {#if change && prev}<p class="muted delta">{COPY.compare(change, prevName, prev.pairs)}</p>{/if}
   {#if noData}<p class="muted small">{COPY.noData}</p>{/if}
   {#each notes as n (n)}<p class="muted small">{n}</p>{/each}
   {#if report.linky && !report.tariff}<p class="muted small"><a href="/maison#tarif">{COPY.tariffLink}</a>{COPY.tariffTail}</p>{/if}
+  <!-- Phone: the sheet docks at the hero's end, so the figure keeps its lines under it. -->
+  {#if mode === 'sheet' && open}<ChartInspector {ins} mode="sheet" id="{uid}-ins" pinned onclose={close} />{/if}
 </section>
 
 <style>

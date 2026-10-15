@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '$lib/api/client';
 import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus } from '$lib/api/types';
@@ -8,6 +9,8 @@ import { fmtTime } from '$lib/format';
 import { announcer } from '$lib/stores/announcer.svelte';
 import { house } from '$lib/stores/house.svelte';
 import { parisDayStart } from '$lib/time';
+import { today } from '$lib/today.svelte';
+import { desktop } from '$lib/media.svelte';
 import Page from './+page.svelte';
 
 vi.mock('$lib/csv', async (orig) => ({ ...(await orig<typeof import('$lib/csv')>()), download: vi.fn() }));
@@ -162,6 +165,39 @@ describe('Énergie', () => {
     expect(sheet).toHaveTextContent('Maison 412,64 kWh');
   });
 
+  it('the hero’s sheet docks at the hero’s end, under the figure’s lines; Esc inside closes it and focus returns to the figure', async () => {
+    const { container } = render(Page);
+    const fig = await screen.findByRole('button', { name: /Détail de la période/ });
+    await fireEvent.click(fig);
+    const hero = container.querySelector('.hero')!;
+    const sheet = hero.querySelector<HTMLElement>('.inspector.sheet')!;
+    expect(hero.lastElementChild).toBe(sheet);
+    expect(sheet.compareDocumentPosition(hero.querySelector('.sub')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    sheet.querySelector<HTMLElement>('a[href="#qualite"]')?.focus();
+    await fireEvent.keyDown(sheet, { key: 'Escape' });
+    await tick();
+    expect(hero.querySelector('.inspector')).toBeNull();
+    expect(fig).toHaveAttribute('aria-expanded', 'false');
+    expect(document.activeElement).toBe(fig);
+  });
+
+  it('desktop: Esc inside the hero’s pinned card closes it and focus returns to the figure', async () => {
+    desktop.matches = true;
+    try {
+      const { container } = render(Page);
+      const fig = await screen.findByRole('button', { name: /Détail de la période/ });
+      await fireEvent.click(fig);
+      const card = container.querySelector<HTMLElement>('.hero .inspector.card.pinned')!;
+      expect(card).not.toBeNull();
+      await fireEvent.keyDown(card, { key: 'Escape' });
+      await tick();
+      expect(container.querySelector('.hero .inspector')).toBeNull();
+      expect(document.activeElement).toBe(fig);
+    } finally {
+      desktop.matches = false;
+    }
+  });
+
   it('loads Mois first (its day bars and the month itself), and switches views with the keyboard', async () => {
     render(Page);
     await waitFor(() => expect(api.energyReport).toHaveBeenCalledTimes(2));
@@ -301,6 +337,7 @@ describe('Énergie', () => {
   it('radiators read « — » with a reason, never 0: today counts once it is over, a past day without a reading says so', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-14T10:00:00Z'));
+    today.check(); // the page's today reads the faked clock
     try {
       const { container } = render(Page);
       const caption = 'Consommation de la maison par jour';
@@ -311,6 +348,27 @@ describe('Énergie', () => {
       expect(cell(container, caption, '15/10', 'Radiateurs')).toBe('—'); // still to come: nothing to explain
     } finally {
       vi.useRealTimers();
+      today.check();
+    }
+  });
+
+  it('at midnight the page follows the new day without a reload: today’s bar says so, and the period is asked again', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-12T23:59:30+02:00'));
+    today.check();
+    try {
+      const { container } = render(Page);
+      const caption = 'Consommation de la maison par jour';
+      await screen.findByRole('img', { name: caption });
+      expect(cell(container, caption, '13/10', 'Radiateurs')).toBe('—'); // tomorrow: nothing to explain yet
+      expect(api.energyReport).toHaveBeenCalledTimes(2);
+      vi.setSystemTime(new Date('2026-10-13T00:00:30+02:00'));
+      today.check(); // what the midnight timer runs (Today's own test covers the timer)
+      await waitFor(() => expect(api.energyReport).toHaveBeenCalledTimes(4));
+      await waitFor(() => expect(cell(container, caption, '13/10', 'Radiateurs')).toBe('— (jour en cours, compté une fois terminé)'));
+    } finally {
+      vi.useRealTimers();
+      today.check();
     }
   });
 
