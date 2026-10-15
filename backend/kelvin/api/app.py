@@ -1,4 +1,5 @@
-from collections.abc import AsyncIterator
+import time
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -29,13 +30,19 @@ class KelvinApp(FastAPI):
 
 
 def create_app(
-    settings: Settings | None = None, gateway: Gateway | None = None, *, start_tasks: bool = True
+    settings: Settings | None = None,
+    gateway: Gateway | None = None,
+    *,
+    start_tasks: bool = True,
+    wall: Callable[[], float] = time.time,
 ) -> FastAPI:
+    """`wall`: the runtime's wall clock (tests pin it so the simulator's history does not
+    depend on the hour they run at)."""
     settings = settings or Settings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        ctx = open_context(settings, gateway, start_tasks=start_tasks)
+        ctx = open_context(settings, gateway, start_tasks=start_tasks, wall=wall)
         app.state.ctx = ctx
         try:
             await boot(ctx)

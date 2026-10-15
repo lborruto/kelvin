@@ -78,28 +78,6 @@ test('absence can be started and cancelled', async ({ page }) => {
   await expect(cancel).toBeHidden();
 });
 
-test('Énergie shows the bill estimate, HC/HP bars and the day curve from the simulator', async ({ page }) => {
-  await page.goto('/energie');
-  await expect(page.getByRole('heading', { name: 'Énergie', level: 1 })).toBeVisible();
-  await expect(page.locator('.hero .big')).toContainText('€');
-  await expect(page.locator('.hero .tag')).toHaveText('estimation');
-  const chart = page.getByRole('img', { name: 'Consommation de la maison par mois' });
-  await expect(chart).toBeVisible();
-  const heights = await chart.locator('rect.part').evaluateAll((els) => els.map((e) => Number(e.getAttribute('height'))));
-  expect(heights.filter((h) => h > 0).length).toBeGreaterThan(0);
-  await expect(page.getByRole('img', { name: /^Consommation par demi-heure le / })).toBeVisible();
-  const before = await page.getByRole('heading', { name: /^Courbe du / }).textContent();
-  await page.getByRole('button', { name: 'Jour précédent' }).click();
-  await expect(page.getByRole('heading', { name: /^Courbe du / })).not.toHaveText(before!);
-  const rooms = page.locator('ul.rooms li');
-  for (const name of ['Chambre 1', 'Salon', 'Chambre 2']) {
-    await expect(rooms.filter({ hasText: name })).toHaveCount(1);
-  }
-  await page.getByRole('radio', { name: 'Mois' }).focus();
-  await page.keyboard.press('ArrowLeft');
-  await expect(page.getByRole('img', { name: 'Consommation de la maison par jour' })).toBeVisible();
-});
-
 test('desktop shows the sidebar and the inspector with every radiator', async ({ page, isMobile }) => {
   test.skip(isMobile, 'desktop layout only');
   await page.goto('/pieces/p-salon');

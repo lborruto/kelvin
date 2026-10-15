@@ -23,10 +23,16 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   knows it, and marks such figures as estimates. A reading that cannot be true (above what the
   radiator can draw, or a drop) is never counted as energy, and the time after a meter's last
   change stays unknown until it moves again.
-- **Énergie:** whole-home consumption from Linky (through MyElectricalData), an HC/HP bill
-  estimate with price history, the radiators' share with their own HC/HP and euros, comparisons
-  on comparable days only, a month and a 365-day projection, and the day's half-hours with
-  power and price. A missing figure reads « — », never 0.
+- **Énergie:** whole-home consumption from Linky (through MyElectricalData) by day, ISO week,
+  month or year, with a period navigator. Every bar, half-hour and figure shows its exact value on
+  hover, tap or keyboard: HC/HP, radiators and the rest of the home, energy and subscription €,
+  the prices applied. A half-hour scrubber with power and price, peak and base load, the HC/HP
+  share, the radiators' share and cost, per room and per radiator (energy, €, temperature,
+  heating hours), a room's temperature against its heating, comparisons on comparable days only,
+  a month and a 365-day projection, a data-quality panel, and a CSV export of what is shown
+  (`;`-separated with a decimal comma, for French spreadsheets). Shown parts add up to their
+  total, and a day reads the same € in every view. A missing figure reads « — » with its reason,
+  never 0; estimates say so.
 - **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets.
 - **A simulator** of a whole home and a synthetic Linky, for trying Kelvin and for every test.
 

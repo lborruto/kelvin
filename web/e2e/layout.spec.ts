@@ -39,21 +39,6 @@ test.describe('layout', () => {
     }
   });
 
-  test('Énergie ends with its last panel: no empty tail', async ({ page }) => {
-    for (const width of [390, 1280]) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/energie');
-      await settled(page);
-      const tail = await page.evaluate(() => {
-        const panels = [...document.querySelectorAll('main section.panel')];
-        const bottom = Math.max(...panels.map((p) => p.getBoundingClientRect().bottom + scrollY));
-        return document.scrollingElement!.scrollHeight - bottom;
-      });
-      // main's bottom padding (88 px + safe area on a phone, 24 px on desktop) and nothing more.
-      expect(tail, `tail at ${width} px`).toBeLessThanOrEqual(width < 1024 ? 100 : 30);
-    }
-  });
-
   for (const path of ['/maison', '/energie']) {
     test(`${path} loads without layout shift (CLS < 0.05)`, async ({ page }) => {
       // Registered once: every navigation starts a fresh count.

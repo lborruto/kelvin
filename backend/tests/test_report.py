@@ -1,14 +1,23 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from hypothesis import HealthCheck, example, given, settings
+from hypothesis import strategies as st
 
 from kelvin.billing.costs import days_in_month
 from kelvin.billing.radiators import RadiatorDay
-from kelvin.billing.report import ReportInputs, build_report, minus_year
+from kelvin.billing.report import (
+    ReportInputs,
+    build_report,
+    minus_year,
+    next_unit,
+    unit_start,
+)
 from kelvin.billing.slots import Slot
 from kelvin.billing.tariff import Prices, Tariff
 from kelvin.linky.models import CurvePoint, day_bounds
+from kelvin.linky.service import LOOKBACK_DAYS, radiator_ranges
 
 PARIS = ZoneInfo("Europe/Paris")
 HALF = (Slot("00:00", "12:00"),)  # half of every hour-weighted flat day is off-peak
@@ -763,3 +772,204 @@ def test_final_i2_radiator_sums_count_exactly_the_days_coverage_counts():
     assert octo["radiators"]["eur"] == round(13 * 1.3, 2)
     assert (r["by_radiator"][0]["kwh"], r["by_radiator"][0]["coverage"]) == (65.0, 1.0)
     assert r["radiators"] == [{"radiator_id": "a", "kwh": 65.0}]  # v1
+
+
+def test_the_total_is_the_sum_of_its_rounded_parts():
+    """Like an invoice: eur = round(energy_eur) + round(subscription_eur), so the parts add up."""
+    d = date(2026, 10, 13)  # 31 days: 15 / 31 = 0.4839 a day
+    t = tariff(Prices(date(2026, 1, 1), 15.0, 0.2, 0.2))
+    r = build_report(d, d + timedelta(days=1), "day", inputs({d: 26524.5}, t=t))
+    [b] = r["buckets"]
+    # Rounded apart: 5.3049 -> 5.30 and 0.4839 -> 0.48; the unrounded sum 5.7888 would read 5.79.
+    assert (b["energy_eur"], b["subscription_eur"], b["eur"]) == (5.3, 0.48, 5.78)
+    for s in (r["total"], r["period"], r["hero"]["current"], r["hero"]["previous"]):
+        if s["eur"] is not None:
+            assert s["eur"] == round(s["energy_eur"] + s["subscription_eur"], 2)
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "group"),
+    [
+        (date(2026, 10, 1), date(2026, 11, 1), "day"),  # Mois by day, running: counted to the 13th
+        (date(2025, 10, 20), date(2025, 10, 27), "day"),  # Semaine with the autumn DST day
+        (date(2026, 3, 23), date(2026, 3, 30), "day"),  # Semaine with the spring DST day
+        (date(2026, 1, 1), date(2027, 1, 1), "month"),  # Année by month, two prices
+        (date(2026, 9, 1), date(2026, 10, 1), "week"),  # a month by (clipped) weeks
+        (date(2026, 2, 1), date(2026, 3, 1), "day"),  # 28 days: 15 / 28 a day
+    ],
+)
+def test_bucket_euros_add_up_to_the_period(start, end, group):
+    """Shown sums add up (spec §9.1): the bars' subscription, energy and € sum to the period's
+    to the cent; each bucket stays within a cent of its exact figure, and eur = energy + sub."""
+    span = days(date(2025, 10, 1), date(2026, 10, 14))
+    daily = {d: 13_337 + (i * 179) % 4_001 for i, d in enumerate(span)}
+    t = tariff(
+        Prices(date(2025, 1, 1), 15.0, 0.2068, 0.27),
+        Prices(date(2026, 8, 1), 16.37, 0.2101, 0.2733),
+    )
+    r = build_report(start, end, group, inputs(daily, t=t), period=(start, end))
+    cents = lambda v: round(v * 100)  # noqa: E731
+    p = r["period"]
+    for key in ("subscription_eur", "energy_eur", "eur"):
+        assert sum(cents(b[key]) for b in r["buckets"] if b[key] is not None) == cents(p[key]), key
+        assert cents(r["total"][key]) == cents(p[key])
+    for b in r["buckets"]:
+        if b["eur"] is not None:
+            assert cents(b["eur"]) == cents(b["energy_eur"]) + cents(b["subscription_eur"])
+        if b["subscription_eur"] is not None:
+            a = date.fromisoformat(b["key"][:10]) if group == "day" else None
+            if a is not None:
+                exact = t.prices_on(a).subscription_eur_month / days_in_month(a)
+                assert abs(b["subscription_eur"] - exact) < 0.01 + 1e-9
+
+
+_SPAN = (date(2025, 11, 20), date(2026, 2, 10))  # across a new year and a price change
+_DAILY = {d: 9_000 + (i * 7_919) % 13_001 for i, d in enumerate(days(*_SPAN))}
+_TARIFF = tariff(
+    Prices(date(2025, 1, 1), 15.0, 0.2068, 0.27), Prices(date(2026, 1, 15), 16.37, 0.2101, 0.2733)
+)
+
+
+def shaped(day: date, wh: float, hc: float) -> list[CurvePoint]:
+    """A complete curve of `wh` with the share `hc` of it in the off-peak half (00:00–12:00)."""
+    a, b = day_bounds(day, PARIS)
+    ts = range(a, b, 1800)
+    off = [t for t in ts if datetime.fromtimestamp(t, PARIS).hour < 12]
+    on = [t for t in ts if datetime.fromtimestamp(t, PARIS).hour >= 12]
+    return sorted(
+        [CurvePoint(t, 30, wh * hc / len(off)) for t in off]
+        + [CurvePoint(t, 30, wh * (1 - hc) / len(on)) for t in on],
+        key=lambda p: p.ts,
+    )
+
+
+# Curves: an old history (more than 400 days before the span), a month, then a gap of more
+# than 31 days around the span's start (days there have no curve within ±15 days), then the
+# rest. Each day's off-peak share differs, so which curves a fallback reads changes its share.
+_CURVE_DAYS = [
+    *days(date(2024, 10, 1), date(2024, 11, 16)),
+    *days(date(2025, 10, 1), date(2025, 11, 1)),
+    *days(date(2026, 1, 10), date(2026, 2, 11)),
+]
+_CURVE = {
+    d: shaped(d, _DAILY.get(d, 12_000), 0.15 + 0.7 * ((i * 37) % 11) / 10)
+    for i, d in enumerate(_CURVE_DAYS)
+}
+
+
+# Three radiators whose daily € have fractions of a cent, so rounding each on its own drifts.
+_RADS = {
+    rid: {
+        d: RadiatorDay(
+            w := 1_000 + (i * k * 613) % 9_001,
+            w * 0.3,
+            w * 0.7,
+            w / 1000 * 0.2531,
+            False,
+            False,
+            True,
+        )
+        for i, d in enumerate(days(date(2025, 11, 1), date(2026, 2, 15)))
+    }
+    for rid, k in (("a", 1), ("b", 3), ("c", 7))
+}
+
+
+def _loaded(start: date, end: date, today: date) -> ReportInputs:
+    """The inputs the service builds for the window [start, end) (period = window): the curves
+    from 400 days before it on (`LinkyService.report`'s look-back), every day after, and the
+    radiator days of the ranges the service loads (`radiator_ranges`)."""
+    lo = start - timedelta(days=LOOKBACK_DAYS)
+    curve = {d: p for d, p in _CURVE.items() if d >= lo}
+    inp = inputs(_DAILY, curve=curve, t=_TARIFF, today=today, first_day=_CURVE_DAYS[0])
+    ranges = radiator_ranges((start, end), (start, end))
+    inp.radiators = {
+        rid: {d: rd for d, rd in per.items() if any(a <= d < b for a, b in ranges)}
+        for rid, per in _RADS.items()
+    }
+    inp.radiator_life = {rid: (date(2025, 11, 1), None) for rid in _RADS}
+    return inp
+
+
+def _rad_eur(s: dict) -> float | None:
+    return (s.get("radiators") or {}).get("eur")
+
+
+def _euros(s: dict) -> tuple:
+    return (s["energy_eur"], s["subscription_eur"], s["eur"])
+
+
+def _split(s: dict) -> tuple:
+    return (s["hc_kwh"], s["hp_kwh"], s["split_method"])
+
+
+@settings(max_examples=40, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    a=st.integers(0, 75),
+    n=st.integers(1, 60),
+    group=st.sampled_from(["day", "week", "month"]),
+)
+@example(a=0, n=30, group="day")  # 10/12: no curve within ±15 days, history older than 400 days
+def test_a_bucket_reads_the_same_euros_in_any_window_and_the_buckets_sum_to_the_period(a, n, group):
+    """Same bucket, same figure: a bucket's € and HC/HP split do not depend on the window asked
+    (a day reads the same in Jour, Semaine, Mois and Année), and any window's buckets add up to
+    its period. The curves include a gap of more than 31 days and history older than the
+    look-back, so a day's fallback share must not read curves only some windows load."""
+    today = date(2026, 2, 15)
+    start = _SPAN[0] + timedelta(days=a)
+    end = min(start + timedelta(days=n), _SPAN[1] + timedelta(days=5))
+    r = build_report(start, end, group, _loaded(start, end, today), period=(start, end))
+    d = start
+    for b in r["buckets"]:
+        nxt = min(next_unit(unit_start(d, group), group), end)
+        alone = build_report(d, nxt, "day", _loaded(d, nxt, today), period=(d, nxt))["period"]
+        assert _euros(b) == _euros(alone), (b["key"], start, end)
+        assert _split(b) == _split(alone), (b["key"], start, end)
+        assert _rad_eur(b) == _rad_eur(alone), (b["key"], start, end)
+        d = nxt
+    cents = lambda v: round(v * 100)  # noqa: E731
+    p = r["period"]
+    for i in range(2):
+        shown = [_euros(b)[i] for b in r["buckets"] if _euros(b)[i] is not None]
+        assert (sum(cents(v) for v in shown) if shown else None) == (
+            cents(_euros(p)[i]) if _euros(p)[i] is not None else None
+        )
+    for s in (*r["buckets"], p):
+        if s["eur"] is not None:
+            assert cents(s["eur"]) == cents(s["energy_eur"]) + cents(s["subscription_eur"])
+    # The radiators' € too: the buckets add up to the period, and so do the radiators (the
+    # rooms table's € and « Coût du chauffage » read the same total).
+    if _rad_eur(p) is not None:
+        assert sum(cents(_rad_eur(b) or 0) for b in r["buckets"]) == cents(_rad_eur(p))
+        assert sum(cents(x["eur"]) for x in r["by_radiator"]) == cents(_rad_eur(p))
+
+
+def test_period_quality_describes_the_selected_period_not_the_window():
+    """Final review I-1: in Jour the window is the 7 days ending on the day; `period.quality`
+    counts only the selected day, while `quality` keeps describing the window (the bars)."""
+    day = date(2026, 10, 12)
+    lo = day - timedelta(days=6)
+    daily = {d: 24_000 for d in days(lo, day + timedelta(days=1))}
+    curve = {day: flat(day, 24.0)}  # the selected day alone has a complete curve
+    r = build_report(
+        lo,
+        day + timedelta(days=1),
+        "day",
+        inputs(daily, curve=curve, t=tariff()),
+        (day, day + timedelta(days=1)),
+    )
+    assert r["quality"]["estimated_days"] == 6
+    pq = r["period"]["quality"]
+    assert pq["estimated_days"] == 0 and pq["retro_priced_days"] == 0
+    assert pq["curve_vs_daily_pct"] == pytest.approx(0.0)
+    assert set(pq) == set(r["quality"])
+    # An estimated selected day reads 1, never the window's count.
+    other = build_report(
+        lo,
+        day + timedelta(days=1),
+        "day",
+        inputs(daily, curve=curve, t=tariff()),
+        (lo, lo + timedelta(days=1)),
+    )
+    assert other["period"]["quality"]["estimated_days"] == 1
+    assert other["period"]["quality"]["curve_vs_daily_pct"] is None

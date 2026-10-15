@@ -112,9 +112,15 @@ def test_l6_the_fallback_share_is_seasonal_then_monthly_then_overall_then_slots(
     assert w.method == "fallback_window" and w.value == pytest.approx(24 / 40)
     s = shares.for_day(date(2026, 7, 12))
     assert s.method == "fallback_window" and s.value == pytest.approx(4 / 20)
-    assert shares.for_day(date(2027, 1, 30)).method == "fallback_month"
-    m = shares.for_day(date(2026, 4, 1))
+    # The month and all-days fallbacks read curves from 35 days before the day on only (always
+    # loaded, so the share never depends on the window asked).
+    y = shares.for_day(date(2025, 7, 12))  # next July's curves
+    assert y.method == "fallback_month" and y.value == pytest.approx(4 / 20)
+    m = shares.for_day(date(2025, 12, 1))
     assert m.method == "fallback_all" and m.value == pytest.approx(28 / 60)
+    later = shares.for_day(date(2026, 4, 1))  # January is more than 35 days before
+    assert later.method == "fallback_all" and later.value == pytest.approx(4 / 20)
+    assert shares.for_day(date(2027, 1, 30)).method == "slots"  # older curves are not read
     none = FallbackShares({}, ranges, PARIS).for_day(date(2026, 4, 1))
     assert none == Share(pytest.approx(1 / 3), "slots")
 

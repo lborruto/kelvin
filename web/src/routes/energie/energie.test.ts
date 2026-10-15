@@ -1,14 +1,22 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '$lib/api/client';
-import type { CurveDay, EnergyReport, EnergySummary, LinkyStatus } from '$lib/api/types';
+import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus, Quality } from '$lib/api/types';
+import { download } from '$lib/csv';
+import { addDays, bucketLabel } from '$lib/energy';
 import { fmtTime } from '$lib/format';
+import { announcer } from '$lib/stores/announcer.svelte';
 import { house } from '$lib/stores/house.svelte';
+import { parisDayStart } from '$lib/time';
+import { today } from '$lib/today.svelte';
+import { desktop } from '$lib/media.svelte';
 import Page from './+page.svelte';
 
+vi.mock('$lib/csv', async (orig) => ({ ...(await orig<typeof import('$lib/csv')>()), download: vi.fn() }));
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
 vi.mock('$lib/api/client', () => ({
-  api: { energyReport: vi.fn(), linkyCurve: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]) },
+  api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]) },
   ApiError: class ApiError extends Error {
     status: number;
     constructor(status: number, message: string) {
@@ -19,42 +27,93 @@ vi.mock('$lib/api/client', () => ({
 }));
 
 const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({
-  kwh: 300, hc_kwh: 120, hp_kwh: 180, radiators_kwh: 140, energy_eur: 70, subscription_eur: 15,
-  eur: 85, days: 30, missing_days: 0, estimated_split: false, ...o
+  kwh: 300, hc_kwh: 120, hp_kwh: 180, radiators_kwh: 140, energy_eur: 70, subscription_eur: 15, eur: 85,
+  days: 30, missing_days: 0, estimated_split: false, split_method: 'curve',
+  prices: [{ valid_from: '2026-01-01', subscription_eur_month: 15, rates: { hc: 0.2, hp: 0.3 } }],
+  retro_priced: false, present_days: 30, curve: null,
+  radiators: { kwh: 140, hc_kwh: 60, hp_kwh: 80, eur: 35, interpolated: false, apportioned: false, coverage: 1 },
+  rest_kwh: 160, ...o
 });
+const NONE: Partial<EnergySummary> = {
+  kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, eur: null, rest_kwh: null, present_days: 0, prices: []
+};
+/** October 2026 by day: data until the 12th, nothing after (not yet published). */
+const october = () =>
+  Array.from({ length: 31 }, (_, i) => ({
+    key: addDays('2026-10-01', i),
+    ...summary({
+      kwh: 10, hc_kwh: 4, hp_kwh: 6, eur: 3, energy_eur: 2.5, subscription_eur: 0.5, days: 1, present_days: 1, radiators_kwh: 5,
+      radiators: { kwh: 5, hc_kwh: 2, hp_kwh: 3, eur: 1.2, interpolated: false, apportioned: false, coverage: 1 }, rest_kwh: 5,
+      ...(i >= 12 ? { ...NONE, radiators: null, radiators_kwh: null, subscription_eur: null } : {})
+    })
+  }));
+
+const QUALITY: Quality = {
+  fallback_share: null, fallback_method: null, estimated_days: 0, curve_vs_daily_pct: null, linky_since: '2025-11-01',
+  curve_since: '2025-11-01', radiators_since: '2026-09-01', retro_priced_days: 0
+};
 
 function report(o: Partial<EnergyReport> = {}): EnergyReport {
   return {
-    group: 'month', from: '2025-11-01', to: '2026-11-01', last_day: '2026-10-12', linky: true, tariff: true,
-    buckets: [{ key: '2026-09', ...summary() }, { key: '2026-10', ...summary({ kwh: 120, hc_kwh: 50, hp_kwh: 70, radiators_kwh: 60 }) }],
+    group: 'day', from: '2026-10-01', to: '2026-11-01', last_day: '2026-10-12', linky: true, tariff: true,
+    buckets: october(),
     total: summary(),
-    hero: {
-      current: { from: '2026-10-01', to: '2026-10-13', ...summary({ eur: 98.4 }) },
-      previous: { from: '2026-09-01', to: '2026-09-13', ...summary({ eur: 87.2 }) }
-    },
-    heating_share: 0.47,
-    heating_share_since: '2026-10-01',
-    linky_since: '2025-11-01',
+    heating_share: 0.47, heating_share_since: '2026-10-01', linky_since: '2025-11-01',
     radiators: [{ radiator_id: 'a', kwh: 140 }],
     projection: {
-      month: { key: '2026-10', kwh: 310, eur: 120.5, actual_kwh: 120, actual_eur: 98.4, method: 'linear' },
-      year: { from: '2026-10', to: '2027-09', kwh: 3650, eur: 1234.4, method: 'linear', months: [] }
+      month: { key: '2026-10', kwh: 310, eur: 120.5, actual_kwh: 120, actual_eur: 98.4, actual_energy_eur: 92.1, filled_days: 0, method: 'linear' },
+      year: { from: '2026-10', to: '2027-09', kwh: 3650, eur: 1234.4, method: 'linear', months: [] },
+      rolling: { from: '2026-10-15', to: '2027-10-15', kwh: 3650, eur: 1234.4, per_day_kwh: 10, price_eur_kwh: 0.25, method: 'linear' }
     },
+    period: {
+      from: '2026-10-01', to: '2026-11-01',
+      ...summary({ kwh: 412.64, hc_kwh: 158.3, hp_kwh: 254.34, eur: 98.4, energy_eur: 92.11, subscription_eur: 6.29, days: 31, present_days: 12 }),
+      quality: QUALITY
+    },
+    heating: { value: 0.47, days: 12, of_days: 12, since: '2026-10-01', inconsistent: false },
+    by_radiator: [],
+    comparison: {
+      basis: 'unit',
+      previous: {
+        from: '2026-09-01', to: '2026-09-13', pairs: 12, of: 12, comparable: true, cur_kwh: 120, prev_kwh: 125,
+        cur_energy_eur: 30, prev_energy_eur: 31, change: -0.04, change_energy_eur: -0.0323
+      },
+      last_year: null,
+      avg4: null
+    },
+    hc_lens: null,
+    boundary_prorated: false,
+    quality: QUALITY,
+    ...o
+  };
+}
+const periodWith = (o: Partial<EnergySummary>) => ({ period: { from: '2026-10-01', to: '2026-11-01', ...summary(o), quality: QUALITY } });
+
+function energyDay(date: string, o: Partial<EnergyDay> = {}): EnergyDay {
+  const a = parisDayStart(date) / 1000;
+  return {
+    date, complete: true, points: 2,
+    intervals: [
+      { ts: a, minutes: 30, wh: 400, w: 800, offpeak: 1, boundary: false, price: 0.2, eur: 0.08, radiators_wh: 200, radiators_known: 1, radiators_total: 1, radiators_interp: false, radiators_apportioned: false, by_room: { salon: 200 } },
+      { ts: a + 1800, minutes: 30, wh: 300, w: 600, offpeak: 0, boundary: false, price: 0.3, eur: 0.09, radiators_wh: 100, radiators_known: 1, radiators_total: 1, radiators_interp: false, radiators_apportioned: false, by_room: { salon: 100 } }
+    ],
+    totals: { curve_kwh: 21.6, daily_kwh: 22.03, hc_kwh: 8.98, hp_kwh: 13.05, split_method: 'curve', hc_kwh_curve: 8.8, hp_kwh_curve: 12.8 },
+    power: { peak_w: 6840, peak_ts: a + 3600 * 19, base_w_p10: 310, night_min_w: 280, kva: 12 },
+    available: ['2026-10-10', '2026-10-11', '2026-10-12'],
+    counted_from: '2025-11-01',
+    not_counted: null,
+    room: null,
     ...o
   };
 }
 
-/** The cells of one row of a chart's visually hidden data table. */
-function cells(container: HTMLElement, caption: string, row: string): string[] {
+/** One cell of a chart's visually hidden data table, by its row and column headers. */
+function cell(container: HTMLElement, caption: string, row: string, column: string): string {
   const table = [...container.querySelectorAll('.visually-hidden > table')].find((t) => t.querySelector('caption')?.textContent === caption)!;
+  const col = [...table.querySelectorAll('thead th')].findIndex((t) => t.textContent === column);
   const tr = [...table.querySelectorAll('tbody tr')].find((r) => r.querySelector('th')?.textContent === row)!;
-  return [...tr.querySelectorAll('td')].map((td) => td.textContent ?? '');
+  return tr.children[col]?.textContent ?? '';
 }
-
-const curveDay = (date: string): CurveDay => ({
-  date, points: [{ ts: 1_760_306_400, minutes: 30, wh: 400, offpeak: 1 }], kwh: 0.4, hc_kwh: 0.4, hp_kwh: 0,
-  complete: true, available: ['2026-10-10', '2026-10-11', '2026-10-12']
-});
 
 const linkyOk: LinkyStatus = {
   configured: true, prm: '12345678901234', token_set: true, simulator: false, state: 'ok', message: null,
@@ -63,8 +122,10 @@ const linkyOk: LinkyStatus = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  announcer.clear();
   vi.mocked(api.linkyStatus).mockResolvedValue(linkyOk);
-  vi.mocked(api.linkyCurve).mockImplementation(async (d: string) => curveDay(d));
+  vi.mocked(api.energyReport).mockResolvedValue(report());
+  vi.mocked(api.energyDay).mockImplementation(async (d: string) => energyDay(d));
   house.applySnapshot({
     house: {
       rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a'] }] as never,
@@ -75,112 +136,409 @@ beforeEach(() => {
 });
 
 describe('Énergie', () => {
-  it('shows this month’s estimate in euros and how it compares', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(report());
+  it('shows the period’s estimate in euros: parts that add up, the breakdown, a comparison on comparable days', async () => {
     const { container } = render(Page);
-    expect(await screen.findByRole('heading', { name: 'Octobre 2026' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' })).toBeInTheDocument();
+    expect(container.querySelector('.hero')).toHaveAttribute('aria-labelledby', 'period-label');
     expect(container.querySelector('.hero .big')).toHaveTextContent('98,40 €');
     expect(screen.getByText('estimation')).toBeInTheDocument();
-    expect(container.querySelector('.hero .sub')).toHaveTextContent('300 kWh · HC 120 kWh · HP 180 kWh · du 1/10 au 12/10');
-    expect(screen.getByText('+13 %')).toBeInTheDocument();
-    expect(screen.getByText(/par rapport à septembre 2026, mêmes jours/)).toBeInTheDocument();
-    expect(screen.getByText('Linky : données jusqu’au 12/10')).toBeInTheDocument();
-    expect(container.querySelector('.share')).toHaveTextContent('47 %');
-    expect(container.querySelector('.share-line')).toHaveTextContent(
-      '47 % de la consommation de la maison depuis le 1/10 vient des radiateurs.'
-    );
-    expect(container.querySelector('.proj')).toHaveTextContent(/1 234 €/);
-    // The projection row never shares a label with the hero.
-    expect(container.querySelector('.proj dt')).toHaveTextContent('Octobre 2026, mois complet');
-  });
-
-  it('keeps the hero date range in one piece, apart from the kWh figures', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(report());
-    const { container } = render(Page);
-    await screen.findByRole('heading', { name: 'Octobre 2026' });
+    expect(container.querySelector('.hero .sub .figs')).toHaveTextContent('412,6 kWh · HC 158,3 kWh · HP 254,3 kWh');
+    // A running month is described up to its last day with data.
     expect(container.querySelector('.hero .sub .range')!.textContent).toContain('du\u00a01/10\u00a0au\u00a012/10');
-    expect(container.querySelector('.hero .sub .figs')).toHaveTextContent('300 kWh · HC 120 kWh · HP 180 kWh');
+    expect(container.querySelector('.hero .breakdown')).toHaveTextContent('Énergie 92,11 € + abonnement 6,29 €');
+    expect(screen.getByText('−4 % de consommation par rapport à septembre 2026, sur 12 jours comparables')).toBeInTheDocument();
+    expect(screen.getByText('Linky : données jusqu’au 12/10')).toBeInTheDocument();
   });
 
-  it('loads the month view first, then switches period with the keyboard', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(report());
+  it('omits the comparison when too few days are comparable', async () => {
+    const r = report();
+    r.comparison.previous = { ...r.comparison.previous!, pairs: 9, comparable: false, change: null };
+    vi.mocked(api.energyReport).mockResolvedValue(r);
+    const { container } = render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    expect(container.querySelector('.hero .delta')).toBeNull();
+  });
+
+  it('the hero figure opens the period inspector', async () => {
+    const { container } = render(Page);
+    await fireEvent.click(await screen.findByRole('button', { name: /Détail de la période/ }));
+    const sheet = container.querySelector('.hero .inspector.sheet')!;
+    expect(sheet.querySelector('.title')).toHaveTextContent('Octobre 2026');
+    expect(sheet).toHaveTextContent('Maison 412,64 kWh');
+  });
+
+  it('the hero’s sheet docks at the hero’s end, under the figure’s lines; Esc inside closes it and focus returns to the figure', async () => {
+    const { container } = render(Page);
+    const fig = await screen.findByRole('button', { name: /Détail de la période/ });
+    await fireEvent.click(fig);
+    const hero = container.querySelector('.hero')!;
+    const sheet = hero.querySelector<HTMLElement>('.inspector.sheet')!;
+    expect(hero.lastElementChild).toBe(sheet);
+    expect(sheet.compareDocumentPosition(hero.querySelector('.sub')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    sheet.querySelector<HTMLElement>('a[href="#qualite"]')?.focus();
+    await fireEvent.keyDown(sheet, { key: 'Escape' });
+    await tick();
+    expect(hero.querySelector('.inspector')).toBeNull();
+    expect(fig).toHaveAttribute('aria-expanded', 'false');
+    expect(document.activeElement).toBe(fig);
+  });
+
+  it('desktop: Esc inside the hero’s pinned card closes it and focus returns to the figure', async () => {
+    desktop.matches = true;
+    try {
+      const { container } = render(Page);
+      const fig = await screen.findByRole('button', { name: /Détail de la période/ });
+      await fireEvent.click(fig);
+      const card = container.querySelector<HTMLElement>('.hero .inspector.card.pinned')!;
+      expect(card).not.toBeNull();
+      await fireEvent.keyDown(card, { key: 'Escape' });
+      await tick();
+      expect(container.querySelector('.hero .inspector')).toBeNull();
+      expect(document.activeElement).toBe(fig);
+    } finally {
+      desktop.matches = false;
+    }
+  });
+
+  it('loads Mois first (its day bars and the month itself), and switches views with the keyboard', async () => {
     render(Page);
-    await waitFor(() => expect(api.energyReport).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(api.energyReport).mock.calls[0][2]).toBe('month');
-    await fireEvent.keyDown(screen.getByRole('radio', { name: 'Mois' }), { key: 'ArrowRight' });
-    await waitFor(() => expect(vi.mocked(api.energyReport).mock.calls.at(-1)![2]).toBe('year'));
+    await waitFor(() => expect(api.energyReport).toHaveBeenCalledTimes(2));
+    const p = { from: '2026-10-01', to: '2026-11-01' };
+    expect(api.energyReport).toHaveBeenCalledWith('2026-10-01', '2026-11-01', 'day', p);
+    expect(api.energyReport).toHaveBeenCalledWith('2026-10-01', '2026-11-01', 'month', p);
+    await fireEvent.keyDown(screen.getByRole('radio', { name: 'Mois' }), { key: 'ArrowLeft' });
+    await waitFor(() => expect(vi.mocked(api.energyReport).mock.calls.at(-1)![2]).toBe('week'));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Semaine 42 · 12–18 oct. 2026' })).toBeInTheDocument();
   });
 
-  it('ignores a stale response that resolves after a newer one', async () => {
-    let late!: (v: EnergyReport) => void;
-    vi.mocked(api.energyReport)
-      .mockImplementationOnce(() => new Promise((r) => (late = r)))
-      .mockResolvedValueOnce(report({ group: 'year', buckets: [{ key: '2026', ...summary() }] }));
-    const { container } = render(Page);
-    await fireEvent.click(screen.getByRole('radio', { name: 'Année' }));
-    await waitFor(() => expect(container.querySelectorAll('.axis .cell')).toHaveLength(1));
-    late(report());
-    await new Promise((r) => setTimeout(r, 10));
-    expect(container.querySelectorAll('.axis .cell')).toHaveLength(1);
-    expect([...container.querySelectorAll('.axis .tick')].map((e) => e.textContent)).toEqual(['2026']);
+  it('the navigator steps back, offers « Dernier jour », and announces the period', async () => {
+    render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    expect(screen.getByRole('button', { name: 'Période suivante' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('button', { name: 'Dernier jour' })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Période précédente' }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Septembre 2026' })).toBeInTheDocument();
+    expect(announcer.polite).toBe('Septembre 2026');
+    expect(api.energyReport).toHaveBeenCalledWith('2026-09-01', '2026-10-01', 'day', { from: '2026-09-01', to: '2026-10-01' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Dernier jour' }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' })).toBeInTheDocument();
   });
 
-  it('stacks HC and HP in series 1 and 2, with radiators as series-3 marks', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(report());
+  it('a failed period change keeps the heading on the period shown, and names the one that failed', async () => {
     const { container } = render(Page);
-    await screen.findByRole('img', { name: 'Consommation de la maison par mois' });
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Période précédente' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Septembre 2026 : Impossible de charger la consommation.');
+    expect(screen.getByRole('heading', { level: 2, name: 'Octobre 2026' })).toBeInTheDocument();
+    expect(container.querySelector('.hero .big')).toHaveTextContent('98,40 €');
+    expect(container.querySelector('.panels')).not.toHaveClass('busy');
+    announcer.clear();
+    await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(announcer.polite).toBe('Septembre 2026'); // the period it asks for again is said
+    expect(await screen.findByRole('heading', { level: 2, name: 'Septembre 2026' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('every period change is announced once: a view, a bar drill, ‹ ›, « Dernier jour »', async () => {
+    const say = vi.spyOn(announcer, 'say');
+    render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    expect(say.mock.calls).toEqual([['Lundi 12 octobre 2026']]);
+    expect(await screen.findByRole('heading', { level: 2, name: 'Lundi 12 octobre 2026' })).toBeInTheDocument();
+    // Jour: a bar for another day opens that day.
+    await fireEvent.keyDown(await screen.findByRole('button', { name: /^11 octobre, / }), { key: 'Enter' });
+    expect(say.mock.calls.at(-1)).toEqual(['Dimanche 11 octobre 2026']);
+    await fireEvent.click(screen.getByRole('button', { name: 'Dernier jour' }));
+    expect(say.mock.calls.at(-1)).toEqual(['Lundi 12 octobre 2026']);
+    await fireEvent.click(screen.getByRole('button', { name: 'Période précédente' }));
+    expect(say.mock.calls.at(-1)).toEqual(['Dimanche 11 octobre 2026']);
+    expect(say).toHaveBeenCalledTimes(4);
+    say.mockRestore();
+  });
+
+  it('stacks HC and HP in series 1 and 2, radiators as series-3 marks; Enter on a day opens its Courbe', async () => {
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
     const fills = [...container.querySelectorAll('rect.part')].map((r) => r.getAttribute('style'));
-    expect(fills.some((f) => f?.includes('var(--series-1)'))).toBe(true);
-    expect(fills.some((f) => f?.includes('var(--series-2)'))).toBe(true);
+    expect(fills.filter((f) => f?.includes('var(--series-1)'))).toHaveLength(12);
+    expect(fills.filter((f) => f?.includes('var(--series-2)'))).toHaveLength(12);
     expect(container.querySelector('line.mark')!.getAttribute('style')).toContain('var(--series-3)');
-  });
-
-  it('room rows carry a share bar in the radiator colour, never a room swatch', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(report());
-    const { container } = render(Page);
-    await screen.findByRole('img', { name: 'Consommation de la maison par mois' });
-    expect(container.querySelector('ul.rooms .swatch')).toBeNull();
-    const bar = container.querySelector<HTMLElement>('ul.rooms .meter span')!;
-    expect(bar.getAttribute('style')).toContain('var(--series-3)');
-    expect(bar.style.transform).toBe('scaleX(1)');
+    const bar = screen.getByRole('button', { name: /^11 octobre, 10,00 kilowattheures, 3,00 euros$/ });
+    await fireEvent.keyDown(bar, { key: 'Enter' });
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-11', 'salon'));
+    expect(await screen.findByRole('heading', { name: 'Courbe du 11 octobre 2026' })).toBeInTheDocument();
+    expect(announcer.polite).toBe('Courbe du 11 octobre 2026');
   });
 
   it('without Linky: a way to connect it, and the radiators alone', async () => {
     vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, configured: false, state: 'off', last_day: null });
-    vi.mocked(api.energyReport).mockResolvedValue(
-      report({ linky: false, last_day: null, projection: null, heating_share: null,
-        hero: { current: { from: '2026-10-01', to: '2026-10-14', ...summary({ kwh: null, eur: null }) }, previous: { from: '2026-09-01', to: '2026-09-14', ...summary({ kwh: null, eur: null }) } } })
-    );
+    vi.mocked(api.energyReport).mockResolvedValue(report({ linky: false, last_day: null, projection: null, heating_share: null, ...periodWith({ kwh: null, eur: null }) }));
     render(Page);
     expect(await screen.findByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/maison#linky');
-    expect(await screen.findByRole('img', { name: 'Consommation des radiateurs par mois' })).toBeInTheDocument();
-    expect(api.linkyCurve).not.toHaveBeenCalled();
+    expect(await screen.findByRole('img', { name: 'Consommation des radiateurs par jour' })).toBeInTheDocument();
+    expect(api.energyDay).not.toHaveBeenCalled();
   });
 
-  it('opens the curve on the last Linky day and steps back', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(report());
-    render(Page);
-    await waitFor(() => expect(api.linkyCurve).toHaveBeenCalledWith('2026-10-12'));
+  it('the Courbe gives the daily-scaled HC/HP and the curve against the daily reading (M7)', async () => {
+    const { container } = render(Page);
     expect(await screen.findByRole('heading', { name: 'Courbe du 12 octobre 2026' })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
+    const notes = [...container.querySelectorAll('#courbe .note')].map((n) => n.textContent);
+    expect(notes).toContain('Courbe 21,60\u00a0kWh · relevé journalier 22,03\u00a0kWh (écart 2,0\u00a0%)');
+    expect(notes).toContain('HC 8,98\u00a0kWh · HP 13,05\u00a0kWh, d’après le relevé journalier');
     expect(screen.getByRole('button', { name: 'Jour suivant' })).toHaveAttribute('aria-disabled', 'true');
     await fireEvent.click(screen.getByRole('button', { name: 'Jour précédent' }));
-    await waitFor(() => expect(api.linkyCurve).toHaveBeenLastCalledWith('2026-10-11'));
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-11', 'salon'));
   });
 
-  it('says when data is partial or the split estimated', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(
-      report({ hero: { current: { from: '2026-10-01', to: '2026-10-13', ...summary({ missing_days: 2, estimated_split: true }) }, previous: { from: '2026-09-01', to: '2026-09-13', ...summary() } } })
+  it('the Courbe’s HC/HP add up to its daily reading and read as the bar inspector’s for that day (final review I-2)', async () => {
+    const r = report();
+    r.buckets = r.buckets.map((b) => (b.key === '2026-10-12' ? { ...b, kwh: 12.23, hc_kwh: 4.115, hp_kwh: 8.115 } : b));
+    vi.mocked(api.energyReport).mockResolvedValue(r);
+    vi.mocked(api.energyDay).mockImplementation(async (d: string) =>
+      energyDay(d, { totals: { curve_kwh: 12.2, daily_kwh: 12.23, hc_kwh: 4.115, hp_kwh: 8.115, split_method: 'curve', hc_kwh_curve: 4.1, hp_kwh_curve: 8.1 } })
+    );
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' });
+    const notes = [...container.querySelectorAll('#courbe .note')].map((n) => n.textContent);
+    const caption = 'Consommation de la maison par jour';
+    const row = bucketLabel('2026-10-12', 'day');
+    const hc = cell(container, caption, row, 'Heures creuses');
+    const hp = cell(container, caption, row, 'Heures pleines');
+    expect([hc, hp]).toEqual(['4,12\u00a0kWh', '8,11\u00a0kWh']);
+    expect(notes).toContain(`HC ${hc} · HP ${hp}, d’après le relevé journalier`);
+  });
+
+  it('the Courbe readout prices each half-hour from /api/energy/day: with a tariff, Prix and Coût are figures', async () => {
+    const { container } = render(Page);
+    const caption = 'Consommation par demi-heure le 12 octobre 2026';
+    await screen.findByRole('img', { name: caption });
+    expect(cell(container, caption, '00:00–00:30', 'Prix')).toBe('0,2000\u00a0€/kWh');
+    expect(cell(container, caption, '00:30–01:00', 'Coût')).toBe('0,090\u00a0€');
+    expect(cell(container, caption, '00:00–00:30', 'Radiateurs')).toBe('200\u00a0Wh');
+    expect(cell(container, caption, '00:00–00:30', 'Reste')).toBe('200\u00a0Wh');
+  });
+
+  it('explains an empty or incomplete curve', async () => {
+    vi.mocked(api.energyDay).mockImplementation(async (d: string) => energyDay(d, { complete: false, points: 41, available: [] }));
+    const { unmount } = render(Page);
+    expect(await screen.findByText('Courbe incomplète (41/48 demi-heures)')).toBeInTheDocument();
+    unmount();
+    vi.mocked(api.energyDay).mockImplementation(async (d: string) => energyDay(d, { complete: false, points: 0, intervals: [], available: [] }));
+    const r = report();
+    r.quality = { ...r.quality, curve_since: '2026-10-20' };
+    vi.mocked(api.energyReport).mockResolvedValue(r);
+    render(Page);
+    expect(await screen.findByText('Pas de courbe pour ce jour : antérieure à l’historique de courbe (depuis le 20 octobre 2026).')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
+  });
+
+  it('a day with no curve and no known cause still says why', async () => {
+    vi.mocked(api.energyDay).mockImplementation(async (d: string) => energyDay(d, { complete: false, points: 0, intervals: [], available: [] }));
+    render(Page);
+    expect(await screen.findByText('Pas de courbe pour ce jour : pas de données Linky pour ce jour.')).toBeInTheDocument();
+  });
+
+  it('a day before the first counted day says so, with no figure', async () => {
+    vi.mocked(api.energyDay).mockImplementation(async (d: string) =>
+      energyDay(d, {
+        complete: false, points: 0, intervals: [], available: [], counted_from: '2026-10-13', not_counted: 'before_first_day',
+        totals: { curve_kwh: null, daily_kwh: null, hc_kwh: null, hp_kwh: null, split_method: null, hc_kwh_curve: null, hp_kwh_curve: null },
+        power: { peak_w: null, peak_ts: null, base_w_p10: null, night_min_w: null, kva: null }
+      })
     );
     render(Page);
-    expect(await screen.findByText('Données partielles : 2 jours manquants.')).toBeInTheDocument();
-    expect(screen.getByText('Répartition heures creuses / pleines estimée pour les jours sans courbe.')).toBeInTheDocument();
+    expect(await screen.findByText('Pas de courbe pour ce jour : antérieure au premier jour compté (depuis le 13 octobre 2026).')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
   });
 
-  it('keeps the meter table phone-sized: tariff columns are optional', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(report());
+  it('radiators read « — » with a reason, never 0: today counts once it is over, a past day without a reading says so', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-14T10:00:00Z'));
+    today.check(); // the page's today reads the faked clock
+    try {
+      const { container } = render(Page);
+      const caption = 'Consommation de la maison par jour';
+      await screen.findByRole('img', { name: caption });
+      expect(cell(container, caption, '12/10', 'Radiateurs')).toBe('5,00\u00a0kWh');
+      expect(cell(container, caption, '13/10', 'Radiateurs')).toBe('— (aucun relevé de radiateur)');
+      expect(cell(container, caption, '14/10', 'Radiateurs')).toBe('— (jour en cours, compté une fois terminé)');
+      expect(cell(container, caption, '15/10', 'Radiateurs')).toBe('—'); // still to come: nothing to explain
+    } finally {
+      vi.useRealTimers();
+      today.check();
+    }
+  });
+
+  it('at midnight the page follows the new day without a reload: today’s bar says so, and the period is asked again', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-12T23:59:30+02:00'));
+    today.check();
+    try {
+      const { container } = render(Page);
+      const caption = 'Consommation de la maison par jour';
+      await screen.findByRole('img', { name: caption });
+      expect(cell(container, caption, '13/10', 'Radiateurs')).toBe('—'); // tomorrow: nothing to explain yet
+      expect(api.energyReport).toHaveBeenCalledTimes(2);
+      vi.setSystemTime(new Date('2026-10-13T00:00:30+02:00'));
+      today.check(); // what the midnight timer runs (Today's own test covers the timer)
+      await waitFor(() => expect(api.energyReport).toHaveBeenCalledTimes(4));
+      await waitFor(() => expect(cell(container, caption, '13/10', 'Radiateurs')).toBe('— (jour en cours, compté une fois terminé)'));
+    } finally {
+      vi.useRealTimers();
+      today.check();
+    }
+  });
+
+  it('an interior gap reads « — » and draws a baseline tick, unlike a zero', async () => {
+    const days = october();
+    days[5] = { ...days[5], ...NONE, missing_days: 1 };
+    vi.mocked(api.energyReport).mockResolvedValue(report({ buckets: days }));
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
+    expect(cell(container, 'Consommation de la maison par jour', '6/10', 'Heures creuses')).toBe('—');
+    expect(container.querySelectorAll('line.gap')).toHaveLength(1);
+  });
+
+  it('a failed curve says so, and Réessayer reads it again', async () => {
+    vi.mocked(api.energyDay).mockRejectedValueOnce(new Error('boom'));
+    render(Page);
+    expect(await screen.findByText('Impossible de charger la courbe.')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
+  });
+
+  it('says when data is partial, the split estimated, radiators interpolated or prices retroactive', async () => {
+    const r = report(
+      periodWith({
+        kwh: 300, missing_days: 2, estimated_split: true, retro_priced: true,
+        prices: [{ valid_from: '2026-10-05', subscription_eur_month: 15, rates: { hc: 0.2, hp: 0.3 } }],
+        radiators: { kwh: 140, hc_kwh: 60, hp_kwh: 80, eur: 35, interpolated: true, apportioned: true, coverage: 1 }
+      })
+    );
+    r.quality = { ...r.quality, estimated_days: 5 };
+    r.period.quality = { ...r.period.quality, estimated_days: 3 };
+    vi.mocked(api.energyReport).mockResolvedValue(r);
+    render(Page);
+    expect(await screen.findByText('Données partielles : 2 jours manquants. L’énergie de ces jours n’est pas comptée dans le coût.')).toBeInTheDocument();
+    expect(screen.getByText('Répartition heures creuses / pleines estimée pour 3 jours sans courbe complète.')).toBeInTheDocument();
+    expect(screen.getByText('Radiateurs : énergie répartie sur une interruption de l’enregistrement (est.).')).toBeInTheDocument();
+    expect(screen.getByText('Prix du 5/10 appliqué aux jours antérieurs.')).toBeInTheDocument();
+  });
+
+  it('Jour: the hero and Qualité describe the selected day, not the 7 days of bars (final review I-1)', async () => {
+    const r = report(periodWith({ estimated_split: true, split_method: 'fallback_window', days: 1, present_days: 1 }));
+    r.quality = { ...r.quality, estimated_days: 4, fallback_method: 'fallback_window', fallback_share: 0.4, retro_priced_days: 3 };
+    r.period.quality = { ...r.period.quality, estimated_days: 1, fallback_method: 'fallback_window', fallback_share: 0.4 };
+    vi.mocked(api.energyReport).mockResolvedValue(r);
+    const { container } = render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    expect(await screen.findByText('Répartition heures creuses / pleines estimée pour 1 jour sans courbe complète.')).toBeInTheDocument();
+    expect(screen.queryByText(/estimée pour 4 jours/)).toBeNull();
+    const q = container.querySelector('#qualite')!;
+    expect(q).toHaveTextContent('Jours HC/HP estimés : 1 (');
+    expect(q).not.toHaveTextContent('Prix du premier tarif');
+    // The strip has the selected day's cell only.
+    expect(q.querySelectorAll('.strip .row')[0].querySelectorAll('.cell')).toHaveLength(1);
+    expect(q.querySelectorAll('tbody tr')).toHaveLength(1);
+  });
+
+  it('without Linky, a partial radiator sum says « jusqu’à hier » only for a running period (final review minor 3)', async () => {
+    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, configured: false, state: 'off', last_day: null });
+    const rad = { kwh: 140, hc_kwh: 60, hp_kwh: 80, eur: 35, interpolated: false, apportioned: false, coverage: 0.5 };
+    const closed = { period: { from: '2026-09-01', to: '2026-10-01', ...summary({ ...NONE, radiators: rad }), quality: QUALITY } };
+    vi.mocked(api.energyReport).mockResolvedValue(report({ linky: false, last_day: null, projection: null, ...closed }));
+    const { unmount } = render(Page);
+    expect(await screen.findByText('Radiateurs : couverture 50,0 %, somme partielle.')).toBeInTheDocument();
+    unmount();
+    const running = { period: { from: '2026-10-01', to: '2099-11-01', ...summary({ ...NONE, radiators: rad }), quality: QUALITY } };
+    vi.mocked(api.energyReport).mockResolvedValue(report({ linky: false, last_day: null, projection: null, ...running }));
+    render(Page);
+    expect(await screen.findByText('Radiateurs : couverture 50,0 %, somme partielle (jusqu’à hier).')).toBeInTheDocument();
+  });
+
+  it('never invents euros for a period with no Linky day: shows the missing-data state', async () => {
+    vi.mocked(api.energyReport).mockResolvedValue(report(periodWith({ ...NONE, subscription_eur: 15, missing_days: 13 })));
+    const { container } = render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    expect(container.querySelector('.hero .big')).toHaveTextContent('—');
+    expect(container.querySelector('.hero .big')).not.toHaveTextContent('15');
+    expect(screen.queryByText('estimation')).toBeNull();
+    expect(screen.getByText('Aucune donnée pour cette période.')).toBeInTheDocument();
+  });
+
+  it('first load shows the navigator and panel skeletons, then everything at once', async () => {
+    let resolve!: (r: EnergyReport) => void;
+    vi.mocked(api.energyReport).mockReturnValue(new Promise((r) => (resolve = r)));
+    const { container } = render(Page);
+    expect(container.querySelectorAll('.panel-sk')).toHaveLength(4);
+    expect(screen.queryByText('Chargement…')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Compteurs des radiateurs' })).toBeNull();
+    resolve(report());
+    expect(await screen.findByRole('heading', { name: 'Compteurs des radiateurs' })).toBeInTheDocument();
+    expect(container.querySelectorAll('.panel-sk, .nav-sk')).toHaveLength(0);
+  });
+
+  it('switching period keeps the previous report on screen, busy, until the new one arrives', async () => {
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
+    vi.mocked(api.energyReport).mockReturnValue(new Promise(() => {}));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Année' }));
+    expect(container.querySelector('.panels')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('img', { name: 'Consommation de la maison par jour' })).toBeInTheDocument();
+  });
+
+  it('shows the backend’s French detail when the report fails, else a generic message; Réessayer fetches again', async () => {
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new ApiError(422, 'Période invalide.'));
+    render(Page);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Période invalide.');
+    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Impossible de charger la consommation.'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(await screen.findByRole('img', { name: 'Consommation de la maison par jour' })).toBeInTheDocument();
+  });
+
+  it('Linky quota is a neutral progress note, with nothing to fix in the settings', async () => {
+    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'quota', message: 'Quota Linky du jour atteint : reprise demain.' });
+    const { container } = render(Page);
+    expect(await screen.findByText(/Historique en cours de récupération : la suite arrive demain\./)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Réglages' })).toBeNull();
+    expect(container.querySelector('.callout.bad')).toBeNull();
+  });
+
+  it('Linky throttled is neutral and gives the retry time', async () => {
+    const retry = Date.UTC(2026, 9, 14, 12, 30) / 1000;
+    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'throttled', retry_at: retry, message: null });
+    const { container } = render(Page);
+    expect(await screen.findByText(new RegExp(`nouvel essai à ${fmtTime(retry * 1000)}`))).toBeInTheDocument();
+    expect(container.querySelector('.callout.bad')).toBeNull();
+  });
+
+  it('Linky auth is an error with a way to renew the token', async () => {
+    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'auth', message: null });
+    const { container } = render(Page);
+    expect(await screen.findByRole('link', { name: 'Renouveler le jeton' })).toHaveAttribute('href', '/maison#linky');
+    expect(container.querySelector('.callout.bad')).toHaveTextContent('MyElectricalData refuse le jeton Linky.');
+  });
+
+  it('a failed Linky status is not hidden, and the page still loads', async () => {
+    vi.mocked(api.linkyStatus).mockRejectedValue(new Error('boom'));
+    const { container } = render(Page);
+    expect(await screen.findByText(/État du Linky indisponible\./)).toBeInTheDocument();
+    expect(container.querySelector('.callout.bad a')).toHaveAttribute('href', '/maison#linky');
+    expect(api.energyReport).toHaveBeenCalled(); // from yesterday's period, without a Linky day to anchor it
+  });
+
+  it('meter cells are bare figures under « Registre » headers (T1/T2 are not HC/HP)', async () => {
     const { container } = render(Page);
     await screen.findByRole('columnheader', { name: 'Depuis l’installation (kWh)' });
-    expect([...container.querySelectorAll('th.opt')].map((t) => t.textContent)).toEqual(['Tarif 1 (kWh)', 'Tarif 2 (kWh)']);
+    expect([...container.querySelectorAll('th.opt')].map((t) => t.textContent)).toEqual(['Registre 1 (kWh)', 'Registre 2 (kWh)']);
+    expect([...container.querySelectorAll('.table-wrap td.mono')].map((t) => t.textContent)).toEqual(['1,0', '0,4', '0,6']);
   });
 
   it('an absent meter register reads « — », never 0 kWh', async () => {
@@ -191,249 +549,109 @@ describe('Énergie', () => {
       },
       pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
     });
-    vi.mocked(api.energyReport).mockResolvedValue(report());
     const { container } = render(Page);
     await screen.findByRole('columnheader', { name: 'Depuis l’installation (kWh)' });
     expect([...container.querySelectorAll('td.opt')].map((t) => t.textContent)).toEqual(['—', '0,6']);
   });
 
-  it('renders this home’s real shape: young history, no projection, no heating share', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(
-      report({
-        buckets: [
-          { key: '2026-07', ...summary({ kwh: null, hc_kwh: null, hp_kwh: null, radiators_kwh: 0, energy_eur: null, subscription_eur: null, eur: null }) },
-          { key: '2026-08', ...summary() }
-        ],
-        projection: null,
-        heating_share: null,
-        heating_share_since: null,
-        linky_since: '2026-08-05'
-      })
-    );
-    const { container } = render(Page);
-    expect(await screen.findByRole('img', { name: 'Consommation de la maison par mois' })).toBeInTheDocument();
-    expect(container.querySelector('.hero .big')).toHaveTextContent('98,40 €');
-    expect(container.querySelector('.proj')).toBeNull();
-    expect(container.querySelector('.share')).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'Projection' })).toBeNull();
-    // Months before the first Linky day are trimmed: the chart starts at the first data month.
-    expect(container.querySelectorAll('rect.part')).toHaveLength(2);
-    expect([...container.querySelectorAll('.axis .tick')].map((e) => e.textContent)).toEqual(['08/26']);
-    expect(screen.getByText('Historique Linky depuis le 5 août 2026.')).toBeInTheDocument();
-  });
-
-  it('an interior gap reads « — » and draws a baseline tick, unlike a zero', async () => {
-    const none = summary({ kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, eur: null, missing_days: 30 });
-    vi.mocked(api.energyReport).mockResolvedValue(
-      report({
-        buckets: [{ key: '2026-08', ...summary() }, { key: '2026-09', ...none }, { key: '2026-10', ...summary() }],
-        linky_since: '2026-08-01'
-      })
-    );
-    const { container } = render(Page);
-    await screen.findByRole('img', { name: 'Consommation de la maison par mois' });
-    expect(cells(container, 'Consommation de la maison par mois', '09/26').slice(0, 2)).toEqual(['—', '—']);
-    expect(container.querySelectorAll('line.gap')).toHaveLength(1);
-    expect(screen.queryByText(/^Historique Linky depuis/)).toBeNull(); // nothing was trimmed
-  });
-
-  it('day view: today and yesterday (not yet published by Linky) read « — »', async () => {
-    const none = summary({ kwh: null, hc_kwh: null, hp_kwh: null, radiators_kwh: 3, energy_eur: null, subscription_eur: null, eur: null });
-    vi.mocked(api.energyReport).mockImplementation(async (_f, _t, group) =>
-      group === 'day'
-        ? report({
-            group: 'day',
-            buckets: [{ key: '2026-10-12', ...summary({ kwh: 10, hc_kwh: 4, hp_kwh: 6 }) }, { key: '2026-10-13', ...none }, { key: '2026-10-14', ...none }]
-          })
-        : report()
-    );
-    const { container } = render(Page);
-    await fireEvent.click(await screen.findByRole('radio', { name: 'Jour' }));
-    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
-    expect(cells(container, 'Consommation de la maison par jour', '13/10').slice(0, 2)).toEqual(['—', '—']);
-    expect(cells(container, 'Consommation de la maison par jour', '14/10').slice(0, 2)).toEqual(['—', '—']);
-    expect(cells(container, 'Consommation de la maison par jour', '12/10')[0]).toBe('4,0\u00a0kWh');
-  });
-
-  it('shows the backend’s French detail when the report fails, else a generic message', async () => {
-    vi.mocked(api.energyReport).mockRejectedValueOnce(new ApiError(422, 'Période invalide.'));
-    render(Page);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Période invalide.');
-    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('boom'));
-    await fireEvent.click(screen.getByRole('radio', { name: 'Année' }));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Impossible de charger la consommation.'));
-  });
-
-  it('a failed curve says so, keeps the day list, and never shows another day’s bars under the heading', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(report());
-    let pending!: (c: CurveDay) => void;
-    vi.mocked(api.linkyCurve)
-      .mockImplementationOnce(async (d: string) => curveDay(d))
-      .mockImplementationOnce(() => new Promise((r) => (pending = r)))
-      .mockRejectedValueOnce(new Error('boom'))
-      .mockRejectedValueOnce(new ApiError(422, 'Période invalide.'));
-    render(Page);
-    expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
-    // 11 Oct loading: the heading moved, the 12 Oct chart is gone.
-    await fireEvent.click(screen.getByRole('button', { name: 'Jour précédent' }));
-    expect(await screen.findByRole('heading', { name: 'Courbe du 11 octobre 2026' })).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
-    pending(curveDay('2026-10-11'));
-    expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 11 octobre 2026' })).toBeInTheDocument();
-    // 10 Oct fails: a message, no chart, and next still works from the remembered list.
-    await fireEvent.click(screen.getByRole('button', { name: 'Jour précédent' }));
-    expect(await screen.findByText('Impossible de charger la courbe.')).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Jour précédent' })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('button', { name: 'Jour suivant' })).toBeEnabled();
-    await fireEvent.click(screen.getByRole('button', { name: 'Jour suivant' }));
-    await waitFor(() => expect(api.linkyCurve).toHaveBeenLastCalledWith('2026-10-11'));
-    expect(await screen.findByText('Période invalide.')).toBeInTheDocument();
-  });
-
-  it('Linky quota is a neutral progress note, with nothing to fix in the settings', async () => {
-    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'quota', message: 'Quota Linky du jour atteint : reprise demain.' });
-    vi.mocked(api.energyReport).mockResolvedValue(report());
-    const { container } = render(Page);
-    expect(await screen.findByText(/Historique en cours de récupération : la suite arrive demain\./)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Réglages' })).toBeNull();
-    expect(container.querySelector('.callout.bad')).toBeNull();
-  });
-
-  it('Linky throttled is neutral and gives the retry time', async () => {
-    const retry = Date.UTC(2026, 9, 14, 12, 30) / 1000;
-    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'throttled', retry_at: retry, message: null });
-    vi.mocked(api.energyReport).mockResolvedValue(report());
-    const { container } = render(Page);
-    const at = fmtTime(retry * 1000);
-    expect(await screen.findByText(new RegExp(`nouvel essai à ${at}`))).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Réglages' })).toBeNull();
-    expect(container.querySelector('.callout.bad')).toBeNull();
-  });
-
-  it('Linky auth is an error with a way to renew the token', async () => {
-    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'auth', message: null });
-    vi.mocked(api.energyReport).mockResolvedValue(report());
-    const { container } = render(Page);
-    expect(await screen.findByRole('link', { name: 'Renouveler le jeton' })).toHaveAttribute('href', '/maison#linky');
-    expect(container.querySelector('.callout.bad')).toHaveTextContent('MyElectricalData refuse le jeton Linky.');
-  });
-
-  it('a failed Linky status is not hidden', async () => {
-    vi.mocked(api.linkyStatus).mockRejectedValue(new Error('boom'));
-    vi.mocked(api.energyReport).mockResolvedValue(report());
-    const { container } = render(Page);
-    expect(await screen.findByText(/État du Linky indisponible\./)).toBeInTheDocument();
-    expect(container.querySelector('.callout.bad a')).toHaveAttribute('href', '/maison#linky');
-  });
-
-  it('radiators outside any room count under « Sans pièce »', async () => {
-    house.applySnapshot({
-      house: {
-        rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a'] }] as never,
-        radiators: [
-          { id: 'a', room_id: 'salon', energy_wh: null, model: 'HEKLA', name: 'R' },
-          { id: 'b', room_id: null, energy_wh: null, model: 'IPALA', name: 'S' }
-        ] as never
-      },
-      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
-    });
-    vi.mocked(api.energyReport).mockResolvedValue(report({ radiators: [{ radiator_id: 'a', kwh: 140 }, { radiator_id: 'b', kwh: 60 }] }));
-    const { container } = render(Page);
-    await screen.findByRole('img', { name: 'Consommation de la maison par mois' });
-    const rows = [...container.querySelectorAll('ul.rooms li')];
-    expect(rows.map((li) => li.querySelector('.name')?.textContent)).toEqual(['Salon', 'Sans pièce']);
-    expect(rows[0]).toHaveTextContent('70 %');
-    expect(rows[1]).toHaveTextContent('60,0 kWh · 30 %');
-  });
-
-  it('radiator figures Kelvin never recorded read « — », never 0 kWh', async () => {
-    house.applySnapshot({
-      house: {
-        rooms: [
-          { id: 'salon', name: 'Salon', radiator_ids: ['a'] },
-          { id: 'ch', name: 'Chambre', radiator_ids: ['c'] }
-        ] as never,
-        radiators: [
-          { id: 'a', room_id: 'salon', energy_wh: null, model: 'HEKLA', name: 'R' },
-          { id: 'c', room_id: 'ch', energy_wh: null, model: 'IPALA', name: 'C' }
-        ] as never
-      },
-      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
-    });
-    vi.mocked(api.energyReport).mockResolvedValue(
-      report({ buckets: [{ key: '2026-09', ...summary({ radiators_kwh: null }) }, { key: '2026-10', ...summary() }] })
-    );
-    const { container } = render(Page);
-    await screen.findByRole('img', { name: 'Consommation de la maison par mois' });
-    expect(cells(container, 'Consommation de la maison par mois', '09/26')[2]).toBe('—');
-    const rows = [...container.querySelectorAll('ul.rooms li')];
-    expect(rows[0]).toHaveTextContent('140 kWh · 100 %');
-    expect(rows[1].querySelector('.num')?.textContent).toBe('—');
-  });
-
-  it('never invents euros for a period with no Linky day: shows the missing-data state', async () => {
-    const empty = summary({ kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, subscription_eur: 15, eur: null, missing_days: 13 });
-    vi.mocked(api.energyReport).mockResolvedValue(
-      report({ hero: { current: { from: '2026-10-01', to: '2026-10-14', ...empty }, previous: { from: '2026-09-01', to: '2026-09-14', ...summary() } } })
-    );
-    const { container } = render(Page);
-    await screen.findByRole('heading', { name: 'Octobre 2026' });
-    expect(container.querySelector('.hero .big')).toHaveTextContent('—');
-    expect(container.querySelector('.hero .big')).not.toHaveTextContent('15');
-    expect(screen.queryByText('estimation')).toBeNull();
-    expect(screen.getByText('Données manquantes pour cette période.')).toBeInTheDocument();
-  });
-
-  it('first load shows panel skeletons, then everything at once', async () => {
-    let resolve!: (r: EnergyReport) => void;
-    vi.mocked(api.energyReport).mockReturnValue(new Promise((r) => (resolve = r)));
-    const { container } = render(Page);
-    expect(container.querySelectorAll('.skeleton').length).toBe(4);
-    expect(screen.queryByText('Chargement…')).toBeNull();
-    // The counters wait for the rest, so nothing on screen moves when the report arrives.
-    expect(screen.queryByRole('heading', { name: 'Compteurs des radiateurs' })).toBeNull();
-    resolve(report());
-    expect(await screen.findByRole('heading', { name: 'Compteurs des radiateurs' })).toBeInTheDocument();
-    expect(container.querySelectorAll('.skeleton')).toHaveLength(0);
-  });
-
-  it('switching period keeps the previous report on screen, busy, until the new one arrives', async () => {
-    vi.mocked(api.energyReport).mockResolvedValueOnce(report());
-    const { container } = render(Page);
-    await screen.findByRole('img', { name: 'Consommation de la maison par mois' });
-    vi.mocked(api.energyReport).mockReturnValueOnce(new Promise(() => {}));
-    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
-    expect(container.querySelector('.panels')).toHaveAttribute('aria-busy', 'true');
-    expect(screen.getByRole('img', { name: 'Consommation de la maison par mois' })).toBeInTheDocument();
-  });
-
-  it('a failed report offers Réessayer, which fetches again', async () => {
-    vi.mocked(api.energyReport).mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(report());
-    render(Page);
-    const retry = await screen.findByRole('button', { name: 'Réessayer' });
-    await fireEvent.click(retry);
-    expect(await screen.findByRole('img', { name: 'Consommation de la maison par mois' })).toBeInTheDocument();
-    expect(api.energyReport).toHaveBeenCalledTimes(2);
-  });
-
-  it('meter cells are bare figures under a unit header', async () => {
-    vi.mocked(api.energyReport).mockResolvedValue(report());
-    const { container } = render(Page);
-    await screen.findByRole('heading', { name: 'Compteurs des radiateurs' });
-    const cells = [...container.querySelectorAll('td.mono')].map((t) => t.textContent);
-    expect(cells).toEqual(['1,0', '0,4', '0,6']);
-  });
-
   it('shows the report as soon as it arrives, even before the live stream; house parts wait in their own slots', async () => {
     house.reset();
-    vi.mocked(api.energyReport).mockResolvedValue(report());
     const { container } = render(Page);
-    expect(await screen.findByRole('img', { name: 'Consommation de la maison par mois' })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: 'Consommation de la maison par jour' })).toBeInTheDocument();
     expect(container.querySelector('.hero .big')).toHaveTextContent('€');
-    // Par pièce and the counters need the rooms and radiators: they hold a skeleton meanwhile.
-    expect(screen.getByRole('heading', { name: 'Par pièce' }).closest('section')).toHaveAttribute('aria-busy', 'true');
     expect(screen.getByRole('heading', { name: 'Compteurs des radiateurs' }).closest('section')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('heading', { name: 'Par pièce et par radiateur' }).closest('section')).toHaveAttribute('aria-busy', 'true');
     expect(container.querySelector('.table-wrap')).toBeNull();
+  });
+
+  it('Mois shows Heures creuses / pleines and Chauffage; Jour and Semaine add Puissance', async () => {
+    vi.mocked(api.energyReport).mockResolvedValue(report({ hc_lens: { hc_share: 0.384, slot_share: 0.3333, avg_price: 0.2437, delta_price: 0.0632 } }));
+    render(Page);
+    expect(await screen.findByRole('heading', { name: 'Heures creuses / pleines' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Chauffage' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Puissance' })).toBeNull();
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    expect(await screen.findByRole('heading', { name: 'Puissance' })).toBeInTheDocument();
+  });
+  it('Jour shows Température et chauffe under the Courbe for a room, and another room re-reads the day', async () => {
+    house.applySnapshot({
+      house: {
+        rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a'] }, { id: 'chambre', name: 'Chambre', radiator_ids: ['b'] }] as never,
+        radiators: [{ id: 'a', room_id: 'salon', energy_wh: null, model: 'HEKLA', name: 'R' }] as never
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
+    });
+    vi.mocked(api.energyDay).mockImplementation(async (d: string, room?: string | null) =>
+      energyDay(d, { room: room ? { id: room, name: room === 'salon' ? 'Salon' : 'Chambre', samples: [], overrides: [] } : null })
+    );
+    const { container } = render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    // Mois: the Courbe, but one day at a time is Jour's and Semaine's.
+    expect(screen.queryByRole('heading', { name: 'Température et chauffe' })).toBeNull();
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    const h = await screen.findByRole('heading', { name: 'Température et chauffe' });
+    // Full width, straight under the Courbe whose scrubber it shares.
+    const panel = h.closest('section')!;
+    expect(panel).toHaveClass('wide');
+    expect(panel.previousElementSibling).toHaveAttribute('id', 'courbe');
+    // The first room in the Pièces order.
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'salon'));
+    // The half-hour scrubbed on one chart is the other's.
+    await fireEvent.keyDown(await screen.findByRole('slider', { name: 'Parcourir la journée de la pièce, demi-heure par demi-heure' }), { key: 'ArrowRight' });
+    expect(container.querySelector('#courbe .readout .when')).toHaveTextContent('00:00–00:30');
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Pièce' }), { target: { value: 'chambre' } });
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'chambre'));
+    // Chambre's radiator has no figure that day: said, never a flat zero.
+    expect(await screen.findByText('Pas de relevé pour cette pièce ce jour-là.')).toBeInTheDocument();
+  });
+  it('Comparaisons and Projection share a row in every view; the Projection is an estimate that says how', async () => {
+    const { container } = render(Page);
+    for (const view of ['Mois', 'Jour', 'Semaine', 'Année']) {
+      if (view !== 'Mois') await fireEvent.click(screen.getByRole('radio', { name: view }));
+      const cmp = (await screen.findByRole('heading', { name: 'Comparaisons' })).closest('section')!;
+      const proj = screen.getByRole('heading', { name: 'Projection' }).closest('section')!;
+      expect(cmp).toHaveClass('half');
+      expect(proj).toHaveClass('half');
+      expect(cmp.nextElementSibling).toBe(proj);
+    }
+    expect(screen.getByText('Comment c’est calculé')).toBeInTheDocument();
+    expect(container.textContent).not.toContain('12 prochains mois');
+  });
+  it('the default room is the first, in the Pièces order, that has a radiator', async () => {
+    house.applySnapshot({
+      house: {
+        rooms: [{ id: 'hall', name: 'Entrée', radiator_ids: [] }, { id: 'salon', name: 'Salon', radiator_ids: ['a'] }] as never,
+        radiators: [{ id: 'a', room_id: 'salon', energy_wh: null, model: 'HEKLA', name: 'R' }] as never
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
+    });
+    render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith(expect.any(String), 'salon'));
+    expect(api.energyDay).not.toHaveBeenCalledWith(expect.any(String), 'hall');
+  });
+
+  it('the Projection says it is late when Linky is', async () => {
+    vi.mocked(api.energyReport).mockResolvedValue(report({ projection: null, last_day: '2026-10-01' }));
+    render(Page);
+    expect(await screen.findByText(/^Relevés Linky en retard \(dernier jour le 1 octobre 2026\)/)).toBeInTheDocument();
+  });
+
+  it('Qualité des données is collapsed under the panels, and Exporter, the last panel, exports the period shown', async () => {
+    const { container } = render(Page);
+    const quality = (await screen.findByRole('heading', { name: 'Qualité des données' })).closest('section')!;
+    expect(quality).toHaveAttribute('id', 'qualite');
+    expect(within(quality).getByRole('button', { name: 'Qualité des données' })).toHaveAttribute('aria-expanded', 'false');
+    const exporter = screen.getByRole('heading', { name: 'Exporter' }).closest('section')!;
+    expect([...container.querySelectorAll('.panels > *')].at(-1)).toBe(exporter);
+    await fireEvent.click(screen.getByRole('button', { name: 'Exporter la période (CSV)' }));
+    const file = vi.mocked(download).mock.calls[0][0];
+    expect(file.name).toBe('energie_2026-10-01_2026-11-01_day.csv');
+    const rows = file.text.slice(1).split('\r\n');
+    expect(rows).toHaveLength(31 + 2 + 1); // header, 31 days, total, the final CRLF
+    // The total row is the hero's period: 412,6 kWh, 98,40 €.
+    expect(rows[32].split(';').slice(0, 4).join(';')).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;412,640');
+    expect(rows[32].split(';')[12]).toBe('98,40');
+    expect(await screen.findByRole('button', { name: /^Exporter la courbe du / })).toBeInTheDocument();
   });
 });

@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from kelvin.billing.compare import minus_years
 from kelvin.billing.costs import curve_complete, day_energy
 from kelvin.billing.day_detail import day_detail
-from kelvin.billing.radiators import RadiatorDay, radiator_days
+from kelvin.billing.radiators import RadiatorDay
 from kelvin.billing.report import (
     Group,
     ReportInputs,
@@ -28,6 +28,7 @@ from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
 from kelvin.billing.split import FallbackShares, Share
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds, local_day
+from kelvin.linky.radiator_cache import RadiatorDayCache
 from kelvin.linky.store import LinkyStore
 from kelvin.linky.sync import DAILY_BACKFILL_DAYS, DAILY_BUDGET, BudgetExceeded, LinkySync
 from kelvin.recorder.db import Database
@@ -37,6 +38,21 @@ from kelvin.recorder.recorder import Recorder
 log = logging.getLogger(__name__)
 
 SourceFactory = Callable[[str, str], LinkySource]
+
+
+def radiator_ranges(
+    window: tuple[date, date], period: tuple[date, date]
+) -> list[tuple[date, date]]:
+    """The days whose radiator half-hours a report loads: the window and the period, each from
+    1 January of its first year (the radiators' € are running sums anchored there, so a bucket
+    reads the same in any window), one range when they overlap or touch, else each on its own
+    (the years between two far ranges are never bucketed). At most 365 days more per range."""
+    ranges = sorted((date(a.year, 1, 1), b) for a, b in (window, period))
+    if ranges[1][0] <= ranges[0][1]:
+        return [(ranges[0][0], max(ranges[0][1], ranges[1][1]))]
+    return ranges
+
+
 LOOKBACK_DAYS = 400  # last year's period, the 30 trailing days and the ±15-day HC share
 AVG4_YEARS = 4  # the comparison with the mean of the four previous periods, by year
 # Simulator only: demo values so Énergie shows euros out of the box. Never a real installation.
@@ -66,6 +82,7 @@ class LinkyService:
         self.prm = credentials[0] if credentials else None
         source = make_source(*credentials) if credentials else None
         self.sync = LinkySync(self.store, db, source, tz=tz, wall=wall, budget=budget)
+        self.radiator_days = RadiatorDayCache(self.tz)
         if credentials:
             self.sync.use_token(credentials[1])
 
@@ -203,21 +220,20 @@ class LinkyService:
         # touch, else each on its own, so the years between two far ranges are never bucketed
         # (each range is bounded, their union is not). A day's figure does not depend on the
         # range asked (window-consistent buckets), so the merge is exact.
-        ranges = sorted([(start, end), period])
-        if ranges[1][0] <= ranges[0][1]:
-            ranges = [(ranges[0][0], max(ranges[0][1], ranges[1][1]))]
-        ids = recorder.energy_radiator_ids()
-        radiators: dict[str, dict[date, RadiatorDay]] = {}
-        for lo, hi in ranges:
-            edges = local_edges(lo, hi, "halfhour", self.tz)
-            for rid, row in recorder.energy_buckets(edges, ids).items():
-                radiators.setdefault(rid, {}).update(radiator_days(row, edges, tariff, self.tz))
+        # The complete radiator-days come from the cache (they can no longer change), so only the
+        # days since each counter last moved are replayed (final review I-4).
+        ranges = radiator_ranges((start, end), period)
+        extent = recorder.energy_extent()
+        radiators: dict[str, dict[date, RadiatorDay]] = self.radiator_days.days(
+            recorder, ranges, tariff, {rid: a for rid, (a, _) in extent.items()}
+        )
         life = {
             rid: (local_day(a, self.tz), None if rid in rooms else local_day(b, self.tz))
-            for rid, (a, b) in recorder.energy_extent().items()
+            for rid, (a, b) in extent.items()
         }
-        # Room stats over the elapsed part of the period: its future has no samples yet.
-        stats_end = min(day_bounds(period[1], self.tz)[0], int(self.wall()))
+        # Room stats over the period's elapsed days, up to the end of yesterday: the same days
+        # as the radiator kWh and € beside them (never today, which is still running).
+        stats_end = min(day_bounds(period[1], self.tz)[0], day_bounds(today, self.tz)[0])
         stats = recorder.sample_stats(
             sorted(radiators), day_bounds(period[0], self.tz)[0], stats_end
         )

@@ -58,6 +58,8 @@ class AppContext:
     # The account is known but Cozytouch was unreachable at startup: retry_start is trying.
     offline: bool = False
     retry_task: asyncio.Task | None = None
+    # The wall clock the runtime reads (seeding, recorder, overrides, Linky); tests pin it.
+    wall: Callable[[], float] = time.time
 
     @property
     def mode(self) -> Mode:
@@ -77,6 +79,7 @@ class AppContext:
             db=self.db,
             linky=linky_credentials(account, self.settings),
             guard=self.setup_reads,
+            wall=self.wall,
         )
         return self.rt
 
@@ -130,6 +133,7 @@ def open_context(
         make_gateway=factory,
         setup_reads=setup_reads,
         start_tasks=start_tasks,
+        wall=wall,
     )
 
 
