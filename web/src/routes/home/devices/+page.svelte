@@ -45,7 +45,10 @@
     return () => clearInterval(timer);
   });
 
-  let setup = $derived(house.setup);
+  // Rendered once with everything it depends on: the setup and the home's server (/auth/me),
+  // which decides the setup actions. Shown piecemeal, the actions arrived after the rooms and
+  // pushed them down (CLS, CI 2026-10-15).
+  let setup = $derived(auth.loggedIn === null ? null : house.setup);
   // Plan 12: rooms and devices are written on the Cozytouch servers only.
   let editable = $derived(canEditSetup(auth.server));
   // The house root is a room only while radiators are in no other room (decision 9).
@@ -110,9 +113,8 @@
 
 <a class="back btn btn-ghost" href={ROUTES.home}><Icon name="arrow-left" size={16} />{m.devices.home}</a>
 <h1>{m.devices.title}</h1>
-<p class="intro">{auth.server && !editable ? m.devices.introExperimental(auth.server.name) : m.devices.intro}</p>
-
 {#if !setup}
+  <p class="intro">{m.devices.intro}</p>
   {#if failed}
     <p class="error" role="alert">{m.devices.loadFailed} <button type="button" class="btn btn-sm" onclick={load}>{m.devices.reload}</button></p>
   {:else}
@@ -122,6 +124,7 @@
     </div>
   {/if}
 {:else}
+  <p class="intro">{auth.server && !editable ? m.devices.introExperimental(auth.server.name) : m.devices.intro}</p>
   {#if setup.sync}<SyncLine sync={setup.sync} {now} />{/if}
   {#if editable}<div class="new">
     {#if creating}

@@ -24,6 +24,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   house.reset();
   auth.server = { id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true }; // canEditSetup(null) is false
+  auth.loggedIn = true; // the page waits for /auth/me
 });
 
 describe('Rooms and devices page', () => {

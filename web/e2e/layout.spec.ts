@@ -257,6 +257,34 @@ test.describe('layout of / with the grid strip', () => {
   }
 });
 
+// /home/devices depends on two answers: the setup and /auth/me (the server decides the setup
+// actions). It renders once with both, whichever lands last and whenever the web font arrives
+// (CI 2026-10-15: the actions arrived after the rooms, 0.064 at 1280 px).
+test('/home/devices renders once: late /auth/me and late font (CLS < 0.05)', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'runs once, at explicit widths');
+  await countShifts(page);
+  for (const fonts of ['loaded', 'late'])
+    for (const width of [390, 1280]) {
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await page.setViewportSize({ width, height: 900 });
+      if (fonts === 'late')
+        await page.route(/\.woff2?(\?.*)?$/, async (route) => {
+          await new Promise((r) => setTimeout(r, 400));
+          await route.continue();
+        });
+      await page.route('**/api/**', async (route) => {
+        const late = route.request().url().includes('/api/auth/me');
+        await new Promise((r) => setTimeout(r, late ? 400 : 150));
+        await route.continue();
+      });
+      await page.goto('/home/devices');
+      await settled(page);
+      await page.waitForTimeout(800);
+      expect.soft(await shifts(page), `/home/devices (fonts ${fonts}) at ${width} px`).toBeLessThan(0.05);
+    }
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 // The device screen with every disclosure open (details, long Cozytouch state names), in both
 // languages and both themes: the longest it gets.
 test.describe('layout of /home/devices fully open', () => {
