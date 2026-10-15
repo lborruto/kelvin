@@ -156,3 +156,29 @@ async def test_house_commands_across_kinds(client_for):
 def test_thermor_house_ids_are_stable():
     root, devices = HOUSES["thermor"]()
     assert all(d.device_url.startswith(THERMOR_GATEWAY) for d in devices)
+
+
+async def test_room_off_reaches_pilot_wire_heaters(client_for):
+    manager, c, rt, gw, clock = await client_for("atlantic", "atlantic_cozytouch")
+    try:  # a pilot-wire-only room can be switched off
+        n = len(gw.executed)
+        r = await c.post("/api/rooms/p-bureau/mode", json={"mode": "off"})
+        assert r.status_code == 202, r.text
+        assert _sent(gw, n) == [("21000002#1", "setHeatingLevel", ("off",))]
+    finally:
+        await _close(manager, c)
+
+
+async def test_mixed_room_off_turns_every_heater_off(client_for):
+    manager, c, rt, gw, clock = await client_for(
+        "atlantic", "atlantic_cozytouch", move={f"{ATLANTIC_GATEWAY}/21000002": "p-sejour"}
+    )
+    try:
+        n = len(gw.executed)
+        r = await c.post("/api/rooms/p-sejour/mode", json={"mode": "off"})
+        assert r.status_code == 202, r.text
+        sent = _sent(gw, n)
+        assert ("21000002#1", "setHeatingLevel", ("off",)) in sent
+        assert {x[0] for x in sent} == {"21000001#1", "21000002#1"}
+    finally:
+        await _close(manager, c)
