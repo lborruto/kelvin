@@ -15,6 +15,7 @@ from kelvin.api.headers import SecurityHeaders
 from kelvin.api.routes import router
 from kelvin.api.web import mount_web
 from kelvin.config import Settings, split_list
+from kelvin.errors import UserError, invalid_request_detail
 from kelvin.overkiz.gateway import Gateway
 
 
@@ -63,19 +64,26 @@ def create_app(
     async def login_required(request: Request, exc: LoginRequired) -> JSONResponse:
         return JSONResponse(status_code=401, content=LOGIN_REQUIRED_BODY)
 
+    @app.exception_handler(UserError)
+    async def user_error(request: Request, exc: UserError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status, content=exc.body())
+
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+        field, msg = "", ""
         errors = exc.errors()
         if errors:
             e = errors[0]
-            loc = [str(x) for x in e.get("loc", ()) if x not in ("body", "query", "path")]
-            field = ".".join(loc)
-            msg = (
-                f"Requête invalide : {field} — {e.get('msg', '')}" if field else "Requête invalide."
-            )
-        else:
-            msg = "Requête invalide."
-        return JSONResponse(status_code=422, content={"detail": msg})
+            field = ".".join(str(x) for x in e.get("loc", ()) if x not in ("body", "query", "path"))
+            msg = str(e.get("msg", ""))
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": invalid_request_detail(field, msg),
+                "code": "invalid_request",
+                "params": {"field": field} if field else {},
+            },
+        )
 
     app.include_router(public, prefix="/api")
     app.include_router(router, prefix="/api")

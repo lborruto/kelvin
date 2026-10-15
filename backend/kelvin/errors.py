@@ -1,0 +1,167 @@
+"""User-facing errors: a stable code, its parameters, and the French text (spec §4).
+
+The web app translates by `code` (web/src/lib/i18n); `detail` stays French for curl, logs and
+older clients. Every French error text of the backend lives in TEMPLATES and nowhere else
+(tests/test_error_codes.py checks). After adding a code, run `uv run python scripts/export_codes.py`
+and add its text to both web dictionaries.
+
+Params are keys and figures only: never a secret, an email, a PDL, a token or a device id.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from kelvin.overkiz.errors import AuthError, GatewayError, QuotaError, SetupBudgetSpent
+
+DAY_FR = {
+    "monday": "lundi",
+    "tuesday": "mardi",
+    "wednesday": "mercredi",
+    "thursday": "jeudi",
+    "friday": "vendredi",
+    "saturday": "samedi",
+    "sunday": "dimanche",
+}
+KIND_SUBJECT_FR = {
+    "manual": "La consigne",
+    "comfort": "La température confort",
+    "eco": "L’abaissement éco",
+}
+
+TEMPLATES: dict[str, str] = {
+    # Auth and platform
+    "login_required": "Connexion requise.",
+    "header_missing": "En-tête X-Kelvin manquant.",
+    "bad_credentials": "Email ou mot de passe Cozytouch incorrect.",
+    "wrong_account": "Ce compte Cozytouch n’est pas celui de cette maison.",
+    "cozytouch_unreachable": "Cozytouch injoignable, réessayez dans un instant.",
+    "cozytouch_unavailable": "Cozytouch injoignable, réessayez plus tard.",
+    "quotas_unavailable": "Quotas indisponibles.",
+    "too_many_attempts": "Trop de tentatives. Réessayez dans {minutes} min.",
+    "not_found": "Introuvable.",
+    "method_not_allowed": "Méthode non autorisée.",
+    "invalid_request": "Requête invalide.",
+    # Rooms, radiators, overrides
+    "radiator_unknown": "Radiateur inconnu.",
+    "room_unknown": "Pièce inconnue.",
+    "too_many_radiators": "Trop de radiateurs dans la demande.",
+    "nothing_to_change": "Rien à modifier.",
+    "override_not_found": "Forçage ou absence introuvable.",
+    "no_radiator": "Aucun radiateur.",
+    # No id in params (a device id never goes into an error): the text says where instead.
+    "radiator_unknown_id": "Radiateur inconnu dans la demande.",
+    "end_in_past": "La fin doit être dans le futur.",
+    # Command validation
+    "unsupported_command": "Ce radiateur ne prend pas en charge « {command} ».",
+    "temp_range": "{subject} doit être comprise entre {min:g} et {max:g} °C.",
+    "temp_step": "{subject} se règle par pas de 0,5 °C.",
+    "mode_unknown": "Mode inconnu : {mode}.",
+    "setpoint_kind_unknown": "Type de consigne inconnu : {kind}.",
+    "program_time_invalid": "{day_fr} : heure invalide « {value} » (format HH:MM).",
+    "day_unknown": "Jour inconnu : {day}.",
+    "program_too_many": "{day_fr} : 3 plages confort au maximum.",
+    "program_slot_invalid": "{day_fr} : la plage {start}–{end} est invalide.",
+    "program_overlap": "{day_fr} : des plages se chevauchent.",
+    "feature_unknown": "Fonction inconnue : {feature}.",
+    "no_night_light": "Ce radiateur n’a pas de veilleuse.",
+    "intensity_light_off": "L’intensité ne peut être réglée que veilleuse allumée.",
+    "intensity_range": "L’intensité doit être comprise entre 1 et 100 %.",
+    "name_length": "Le nom doit faire entre 1 et 32 caractères.",
+    # Tariff
+    "slot_time_invalid": "Heure invalide : {value} (format HH:MM).",
+    "slots_none": "Indiquez au moins une plage d’heures creuses.",
+    "slots_too_many": "Trois plages d’heures creuses au maximum.",
+    "slot_empty": "Une plage d’heures creuses ne peut pas être vide.",
+    "slots_overlap": "Les plages d’heures creuses se chevauchent.",
+    "tariff_option_unsupported": "Seule l’option heures pleines / heures creuses est disponible.",
+    "kva_unknown": "Puissance souscrite inconnue.",
+    "price_subscription_invalid": "Prix de l’abonnement invalide.",
+    "price_hc_invalid": "Prix du kWh en heures creuses invalide.",
+    "price_hp_invalid": "Prix du kWh en heures pleines invalide.",
+    # Énergie and Linky
+    "linky_unavailable": "Linky indisponible.",
+    "period_invalid": "Période invalide.",
+    "pdl_invalid": "Le PDL compte 14 chiffres.",
+    "token_missing": "Collez le jeton MyElectricalData.",
+    "linky_quota": "Quota Linky du jour atteint : réessayez demain.",
+    "linky_refused": "MyElectricalData refuse ce PDL ou ce jeton.",
+    "linky_throttled": "Enedis limite les requêtes : réessayez plus tard.",
+    "med_unreachable": "MyElectricalData injoignable, réessayez plus tard.",
+    "linky_status_auth": "MyElectricalData refuse le jeton : renouvelez-le dans Réglages.",
+    "linky_status_quota": "Quota Linky du jour atteint : reprise demain.",
+    "linky_status_error": "Synchronisation Linky en échec.",
+    "linky_status_throttled": "Enedis limite les requêtes : nouvel essai à {at}.",
+    # Pending failures
+    "send_failed": "Envoi impossible : {reason}",
+    "send_internal": "Envoi impossible : erreur interne.",
+    "radiator_refused": "Le radiateur a refusé la commande.",
+    "no_confirmation": "Pas de confirmation du radiateur.",
+}
+
+# Sample params, for the catalogue exported to the web and its tests.
+SAMPLES: dict[str, dict[str, Any]] = {
+    "too_many_attempts": {"minutes": 15},
+    "unsupported_command": {"command": "setName"},
+    "temp_range": {"kind": "comfort", "min": 12.0, "max": 28.0},
+    "temp_step": {"kind": "eco"},
+    "mode_unknown": {"mode": "turbo"},
+    "setpoint_kind_unknown": {"kind": "turbo"},
+    "program_time_invalid": {"day": "monday", "value": "25:00"},
+    "day_unknown": {"day": "funday"},
+    "program_too_many": {"day": "sunday"},
+    "program_slot_invalid": {"day": "monday", "start": "10:00", "end": "09:00"},
+    "program_overlap": {"day": "tuesday"},
+    "feature_unknown": {"feature": "turbo"},
+    "slot_time_invalid": {"value": "24:00"},
+    "linky_status_throttled": {"at": "14:30"},
+    "send_failed": {"reason": "timeout"},
+}
+
+# Status.last_error_code: why the last Cozytouch poll failed.
+STATUS_CODES = ("auth", "network", "quota", "unknown")
+
+
+def french(code: str, params: dict[str, Any]) -> str:
+    """The French text of `code`. A `day` param (a key) reads as the French day name, a `kind`
+    param (manual, comfort, eco) as the subject of the sentence."""
+    extra: dict[str, Any] = {}
+    if "day" in params:
+        extra["day_fr"] = DAY_FR.get(str(params["day"]), str(params["day"]))
+    if "kind" in params:
+        extra["subject"] = KIND_SUBJECT_FR.get(str(params["kind"]), str(params["kind"]))
+    return TEMPLATES[code].format(**params, **extra)
+
+
+class UserError(ValueError):
+    """An error the user sees: an HTTP status, a stable code and its params. `str(e)` is the
+    French detail, so code that logs or matches the message keeps working."""
+
+    def __init__(self, code: str, status: int | None = None, **params: Any) -> None:
+        if code not in TEMPLATES:
+            raise KeyError(f"unknown error code: {code}")
+        self.code = code
+        self.status = 422 if status is None else status
+        self.params = params
+        self.detail = french(code, params)
+        super().__init__(self.detail)
+
+    def body(self) -> dict[str, Any]:
+        return {"detail": self.detail, "code": self.code, "params": self.params}
+
+
+def invalid_request_detail(field: str, msg: str) -> str:
+    """The French detail of a request pydantic refused. Its message is English and technical:
+    it stays in `detail` only (the web shows the field)."""
+    return f"Requête invalide : {field} — {msg}" if field else TEMPLATES["invalid_request"]
+
+
+def gateway_error_code(e: BaseException) -> str:
+    # SetupBudgetSpent (Plan 5): Kelvin's own daily budget of full setup reads, a quota too.
+    if isinstance(e, QuotaError | SetupBudgetSpent):
+        return "quota"
+    if isinstance(e, AuthError):
+        return "auth"
+    if isinstance(e, GatewayError):
+        return "network"
+    return "unknown"

@@ -5,11 +5,12 @@ from __future__ import annotations
 import hmac
 import logging
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from kelvin.account import Account
 from kelvin.api.runtime import stop_runtime
-from kelvin.auth.throttle import retry_message
+from kelvin.auth.throttle import retry_minutes
+from kelvin.errors import TEMPLATES, UserError
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
 
 if TYPE_CHECKING:
@@ -17,16 +18,20 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-WRONG_ACCOUNT = "Ce compte Cozytouch n’est pas celui de cette maison."
-BAD_CREDENTIALS = "Email ou mot de passe Cozytouch incorrect."
-UNREACHABLE = "Cozytouch injoignable, réessayez dans un instant."
+WRONG_ACCOUNT = TEMPLATES["wrong_account"]
+BAD_CREDENTIALS = TEMPLATES["bad_credentials"]
+UNREACHABLE = TEMPLATES["cozytouch_unreachable"]
 
 
-class LoginRefused(Exception):
-    def __init__(self, status: int, message: str) -> None:
-        super().__init__(message)
-        self.status = status
-        self.message = message
+class LoginRefused(UserError):
+    """A refused login: HTTP status, code and params; `message` is the French detail."""
+
+    def __init__(self, status: int, code: str, **params: Any) -> None:
+        super().__init__(code, status, **params)
+
+    @property
+    def message(self) -> str:
+        return self.detail
 
 
 def _cozytouch_answered(e: GatewayError) -> bool:
@@ -44,11 +49,11 @@ async def login(ctx: AppContext, email: str, password: str, ip: str) -> Account:
     async with ctx.lock:
         wait = ctx.throttle.ip_retry_after(ip)  # first: nothing is compared from a blocked IP
         if wait is not None:
-            raise LoginRefused(429, retry_message(wait))
+            raise LoginRefused(429, "too_many_attempts", minutes=retry_minutes(wait))
         account = ctx.account
         if account is not None and not account.same_email(email):
             ctx.throttle.failure(ip, reached_overkiz=False)
-            raise LoginRefused(401, WRONG_ACCOUNT)
+            raise LoginRefused(401, "wrong_account")
         rt = ctx.rt
         # Cozytouch refused the stored password (pump or boot): every password, the old one
         # included, then goes to Cozytouch. Answering the old one locally would be a timing
@@ -65,7 +70,7 @@ async def login(ctx: AppContext, email: str, password: str, ip: str) -> Account:
         if wait is not None:
             if compared:
                 ctx.throttle.failure(ip, reached_overkiz=False)
-            raise LoginRefused(429, retry_message(wait))
+            raise LoginRefused(429, "too_many_attempts", minutes=retry_minutes(wait))
         if rt is None or account is None:
             new = (
                 replace(account, password=password)
@@ -76,11 +81,11 @@ async def login(ctx: AppContext, email: str, password: str, ip: str) -> Account:
                 await ctx.start(new)
             except BadCredentialsError:
                 ctx.throttle.failure(ip, reached_overkiz=True)
-                raise LoginRefused(401, BAD_CREDENTIALS) from None
+                raise LoginRefused(401, "bad_credentials") from None
             except GatewayError as e:
                 if _cozytouch_answered(e):
                     ctx.throttle.failure(ip, reached_overkiz=True)
-                raise LoginRefused(503, UNREACHABLE) from None
+                raise LoginRefused(503, "cozytouch_unreachable") from None
             try:
                 ctx.accounts.save(new)
             except BaseException:
@@ -99,13 +104,13 @@ async def login(ctx: AppContext, email: str, password: str, ip: str) -> Account:
             await rt.gateway.check_credentials(account.email, password)
         except BadCredentialsError:
             ctx.throttle.failure(ip, reached_overkiz=True)
-            raise LoginRefused(401, BAD_CREDENTIALS) from None
+            raise LoginRefused(401, "bad_credentials") from None
         except GatewayError as e:
             if _cozytouch_answered(e):
                 ctx.throttle.failure(ip, reached_overkiz=True)
             elif compared:
                 ctx.throttle.failure(ip, reached_overkiz=False)
-            raise LoginRefused(503, UNREACHABLE) from None
+            raise LoginRefused(503, "cozytouch_unreachable") from None
         new = replace(account, password=password)
         ctx.accounts.save(new)
         ctx.account = new

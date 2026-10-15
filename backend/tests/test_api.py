@@ -11,7 +11,7 @@ from kelvin.api.runtime import override_step
 from kelvin.api.sse import event_stream
 from kelvin.config import Settings
 from kelvin.overkiz.fake import FakeGateway
-from tests.conftest import ManualClock, login
+from tests.conftest import ManualClock, err, login
 
 
 @pytest.fixture
@@ -185,7 +185,8 @@ async def test_mutating_routes_require_kelvin_header(ctx):
     c, _, _ = ctx
     r = await c.post("/api/house/off", headers={"X-Kelvin": ""})
     assert r.status_code == 403
-    assert r.json() == {"detail": "En-tête X-Kelvin manquant."}
+    assert r.json() == err("header_missing")
+    assert r.json()["detail"] == "En-tête X-Kelvin manquant."
     del c.headers["X-Kelvin"]
     assert (await c.post("/api/house/off")).status_code == 403
     assert (await c.delete("/api/overrides/x")).status_code == 403
@@ -380,3 +381,12 @@ async def test_an_unexpected_quota_failure_is_a_french_503_not_a_500(ctx):
     rt.quotas = type(rt.quotas)(broken)
     r = await c.get("/api/overkiz/quotas")
     assert r.status_code == 503 and r.json()["detail"] == "Quotas indisponibles."
+
+
+async def test_validation_errors_carry_invalid_request_and_the_field(ctx):
+    c, rt, _ = ctx
+    r = await c.post(f"/api/rooms/{salon_id(rt)}/mode", json={"mode": "turbo"})
+    assert r.status_code == 422
+    body = r.json()
+    assert (body["code"], body["params"]) == ("invalid_request", {"field": "mode"})
+    assert body["detail"].startswith("Requête invalide : mode — ")

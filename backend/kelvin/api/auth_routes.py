@@ -48,7 +48,7 @@ async def login(body: LoginBody, request: Request) -> JSONResponse:
     try:
         account = await auth_login(ctx, body.email, body.password, _client_ip(request))
     except LoginRefused as e:
-        return JSONResponse(status_code=e.status, content={"detail": e.message})
+        return JSONResponse(status_code=e.status, content=e.body())
     token = ctx.sessions.create(request.headers.get("user-agent"))
     response = JSONResponse({"email": account.email, "logged_in": True})
     _set_cookie(response, request, token)

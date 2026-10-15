@@ -13,7 +13,7 @@ from kelvin.api.sse import event_stream
 from kelvin.config import Settings
 from kelvin.overkiz.errors import GatewayError
 from kelvin.overkiz.fake import DEMO_EMAIL, FakeGateway
-from tests.conftest import DEMO, ManualClock, login
+from tests.conftest import DEMO, ManualClock, err, login
 
 OPEN = {"/api/health", "/api/auth/login", "/api/auth/logout", "/api/auth/me"}
 
@@ -58,7 +58,7 @@ async def _assert_every_guarded_route_is_401(c, app):
         for method in route.methods:
             r = await c.request(method, path)
             assert r.status_code == 401, (method, path, r.status_code)
-            assert r.json() == {"detail": "Connexion requise.", "code": "login_required"}
+            assert r.json() == err("login_required")
             seen += 1
     # The plan-1/2 API (18, /api/stream included), then plan 3's six new method-routes (four
     # paths): /api/energy, /api/linky/curve, /api/settings and /api/settings/linky.
@@ -109,7 +109,7 @@ async def test_bad_credentials_are_a_plain_401_without_the_login_required_code(s
     c, _, _ = setup_mode
     r = await c.post("/api/auth/login", json={**DEMO, "password": "nope"})
     assert r.status_code == 401
-    assert r.json() == {"detail": "Email ou mot de passe Cozytouch incorrect."}
+    assert r.json() == err("bad_credentials")
     assert "set-cookie" not in r.headers
 
 
@@ -236,7 +236,7 @@ async def test_startup_while_cozytouch_is_down_waits_offline(tmp_path):
             assert me["logged_in"] is False and me["reauth"] is False
             r = await c.post("/api/auth/login", json=DEMO)
             assert r.status_code == 503
-            assert r.json() == {"detail": "Cozytouch injoignable, réessayez dans un instant."}
+            assert r.json() == err("cozytouch_unreachable")
             gw.fail_login = None
             await login(c)
             assert (await c.get("/api/health")).json() == {"status": "ok"}

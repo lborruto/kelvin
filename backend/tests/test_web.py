@@ -7,7 +7,7 @@ from kelvin.api.app import create_app
 from kelvin.api.headers import SECURITY_HEADERS
 from kelvin.config import Settings
 from kelvin.overkiz.fake import FakeGateway
-from tests.conftest import login
+from tests.conftest import err, login
 
 
 def _app(tmp_path, with_web: bool):
@@ -58,7 +58,7 @@ async def test_spa_catch_all_edges(tmp_path):
             for method in ("POST", "PUT", "PATCH", "DELETE"):
                 r = await c.request(method, "/api/unknown", headers={"X-Kelvin": "1"})
                 assert r.status_code == 404, method
-                assert r.json() == {"detail": "Introuvable."}
+                assert r.json() == err("not_found")
             assert (await c.post("/rooms/p-salon")).status_code == 405
             assert (await c.get("/a%00b")).status_code == 404
             leak = await c.get("/leak")  # a symlink out of the build serves the index instead
@@ -206,7 +206,7 @@ async def test_more_traversal_variants_and_a_wrong_method_on_a_real_api_route(tm
             # The catch-all owns every method, so a wrong method on a real route is a 404.
             r = await c.delete("/api/health", headers={"X-Kelvin": "1"})
             assert r.status_code == 404
-            assert r.json() == {"detail": "Introuvable."}
+            assert r.json() == err("not_found")
 
 
 async def test_precompressed_assets_follow_accept_encoding(tmp_path):
