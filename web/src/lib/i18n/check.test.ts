@@ -19,7 +19,7 @@ describe('scanSource', () => {
   it('finds French in markup text and attributes, not in classes, ids or test ids', () => {
     expect(svelte('<h1>Maison</h1>')).toEqual(['Maison']);
     expect(svelte('<button aria-label="Fermer">x</button>')).toEqual(['Fermer']);
-    expect(svelte('<h1>{m.nav.home}</h1><div class="tout" id="tarif" data-testid="bar-jour"></div>')).toEqual([]);
+    expect(svelte('<h1>{m.nav.home}</h1><div class="tout" id="tarif" data-testid="bar-jour"></div>')).toEqual([]); // legacy-path-test
   });
   it('ignores comments, styles and lines marked i18n-ignore', () => {
     expect(ts("// Pièces\n/* Maison */\nconst x = 1;")).toEqual([]);

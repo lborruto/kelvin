@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { findLegacyPaths } from '../../scripts/check-paths.mjs';
+import { findLegacyPaths, isLegacyPathLine } from '../../scripts/check-paths.mjs';
 import { ANCHORS, canonical, isActive, LEGACY, LEGACY_HASH, NAV, ROUTES } from './paths';
 
 describe('ROUTES', () => {
@@ -51,7 +52,9 @@ describe('isActive', () => {
   });
 });
 
-const appHtml = readFileSync(resolve(process.cwd(), 'src/app.html'), 'utf8');
+// Relative to this file, not the cwd: fileURLToPath takes the string (jsdom's URL class is not Node's).
+const here = dirname(fileURLToPath(import.meta.url));
+const appHtml = readFileSync(resolve(here, '../app.html'), 'utf8');
 
 describe('app.html legacy redirect', () => {
   const block = appHtml.match(/\/\* legacy-paths:start \*\/([\s\S]*?)\/\* legacy-paths:end \*\//)?.[1] ?? '';
@@ -84,8 +87,45 @@ describe('app.html legacy redirect', () => {
   });
 });
 
+describe('isLegacyPathLine', () => {
+  // Each line below is a fixture of the guard: the marker would hide it, so none carries one.
+  it('finds escaped, encoded, punctuated and bare-id forms of the old paths', () => {
+    const found = [
+      String.raw`await expect(page).toHaveURL(/\/pieces\/p-salon$/);`,
+      String.raw`await expect(page).toHaveURL(/\/maison$/);`,
+      `goto('/login?next=%2Fenergie');`,
+      String.raw`toHaveURL(/\/login\?next=%2Fprogramme$/);`,
+      `const s = 'see /maison.';`,
+      `const s = '/maison, then';`,
+      'const u = `${base}/energie;x`;',
+      `document.getElementById('tarif');`,
+      `<section id="absence">`,
+      `if (location.hash.slice(1) === 'qualite') open();`,
+      `goto('/maison');`,
+      `goto('/login?next=%2fmaison');`,
+      `el.closest('#courbe');`,
+      `if (id !== 'tarif') return;`,
+      `<a href="#contenu">`
+    ];
+    expect(found.filter((l) => !isLegacyPathLine(l))).toEqual([]);
+  });
+  it('leaves English paths, look-alikes, module paths and copy alone', () => {
+    const clean = [
+      `goto('/home#tariff');`,
+      `goto('/maisons');`,
+      `goto('/piecesX');`,
+      `import { EnergieData } from './energie.svelte';`,
+      `if (c.key === 'qualite') return;`,
+      `const label = 'Programme';`,
+      `const f = 'courbe_2026-10-12.csv';`,
+      `goto('/rooms/p-salon');`
+    ];
+    expect(clean.filter((l) => isLegacyPathLine(l))).toEqual([]);
+  });
+});
+
 describe('no French path outside the legacy blocks', () => {
   it('finds none in the web app, the e2e suite, the backend and the docs', () => {
-    expect(findLegacyPaths(resolve(process.cwd(), '..'))).toEqual([]);
+    expect(findLegacyPaths(resolve(here, '../../..'))).toEqual([]);
   });
 });
