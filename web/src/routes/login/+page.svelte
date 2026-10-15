@@ -1,7 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { ApiError } from '$lib/api/client';
+  import { api, ApiError } from '$lib/api/client';
+  import type { ServerInfo } from '$lib/api/types';
   import { safeNext } from '$lib/auth';
   import Segmented from '$lib/components/Segmented.svelte';
   import { errorText, LOCALE_NAMES, LOCALE_SHORT, LOCALES, locale, m, setLocale } from '$lib/i18n';
@@ -17,6 +18,34 @@
   /** Which field the error is about, so it can be marked invalid and focused. */
   let invalid = $state<'email' | 'password' | 'both' | null>(null);
   let reauth = $derived(page.url.searchParams.get('reauth') === '1' || auth.reauth);
+
+  /** Plan 12: the servers Kelvin offers; `current` is the home's once claimed (then no choice). */
+  let servers = $state<ServerInfo[]>([]);
+  let current = $state<string | null>(null);
+  let server = $state('sauter_cozytouch');
+  let chosen = $derived(servers.find((s) => s.id === server));
+  let homeServer = $derived(servers.find((s) => s.id === current));
+  const group = (tier: ServerInfo['tier']) => servers.filter((s) => s.tier === tier);
+
+  /** A first login names the home's server, so nothing is sent before the list is known. */
+  let listState = $state<'loading' | 'ready' | 'failed'>('loading');
+  let ready = $derived(listState === 'ready');
+
+  function loadServers() {
+    listState = 'loading';
+    api
+      .servers()
+      .then((list) => {
+        servers = list.servers;
+        current = list.current;
+        server = list.current ?? list.servers.find((s) => s.default)?.id ?? server;
+        listState = 'ready';
+      })
+      .catch(() => {
+        listState = 'failed';
+      });
+  }
+  $effect(loadServers);
 
   $effect(() => {
     void auth.refresh().then((ok) => {
@@ -36,9 +65,11 @@
       (invalid === 'email' ? emailEl : passwordEl)?.focus();
       return;
     }
+    if (!ready) return; // held: the list names the server a first login claims
     busy = true;
     try {
-      await auth.login(email.trim(), password);
+      // The server only on a first login with a list read: afterwards it is the home's.
+      await auth.login(email.trim(), password, current ? undefined : server);
       password = '';
       await goto(safeNext(page.url.searchParams.get('next')), { replaceState: true });
     } catch (err) {
@@ -62,8 +93,27 @@
   <form class="box" onsubmit={submit} novalidate>
     <div class="brand">Kelvin</div>
     <h1>{m.login.title}</h1>
-    <p class="muted lead">{m.login.lead}</p>
+    <p class="muted lead">{chosen?.tier === 'experimental' && !current ? m.login.leadServer(chosen.name) : m.login.lead}</p>
     {#if reauth}<p class="note" role="status">{m.login.reauth}</p>{/if}
+    {#if current && homeServer}
+      <p class="muted small">{m.servers.locked(homeServer.name)}</p>
+    {:else if servers.length}
+      <label class="field">
+        <span>{m.servers.label}</span>
+        <select name="server" bind:value={server}
+          aria-describedby={chosen?.tier === 'experimental' ? 'server-note' : undefined}>
+          <optgroup label={m.servers.cozytouch}>
+            {#each group('cozytouch') as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+          </optgroup>
+          <optgroup label={m.servers.experimental}>
+            {#each group('experimental') as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+          </optgroup>
+        </select>
+      </label>
+      {#if chosen?.tier === 'experimental'}
+        <p class="note" id="server-note" role="note">{m.servers.experimentalNote}</p>
+      {/if}
+    {/if}
     <label class="field">
       <span>Email</span>
       <input type="email" name="email" autocomplete="username" inputmode="email" bind:this={emailEl} bind:value={email}
@@ -76,9 +126,15 @@
         aria-invalid={invalid === 'password' || invalid === 'both' ? 'true' : undefined}
         aria-describedby={error && invalid !== 'email' ? 'login-error' : undefined} />
     </label>
+    {#if listState === 'failed'}
+      <div class="error" role="alert">
+        <p>{m.servers.loadFailed}</p>
+        <button type="button" class="btn btn-sm" onclick={loadServers}>{m.common.retry}</button>
+      </div>
+    {/if}
     {#if error}<p class="error" id="login-error" role="alert">{error()}</p>{/if}
     <!-- aria-disabled while busy: the focused button keeps focus through the round trip. -->
-    <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? m.login.busy : m.login.submit}</button>
+    <button type="submit" class="btn btn-primary" aria-disabled={busy || !ready}>{busy ? m.login.busy : m.login.submit}</button>
     {#if auth.simulator}<p class="muted small">{m.login.simulator}</p>{/if}
     <div class="lang">
       <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_SHORT[l], lang: l, ariaLabel: LOCALE_NAMES[l] }))}

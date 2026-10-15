@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from kelvin.commands.translate import Planned
 from kelvin.errors import french, gateway_error_code, safe_reason
-from kelvin.house.model import MODES, House
+from kelvin.house.model import House
 from kelvin.labels import Label
 from kelvin.overkiz.errors import GatewayError
 from kelvin.overkiz.gateway import Gateway
@@ -84,14 +84,25 @@ _EXPECTED_KEYS = {
 
 
 def expected_by_radiator(house: House, planned: Planned) -> dict[str, dict[str, Any]]:
-    """What the UI may show as 'pending' per radiator (`_EXPECTED_KEYS`)."""
+    """What the UI may show as 'pending' per radiator. The mode, a pilot-wire level and a
+    towel dryer's temporary state read through the radiator's profile (Plan 12)."""
     out: dict[str, dict[str, Any]] = {}
     for e in planned.expectations:
-        key = _EXPECTED_KEYS.get(e.name)
         rid = house.radiator_for_url(e.device_url)
-        if key is None or rid is None:
+        if rid is None:
             continue
-        out.setdefault(rid, {})[key] = MODES.get(e.value, "other") if key == "mode" else e.value
+        p = house.radiators[rid].profile
+        if e.name == p.mode_state:
+            key, value = "mode", p.mode_of(e.value)
+        elif p.level_command is not None and e.name == p.level_state:
+            key, value = "level", e.value
+        elif p.dryer_state is not None and e.name == p.dryer_state:
+            key, value = "dryer", p.dryer_of(e.value)
+        elif e.name in _EXPECTED_KEYS:
+            key, value = _EXPECTED_KEYS[e.name], e.value
+        else:
+            continue
+        out.setdefault(rid, {})[key] = value
     return out
 
 

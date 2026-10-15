@@ -24,6 +24,7 @@ from kelvin.labels import Label
 from kelvin.overkiz.errors import GatewayError, SetupNotFoundError
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import DeviceUpdate, PlaceEvent, SetupEvent, SetupPlace
+from kelvin.overkiz.servers import is_cozytouch
 from kelvin.setup.validate import clean_label, device_label, room_label
 
 log = logging.getLogger(__name__)
@@ -138,6 +139,9 @@ class SetupService:
         # targeted read settles each, at the timeout and when a full read is withheld.
         self._unsettled: dict[str, tuple[Step, SetupPending]] = {}
         self._settle_due = False
+        # Plan 12: Kelvin writes the setup (rooms, placement, labels) on the Cozytouch servers
+        # only; on an experimental server the maker's app stays the place for that.
+        self.writable = is_cozytouch(getattr(gateway, "server", ""))  # no server: not writable
         self._settle_final = False
         self._settle_at = float("-inf")  # not before (a failed settle read waits SETTLE_RETRY_S)
         self._settle_failures: dict[str, int] = {}
@@ -290,9 +294,14 @@ class SetupService:
             created_wall=self.wall(),
         )
 
+    def _check_writable(self) -> None:
+        if not self.writable:
+            raise UserError("setup_experimental", 403)
+
     # --- room actions ---
 
     async def create_room(self, raw: str) -> SetupPending:
+        self._check_writable()
         label = room_label(raw, self._room_labels())
         self._check_reserved(label)
         type_ = self.house.room_type()
@@ -303,6 +312,7 @@ class SetupService:
         return await self._run(p)
 
     async def rename_room(self, oid: str, raw: str) -> SetupPending:
+        self._check_writable()
         if oid not in self.house.places:
             raise UserError("room_unknown", 404)
         if oid == self.house.root_oid:
@@ -323,6 +333,7 @@ class SetupService:
         return await self._run(p)
 
     async def delete_room(self, oid: str) -> SetupPending:
+        self._check_writable()
         # One literal code per raise: tests/test_error_codes.py reads them (and refuses **params).
         block = self.house.delete_block(oid)
         if block == "room_unknown":
@@ -352,6 +363,7 @@ class SetupService:
 
     async def move_radiator(self, rid: str, room_id: str) -> SetupPending:
         """Relocate every sub-device, then the heater: the room changes once all is there."""
+        self._check_writable()
         r = self._radiator(rid)
         if room_id == self.house.root_oid:
             raise UserError("room_protected", 409)
@@ -372,6 +384,7 @@ class SetupService:
 
     async def rename_radiator(self, rid: str, raw: str) -> SetupPending:
         """Set the heater's Cozytouch label (ruling 4); no device command."""
+        self._check_writable()
         r = self._radiator(rid)
         label = device_label(raw)
         if label == r.label.strip():  # the Cozytouch label, not the name shown
@@ -388,6 +401,7 @@ class SetupService:
 
     async def tidy(self, device_id: str) -> SetupPending:
         """« Ranger avec le radiateur »: a sub-device back in its heater's place."""
+        self._check_writable()
         url = self.house.device_url_for(device_id)
         rid = self.house.radiator_for_url(url) if url else None
         if url is None or rid is None:

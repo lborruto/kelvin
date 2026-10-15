@@ -6,8 +6,8 @@ It runs uvicorn with the app factory and Kelvin's own network policy:
   login throttle) and claim HTTPS (the session cookie's Secure flag). A wildcard is refused.
 - Every file Kelvin creates is private to its user (umask 077): kelvin.db and its WAL hold
   session hashes and the home's history.
-- A data directory it cannot write, or an account file it cannot read, stops it with one line
-  instead of a traceback.
+- A data directory it cannot write, an account file it cannot read, or a data folder that holds
+  another Overkiz server's home, stops it with one line instead of a traceback.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ import ipaddress
 import os
 import sys
 import tempfile
+from pathlib import Path
 from typing import Any
 
 import uvicorn
@@ -23,6 +24,8 @@ from pydantic import ValidationError
 
 from kelvin.account import AccountFileError, AccountStore
 from kelvin.config import Settings, split_list
+from kelvin.overkiz.servers import server_name
+from kelvin.recorder.db import Database
 
 APP = "kelvin.api.app:create_app"
 
@@ -94,7 +97,7 @@ def preflight(settings: Settings) -> None:
             "docker run --rm -u 0 -v kelvin_data:/data <image> chown -R 10001:10001 /data"
         ) from None
     try:
-        AccountStore(data).load()
+        account = AccountStore(data).load()
     except AccountFileError as e:
         raise ConfigError(str(e)) from None
     except OSError as e:
@@ -103,6 +106,36 @@ def preflight(settings: Settings) -> None:
             f"cannot read {data / 'account.json'} ({type(e).__name__}); "
             "check its owner and mode (0600)"
         ) from None
+    # The server the start would use: the account file's, else the env bootstrap's (Plan 12).
+    if account is not None:
+        server: str | None = account.server
+    elif settings.cozy_user.strip() and settings.cozy_pass.get_secret_value():
+        server = settings.cozy_server
+    else:
+        server = None  # setup mode: the first login decides (data_other_server)
+    held = _held_server(data)
+    if server is not None and held is not None and held != server:
+        # The same refusal start_runtime makes (DataServerMismatch), as one clean line and
+        # before any Overkiz call; no email, product names only.
+        raise ConfigError(
+            f"KELVIN_DATA={data} holds the home of another Overkiz server ({server_name(held)}) "
+            f"while the account is on {server_name(server)}. Switching server is a fresh "
+            "install: use another KELVIN_DATA folder."
+        )
+
+
+def _held_server(data: Path) -> str | None:
+    """The Overkiz server whose home the data folder holds (kelvin.db), None when unknown."""
+    if not (data / "kelvin.db").exists():
+        return None
+    from kelvin.api.runtime import SERVER_KEY  # the API stack: loaded for this one read
+
+    db = Database(data / "kelvin.db")
+    try:
+        held = db.get_setting(SERVER_KEY)
+    finally:
+        db.close()
+    return held if isinstance(held, str) else None
 
 
 def main() -> int:

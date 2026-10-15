@@ -7,6 +7,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
+from kelvin.devices.capabilities import COMFORT_MIN, ECO_RANGE
+from kelvin.devices.registry import DRYER_ACTIONS, PILOT_LEVELS
 from kelvin.errors import UserError
 from kelvin.house.model import DAY_ORDER, OVERKIZ_MODES, Radiator
 from kelvin.overkiz.models import DeviceCommand
@@ -56,6 +58,12 @@ def _require(r: Radiator, url: str, command: str) -> None:
         raise CommandError("unsupported_command", command=command)
 
 
+def _writable(r: Radiator) -> None:
+    """Plan 12: a device Kelvin shows read-only refuses every command, before anything else."""
+    if r.support == "readonly":
+        raise CommandError("read_only_device")
+
+
 def _one(
     url: str, command: str, params: tuple[Any, ...], state: str | None = None, value: Any = None
 ) -> Planned:
@@ -71,26 +79,40 @@ def _check_temp(value: float, lo: float, hi: float, kind: str) -> None:
 
 
 def plan_mode(r: Radiator, mode: str) -> Planned:
+    _writable(r)
     if mode not in OVERKIZ_MODES:
         raise CommandError("mode_unknown", mode=mode)
-    _require(r, r.heater_url, "setOperatingMode")
-    v = OVERKIZ_MODES[mode]
-    return _one(r.heater_url, "setOperatingMode", (v,), "core:OperatingModeState", v)
+    p = r.profile
+    command = p.mode_command or "setOperatingMode"
+    _require(r, r.heater_url, command)
+    if mode not in p.modes:
+        raise CommandError("unsupported_command", command=command)
+    v = p.modes[mode]  # Sauter: standby / basic / internal, as verified
+    return _one(r.heater_url, command, (v,), p.mode_state, v)
 
 
 def plan_setpoint(r: Radiator, kind: str, value: float) -> Planned:
+    _writable(r)
     value = float(value)
+    p = r.profile
     if kind == "manual":
-        _check_temp(value, 7.0, r.max_temperature, "manual")
-        cmd, state = "setTargetTemperature", "core:TargetTemperatureState"
+        # The profile decides, not only the device: a pilot-wire heater declaring
+        # setTargetTemperature still has no manual setpoint (capabilities(r).manual is None).
+        cmd = p.setpoint_command or "setTargetTemperature"
+        if p.setpoint_command is None or r.capabilities.manual is None:
+            raise CommandError("unsupported_command", command=cmd)
+        _check_temp(value, p.manual_min, r.max_temperature, "manual")
+        state = p.setpoint_state or "core:TargetTemperatureState"
     elif kind == "comfort":
-        _check_temp(value, 12.0, r.max_temperature, "comfort")
+        _check_temp(value, COMFORT_MIN, r.max_temperature, "comfort")
         cmd, state = "setComfortTemperature", "core:ComfortRoomTemperatureState"
     elif kind == "eco":
-        _check_temp(value, 1.0, 8.0, "eco")
+        _check_temp(value, ECO_RANGE[0], ECO_RANGE[1], "eco")
         cmd, state = "setEcoTemperature", "core:EcoRoomTemperatureState"
     else:
         raise CommandError("setpoint_kind_unknown", kind=kind)
+    if kind != "manual" and not p.setbacks:
+        raise CommandError("unsupported_command", command=cmd)  # verified on Sauter only
     _require(r, r.heater_url, cmd)
     return _one(r.heater_url, cmd, (value,), state, value)
 
@@ -138,6 +160,9 @@ def plan_program(
     `keep`, and a locked day (a midnight end, a shape Kelvin cannot read; spec QW8) are re-sent
     exactly as this radiator reported them (final review C1). A day to keep that the radiator
     never reported is refused (`program_day_unknown`): Kelvin never writes it empty unasked."""
+    _writable(r)
+    if not r.profile.program:
+        raise CommandError("unsupported_command", command="setTimeProgram")
     _require(r, r.heater_url, "setTimeProgram")
     kept = set(r.program_locked) | set(keep) | {d for d in DAY_ORDER if d not in week}
     payload = normalize_program({d: v for d, v in week.items() if d not in kept})
@@ -155,6 +180,7 @@ def plan_program(
 
 
 def plan_feature(r: Radiator, feature: str, on: bool) -> Planned:
+    _writable(r)
     if feature not in _FEATURES:
         raise CommandError("feature_unknown", feature=feature)
     cmd, state = _FEATURES[feature]
@@ -164,6 +190,7 @@ def plan_feature(r: Radiator, feature: str, on: bool) -> Planned:
 
 
 def plan_light(r: Radiator, on: bool, intensity: int | None = None) -> Planned:
+    _writable(r)
     url = r.urls.get("light")
     if url is None:
         raise CommandError("no_night_light")
@@ -183,6 +210,43 @@ def plan_light(r: Radiator, on: bool, intensity: int | None = None) -> Planned:
 
 
 def plan_identify(r: Radiator) -> Planned:
+    _writable(r)
     cmd = "identify" if "identify" in r.commands.get(r.heater_url, []) else "wink"
     _require(r, r.heater_url, cmd)
     return _one(r.heater_url, cmd, ())
+
+
+def plan_level(r: Radiator, level: str) -> Planned:
+    """A pilot-wire heater's level (Plan 12; expected to work, unverified)."""
+    _writable(r)
+    if level not in PILOT_LEVELS:
+        raise CommandError("level_unknown", level=level)
+    p = r.profile
+    command = p.level_command or "setHeatingLevel"
+    _require(r, r.heater_url, command)
+    if level not in r.capabilities.levels:
+        raise CommandError("unsupported_command", command=f"{command}({level})")
+    return _one(r.heater_url, command, (level,), p.level_state, level)
+
+
+def plan_dryer(r: Radiator, action: str) -> Planned:
+    """A towel dryer's boost, drying, or back to normal (`stop`). Expected, unverified."""
+    _writable(r)
+    if action not in DRYER_ACTIONS:
+        raise CommandError("dryer_action_unknown", action=action)
+    p = r.profile
+    command = p.dryer_command or "setTowelDryerTemporaryState"
+    _require(r, r.heater_url, command)
+    offered = r.capabilities.dryer
+    if not offered or (action != "stop" and action not in offered):
+        raise CommandError("unsupported_command", command=f"{command}({action})")
+    v = p.dryer_values[action]
+    return _one(r.heater_url, command, (v,), p.dryer_state, v)
+
+
+def plan_off(r: Radiator) -> Planned:
+    """« Tout éteindre »: mode off; a pilot-wire heater has no mode, so its level off."""
+    caps = r.capabilities
+    if "off" not in caps.modes and "off" in caps.levels:
+        return plan_level(r, "off")
+    return plan_mode(r, "off")

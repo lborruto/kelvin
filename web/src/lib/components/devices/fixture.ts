@@ -10,7 +10,11 @@ const WIDGET: Record<DeviceRole, string> = {
   bridge: 'IOStack',
   box: 'Pod',
   wifi: 'Wifi',
-  other: 'Other'
+  other: 'Other',
+  // Plan 12
+  water_heater: 'DomesticHotWaterProduction',
+  heat_pump: 'AtlanticPassAPCHeatPump',
+  heating: 'AtlanticElectricalHeater'
 };
 
 // Not a *.test.ts file, so the strict i18n scan reads it: the upstream labels below are data.

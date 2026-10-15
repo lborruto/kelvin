@@ -2,6 +2,16 @@ import type { Day, EnergyGroup } from '$lib/api/types';
 import { intFor, listFor, own, pluralFor, type ApiParams } from './rules';
 
 const NB = '\u00a0';
+// Plan 12: a pilot-wire heater's levels and a towel dryer's actions (action labels)
+const LEVEL_FR: Record<string, string> = {
+  comfort: 'confort',
+  'comfort-1': 'confort −1',
+  'comfort-2': 'confort −2',
+  eco: 'éco',
+  frostprotection: 'hors-gel',
+  off: 'arrêt'
+};
+const DRYER_FR: Record<string, string> = { boost: 'boost', drying: 'séchage', stop: 'fin du boost ou du séchage' };
 const int = intFor('fr');
 const plural = pluralFor('fr');
 const list = listFor('fr');
@@ -186,6 +196,7 @@ export const fr = {
     changedElsewhereDays: (days: string) => `Modifié dans l’app Cozytouch ou sur un autre appareil${NB}: ${days}. Rechargez pour voir la version actuelle, ou remplacez-la par vos modifications.`,
     reload: 'Recharger',
     replaceAnyway: 'Remplacer quand même',
+    noRooms: 'Aucun radiateur de cette maison n’a de programme que Kelvin sait modifier. Les autres suivent leur propre programme ou l’application du fabricant.',
     nextTomorrow: (time: string, level: string) => `demain ${time} → ${level}`,
     nextOn: (day: Day, time: string, level: string) => `${DAY_LOWER[day]} ${time} → ${level}`,
     dayError: {
@@ -707,6 +718,7 @@ export const fr = {
     retry: 'Réessayer'
   },
   settings: {
+    server: 'Serveur',
     title: 'Réglages',
     account: 'Compte',
     signOut: 'Se déconnecter',
@@ -799,6 +811,7 @@ export const fr = {
   login: {
     title: 'Connexion',
     lead: 'Utilisez le compte Cozytouch de la maison.',
+    leadServer: (name: string) => `Utilisez le compte ${name} de la maison.`,
     reauth: 'Reconnectez-vous avec le compte Cozytouch.',
     password: 'Mot de passe',
     busy: 'Connexion…',
@@ -826,7 +839,11 @@ export const fr = {
       bridge: 'Pont Cozytouch',
       box: 'Box Cozytouch',
       wifi: 'Wi-Fi',
-      other: 'Appareil'
+      other: 'Appareil',
+      // Plan 12
+      water_heater: 'Chauffe-eau',
+      heat_pump: 'Pompe à chaleur',
+      heating: 'Chauffage'
     },
     reachable: 'Joignable',
     unreachable: 'Injoignable',
@@ -871,6 +888,11 @@ export const fr = {
     undo: 'Annuler',
     done: (label: string) => `${label} — confirmé`,
     watts: (n: string) => `${n}${NB}W`,
+    // Plan 12
+    appliances: 'Autres appareils',
+    appliancesNote: `Lecture seule${NB}: Kelvin ne pilote pas ces appareils (chauffe-eau, pompes à chaleur, appareils qui ne chauffent pas).`,
+    introExperimental: (name: string) =>
+      `Lu dans votre installation ${name}. Sur un serveur expérimental, Kelvin ne modifie ni les pièces ni les appareils.`,
     problem: {
       empty: 'Indiquez un nom.',
       long: `32${NB}caractères au maximum.`,
@@ -914,6 +936,9 @@ export const fr = {
     night_light: (p: ApiParams) => `${p.name}${NB}: veilleuse ${p.on ? 'allumée' : 'éteinte'}`,
     night_light_intensity: (p: ApiParams) => `${p.name}${NB}: veilleuse à ${p.intensity}${NB}%`,
     identify: (p: ApiParams) => `${p.name}${NB}: identification`,
+    // Plan 12
+    level: (p: ApiParams) => `${p.name}${NB}: allure ${own(LEVEL_FR, p.level) ?? p.level}`,
+    dryer: (p: ApiParams) => `${p.name}${NB}: ${own(DRYER_FR, p.action) ?? p.action}`,
     boost: (p: ApiParams) => `${p.name}${NB}: forcé à ${num(p.temperature)}${NB}°C`,
     away: (p: ApiParams) => `Absence à ${num(p.temperature)}${NB}°C`,
     all_off: () => 'Tout éteindre',
@@ -1077,7 +1102,57 @@ export const fr = {
     },
     send_internal: () => `Envoi impossible${NB}: erreur interne.`,
     radiator_refused: () => 'Le radiateur a refusé la commande.',
-    no_confirmation: () => 'Pas de confirmation du radiateur.'
+    no_confirmation: () => 'Pas de confirmation du radiateur.',
+    // Plan 12
+    server_unknown: () => 'Serveur inconnu.',
+    server_mismatch: (p: ApiParams) =>
+      `Cette maison est reliée au serveur ${p.server}. Pour changer de serveur, repartez d’une installation neuve (voir le README).`,
+    data_other_server: (p: ApiParams) =>
+      `Ce dossier de données appartient à une maison reliée au serveur ${p.server}${NB}: utilisez un autre dossier KELVIN_DATA.`,
+    bad_credentials_server: (p: ApiParams) => `Email ou mot de passe ${p.server} incorrect.`,
+    read_only_device: () => `Kelvin ne pilote pas cet appareil${NB}: il est affiché en lecture seule.`,
+    level_unknown: (p: ApiParams) => `Allure inconnue${NB}: ${p.level}.`,
+    dryer_action_unknown: (p: ApiParams) => `Action inconnue${NB}: ${p.action}.`,
+    unsupported_in_room: () => 'Aucun des radiateurs concernés ne prend en charge cette commande.',
+    setup_experimental: () => 'Sur un serveur expérimental, Kelvin ne modifie ni les pièces ni les appareils.'
+  },
+  // Plan 12 (Task 12)
+  kind: {
+    setpoint_heater: 'Radiateur',
+    pilot_wire_heater: 'Radiateur fil pilote',
+    towel_dryer: 'Sèche-serviettes',
+    heater_unknown: 'Chauffage'
+  },
+  support: {
+    expected: 'Devrait fonctionner',
+    experimental: 'Expérimental',
+    readonly: 'Lecture seule',
+    readonlyHint: `Kelvin ne pilote pas ce type d’appareil${NB}: il est affiché tel que Cozytouch le décrit.`
+  },
+  pilot: {
+    label: 'Allure',
+    comfort: 'Confort',
+    comfort1: 'Confort −1',
+    comfort2: 'Confort −2',
+    eco: 'Éco',
+    frostprotection: 'Hors-gel',
+    off: 'Arrêt'
+  },
+  dryer: { label: 'Sèche-serviettes', normal: 'Normal', boost: 'Boost', drying: 'Séchage' },
+  roomCaps: {
+    partial: (n: number, total: number) =>
+      n === 1 ? `S’applique à 1 radiateur sur ${total}` : `S’applique à ${n} radiateurs sur ${total}`,
+    readOnly: 'Kelvin ne pilote aucun appareil de cette pièce.'
+  },
+  // Plan 12
+  servers: {
+    label: 'Serveur',
+    cozytouch: 'Cozytouch',
+    experimental: 'Expérimental — chauffage seulement',
+    loadFailed: 'Impossible de lire la liste des serveurs.',
+    experimentalNote: `Expérimental${NB}: Kelvin n’affiche que le chauffage, ne modifie pas les pièces, et certains appareils restent en lecture seule.`,
+    locked: (name: string) =>
+      `Serveur${NB}: ${name}. Pour en changer, repartez d’une installation neuve (voir le README).`
   }
 };
 

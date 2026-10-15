@@ -1,9 +1,11 @@
 <script lang="ts">
   import { api } from '$lib/api/client';
+  import { canEditSetup } from '$lib/capabilities';
   import type { Pending, SetupDevice } from '$lib/api/types';
   import { retry } from '$lib/actions';
   import { m } from '$lib/i18n';
   import { runSetup } from '$lib/setupActions';
+  import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
   import Icon from '../Icon.svelte';
   import PendingTag from '../PendingTag.svelte';
@@ -23,10 +25,12 @@
 
 <div class="stray">
   <p><Icon name="alert" size={14} /> {m.devices.misplaced}</p>
-  <div class="row">
-    <button type="button" class="btn btn-sm" aria-disabled={busy} onclick={tidy}>{m.devices.tidy}</button>
-    <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
-  </div>
+  {#if canEditSetup(auth.server)}
+    <div class="row">
+      <button type="button" class="btn btn-sm" aria-disabled={busy} onclick={tidy}>{m.devices.tidy}</button>
+      <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
+    </div>
+  {/if}
 </div>
 
 <style>

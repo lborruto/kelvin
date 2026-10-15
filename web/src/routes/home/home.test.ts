@@ -190,6 +190,14 @@ describe('Maison', () => {
     const order = ['Actions', m.alerts.title, m.devices.title, m.home.tariff, 'Linky', m.sessions.title, m.settings.title];
     expect(titles.filter((t) => order.includes(t ?? ''))).toEqual(order);
   });
+
+  it('names the home’s server in Settings', async () => {
+    auth.server = { id: 'atlantic_cozytouch', name: 'Atlantic Cozytouch', tier: 'cozytouch', default: false };
+    render(Page);
+    expect(await screen.findByText('Atlantic Cozytouch')).toBeInTheDocument();
+    expect(screen.getByText('Serveur')).toBeInTheDocument();
+    auth.server = null;
+  });
 });
 
 describe('Home in English', () => {

@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
+import type { Capabilities } from '$lib/api/types';
+import { auth } from '$lib/stores/auth.svelte';
 import { house } from '$lib/stores/house.svelte';
 import RadiatorPanel from './RadiatorPanel.svelte';
 import { applyLocale } from '$lib/i18n';
@@ -8,6 +10,7 @@ import { applyLocale } from '$lib/i18n';
 // Commands are possible: the stream is up.
 beforeEach(() => {
   house.connection = 'open';
+  auth.server = { id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true }; // canEditSetup(null) is false
 });
 
 vi.mock('$lib/api/client', () => ({
@@ -16,7 +19,9 @@ vi.mock('$lib/api/client', () => ({
     radiatorLight: vi.fn().mockResolvedValue({ pending: null }),
     identify: vi.fn().mockResolvedValue({ pending: null }),
     radiatorMode: vi.fn().mockResolvedValue({ pending: null }),
-    radiatorSetpoint: vi.fn().mockResolvedValue({ pending: null })
+    radiatorSetpoint: vi.fn().mockResolvedValue({ pending: null }),
+    radiatorLevel: vi.fn().mockResolvedValue({ pending: null }),
+    radiatorDryer: vi.fn().mockResolvedValue({ pending: null })
   },
   ApiError: class extends Error {}
 }));
@@ -63,6 +68,47 @@ describe('RadiatorPanel', () => {
     await fireEvent.input(input, { target: { value: 'Fenêtre' } });
     await fireEvent.submit(input.closest('form')!);
     expect(api.radiatorFeatures).toHaveBeenCalledWith('9312063', { name: 'Fenêtre' });
+  });
+
+  const pilotCaps: Capabilities = {
+    modes: [], manual: null, comfort: null, eco: null, levels: ['comfort', 'eco', 'frostprotection', 'off'], program: false, dryer: [],
+    window_detection: false, presence_detection: false, night_light: false, night_light_intensity: false, identify: false,
+    energy: false, boost: false, rename: false, read_only: false
+  };
+
+  it('offers Renommer only when capabilities.rename says so', () => {
+    render(RadiatorPanel, { radiator: { ...radiator, capabilities: pilotCaps }, showControls: false });
+    expect(screen.queryByRole('button', { name: 'Renommer' })).toBeNull();
+  });
+
+  it('offers Renommer when capabilities.rename says so', () => {
+    render(RadiatorPanel, { radiator: { ...radiator, capabilities: { ...pilotCaps, rename: true } }, showControls: false });
+    expect(screen.getByRole('button', { name: 'Renommer' })).toBeInTheDocument();
+  });
+
+  it('hides Renommer on an experimental server (the name is a setup write)', () => {
+    auth.server = { id: 'flexom', name: 'Flexom', tier: 'experimental', default: false };
+    try {
+      render(RadiatorPanel, { radiator: { ...radiator, capabilities: { ...pilotCaps, rename: true } }, showControls: false });
+      expect(screen.queryByRole('button', { name: 'Renommer' })).toBeNull();
+    } finally {
+      auth.server = null;
+    }
+  });
+
+  it('hides Renommer on a read-only device even if it names itself', () => {
+    render(RadiatorPanel, { radiator: { ...radiator, support: 'readonly', capabilities: { ...pilotCaps, rename: true } }, showControls: false });
+    expect(screen.queryByRole('button', { name: 'Renommer' })).toBeNull();
+  });
+
+  it('hides « Consigne active » when the device has no manual setpoint', () => {
+    render(RadiatorPanel, { radiator: { ...radiator, capabilities: pilotCaps }, showControls: false });
+    expect(screen.queryByText('Consigne active')).toBeNull();
+  });
+
+  it('shows « Consigne active » on a setpoint heater', () => {
+    render(RadiatorPanel, { radiator, showControls: false });
+    expect(screen.getByText('Consigne active')).toBeInTheDocument();
   });
 
   it('titles an unnamed radiator by model and power', () => {
@@ -119,5 +165,66 @@ describe('night-light slider placement', () => {
     b.unmount();
     render(RadiatorPanel, { radiator: { ...radiator, light: { on: true, intensity: 30 } }, showControls: false });
     expect(screen.getByRole('slider', { name: 'Intensité de la veilleuse' })).toBeInTheDocument();
+  });
+});
+
+const NONE: Capabilities = {
+  modes: [], manual: null, comfort: null, eco: null, levels: [], program: false, dryer: [],
+  window_detection: false, presence_detection: false, night_light: false, night_light_intensity: false,
+  identify: false, energy: false, boost: false, rename: false, read_only: true
+};
+const pilot = {
+  ...radiator, id: 'p1', mode: 'manual' as const, heating_level: 'eco', light: null, kind: 'pilot_wire_heater' as const,
+  support: 'expected' as const,
+  capabilities: { ...NONE, levels: ['comfort', 'eco', 'frostprotection', 'off'] as const, read_only: false }
+};
+const dryer = {
+  ...radiator, id: 'd1', mode: 'manual' as const, light: null, kind: 'towel_dryer' as const, support: 'expected' as const,
+  dryer: 'boost' as const,
+  capabilities: {
+    ...NONE, modes: ['off', 'manual', 'program'] as const, manual: [7, 26] as [number, number],
+    dryer: ['boost', 'drying'] as const, identify: true, boost: true, read_only: false
+  }
+};
+const zone = {
+  ...radiator, id: 'z1', mode: 'other' as const, kind: 'heater_unknown' as const, support: 'readonly' as const,
+  capabilities: { ...NONE, energy: true }
+};
+
+describe('RadiatorPanel per kind', () => {
+  it('a pilot-wire heater shows its levels and nothing it cannot do', async () => {
+    render(RadiatorPanel, { radiator: pilot as never, showControls: true });
+    const group = screen.getByRole('radiogroup', { name: 'Allure' });
+    expect([...group.querySelectorAll('[role=radio]')].map((b) => b.textContent?.trim())).toEqual([
+      'Confort', 'Éco', 'Hors-gel', 'Arrêt'
+    ]);
+    expect(screen.getByRole('radio', { name: 'Éco' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByRole('radiogroup', { name: /^Mode/ })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Détection de fenêtre ouverte' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Faire clignoter' })).toBeNull();
+    expect(screen.getByText('Devrait fonctionner')).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('radio', { name: 'Hors-gel' }));
+    expect(api.radiatorLevel).toHaveBeenCalledWith('p1', 'frostprotection');
+  });
+
+  it('a towel dryer shows its modes, its setpoint range and boost or drying', async () => {
+    render(RadiatorPanel, { radiator: dryer as never, showControls: true });
+    expect(screen.getByRole('radio', { name: 'Boost' })).toHaveAttribute('aria-checked', 'true');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Normal' }));
+    expect(api.radiatorDryer).toHaveBeenCalledWith('d1', 'stop');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Séchage' }));
+    expect(api.radiatorDryer).toHaveBeenCalledWith('d1', 'drying');
+    expect(screen.getByRole('radio', { name: 'Programme' })).toBeInTheDocument(); // the compact « Prog. »
+    expect(screen.queryByRole('switch', { name: 'Détection de présence' })).toBeNull();
+  });
+
+  it('a device Kelvin does not drive is shown read-only, never hidden', () => {
+    render(RadiatorPanel, { radiator: zone as never, showControls: true });
+    expect(screen.getByText('Lecture seule')).toBeInTheDocument();
+    expect(screen.getByText(/Kelvin ne pilote pas ce type d’appareil/)).toBeInTheDocument();
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    expect(screen.queryAllByRole('switch')).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'Faire clignoter' })).toBeNull();
+    expect(screen.getByText('2 400 kWh', { normalizer: exact })).toBeInTheDocument();
   });
 });

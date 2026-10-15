@@ -3,6 +3,16 @@ import type { Day, EnergyGroup } from '$lib/api/types';
 import { intFor, listFor, own, pluralFor, type ApiParams } from './rules';
 
 const NB = '\u00a0';
+// Plan 12: a pilot-wire heater's levels and a towel dryer's actions (action labels)
+const LEVEL_EN: Record<string, string> = {
+  comfort: 'comfort',
+  'comfort-1': 'comfort −1',
+  'comfort-2': 'comfort −2',
+  eco: 'eco',
+  frostprotection: 'frost protection',
+  off: 'off'
+};
+const DRYER_EN: Record<string, string> = { boost: 'towel boost', drying: 'drying', stop: 'back to normal' };
 const int = intFor('en');
 const plural = pluralFor('en');
 const list = listFor('en');
@@ -180,6 +190,7 @@ export const en: Messages = {
     changedElsewhereDays: (days: string) => `Changed in the Cozytouch app or on another device: ${days}. Reload to see the current version, or replace it with your changes.`,
     reload: 'Reload',
     replaceAnyway: 'Replace anyway',
+    noRooms: 'No radiator in this home has a schedule Kelvin can edit. The others follow their own schedule or the maker’s app.',
     nextTomorrow: (time: string, level: string) => `tomorrow ${time} → ${level}`,
     nextOn: (day: Day, time: string, level: string) => `${DAY[day]} ${time} → ${level}`,
     dayError: {
@@ -683,6 +694,7 @@ export const en: Messages = {
     retry: 'Try again'
   },
   settings: {
+    server: 'Server',
     title: 'Settings',
     account: 'Account',
     signOut: 'Sign out',
@@ -774,6 +786,7 @@ export const en: Messages = {
   login: {
     title: 'Sign in',
     lead: 'Use the home’s Cozytouch account.',
+    leadServer: (name: string) => `Use the home’s ${name} account.`,
     reauth: 'Sign in again with the Cozytouch account.',
     password: 'Password',
     busy: 'Signing in…',
@@ -801,7 +814,11 @@ export const en: Messages = {
       bridge: 'Cozytouch bridge',
       box: 'Cozytouch box',
       wifi: 'Wi-Fi',
-      other: 'Device'
+      other: 'Device',
+      // Plan 12
+      water_heater: 'Water heater',
+      heat_pump: 'Heat pump',
+      heating: 'Heating'
     },
     reachable: 'Reachable',
     unreachable: 'Unreachable',
@@ -845,6 +862,11 @@ export const en: Messages = {
     undo: 'Undo',
     done: (label: string) => `${label} — done`,
     watts: (n: string) => `${n}${NB}W`,
+    // Plan 12
+    appliances: 'Other devices',
+    appliancesNote: 'Read-only: Kelvin doesn’t control these devices (water heaters, heat pumps, devices that don’t heat).',
+    introExperimental: (name: string) =>
+      `Read from your ${name} setup. On an experimental server, Kelvin doesn’t change rooms or devices.`,
     problem: {
       empty: 'Enter a name.',
       long: '32 characters at most.',
@@ -888,6 +910,9 @@ export const en: Messages = {
     night_light: (p: ApiParams) => `${p.name}: night light ${p.on ? 'on' : 'off'}`,
     night_light_intensity: (p: ApiParams) => `${p.name}: night light at ${p.intensity}%`,
     identify: (p: ApiParams) => `${p.name}: blink`,
+    // Plan 12
+    level: (p: ApiParams) => `${p.name}: heating level ${own(LEVEL_EN, p.level) ?? p.level}`,
+    dryer: (p: ApiParams) => `${p.name}: ${own(DRYER_EN, p.action) ?? p.action}`,
     boost: (p: ApiParams) => `${p.name}: boost to ${p.temperature}${NB}°C`,
     away: (p: ApiParams) => `Away at ${p.temperature}${NB}°C`,
     all_off: () => 'Turn everything off',
@@ -1042,6 +1067,55 @@ export const en: Messages = {
     },
     send_internal: () => 'Couldn’t send: internal error.',
     radiator_refused: () => 'The radiator rejected the command.',
-    no_confirmation: () => 'No confirmation from the radiator.'
+    no_confirmation: () => 'No confirmation from the radiator.',
+    // Plan 12
+    server_unknown: () => 'Unknown server.',
+    server_mismatch: (p: ApiParams) =>
+      `This home is linked to the ${p.server} server. To change servers, start from a fresh install (see the README).`,
+    data_other_server: (p: ApiParams) =>
+      `This data folder belongs to a home linked to ${p.server}: use another KELVIN_DATA folder.`,
+    bad_credentials_server: (p: ApiParams) => `Wrong ${p.server} email or password.`,
+    read_only_device: () => 'Kelvin doesn’t control this device: it’s shown read-only.',
+    level_unknown: (p: ApiParams) => `Unknown heating level: ${p.level}.`,
+    dryer_action_unknown: (p: ApiParams) => `Unknown action: ${p.action}.`,
+    unsupported_in_room: () => 'None of these radiators supports this command.',
+    setup_experimental: () => 'On an experimental server, Kelvin doesn’t change rooms or devices.'
+  },
+  // Plan 12 (Task 12)
+  kind: {
+    setpoint_heater: 'Radiator',
+    pilot_wire_heater: 'Pilot-wire radiator',
+    towel_dryer: 'Towel dryer',
+    heater_unknown: 'Heating'
+  },
+  support: {
+    expected: 'Expected to work',
+    experimental: 'Experimental',
+    readonly: 'Read-only',
+    readonlyHint: 'Kelvin doesn’t control this kind of device: it’s shown as Cozytouch describes it.'
+  },
+  pilot: {
+    label: 'Heating level',
+    comfort: 'Comfort',
+    comfort1: 'Comfort −1',
+    comfort2: 'Comfort −2',
+    eco: 'Eco',
+    frostprotection: 'Frost protection',
+    off: 'Off'
+  },
+  dryer: { label: 'Towel dryer', normal: 'Normal', boost: 'Towel boost', drying: 'Drying' },
+  roomCaps: {
+    partial: (n: number, total: number) =>
+      n === 1 ? `Applies to 1 radiator of ${total}` : `Applies to ${n} radiators of ${total}`,
+    readOnly: 'Kelvin controls no device in this room.'
+  },
+  // Plan 12
+  servers: {
+    label: 'Server',
+    cozytouch: 'Cozytouch',
+    experimental: 'Experimental — heating only',
+    loadFailed: 'Can’t read the server list.',
+    experimentalNote: 'Experimental: Kelvin shows heating only, doesn’t change rooms, and some devices stay read-only.',
+    locked: (name: string) => `Server: ${name}. To change it, start from a fresh install (see the README).`
   }
 };

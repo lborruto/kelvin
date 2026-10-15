@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from kelvin.config import Settings
+from kelvin.overkiz.servers import DEFAULT_SERVER, SERVERS
 
 log = logging.getLogger(__name__)
 ACCOUNT_FILE = "account.json"
@@ -32,6 +33,8 @@ class Account:
     password: str
     med_prm: str | None = None
     med_token: str | None = None
+    # The home's Overkiz server (Plan 12); files written before it are Sauter.
+    server: str = DEFAULT_SERVER
 
     def __repr__(self) -> str:
         return f"Account(<hidden>, linky={'set' if self.med_token else 'unset'})"
@@ -41,21 +44,30 @@ class Account:
     def same_email(self, email: str) -> bool:
         return self.email.strip().casefold() == email.strip().casefold()
 
+    def same_home(self, email: str, server: str) -> bool:
+        """A home's account is its Overkiz server and its email (Plan 12)."""
+        return self.server == server and self.same_email(email)
+
     def to_json(self) -> dict[str, Any]:
         return {
             "email": self.email,
             "password": self.password,
+            "server": self.server,
             "linky": {"prm": self.med_prm, "token": self.med_token},
         }
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> Account:
         linky = data.get("linky") or {}
+        server = str(data.get("server") or DEFAULT_SERVER)  # files before Plan 12 are Sauter
+        if server not in SERVERS:
+            raise ValueError("unknown server")
         return cls(
             email=str(data["email"]),
             password=str(data["password"]),
             med_prm=linky.get("prm"),
             med_token=linky.get("token"),
+            server=server,
         )
 
 
@@ -106,11 +118,11 @@ def bootstrap_account(settings: Settings, store: AccountStore) -> Account | None
     account = store.load()
     if account is not None:
         if settings.cozy_user:
-            log.info("account file present; COZY_USER/COZY_PASS ignored")
+            log.info("account file present; COZY_USER/COZY_PASS/COZY_SERVER ignored")
         return account
     password = settings.cozy_pass.get_secret_value()
     if settings.cozy_user.strip() and password:
-        account = Account(settings.cozy_user.strip(), password)
+        account = Account(settings.cozy_user.strip(), password, server=settings.cozy_server)
         store.save(account)
         log.info("account file created from COZY_USER/COZY_PASS")
         return account

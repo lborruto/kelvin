@@ -1,6 +1,8 @@
 # Kelvin
 
-Self-hosted heating control for Sauter radiators on Cozytouch (the Overkiz cloud). Kelvin is a
+Self-hosted control of electric heating through the Overkiz cloud: Sauter, Atlantic and Thermor
+homes on Cozytouch (tested on real Sauter radiators), and, experimentally, homes on other Overkiz
+servers. Kelvin is a
 fast, clear web app in French and English for phone and desktop: rooms, schedules, boost and away, a
 temperature history, and an electricity-bill estimate from your Linky meter.
 
@@ -9,7 +11,7 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
 
 ## Features
 
-- **Rooms first.** Cozytouch places become rooms; a room with two radiators acts as one, and
+- **Rooms first.** Overkiz places become rooms; a room with two radiators acts as one, and
   the detail shows each radiator.
 - **Truthful commands.** A change counts as done only when the radiator reports the new state.
   Pending, confirmed and failed are shown as such, including Overkiz's misleading
@@ -77,11 +79,45 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   bookmarks are redirected.
 - **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets.
 - **A simulator** of a whole home and a synthetic Linky, for trying Kelvin and for every test.
+  `KELVIN_FAKE_HOUSE=atlantic|thermor|experimental` shows another invented house; without it, the
+  house follows the server chosen at login.
+
+## Compatibility
+
+Kelvin talks to the Overkiz cloud through [pyoverkiz](https://github.com/iMicknl/python-overkiz-api).
+It has been tested on real hardware with Sauter radiators on the Sauter Cozytouch server only.
+Everything else follows pyoverkiz's device definitions and Home Assistant's Overkiz mapping and has
+**not** been tried on a real device (see the « UNVERIFIED » section of
+[docs/overkiz-notes.md](docs/overkiz-notes.md)).
+
+| Server (chosen at the first login) | Device | Status | What Kelvin offers |
+|---|---|---|---|
+| Sauter Cozytouch | Sauter IPALA, HEKLA (adjustable setpoint) | **Tested on real hardware** | Everything: modes, setpoints, programme, boost, away, night light, window and presence detection, energy |
+| Sauter, Atlantic or Thermor Cozytouch | Other radiators with an adjustable setpoint (`AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint`) | Expected to work | The same, as far as the radiator declares each command |
+| Sauter, Atlantic or Thermor Cozytouch | Pilot-wire radiators (`AtlanticElectricalHeater`) | Expected to work | Level only (Confort, Confort −1/−2, Éco, Hors-gel, Arrêt); no setpoint, programme, boost or away |
+| Sauter, Atlantic or Thermor Cozytouch | Towel dryers (`AtlanticElectricalTowelDryer`) | Expected to work | Modes, manual setpoint, boost, drying, boost/away; not their programme |
+| Somfy (Europe, North America, Oceania), Hitachi Hi Kumo, Flexom, Nexity Eugénie, Brandt Smart Control, Hexaom HexaConnect, SIMU LiveIn2, Ubiwizz | The same three kinds | Experimental | Heating only |
+| Any server | Other heating devices, water heaters, heat pumps, anything that does not heat | Read-only | Listed with their room and connectivity, never hidden, never commanded |
+| Rexel Energeasy Connect, Somfy multi-site accounts | — | Not supported | Their login is not an email and a password in pyoverkiz |
+
+If your home works (or does not) with a device marked « expected » or « experimental », please open
+an issue with the device's widget name, never your ids.
+
+Known limitation: messages that name Cozytouch (« Cozytouch injoignable ») keep that word on every
+server, including the experimental ones.
+
+### Changing server
+
+The server is part of the home's account and is chosen at the first login. To move Kelvin to
+another server, stop it, start it on a new, empty `KELVIN_DATA` (or move the old folder away) and
+log in choosing the new server: a server change is a fresh install. A data folder never mixes two
+servers' homes: Kelvin refuses (« Ce dossier de données appartient à une maison reliée au serveur … »).
 
 ## Security model — read this before installing
 
-- **Login is your home's Cozytouch account.** Kelvin has no users of its own: it checks the
-  email and password against Cozytouch. The first login on a fresh install decides which
+- **Login is your home's account on its Overkiz server** (Sauter Cozytouch by default; choose
+  another at the first login). Kelvin has no users of its own: it checks the email and password
+  against that server. The first login on a fresh install decides which
   account the install belongs to. Anyone who can log in to Cozytouch with that account can log
   in to Kelvin. Logins are throttled per client (5 failures per 15 min) and overall.
 - **Sessions:** every signed-in browser is listed in Home › Settings › Signed-in devices (browser
@@ -199,6 +235,7 @@ Kelvin keeps both in `account.json` (0600) in its data volume.
 | Variable | Default in the image | Meaning |
 |---|---|---|
 | `TZ` | `Europe/Paris` | Time zone for schedules, energy days and the Linky sync |
+| `COZY_SERVER` | `sauter_cozytouch` | The home's Overkiz server (`atlantic_cozytouch`, `thermor_cozytouch`, or an experimental server id); read only when `COZY_USER`/`COZY_PASS` create the account file |
 | `COZY_USER`, `COZY_PASS` | — | Advanced, unattended setup only: create the account file on the first start instead of the first login (Compose interpolates `$`: write it as `$$`) |
 | `MED_PRM`, `MED_TOKEN` | — | Advanced: fallback Linky PDL and token; Settings wins |
 | `KELVIN_DATA` | `/data` | SQLite database and `account.json` |
@@ -207,6 +244,7 @@ Kelvin keeps both in `account.json` (0600) in its data volume.
 | `KELVIN_ALLOWED_HOSTS` | — | Comma-separated Host allowlist; `localhost` always passes |
 | `KELVIN_TRUSTED_PROXIES` | — | **Only behind a trusted reverse proxy:** its exact addresses |
 | `KELVIN_FAKE` | `0` | `1` runs the simulator |
+| `KELVIN_FAKE_HOUSE` | — | Simulator only: `sauter`, `atlantic`, `thermor` or `experimental` shows another invented house (pilot-wire heaters, towel dryers, a water heater, a heat pump…); empty, the house follows the server chosen at login |
 | `KELVIN_DEBUG` | `0` | `1` serves the API docs at `/docs` |
 | `MED_BASE_URL` | `https://www.myelectricaldata.fr` | MyElectricalData API base |
 
@@ -232,7 +270,7 @@ Kelvin keeps both in `account.json` (0600) in its data volume.
 - **Web** (`web/`, SvelteKit, Svelte 5): a static PWA served by the backend. Every string lives
   in a French and an English dictionary; the API answers errors with a stable code the web
   translates, next to a French `detail`. See [web/README.md](web/README.md).
-- **Device facts** verified on Sauter radiators: [docs/overkiz-notes.md](docs/overkiz-notes.md);
+- **Device facts** verified on Sauter radiators (and, marked UNVERIFIED, what Kelvin sends to other kinds): [docs/overkiz-notes.md](docs/overkiz-notes.md);
   MyElectricalData: [docs/linky-notes.md](docs/linky-notes.md).
 - **Product and design:** [PRODUCT.md](PRODUCT.md) and the design system,
   [DESIGN.md](DESIGN.md).
@@ -245,10 +283,12 @@ simulator, and every test uses it.
 ## Project status
 
 Early (0.x). Kelvin is developed against one installation: Sauter IPALA H and HEKLA radiators
-on io-homecontrol, with a Cozytouch bridge. Other heaters on the Atlantic group's Cozytouch
-server may work but are untested. The UI is in French and English (French by default; switch in
-Home › Settings, or on the sign-in screen). The Linky bill estimate supports the Base, HC/HP and
-Tempo options; Tempo and EcoWatt are shown on Rooms and Energy and raise alerts.
+on io-homecontrol, with a Cozytouch bridge. Multi-brand (Plan 12): servers and device kinds beyond
+Sauter are « expected to work » or « experimental » and untested on real hardware (see
+[Compatibility](#compatibility)); messages that name Cozytouch keep that word on every server. The
+UI is in French and English (French by default; switch in Home › Settings, or on the sign-in
+screen). The Linky bill estimate supports the Base, HC/HP and Tempo options; Tempo and EcoWatt
+are shown on Rooms and Energy and raise alerts.
 
 ## Licence
 

@@ -8,6 +8,12 @@
       "fr": "Email ou mot de passe Cozytouch incorrect.",
       "params": {}
     },
+    "bad_credentials_server": {
+      "fr": "Email ou mot de passe Flexom incorrect.",
+      "params": {
+        "server": "Flexom"
+      }
+    },
     "cozytouch_unavailable": {
       "fr": "Cozytouch injoignable, réessayez plus tard.",
       "params": {}
@@ -15,6 +21,12 @@
     "cozytouch_unreachable": {
       "fr": "Cozytouch injoignable, réessayez dans un instant.",
       "params": {}
+    },
+    "data_other_server": {
+      "fr": "Ce dossier de données appartient à une maison reliée au serveur Sauter Cozytouch : utilisez un autre dossier KELVIN_DATA.",
+      "params": {
+        "server": "Sauter Cozytouch"
+      }
     },
     "day_unknown": {
       "fr": "Jour inconnu : funday.",
@@ -33,6 +45,12 @@
     "device_unknown": {
       "fr": "Appareil inconnu.",
       "params": {}
+    },
+    "dryer_action_unknown": {
+      "fr": "Action inconnue : spin.",
+      "params": {
+        "action": "spin"
+      }
     },
     "end_in_past": {
       "fr": "La fin doit être dans le futur.",
@@ -83,6 +101,12 @@
     "kva_unknown": {
       "fr": "Puissance souscrite inconnue.",
       "params": {}
+    },
+    "level_unknown": {
+      "fr": "Allure inconnue : turbo.",
+      "params": {
+        "level": "turbo"
+      }
     },
     "linky_quota": {
       "fr": "Quota Linky du jour atteint : réessayez demain.",
@@ -245,6 +269,10 @@
       "fr": "Radiateur inconnu dans la demande.",
       "params": {}
     },
+    "read_only_device": {
+      "fr": "Kelvin ne pilote pas cet appareil : il est affiché en lecture seule.",
+      "params": {}
+    },
     "rename_alone": {
       "fr": "Renommez le radiateur seul, sans autre réglage dans la même demande.",
       "params": {}
@@ -293,6 +321,16 @@
       "fr": "Envoi impossible : erreur interne.",
       "params": {}
     },
+    "server_mismatch": {
+      "fr": "Cette maison est reliée au serveur Sauter Cozytouch. Pour changer de serveur, repartez d’une installation neuve (voir le README).",
+      "params": {
+        "server": "Sauter Cozytouch"
+      }
+    },
+    "server_unknown": {
+      "fr": "Serveur inconnu.",
+      "params": {}
+    },
     "session_is_current": {
       "fr": "Utilisez « Se déconnecter » pour cet appareil.",
       "params": {}
@@ -309,6 +347,10 @@
     },
     "setup_busy": {
       "fr": "Une modification est déjà en cours pour cette pièce ou ce radiateur.",
+      "params": {}
+    },
+    "setup_experimental": {
+      "fr": "Sur un serveur expérimental, Kelvin ne modifie ni les pièces ni les appareils.",
       "params": {}
     },
     "setup_failed": {
@@ -426,6 +468,10 @@
         "command": "setName"
       }
     },
+    "unsupported_in_room": {
+      "fr": "Aucun des radiateurs concernés ne prend en charge cette commande.",
+      "params": {}
+    },
     "wrong_account": {
       "fr": "Ce compte Cozytouch n’est pas celui de cette maison.",
       "params": {}
@@ -461,10 +507,24 @@
       "fr": "Fin du forçage",
       "params": {}
     },
+    "dryer": {
+      "fr": "Salle de bain : séchage",
+      "params": {
+        "action": "drying",
+        "name": "Salle de bain"
+      }
+    },
     "identify": {
       "fr": "Salon : identification",
       "params": {
         "name": "Salon"
+      }
+    },
+    "level": {
+      "fr": "Bureau : allure éco",
+      "params": {
+        "level": "eco",
+        "name": "Bureau"
       }
     },
     "mode": {

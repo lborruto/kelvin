@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import { setupFixture } from '$lib/components/devices/fixture';
 import type { Pending } from '$lib/api/types';
+import { auth } from '$lib/stores/auth.svelte';
 import { house } from '$lib/stores/house.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import Page from './+page.svelte';
@@ -22,6 +23,8 @@ vi.mock('$lib/api/client', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   house.reset();
+  auth.server = { id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true }; // canEditSetup(null) is false
+  auth.loggedIn = true; // the page waits for /auth/me
 });
 
 describe('Rooms and devices page', () => {
@@ -99,5 +102,61 @@ describe('Rooms and devices page', () => {
     await fireEvent.submit(input.closest('form')!);
     await new Promise((r) => setTimeout(r, 1600));
     expect(api.createRoom).toHaveBeenCalledOnce();
+  });
+});
+
+describe('Rooms and devices page across brands', () => {
+  it('lists the other devices under « Autres appareils »', async () => {
+    vi.mocked(api.setupDevices).mockResolvedValue({
+      ...setupFixture(),
+      appliances: [
+        {
+          id: 'bridge-4',
+          role: 'heat_pump',
+          label: 'Pompe à chaleur',
+          widget: 'AtlanticPassAPCHeatPump',
+          room_id: null,
+          misplaced: false,
+          reachable: true,
+          last_event_at: null,
+          details: {},
+          support: 'readonly'
+        }
+      ]
+    });
+    render(Page);
+    expect(await screen.findByRole('heading', { name: 'Autres appareils' })).toBeInTheDocument();
+    expect(screen.getByText('Pompe à chaleur', { selector: '.label' })).toBeInTheDocument();
+  });
+
+  it('the device screen hides setup actions on an experimental server', async () => {
+    auth.server = { id: 'flexom', name: 'Flexom', tier: 'experimental', default: false };
+    const s = setupFixture();
+    s.radiators[0].devices[2] = { ...s.radiators[0].devices[2], misplaced: true, room_id: 'p-bureau' };
+    vi.mocked(api.setupDevices).mockResolvedValue(s);
+    render(Page);
+    try {
+      expect(await screen.findByText(/Lu dans votre installation Flexom/)).toBeInTheDocument();
+      expect(screen.getByText('Pas dans la même pièce que son radiateur')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Nouvelle pièce/ })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: /Renommer|Supprimer la pièce|Déplacer vers|Ranger avec le radiateur/ })
+      ).toBeNull();
+      expect(screen.getByRole('button', { name: 'Synchroniser' })).toBeInTheDocument(); // a read
+    } finally {
+      auth.server = null;
+    }
+  });
+
+  it('keeps the setup actions on a Cozytouch server', async () => {
+    auth.server = { id: 'atlantic_cozytouch', name: 'Atlantic Cozytouch', tier: 'cozytouch', default: false };
+    vi.mocked(api.setupDevices).mockResolvedValue(setupFixture());
+    render(Page);
+    try {
+      expect(await screen.findByRole('button', { name: /Nouvelle pièce/ })).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /Renommer/ }).length).toBeGreaterThan(0);
+    } finally {
+      auth.server = null;
+    }
   });
 });

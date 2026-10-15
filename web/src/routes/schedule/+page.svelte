@@ -6,6 +6,7 @@
   import { DAYS, type Day, type Pending } from '$lib/api/types';
   import { run, retry } from '$lib/actions';
   import { api, ApiError } from '$lib/api/client';
+  import { capsOf, programRooms } from '$lib/capabilities';
   import Icon from '$lib/components/Icon.svelte';
   import PendingTag from '$lib/components/PendingTag.svelte';
   import ProgramDay from '$lib/components/ProgramDay.svelte';
@@ -61,11 +62,14 @@
     return () => clearInterval(t);
   });
 
+  // Plan 12: only rooms with a radiator whose programme Kelvin can edit.
+  let rooms = $derived(programRooms(house.rooms, (id) => house.roomRadiators(id)));
+
   $effect(() => {
-    if (!roomId && house.rooms.length) roomId = house.rooms[0].id;
+    if (!roomId && rooms.length) roomId = rooms[0].id;
   });
 
-  let radiators = $derived(roomId ? house.roomRadiators(roomId) : []);
+  let radiators = $derived(roomId ? house.roomRadiators(roomId).filter((r) => capsOf(r).program) : []);
   let source = $derived(radiators[0]?.program ?? {});
   // Days no radiator of the room may have edited (QW8): shown read-only, never in the payload.
   let dayLocks = $derived(lockedDays(radiators));
@@ -153,7 +157,7 @@
     const r = house.room(id);
     return r ? roomName(r) : id;
   };
-  let roomOptions = $derived(house.rooms.map((r) => ({ value: r.id, label: roomName(r) })));
+  let roomOptions = $derived(rooms.map((r) => ({ value: r.id, label: roomName(r) })));
   // Phone: one day open at a time (today first), the others show only their bar.
   // null: nothing chosen yet (today is open); 'none': the user closed every day.
   let openDay = $state<Day | 'none' | null>(null);
@@ -209,7 +213,7 @@
     sending = true;
     try {
       for (const [i, id] of ids.entries()) {
-        const b = id === roomId ? base : baseOf(house.roomRadiators(id));
+        const b = id === roomId ? base : baseOf(house.roomRadiators(id).filter((r) => capsOf(r).program));
         // Locked days are kept as each radiator reports them, in this room and every other
         // (final review C1): a send never empties a day it does not mean to change.
         const opts = { base: b, ...(lockedList.length ? { keep: lockedList } : {}), ...(force ? { force: true } : {}) };
@@ -273,6 +277,8 @@
     <div class="skeleton" style:height="70px"></div>
     {#each DAYS as d (d)}<div class="skeleton" style:height="{desktop.matches ? 108 : 64}px"></div>{/each}
   </div>
+{:else if !rooms.length}
+  <p class="muted">{m.program.noRooms}</p>
 {:else}
   <div class="rooms">
     {#if roomId}<Segmented options={roomOptions} value={roomId} label={m.program.roomPicker} onchange={pickRoom} />{/if}
@@ -316,10 +322,10 @@
         {/each}
         <button type="button" class="btn btn-sm" aria-disabled={busy || !copyTo.length} onclick={applyCopy}>{m.program.copy}</button>
       </div>
-      {#if house.rooms.length > 1}
+      {#if rooms.length > 1}
         <h2 class="also">{m.program.alsoSend}</h2>
         <div class="chips">
-          {#each house.rooms.filter((r) => r.id !== roomId) as r (r.id)}
+          {#each rooms.filter((r) => r.id !== roomId) as r (r.id)}
             <label class="chip"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} disabled={busy} /><span
                 aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{roomName(r)}</label>
           {/each}

@@ -112,3 +112,57 @@ def test_an_unreadable_account_file_is_a_clear_error_without_its_content(tmp_pat
     assert "Sup3r" not in message and "me@example.fr" not in message
     # No chained parser error: its text could quote the file in a traceback.
     assert e.value.__cause__ is None and e.value.__suppress_context__
+
+
+# Plan 12: the account's Overkiz server.
+
+
+def test_an_account_file_without_a_server_is_sauter(tmp_path):
+    (tmp_path / "account.json").write_text(
+        json.dumps({"email": "a@b.fr", "password": "pw", "linky": {}}), encoding="utf-8"
+    )
+    (tmp_path / "account.json").chmod(0o600)
+    account = AccountStore(tmp_path).load()
+    assert account is not None and account.server == "sauter_cozytouch"
+
+
+def test_the_server_is_stored_and_read_back(tmp_path):
+    store = AccountStore(tmp_path)
+    store.save(Account("a@b.fr", "pw", server="thermor_cozytouch"))
+    data = json.loads((tmp_path / "account.json").read_text(encoding="utf-8"))
+    assert data["server"] == "thermor_cozytouch"
+    assert store.load().server == "thermor_cozytouch"
+
+
+def test_an_unknown_server_in_the_file_is_an_unreadable_file(tmp_path):
+    (tmp_path / "account.json").write_text(
+        json.dumps({"email": "a@b.fr", "password": "pw", "server": "nope"}), encoding="utf-8"
+    )
+    (tmp_path / "account.json").chmod(0o600)
+    with pytest.raises(AccountFileError):
+        AccountStore(tmp_path).load()
+
+
+def test_same_home_is_the_email_and_the_server():
+    a = Account("A@B.fr ", "pw", server="atlantic_cozytouch")
+    assert a.same_home("a@b.fr", "atlantic_cozytouch")
+    assert not a.same_home("a@b.fr", "sauter_cozytouch")
+    assert not a.same_home("x@b.fr", "atlantic_cozytouch")
+    assert "pw" not in repr(a)
+
+
+def test_cozy_server_goes_into_a_new_account_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("COZY_USER", "a@b.fr")
+    monkeypatch.setenv("COZY_PASS", "pw")
+    monkeypatch.setenv("COZY_SERVER", "atlantic_cozytouch")
+    settings = Settings(_env_file=None, kelvin_data=tmp_path)
+    account = bootstrap_account(settings, AccountStore(tmp_path))
+    assert account is not None and account.server == "atlantic_cozytouch"
+
+
+def test_the_account_file_wins_over_cozy_server(tmp_path, monkeypatch):
+    AccountStore(tmp_path).save(Account("a@b.fr", "pw"))
+    monkeypatch.setenv("COZY_USER", "a@b.fr")
+    monkeypatch.setenv("COZY_SERVER", "atlantic_cozytouch")
+    settings = Settings(_env_file=None, kelvin_data=tmp_path)
+    assert bootstrap_account(settings, AccountStore(tmp_path)).server == "sauter_cozytouch"

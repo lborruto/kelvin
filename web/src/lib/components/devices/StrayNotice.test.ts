@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
+import { auth } from '$lib/stores/auth.svelte';
 import StrayNotice from './StrayNotice.svelte';
 import { device } from './fixture';
 
@@ -8,6 +9,10 @@ vi.mock('$lib/api/client', () => ({
   api: { tidyDevice: vi.fn().mockResolvedValue({ pending: null }) },
   ApiError: class extends Error {}
 }));
+
+beforeEach(() => {
+  auth.server = { id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true }; // canEditSetup(null) is false
+});
 
 describe('StrayNotice', () => {
   it('names the inconsistency and moves the device back with its radiator', async () => {

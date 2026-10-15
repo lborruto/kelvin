@@ -3,6 +3,7 @@
   import { run, retry } from '$lib/actions';
   import { api } from '$lib/api/client';
   import { activityKey, dutyText } from '$lib/activity';
+  import { capsOf, isReadOnly, roomControls, roomRange } from '$lib/capabilities';
   import { fmtDelta, fmtTemp, fmtTime } from '$lib/format';
   import { levelLabel, m } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
@@ -54,6 +55,12 @@
   let room = $derived(house.room(roomId));
   let radiators = $derived(house.roomRadiators(roomId));
   let first = $derived(radiators[0]);
+  // Plan 12: room controls reach the radiators that support them; none → the control is absent.
+  let rc = $derived(roomControls(radiators));
+  let canOff = $derived(radiators.some((r) => !isReadOnly(r) && capsOf(r).levels.includes('off')));
+  let manualRange = $derived(roomRange(radiators, 'manual'));
+  let comfortRange = $derived(roomRange(radiators, 'comfort'));
+  let ecoRange = $derived(roomRange(radiators, 'eco'));
   let expected = $derived(house.roomExpected(roomId));
   let pending = $derived(room ? house.pendingFor(room.radiator_ids) : undefined);
   let override = $derived(house.overrideFor(roomId));
@@ -123,31 +130,52 @@
 
     <section>
       <h3>{m.room.controls}</h3>
-      <ModeSwitch label={m.room.modeLabel} disabled={!house.online} value={room.mode} pending={expected.mode ?? null} onchange={(next) => run(() => api.roomMode(roomId, next))} />
-      {#if room.mode === 'mixed'}<p class="note">{m.room.mixedMode}</p>{/if}
-      {#if mode === 'manual'}
-        <div class="row"><span>{m.room.setpoint}</span>
-          <Stepper label={m.room.setpoint} announce={false} value={expected.target ?? aTarget.value} min={7} max={maxT}
-            disabled={!house.online} pending={expected.target !== undefined}
-            onchange={(v) => run(() => api.roomSetpoint(roomId, 'manual', v))} />
-          {#if aTarget.mixed && expected.target === undefined}<p class="note">{m.room.mixedMean}</p>{/if}
-        </div>
-      {/if}
-      {#if mode !== 'off'}
-        <div class="row"><span>{m.room.comfort}</span>
-          <Stepper label={m.room.comfort} announce={false} value={expected.comfort ?? aComfort.value} min={12} max={maxT} disabled={!house.online}
-            pending={expected.comfort !== undefined} onchange={(v) => run(() => api.roomSetpoint(roomId, 'comfort', v))} />
-          {#if aComfort.mixed && expected.comfort === undefined}<p class="note">{m.room.mixedMean}</p>{/if}
-        </div>
-        <div class="row"><span>{m.room.eco}</span>
-          <Stepper label={m.room.eco} announce={false} value={expected.eco_delta ?? aEco.value} min={1} max={8}
-            format={(v) => fmtDelta(v)} pending={expected.eco_delta !== undefined} disabled={!house.online}
-            onchange={(v) => run(() => api.roomSetpoint(roomId, 'eco', v))} />
-          {#if aEco.mixed && expected.eco_delta === undefined}<p class="note">{m.room.mixedMean}</p>{/if}
-        </div>
+      {#if rc.controllable === 0}
+        <p class="note">{m.roomCaps.readOnly}</p>
+      {:else}
+        {#if rc.modes.length}
+          <ModeSwitch label={m.room.modeLabel} disabled={!house.online} value={room.mode} pending={expected.mode ?? null} modes={rc.modes}
+            onchange={(next) => run(() => api.roomMode(roomId, next))} />
+          {#if rc.mode < rc.total}<p class="note">{m.roomCaps.partial(rc.mode, rc.total)}</p>{/if}
+        {:else if canOff}
+          <!-- Pilot-wire rooms have levels, not modes: « Arrêt » is the house-off rule for this room. -->
+          <button type="button" class="btn secondary" aria-pressed={mode === 'off'} aria-disabled={busy || !house.online}
+            onclick={() => !busy && house.online && mode !== 'off' && run(() => api.roomMode(roomId, 'off'))}>{m.mode.off}</button>
+        {/if}
+        {#if rc.modes.length && room.mode === 'mixed'}<p class="note">{m.room.mixedMode}</p>{/if}
+        {#if mode === 'manual' && manualRange}
+          <div class="row"><span>{m.room.setpoint}</span>
+            <Stepper label={m.room.setpoint} announce={false} value={expected.target ?? aTarget.value} min={manualRange[0]} max={manualRange[1]}
+              disabled={!house.online} pending={expected.target !== undefined}
+              onchange={(v) => run(() => api.roomSetpoint(roomId, 'manual', v))} />
+            {#if aTarget.mixed && expected.target === undefined}<p class="note">{m.room.mixedMean}</p>{/if}
+            {#if rc.manual < rc.total}<p class="note">{m.roomCaps.partial(rc.manual, rc.total)}</p>{/if}
+          </div>
+        {/if}
+        {#if mode !== 'off'}
+          {#if comfortRange}
+            <div class="row"><span>{m.room.comfort}</span>
+              <Stepper label={m.room.comfort} announce={false} value={expected.comfort ?? aComfort.value} min={comfortRange[0]} max={comfortRange[1]}
+                disabled={!house.online} pending={expected.comfort !== undefined}
+                onchange={(v) => run(() => api.roomSetpoint(roomId, 'comfort', v))} />
+              {#if aComfort.mixed && expected.comfort === undefined}<p class="note">{m.room.mixedMean}</p>{/if}
+              {#if rc.comfort < rc.total}<p class="note">{m.roomCaps.partial(rc.comfort, rc.total)}</p>{/if}
+            </div>
+          {/if}
+          {#if ecoRange}
+            <div class="row"><span>{m.room.eco}</span>
+              <Stepper label={m.room.eco} announce={false} value={expected.eco_delta ?? aEco.value} min={ecoRange[0]} max={ecoRange[1]}
+                format={(v) => fmtDelta(v)} pending={expected.eco_delta !== undefined} disabled={!house.online}
+                onchange={(v) => run(() => api.roomSetpoint(roomId, 'eco', v))} />
+              {#if aEco.mixed && expected.eco_delta === undefined}<p class="note">{m.room.mixedMean}</p>{/if}
+              {#if rc.eco < rc.total}<p class="note">{m.roomCaps.partial(rc.eco, rc.total)}</p>{/if}
+            </div>
+          {/if}
+        {/if}
       {/if}
     </section>
 
+    {#if rc.boost > 0}
     <section>
       <h3>{m.room.boostTitle}</h3>
       {#if override?.kind === 'boost'}
@@ -156,7 +184,7 @@
           onclick={() => house.online && run(() => api.cancelOverride(override!.id))}>{m.room.cancelBoost}</button>
       {:else}
         <div class="row">
-          <Stepper label={m.room.boostTemp} value={boostTemp} min={7} max={maxT} debounceMs={0} onchange={(v) => (boostTemp = v)} />
+          <Stepper label={m.room.boostTemp} value={boostTemp} min={manualRange?.[0] ?? 7} max={manualRange?.[1] ?? maxT} debounceMs={0} onchange={(v) => (boostTemp = v)} />
           <label class="dur"><span class="muted">{m.room.duration}</span>
             <select bind:value={boostHours}>
               <option value={1}>1 h</option><option value={2}>2 h</option><option value={4}>4 h</option><option value={8}>8 h</option>
@@ -164,8 +192,10 @@
           </label>
           <button type="button" class="btn btn-primary" aria-disabled={busy || !house.online} onclick={boost}>{m.room.boost}</button>
         </div>
+        {#if rc.boost < rc.total}<p class="note">{m.roomCaps.partial(rc.boost, rc.total)}</p>{/if}
       {/if}
     </section>
+    {/if}
 
     <section>
       <div class="hist-head">

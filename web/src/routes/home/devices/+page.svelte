@@ -12,10 +12,13 @@
   import DeleteRoomDialog from '$lib/components/devices/DeleteRoomDialog.svelte';
   import LabelForm from '$lib/components/devices/LabelForm.svelte';
   import MoveDialog from '$lib/components/devices/MoveDialog.svelte';
+  import AppliancesBlock from '$lib/components/devices/AppliancesBlock.svelte';
+  import { canEditSetup } from '$lib/capabilities';
   import { m } from '$lib/i18n';
   import { ROUTES } from '$lib/paths';
   import { radiatorName } from '$lib/setup';
   import { installUndo, runSetup } from '$lib/setupActions';
+  import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
 
   const REFRESH_MS = 30_000; // memory only on the server: no Overkiz call
@@ -42,7 +45,12 @@
     return () => clearInterval(timer);
   });
 
-  let setup = $derived(house.setup);
+  // Rendered once with everything it depends on: the setup and the home's server (/auth/me),
+  // which decides the setup actions. Shown piecemeal, the actions arrived after the rooms and
+  // pushed them down (CLS, CI 2026-10-15).
+  let setup = $derived(auth.loggedIn === null ? null : house.setup);
+  // Plan 12: rooms and devices are written on the Cozytouch servers only.
+  let editable = $derived(canEditSetup(auth.server));
   // The house root is a room only while radiators are in no other room (decision 9).
   let rooms = $derived(setup ? setup.rooms.filter((r) => !r.is_root || r.radiator_ids.length) : []);
 
@@ -105,9 +113,8 @@
 
 <a class="back btn btn-ghost" href={ROUTES.home}><Icon name="arrow-left" size={16} />{m.devices.home}</a>
 <h1>{m.devices.title}</h1>
-<p class="intro">{m.devices.intro}</p>
-
 {#if !setup}
+  <p class="intro">{m.devices.intro}</p>
   {#if failed}
     <p class="error" role="alert">{m.devices.loadFailed} <button type="button" class="btn btn-sm" onclick={load}>{m.devices.reload}</button></p>
   {:else}
@@ -117,8 +124,9 @@
     </div>
   {/if}
 {:else}
+  <p class="intro">{auth.server && !editable ? m.devices.introExperimental(auth.server.name) : m.devices.intro}</p>
   {#if setup.sync}<SyncLine sync={setup.sync} {now} />{/if}
-  <div class="new">
+  {#if editable}<div class="new">
     {#if creating}
       <LabelForm name={m.devices.newRoomField} kind="room" existing={labels} submitText={m.devices.create}
         busy={active(createPending)} onsubmit={createRoom} oncancel={() => (creating = false)} />
@@ -126,12 +134,12 @@
       <button type="button" class="btn btn-sm" onclick={() => (creating = true)}><Icon name="plus" size={16} />{m.devices.newRoom}</button>
     {/if}
     <PendingTag pending={createPending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
-  </div>
+  </div>{/if}
   {#each rooms as room (room.id)}
     <RoomBlock {room} radiators={setup.radiators.filter((r) => r.room_id === room.id)} {now} {deviceActions} {radiatorActions}
       pending={house.pendingForRoom(room.id)} {radiatorPending}>
       {#snippet actions()}
-        {#if !room.is_root}
+        {#if !room.is_root && editable}
           {@const pending = house.pendingForRoom(room.id)}
           <div class="actions">
             <button type="button" class="btn btn-sm btn-ghost" aria-expanded={editing === `room:${room.id}`}
@@ -154,6 +162,7 @@
       {#each setup.bridges as d (d.id)}<DeviceRow device={d} {now} />{/each}
     </ul>
   </section>
+  <AppliancesBlock devices={setup.appliances ?? []} {now} />
 {/if}
 
 {#snippet deviceActions(d: SetupDevice)}
@@ -165,13 +174,13 @@
 
 {#snippet radiatorActions(r: SetupRadiator)}
   {@const pending = radiatorPending(r.id)}
-  <div class="actions">
+  {#if editable}<div class="actions">
     <button type="button" class="btn btn-sm btn-ghost" aria-expanded={editing === `radiator:${r.id}`}
       onclick={() => toggle(`radiator:${r.id}`)}><Icon name="edit" size={16} />{m.devices.rename}</button>
     <MoveDialog radiator={r} rooms={setup?.rooms ?? []} busy={active(pending)} onmove={(id) => moveRadiator(r, id)} />
     <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
-  </div>
-  {#if editing === `radiator:${r.id}`}
+  </div>{/if}
+  {#if editable && editing === `radiator:${r.id}`}
     <LabelForm name={m.devices.radiatorField} initial={radiatorName(r)} kind="device" submitText={m.devices.save}
       busy={active(pending)} onsubmit={(v) => renameRadiator(r, v)} oncancel={() => (editing = null)} />
   {/if}

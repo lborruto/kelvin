@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from kelvin.api.runtime import start_runtime, stop_runtime
+from kelvin.api.runtime import SERVER_KEY, SETUP_KEY, start_runtime, stop_runtime
 from kelvin.config import Settings
 from kelvin.house.model import build_house
 from kelvin.overkiz.fake import FakeGateway
@@ -110,11 +110,15 @@ class StubGateway:
 
     def __init__(self):
         self.closed = False
+        self.server = "sauter_cozytouch"  # Gateway.server (Plan 12): what a real gateway carries
+        self.logins = 0
+        self.snapshots = 0
 
     async def login(self):
-        pass
+        self.logins += 1
 
     async def snapshot(self):
+        self.snapshots += 1
         return sample_house()
 
     async def close(self):
@@ -151,6 +155,24 @@ async def test_real_gateway_refuses_sim_db(tmp_path):
             Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=False), gw, start_tasks=False
         )
     assert gw.closed
+
+
+async def test_a_real_gateway_on_simulator_data_is_refused_before_any_call(tmp_path):
+    """The guard runs next to the server check: no login, no setup read, nothing stored."""
+    db = Database(tmp_path / "kelvin.db")
+    db.set_setting("sim_db", True)
+    db.close()
+    gw = StubGateway()
+    with pytest.raises(RuntimeError, match="simulator data"):
+        await start_runtime(
+            Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=False), gw, start_tasks=False
+        )
+    assert (gw.logins, gw.snapshots, gw.closed) == (0, 0, True)
+    db = Database(tmp_path / "kelvin.db")
+    try:
+        assert db.get_setting(SETUP_KEY) is None and db.get_setting(SERVER_KEY) is None
+    finally:
+        db.close()
 
 
 async def test_fake_flag_with_non_fake_gateway_seeds_nothing(tmp_path):

@@ -177,7 +177,9 @@
         "setName",
         "identify",
         "wink"
-      ]
+      ],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/14172536#2",
@@ -188,7 +190,9 @@
         "core:TemperatureState": 21.4,
         "core:StatusState": "available"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/14172536#3",
@@ -198,7 +202,9 @@
       "states": {
         "core:ContactState": "closed"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/14172536#4",
@@ -208,7 +214,9 @@
       "states": {
         "core:OccupancyState": "noPersonInside"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/14172536#5",
@@ -220,7 +228,9 @@
         "core:ConsumptionTariff1State": 1050000,
         "core:ConsumptionTariff2State": 4200000
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/14172536#6",
@@ -237,7 +247,9 @@
         "off",
         "setIntensity",
         "setOnOff"
-      ]
+      ],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/9312063#1",
@@ -391,7 +403,9 @@
         "setName",
         "identify",
         "wink"
-      ]
+      ],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/9312063#2",
@@ -402,7 +416,9 @@
         "core:TemperatureState": 20.2,
         "core:StatusState": "available"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/9312063#3",
@@ -412,7 +428,9 @@
       "states": {
         "core:ContactState": "closed"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/9312063#4",
@@ -422,7 +440,9 @@
       "states": {
         "core:OccupancyState": "noPersonInside"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/9312063#5",
@@ -434,7 +454,9 @@
         "core:ConsumptionTariff1State": 500000,
         "core:ConsumptionTariff2State": 1900000
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/9312063#6",
@@ -451,7 +473,9 @@
         "off",
         "setIntensity",
         "setOnOff"
-      ]
+      ],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370011#1",
@@ -609,7 +633,9 @@
         "setName",
         "identify",
         "wink"
-      ]
+      ],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370011#2",
@@ -620,7 +646,9 @@
         "core:TemperatureState": 18.9,
         "core:StatusState": "available"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370011#3",
@@ -630,7 +658,9 @@
       "states": {
         "core:ContactState": "closed"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370011#4",
@@ -640,7 +670,9 @@
       "states": {
         "core:OccupancyState": "noPersonInside"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370011#5",
@@ -652,7 +684,9 @@
         "core:ConsumptionTariff1State": 950000,
         "core:ConsumptionTariff2State": 1100000
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370011#6",
@@ -669,7 +703,9 @@
         "off",
         "setIntensity",
         "setOnOff"
-      ]
+      ],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370022#1",
@@ -823,7 +859,9 @@
         "setName",
         "identify",
         "wink"
-      ]
+      ],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370022#2",
@@ -834,7 +872,9 @@
         "core:TemperatureState": 16.6,
         "core:StatusState": "available"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370022#3",
@@ -844,7 +884,9 @@
       "states": {
         "core:ContactState": "closed"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370022#4",
@@ -854,7 +896,9 @@
       "states": {
         "core:OccupancyState": "noPersonInside"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370022#5",
@@ -866,7 +910,9 @@
         "core:ConsumptionTariff1State": 800000,
         "core:ConsumptionTariff2State": 1000000
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/8370022#6",
@@ -883,7 +929,9 @@
         "off",
         "setIntensity",
         "setOnOff"
-      ]
+      ],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "io://1234-5678-9012/1698997",
@@ -893,7 +941,9 @@
       "states": {},
       "commands": [
         "discoverActuators"
-      ]
+      ],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "internal://1234-5678-9012/pod/0",
@@ -905,7 +955,9 @@
         "core:NameState": "Box",
         "core:CountryCodeState": "FR"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     },
     {
       "device_url": "internal://1234-5678-9012/wifi/0",
@@ -916,7 +968,9 @@
         "internal:SignalStrengthState": 72,
         "internal:WifiModeState": "infrastructure"
       },
-      "commands": []
+      "commands": [],
+      "ui_class": "",
+      "state_values": {}
     }
   ]
 }

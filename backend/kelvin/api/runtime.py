@@ -42,6 +42,7 @@ from kelvin.overkiz.models import (
 )
 from kelvin.overkiz.poller import EventPump
 from kelvin.overkiz.sample import DEMO_OUTAGE_RID
+from kelvin.overkiz.servers import DEFAULT_SERVER
 from kelvin.overkiz.simhistory import SIM_DB_KEY, seed_history
 from kelvin.recorder.db import Database
 from kelvin.recorder.energy import local_edges
@@ -61,6 +62,17 @@ DEMO_OUTAGE_AFTER_S = 7200
 # start with the day's full reads spent can still build the house (final review I1).
 SETUP_KEY = "overkiz_setup"
 SIMULATOR_EXTRA_CALLS = 4
+# The Overkiz server whose home this data folder holds (Plan 12). Like the simulator mark
+# (SIM_DB_KEY): another server's home never mixes its data into this folder.
+SERVER_KEY = "overkiz_server"
+
+
+class DataServerMismatch(RuntimeError):
+    """KELVIN_DATA holds another server's home. Switching server is a fresh install."""
+
+    def __init__(self, server: str) -> None:
+        super().__init__("KELVIN_DATA holds another Overkiz server's home; use another folder")
+        self.server = server
 
 
 @dataclass
@@ -148,6 +160,7 @@ def make_gateway(
     settings: Settings,
     username: str,
     password: str,
+    server: str = DEFAULT_SERVER,
     *,
     wall: Callable[[], float] = time.time,
 ) -> Gateway:
@@ -160,20 +173,25 @@ def make_gateway(
                 [device_from_dict(d) for d in data["devices"]],
                 username=username,
                 password=password,
+                server=server,
             )
         else:
-            gw = FakeGateway(username=username, password=password)
-            gw.demo_outage(
-                DEMO_OUTAGE_RID,
-                before_s=DEMO_OUTAGE_BEFORE_S,
-                after_s=DEMO_OUTAGE_AFTER_S,
-                wall=wall,
-            )
+            from kelvin.overkiz.houses import HOUSES, house_for_server
+
+            root, devices = HOUSES[settings.kelvin_fake_house or house_for_server(server)]()
+            gw = FakeGateway(root, devices, username=username, password=password, server=server)
+            if any(u.endswith(f"/{DEMO_OUTAGE_RID}#1") for u in gw.devices):  # the Sauter house
+                gw.demo_outage(
+                    DEMO_OUTAGE_RID,
+                    before_s=DEMO_OUTAGE_BEFORE_S,
+                    after_s=DEMO_OUTAGE_AFTER_S,
+                    wall=wall,
+                )
         gw.fail_setup = setup_failures(settings.kelvin_fake_setup_fail)
         return gw
     from kelvin.overkiz.real import PyOverkizGateway
 
-    return PyOverkizGateway(username, password)
+    return PyOverkizGateway(username, password, server=server)
 
 
 def make_linky_source(
@@ -304,7 +322,11 @@ async def start_runtime(
     a documented daily limit is better than a home without heating control for up to 24 h.
     Beyond that overdraft, SetupBudgetSpent is raised before any Overkiz call."""
     gateway = gateway or make_gateway(
-        settings, settings.cozy_user, settings.cozy_pass.get_secret_value(), wall=wall
+        settings,
+        settings.cozy_user,
+        settings.cozy_pass.get_secret_value(),
+        settings.cozy_server,
+        wall=wall,
     )
     owns_db = db is None
     opened: Database | None = None
@@ -315,6 +337,14 @@ async def start_runtime(
         if db is None:
             settings.kelvin_data.mkdir(parents=True, exist_ok=True)
             db = opened = Database(settings.kelvin_data / "kelvin.db")
+        stored_server = db.get_setting(SERVER_KEY)
+        if stored_server is not None and stored_server != gateway.server:
+            raise DataServerMismatch(stored_server)  # before any Overkiz call
+        is_sim = isinstance(gateway, FakeGateway)
+        if not is_sim and db.get_setting(SIM_DB_KEY) is True:  # before any Overkiz call too
+            raise RuntimeError(
+                "KELVIN_DATA holds simulator data; use another directory for a real installation."
+            )
         stored = None
         if not guard.allowed():
             stored = stored_setup(db)
@@ -330,14 +360,11 @@ async def start_runtime(
         else:
             log.info("full setup read budget spent: starting from the stored setup")
             root, devices = stored
-        house = build_house(root, devices, wall=wall)
-        is_sim = isinstance(gateway, FakeGateway)
+        house = build_house(root, devices, wall=wall, server=gateway.server)
         if is_sim:
             house.backdate_status(gateway.sim_status_since)
-        if not is_sim and db.get_setting(SIM_DB_KEY) is True:
-            raise RuntimeError(
-                "KELVIN_DATA holds simulator data; use another directory for a real installation."
-            )
+        if stored_server is None:
+            db.set_setting(SERVER_KEY, gateway.server)
         if settings.kelvin_fake and is_sim:  # simulator only, never a real installation
             seeded = seed_history(db, house, wall(), tz=settings.tz)
             if seeded:

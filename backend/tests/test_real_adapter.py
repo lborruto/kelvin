@@ -1,8 +1,9 @@
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 from pyoverkiz.converter import converter
-from pyoverkiz.enums import DataType, EventName, ExecutionState
+from pyoverkiz.enums import DataType, EventName, ExecutionState, UIClass, UIWidget
 from pyoverkiz.models import DeviceStateChangedEvent, EventState, ExecutionStateChangedEvent
 from pyoverkiz.models import Event as OverkizEvent
 from pyoverkiz.models import Place as OverkizPlace
@@ -16,7 +17,13 @@ from kelvin.overkiz.models import (
     RawPlace,
     StateChange,
 )
-from kelvin.overkiz.real import REQUEST_TIMEOUT_S, PyOverkizGateway, to_events, to_raw_place
+from kelvin.overkiz.real import (
+    REQUEST_TIMEOUT_S,
+    PyOverkizGateway,
+    to_events,
+    to_raw_device,
+    to_raw_place,
+)
 
 
 def test_to_events_converts_state_and_execution_events():
@@ -108,3 +115,42 @@ def test_to_raw_place_keeps_the_type():
         OverkizPlace,
     )
     assert to_raw_place(place) == RawPlace("h", "All House", (RawPlace("a", "Salon", (), 7),), 0)
+
+
+# Plan 12: the UI class and the allowed state values travel with the device.
+
+
+def test_to_raw_device_keeps_the_ui_class_and_allowed_values():
+    d = SimpleNamespace(
+        device_url="io://g/1#1",
+        label="Bureau",
+        widget=UIWidget.ATLANTIC_ELECTRICAL_HEATER,
+        ui_class=UIClass.HEATING_SYSTEM,
+        place_oid="p",
+        states={},
+        definition=SimpleNamespace(
+            commands=["setHeatingLevel"],
+            states={
+                "io:TargetHeatingLevelState": SimpleNamespace(values=["off", "eco", "comfort"]),
+                "core:NameState": SimpleNamespace(values=None),
+            },
+        ),
+    )
+    raw = to_raw_device(d)
+    assert (raw.widget, raw.ui_class) == ("AtlanticElectricalHeater", "HeatingSystem")
+    assert raw.state_values == {"io:TargetHeatingLevelState": ["off", "eco", "comfort"]}
+    assert raw.commands == ["setHeatingLevel"]
+
+
+def test_to_raw_device_without_definition_or_ui_class():
+    d = SimpleNamespace(
+        device_url="io://g/2#1",
+        label="X",
+        widget="Unknown",
+        ui_class=None,
+        place_oid=None,
+        states={},
+        definition=None,
+    )
+    raw = to_raw_device(d)
+    assert (raw.ui_class, raw.state_values, raw.commands) == ("", {}, [])

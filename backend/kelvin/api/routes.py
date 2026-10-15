@@ -22,8 +22,10 @@ from kelvin.api.runtime import Runtime, sources
 from kelvin.api.schemas import (
     AwayBody,
     BoostBody,
+    DryerBody,
     FeaturesBody,
     LabelBody,
+    LevelBody,
     LightBody,
     LinkyBody,
     ModeBody,
@@ -38,14 +40,19 @@ from kelvin.auth.sessions import COOKIE_NAME, SessionIsCurrent
 from kelvin.billing.report import next_unit, unit_start
 from kelvin.billing.room_energy import MAX_ROOM_DAYS
 from kelvin.commands.translate import (
+    CommandError,
     Planned,
+    plan_dryer,
     plan_feature,
     plan_identify,
+    plan_level,
     plan_light,
     plan_mode,
+    plan_off,
     plan_program,
     plan_setpoint,
 )
+from kelvin.devices.capabilities import Capabilities
 from kelvin.errors import UserError
 from kelvin.grid.models import BudgetSpent, GridError
 from kelvin.house.model import DAY_ORDER, Radiator
@@ -98,6 +105,15 @@ def _room_radiators(rt: Runtime, room_id: str) -> tuple[str, list[Radiator]]:
     if room is None:
         raise UserError("room_unknown", 404)
     return room.name, rt.house.room_radiators(room_id)
+
+
+def _capable(rads: list[Radiator], pred: Callable[[Capabilities], bool]) -> list[Radiator]:
+    """Plan 12: a room or house command goes to the radiators that support it and skips the
+    others (a towel dryer has no comfort temperature, a pilot-wire heater no mode)."""
+    out = [r for r in rads if pred(r.capabilities)]
+    if not out:
+        raise CommandError("unsupported_in_room")
+    return out
 
 
 async def _submit(
@@ -190,15 +206,19 @@ async def rooms_duty(request: Request) -> dict:
 async def room_mode(room_id: str, body: ModeBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
-    return await _submit(
-        rt, Label.of("mode", name=name, mode=body.mode), rads, lambda r: plan_mode(r, body.mode)
-    )
+    label = Label.of("mode", name=name, mode=body.mode)
+    if body.mode == "off":  # same rule as « Tout éteindre »: a pilot-wire heater's level off
+        rads = _capable(rads, lambda c: "off" in c.modes or "off" in c.levels)
+        return await _submit(rt, label, rads, plan_off)
+    rads = _capable(rads, lambda c: body.mode in c.modes)
+    return await _submit(rt, label, rads, lambda r: plan_mode(r, body.mode))
 
 
 @router.post("/rooms/{room_id}/setpoint")
 async def room_setpoint(room_id: str, body: SetpointBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
+    rads = _capable(rads, lambda c: getattr(c, body.kind) is not None)  # manual | comfort | eco
     return await _submit(
         rt,
         Label.of("setpoint", name=name, kind=body.kind, value=body.value),
@@ -227,6 +247,7 @@ def _check_base(body: ProgramBody, rads: list[Radiator]) -> None:
 async def room_program(room_id: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
+    rads = _capable(rads, lambda c: c.program)
     _check_base(body, rads)
     week, keep = body.week(), body.kept()
     return await _submit(
@@ -314,6 +335,8 @@ async def radiator_features(rid: str, body: FeaturesBody, request: Request):
         # The rename is a Cozytouch setup write (the label, ruling 4), not a device command.
         if body.window_detection is not None or body.presence_detection is not None:
             raise UserError("rename_alone")
+        if r.support == "readonly":  # Plan 12: a read-only device is never renamed by Kelvin
+            raise CommandError("read_only_device")
         return _setup_accepted(rt, await _setup(rt).rename_radiator(r.id, body.name))
     parts: list[Callable[[Radiator], Planned]] = []
     if body.window_detection is not None:
@@ -346,11 +369,29 @@ async def radiator_identify(rid: str, request: Request):
     return await _submit(rt, Label.of("identify", name=r.name), [r], plan_identify)
 
 
+@router.post("/radiators/{rid}/level")
+async def radiator_level(rid: str, body: LevelBody, request: Request):
+    rt = _rt(request)
+    r = _radiator(rt, rid)
+    label = Label.of("level", name=r.name, level=body.level)
+    return await _submit(rt, label, [r], lambda x: plan_level(x, body.level))
+
+
+@router.post("/radiators/{rid}/dryer")
+async def radiator_dryer(rid: str, body: DryerBody, request: Request):
+    rt = _rt(request)
+    r = _radiator(rt, rid)
+    label = Label.of("dryer", name=r.name, action=body.action)
+    return await _submit(rt, label, [r], lambda x: plan_dryer(x, body.action))
+
+
 @router.post("/rooms/{room_id}/boost")
 async def room_boost(room_id: str, body: BoostBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
-    ends_at = time.time() + body.duration_min * 60
+    rads = _capable(rads, lambda c: c.boost)
+    # The override manager judges the end with its injected wall clock: compute it there too.
+    ends_at = rt.overrides.wall() + body.duration_min * 60
     _, p = await rt.overrides.start(
         "boost",
         [r.id for r in rads],
@@ -371,7 +412,9 @@ async def house_away(body: AwayBody, request: Request):
         until = until.replace(tzinfo=ZoneInfo(rt.settings.tz))
     _, p = await rt.overrides.start(
         "away",
-        list(rt.house.radiators),
+        # An away is a temperature: the radiators with a manual setpoint; the others stay as
+        # they are.
+        [r.id for r in _capable(list(rt.house.radiators.values()), lambda c: c.boost)],
         body.temperature,
         until.timestamp(),
         label=Label.of("away", temperature=body.temperature),
@@ -397,8 +440,10 @@ async def house_off(request: Request):
     return await _submit(
         rt,
         Label.of("all_off"),
-        list(rt.house.radiators.values()),
-        lambda r: plan_mode(r, "off"),
+        _capable(
+            list(rt.house.radiators.values()), lambda c: "off" in c.modes or "off" in c.levels
+        ),
+        plan_off,
     )
 
 
@@ -408,7 +453,7 @@ async def house_program(request: Request):
     return await _submit(
         rt,
         Label.of("all_program"),
-        list(rt.house.radiators.values()),
+        _capable(list(rt.house.radiators.values()), lambda c: "program" in c.modes),
         lambda r: plan_mode(r, "program"),
     )
 

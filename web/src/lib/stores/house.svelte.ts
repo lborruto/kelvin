@@ -1,4 +1,5 @@
 import type {
+  Capabilities,
   Expected,
   HouseView,
   Layout,
@@ -10,6 +11,7 @@ import type {
   Snapshot,
   Status
 } from '$lib/api/types';
+import { capsOf } from '$lib/capabilities';
 import { LOST, m, pendingError, pendingLabel, UNKNOWN } from '$lib/i18n';
 import { announcer } from './announcer.svelte';
 import { toasts } from './toasts.svelte';
@@ -145,8 +147,11 @@ export class HouseStore {
       entries.every(([id, exp]) => {
         const r = this.radiators[id];
         if (!r) return false;
-        return (['mode', 'target', 'comfort', 'eco_delta'] as const).every(
-          (k) => exp[k] === undefined || exp[k] === r[k]
+        const same = (k: keyof Expected, actual: unknown) => exp[k] === undefined || exp[k] === actual;
+        return (
+          (['mode', 'target', 'comfort', 'eco_delta'] as const).every((k) => same(k, r[k])) &&
+          same('level', r.heating_level) &&
+          same('dryer', r.dryer ?? null)
         );
       })
     );
@@ -236,12 +241,17 @@ export class HouseStore {
 
   /** Expected values shared by every radiator of the room (a key differing between radiators is dropped). */
   roomExpected(roomId: string): Expected {
-    const per = this.roomRadiators(roomId).map((r) => this.expectedFor(r.id));
-    if (!per.length) return {};
+    const per = this.roomRadiators(roomId).map((r) => ({ e: this.expectedFor(r.id), c: capsOf(r) }));
+    const takes = {
+      mode: (c: Capabilities) => c.modes.length > 0,
+      target: (c: Capabilities) => c.manual !== null,
+      comfort: (c: Capabilities) => c.comfort !== null,
+      eco_delta: (c: Capabilities) => c.eco !== null
+    };
     const out: Expected = {};
     for (const key of ['mode', 'target', 'comfort', 'eco_delta'] as const) {
-      const values = per.map((e) => e[key]);
-      if (values.every((v) => v !== undefined && v === values[0])) Object.assign(out, { [key]: values[0] });
+      const values = per.filter((x) => takes[key](x.c)).map((x) => x.e[key]);
+      if (values.length && values.every((v) => v !== undefined && v === values[0])) Object.assign(out, { [key]: values[0] });
     }
     return out;
   }

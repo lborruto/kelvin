@@ -94,6 +94,8 @@ FRENCH = re.compile(
     re.IGNORECASE,
 )
 CATALOGUE_FILES = {"errors.py", "labels.py"}
+# Simulator data (invented room and device labels, as a Cozytouch setup reports them): not copy.
+SIMULATOR_DATA = {"overkiz/houses.py"}
 # Files that define the codes (and the catalogue built from them): a use elsewhere is a real use.
 DEFINING_FILES = {"errors.py", "labels.py", "catalogue.py"}
 # Param names that would carry an identifier or a secret into an API body or a log.
@@ -190,6 +192,10 @@ def test_labels_read_in_french_with_their_params():
     assert Label.of("night_light", name="Salon", on=False).text == "Salon : veilleuse éteinte"
     assert Label.of("away", temperature=12.0).text == "Absence à 12 °C"
     assert Label.of("away_end").text == "Fin de l’absence"
+    assert Label.of("level", name="Bureau", level="comfort-1").text == "Bureau : allure confort −1"
+    assert (
+        Label.of("dryer", name="Salle de bain", action="drying").text == "Salle de bain : séchage"
+    )
     for code in LABEL_TEMPLATES:
         assert "{" not in Label.of(code, **LABEL_SAMPLES.get(code, {})).text
     with pytest.raises(KeyError):
@@ -201,7 +207,7 @@ def test_api_codes_json_is_up_to_date():
     assert API_CODES.read_text(encoding="utf-8") == dump(catalogue())
     data = json.loads(API_CODES.read_text(encoding="utf-8"))
     assert set(data["errors"]) == set(TEMPLATES) and set(data["labels"]) == set(LABEL_TEMPLATES)
-    assert len(data["errors"]) + len(data["labels"]) + len(data["status"]) == 114
+    assert len(data["errors"]) + len(data["labels"]) + len(data["status"]) == 125
 
 
 def _literals(path: Path):
@@ -223,7 +229,8 @@ def test_user_facing_french_lives_only_in_errors_and_labels():
     offenders = [
         f"{p.relative_to(KELVIN)}:{line}: {text[:60]}"
         for p in sorted(KELVIN.rglob("*.py"))
-        if p.name not in CATALOGUE_FILES or p.parent != KELVIN
+        if (p.name not in CATALOGUE_FILES or p.parent != KELVIN)
+        and p.relative_to(KELVIN).as_posix() not in SIMULATOR_DATA
         for line, text in _literals(p)
         if FRENCH.search(text)
     ]

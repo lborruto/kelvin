@@ -1,7 +1,8 @@
 # Kelvin — notes for coding agents
 
-Kelvin is a self-hosted FastAPI + SvelteKit app that controls Sauter radiators through the
-Overkiz (Cozytouch) cloud and shows Linky energy from MyElectricalData. `README.md` says what
+Kelvin is a self-hosted FastAPI + SvelteKit app that controls electric heating through the
+Overkiz cloud (Sauter tested on real radiators; Atlantic and Thermor Cozytouch expected; other
+Overkiz servers experimental) and shows Linky energy from MyElectricalData. `README.md` says what
 it does, `CONTRIBUTING.md` how to work on it. This file is the short list of rules the code
 depends on.
 
@@ -12,7 +13,8 @@ depends on.
   English). It is the design reference; UI work follows it.
 - `docs/glossary.md`: the French ↔ English terms every English string follows; a new term goes
   there first. `docs/i18n-catalogue.md` is the design snapshot behind the dictionaries.
-- `docs/overkiz-notes.md`: Overkiz behaviour verified on real radiators. Read it before adding
+- `docs/overkiz-notes.md`: Overkiz behaviour verified on real radiators (its « UNVERIFIED » section
+  lists what is only expected for other kinds). Read it before adding
   or changing any device command, and record every new verification there (no ids or serials).
 - `docs/linky-notes.md`: MyElectricalData behaviour and quotas.
 - `backend/README.md` (API, environment) and `web/README.md` (web development).
@@ -22,6 +24,10 @@ depends on.
 - `KELVIN_FAKE=1` runs the simulator (`backend/kelvin/overkiz/fake.py`, a synthetic Linky in
   `backend/kelvin/linky/fake.py`). Use it for development, demos and every automated test.
   Tests and e2e log in through the real flow with `demo@kelvin.local` / `kelvin`.
+- `KELVIN_FAKE_HOUSE` (`sauter`, `atlantic`, `thermor`, `experimental`) picks an invented house;
+  empty, the house follows the login server. Every capability set has a house and a test
+  (`tests/test_fake_houses.py`). Simulator gateway ids are an allowlist in
+  `tests/test_repo_hygiene.py`: use only the invented `io://…` ids already there.
 - Tests never contact Overkiz or MyElectricalData: use `FakeGateway`, `FakeLinkySource`,
   `httpx.MockTransport` or a stub client.
 - `backend/scripts/` talk to a real installation. Run them only when the human asks and is
@@ -37,6 +43,25 @@ depends on.
 
 ## Rules the code depends on
 
+- **Sauter commands are pinned byte for byte** by `tests/test_sauter_golden.py` and its fixture
+  (`tests/fixtures/sauter_commands.json`, recorded before Plan 12 by `scripts/sauter_golden.py`,
+  re-recorded after the Plan 8 and Plan 8b merges, each time identical to `main` + the harness alone).
+  Never regenerate the fixture to make a change pass; a diff there is a regression. The script
+  refuses to overwrite it without `--force`, and the test pins its SHA-256: a re-record needs its
+  own justified commit that also edits `FIXTURE_SHA256`.
+- **Devices are classified by `kelvin/devices/registry.py`** (widget, then UI class) with
+  pyoverkiz's own names only. A radiator's commands come from its `Profile`; what the UI shows and
+  the API accepts comes from `capabilities(r)` (profile ∩ declared commands ∩ allowed values): commands are
+  capability-driven. A control a device does not support is absent from the UI and refused by the
+  API (`unsupported_command`); a read-only device is never commanded (`read_only_device`); room and
+  house commands skip radiators that cannot (`unsupported_in_room` when none can). Unknown heating
+  devices, water heaters, heat pumps and everything else are read-only and never hidden. Only
+  `setpoint_heater` on the Sauter server is `tested`; record anything verified on another kind in
+  `docs/overkiz-notes.md` before changing its support level.
+- **One server per home.** The account file stores the Overkiz server; the data folder stores it
+  too (`overkiz_server`) and refuses another server's home, like simulator data. The data folder
+  is bound to its server: switching server is a fresh install. On experimental servers Kelvin
+  never writes the setup (`setup_experimental`) and never calls Atlantic's own APIs.
 - **Device state is the source of truth.** A command is done when the expected state arrives.
   Overkiz often reports `FAILED OVERRIDEMODE_ERROR` for commands that did apply.
 - **Overkiz quota:** never call `Gateway.snapshot()` (`GET /setup/places` + `/setup/devices`,
@@ -146,7 +171,8 @@ depends on.
   keeps them equal; `scripts/check-paths.mjs` fails on a French path anywhere else).
 - **API header:** mutating API routes require the header `X-Kelvin: 1`.
 - **Login:** every `/api` route except `/api/auth/*` and `/api/health` needs a session (cookie
-  `kelvin_session`), `/api/stream` included. Login is the home's Cozytouch account.
+  `kelvin_session`), `/api/stream` included. Login is the home's account on its Overkiz server, chosen at the first login
+  (`GET /api/auth/servers`).
 - **Secrets:** the Cozytouch password and the MED token live only in env vars or
   `$KELVIN_DATA/account.json` (0600): never in logs, API responses, the DB or git. The Linky
   token is write-only; the PDL is never logged.

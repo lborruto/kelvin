@@ -10,6 +10,15 @@ from dataclasses import dataclass, field
 from statistics import mean
 from typing import Any, Literal
 
+from kelvin.devices.capabilities import Capabilities, capabilities
+from kelvin.devices.registry import (
+    APPLIANCE_KINDS,
+    PROFILES,
+    RADIATOR_KINDS,
+    Profile,
+    kind_for,
+    support_for,
+)
 from kelvin.overkiz.models import (
     DeviceUpdate,
     RawDevice,
@@ -18,6 +27,7 @@ from kelvin.overkiz.models import (
     StateChange,
     iter_places,
 )
+from kelvin.overkiz.servers import DEFAULT_SERVER
 
 MODES = {"standby": "off", "basic": "manual", "internal": "program"}
 OVERKIZ_MODES = {v: k for k, v in MODES.items()}
@@ -93,15 +103,24 @@ class DeviceMeta:
     label: str
     widget: str
     place_oid: str | None
+    ui_class: str = ""
 
 
-def device_role(widget: str, heater: bool) -> str:
+BRIDGE_ROLES = ("bridge", "box", "wifi")
+
+
+def device_role(widget: str, heater: bool, ui_class: str = "") -> str:
     if heater:
         return "heater"
     if widget in ROLE_BY_WIDGET:
         return ROLE_BY_WIDGET[widget]
     if widget in ("IOStack", "ZigbeeStack"):
         return "bridge"
+    kind = kind_for(widget, ui_class)
+    if kind in APPLIANCE_KINDS:
+        return kind  # water_heater, heat_pump
+    if kind is not None:
+        return "heating"  # a heating device that is not a radiator's main device
     return {"Pod": "box", "Wifi": "wifi"}.get(widget, "other")
 
 
@@ -239,12 +258,23 @@ class Radiator:
     commands: dict[str, list[str]] = field(default_factory=dict)
     signal: Signal | None = field(default=None, repr=False, compare=False)
     label: str = ""  # the heater's Cozytouch label (spec ruling 4)
+    kind: str = "setpoint_heater"  # kelvin.devices.registry kind (Plan 12)
+    support: str = "tested"  # tested | expected | experimental | readonly
+    values: dict[str, list[str]] = field(default_factory=dict)  # the heater's allowed values
 
     def get(self, role: str, name: str, default: Any = None) -> Any:
         url = self.urls.get(role)
         if url is None:
             return default
         return self.states.get(url, {}).get(name, default)
+
+    @property
+    def profile(self) -> Profile:
+        return PROFILES[self.kind]
+
+    @property
+    def capabilities(self) -> Capabilities:
+        return capabilities(self)
 
     @property
     def name(self) -> str:
@@ -270,7 +300,8 @@ class Radiator:
 
     @property
     def mode(self) -> str:
-        return MODES.get(self.get("heater", "core:OperatingModeState"), "other")
+        p = self.profile
+        return p.mode_of(self.get("heater", p.mode_state or p.level_state or ""))
 
     @property
     def target(self) -> float | None:
@@ -297,6 +328,12 @@ class Radiator:
     @property
     def heating_level(self) -> str | None:
         return self.get("heater", "io:TargetHeatingLevelState")
+
+    @property
+    def dryer(self) -> str | None:
+        """A towel dryer's boost or drying in progress; None otherwise (or unknown)."""
+        p = self.profile
+        return p.dryer_of(self.get("heater", p.dryer_state)) if p.dryer_state else None
 
     @property
     def max_temperature(self) -> float:
@@ -420,6 +457,10 @@ class Radiator:
             "last_event_at": self.last_event_at,
             "program": self.program,
             "program_locked": self.program_locked,
+            "kind": self.kind,
+            "support": self.support,
+            "capabilities": self.capabilities.view(),
+            "dryer": self.dryer,
         }
 
 
@@ -568,7 +609,8 @@ class House:
         self.root_oid = root.oid
         self.places = {p.oid: Place(p.oid, p.label, p.type, parent) for parent, p in _walk(root)}
         self.meta = {
-            d.device_url: DeviceMeta(d.device_url, d.label, d.widget, d.place_oid) for d in devices
+            d.device_url: DeviceMeta(d.device_url, d.label, d.widget, d.place_oid, d.ui_class)
+            for d in devices
         }
         self.others = {
             d.device_url: dict(d.states) for d in devices if d.device_url not in self._by_url
@@ -693,9 +735,10 @@ class House:
                 misplaced = heater_meta is not None and m.place_oid != heater_meta.place_oid
             else:
                 states, misplaced = self.others.get(url, {}), False
+            role = device_role(m.widget, heater, m.ui_class)
             return {
                 "id": ids[url],
-                "role": device_role(m.widget, heater),
+                "role": role,
                 "label": m.label,
                 "widget": m.widget,
                 "room_id": m.place_oid if m.place_oid in self.places else None,
@@ -703,6 +746,9 @@ class House:
                 "reachable": _reachable(states),
                 "last_event_at": self.last_event_ts.get(url),
                 "details": _details(states),
+                "support": self.radiators[rid].support
+                if heater and rid is not None
+                else ("readonly" if rid is None and role not in BRIDGE_ROLES else None),
             }
 
         rooms = [
@@ -723,14 +769,25 @@ class House:
                 "id": r.id,
                 "room_id": r.room_id,
                 "name": r.name,
+                "kind": r.kind,
+                "support": r.support,
                 "devices": [
                     d for u in sorted(r.states, key=_sub_index) if (d := device(u)) is not None
                 ],
             }
             for r in sorted(self.radiators.values(), key=lambda r: (r.name.casefold(), r.id))
         ]
-        bridges = [d for u in sorted(self.others) if (d := device(u)) is not None]
-        return {"rooms": rooms, "radiators": radiators, "bridges": bridges}
+        others = [d for u in sorted(self.others) if (d := device(u)) is not None]
+        bridges = [d for d in others if d["role"] in BRIDGE_ROLES]
+        # Plan 12: everything else Kelvin does not drive (water heaters, heat pumps, shutters…)
+        # is listed read-only, never hidden.
+        appliances = [d for d in others if d["role"] not in BRIDGE_ROLES]
+        return {
+            "rooms": rooms,
+            "radiators": radiators,
+            "bridges": bridges,
+            "appliances": appliances,
+        }
 
     def room_view(self, room_id: str) -> dict[str, Any]:
         room = self.rooms[room_id]
@@ -761,8 +818,13 @@ class House:
 
 
 def build_house(
-    root: RawPlace, devices: list[RawDevice], *, wall: Callable[[], float] = time.time
+    root: RawPlace,
+    devices: list[RawDevice],
+    *,
+    wall: Callable[[], float] = time.time,
+    server: str = DEFAULT_SERVER,
 ) -> House:
+    """`server`: the home's Overkiz server, which sets each radiator's support (Plan 12)."""
     groups: dict[str, list[RawDevice]] = {}
     for d in devices:
         groups.setdefault(base_url(d.device_url), []).append(d)
@@ -771,9 +833,10 @@ def build_house(
 
     radiators: dict[str, Radiator] = {}
     for devs in groups.values():
-        heater = next((d for d in devs if "Heater" in d.widget), None)
+        heater = next((d for d in devs if kind_for(d.widget, d.ui_class) in RADIATOR_KINDS), None)
         if heater is None:
             continue
+        kind = kind_for(heater.widget, heater.ui_class) or "heater_unknown"
         urls = {"heater": heater.device_url}
         for d in devs:
             role = ROLE_BY_WIDGET.get(d.widget)
@@ -787,6 +850,9 @@ def build_house(
             urls=urls,
             states={d.device_url: dict(d.states) for d in devs},
             commands={d.device_url: list(d.commands) for d in devs},
+            kind=kind,
+            support=support_for(kind, server),
+            values=dict(heater.state_values),
         )
 
     rooms = []

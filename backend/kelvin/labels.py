@@ -11,6 +11,16 @@ from typing import Any
 
 MODE_FR = {"off": "Arrêt", "manual": "Manuel", "program": "Programme"}
 KIND_FR = {"manual": "consigne", "comfort": "confort", "eco": "abaissement éco"}
+# Plan 12: a pilot-wire heater's levels and a towel dryer's actions
+LEVEL_FR = {
+    "comfort": "confort",
+    "comfort-1": "confort −1",
+    "comfort-2": "confort −2",
+    "eco": "éco",
+    "frostprotection": "hors-gel",
+    "off": "arrêt",
+}
+DRYER_FR = {"boost": "boost", "drying": "séchage", "stop": "fin du boost ou du séchage"}
 
 LABEL_TEMPLATES: dict[str, str] = {
     "mode": "{name} : {mode_fr}",
@@ -20,6 +30,8 @@ LABEL_TEMPLATES: dict[str, str] = {
     "night_light": "{name} : veilleuse {on_fr}",
     "night_light_intensity": "{name} : veilleuse à {intensity} %",
     "identify": "{name} : identification",
+    "level": "{name} : allure {level_fr}",
+    "dryer": "{name} : {action_fr}",
     "boost": "{name} : forcé à {temperature_fr} °C",
     "away": "Absence à {temperature_fr} °C",
     "all_off": "Tout éteindre",
@@ -50,6 +62,9 @@ LABEL_SAMPLES: dict[str, dict[str, Any]] = {
     "setup_move": {"name": "Hekla", "room": "Salon"},
     "setup_rename_device": {"name": "Hekla", "label": "Studio"},
     "setup_tidy": {"name": "Hekla"},
+    # Plan 12
+    "level": {"name": "Bureau", "level": "eco"},
+    "dryer": {"name": "Salle de bain", "action": "drying"},
 }
 
 
@@ -82,4 +97,8 @@ class Label:
             extra["temperature_fr"] = _num(p["temperature"])
         if "on" in p:
             extra["on_fr"] = "allumée" if p["on"] else "éteinte"
+        if "level" in p:
+            extra["level_fr"] = LEVEL_FR.get(p["level"], p["level"])
+        if "action" in p:
+            extra["action_fr"] = DRYER_FR.get(p["action"], p["action"])
         return LABEL_TEMPLATES[self.code].format(**p, **extra)

@@ -104,6 +104,18 @@ class LightBody(BaseModel):
     intensity: int | None = None
 
 
+class LevelBody(BaseModel):
+    """A pilot-wire heater's level (Plan 12)."""
+
+    level: Literal["comfort", "comfort-1", "comfort-2", "eco", "frostprotection", "off"]
+
+
+class DryerBody(BaseModel):
+    """A towel dryer's boost or drying; `stop` goes back to normal heating (Plan 12)."""
+
+    action: Literal["boost", "drying", "stop"]
+
+
 class BoostBody(BaseModel):
     temperature: float
     duration_min: int = Field(ge=15, le=720)
@@ -117,6 +129,15 @@ class AwayBody(BaseModel):
 class LoginBody(BaseModel):
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=1, max_length=256)
+    # Plan 12: an id from GET /api/auth/servers. Omitted: the home's server, else Sauter.
+    server: str | None = Field(default=None, max_length=40)
+
+    def chosen_server(self) -> str | None:
+        """None when the body names no server (the home's once claimed, else Sauter). A server
+        given as null or blank is a wrong choice (server_unknown), not an omission."""
+        if "server" not in self.model_fields_set:
+            return None
+        return (self.server or "").strip()
 
 
 class HcSlotBody(BaseModel):

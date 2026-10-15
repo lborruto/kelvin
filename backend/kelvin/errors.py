@@ -46,6 +46,13 @@ TEMPLATES: dict[str, str] = {
     "not_found": "Introuvable.",
     "method_not_allowed": "Méthode non autorisée.",
     "invalid_request": "Requête invalide.",
+    # Plan 12: the Overkiz server chosen at the first login
+    "server_unknown": "Serveur inconnu.",
+    "server_mismatch": "Cette maison est reliée au serveur {server}. Pour changer de serveur, "
+    "repartez d’une installation neuve (voir le README).",
+    "data_other_server": "Ce dossier de données appartient à une maison reliée au serveur "
+    "{server} : utilisez un autre dossier KELVIN_DATA.",
+    "bad_credentials_server": "Email ou mot de passe {server} incorrect.",
     # Rooms, radiators, overrides
     "radiator_unknown": "Radiateur inconnu.",
     "room_unknown": "Pièce inconnue.",
@@ -76,6 +83,15 @@ TEMPLATES: dict[str, str] = {
     "no_night_light": "Ce radiateur n’a pas de veilleuse.",
     "intensity_light_off": "L’intensité ne peut être réglée que veilleuse allumée.",
     "intensity_range": "L’intensité doit être comprise entre 1 et 100 %.",
+    # Plan 12: kinds the command layer refuses or does not know
+    "read_only_device": "Kelvin ne pilote pas cet appareil : il est affiché en lecture seule.",
+    "level_unknown": "Allure inconnue : {level}.",
+    "unsupported_in_room": "Aucun des radiateurs concernés ne prend en charge cette commande.",
+    "dryer_action_unknown": "Action inconnue : {action}.",
+    # Plan 12: the setup (rooms, placement, labels) is written on the Cozytouch servers only
+    "setup_experimental": (
+        "Sur un serveur expérimental, Kelvin ne modifie ni les pièces ni les appareils."
+    ),
     # Tariff
     "slot_time_invalid": "Heure invalide : {value} (format HH:MM).",
     "slots_none": "Indiquez au moins une plage d’heures creuses.",
@@ -181,6 +197,12 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "room_not_empty": {"count": 2},
     "setup_move_partial": {"done": 5, "total": 6},
     "setup_sync_spent": {"used": 3, "limit": 3, "next_at": 1760500000.0},
+    # Plan 12
+    "server_mismatch": {"server": "Sauter Cozytouch"},
+    "data_other_server": {"server": "Sauter Cozytouch"},
+    "bad_credentials_server": {"server": "Flexom"},
+    "level_unknown": {"level": "turbo"},
+    "dryer_action_unknown": {"action": "spin"},
 }
 
 # Status.last_error_code: why the last Cozytouch poll failed.
