@@ -178,7 +178,9 @@ const SCANNER_BLIND = new Set([
   // Plan 12: no accent and no listed French word
   'support.expected', 'pilot.label', 'dryer.boost',
   // Programme redesign: figures and short words (« 7 h 30 », « … et … », « Week-end », « Raccourcis »)
-  'program.duration', 'program.list', 'program.presets.weekend', 'program.presetsLabel'
+  'program.duration', 'program.list', 'program.presets.weekend', 'program.presetsLabel',
+  // Pièces redesign: short words in the boost sentence (« pendant », « Lancer », « ex. 22 °C pendant 2 h »)
+  'boost.during', 'boost.start', 'boost.meta'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

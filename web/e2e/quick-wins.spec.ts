@@ -10,6 +10,8 @@ async function confirmed(page: Page) {
 
 test('night-light brightness: pending, then confirmed by the radiator', async ({ page }) => {
   await page.goto('/rooms/p-ch1');
+  // Each radiator is a disclosure row in the room panel: open it.
+  await page.locator('.rad button.row').first().click();
   const light = page.getByRole('switch', { name: 'Veilleuse' }).first();
   if ((await light.getAttribute('aria-checked')) !== 'true') {
     await light.click();
@@ -136,17 +138,22 @@ test('sessions: sign out another device; it is asked to log in again', async ({ 
   await ctx.close();
 });
 
-test('alerts: the simulated unreachable radiator shows in its room and in Home, and can be dismissed', async ({ page, isMobile }) => {
+test('an offline room: a calm notice in its panel, the alert in Home (neutral), which can be dismissed', async ({ page, isMobile }) => {
   test.skip(isMobile, 'dismissal is shared state: one project runs it');
   await page.goto('/rooms/p-ch2');
-  await expect(page.getByText(/Chambre 2\s:\sradiateur injoignable depuis/).first()).toBeVisible();
-  await expect(page.getByText(/Hors ligne depuis \d\d:\d\d/).first()).toBeVisible(); // the status and the Infos block
+  await expect(page.getByText(/Hors ligne depuis \d\d:\d\d/).first()).toBeVisible(); // the status sentence
+  const notice = page.getByRole('status').filter({ hasText: 'Radiateur hors tension ou hors de portée' });
+  await expect(notice).toContainText('Les commandes reprendront quand il sera rallumé.');
+  // Not repeated as an alert in the room, and never red.
+  await expect(page.getByText(/Chambre 2\s:\sradiateur hors ligne/)).toHaveCount(0);
+  await expect(page.locator('.inspector .bad')).toHaveCount(0);
+  await expect(page.locator('.inspector .fig')).toHaveCount(0);
   await page.goto('/home#alerts');
   const list = page.locator('#alerts');
-  const callout = list.getByText(/Chambre 2\s:\sradiateur injoignable/);
+  const callout = list.getByText(/Chambre 2\s:\sradiateur hors ligne/);
   await expect(callout).toBeVisible();
   await list.getByRole('button', { name: /^Masquer\s:\sChambre 2/ }).click();
   await expect(callout).toHaveCount(0);
   await page.reload();
-  await expect(page.locator('#alerts').getByText(/Chambre 2\s:\sradiateur injoignable/)).toHaveCount(0);
+  await expect(page.locator('#alerts').getByText(/Chambre 2\s:\sradiateur hors ligne/)).toHaveCount(0);
 });

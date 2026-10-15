@@ -77,6 +77,21 @@ test('programme edit round-trips', async ({ page }) => {
   await confirmed(page);
 });
 
+test('Chauffe temporaire: a sentence, then the room says it until « Arrêter »', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'shared simulator state: one project runs it');
+  await page.goto('/rooms/p-salon');
+  const disc = page.getByRole('button', { name: /^Chauffe temporaire/ });
+  await expect(disc).toHaveAttribute('aria-expanded', 'false');
+  await disc.click();
+  await expect(page.getByText(/^Puis retour au programme vers \d\d:\d\d\.$/)).toBeVisible();
+  await page.getByRole('button', { name: 'Lancer' }).click();
+  const status = page.locator('.inspector .st');
+  await expect(status).toContainText(/Chauffe temporaire · \d+,\d\s°C jusqu’à/, { timeout: 20_000 });
+  await expect(page.locator('article.card', { hasText: 'Salon' }).locator('.status')).toContainText('Chauffe temporaire');
+  await page.getByRole('button', { name: 'Arrêter' }).click();
+  await expect(status).not.toContainText('Chauffe temporaire', { timeout: 20_000 });
+});
+
 test('absence can be started and cancelled', async ({ page }) => {
   await page.goto('/home');
   await page.getByRole('button', { name: 'Activer l’absence' }).click();
@@ -92,6 +107,11 @@ test('desktop shows the sidebar and the inspector with every radiator', async ({
   await page.goto('/rooms/p-salon');
   await expect(page.getByRole('navigation', { name: 'Navigation principale' }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Salon', level: 2 })).toBeVisible();
+  // Each radiator is a disclosure row: name, power and reachability, its reading; its controls one tap away.
+  const rows = page.locator('.rad button.row');
+  await expect(rows).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Faire clignoter' })).toHaveCount(0);
+  for (const row of await rows.all()) await row.click();
   await expect(page.getByRole('button', { name: 'Faire clignoter' })).toHaveCount(2);
 });
 
@@ -136,7 +156,9 @@ test('"/" opens a default room in the inspector on desktop; a phone taps a card 
     await expect(page.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeVisible();
   } else {
     // The default room is one that answers, never the offline one.
-    await expect(page.getByRole('heading', { name: 'Chambre 1', level: 2 })).toBeVisible();
+    const title = page.locator('.inspector h2.name');
+    await expect(title).toBeVisible();
+    await expect(title).not.toHaveText('Chambre 2');
     await expect(page.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeVisible();
   }
 });

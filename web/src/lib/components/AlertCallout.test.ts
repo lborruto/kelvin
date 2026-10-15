@@ -20,6 +20,14 @@ describe('AlertCallout', () => {
     render(AlertCallout, { alert: { ...price, kind: 'linky_stalled', severity: 'bad', params: { last_day: '2026-10-01', days: 13 } } });
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
+  it('an offline radiator is calm: a status in the neutral style, even when the backend rates it bad', () => {
+    const { container } = render(AlertCallout, {
+      alert: { ...price, kind: 'radiator_unreachable', severity: 'bad', params: { radiator_id: 'a', room_id: 'p-ch2', since: null } }
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(/hors ligne depuis plus de 30/);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(container.querySelector('.callout')).not.toHaveClass('bad');
+  });
   it('an unknown kind renders nothing', () => {
     const { container } = render(AlertCallout, { alert: { ...price, kind: 'budget' } });
     expect(container.textContent?.trim()).toBe('');

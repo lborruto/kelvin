@@ -63,11 +63,11 @@
   }
   /* The final height of an online card: one status line on a wide card, two on a narrow one. */
   .card-sk {
-    height: 112px;
+    height: 116px;
   }
   @container (max-width: 419px) {
     .card-sk {
-      height: 132px;
+      height: 136px;
     }
   }
   /* Section label style, with a hairline to the right. */

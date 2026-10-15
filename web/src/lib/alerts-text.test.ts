@@ -48,10 +48,10 @@ describe('alert texts', () => {
     });
     const since = Date.parse('2026-10-14T11:20:00Z') / 1000;
     expect(alertText(a('radiator_unreachable', { radiator_id: 'r2', room_id: 'p-ch2', since }, 'bad'))!.text).toBe(
-      `Chambre 2${NB}: radiateur injoignable depuis 13:20.`
+      `Chambre 2${NB}: radiateur hors ligne depuis 13:20.`
     );
     expect(alertText(a('radiator_unreachable', { radiator_id: 'r2', room_id: 'p-ch2', since: null }, 'bad'))!.text).toBe(
-      `Chambre 2${NB}: radiateur injoignable depuis plus de 30${NB}min.`
+      `Chambre 2${NB}: radiateur hors ligne depuis plus de 30${NB}min.`
     );
     // A room the web no longer knows reads the generic name, never the id.
     expect(alertText(a('radiator_unreachable', { radiator_id: 'gone', room_id: 'gone-room', since }, 'bad'))!.text).not.toMatch(/gone/);

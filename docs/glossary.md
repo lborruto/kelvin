@@ -16,11 +16,11 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Autre / Mixte / Mixte (moyenne) | Other / Mixed / Mixed (average) | |
 | Confort | Comfort | Level and setpoint |
 | Éco | Eco | |
-| Abaissement éco | Eco setback | The offset below comfort |
+| Abaissement éco | Eco setback | The offset below comfort; the room panel shows eco as a temperature, « Éco » with « 3,0 °C sous le confort » → “Eco”, “3.0 °C below comfort” |
 | Hors-gel | Frost protection | |
 | Repos (level off) | Idle | The heater is not calling for heat. Not shown on rooms any more: only « En chauffe » / “Heating”, when true |
 | Consigne / Consigne active | Setpoint / Current setpoint | Controls. The card and panel caption « consigne 21,0 °C » is “target 21.0 °C” |
-| Forcer / Forcé / Forçage / Forcer temporairement | Boost / Boosted / Boost / Temporary boost | « Annuler le forçage » → “Cancel boost” |
+| Chauffe temporaire | Boost | Replaces « Forcer temporairement » in the UI (the API stays `boost`): « Chauffer à 22 °C pendant 2 h » → “Heat to 22 °C for 2 h”, « Lancer » / « Arrêter » → “Start” / “Stop”, « Puis retour au programme vers 21:45. » → “Then back to the schedule at about 21:45.” |
 | Absence | Away | « Activer l’absence » → “Start away mode”; « Absence en cours » → “Away mode on” |
 | Rétablissement… | Restoring… | |
 | En cours (Maison) | Active | |
@@ -74,9 +74,11 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Veilleuse | Night light | |
 | Faire clignoter / identification | Blink | The button and the pending label (“Salon: blink”) |
 | Radiateur(s) | Radiator(s) | The upstream default name « Radiateur » is device data, never translated |
-| Détails / Historique / Commande | Details / History / Controls | « Infos » is the radiator’s Details section (Infos / Details) |
+| Détails / Historique / Aujourd’hui / Réglage | Details / History / Today / Controls | « Infos » is the radiator’s Details section (Infos / Details) |
 | Intensité (veilleuse) | Brightness | |
 | Dernier signal | Last signal | The last event a radiator sent |
+| Dernière mesure : 23,6 °C à 14:31 | Last reading: 23.6 °C at 14:31 | An offline room's panel only |
+| Modifier les horaires | Edit schedule | Room panel → Programme |
 | Masquer (une alerte) | Dismiss | |
 | Appareils connectés | Signed-in devices | Home › Settings; « Déconnecter » → “Sign out”, « Déconnecter les autres appareils » → “Sign out other devices” |
 | Copier vers… / Jours de semaine / Week-end / Tous les jours | Copy to… / Weekdays / Weekend / Every day | Programme day editor; « Copier sur 4 jours » → “Copy to 4 days” |
@@ -120,7 +122,7 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Expérimental | Experimental | Support chip |
 | Lecture seule | Read-only | Support chip: Kelvin shows the device and sends it nothing |
 | Sèche-serviettes | Towel dryer | |
-| Boost (du sèche-serviettes) | Towel boost | Kelvin's own override stays Forcer / Boost |
+| Boost (du sèche-serviettes) | Towel boost | Kelvin's own override is « Chauffe temporaire » / Boost |
 | Séchage | Drying | |
 | Radiateur fil pilote | Pilot-wire radiator | |
 | Serveur | Server | The Overkiz server a home belongs to (Settings, login) |

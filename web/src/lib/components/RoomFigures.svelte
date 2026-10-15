@@ -12,8 +12,10 @@
     /** The parent's clock: the figures are asked again at most once per half-hour. */
     now: number;
     rangeLabel: string;
+    /** The 24 h share of time heating (`/rooms/duty`): absent on 7 j / 30 j, 'loading' until it answers. */
+    duty?: number | null | 'loading';
   }
-  let { roomId, days, now, rangeLabel }: Props = $props();
+  let { roomId, days, now, rangeLabel, duty }: Props = $props();
   // Half-hour figures cannot change faster than their half-hours: one key per half-hour of now.
   let key = $derived(`${roomId}|${days}|${Math.floor(now / 1_800_000)}`);
   $effect(() => {
@@ -23,12 +25,16 @@
   let entry = $derived(roomEnergy.data[key]);
   let v = $derived(entry?.value ?? null);
   let est = $derived(!!v && (v.interpolated || v.apportioned));
+  // Every figure unknown (too few readings): one sentence with its reason instead of a row of « — ».
+  let notEnough = $derived(!!v && v.kwh == null && v.eur == null && v.heating_hours == null && (duty === undefined || duty === null));
 </script>
 
 <div class="energy" aria-busy={!entry}>
-  <h4>{m.roomFigures.title(rangeLabel)}</h4>
-  {#if !entry}
-    <div class="skeleton inset" style:height="52px" aria-hidden="true"></div>
+  <h3>{m.roomFigures.title(rangeLabel)}</h3>
+  {#if !entry || duty === 'loading'}
+    <div class="skeleton inset" style:height="88px" aria-hidden="true"></div>
+  {:else if notEnough}
+    <p class="note">{m.roomFigures.notEnough(rangeLabel)}</p>
   {:else}
     <dl class="tiles">
       <div>
@@ -45,8 +51,14 @@
       </div>
       <div>
         <dt>{m.roomFigures.hours}</dt>
-        <dd class="num" title={m.roomFigures.hoursHint}>{fmtHours(v?.heating_hours)}</dd>
+        <dd class="num" title={m.roomFigures.hoursHint}>{fmtHours(v?.heating_hours)}{#if v?.heating_hours != null}<small>{m.roomFigures.hoursNote}</small>{/if}</dd>
       </div>
+      {#if duty !== undefined}
+        <div>
+          <dt>{m.roomFigures.duty}</dt>
+          <dd class="num" title={m.roomFigures.dutyHint}>{fmtPct(duty)}</dd>
+        </div>
+      {/if}
     </dl>
     {#if v && v.kwh != null && v.coverage != null && v.coverage < 0.999}<p class="note">{m.roomFigures.partial(fmtPct(v.coverage))}</p>{/if}
   {/if}
@@ -57,16 +69,19 @@
     display: grid;
     gap: 6px;
   }
-  h4 {
+  /* The room panel's section label. */
+  h3 {
     margin: 0;
     font-size: 12px;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     color: var(--mu);
   }
   .tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
     margin: 0;
   }
   .tiles > div {
@@ -88,6 +103,12 @@
     display: inline-flex;
     min-height: 44px;
     align-items: center;
+  }
+  dd small {
+    margin-left: 6px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--mu);
   }
   .est {
     margin-left: 4px;

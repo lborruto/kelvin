@@ -37,10 +37,26 @@ describe('RoomFigures', () => {
     expect(screen.getByRole('link', { name: 'Renseignez le tarif' })).toHaveAttribute('href', '/home#tariff');
     expect(screen.getByText(/relevé sur 50/)).toBeInTheDocument();
   });
-  it('unknown values read —, never 0', async () => {
+  it('every value unknown: one sentence with its reason, never a row of — or a 0', async () => {
     vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, kwh: null, eur: null, heating_hours: null, coverage: null });
     render(RoomFigures, props);
-    expect(await screen.findAllByText('—')).toHaveLength(3);
+    expect(await screen.findByText(/^Pas encore assez de relevés sur 24.h \(il faut au moins la moitié de la période\)\.$/)).toBeInTheDocument();
+    expect(screen.queryByText('—')).toBeNull();
+  });
+  it('some values unknown read —, never 0', async () => {
+    vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, eur: null, heating_hours: null });
+    render(RoomFigures, props);
+    expect(await screen.findAllByText('—')).toHaveLength(2);
+  });
+  it('24 h: the share of time heating, after its skeleton; full-power hours say so', async () => {
+    vi.mocked(api.roomEnergy).mockResolvedValue(full);
+    const { container, rerender } = render(RoomFigures, { ...props, duty: 'loading' });
+    await Promise.resolve();
+    expect(container.querySelector('.skeleton')).not.toBeNull();
+    await rerender({ ...props, duty: 0.17 });
+    expect(await screen.findByText('Part du temps en chauffe')).toBeInTheDocument();
+    expect(screen.getByText(/^17\s%$/)).toBeInTheDocument();
+    expect(screen.getByText('équiv. pleine puissance')).toBeInTheDocument();
   });
   it('a failed load reads — as well', async () => {
     vi.mocked(api.roomEnergy).mockRejectedValue(new Error('x'));
