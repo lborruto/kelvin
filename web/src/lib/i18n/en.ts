@@ -1104,6 +1104,7 @@ export const en: Messages = {
     label: 'Server',
     cozytouch: 'Cozytouch',
     experimental: 'Experimental — heating only',
+    loadFailed: 'Can’t read the server list.',
     experimentalNote: 'Experimental: Kelvin shows heating only, doesn’t change rooms, and some devices stay read-only.',
     locked: (name: string) => `Server: ${name}. To change it, start from a fresh install (see the README).`
   }

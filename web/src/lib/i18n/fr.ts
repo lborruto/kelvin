@@ -1139,6 +1139,7 @@ export const fr = {
     label: 'Serveur',
     cozytouch: 'Cozytouch',
     experimental: 'Expérimental — chauffage seulement',
+    loadFailed: 'Impossible de lire la liste des serveurs.',
     experimentalNote: `Expérimental${NB}: Kelvin n’affiche que le chauffage, ne modifie pas les pièces, et certains appareils restent en lecture seule.`,
     locked: (name: string) =>
       `Serveur${NB}: ${name}. Pour en changer, repartez d’une installation neuve (voir le README).`

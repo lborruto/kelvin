@@ -27,18 +27,25 @@
   let homeServer = $derived(servers.find((s) => s.id === current));
   const group = (tier: ServerInfo['tier']) => servers.filter((s) => s.tier === tier);
 
-  $effect(() => {
+  /** A first login names the home's server, so nothing is sent before the list is known. */
+  let listState = $state<'loading' | 'ready' | 'failed'>('loading');
+  let ready = $derived(listState === 'ready');
+
+  function loadServers() {
+    listState = 'loading';
     api
       .servers()
       .then((list) => {
         servers = list.servers;
         current = list.current;
         server = list.current ?? list.servers.find((s) => s.default)?.id ?? server;
+        listState = 'ready';
       })
       .catch(() => {
-        // Without the list the field stays hidden and the backend picks the home's server.
+        listState = 'failed';
       });
-  });
+  }
+  $effect(loadServers);
 
   $effect(() => {
     void auth.refresh().then((ok) => {
@@ -58,10 +65,11 @@
       (invalid === 'email' ? emailEl : passwordEl)?.focus();
       return;
     }
+    if (!ready) return; // held: the list names the server a first login claims
     busy = true;
     try {
       // The server only on a first login with a list read: afterwards it is the home's.
-      await auth.login(email.trim(), password, current || !servers.length ? undefined : server);
+      await auth.login(email.trim(), password, current ? undefined : server);
       password = '';
       await goto(safeNext(page.url.searchParams.get('next')), { replaceState: true });
     } catch (err) {
@@ -118,9 +126,15 @@
         aria-invalid={invalid === 'password' || invalid === 'both' ? 'true' : undefined}
         aria-describedby={error && invalid !== 'email' ? 'login-error' : undefined} />
     </label>
+    {#if listState === 'failed'}
+      <div class="error" role="alert">
+        <p>{m.servers.loadFailed}</p>
+        <button type="button" class="btn btn-sm" onclick={loadServers}>{m.common.retry}</button>
+      </div>
+    {/if}
     {#if error}<p class="error" id="login-error" role="alert">{error()}</p>{/if}
     <!-- aria-disabled while busy: the focused button keeps focus through the round trip. -->
-    <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? m.login.busy : m.login.submit}</button>
+    <button type="submit" class="btn btn-primary" aria-disabled={busy || !ready}>{busy ? m.login.busy : m.login.submit}</button>
     {#if auth.simulator}<p class="muted small">{m.login.simulator}</p>{/if}
     <div class="lang">
       <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_SHORT[l], lang: l, ariaLabel: LOCALE_NAMES[l] }))}
