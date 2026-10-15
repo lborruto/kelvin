@@ -33,6 +33,10 @@ export const ARGS: Record<string, unknown[]> = {
   'strip.summary': [['a', 'b']],
   'radiator.facts': ['HEKLA P', 1500],
   'program.nextOn': ['monday', '06:15', 'B'],
+  'program.whenOn': ['monday', '06:15'],
+  'program.copyTitle': ['thursday'],
+  'program.list': [['06:30–08:00', '12:00–14:00', '17:00–23:00']],
+  'program.duration': [7, 30],
   'inspector.radMeasured': [1, 2],
   'inspector.rates': [[['a', '1'], ['b', '2']]],
   'roomEnergy.roomFrom': [1, 2, '7/10'],
@@ -170,7 +174,9 @@ const SCANNER_BLIND = new Set([
   'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
   'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title',
   // Plan 12: no accent and no listed French word
-  'support.expected', 'pilot.label', 'dryer.boost'
+  'support.expected', 'pilot.label', 'dryer.boost',
+  // Programme redesign: figures and short words (« 7 h 30 », « … et … », « Week-end », « Raccourcis »)
+  'program.duration', 'program.list', 'program.presets.weekend', 'program.presetsLabel'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

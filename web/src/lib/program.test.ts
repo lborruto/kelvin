@@ -5,7 +5,14 @@ import {
   baseOf,
   changedDays,
   comfortBands,
+  comfortMinutes,
+  copyDay,
   daySegs,
+  fmtDuration,
+  fmtNow,
+  presetDays,
+  shiftDay,
+  slotTimes,
   EDIT_MAX,
   fmtNextChange,
   fromMin,
@@ -203,5 +210,60 @@ describe('midnight and locked days (QW8)', () => {
     const base = baseOf([a]);
     (a.program.monday as { start: string }[])[0].start = '06:00';
     expect(base[a.id].monday![0].start).toBe('07:00');
+  });
+});
+
+describe('Programme page helpers', () => {
+  const now = Date.parse('2026-10-15T19:42:00Z'); // Thursday 21:42 Paris
+  const week: WeekProgram = {
+    ...usual,
+    thursday: [{ start: '06:30', end: '08:00' }, { start: '16:30', end: '23:00' }]
+  };
+
+  it('« Maintenant » says the level now, when it changes and to what', () => {
+    expect(fmtNow(week, now)).toBe('Maintenant\u00a0: Confort · 23:00 → Éco');
+    const late = Date.parse('2026-10-15T21:30:00Z'); // 23:30, eco until tomorrow 06:15
+    expect(fmtNow(week, late)).toBe('Maintenant\u00a0: Éco · demain 06:15 → Confort');
+    const fri = Date.parse('2026-10-16T21:30:00Z'); // Friday night: next comfort on Saturday 08:30? usual has every day
+    expect(fmtNow({ monday: [{ start: '07:00', end: '08:00' }] }, fri)).toBe('Maintenant\u00a0: Éco · lundi 07:00 → Confort');
+    expect(fmtNow({}, now)).toBe('Maintenant\u00a0: Éco, sans changement cette semaine');
+    applyLocale('en');
+    expect(fmtNow(week, now)).toBe('Now: Comfort · 23:00 → Eco');
+    expect(fmtNow(week, late)).toBe('Now: Eco · tomorrow 06:15 → Comfort');
+  });
+
+  it('comfort totals read as durations, in both languages', () => {
+    expect(comfortMinutes([{ start: 390, end: 480 }, { start: 990, end: 1380 }])).toBe(480);
+    expect(fmtDuration(480)).toBe('8\u00a0h');
+    expect(fmtDuration(450)).toBe('7\u00a0h\u00a030');
+    expect(fmtDuration(45)).toBe('45\u00a0min');
+    applyLocale('en');
+    expect(fmtDuration(450)).toBe('7\u00a0h 30\u00a0min');
+  });
+
+  it('slot times as text', () => {
+    expect(slotTimes([{ start: 390, end: 480 }, { start: 1200, end: 1440 }])).toEqual(['06:30–08:00', '20:00–24:00']);
+  });
+
+  it('presets leave out the source day and locked days', () => {
+    expect(presetDays('weekdays', 'thursday', {})).toEqual(['monday', 'tuesday', 'wednesday', 'friday']);
+    expect(presetDays('weekend', 'monday', { sunday: 'midnight' })).toEqual(['saturday']);
+    expect(presetDays('every', 'saturday', { sunday: 'unrecognised' })).toEqual(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
+  });
+
+  it('copies one day onto others, never a locked one, as fresh copies', () => {
+    const w = fromWeekProgram(usual);
+    w.monday = [{ start: 60, end: 120 }];
+    const out = copyDay(w, 'monday', ['tuesday', 'sunday', 'monday'], { sunday: 'midnight' });
+    expect(out.tuesday).toEqual([{ start: 60, end: 120 }]);
+    expect(out.tuesday[0]).not.toBe(w.monday[0]);
+    expect(out.sunday).toEqual(w.sunday);
+    expect(w.tuesday).not.toEqual(out.tuesday); // the input is untouched
+  });
+
+  it('previous and next day wrap around the week', () => {
+    expect(shiftDay('monday', -1)).toBe('sunday');
+    expect(shiftDay('sunday', 1)).toBe('monday');
+    expect(shiftDay('wednesday', 1)).toBe('thursday');
   });
 });

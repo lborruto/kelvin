@@ -57,3 +57,18 @@ it('an option can carry its own lang and accessible name', () => {
   expect(en).toHaveAttribute('lang', 'en');
   expect(en).toHaveTextContent('EN');
 });
+
+it('an option can carry a muted hint that is part of its name (Programme: « hors ligne »)', () => {
+  render(Segmented, {
+    options: [
+      { value: 'a', label: 'Salon' },
+      { value: 'b', label: 'Chambre 2', hint: 'hors ligne' }
+    ],
+    value: 'a',
+    label: 'Pièce',
+    onchange: () => {}
+  });
+  const b = screen.getByRole('radio', { name: 'Chambre 2 hors ligne' });
+  expect(b.querySelector('em')).toHaveTextContent('hors ligne');
+  expect(screen.getByRole('radio', { name: 'Salon' }).querySelector('em')).toBeNull();
+});

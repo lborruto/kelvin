@@ -1,32 +1,40 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { roomName } from '$lib/setup';
-  import { fly } from 'svelte/transition';
-  import { beforeNavigate } from '$app/navigation';
+  import { fly, slide } from 'svelte/transition';
+  import { beforeNavigate, goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { DAYS, type Day, type Pending } from '$lib/api/types';
   import { run, retry } from '$lib/actions';
   import { api, ApiError } from '$lib/api/client';
   import { capsOf, programRooms } from '$lib/capabilities';
+  import ChoiceSheet from '$lib/components/ChoiceSheet.svelte';
+  import DayEditor from '$lib/components/DayEditor.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import PendingTag from '$lib/components/PendingTag.svelte';
-  import ProgramDay from '$lib/components/ProgramDay.svelte';
-  import RoomTodayStrip from '$lib/components/RoomTodayStrip.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
+  import WeekOverview from '$lib/components/WeekOverview.svelte';
+  import { fmtTemp } from '$lib/format';
   import { desktop } from '$lib/media.svelte';
   import { dur, easeOut, T } from '$lib/motion';
   import { m, pendingError } from '$lib/i18n';
+  import { ROUTES } from '$lib/paths';
   import {
     baseOf,
     changedDays,
+    copyDay,
+    fmtNow,
     fromMin,
     fromWeekProgram,
     lockedDays,
+    shiftDay,
     toWeekProgram,
     validateDay,
     type Base,
     type Week
   } from '$lib/program';
   import { follow } from '$lib/schedule-sync';
+  import { announcer } from '$lib/stores/announcer.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { parisMinuteOfDay, parisParts } from '$lib/time';
 
@@ -40,8 +48,6 @@
   let draft = $state<Week | null>(null);
   let baseline = $state<Week | null>(null);
   let alsoRooms = $state<string[]>([]);
-  let copyFrom = $state<Day>('monday');
-  let copyTo = $state<Day[]>([]);
   let now = $state(Date.now());
   // The week being sent for the current room, shown read-only until the radiator answers.
   let lock = $state<{ roomId: string; pendingId: string; week: Week; timedOut?: boolean } | null>(null);
@@ -57,6 +63,16 @@
   // After a 409 mid-send: the rooms not written yet (the first of them refused); null otherwise.
   let unsentRooms = $state<string[] | null>(null);
 
+  // The day in the editor (today first), and on a phone whether the day view replaces the week.
+  let selected = $state<Day>(parisParts(Date.now()).weekday);
+  let dayView = $state(false);
+  // The days a copy just changed: their bars pulse once.
+  let pulse = $state<{ days: Day[]; n: number } | null>(null);
+  let howTo = $state(false);
+  let showChanges = $state(false);
+  let alsoOpen = $state(false);
+  let alsoTrigger = $state<HTMLButtonElement>();
+
   $effect(() => {
     const t = setInterval(() => (now = Date.now()), 60_000);
     return () => clearInterval(t);
@@ -64,20 +80,48 @@
 
   // Plan 12: only rooms with a radiator whose programme Kelvin can edit.
   let rooms = $derived(programRooms(house.rooms, (id) => house.roomRadiators(id)));
+  const programRadiators = (id: string) => house.roomRadiators(id).filter((r) => capsOf(r).program);
+  // A room is offline when every radiator of its programme reports itself unreachable.
+  const isOffline = (id: string) => {
+    const rs = programRadiators(id);
+    return rs.length > 0 && rs.every((r) => r.reachable === false);
+  };
+
+  // `?room=` (the room panel's « Modifier les horaires ») and `?day=` (the phone day view).
+  const asDay = (v: string | null): Day | null => (v && (DAYS as readonly string[]).includes(v) ? (v as Day) : null);
+  let roomParam = $derived(page.url.searchParams.get('room'));
+  let dayParam = $derived(asDay(page.url.searchParams.get('day')));
 
   $effect(() => {
-    if (!roomId && rooms.length) roomId = rooms[0].id;
+    if (roomId || !rooms.length) return;
+    const wanted = rooms.find((r) => r.id === roomParam);
+    roomId = (wanted ?? rooms.find((r) => !isOffline(r.id)) ?? rooms[0]).id;
+  });
+  // A later `?room=` (a link followed while the page is open) picks that room once.
+  let appliedRoom: string | null = null;
+  $effect(() => {
+    const r = roomParam;
+    const known = rooms.some((x) => x.id === r);
+    untrack(() => {
+      if (!r || !known || r === appliedRoom) return;
+      appliedRoom = r;
+      if (roomId && r !== roomId) pickRoom(r);
+    });
+  });
+  $effect(() => {
+    const d = dayParam;
+    untrack(() => {
+      if (d) selected = d;
+      dayView = !!d;
+    });
   });
 
-  let radiators = $derived(roomId ? house.roomRadiators(roomId).filter((r) => capsOf(r).program) : []);
+  let radiators = $derived(roomId ? programRadiators(roomId) : []);
   let source = $derived(radiators[0]?.program ?? {});
+  let offline = $derived(!!roomId && isOffline(roomId));
   // Days no radiator of the room may have edited (QW8): shown read-only, never in the payload.
   let dayLocks = $derived(lockedDays(radiators));
   let lockedList = $derived(Object.keys(dayLocks) as Day[]);
-  // « Du » never rests on a locked day (it is not in the list): the first unlocked day takes over.
-  $effect(() => {
-    if (dayLocks[copyFrom]) copyFrom = DAYS.find((d) => !dayLocks[d]) ?? copyFrom;
-  });
   let mismatch = $derived(radiators.some((r) => JSON.stringify(r.program) !== JSON.stringify(radiators[0]?.program)));
   let dirty = $derived(!!draft && !!baseline && changedDays(baseline, draft).length > 0);
 
@@ -139,8 +183,10 @@
   let unsent = $derived(dirty && !(locked && JSON.stringify(draft) === JSON.stringify(lock!.week)));
 
   // Unsent edits are page-local: leaving the page (tab bar, link, reload) would drop them silently.
+  // Moving between the week and a day (`?day=`) stays on the page and keeps them.
   beforeNavigate((nav) => {
     if (!unsent) return;
+    if (nav.from && nav.to && nav.from.url.pathname === nav.to.url.pathname) return;
     if (nav.willUnload) nav.cancel(); // the browser asks with its own dialog
     else if (!confirm(m.program.discard)) nav.cancel();
   });
@@ -148,27 +194,27 @@
   let changes = $derived(draft && baseline ? changedDays(baseline, draft) : []);
   let invalid = $derived(draft ? DAYS.some((d) => validateDay(draft![d]) !== null) : true);
   let today = $derived(parisParts(now).weekday);
+  let nowMinute = $derived(parisMinuteOfDay(now));
   // aria-disabled, never disabled: Envoyer keeps focus through the send.
   // A conflict offers its own two choices (Recharger, Remplacer quand même).
   let canSend = $derived(
-    !busy && (changes.length > 0 || alsoRooms.length > 0) && !invalid && house.online && !conflict.length
+    !busy && (changes.length > 0 || alsoRooms.length > 0) && !invalid && house.online && !conflict.length && !offline
   );
   let roomTitle = (id: string) => {
     const r = house.room(id);
     return r ? roomName(r) : id;
   };
-  let roomOptions = $derived(rooms.map((r) => ({ value: r.id, label: roomName(r) })));
-  // Phone: one day open at a time (today first), the others show only their bar.
-  // null: nothing chosen yet (today is open); 'none': the user closed every day.
-  let openDay = $state<Day | 'none' | null>(null);
-  let shownDay = $derived(openDay === null ? today : openDay === 'none' ? null : openDay);
+  let room = $derived(roomId ? house.room(roomId) : undefined);
+  let roomOptions = $derived(
+    rooms.map((r) => ({ value: r.id, label: roomName(r), hint: isOffline(r.id) ? m.program.offline : undefined }))
+  );
+  // « Aussi pour… »: the other rooms that can take this week now (offline rooms cannot).
+  let alsoOptions = $derived(rooms.filter((r) => r.id !== roomId && !isOffline(r.id)));
+  // The phone shows one day at a time once a day is opened (`?day=`); desktop shows both.
+  let phoneDay = $derived(!desktop.matches && dayView && !offline);
   // The sticky send bar: there is something to send, or a send is on its way.
   let bar = $derived(changes.length > 0 || alsoRooms.length > 0 || busy);
-  let barText = $derived.by(() => {
-    if (busy) return m.program.sending;
-    const days = changes.length ? m.program.daysChanged(changes.length) : m.program.noDaysChanged;
-    return alsoRooms.length ? `${days} · ${m.program.otherRooms(alsoRooms.length)}` : days;
-  });
+  let barText = $derived(busy ? m.program.sending : changes.length ? m.program.daysChanged(changes.length) : m.program.noDaysChanged);
   // A retry would overwrite later edits of the room being edited, so it is only offered while the draft is the sent week.
   let statuses = $derived(
     sentList
@@ -183,6 +229,12 @@
 
   const fmtSegs = (segs: { start: number; end: number }[]) =>
     segs.length ? segs.map((s) => `${fromMin(s.start)}–${fromMin(s.end)}`).join(', ') : m.program.noSlots;
+  const dayHref = (d: Day | null) => {
+    const q = new URLSearchParams();
+    if (roomId) q.set('room', roomId);
+    if (d) q.set('day', d);
+    return `${ROUTES.schedule}?${q}`;
+  };
 
   function pickRoom(id: string) {
     if (id === roomId) return;
@@ -194,18 +246,38 @@
     conflict = [];
     unsentRooms = null;
     alsoRooms = [];
+    pulse = null;
   }
-  function applyCopy() {
-    if (!draft || busy || !copyTo.length) return;
-    const src = draft[copyFrom];
-    const next = { ...draft };
-    for (const d of copyTo) next[d] = src.map((s) => ({ ...s }));
-    draft = next;
-    copyTo = [];
+  function openDay(d: Day) {
+    selected = d;
+    if (desktop.matches) return;
+    dayView = true;
+    void goto(dayHref(d));
+  }
+  function step(delta: number) {
+    selected = shiftDay(selected, delta);
+    if (dayView && !desktop.matches) void goto(dayHref(selected), { replaceState: true, keepFocus: true, noScroll: true });
+  }
+  function toWeek(e: MouseEvent) {
+    e.preventDefault();
+    dayView = false;
+    void goto(dayHref(null));
+  }
+  function setDay(d: Day, segs: Week[Day]) {
+    if (!draft || busy || dayLocks[d]) return;
+    draft = { ...draft, [d]: segs };
+  }
+  function applyCopy(days: Day[]) {
+    if (!draft || busy || dayLocks[selected]) return;
+    const to = days.filter((d) => d !== selected && !dayLocks[d]);
+    if (!to.length) return;
+    draft = copyDay(draft, selected, to, dayLocks);
+    pulse = { days: to, n: (pulse?.n ?? 0) + 1 };
+    announcer.say(m.program.copied(to.length));
   }
   /** `only`: after a 409, « Remplacer quand même » sends the rooms not written yet, once each. */
   async function send(force = false, only: string[] | null = null) {
-    if (!draft || !roomId || !(canSend || (force && !busy && house.online && !invalid))) return;
+    if (!draft || !roomId || !(canSend || (force && !busy && house.online && !invalid && !offline))) return;
     const week = draft;
     const ids = only ?? [roomId, ...alsoRooms];
     const results: (Pending | null)[] = [];
@@ -213,7 +285,7 @@
     sending = true;
     try {
       for (const [i, id] of ids.entries()) {
-        const b = id === roomId ? base : baseOf(house.roomRadiators(id).filter((r) => capsOf(r).program));
+        const b = id === roomId ? base : baseOf(programRadiators(id));
         // Locked days are kept as each radiator reports them, in this room and every other
         // (final review C1): a send never empties a day it does not mean to change.
         const opts = { base: b, ...(lockedList.length ? { keep: lockedList } : {}), ...(force ? { force: true } : {}) };
@@ -245,6 +317,7 @@
     alsoRooms = [];
     conflict = [];
     unsentRooms = null;
+    showChanges = false;
     const mine = sentList.find((e) => e.roomId === roomId);
     if (mine) lock = { roomId, pendingId: mine.pendingId, week };
   }
@@ -269,16 +342,106 @@
 
 <svelte:head><title>{m.page.title(m.nav.schedule)}</title></svelte:head>
 
-<h1>{m.nav.schedule}</h1>
+{#snippet temps(compact: boolean)}
+  <div class="temps" class:compact>
+    <span class="k"><i class="sw c" aria-hidden="true"></i>{m.level.comfort} <b class="num">{fmtTemp(room?.comfort)}</b></span>
+    <span class="k"><i class="sw e" aria-hidden="true"></i>{m.level.eco} <b class="num">{fmtTemp(room?.eco)}</b></span>
+    {#if offline}
+      <span class="muted small">{m.program.lastKnown}</span>
+    {:else if !compact && roomId}
+      <a class="link" href={ROUTES.room(roomId)}>{m.program.editTemps}<Icon name="chevron" size={14} /></a>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet editor(compact: boolean)}
+  <DayEditor day={selected} segs={shown![selected]} {today} {nowMinute} {compact} edited={changes.includes(selected)}
+    pending={busy} locked={dayLocks[selected] ?? null} locks={dayLocks} onchange={(segs) => setDay(selected, segs)}
+    onprev={() => step(-1)} onnext={() => step(1)} oncopy={applyCopy} />
+{/snippet}
+
+{#snippet sendArea()}
+  {#if conflict.length}
+    <div class="conflict" role="alert">
+      <p><Icon name="alert" size={14} /><strong>{m.program.changedElsewhere}</strong></p>
+      <p class="muted">{m.program.changedElsewhereDays(conflict.map((d) => m.days[d]).join(', '))}</p>
+      <div class="row">
+        <button type="button" class="btn btn-sm" onclick={reload}>{m.program.reload}</button>
+        <button type="button" class="btn btn-sm btn-danger" aria-disabled={busy || !house.online} onclick={replace}>{m.program.replaceAnyway}</button>
+      </div>
+    </div>
+  {/if}
+  {#if statuses.length}
+    <ul class="status">
+      {#each statuses as { e, pending, stale } (e.roomId)}
+        <li>
+          <span>{roomTitle(e.roomId)}</span>
+          {#if stale}
+            <span class="stale"><Icon name="alert" size={14} /> {pendingError(pending!)} {m.program.staleHint}
+              <button type="button" class="btn btn-icon" aria-label={m.common.dismiss} onclick={() => house.dismiss(e.pendingId)}><Icon name="x" size={16} /></button></span>
+          {:else}
+            <PendingTag {pending} onretry={retryEntry} ondismiss={(id) => house.dismiss(id)} />
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
+  <!-- Unsent edits keep Annuler and Envoyer in reach, above the tab bar on a phone. -->
+  {#if bar}
+    <div class="sendbar" transition:fly|global={{ y: 8, duration: dur(T.enter), easing: easeOut }}>
+      <div class="bar-text">
+        <span class="count" class:muted={busy}>{barText}</span>
+        {#if alsoOptions.length && !busy}
+          <button type="button" class="also" bind:this={alsoTrigger} aria-haspopup="dialog" onclick={() => (alsoOpen = true)}>
+            {alsoRooms.length ? m.program.alsoForRooms(alsoRooms.map(roomTitle).join(', ')) : m.program.alsoFor}</button>
+        {/if}
+      </div>
+      <div class="bar-actions">
+        <button type="button" class="btn btn-sm" aria-disabled={busy || !changes.length}
+          onclick={() => !busy && changes.length && (draft = baseline)}>{m.program.undo}</button>
+        <button type="button" class="btn btn-sm btn-primary" aria-disabled={!canSend}
+          aria-describedby={offline ? 'kv-offline-send' : undefined} onclick={() => send()}>{m.program.send}</button>
+      </div>
+      {#if offline}<p class="why" id="kv-offline-send">{m.program.offlineSend}</p>{/if}
+      {#if changes.length && !busy}
+        <button type="button" class="see" aria-expanded={showChanges} aria-controls="kv-changes" onclick={() => (showChanges = !showChanges)}>
+          <Icon name="chevron" size={14} />{m.program.seeChanges}</button>
+        {#if showChanges}
+          <ul class="changes" id="kv-changes" transition:slide|global={{ duration: dur(T.enter), easing: easeOut }}>
+            {#each changes as d (d)}
+              <li><strong>{m.days[d]}</strong>{m.common.colon}{fmtSegs(draft![d])} <span class="muted">{m.program.changeBefore(fmtSegs(baseline![d]))}</span></li>
+            {/each}
+          </ul>
+        {/if}
+      {/if}
+    </div>
+  {/if}
+{/snippet}
+
+{#if !phoneDay}<h1>{m.nav.schedule}</h1>{/if}
 {#if !house.loaded}
-  <!-- The editor's shape until the house is known: the room picker, today's strip, seven days. -->
+  <!-- The page's shape until the house is known: the picker, the temperatures and plan, the week, the editor. -->
   <div class="sk" aria-hidden="true">
     <div class="skeleton" style:height="48px" style:width="min(100%, 320px)"></div>
-    <div class="skeleton" style:height="70px"></div>
-    {#each DAYS as d (d)}<div class="skeleton" style:height="{desktop.matches ? 108 : 64}px"></div>{/each}
+    <div class="skeleton" style:height="20px" style:width="min(100%, 360px)"></div>
+    <div class="skeleton" style:height="20px" style:width="min(100%, 520px)"></div>
+    <div class="grid">
+      <div class="sk-week">
+        {#each DAYS as d (d)}<div class="skeleton" style:height="{desktop.matches ? 44 : 58}px"></div>{/each}
+      </div>
+      {#if desktop.matches}<div class="skeleton" style:height="360px"></div>{/if}
+    </div>
   </div>
 {:else if !rooms.length}
   <p class="muted">{m.program.noRooms}</p>
+{:else if phoneDay && shown && radiators.length}
+  <!-- Phone: one day at a time, back to the week. -->
+  <a class="back" href={dayHref(null)} onclick={toWeek}><Icon name="arrow-left" size={16} />{m.program.weekOf(roomId ? roomTitle(roomId) : '')}</a>
+  <div class="dayview">
+    {@render editor(true)}
+    {@render temps(true)}
+    {@render sendArea()}
+  </div>
 {:else}
   <div class="rooms">
     {#if roomId}<Segmented options={roomOptions} value={roomId} label={m.program.roomPicker} onchange={pickRoom} />{/if}
@@ -287,111 +450,246 @@
   {#if roomId && !radiators.length}
     <p class="muted">{m.program.noRadiator}</p>
   {:else if shown}
-    {@const lg = m.program.legend()}
+    {#if offline}
+      <div class="offline" role="status">
+        <Icon name="plug-off" size={18} />
+        <strong>{m.program.offlineTitle(roomTitle(roomId!))}</strong>
+        <p>{m.program.offlineBody}</p>
+      </div>
+    {/if}
     {#if mismatch}
       <p class="warn"><Icon name="alert" size={14} /> {m.program.mismatch}</p>
     {/if}
-    <p class="muted legend">{lg.before}<strong>{lg.comfort}</strong>{lg.middle}<strong>{lg.eco}</strong>{lg.after} {m.program.midnightCap}</p>
-
-    {#if roomId}
-      <section class="today">
-        <h2>{m.program.today}</h2>
-        <RoomTodayStrip {roomId} height={48} axis program={toWeekProgram(shown)}
-          label={m.program.previewLabel(roomTitle(roomId))} />
-      </section>
-    {/if}
-
-    <div class="week">
-      {#each DAYS as d (d)}
-        <ProgramDay day={d} segs={shown[d]} pending={busy} nowMinute={d === today ? parisMinuteOfDay(now) : null}
-          collapsible={!desktop.matches} open={shownDay === d} ontoggle={() => (openDay = shownDay === d ? 'none' : d)}
-          onchange={(segs) => (draft = { ...draft!, [d]: segs })} locked={dayLocks[d] ?? null} />
-      {/each}
-    </div>
-
-    <section class="tools">
-      <h2>{m.program.copy}</h2>
-      <div class="row">
-        <label class="from">{m.program.copyFrom} <select bind:value={copyFrom} disabled={busy}>{#each DAYS.filter((d) => !dayLocks[d]) as d (d)}<option value={d}>{m.days[d]}</option>{/each}</select></label>
-        <span>{m.program.copyTo}</span>
-      </div>
-      <div class="chips">
-        {#each DAYS.filter((d) => d !== copyFrom && !dayLocks[d]) as d (d)}
-          <label class="chip"><input class="visually-hidden" type="checkbox" value={d} bind:group={copyTo} disabled={busy} /><span
-              aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{m.daysShort[d]}</label>
-        {/each}
-        <button type="button" class="btn btn-sm" aria-disabled={busy || !copyTo.length} onclick={applyCopy}>{m.program.copy}</button>
-      </div>
-      {#if rooms.length > 1}
-        <h2 class="also">{m.program.alsoSend}</h2>
-        <div class="chips">
-          {#each rooms.filter((r) => r.id !== roomId) as r (r.id)}
-            <label class="chip"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} disabled={busy} /><span
-                aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{roomName(r)}</label>
-          {/each}
-        </div>
+    {@render temps(false)}
+    <div class="plan">
+      {#if !offline}
+        <span>{room && room.mode !== 'program' && room.mode ? m.program.notRunning(m.mode[room.mode]) : fmtNow(source, now)}</span>
       {/if}
-    </section>
+      <span>{m.program.ecoRest}</span>
+      {#if !offline}
+        <button type="button" class="howto" aria-expanded={howTo} aria-controls="kv-howto" onclick={() => (howTo = !howTo)}>
+          <Icon name="help" size={14} />{m.program.howTo}</button>
+      {/if}
+    </div>
+    {#if howTo && !offline}
+      <p class="howto-body" id="kv-howto" transition:slide|global={{ duration: dur(T.enter), easing: easeOut }}>{m.program.howToBody}</p>
+    {/if}
 
-    {#if conflict.length}
-      <div class="conflict" role="alert">
-        <p><Icon name="alert" size={14} /><strong>{m.program.changedElsewhere}</strong></p>
-        <p class="muted">{m.program.changedElsewhereDays(conflict.map((d) => m.days[d]).join(', '))}</p>
-        <div class="row">
-          <button type="button" class="btn btn-sm" onclick={reload}>{m.program.reload}</button>
-          <button type="button" class="btn btn-sm btn-danger" aria-disabled={busy || !house.online} onclick={replace}>{m.program.replaceAnyway}</button>
-        </div>
+    <div class="grid" class:solo={offline || !desktop.matches}>
+      <WeekOverview week={shown} {today} {nowMinute} selected={desktop.matches && !offline ? selected : null} changed={changes}
+        locks={dayLocks} {pulse} pending={busy} interactive={!offline} onselect={openDay} />
+      {#if desktop.matches && !offline}
+        <aside class="side">
+          {@render editor(false)}
+          {@render sendArea()}
+        </aside>
+      {/if}
+    </div>
+    {#if !desktop.matches || offline}<div class="foot">{@render sendArea()}</div>{/if}
+
+    <ChoiceSheet title={m.program.alsoSend} open={alsoOpen} trigger={alsoTrigger} onclose={() => (alsoOpen = false)}>
+      <div class="chips">
+        {#each alsoOptions as r (r.id)}
+          <label class="chip"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} /><span
+              aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{roomName(r)}</label>
+        {/each}
       </div>
-    {/if}
-
-    {#if changes.length || statuses.length}
-      <section class="send">
-        {#if changes.length}
-          <h2>{m.program.changes}</h2>
-          <ul>
-            {#each changes as d (d)}
-              <li><strong>{m.days[d]}</strong>{m.common.colon}{fmtSegs(draft![d])} <span class="muted">{m.program.changeBefore(fmtSegs(baseline![d]))}</span></li>
-            {/each}
-          </ul>
-        {/if}
-        {#if statuses.length}
-          <ul class="status">
-            {#each statuses as { e, pending, stale } (e.roomId)}
-              <li>
-                <span>{roomTitle(e.roomId)}</span>
-                {#if stale}
-                  <span class="stale"><Icon name="alert" size={14} /> {pendingError(pending!)} {m.program.staleHint}
-                    <button type="button" class="btn btn-icon" aria-label={m.common.dismiss} onclick={() => house.dismiss(e.pendingId)}><Icon name="x" size={16} /></button></span>
-                {:else}
-                  <PendingTag {pending} onretry={retryEntry} ondismiss={(id) => house.dismiss(id)} />
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
-    {/if}
-
-    <!-- Unsent edits keep Annuler and Envoyer in reach, above the tab bar on a phone. -->
-    {#if bar}
-      <div class="sendbar" transition:fly={{ y: 8, duration: dur(T.enter), easing: easeOut }}>
-        <span class="bar-text" class:muted={busy}>{barText}</span>
-        <div class="bar-actions">
-          <button type="button" class="btn" aria-disabled={busy || !changes.length} onclick={() => !busy && changes.length && (draft = baseline)}>{m.program.undo}</button>
-          <button type="button" class="btn btn-primary" aria-disabled={!canSend}
-            onclick={() => send()}>{m.program.send}</button>
-        </div>
-      </div>
-    {/if}
+      <p class="note">{m.program.alsoNote}</p>
+    </ChoiceSheet>
   {/if}
 {/if}
 
 <style>
+  h1 {
+    font-size: 22px;
+    margin: 0 0 12px;
+  }
+  .sk {
+    display: grid;
+    gap: 12px;
+  }
+  .sk-week {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+  }
+  /* The room picker scrolls inside itself when the rooms are wider than the page. */
+  .rooms {
+    max-width: 100%;
+    /* Its width never widens the page (the « hors ligne » suffixes make it long): it scrolls instead. */
+    contain: inline-size;
+    overflow-x: auto;
+    margin-bottom: 12px;
+    padding: 2px;
+    scrollbar-width: none;
+  }
+  .temps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 18px;
+    margin: 0 0 6px;
+    font-size: 14px;
+  }
+  .temps.compact {
+    justify-content: center;
+    font-size: 13px;
+  }
+  .k {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .k b {
+    font-weight: 600;
+  }
+  /* The same swatches as the bars: comfort is the block, eco the empty well. */
+  .sw {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+  }
+  .sw.c {
+    background: color-mix(in srgb, var(--warm) 75%, var(--in));
+  }
+  .sw.e {
+    background: var(--in);
+    border: 1px solid var(--field-line);
+  }
+  .small {
+    font-size: 12px;
+  }
+  .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-height: 44px;
+    font-size: 13px;
+    color: var(--mu);
+    text-decoration: none;
+  }
+  @media (hover: hover) {
+    .link:hover {
+      color: var(--tx);
+    }
+  }
+  .plan {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 14px;
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: var(--mu);
+  }
+  .howto,
+  .also,
+  .see {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--mu);
+    font-size: 13px;
+    text-decoration: underline dotted;
+    text-underline-offset: 4px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  @media (hover: hover) {
+    .howto:hover,
+    .also:hover,
+    .see:hover {
+      color: var(--tx);
+    }
+  }
+  .see :global(svg) {
+    transition: transform var(--t-state) var(--ease-out);
+  }
+  .see[aria-expanded='true'] :global(svg) {
+    transform: rotate(90deg);
+  }
+  .howto-body {
+    max-width: 65ch;
+    margin: -6px 0 14px;
+    font-size: 13px;
+    color: var(--mu);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  @media (min-width: 1024px) {
+    .grid.solo {
+      max-width: 960px;
+    }
+    .grid:not(.solo) {
+      grid-template-columns: minmax(0, 1fr) clamp(320px, 38%, 440px);
+    }
+  }
+  .side {
+    position: sticky;
+    top: 16px;
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+  .foot,
+  .dayview {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+  .foot:not(:empty) {
+    margin-top: 12px;
+  }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    font-size: 13px;
+    color: var(--mu);
+    text-decoration: none;
+  }
+  .offline {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 4px 10px;
+    max-width: 65ch;
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--s2) 60%, transparent);
+    font-size: 13px;
+    color: var(--mu);
+  }
+  .offline strong {
+    color: var(--tx);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .offline p {
+    grid-column: 2;
+    margin: 0;
+  }
+  .warn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 65ch;
+    margin: 0 0 8px;
+    font-size: 13px;
+  }
   .conflict {
     display: grid;
     gap: 6px;
-    max-width: 65ch;
-    margin: 12px 0;
     padding: 12px 14px;
     border: 1px solid color-mix(in srgb, var(--bad) 60%, var(--line));
     border-radius: var(--radius);
@@ -405,58 +703,16 @@
     gap: 6px;
     flex-wrap: wrap;
   }
-  .conflict .row {
+  .row {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
-  h1 {
-    font-size: 22px;
-    margin: 0 0 12px;
-  }
-  h2 {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--mu);
-    margin: 0 0 8px;
-  }
-  .sk {
-    display: grid;
-    gap: 10px;
-    max-width: 900px;
-  }
-  /* The room picker scrolls inside itself when the rooms are wider than the page. */
-  .rooms {
-    max-width: 100%;
-    overflow-x: auto;
-    margin-bottom: 12px;
-    padding: 2px;
-    scrollbar-width: none;
-  }
-  .legend,
-  .warn {
-    font-size: 13px;
-    margin: 0 0 8px;
-    max-width: 65ch;
-  }
-  .warn {
-    color: var(--tx);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
   .status {
     list-style: none;
+    margin: 0;
     padding: 0;
-  }
-  .stale {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--bad);
+    font-size: 13px;
   }
   .status li {
     display: flex;
@@ -465,45 +721,82 @@
     gap: 8px;
     min-height: 32px;
   }
-  .today {
-    max-width: 900px;
-    margin: 12px 0;
+  .stale {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--bad);
   }
-  .week {
-    max-width: 900px;
-  }
-  .tools,
-  .send {
-    margin-top: 16px;
-    max-width: 900px;
-  }
-  .row {
+  .sendbar {
+    position: sticky;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    z-index: 10;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    font-size: 13px;
+    justify-content: space-between;
+    gap: 4px 12px;
+    padding: 8px 8px 8px 14px;
+    background: var(--s2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
   }
-  .from {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+  .side .sendbar {
+    position: static;
+  }
+  .bar-text {
+    display: grid;
+    min-width: 0;
+    line-height: 1.3;
+  }
+  .count {
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
   .also {
-    margin-top: 14px;
+    min-height: 32px;
+    font-size: 12px;
+    justify-self: start;
+    text-align: left;
   }
-  /* Day and room choices: 44 px chips; the native box is visually hidden, its focus shows on the chip. */
+  .bar-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .sendbar .btn:not(.btn-primary) {
+    background: var(--s1);
+  }
+  .why {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 12px;
+    color: var(--mu);
+  }
+  .see {
+    flex-basis: 100%;
+    min-height: 32px;
+    font-size: 12px;
+  }
+  .changes {
+    flex-basis: 100%;
+    margin: 0 0 4px;
+    padding-left: 18px;
+    font-size: 13px;
+  }
+  /* Room choices in « Aussi pour… »: 44 px chips; the native box is visually hidden, its focus shows on the chip. */
   .chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
   }
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     min-height: 44px;
     padding: 0 12px 0 10px;
     border: 1px solid var(--line);
@@ -524,12 +817,12 @@
     place-items: center;
     width: 16px;
     height: 16px;
-    border: 1px solid var(--field-line);
+    border: 1.5px solid var(--field-line);
     border-radius: 4px;
     color: transparent;
   }
   @media (hover: hover) {
-    .chip:not(:has(:disabled)):hover {
+    .chip:hover {
       color: var(--tx);
       border-color: var(--fa);
     }
@@ -548,47 +841,19 @@
     outline: 2px solid var(--tx);
     outline-offset: 2px;
   }
-  .chip:has(:disabled) {
-    color: var(--fa);
-    cursor: default;
-  }
-  ul {
-    margin: 0 0 10px;
-    padding-left: 18px;
-    font-size: 13px;
-  }
-  .sendbar {
-    position: sticky;
-    bottom: calc(64px + env(safe-area-inset-bottom));
-    z-index: 10;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px 12px;
-    max-width: 900px;
-    margin-top: 16px;
-    padding: 8px 8px 8px 14px;
-    background: var(--s2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-  }
-  .bar-text {
-    font-size: 13px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-  .bar-actions {
-    display: flex;
-    gap: 8px;
-    margin-left: auto;
-  }
-  .sendbar .btn:not(.btn-primary) {
-    background: var(--s1);
+  .note {
+    margin: 0;
+    font-size: 12px;
+    color: var(--mu);
   }
   @media (min-width: 1024px) {
     .sendbar {
       bottom: 16px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .see :global(svg) {
+      transition: none;
     }
   }
 </style>

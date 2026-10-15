@@ -2,7 +2,7 @@
   export type IconName =
     | 'rooms' | 'program' | 'energy' | 'house' | 'power' | 'away' | 'window'
     | 'presence' | 'light' | 'flash' | 'check' | 'alert' | 'chevron' | 'x' | 'plus' | 'minus'
-    | 'arrow-left' | 'edit';
+    | 'arrow-left' | 'edit' | 'chevron-left' | 'lock' | 'copy' | 'help' | 'plug-off';
 </script>
 
 <script lang="ts">
@@ -29,7 +29,12 @@
     plus: 'M12 5v14M5 12h14',
     minus: 'M5 12h14',
     'arrow-left': 'M19 12H5M11 6l-6 6 6 6',
-    edit: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4'
+    edit: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
+    'chevron-left': 'M15 6l-6 6 6 6',
+    lock: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3',
+    copy: 'M8 8h12v12H8zM16 8V4H4v12h4',
+    help: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17v.5',
+    'plug-off': 'M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0zM12 16v5M3.5 3.5l17 17'
   };
 </script>
 

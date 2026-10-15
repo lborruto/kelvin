@@ -175,3 +175,55 @@ export function removeSlot(segs: Seg[], i: number): Seg[] {
 export function changedDays(a: Week, b: Week): Day[] {
   return DAYS.filter((d) => JSON.stringify(a[d]) !== JSON.stringify(b[d]));
 }
+
+/** « Maintenant : Confort · 23:00 → Éco »: the level the programme gives now, and its next change. */
+export function fmtNow(program: WeekProgram, nowMs: number): string {
+  const level = m.level[isComfortAt(program, parisParts(nowMs).weekday, parisMinuteOfDay(nowMs)) ? 'comfort' : 'eco'];
+  const c = nextChange(program, nowMs);
+  if (!c) return m.program.nowSteady(level);
+  const time = fmtTime(c.atMs);
+  const days = Math.round((parisMidnight(c.atMs) - parisMidnight(nowMs)) / 86_400_000);
+  const when = days === 0 ? time : days === 1 ? m.program.whenTomorrow(time) : m.program.whenOn(parisParts(c.atMs).weekday, time);
+  return m.program.now(level, when, m.level[c.to]);
+}
+
+/** Comfort minutes in a day (its periods never overlap once valid). */
+export function comfortMinutes(segs: Seg[]): number {
+  return segs.reduce((sum, s) => sum + Math.max(0, s.end - s.start), 0);
+}
+
+/** « 8 h », « 7 h 30 », « 45 min ». */
+export function fmtDuration(mins: number): string {
+  const r = Math.round(mins);
+  return m.program.duration(Math.floor(r / 60), r % 60);
+}
+
+/** Each period as « 06:30–08:00 ». */
+export function slotTimes(segs: Seg[]): string[] {
+  return segs.map((s) => `${fromMin(s.start)}–${fromMin(s.end)}`);
+}
+
+export type Preset = 'weekdays' | 'weekend' | 'every';
+const PRESET: Record<Preset, Day[]> = {
+  weekdays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+  weekend: ['saturday', 'sunday'],
+  every: [...DAYS]
+};
+
+/** The days a copy shortcut picks: never the day copied from, never a locked day. */
+export function presetDays(preset: Preset, source: Day, locks: Partial<Record<Day, DayLock>>): Day[] {
+  return PRESET[preset].filter((d) => d !== source && !locks[d]);
+}
+
+/** `from`'s periods onto every day of `to` (fresh copies); locked days and `from` stay as they are. */
+export function copyDay(week: Week, from: Day, to: Day[], locks: Partial<Record<Day, DayLock>> = {}): Week {
+  const next = { ...week };
+  for (const d of to) if (d !== from && !locks[d]) next[d] = week[from].map((s) => ({ ...s }));
+  return next;
+}
+
+/** The day before (-1) or after (+1), wrapping around the week. */
+export function shiftDay(day: Day, delta: number): Day {
+  const i = DAYS.indexOf(day);
+  return DAYS[(i + delta + DAYS.length * 2) % DAYS.length];
+}

@@ -146,6 +146,7 @@ export const DYNAMIC = [
   'daysShort',
   'range',
   'program.dayError',
+  'program.presets',
   'energy.views',
   'energyPage.unit',
   'inspector.rateLabels',
