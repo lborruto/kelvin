@@ -348,9 +348,6 @@ class Tariff:
             "prices": [p.view() for p in self.prices],
         }
 
-    def ranges(self) -> Ranges:  # removed in Task 5: callers move to Pricing (Tasks 3–5)
-        return self.ranges_on(self.prices[-1].valid_from) or []
-
     @classmethod
     def from_view(cls, d: dict[str, Any]) -> Tariff:
         rows = [PriceRow.from_view(p) for p in d["prices"]]

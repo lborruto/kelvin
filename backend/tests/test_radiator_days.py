@@ -34,3 +34,38 @@ def test_unknown_half_hours_make_the_day_partial_and_without_a_tariff_no_split()
     assert (rd.hc_wh, rd.hp_wh, rd.eur) == (None, None, None)
     assert rd.interpolated and rd.apportioned
     assert radiator_days([Bucket(None, 0, False, False)] * 48, edges, None, PARIS) == {}
+
+
+TEMPO = {
+    "blue_hc": 0.1296,
+    "blue_hp": 0.1609,
+    "white_hc": 0.1486,
+    "white_hp": 0.1894,
+    "red_hc": 0.1568,
+    "red_hp": 0.7562,
+}
+
+
+def test_radiators_on_a_tempo_dst_day_take_each_half_hour_s_colour():
+    from kelvin.billing.tariff import PriceRow
+
+    day = date(2026, 10, 25)
+    edges = local_edges(day, date(2026, 10, 26), "halfhour", PARIS)
+    buckets = [Bucket(100.0, 1800, False, False) for _ in edges[:-1]]
+    t = Tariff.build(9, [PriceRow.make(date(2025, 9, 1), "tempo", 15.0, TEMPO)])
+    colours = {date(2026, 10, 24): "white", day: "red"}
+    rd = radiator_days(buckets, edges, t, PARIS, colours=colours)[day]
+    assert rd.hc_wh == pytest.approx(1800.0) and rd.hp_wh == pytest.approx(3200.0)
+    assert rd.eur == pytest.approx((1400 * 0.1486 + 400 * 0.1568 + 3200 * 0.7562) / 1000)
+    unknown = radiator_days(buckets, edges, t, PARIS, colours={date(2026, 10, 24): "white"})[day]
+    assert unknown.eur is None and unknown.hc_wh == pytest.approx(1800.0)
+
+
+def test_radiators_under_base_have_euros_and_no_split():
+    from kelvin.billing.tariff import PriceRow
+
+    day = date(2026, 10, 14)
+    edges = local_edges(day, date(2026, 10, 15), "halfhour", PARIS)
+    t = Tariff.build(9, [PriceRow.make(date(2026, 1, 1), "base", 15.0, {"base": 0.1952})])
+    rd = radiator_days([Bucket(100.0, 1800, False, False)] * 48, edges, t, PARIS)[day]
+    assert (rd.hc_wh, rd.hp_wh) == (None, None) and rd.eur == pytest.approx(4.8 * 0.1952)

@@ -26,7 +26,7 @@ from kelvin.billing.report import (
     unit_start,
 )
 from kelvin.billing.room_energy import room_energy
-from kelvin.billing.slots import Slot, offpeak_fraction, split_curve
+from kelvin.billing.slots import Slot
 from kelvin.billing.split import FallbackShares
 from kelvin.billing.tariff import Prices, Tariff, TariffStore
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, day_bounds, local_day
@@ -218,6 +218,7 @@ class LinkyService:
         daily_lo = min(load_lo, minus_years(min(start, p_lo), AVG4_YEARS))
         daily = self.store.daily(daily_lo if group == "year" else load_lo, load_hi)
         curve = self.store.curve(load_lo, load_hi)
+        colours = self.colours(load_lo, load_hi)  # Tempo colour per Tempo day
         if period is None:  # the same rule and data as the report's own default
             period = default_period(last_linky_day(daily, curve, self.tz), today, group)
         # Radiator half-hours over the window and the period: one range when they overlap or
@@ -229,7 +230,7 @@ class LinkyService:
         ranges = radiator_ranges((start, end), period)
         extent = recorder.energy_extent()
         radiators: dict[str, dict[date, RadiatorDay]] = self.radiator_days.days(
-            recorder, ranges, tariff, {rid: a for rid, (a, _) in extent.items()}
+            recorder, ranges, tariff, {rid: a for rid, (a, _) in extent.items()}, colours=colours
         )
         life = {
             rid: (local_day(a, self.tz), None if rid in rooms else local_day(b, self.tz))
@@ -255,7 +256,7 @@ class LinkyService:
             sample_stats=stats,
             linky_since=self.store.first_day(first_day),
             curve_since=self.store.first_curve_day(),
-            colours=self.colours(load_lo, load_hi),
+            colours=colours,
         )
         return build_report(start, end, group, inputs, period)
 
@@ -271,11 +272,15 @@ class LinkyService:
         first = today - timedelta(days=days - 1)
         extent = recorder.energy_extent()
         # From 1 January of the window's first year: the € running sums are anchored there.
+        lo, hi = date(first.year, 1, 1), today + timedelta(days=1)
+        # Each half-hour is priced by `Pricing`: the day before holds the first Tempo day's night.
+        colours = self.colours(lo - timedelta(days=1), hi)
         per = self.radiator_days.days(
             recorder,
-            [(date(first.year, 1, 1), today + timedelta(days=1))],
+            [(lo, hi)],
             tariff,
             {rid: a for rid, (a, _) in extent.items()},
+            colours=colours,
         )
         life = {
             rid: (local_day(a, self.tz), None if rid in in_house else local_day(b, self.tz))
@@ -292,6 +297,7 @@ class LinkyService:
         nxt = day + timedelta(days=1)
         today = self.today()
         tariff = self.tariffs.get()
+        colours = self.colours(day - timedelta(days=1), nxt)  # the day before holds 00:00–06:00
         oldest = self.store.first_curve_day() or self.not_before() or today
         # The report's look-back for that window (see `report`).
         anchor = self.store.last_day() or today
@@ -309,7 +315,6 @@ class LinkyService:
         energy = None
         daily = self.store.daily(day, nxt).get(day) if counted else None
         if daily is not None or complete:
-            colours = self.colours(day - timedelta(days=1), nxt)
             pricing = Pricing(tariff, self.tz, colours) if tariff else None
             # The same pool as the report's for that window (`lo`/`hi`): one figure per day.
             pool = FallbackShares({d: p for d, p in full.items() if lo <= d < hi}, self.tz)
@@ -334,6 +339,7 @@ class LinkyService:
                 rooms,
                 complete,
                 life=life,
+                colours=colours,
             ),
             "available": [
                 d.isoformat()
@@ -345,13 +351,20 @@ class LinkyService:
         }
 
     def curve_day(self, day: date) -> dict[str, Any]:
+        """`GET /api/linky/curve` (v1 alias): points with their off-peak share (0.0 when nothing
+        splits, as in v1) and the day's HC/HP from the curve."""
         points = self.store.curve(day, day + timedelta(days=1)).get(day, [])
         tariff = self.tariffs.get()
-        ranges = tariff.ranges() if tariff else None
+        pricing = (
+            Pricing(tariff, self.tz, self.colours(day - timedelta(days=1), day + timedelta(days=1)))
+            if tariff
+            else None
+        )
+        fs = [pricing.offpeak(p.ts, p.minutes * 60) if pricing else None for p in points]
         hc = hp = None
-        if ranges and points:
-            hc_wh, hp_wh = split_curve(points, ranges, self.tz)
-            hc, hp = round(hc_wh / 1000, 3), round(hp_wh / 1000, 3)
+        if points and all(f is not None for f in fs):
+            hc = round(sum(p.wh * f for p, f in zip(points, fs, strict=True)) / 1000, 3)  # type: ignore[operator]
+            hp = round(sum(p.wh * (1 - f) for p, f in zip(points, fs, strict=True)) / 1000, 3)  # type: ignore[operator]
         today = self.today()
         oldest = self.store.first_curve_day() or self.not_before() or today
         available = sorted(self.store.complete_curve_days(oldest, today))
@@ -362,9 +375,9 @@ class LinkyService:
                     "ts": p.ts,
                     "minutes": p.minutes,
                     "wh": p.wh,
-                    "offpeak": round(offpeak_fraction(p, ranges, self.tz), 4) if ranges else 0.0,
+                    "offpeak": round(f, 4) if f is not None else 0.0,
                 }
-                for p in points
+                for p, f in zip(points, fs, strict=True)
             ],
             "kwh": round(sum(p.wh for p in points) / 1000, 3) if points else None,
             "hc_kwh": hc,
