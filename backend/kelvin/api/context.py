@@ -48,7 +48,7 @@ class AppContext:
     accounts: AccountStore
     sessions: SessionStore
     throttle: LoginThrottle
-    make_gateway: Callable[[str, str], Awaitable[Gateway]]
+    make_gateway: Callable[[str, str, str], Awaitable[Gateway]]  # username, password, server
     # One budget of full setup reads for the whole process: boot, retries, logins and the pump.
     setup_reads: SetupReadGuard
     start_tasks: bool = True
@@ -71,7 +71,7 @@ class AppContext:
 
     async def start(self, account: Account) -> Runtime:
         """Log in to Overkiz with this account and start gateway, pump, recorder and overrides."""
-        gateway = await self.make_gateway(account.email, account.password)
+        gateway = await self.make_gateway(account.email, account.password, account.server)
         self.rt = await start_runtime(
             self.settings,
             gateway,
@@ -118,11 +118,12 @@ def open_context(
             on_record=lambda reads: db.set_setting(SETUP_READS_KEY, reads),
         )
 
-    async def factory(username: str, password: str) -> Gateway:
+    async def factory(username: str, password: str, server: str) -> Gateway:
         if gateway is not None:  # injected (tests): the same fake, given these credentials
+            gateway.server = server
             await gateway.set_credentials(username, password)
             return gateway
-        return make_gateway(settings, username, password, wall=wall)
+        return make_gateway(settings, username, password, server, wall=wall)
 
     return AppContext(
         settings=settings,
