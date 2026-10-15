@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { flushSync } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '$lib/api/client';
 import { parisTodayIso } from '$lib/format';
@@ -181,5 +182,36 @@ describe('TariffForm in English', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Save the tariff' }));
     expect(api.putTariff).toHaveBeenCalledWith(expect.objectContaining({ subscription_eur_month: 19.5, hc_eur_kwh: 0.2068 }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Off-peak periods overlap.');
+  });
+});
+
+describe('TariffForm fix round 1', () => {
+  const one = {
+    tariff: {
+      option: 'hchp' as const, kva: 6, hc_slots: [{ start: '22:00', end: '06:00' }],
+      prices: [{ valid_from: '2026-02-01', subscription_eur_month: 19.5, hc_eur_kwh: 0.2068, hp_eur_kwh: 0.27 }]
+    },
+    prefill: null
+  };
+  it('the last slot’s Retirer is paused with aria-disabled, focusable, and does nothing', async () => {
+    render(TariffForm, { settings: one, onsaved: vi.fn() });
+    const remove = screen.getByRole('button', { name: 'Retirer la plage 1' });
+    expect(remove).not.toBeDisabled();
+    expect(remove).toHaveAttribute('aria-disabled', 'true');
+    await fireEvent.click(remove);
+    expect(screen.getByLabelText('Début de la plage 1')).toHaveValue('22:00');
+  });
+  it('a switch re-seeds the untouched amounts in the new decimal mark and keeps the edited one', async () => {
+    render(TariffForm, { settings: one, onsaved: vi.fn() });
+    expect(screen.getByLabelText('Abonnement (€/mois)')).toHaveValue('19,5');
+    await fireEvent.input(screen.getByLabelText('Prix heures creuses (€/kWh)'), { target: { value: '0,21' } });
+    applyLocale('en');
+    flushSync();
+    expect(screen.getByLabelText('Standing charge (€/month)')).toHaveValue('19.5');
+    expect(screen.getByLabelText('Peak price (€/kWh)')).toHaveValue('0.27');
+    expect(screen.getByLabelText('Off-peak price (€/kWh)')).toHaveValue('0,21');
+    applyLocale('fr');
+    flushSync();
+    expect(screen.getByLabelText('Abonnement (€/mois)')).toHaveValue('19,5');
   });
 });

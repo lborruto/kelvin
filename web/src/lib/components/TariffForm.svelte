@@ -12,9 +12,9 @@
   }
   let { settings, onsaved }: Props = $props();
 
-  // The fields are seeded once, in the language of the moment; parseDecimal reads both marks.
-  const dec = (v: number | undefined) =>
-    v === undefined ? '' : locale.current === 'en' ? String(v) : String(v).replace('.', ',');
+  // Amounts are seeded in the language of the moment; parseDecimal reads both marks.
+  const dec = (v: number | undefined, l = locale.current) =>
+    v === undefined ? '' : l === 'en' ? String(v) : String(v).replace('.', ',');
   // The fields start from the saved tariff, else the Enedis contract; only the history follows the prop.
   const init = untrack(() => {
     const t = settings.tariff;
@@ -38,6 +38,21 @@
   let hc = $state(init.hc);
   let hp = $state(init.hp);
   let validFrom = $state(init.today);
+  // A language switch re-seeds the amounts the user has not touched in the new decimal mark
+  // (« 19,5 » → “19.5”); an edited field keeps what the user typed.
+  let seededIn = untrack(() => locale.current);
+  $effect(() => {
+    const l = locale.current;
+    untrack(() => {
+      if (l === seededIn) return;
+      const f = init.inForce;
+      const re = (v: string, n: number | undefined) => (v === dec(n, seededIn) ? dec(n, l) : v);
+      sub = re(sub, f?.subscription_eur_month);
+      hc = re(hc, f?.hc_eur_kwh);
+      hp = re(hp, f?.hp_eur_kwh);
+      seededIn = l;
+    });
+  });
   let kvaOptions = $derived(KVA.includes(kva) ? KVA : [...KVA, kva].sort((a, b) => a - b));
   let busy = $state(false);
   let error = $state<(() => string) | null>(null);
@@ -49,6 +64,7 @@
     if (slots.length < 3) slots.push({ start: '12:00', end: '14:00' });
   }
   function removeSlot(i: number) {
+    if (slots.length === 1) return; // paused with aria-disabled: the last slot stays
     saved = false;
     slots.splice(i, 1);
   }
@@ -136,7 +152,7 @@
       <div class="slot">
         <label class="field"><span>{m.tariff.slotStart(i + 1)}</span><input type="time" step="600" bind:value={slot.start} /></label>
         <label class="field"><span>{m.tariff.slotEnd(i + 1)}</span><input type="time" step="600" bind:value={slot.end} /></label>
-        <button type="button" class="btn btn-ghost" aria-label={m.tariff.removeLabel(i + 1)} disabled={slots.length === 1} onclick={() => removeSlot(i)}>{m.tariff.remove}</button>
+        <button type="button" class="btn btn-ghost" aria-label={m.tariff.removeLabel(i + 1)} aria-disabled={slots.length === 1} onclick={() => removeSlot(i)}>{m.tariff.remove}</button>
       </div>
     {/each}
     <button type="button" class="btn btn-ghost add" aria-disabled={slots.length >= 3} onclick={addSlot}>{m.tariff.add}</button>
