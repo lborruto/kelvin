@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '$lib/api/client';
 import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus, Quality } from '$lib/api/types';
 import { download } from '$lib/csv';
-import { addDays } from '$lib/energy';
+import { addDays, bucketLabel } from '$lib/energy';
 import { fmtTime } from '$lib/format';
 import { announcer } from '$lib/stores/announcer.svelte';
 import { house } from '$lib/stores/house.svelte';
@@ -291,6 +291,24 @@ describe('Énergie', () => {
     expect(screen.getByRole('button', { name: 'Jour suivant' })).toHaveAttribute('aria-disabled', 'true');
     await fireEvent.click(screen.getByRole('button', { name: 'Jour précédent' }));
     await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-11', 'salon'));
+  });
+
+  it('the Courbe’s HC/HP add up to its daily reading and read as the bar inspector’s for that day (final review I-2)', async () => {
+    const r = report();
+    r.buckets = r.buckets.map((b) => (b.key === '2026-10-12' ? { ...b, kwh: 12.23, hc_kwh: 4.115, hp_kwh: 8.115 } : b));
+    vi.mocked(api.energyReport).mockResolvedValue(r);
+    vi.mocked(api.energyDay).mockImplementation(async (d: string) =>
+      energyDay(d, { totals: { curve_kwh: 12.2, daily_kwh: 12.23, hc_kwh: 4.115, hp_kwh: 8.115, split_method: 'curve', hc_kwh_curve: 4.1, hp_kwh_curve: 8.1 } })
+    );
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' });
+    const notes = [...container.querySelectorAll('#courbe .note')].map((n) => n.textContent);
+    const caption = 'Consommation de la maison par jour';
+    const row = bucketLabel('2026-10-12', 'day');
+    const hc = cell(container, caption, row, 'Heures creuses');
+    const hp = cell(container, caption, row, 'Heures pleines');
+    expect([hc, hp]).toEqual(['4,12\u00a0kWh', '8,11\u00a0kWh']);
+    expect(notes).toContain(`HC ${hc} · HP ${hp}, d’après le relevé journalier`);
   });
 
   it('the Courbe readout prices each half-hour from /api/energy/day: with a tariff, Prix and Coût are figures', async () => {

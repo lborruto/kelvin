@@ -3,7 +3,7 @@
   import Icon from './Icon.svelte';
   import type { EnergyDay } from '$lib/api/types';
   import { halfHoursIn, type View } from '$lib/energy';
-  import { fmtDateLong, fmtKwhExact, fmtPct1 } from '$lib/format';
+  import { fmtDateLong, fmtKwhExact, fmtPct1, matchParts } from '$lib/format';
 
   const COPY = {
     heading: (d: string) => `Courbe du ${d}`,
@@ -61,11 +61,14 @@
     if (t.daily_kwh == null || t.daily_kwh <= 0) return COPY.curveOnly(fmtKwhExact(t.curve_kwh));
     return COPY.reconcile(fmtKwhExact(t.curve_kwh), fmtKwhExact(t.daily_kwh), fmtPct1(Math.abs(t.curve_kwh - t.daily_kwh) / t.daily_kwh));
   });
-  let splitLine = $derived(
-    shown && shown.totals.hc_kwh != null && shown.totals.hp_kwh != null
-      ? COPY.split(fmtKwhExact(shown.totals.hc_kwh), fmtKwhExact(shown.totals.hp_kwh))
-      : null
-  );
+  // The parts of the daily reading beside them: matched to it (L1), so they add up and read as the bar inspector's
+  // split of the same day.
+  let splitLine = $derived.by(() => {
+    const t = shown?.totals;
+    if (!t || t.hc_kwh == null || t.hp_kwh == null) return null;
+    const [hc, hp] = t.daily_kwh == null ? [t.hc_kwh, t.hp_kwh] : matchParts(t.daily_kwh, [t.hc_kwh, t.hp_kwh], 2).parts;
+    return COPY.split(fmtKwhExact(hc), fmtKwhExact(hp));
+  });
 </script>
 
 <section class="panel wide" id="courbe" aria-labelledby="courbe-title">
