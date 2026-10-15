@@ -64,7 +64,11 @@ def data(result) -> dict[str, Any]:
 
 def error_code(result) -> str:
     assert result.is_error is True, result.structured_content
-    return result.content[0].text.split(":", 1)[0]
+    text = result.content[0].text
+    # mcp 2.3.0 prefixes a ToolError's text with « Error executing tool <name>: ».
+    if text.startswith("Error executing tool "):
+        text = text.split(": ", 1)[1]
+    return text.split(":", 1)[0]
 
 
 async def rpc(
