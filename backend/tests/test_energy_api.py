@@ -807,3 +807,31 @@ async def test_a_days_radiator_euros_read_the_same_in_jour_semaine_and_mois(api)
             bucket = next(x for x in body["buckets"] if x["key"] == str(d))
             seen.append(bucket["radiators"]["eur"])
         assert jour["eur"] is not None and len(set(seen)) == 1, (d, seen)
+
+
+@PINNED
+async def test_a_room_s_day_reads_its_par_piece_row(api):
+    """Window invariance (CLAUDE.md « Énergie figures »): a room's elapsed day is the sum of its
+    radiators' rows in Énergie's Par pièce for that day (Jour), € to the cent. `days=1` is today
+    alone, which the report never counts, so yesterday is `days=2` less `days=1`."""
+    c, _, rt, _ = api
+    day = rt.linky.today() - timedelta(days=1)
+    rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
+    report = await c.get(
+        "/api/energy",
+        params={"from": str(day), "to": str(day + timedelta(days=1)), "group": "day"},
+    )
+    assert report.status_code == 200, report.text
+    rows = report.json()["by_radiator"]
+    for room in rt.house.rooms:
+        mine = [r for r in rows if rooms.get(r["radiator_id"]) == room]
+        two = (await c.get(f"/api/rooms/{room}/energy", params={"days": 2})).json()
+        one = (await c.get(f"/api/rooms/{room}/energy", params={"days": 1})).json()
+        assert two["from"] == str(day)
+        assert mine and all(r["eur"] is not None for r in mine), room
+        eur = round(sum(r["eur"] for r in mine) * 100)
+        # Just after midnight, today may have nothing measured yet (null, never 0).
+        today_eur, today_kwh = one["eur"] or 0.0, one["kwh"] or 0.0
+        assert round(two["eur"] * 100) - round(today_eur * 100) == eur, room
+        kwh = sum(r["kwh"] for r in mine)
+        assert two["kwh"] - today_kwh == pytest.approx(kwh, abs=0.002 * len(mine)), room

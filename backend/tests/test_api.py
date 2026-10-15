@@ -457,3 +457,36 @@ async def test_house_view_carries_signal_fields(ctx):
     r = body["radiators"][0]
     assert {"reachable", "unreachable_since", "last_event_at"} <= set(r)
     assert all("presence" in room for room in body["rooms"])
+
+
+async def test_room_energy_route(ctx):
+    c, rt, _ = ctx
+    r = await c.get(f"/api/rooms/{salon_id(rt)}/energy", params={"days": 7})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert {
+        "from",
+        "to",
+        "days",
+        "kwh",
+        "hc_kwh",
+        "hp_kwh",
+        "eur",
+        "heating_hours",
+        "coverage",
+        "priced",
+    } <= set(body)
+    assert body["days"] == 7 and body["to"] == rt.linky.today().isoformat()
+    assert body["kwh"] is not None and body["kwh"] >= 0  # the simulator seeded a week
+    assert body["priced"] is True and body["eur"] is not None  # the simulator seeds a tariff
+    assert (await c.get(f"/api/rooms/{salon_id(rt)}/energy")).json()["days"] == 1
+
+
+async def test_room_energy_bounds(ctx):
+    c, rt, _ = ctx
+    room = salon_id(rt)
+    for days in (0, 40, "x"):
+        r = await c.get(f"/api/rooms/{room}/energy", params={"days": days})
+        assert (r.status_code, r.json()["code"]) == (422, "invalid_request"), days
+    r = await c.get("/api/rooms/nope/energy", params={"days": 7})
+    assert (r.status_code, r.json()["code"]) == (404, "room_unknown")

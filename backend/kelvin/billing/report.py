@@ -5,7 +5,7 @@ Pure: the caller gathers Linky days, curves, radiator energy and the tariff into
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any, Literal
@@ -141,6 +141,113 @@ def _r(v: float | None, n: int = 3) -> float | None:
     return None if v is None else round(v, n)
 
 
+# A radiator-day counts when the radiator existed that day and the day can have been measured.
+Counted = Callable[[str, date], bool]
+
+
+@dataclass(frozen=True)
+class RadiatorTotals:
+    """Exact sums over the counted radiator-days of [a, b) that have a figure (`radiator_totals`).
+    `known` counts the radiator-days that counted, `recorded` those fully measured."""
+
+    wh: float
+    hc_wh: float
+    hp_wh: float
+    eur: float
+    priced: bool
+    interpolated: bool
+    apportioned: bool
+    known: int
+    recorded: int
+    found: bool
+
+
+def radiator_totals(
+    per: dict[str, dict[date, RadiatorDay]], counted: Counted, ids: list[str], a: date, b: date
+) -> RadiatorTotals:
+    """The report's radiator sum, unrounded. Every figure counts exactly the radiator-days
+    `counted` admits: a day it leaves out (today, still running, or outside the radiator's life)
+    adds no kWh either, or coverage 1.0 could vouch for a sum holding a partial day (I2)."""
+    wh = hc = hp = eur = 0.0
+    found = priced = interp = appor = False
+    known = recorded = 0
+    for d in _days(a, b):
+        for rid in ids:
+            if not counted(rid, d):
+                continue
+            known += 1
+            rd = per.get(rid, {}).get(d)
+            if rd is None or rd.wh is None:
+                continue
+            found = True
+            wh += rd.wh
+            recorded += rd.complete
+            interp |= rd.interpolated
+            appor |= rd.apportioned
+            if rd.hc_wh is not None and rd.hp_wh is not None and rd.eur is not None:
+                priced = True
+                hc, hp, eur = hc + rd.hc_wh, hp + rd.hp_wh, eur + rd.eur
+    return RadiatorTotals(wh, hc, hp, eur, priced, interp, appor, known, recorded, found)
+
+
+def radiator_year_cum(
+    per: dict[str, dict[date, RadiatorDay]], counted: Counted, year: int
+) -> dict[date, float]:
+    """The exact radiator energy € of every counted, priced radiator-day from 1 January of
+    `year` up to each day (excluded); the next 1 January closes it."""
+    e = 0.0
+    cum: dict[date, float] = {}
+    for d in _days(date(year, 1, 1), date(year + 1, 1, 1)):
+        cum[d] = e
+        for rid, days in per.items():
+            rd = days.get(d)
+            if rd is not None and rd.wh is not None and rd.eur is not None and counted(rid, d):
+                e += rd.eur
+    cum[date(year + 1, 1, 1)] = e
+    return cum
+
+
+def radiator_cents(
+    years: Callable[[int], dict[date, float]], a: date, b: date, *, extra: float = 0.0
+) -> int:
+    """The radiators' € of [a, b) in whole cents, from running sums anchored on 1 January (as
+    the meter's `costs`): round(cum(b) + extra) − round(cum(a)), split at each new year, so a
+    bucket reads the same in every view and buckets add up to the period. `extra` is exact €
+    that belong to the end of the span but to no counted day (a room's measured half-hours of
+    today): they enter the same rounding, never a rounding of their own."""
+    cents = 0
+    x = a
+    while True:
+        y = min(b, date(x.year + 1, 1, 1))
+        cum = years(x.year)
+        end = cum[y] + (extra if y == b else 0.0)
+        cents += round(end * 100) - round(cum[x] * 100)
+        if y >= b:
+            return cents
+        x = y
+
+
+def radiator_shares(
+    per: dict[str, dict[date, RadiatorDay]],
+    counted: Counted,
+    years: Callable[[int], dict[date, float]],
+    a: date,
+    b: date,
+) -> dict[str, int]:
+    """Each priced radiator's whole cents of [a, b): the radiators' cents (`radiator_cents`)
+    shared by largest remainder over each radiator's exact €, so they add up to it. This is the
+    report's `by_radiator` € (Énergie's Par pièce rows)."""
+    exact: dict[str, float] = {}
+    for rid in sorted(per):
+        t = radiator_totals(per, counted, [rid], a, b)
+        if t.found and t.priced:
+            exact[rid] = t.eur
+    if not exact:
+        return {}
+    cents = _allocate(list(exact.values()), radiator_cents(years, a, b))
+    return dict(zip(exact, cents, strict=True))
+
+
 class _Energy:
     """Whole-home energy and cost per day, computed once per report."""
 
@@ -199,71 +306,31 @@ class _Energy:
         """The exact radiator energy € of every radiator-day the sums count (`_known`, priced)
         from 1 January of `year` up to each day (excluded); the next 1 January closes it."""
         if year not in self._rad_years:
-            e = 0.0
-            cum: dict[date, float] = {}
-            for d in _days(date(year, 1, 1), date(year + 1, 1, 1)):
-                cum[d] = e
-                for rid, per in self.inp.radiators.items():
-                    rd = per.get(d)
-                    if rd is not None and rd.wh is not None and rd.eur is not None:
-                        if self._known(rid, d):
-                            e += rd.eur
-            cum[date(year + 1, 1, 1)] = e
-            self._rad_years[year] = cum
+            self._rad_years[year] = radiator_year_cum(self.inp.radiators, self._known, year)
         return self._rad_years[year]
 
     def _radiator_cents(self, a: date, b: date) -> int:
         """The radiators' € of [a, b) in cents, from running sums anchored on 1 January (as
         `costs`): a bucket reads the same in every view, and buckets add up to the period."""
-        cents = 0
-        x = a
-        while x < b:
-            y = min(b, date(x.year + 1, 1, 1))
-            cum = self._rad_year(x.year)
-            cents += round(cum[y] * 100) - round(cum[x] * 100)
-            x = y
-        return cents
+        return radiator_cents(self._rad_year, a, b)
 
     def _radiator_sum(
         self, ids: list[str], a: date, b: date, *, exact: bool = False
     ) -> dict[str, Any] | None:
         """Radiator energy over [a, b): None when no radiator has energy there (unknown, never
-        0). coverage = radiator-days fully measured / radiator-days the radiators existed.
-
-        Every figure counts exactly the radiator-days coverage counts: a day `_known` leaves out
-        (today, which is still running, or outside the radiator's life) adds no kWh either, or
-        coverage 1.0 could vouch for a sum holding a partial day (final review I2)."""
-        wh = hc = hp = eur = 0.0
-        found = priced = False
-        interp = appor = False
-        known = recorded = 0
-        for d in _days(a, b):
-            for rid in ids:
-                k = self._known(rid, d)
-                rd = self.inp.radiators.get(rid, {}).get(d)
-                if not k:
-                    continue
-                known += 1
-                if rd is None or rd.wh is None:
-                    continue
-                found = True
-                wh += rd.wh
-                recorded += rd.complete
-                interp |= rd.interpolated
-                appor |= rd.apportioned
-                if rd.hc_wh is not None and rd.hp_wh is not None and rd.eur is not None:
-                    priced = True
-                    hc, hp, eur = hc + rd.hc_wh, hp + rd.hp_wh, eur + rd.eur
-        if not found:
+        0). coverage = radiator-days fully measured / radiator-days the radiators existed
+        (`radiator_totals`: every figure counts exactly the radiator-days coverage counts)."""
+        t = radiator_totals(self.inp.radiators, self._known, ids, a, b)
+        if not t.found:
             return None
         return {
-            "kwh": _r(wh / 1000),
-            "hc_kwh": _r(hc / 1000) if priced else None,
-            "hp_kwh": _r(hp / 1000) if priced else None,
-            "eur": (eur if exact else _r(eur, 2)) if priced else None,
-            "interpolated": interp,
-            "apportioned": appor,
-            "coverage": _r(recorded / known, 4) if known else None,
+            "kwh": _r(t.wh / 1000),
+            "hc_kwh": _r(t.hc_wh / 1000) if t.priced else None,
+            "hp_kwh": _r(t.hp_wh / 1000) if t.priced else None,
+            "eur": (t.eur if exact else _r(t.eur, 2)) if t.priced else None,
+            "interpolated": t.interpolated,
+            "apportioned": t.apportioned,
+            "coverage": _r(t.recorded / t.known, 4) if t.known else None,
         }
 
     def radiators(self, a: date, b: date) -> dict[str, Any] | None:
@@ -310,11 +377,9 @@ class _Energy:
         sums = {
             rid: self._radiator_sum([rid], a, b, exact=True) for rid in sorted(self.inp.radiators)
         }
-        priced = [rid for rid, s in sums.items() if s is not None and s["eur"] is not None]
-        if priced:
-            shares = _allocate([sums[rid]["eur"] for rid in priced], self._radiator_cents(a, b))  # type: ignore[index]
-            for rid, c in zip(priced, shares, strict=True):
-                sums[rid]["eur"] = c / 100  # type: ignore[index]
+        shares = radiator_shares(self.inp.radiators, self._known, self._rad_year, a, b)
+        for rid, c in shares.items():
+            sums[rid]["eur"] = c / 100  # type: ignore[index]
         for rid in sorted(self.inp.radiators):
             s = sums[rid]
             existed = any(self._known(rid, d) for d in _days(a, b))

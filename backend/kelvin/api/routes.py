@@ -33,6 +33,7 @@ from kelvin.api.schemas import (
 from kelvin.api.sse import event_stream
 from kelvin.auth.sessions import COOKIE_NAME
 from kelvin.billing.report import next_unit, unit_start
+from kelvin.billing.room_energy import MAX_ROOM_DAYS
 from kelvin.commands.translate import (
     Planned,
     plan_feature,
@@ -159,6 +160,22 @@ async def room_program(room_id: str, body: ProgramBody, request: Request):
     name, rads = _room_radiators(rt, room_id)
     week = body.week()
     return await _submit(rt, Label.of("program", name=name), rads, lambda r: plan_program(r, week))
+
+
+@router.get("/rooms/{room_id}/energy")
+async def room_energy_route(
+    room_id: str, request: Request, days: int = Query(default=1, ge=1, le=MAX_ROOM_DAYS)
+) -> dict:
+    """The room's radiator energy over the last `days` local days, today included (spec QW3):
+    the Énergie report's own figures and € rule, never a bucket rounded on its own."""
+    rt = _rt(request)
+    _, rads = _room_radiators(rt, room_id)
+    linky = _linky(rt)
+    ids = [r.id for r in rads]
+    # Off the event loop: the first request of a year replays the half-hours since 1 January.
+    return await asyncio.to_thread(
+        linky.room_energy, ids, days, rt.recorder, set(rt.house.radiators)
+    )
 
 
 @router.post("/radiators/{rid}/mode")

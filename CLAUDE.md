@@ -141,7 +141,10 @@ depends on.
   with its parts goes through `matchParts` (largest remainder at the total's decimals). € are
   rounded once, in `billing/report.py`, from running sums anchored on 1 January (a span's cents
   are round(cum(to)) − round(cum(from))); never round a bucket's € on its own, in the backend or
-  the web, so a day reads the same figure in Jour, Semaine, Mois, Année and the CSV. A « — »
+  the web, so a day reads the same figure in Jour, Semaine, Mois, Année and the CSV. A room's
+  figures (`billing/room_energy.py`, `GET /api/rooms/{id}/energy`) take each elapsed day's € as the
+  sum of its radiators' `by_radiator` € for that day (`report.radiator_shares`), so a room's day
+  reads what Par pièce shows; a test pins it. A « — »
   always carries its reason. The Courbe readout's fields stack every text they take over the day
   in one cell, so scrubbing never reflows them; keep that when adding a field. Énergie strings
   live in the `$lib/i18n` dictionaries like every other string (one group per component or
