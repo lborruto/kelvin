@@ -135,7 +135,9 @@ class GridService:
         if not self.spend():
             raise BudgetSpent("budget")
         today = self._now().date()
-        days = await self.source.ecowatt(today, today + timedelta(days=ECOWATT_DAYS))
+        # Key D carries the hours of D+1: today's hours sit under yesterday's key.
+        yesterday = today - timedelta(days=1)
+        days = await self.source.ecowatt(yesterday, today + timedelta(days=ECOWATT_DAYS))
         self.store.upsert_ecowatt(days, self.wall())
         self.store.prune_ecowatt(today - timedelta(days=ECOWATT_KEEP_DAYS))
         self.on_change()

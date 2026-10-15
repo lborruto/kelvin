@@ -278,7 +278,9 @@ async def test_grid_view_hides_tempo_unless_the_row_in_force_is_tempo():
     await svc.ecowatt_job()
     await svc.tempo_job()
     v = svc.view()
-    assert v["tempo"] is None and fake.calls == [f"ecowatt:{D}:{D + timedelta(days=4)}"]
+    assert v["tempo"] is None and fake.calls == [
+        f"ecowatt:{D - timedelta(days=1)}:{D + timedelta(days=4)}"
+    ]
     assert [x["level"] for x in v["ecowatt"]["days"]] == [1, 2, 1, 1]
     assert v["ecowatt"]["days"][1]["hours"] == [  # verified (Task 15): shown for every tariff
         {"start": "18:00", "end": "20:00", "level": 2}
@@ -445,3 +447,20 @@ def test_the_captured_ecowatt_shape_is_dated_as_recorded():
 def test_parse_tempo_prices_accepts_six_string_decimals():
     strings = {k: f"{v:.4f}" for k, v in PRICES.items()}
     assert parse_tempo_prices(strings) == PRICES
+
+
+async def test_todays_ecowatt_comes_from_yesterdays_key_in_one_call():
+    clock, db, sync, tariff, fake, svc = grid_env(HCHP, datetime(2026, 12, 1, 12, 0, tzinfo=PARIS))
+    shifted = {  # the live shape: key D holds the hours of D+1
+        "2026-11-30": {"value": 1, "detail": hours_of(D, {18: 2})},
+        "2026-12-01": {"value": 1, "detail": hours_of(D + timedelta(days=1), {})},
+    }
+    svc.source = client_for(lambda r: httpx.Response(200, json=shifted))
+    await svc.ecowatt_job()
+    assert sync.grid_calls_today() == 1
+    days = svc.view()["ecowatt"]["days"]
+    assert days[0]["date"] == "2026-12-01" and days[0]["level"] == 2
+    assert days[0]["hours"] == [{"start": "18:00", "end": "19:00", "level": 2}]
+    assert days[1]["level"] == 1 and days[1]["hours"] == []
+    # yesterday (kept 30 days) is stored, but the view starts today
+    assert svc.store.ecowatt(D - timedelta(days=1), D) == {}
