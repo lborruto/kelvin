@@ -30,7 +30,9 @@ const LIST = {
   ]
 };
 
+let listReady = true;
 beforeEach(() => {
+  listReady = true;
   vi.clearAllMocks();
   url.current = new URL('http://kelvin.test/login?next=%2Fschedule');
   vi.mocked(api.me).mockResolvedValue({ email: null, logged_in: false, setup: true, simulator: false });
@@ -38,6 +40,7 @@ beforeEach(() => {
 });
 
 async function fill(email: string, password: string) {
+  if (listReady) await waitFor(() => expect(screen.getByRole('button', { name: 'Se connecter' })).toHaveAttribute('aria-disabled', 'false'));
   await fireEvent.input(screen.getByLabelText('Email'), { target: { value: email } });
   await fireEvent.input(screen.getByLabelText('Mot de passe'), { target: { value: password } });
   await fireEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
@@ -163,13 +166,36 @@ describe('Login server', () => {
     expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', undefined);
   });
 
-  it('still logs in when the server list cannot be read', async () => {
-    vi.mocked(api.servers).mockRejectedValue(new Error('offline'));
+  it('holds the first login until the server list has answered', async () => {
+    let answer!: (l: typeof LIST) => void;
+    listReady = false;
+    vi.mocked(api.servers).mockReturnValue(new Promise((r) => (answer = r)));
     vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
     render(Page);
     await fill('demo@kelvin.local', 'kelvin');
-    expect(screen.queryByRole('combobox', { name: 'Serveur' })).toBeNull();
-    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', undefined);
+    expect(screen.getByRole('button', { name: 'Se connecter' })).toHaveAttribute('aria-disabled', 'true');
+    expect(api.login).not.toHaveBeenCalled();
+    answer(LIST);
+    await screen.findByRole('combobox', { name: 'Serveur' });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Se connecter' })).toHaveAttribute('aria-disabled', 'false'));
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Serveur' }), { target: { value: 'thermor_cozytouch' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
+    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', 'thermor_cozytouch');
+  });
+
+  it('sends nothing when the server list cannot be read, and offers a retry', async () => {
+    listReady = false;
+    vi.mocked(api.servers).mockRejectedValueOnce(new Error('offline'));
+    vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
+    render(Page);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de lire la liste des serveurs.');
+    await fill('demo@kelvin.local', 'kelvin');
+    expect(api.login).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    await screen.findByRole('combobox', { name: 'Serveur' });
+    expect(screen.queryByRole('alert')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
+    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', 'sauter_cozytouch');
   });
 });
 
