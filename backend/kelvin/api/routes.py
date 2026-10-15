@@ -16,7 +16,17 @@ from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from kelvin.account import linky_credentials
+from kelvin.api import views
 from kelvin.api.auth_routes import status_word
+from kelvin.api.bounds import (
+    FIRST_TS,
+    MAX_HISTORY_POINTS,
+    MAX_HOUR_DAYS,
+    MAX_REPORT_DAYS,
+    check_ids,
+)
+from kelvin.api.bounds import check_days as _check_days
+from kelvin.api.bounds import check_span as _check_span
 from kelvin.api.guards import LoginRequired, require_kelvin_header, require_session
 from kelvin.api.runtime import Runtime, sources
 from kelvin.api.schemas import (
@@ -37,6 +47,9 @@ from kelvin.api.schemas import (
     TariffDocBody,
 )
 from kelvin.api.sse import event_stream
+from kelvin.api.views import linky_of as _linky
+from kelvin.api.views import radiator as _radiator
+from kelvin.api.views import room_radiators as _room_radiators
 from kelvin.auth.sessions import COOKIE_NAME, SessionIsCurrent
 from kelvin.billing.report import next_unit, unit_start
 from kelvin.billing.room_energy import MAX_ROOM_DAYS
@@ -59,32 +72,16 @@ from kelvin.grid.models import BudgetSpent, GridError
 from kelvin.house.model import DAY_ORDER, Radiator
 from kelvin.labels import Label
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled, day_bounds
-from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import BudgetExceeded
 from kelvin.overkiz.budget import QuotasUnavailable
 from kelvin.overkiz.errors import GatewayError
-from kelvin.recorder.activity import (
-    DUTY_WINDOW_S,
-    MAX_SPAN_S,
-    STEP,
-    radiator_duty,
-    room_duty,
-    runs,
-    union,
-)
+from kelvin.recorder.activity import DUTY_WINDOW_S, MAX_SPAN_S
 from kelvin.setup.refresh import SyncSpent
 from kelvin.setup.service import SetupPending, SetupService
 
 router = APIRouter(dependencies=[Depends(require_kelvin_header), Depends(require_session)])
-MAX_REPORT_DAYS = 4 * 366
-MAX_HOUR_DAYS = 62  # hourly radiator buckets: two months at most
-MAX_HISTORY_POINTS = 10_000  # per radiator
-MAX_RADIATORS = 50
-_RADIATOR_ID = re.compile(r"[A-Za-z0-9_.-]{1,64}")
 _DEVICE_ID = re.compile(r"[A-Za-z0-9_.-]{1,64}#[0-9]{1,2}|bridge-[0-9]{1,3}")
-FIRST_TS = 946_684_800  # 2000-01-01T00:00:00Z
 _PRM = re.compile(r"[0-9]{14}")  # ASCII digits only
-FIRST_DAY = date(2000, 1, 1)
 
 
 def _rt(request: Request) -> Runtime:
@@ -92,20 +89,6 @@ def _rt(request: Request) -> Runtime:
     if rt is None:
         raise LoginRequired()
     return rt
-
-
-def _radiator(rt: Runtime, rid: str) -> Radiator:
-    r = rt.house.radiators.get(rid)
-    if r is None:
-        raise UserError("radiator_unknown", 404)
-    return r
-
-
-def _room_radiators(rt: Runtime, room_id: str) -> tuple[str, list[Radiator]]:
-    room = rt.house.rooms.get(room_id)
-    if room is None:
-        raise UserError("room_unknown", 404)
-    return room.name, rt.house.room_radiators(room_id)
 
 
 def _capable(rads: list[Radiator], pred: Callable[[Capabilities], bool]) -> list[Radiator]:
@@ -192,21 +175,7 @@ async def rooms_duty(request: Request, since: float | None = None) -> dict:
         start = max(int(since), end - DUTY_WINDOW_S - 3600)
         if start >= end:
             raise UserError("period_invalid")
-    samples = await asyncio.to_thread(
-        rt.recorder.activity_samples, list(rt.house.radiators), start, end
-    )
-    out: dict[str, dict] = {}
-    for room in rt.house.rooms.values():
-        rads = rt.house.room_radiators(room.id)
-        per = {
-            r.id: radiator_duty(((s[0], s[3]) for s in samples.get(r.id, [])), start, end)
-            for r in rads
-        }
-        out[room.id] = {
-            "duty": room_duty(per, {r.id: r.power_w for r in rads}),
-            "coverage": min((c for _, c in per.values()), default=0.0),
-        }
-    return {"from": start, "to": end, "rooms": out}
+    return await asyncio.to_thread(views.rooms_duty, rt, end, start)
 
 
 @router.post("/rooms/{room_id}/mode")
@@ -293,13 +262,7 @@ async def room_activity(room_id: str, request: Request, start: float, end: float
     rt = _rt(request)
     _, rads = _room_radiators(rt, room_id)
     a, z = _window(start, end, rt.recorder.wall())
-    samples = await asyncio.to_thread(rt.recorder.activity_samples, [r.id for r in rads], a, z)
-    window: list[dict] = []
-    presence: list[dict] = []
-    for rows in samples.values():
-        window += runs(((s[0], s[1]) for s in rows), a, z)
-        presence += runs(((s[0], s[2]) for s in rows), a, z)
-    return {"step": STEP, "window": union(window), "presence": union(presence)}
+    return await asyncio.to_thread(views.room_activity, rt, [r.id for r in rads], a, z)
 
 
 @router.post("/radiators/{rid}/mode")
@@ -465,21 +428,8 @@ async def house_program(request: Request):
     )
 
 
-def _check_span(start: float, end: float, max_days: int = MAX_REPORT_DAYS) -> None:
-    """Epoch windows get the same bounds as the dated reports: from 2000-01-01 to two years
-    ahead, `end` after `start`, at most `max_days` long. Every query below is bounded."""
-    hi = time.time() + 2 * 366 * 86400
-    if not (FIRST_TS <= start < end <= hi) or end - start > max_days * 86400:
-        raise UserError("period_invalid")
-
-
 def _ids(raw: str | None) -> list[str]:
-    ids = list(dict.fromkeys(i for i in (raw or "").split(",") if i))
-    if len(ids) > MAX_RADIATORS:
-        raise UserError("too_many_radiators")
-    if not all(_RADIATOR_ID.fullmatch(i) for i in ids):
-        raise UserError("radiator_unknown")
-    return ids
+    return check_ids((raw or "").split(","))
 
 
 @router.get("/history")
@@ -604,23 +554,6 @@ async def alert_dismiss(aid: str, request: Request) -> Response:
     if not _ALERT_ID.fullmatch(aid) or not svc.dismiss(int(aid)):
         raise UserError("alert_unknown", 404)
     return Response(status_code=204)
-
-
-def _linky(rt: Runtime) -> LinkyService:
-    if rt.linky is None:
-        raise UserError("linky_unavailable", 503)
-    return rt.linky
-
-
-def _check_days(linky: LinkyService, *days: date) -> None:
-    """Dates from 2000-01-01 to two years ahead: no overflow near date.max."""
-    today = linky.today()
-    try:
-        last = today.replace(year=today.year + 2)
-    except ValueError:  # 29 February
-        last = today.replace(year=today.year + 2, day=28)
-    if any(not FIRST_DAY <= d <= last for d in days):
-        raise UserError("period_invalid")
 
 
 @router.get("/energy")
