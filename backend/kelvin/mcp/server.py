@@ -11,6 +11,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.routing import Route
 
+from kelvin.mcp.content import register_content
 from kelvin.mcp.gate import McpGate
 from kelvin.mcp.runner import Runner
 from kelvin.mcp.tools import register_tools
@@ -31,6 +32,7 @@ def build_server(get_ctx: Callable[[], Any]) -> MCPServer:
     server = MCPServer("kelvin", title="Kelvin", instructions=INSTRUCTIONS)
     run = Runner(get_ctx)
     register_tools(server, run)
+    register_content(server, run)
     return server
 
 
