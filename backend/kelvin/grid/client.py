@@ -87,7 +87,7 @@ def _level(value: Any) -> int | None:
         return None
     try:
         n = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):  # OverflowError: an infinite float
         return None
     return n if n in (1, 2, 3) and str(value).strip() == str(n) else None
 
@@ -198,8 +198,10 @@ class MedPublicClient:
         if failure is not None:  # raised outside the except block: no URL in __context__
             raise GridError(f"network error: {failure}")
         try:
-            data = json.loads(body) if body else None
-        except ValueError:
+            # Infinity/NaN (which Python's JSON accepts) read as None: no non-finite number
+            # reaches a parser. Deep nesting makes the scanner recurse: an unexpected payload too.
+            data = json.loads(body, parse_constant=lambda _: None) if body else None
+        except (ValueError, RecursionError):
             data = None
         if status == 429:
             retry_at = None

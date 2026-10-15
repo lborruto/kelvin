@@ -199,3 +199,43 @@ async def test_the_simulator_publishes_tomorrow_at_eleven_and_an_orange_evening(
         f"tempo:{D}:{D + timedelta(days=2)}",
         f"ecowatt:{D}:{D + timedelta(days=4)}",
     ]
+
+
+async def test_non_finite_numbers_and_deep_nesting_are_unexpected_payloads():
+    """Review of batch 4 (Important 1–2): Python's JSON reads Infinity/NaN and recurses on deep
+    nesting; neither may escape as anything but a GridError."""
+    inf = client_for(
+        lambda r: httpx.Response(200, content=b'{"2026-12-01": {"value": Infinity, "detail": {}}}')
+    )
+    assert await inf.ecowatt(D, D + timedelta(days=1)) == {}  # no level: dropped, not a crash
+    hours = client_for(
+        lambda r: httpx.Response(
+            200,
+            content=b'{"2026-12-01": {"value": 2, "detail": {"2026-12-01T18:00:00+01:00": NaN}}}',
+        )
+    )
+    assert (await hours.ecowatt(D, D + timedelta(days=1)))[D].hours is None
+    with pytest.raises(GridError, match="unexpected payload"):
+        await client_for(lambda r: httpx.Response(200, content=b"Infinity")).tempo(
+            D, D + timedelta(days=1)
+        )
+    deep = client_for(lambda r: httpx.Response(200, content=b"[" * 200_000))
+    with pytest.raises(GridError, match="unexpected payload"):
+        await deep.tempo(D, D + timedelta(days=1))
+    # Called directly, the parser refuses an infinite level too.
+    assert (
+        parse_ecowatt({"2026-12-01": {"value": float("inf")}}, D, D + timedelta(days=1), PARIS)
+        == {}
+    )
+
+
+def test_a_med_correction_is_logged_once_per_day_and_colour(caplog):
+    store = GridStore(Database(":memory:"))
+    store.upsert_tempo({D: "red"}, 1000.0)
+    with caplog.at_level(logging.WARNING):
+        for _ in range(3):
+            store.upsert_tempo({D: "white"}, 2000.0)
+        assert caplog.text.count("published colour is kept") == 1
+        store.upsert_tempo({D: "blue"}, 3000.0)  # another correction: said once more
+        assert caplog.text.count("published colour is kept") == 2
+    assert store.tempo_colours(D, D + timedelta(days=1)) == {D: "red"}

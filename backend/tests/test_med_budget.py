@@ -129,3 +129,16 @@ def test_no_mix_of_calls_passes_ten_a_day_nor_four_grid_calls(asks, reserve):
         if k == "backfill":
             assert used < 10 - reserve
         used += 1
+
+
+async def test_a_prefill_read_is_saved_as_the_month_s_contract_read(env):
+    clock, db, store, fake = env
+    svc = LinkyService(
+        db, make_source=lambda prm, token: fake, credentials=("12345678901234", "t"), wall=clock
+    )
+    await svc.ensure_prefill()
+    # A new service on the same database (a restart) sees the month's read.
+    again = LinkyService(
+        db, make_source=lambda prm, token: fake, credentials=("12345678901234", "t"), wall=clock
+    )
+    assert again.sync.state.contract_month == "2026-10"

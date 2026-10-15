@@ -109,7 +109,7 @@ class LinkyService:
     def _contract_read(self, contract: Contract) -> None:
         """A configure or prefill read counts as this month's re-read."""
         self.tariffs.set_contract_last(contract, self.wall())
-        self.sync.state.contract_month = self.today().strftime("%Y-%m")
+        self.sync.mark_contract_read(self.today())
 
     def spend_grid(self) -> bool:
         """One grid call (Tempo, EcoWatt, Tempo prices) from the shared MED ledger."""
@@ -188,8 +188,6 @@ class LinkyService:
         self._contract_read(contract)
         if contract.activation_date:
             self.sync.set_not_before(contract.activation_date)
-        else:
-            self.sync._save()
 
     def seed_demo_tariff(self) -> None:
         if not self.tariffs.stored():  # never over a stored document, even an invalid one

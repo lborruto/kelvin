@@ -197,6 +197,11 @@ class LinkySync:
         )
         self._save()
 
+    def mark_contract_read(self, today: date) -> None:
+        """A contract read made outside `run_once` (configure, prefill) is this month's read."""
+        self.state.contract_month = today.strftime("%Y-%m")
+        self._save()
+
     def set_not_before(self, day: date | None) -> None:
         self.state.not_before = day.isoformat() if day else None
         self._save()

@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 class GridStore:
     def __init__(self, db: Database) -> None:
         self.db = db
+        self._corrections: set[tuple[date, str]] = set()  # (day, MED's new colour) logged
 
     def upsert_tempo(
         self, colours: dict[date, str], fetched_at: float, source: str = "med"
@@ -34,7 +35,8 @@ class GridStore:
             old = have.get(d)
             if old is None:
                 new.append((d.isoformat(), colours[d], source, fetched_at))
-            elif old != colours[d]:
+            elif old != colours[d] and (d, colours[d]) not in self._corrections:
+                self._corrections.add((d, colours[d]))
                 log.warning(
                     "tempo: %s published %s, now %s from %s; the published colour is kept",
                     d.isoformat(),
