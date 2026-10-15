@@ -1,13 +1,17 @@
 """The real-account place check, run here on the simulator only (CLAUDE.md: scripts talk to a
 real installation only when the owner asks and watches)."""
 
+import asyncio
+import copy
 import importlib.util
 import sys
 from pathlib import Path
 
 import pytest
 
+from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.fake import FakeGateway
+from kelvin.overkiz.models import PlaceEvent, SetupPlace
 from tests.conftest import ManualClock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "places_try.py"
@@ -38,7 +42,7 @@ async def test_read_only_by_default_writes_nothing_and_prints_no_ids():
 
 async def test_write_creates_renames_and_deletes_only_the_test_place():
     gw, sleep = _gw()
-    before = dict(gw.places)
+    before = copy.deepcopy(gw.places)
     lines: list[str] = []
     report = await places_try.check(gw, write=True, sleep=sleep, out=lines.append)
     assert [w[0] for w in gw.setup_writes] == ["create_place", "update_place", "delete_place"]
@@ -108,3 +112,125 @@ async def test_a_failed_delete_is_reported_not_raised():
     gw.fail_setup = {"delete_place": places_try.GatewayError("refused")}
     report = await places_try.check(gw, write=True, sleep=sleep, out=lambda s: None)
     assert report["delete"]["ok"] is False and report["unchanged"] is False
+
+
+def _leftovers(gw) -> list[str]:
+    return [p["label"] for p in gw.places.values() if p["label"].startswith("Kelvin test")]
+
+
+async def test_a_create_that_errors_after_reaching_cozytouch_still_reports_and_says_so():
+    gw, sleep = _gw()
+    real_create = gw.create_place
+
+    async def create_then_drop(parent, label, type_):
+        await real_create(parent, label, type_)  # reached Cozytouch...
+        raise places_try.GatewayError("connection dropped")  # ...but the answer was lost
+
+    gw.create_place = create_then_drop
+    lines: list[str] = []
+    report = await places_try.check(gw, write=True, sleep=sleep, out=lines.append)
+    assert [w[0] for w in gw.setup_writes] == ["create_place"]  # never a delete of an unknown oid
+    assert report["create"]["ok"] is False and report["unchanged"] is False
+    assert report["ok"] is False and places_try.exit_code(report) == 1
+    assert _leftovers(gw) == ["Kelvin test"]
+    assert any("by hand" in line for line in lines) and '"unchanged": false' in lines[-1]
+
+
+async def test_a_failing_read_during_the_create_confirm_still_cleans_up_and_reports():
+    gw, sleep = _gw()
+    real_fetch = gw.fetch_events
+    calls = {"n": 0}
+
+    async def fetch_failing_once():
+        calls["n"] += 1
+        if calls["n"] == 1:  # before the +2 s apply: the room is not there yet
+            raise places_try.GatewayError("listener lost")
+        return await real_fetch()
+
+    gw.fetch_events = fetch_failing_once
+    lines: list[str] = []
+    report = await places_try.check(gw, write=True, sleep=sleep, out=lines.append)
+    assert report["create"]["ok"] is False and report["rename"]["ok"] is False
+    # The first DELETE came too early (a 404, which the simulator does not record); the room
+    # appeared, so the same oid was deleted again.
+    assert [w[0] for w in gw.setup_writes] == ["create_place", "delete_place"]
+    assert report["delete"]["ok"] and report["delete"]["resent"] is True
+    assert report["unchanged"] is True and _leftovers(gw) == []
+    assert '"unchanged": true' in lines[-1]
+
+
+async def test_ctrl_c_during_the_create_confirm_cleans_up_reports_and_re_raises():
+    gw, sleep = _gw()
+    calls = {"n": 0}
+
+    async def sleep_interrupted(s: float) -> None:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise asyncio.CancelledError
+        await sleep(s)
+
+    lines: list[str] = []
+    with pytest.raises(asyncio.CancelledError):
+        await places_try.check(gw, write=True, sleep=sleep_interrupted, out=lines.append)
+    assert [w[0] for w in gw.setup_writes] == ["create_place", "delete_place"]  # after a 404
+    assert _leftovers(gw) == [] and '"unchanged": true' in lines[-1]
+
+
+async def test_it_refuses_to_write_when_targeted_reads_do_not_match_the_bulk_read():
+    gw, sleep = _gw()
+    real_read = gw.read_place
+
+    async def read_without_children(oid):
+        p = await real_read(oid)
+        return SetupPlace(p.oid, p.label, p.type, p.metadata, ()) if oid == "p-house" else p
+
+    gw.read_place = read_without_children
+    with pytest.raises(SystemExit):
+        await places_try.check(gw, write=True, sleep=sleep, out=lambda s: None)
+    assert gw.setup_writes == []
+
+
+async def test_the_test_place_pre_check_ignores_case():
+    gw, sleep = _gw()
+    gw.outside_create_place("kelvin TEST")
+    await gw.fetch_events()
+    with pytest.raises(SystemExit):
+        await places_try.check(gw, write=True, sleep=sleep, out=lambda s: None)
+    assert gw.setup_writes == []
+
+
+async def test_after_the_event_reads_wait_for_the_read_times():
+    """The event may come before the place is readable: read once on it, then at READ_AT."""
+    gw, sleep = _gw()
+    gw.setup_delay = 8.0
+    real_fetch = gw.fetch_events
+    early = {"sent": False}
+
+    async def fetch_with_an_early_event():
+        out = await real_fetch()
+        if not early["sent"] and gw.setup_writes:
+            early["sent"] = True
+            out.append(PlaceEvent("created"))
+        return out
+
+    gw.fetch_events = fetch_with_an_early_event
+    report = await places_try.check(gw, write=True, sleep=sleep, out=lambda s: None)
+    assert report["create"]["ok"] and report["create"]["reads"] <= 3
+    assert report["ok"] is True and places_try.exit_code(report) == 0
+
+
+async def test_the_bulk_read_is_debited_from_the_setup_read_guard():
+    gw, sleep = _gw()
+    guard = SetupReadGuard(wall=lambda: 1_000.0)
+    await places_try.check(gw, write=False, sleep=sleep, out=lambda s: None, guard=guard)
+    assert guard.used() == 1 and gw.snapshots == 1
+    spent = SetupReadGuard(wall=lambda: 1_000.0, reads=[999.0, 999.0, 999.0])
+    with pytest.raises(SystemExit):
+        await places_try.check(gw, write=False, sleep=sleep, out=lambda s: None, guard=spent)
+    assert gw.snapshots == 1
+
+
+def test_the_exit_code_is_non_zero_when_any_step_failed():
+    assert places_try.exit_code({"mode": "read-only"}) == 0
+    assert places_try.exit_code({"mode": "write", "ok": True}) == 0
+    assert places_try.exit_code({"mode": "write", "ok": False}) == 1
