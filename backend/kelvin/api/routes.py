@@ -350,7 +350,8 @@ async def radiator_identify(rid: str, request: Request):
 async def room_boost(room_id: str, body: BoostBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
-    ends_at = time.time() + body.duration_min * 60
+    # The override manager judges the end with its injected wall clock: compute it there too.
+    ends_at = rt.overrides.wall() + body.duration_min * 60
     _, p = await rt.overrides.start(
         "boost",
         [r.id for r in rads],

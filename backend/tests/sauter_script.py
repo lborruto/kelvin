@@ -89,7 +89,9 @@ def _shown(body: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def _override(rt: Any, kind: str) -> dict[str, Any]:
-    return next(o for o in rt.overrides.active() if o["kind"] == kind)
+    found = next((o for o in rt.overrides.active() if o["kind"] == kind), None)
+    assert found is not None, f"no active {kind} override to cancel or expire"
+    return found
 
 
 async def run_script(client: Any, rt: Any, clock: Any) -> list[dict[str, Any]]:
