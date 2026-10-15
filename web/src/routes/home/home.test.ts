@@ -150,7 +150,7 @@ describe('Maison', () => {
     house.reset();
     const { container } = render(Page);
     expect(screen.queryByText('Aucun forçage ni absence.')).toBeNull();
-    expect(container.querySelectorAll('.skeleton').length).toBe(6); // + the two rows of the devices panel and the alerts line
+    expect(container.querySelectorAll('.skeleton').length).toBe(2); // the active line and the alerts line: the panels below come with the alerts (no height to reserve)
     expect(screen.queryByText('Chargement…')).toBeNull();
   });
 
@@ -169,7 +169,7 @@ describe('Maison', () => {
     expect(screen.queryByRole('link', { name: 'Absence…' })).toBeNull();
   });
 
-  it('the Tarif and Linky anchors exist from the first render, skeleton included', () => {
+  it('the Tarif and Linky anchors exist from the first render, no height before the rest', () => {
     vi.mocked(api.settings).mockReturnValueOnce(new Promise(() => {}));
     render(Page);
     expect(document.getElementById('tariff')).toHaveAttribute('aria-busy', 'true');
