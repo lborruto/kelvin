@@ -32,9 +32,10 @@ test.describe('layout', () => {
   test('/schedule with three periods on a day never scrolls sideways from 320 to 1440 px', async ({ page }) => {
     page.on('dialog', (d) => d.accept());
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto('/schedule');
+    // Monday in the day editor (beside the week on desktop, its own view on a phone) gets its third
+    // period: its row in the week is then at its longest.
+    await page.goto('/schedule?day=monday');
     await settled(page);
-    // The open day (today on a phone) gets its third period: its summary is then at its longest.
     // Clicked in the DOM: once the first period is added, the sticky send bar may cover the button.
     const add = page.locator('button.add').first();
     for (let i = 0; i < 3; i++) await add.evaluate((b: HTMLButtonElement) => b.click());
@@ -57,6 +58,50 @@ test.describe('layout', () => {
       expect(await overflow(page), `/login at ${width} px`).toBeLessThanOrEqual(0);
     }
   });
+
+  test('/schedule with the copy sheet open, and an offline room, never scrolls sideways', async ({ page }) => {
+    for (const width of WIDTHS) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/schedule?day=monday');
+      await settled(page);
+      await page.getByRole('button', { name: 'Copier vers…' }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      expect(await overflow(page), `/schedule copy sheet at ${width} px`).toBeLessThanOrEqual(0);
+      await page.keyboard.press('Escape');
+      await page.goto('/schedule?room=p-ch2');
+      await settled(page);
+      await expect(page.getByText('Chambre 2 est hors ligne')).toBeVisible();
+      expect(await overflow(page), `/schedule offline room at ${width} px`).toBeLessThanOrEqual(0);
+    }
+  });
+
+  // CI has only the fallback fonts: the page must not shift when Onest never arrives either.
+  for (const fonts of ['web fonts', 'fallback fonts only'])
+    test(`/schedule loads without layout shift (CLS < 0.05), ${fonts}`, async ({ page }) => {
+      await page.addInitScript(() => {
+        const w = window as unknown as { __cls: number };
+        w.__cls = 0;
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) {
+            if (!e.hadRecentInput) w.__cls += e.value;
+          }
+        }).observe({ type: 'layout-shift', buffered: true });
+      });
+      if (fonts !== 'web fonts') await page.route('**/*.woff2', (route) => route.abort());
+      for (const width of [390, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.route('**/api/**', async (route) => {
+          await new Promise((r) => setTimeout(r, 150));
+          await route.continue();
+        });
+        await page.goto('/schedule');
+        await settled(page);
+        await page.waitForTimeout(800);
+        const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+        expect(cls, `/schedule at ${width} px (${fonts})`).toBeLessThan(0.05);
+        await page.unroute('**/api/**');
+      }
+    });
 
   for (const path of ['/home', '/energy', '/home/devices']) {
     test(`${path} loads without layout shift (CLS < 0.05)`, async ({ page }) => {
@@ -236,7 +281,7 @@ test.describe('layout in English', () => {
   test('layout in English never scrolls sideways: /schedule with three periods on a day', async ({ page }) => {
     page.on('dialog', (d) => d.accept());
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto('/schedule');
+    await page.goto('/schedule?day=monday');
     await settled(page);
     const add = page.locator('button.add').first();
     for (let i = 0; i < 3; i++) await add.evaluate((b: HTMLButtonElement) => b.click());

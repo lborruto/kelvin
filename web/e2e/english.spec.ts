@@ -126,6 +126,27 @@ test.describe('key flows in English', () => {
     expect(total.split(',')[3]).toMatch(/^\d+\.\d{3}$/); // maison_kwh: a decimal point, 3 decimals
   });
 
+  test('Schedule: the week, one day editor, copy and the offline room read in English', async ({ page }) => {
+    await page.goto('/schedule');
+    await expect(page.getByRole('heading', { name: 'Schedule', level: 1 })).toBeVisible();
+    await expect(page.getByText('Outside comfort periods, the room is on eco.')).toBeVisible();
+    await expect(page.getByText(/^Now: (Comfort|Eco)/)).toBeVisible();
+    await page.getByRole('radio', { name: 'Chambre 2 offline' }).click();
+    await expect(page.getByText('Chambre 2 is offline')).toBeVisible();
+    await page.getByRole('radio', { name: 'Salon' }).click();
+    await page.getByRole('button', { name: 'How to edit' }).click();
+    await expect(page.getByText(/drag a period to move it/)).toBeVisible();
+    await page.getByRole('button', { name: /^Monday,/ }).click();
+    await expect(page.getByRole('heading', { name: /^Monday/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Copy to…' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Copy Monday to…' });
+    await sheet.getByRole('button', { name: 'Weekdays' }).click();
+    await expect(sheet.getByRole('button', { name: 'Copy to 4 days' })).toBeVisible();
+    await expect(sheet.getByText('Nothing is sent until you press Send.')).toBeVisible();
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByRole('button', { name: 'Copy to…' })).toBeFocused();
+  });
+
   test('a French bookmark lands on the English page, in English', async ({ page }) => {
     await page.goto('/maison#tarif'); // legacy-path-test
     await expect(page).toHaveURL(/\/home#tariff$/);

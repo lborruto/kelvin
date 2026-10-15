@@ -53,14 +53,14 @@ test('rapid stepper taps send one setpoint', async ({ page }) => {
 
 test('programme edit round-trips', async ({ page }) => {
   await page.goto('/schedule');
-  await page.getByRole('radio', { name: 'Chambre 2' }).click();
-  await expect(page.getByRole('radio', { name: 'Chambre 2' })).toHaveAttribute('aria-checked', 'true');
-  // Phone: only one day shows its slots; open Monday if it is not today.
-  const monday = page.getByRole('button', { name: /^Lundi/, expanded: false });
-  if (await monday.count()) await monday.click();
-  const remove = page.getByRole('button', { name: 'Supprimer la plage 2 du Lundi' });
-  await remove.click();
-  await expect(page.getByText('Modifications')).toBeVisible();
+  // « Chambre 2 » is offline in the simulator (read-only here): Salon is edited.
+  await page.getByRole('radio', { name: 'Salon' }).click();
+  await expect(page.getByRole('radio', { name: 'Salon' })).toHaveAttribute('aria-checked', 'true');
+  // A week row opens its day: beside the week on desktop, as its own view on a phone.
+  await page.getByRole('button', { name: /^Lundi,/ }).click();
+  await expect(page.getByRole('heading', { name: /^Lundi/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Supprimer la plage 2 du Lundi' }).click();
+  await expect(page.locator('.sendbar')).toContainText('1 jour modifié');
   await page.getByRole('button', { name: 'Envoyer', exact: true }).click();
   await confirmed(page);
   await page.getByRole('button', { name: 'Ajouter une plage le Lundi' }).click();
