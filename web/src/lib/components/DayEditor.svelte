@@ -2,6 +2,7 @@
      fields, « Ajouter une plage » (3 at most), the comfort total and « Copier vers… ». A locked day
      is shown read-only with its reason. -->
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import type { Day, DayLock } from '$lib/api/types';
   import { m } from '$lib/i18n';
   import {
@@ -26,10 +27,12 @@
     onprev: () => void;
     onnext: () => void;
     oncopy: (days: Day[]) => void;
+    /** Shown between the header and the bar (the phone day view's temperatures). */
+    below?: Snippet;
   }
   let {
     day, segs, today, nowMinute, edited = false, pending = false, locked = null, locks = {}, compact = false,
-    onchange, onprev, onnext, oncopy
+    onchange, onprev, onnext, oncopy, below
   }: Props = $props();
   const uid = $props.id();
   let label = $derived(m.days[day]);
@@ -69,6 +72,8 @@
     </svelte:element>
     <button type="button" class="btn btn-icon edged" aria-label={m.program.nextDay} onclick={onnext}><Icon name="chevron" /></button>
   </div>
+
+  {@render below?.()}
 
   <ProgramDay {day} {segs} nowMinute={day === today ? nowMinute : null} {pending} {locked} step={compact ? 6 : 3} {onchange} />
 

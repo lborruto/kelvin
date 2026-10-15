@@ -405,6 +405,11 @@ describe('/schedule: links and the phone', () => {
     expect(goto).toHaveBeenCalledWith('/schedule?room=salon&day=monday');
     expect(screen.getByRole('heading', { level: 1, name: /^Lundi/ })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Programme' })).toBeNull();
+    // The temperatures sit right under the day header, above the bar.
+    const temps = document.querySelector('.dayview .temps')!;
+    expect(temps).toHaveTextContent(/Confort\s19,0\s°C/);
+    expect(temps.compareDocumentPosition(screen.getByTestId('bar-monday')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: /^Lundi/ }).compareDocumentPosition(temps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Mardi,/ })).toBeNull(); // the week is hidden
     await fireEvent.click(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' }));
     expect(sendBar()).toHaveTextContent('1 jour modifié');

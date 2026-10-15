@@ -354,10 +354,13 @@
   </div>
 {/snippet}
 
+{#snippet phoneTemps()}{@render temps(true)}{/snippet}
+
 {#snippet editor(compact: boolean)}
   <DayEditor day={selected} segs={shown![selected]} {today} {nowMinute} {compact} edited={changes.includes(selected)}
     pending={busy} locked={dayLocks[selected] ?? null} locks={dayLocks} onchange={(segs) => setDay(selected, segs)}
-    onprev={() => step(-1)} onnext={() => step(1)} oncopy={applyCopy} />
+    onprev={() => step(-1)} onnext={() => step(1)} oncopy={applyCopy}
+    below={compact ? phoneTemps : undefined} />
 {/snippet}
 
 {#snippet sendArea()}
@@ -439,7 +442,6 @@
   <a class="back" href={dayHref(null)} onclick={toWeek}><Icon name="arrow-left" size={16} />{m.program.weekOf(roomId ? roomTitle(roomId) : '')}</a>
   <div class="dayview">
     {@render editor(true)}
-    {@render temps(true)}
     {@render sendArea()}
   </div>
 {:else}
@@ -532,7 +534,7 @@
     font-size: 14px;
   }
   .temps.compact {
-    justify-content: center;
+    margin: 0;
     font-size: 13px;
   }
   .k {

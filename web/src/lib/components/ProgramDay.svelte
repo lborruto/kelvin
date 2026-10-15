@@ -165,14 +165,24 @@
     cursor: default;
   }
   /* Times in a block: dark ink on the warm fill (about 4.5:1 on it in both themes). */
+  /* Above the now marker, on a halo of the block's own fill, so a marker never cuts the times. */
   .times {
+    position: relative;
+    z-index: 2;
+    padding: 0 3px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--warm) 75%, var(--in));
     font-size: 11px;
     font-weight: 600;
     color: #1a0d05;
     white-space: nowrap;
     pointer-events: none;
   }
+  .locked .times {
+    background: color-mix(in srgb, var(--warm) 45%, var(--in));
+  }
   .pending .times {
+    background: var(--in);
     color: var(--mu);
   }
   .handle {
@@ -220,6 +230,7 @@
   }
   .now {
     position: absolute;
+    z-index: 1;
     top: -3px;
     bottom: -3px;
     width: 2px;
