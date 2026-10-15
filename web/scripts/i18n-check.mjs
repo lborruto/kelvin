@@ -247,22 +247,97 @@ export function unusedKeys(keys, corpus, dynamic) {
 /**
  * Messages read once at module scope (or at the top of a component script) keep the language
  * they were read in: label arrays must hold keys or getters, resolved in templates or $derived.
+ * A declaration (const, let or var, over as many lines as it takes) is frozen when its
+ * initialiser reads `m.<key>` where the read runs now: not inside a stored arrow or function
+ * (the initialiser itself, an object or array element, an arrow returned by another one), not
+ * inside $derived / $derived.by. An arrow passed straight to a call (`KEYS.map((k) => m.nav[k])`)
+ * runs now, and so does `$state(m.…)`.
  * @param {string} text
  * @param {boolean} svelte
  * @returns {{ line: number; text: string }[]}
  */
 export function frozenMessages(text, svelte) {
-  const top = svelte ? /^ {2}(?:export )?const \w+(?::[^=]+)? = (.*)$/ : /^(?:export )?const \w+(?::[^=]+)? = (.*)$/;
+  const start = svelte ? /^ {2}(?:export )?(?:const|let|var)\s+[\w$]/ : /^(?:export )?(?:const|let|var)\s+[\w$]/;
   /** @type {{ line: number; text: string }[]} */
   const out = [];
+  const lines = text.split('\n');
   let inScript = !svelte;
-  text.split('\n').forEach((l, i) => {
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
     if (svelte && /<script\b/.test(l)) inScript = true;
     if (svelte && /<\/script>/.test(l)) inScript = false;
-    const mt = inScript ? top.exec(l) : null;
-    if (mt && /\bm\.[a-zA-Z]/.test(mt[1]) && !/=>/.test(mt[1].split(/\bm\.[a-zA-Z]/)[0])) out.push({ line: i + 1, text: l.trim() });
-  });
+    if (!inScript || !start.test(l)) continue;
+    // The whole statement: until brackets balance and the line does not end mid-expression.
+    let stmt = codeOnly(l);
+    let j = i;
+    while (j + 1 < lines.length && (depth(stmt) > 0 || /(?:[=(\[{,?:+|&]|=>)\s*$/.test(stmt))) {
+      if (svelte && /<\/script>/.test(lines[j + 1])) break;
+      stmt += '\n' + codeOnly(lines[++j]);
+    }
+    const init = initialiser(stmt);
+    if (init !== null && readsNow(init)) out.push({ line: i + 1, text: l.trim() });
+    i = j;
+  }
   return out;
+}
+
+/** A line with string contents and comments blanked (templates kept: their ${…} is code). @param {string} l */
+function codeOnly(l) {
+  return l
+    .replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, (s) => s[0] + ' '.repeat(s.length - 2) + s[0])
+    .replace(/\/\*.*?\*\//g, '')
+    .replace(/\/\/.*$/, '');
+}
+
+/** @param {string} s */
+function depth(s) {
+  let d = 0;
+  for (const c of s) d += '([{'.includes(c) ? 1 : ')]}'.includes(c) ? -1 : 0;
+  return d;
+}
+
+/** The text after the declaration's own `=` (past a type annotation such as `Record<K, () => V>`). @param {string} stmt */
+function initialiser(stmt) {
+  let d = 0;
+  for (let k = 0; k < stmt.length; k++) {
+    const c = stmt[k];
+    if ('([{<'.includes(c)) d++;
+    else if (')]}'.includes(c) || (c === '>' && stmt[k - 1] !== '=')) d--;
+    else if (c === '=' && d === 0 && stmt[k + 1] !== '=' && stmt[k + 1] !== '>' && !'=!<>'.includes(stmt[k - 1])) return stmt.slice(k + 1);
+  }
+  return null;
+}
+
+/** Whether `init` reads a message at evaluation time. @param {string} init */
+function readsNow(init) {
+  /** One frame per open bracket: is it a call's argument list, does it defer its contents, has its
+   * current element already seen an arrow (a later arrow is that arrow's returned body). */
+  const frames = [{ call: false, deferring: false, arrowSeen: false, deferredFrom: -1 }];
+  const deferredAt = () => frames.some((f) => f.deferring || f.deferredFrom >= 0);
+  for (let k = 0; k < init.length; k++) {
+    const c = init[k];
+    const f = frames[frames.length - 1];
+    if (c === '(' || c === '[' || c === '{') {
+      // Type arguments (`$derived<Record<string, string>>(…)`) do not change what the call is.
+      const before = init.slice(0, k).replace(/([\w$])\s*<[^()=;]*>\s*$/, '$1');
+      const call = c === '(' && /[\w$)\]]\s*$/.test(before) && !/\bfunction\s*[\w$]*\s*$/.test(before);
+      frames.push({ call, deferring: call && /\$derived(?:\.by)?\s*$/.test(before), arrowSeen: false, deferredFrom: -1 });
+    } else if (c === ')' || c === ']' || c === '}') {
+      if (frames.length > 1) frames.pop();
+    } else if (c === ',') {
+      f.arrowSeen = false;
+      f.deferredFrom = -1;
+    } else if (c === '=' && init[k + 1] === '>') {
+      // An arrow straight in a call's argument list runs now; anywhere else it is stored.
+      if (!(f.call && !f.arrowSeen)) f.deferredFrom = k;
+      f.arrowSeen = true;
+    } else if (/\bfunction\b/y.test(init.slice(k, k + 9)) && /(?:^|[^\w$])$/.test(init.slice(0, k))) {
+      if (!f.call) f.deferredFrom = k;
+    } else if (c === 'm' && /^m\.[a-zA-Z]/.test(init.slice(k, k + 3)) && !/[\w$.]$/.test(init.slice(0, k)) && !deferredAt()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

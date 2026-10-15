@@ -90,6 +90,24 @@ describe('frozenMessages', () => {
     expect(frozenMessages("function f() {\n  const t = m.common.cancel;\n}", false)).toEqual([]);
     expect(frozenMessages("<script>\n  const t = m.common.cancel;\n  let u = $derived(m.common.cancel);\n</script>", true).map((f) => f.line)).toEqual([2]);
   });
+  it('sees let and var, multi-line initialisers, callbacks run now and $state (batch-6 review I1)', () => {
+    const lines = (src: string, svelte = false) => frozenMessages(src, svelte).map((f) => f.line);
+    expect(lines('let frozenLet = m.common.close;')).toEqual([1]);
+    expect(lines('var v = m.common.close;')).toEqual([1]);
+    expect(lines('const LABELS = {\n  a: m.nav.rooms\n};\nconst x = 1;')).toEqual([1]);
+    expect(lines('export const LABELS = [\n  m.nav.rooms\n];')).toEqual([1]);
+    expect(lines('const t =\n  m.common.cancel;')).toEqual([1]);
+    expect(lines('const LABELS = KEYS.map((k) => m.nav[k]);')).toEqual([1]);
+    expect(lines('<script>\n  let x = $state(m.common.cancel);\n</script>', true)).toEqual([2]);
+    // Getters stay fine, however they are written.
+    expect(lines('const f = (n: number) => m.rooms.count(n);')).toEqual([]);
+    expect(lines('const f = async () =>\n  m.common.cancel;')).toEqual([]);
+    expect(lines('const f = function () {\n  return m.common.cancel;\n};')).toEqual([]);
+    expect(lines('const L: Record<string, () => string> = { a: () => m.nav.rooms };')).toEqual([]);
+    expect(lines('const LABELS = KEYS.map((k) => () => m.nav[k]);')).toEqual([]);
+    expect(lines('<script>\n  let n = $derived<Record<string, string>>(a ? { x: m.nav.home } : {});\n</script>', true)).toEqual([]);
+    expect(lines('<script>\n  let u = $derived.by(() => m.nav.home);\n  const k = [\n    \'a\'\n  ];\n</script>', true)).toEqual([]);
+  });
 });
 
 /** Parents whose children are read by index (m.mode[mode]); a key under one counts as used. */
@@ -135,7 +153,8 @@ describe('the web source (strict)', () => {
     expect(unusedKeys(flattenKeys(fr), corpus, DYNAMIC)).toEqual([]);
   });
   it('never resolves a message at module scope', () => {
-    const found = files.flatMap((f) =>
+    // Same targets as the CLI: the dictionaries and the i18n core are the place messages are defined.
+    const found = files.filter((f) => !/lib[\\/]i18n[\\/]/.test(f)).flatMap((f) =>
       frozenMessages(readFileSync(f, 'utf8'), f.endsWith('.svelte')).map((x) => `${f.slice(SRC.length + 1)}:${x.line}: ${x.text}`)
     );
     expect(found).toEqual([]);
