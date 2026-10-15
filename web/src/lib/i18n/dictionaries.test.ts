@@ -23,9 +23,22 @@ export const ARGS: Record<string, unknown[]> = {
   'devices.atTime': ['14:10'],
   'devices.onDate': ['15/10 08:00'],
   'devices.watts': ['1 500'],
-  'tariff.prefilled': ['6', ['22:00–06:00', '12:00–14:00']],
+  'tariff.prefill': ['6', '22:00–06:00'],
+  'tariff.contractNew': ['23:00–07:00'],
+  'tariff.kvaValue': [9],
+  'tariff.tempoPrefillNote': ['14 octobre 2026'],
+  'tariff.season': [1],
+  'tariff.slotStart': [1],
+  'tariff.slotEnd': [1],
+  'tariff.removeSlotLabel': [1],
+  'tariff.contractAdd': ['1/12'],
+  'tariff.monthsMissing': ['avril'],
+  'tariff.monthsOverlap': ['janvier'],
   'linky.ok': ['12/10'],
   'alerts.linkyStalled': ['10/10', 4],
+  'alerts.tempoRedTomorrow': ['2/12'],
+  'alerts.ecowatt': [2, '2/12', null],
+  'alerts.hcChanged': ['23:00–07:00'],
   'linky.quota': ['12/10'],
   'linky.throttledAt': ['12/10', '14:30'],
   'linky.throttledLater': ['12/10'],
@@ -46,7 +59,22 @@ export const ARGS: Record<string, unknown[]> = {
   'hero.radPartial': ['P', true],
   'compare.zero': ['day'],
   'power.floorDay': ['K', 'E'],
-  'projection.base': ['V', '12/10']
+  'projection.base': ['V', '12/10'],
+  'grid.tempoPending': ['11:00'],
+  'grid.ecowatt': [3, 'B', null],
+  'grid.source': ['11:20'],
+  'sources.ok': ['07:15'],
+  'sources.error': ['08:15'],
+  'sources.next': ['17:15'],
+  'sources.med': [6, 10, 2],
+  'energyTariff.days': [{ blue: 3, white: 1, red: 0, unknown: 1 }],
+  'energyTariff.daysLine': ['x'],
+  'energyTariff.redDays': [1],
+  'energyTariff.notCounted': [2],
+  'energyTariff.withColour': ['B', 'C'],
+  'energyTariff.unknownKwh': ['18\u00a0kWh'],
+  'energyTariff.qualityColours': [3],
+  'energyTariff.qualityRetro': [5]
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
@@ -55,7 +83,10 @@ export const SAME = new Set<string>([
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
   'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
-  'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est'
+  'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est',
+  'tariff.kvaValue', 'tariff.options.base', 'tariff.options.tempo', 'tariff.rateShort.base', 'tariff.colOption',
+  'energyTariff.colKwh', 'energyTariff.colEur', 'energyTariff.withColour',
+  'sources.title', 'sources.tempo', 'sources.ecowatt', 'grid.source'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
@@ -161,7 +192,8 @@ const SCANNER_BLIND = new Set([
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
   'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',
   'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
-  'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title'
+  'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title',
+  'tariff.option', 'tariff.tempoEnd', 'tariff.season'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

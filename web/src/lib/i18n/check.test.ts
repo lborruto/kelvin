@@ -150,6 +150,10 @@ export const DYNAMIC = [
   'quality.mark',
   'quality.method',
   'settings.themes',
+  'grid.colour',
+  'tariff.options',
+  'tariff.rate',
+  'tariff.rateShort',
   'home.kind'
 ];
 

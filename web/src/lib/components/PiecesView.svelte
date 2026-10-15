@@ -3,6 +3,7 @@
   import { desktop } from '$lib/media.svelte';
   import { ROUTES } from '$lib/paths';
   import { house } from '$lib/stores/house.svelte';
+  import GridStrip from './GridStrip.svelte';
   import HouseActions from './HouseActions.svelte';
   import Icon from './Icon.svelte';
   import RoomInspector from './RoomInspector.svelte';
@@ -31,16 +32,22 @@
         <p class="sub-sk"><span class="skeleton" aria-hidden="true"></span></p>
       {/if}
     </div>
-    <div class="phone-only"><HouseActions /></div>
+    <div class="phone-only"><HouseActions oneLine /></div>
   </header>
+  {#if house.loaded}<GridStrip />{/if}
 {:else}
   <a class="back" href={ROUTES.rooms}><Icon name="arrow-left" size={16} />{m.nav.rooms}</a>
 {/if}
 
-<div class="cols">
-  {#if showList}<RoomList selectedId={desktop.matches ? roomId : null} selectedIsPage={!home} />{/if}
-  {#if showInspector}<div class="detail"><RoomInspector roomId={roomId ?? ''} level={showList ? 'h2' : 'h1'} /></div>{/if}
-</div>
+<!-- The strip's height is known only with the snapshot that loads the house (it holds the grid view
+     too), so no skeleton can reserve it. The skeleton columns are replaced as a whole by the loaded
+     ones, strip included, in the same frame: nothing on screen moves under the strip (CLS). -->
+{#key house.loaded}
+  <div class="cols">
+    {#if showList}<RoomList selectedId={desktop.matches ? roomId : null} selectedIsPage={!home} />{/if}
+    {#if showInspector}<div class="detail"><RoomInspector roomId={roomId ?? ''} level={showList ? 'h2' : 'h1'} /></div>{/if}
+  </div>
+{/key}
 
 <style>
   .top {
@@ -50,6 +57,11 @@
     align-items: end;
     gap: 12px;
     margin-bottom: 14px;
+  }
+  /* The actions' row may shrink (its labels end in « … ») rather than wrap: see HouseActions `oneLine`. */
+  .top > .phone-only {
+    min-width: 0;
+    max-width: 100%;
   }
   h1 {
     font-size: 22px;

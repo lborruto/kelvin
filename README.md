@@ -46,8 +46,11 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   24 hours it heated.
 - **Alerts:** calm in-app notices when regulated prices change (1 February, 1 August) and your
   tariff has no new prices, when the Enedis consent nears its end, when a radiator has been
-  unreachable for 30 minutes, when a command failed, or when Linky stopped bringing new days.
-  Dismiss one and it stays hidden until it happens again.
+  unreachable for 30 minutes, when a command failed, when Linky stopped bringing new days, when
+  tomorrow is a red Tempo day (Tempo households only), when EcoWatt is orange or red today or
+  tomorrow (every household), or when Enedis lists new off-peak hours (with a link to add them
+  from a date; Kelvin never changes your tariff by itself). Dismiss one and it stays hidden until
+  it happens again.
 - **Signed-in devices:** Home › Settings lists the browsers signed in with the home's account and
   signs any of them out.
 - **Energy:** whole-home consumption from Linky (through MyElectricalData) by day, ISO week,
@@ -60,7 +63,13 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   (numbers in the UI language: `;` and a decimal comma in French, `,` and a point in English;
   French headers in both). Shown parts add up to their
   total, and a day reads the same € in every view. A missing figure reads « — » with its reason,
-  never 0; estimates say so.
+  never 0; estimates say so. The bill estimate follows the tariff option, Base, HC/HP (dated and
+  seasonal off-peak hours) or Tempo, with an exact price history even across a change of option.
+  Under Tempo a day without a known colour keeps its kWh but not its €, and says so.
+- **Grid signals:** a one-line strip on Rooms and Energy. With a Tempo price row in force,
+  today's and tomorrow's Tempo colours (a Tempo day runs 06:00 → 06:00); for every household,
+  EcoWatt orange and red days (RTE's grid-strain signal). Home › Settings › Sources shows when each
+  source was last read. Nothing acts on the radiators by itself.
 - **French and English.** The whole UI, errors included, in French (the default) or English
   (en-GB, with its own number, date and currency formats), chosen per device in Home › Settings or
   on the sign-in screen, without a reload. A browser in French starts in French, any other
@@ -91,6 +100,9 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   login. Kelvin then refuses requests for any other host name. This blocks DNS rebinding, where
   a hostile web page you visit reaches Kelvin through your browser (to try logins or, on a
   fresh install, to claim it). `localhost` and `127.0.0.1` always pass.
+- **What leaves your home for grid signals:** Kelvin asks MyElectricalData's public Tempo and
+  EcoWatt endpoints for dates only: no token, no PDL, nothing about your consumption. There is no
+  other grid source.
 - The image runs as uid 10001; the example compose file adds a read-only root filesystem, no
   capabilities and `no-new-privileges`.
 - Report vulnerabilities privately: see [SECURITY.md](SECURITY.md).
@@ -124,9 +136,21 @@ reconnectez-vous » in French); log in once with the new one.
 1. Create a MyElectricalData account and give it access to your meter's data (Enedis consent).
    It gives you a token; your PDL is the 14-digit number on your contract or meter.
 2. In Kelvin, open **Home › Settings** (**Maison › Réglages** in French), enter the PDL and
-   the token, and the tariff (off-peak and peak prices, and the off-peak hours).
+   the token, and the tariff: the option (Base, HC/HP or Tempo), the prices from their date, and
+   for HC/HP the off-peak hours (they may differ by season). Existing HC/HP settings are carried
+   over as they are.
 3. Kelvin syncs at 08:00 and 14:00 (Europe/Paris), backfills a year of daily data and 30 days
-   of 30-minute curve, and never spends more than 10 of MyElectricalData's 50 daily calls.
+   of 30-minute curve, and never spends more than 10 of MyElectricalData's 50 daily calls
+   (4 a day at most for the grid signals; the simulator allows 14). Every MyElectricalData call
+   counts in that budget, including the public Tempo and EcoWatt ones and a contract re-read once
+   a month that tells you when Enedis moves your off-peak hours; Kelvin never changes your tariff
+   by itself.
+4. Tempo colours are fetched only while a Tempo price row is in force (at 06:30 if today's colour
+   is missing, at 11:15 and 13:15 while tomorrow's is); EcoWatt is shown to
+   everyone. A Tempo colour, once stored, never changes (a correction by MyElectricalData is
+   logged, not applied: it prices the history). If you switch to Tempo on a day whose
+   MyElectricalData budget is already spent, the colours arrive the next day and the days in
+   between read « couleur inconnue » (their kWh count, their € stays blank).
 
 ### Try the simulator
 
@@ -223,8 +247,8 @@ simulator, and every test uses it.
 Early (0.x). Kelvin is developed against one installation: Sauter IPALA H and HEKLA radiators
 on io-homecontrol, with a Cozytouch bridge. Other heaters on the Atlantic group's Cozytouch
 server may work but are untested. The UI is in French and English (French by default; switch in
-Home › Settings, or on the sign-in screen). The Linky bill estimate supports the
-off-peak/peak option.
+Home › Settings, or on the sign-in screen). The Linky bill estimate supports the Base, HC/HP and
+Tempo options; Tempo and EcoWatt are shown on Rooms and Energy and raise alerts.
 
 ## Licence
 

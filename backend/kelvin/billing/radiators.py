@@ -1,16 +1,18 @@
 """Radiator energy per local day, with HC/HP and € from half-hour buckets (spec §2.1). Pure.
 
-T1/T2 are the radiator's own registers, not HC/HP: HC/HP here come from Kelvin's HC slots,
-applied to the half-hour each watt-hour was apportioned to.
+T1/T2 are the radiator's own registers, not HC/HP: HC/HP and € here come from the tariff
+(`Pricing`: that day's option, slots or Tempo hours, and Tempo colour), applied to the half-hour
+each watt-hour was apportioned to.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from kelvin.billing.slots import Ranges, offpeak_minutes
+from kelvin.billing.pricing import Pricing
 from kelvin.billing.tariff import Tariff
 from kelvin.recorder.energy import Bucket
 
@@ -18,35 +20,30 @@ from kelvin.recorder.energy import Bucket
 @dataclass(frozen=True)
 class RadiatorDay:
     wh: float | None
-    hc_wh: float | None  # None without a tariff
+    hc_wh: float | None  # None without a tariff, or on a day with a Base half-hour (no split)
     hp_wh: float | None
-    eur: float | None  # energy only, no subscription
+    eur: float | None  # energy only, no subscription; None on a day with an unknown Tempo colour
     interpolated: bool
     apportioned: bool
     complete: bool  # every half-hour of the day lies inside a measured span
 
 
-def interval_offpeak(start: int, seconds: int, tariff: Tariff, tz: ZoneInfo) -> float:
-    """Share of [start, start + seconds) inside the HC slots, by its wall-clock time."""
-    local = datetime.fromtimestamp(start, tz)
-    return _offpeak(local.hour * 60 + local.minute, seconds // 60, tariff.ranges())
-
-
-def _offpeak(start_min: int, minutes: int, ranges: Ranges) -> float:
-    return offpeak_minutes(start_min, minutes, ranges) / minutes
-
-
 def radiator_days(
-    buckets: list[Bucket], edges: list[int], tariff: Tariff | None, tz: ZoneInfo
+    buckets: list[Bucket],
+    edges: list[int],
+    tariff: Tariff | None,
+    tz: ZoneInfo,
+    *,
+    colours: Mapping[date, str] | None = None,
 ) -> dict[date, RadiatorDay]:
-    """Half-hour buckets of one radiator → one RadiatorDay per local day with any energy."""
+    """Half-hour buckets of one radiator → one RadiatorDay per local day with any energy. Each
+    half-hour is priced by `Pricing`: HC/HP is None on a day with a Base half-hour, € is None on
+    a day with an unpriced half-hour (an unknown Tempo colour)."""
+    pricing = Pricing(tariff, tz, colours) if tariff is not None else None
     acc: dict[date, dict] = {}
-    ranges = tariff.ranges() if tariff is not None else []
-    shares: dict[tuple[int, int], float] = {}  # (local start minute, minutes) → HC share
     for i, b in enumerate(buckets):
         a, z = edges[i], edges[i + 1]
-        local = datetime.fromtimestamp(a, tz)
-        day = local.date()
+        day = datetime.fromtimestamp(a, tz).date()
         x = acc.setdefault(
             day,
             {
@@ -59,6 +56,8 @@ def radiator_days(
                 "cov": 0,
                 "len": 0,
                 "known": False,
+                "split": True,
+                "priced": True,
             },
         )
         x["len"] += z - a
@@ -69,22 +68,25 @@ def radiator_days(
         x["cov"] += b.covered_s
         x["i"] |= b.interpolated
         x["a"] |= b.apportioned
-        if tariff is not None:
-            key = (local.hour * 60 + local.minute, (z - a) // 60)
-            f = shares.get(key)
-            if f is None:
-                f = shares[key] = _offpeak(*key, ranges)
-            p = tariff.prices_on(day)
-            x["hc"] += b.wh * f
-            x["hp"] += b.wh * (1 - f)
-            x["eur"] += b.wh / 1000 * (f * p.hc_eur_kwh + (1 - f) * p.hp_eur_kwh)
-    priced = tariff is not None
+        if pricing is not None:
+            sl = pricing.slice(a, z - a)
+            if sl.offpeak is None:
+                x["split"] = False
+            else:
+                x["hc"] += b.wh * sl.offpeak
+                x["hp"] += b.wh * (1 - sl.offpeak)
+            price = pricing.price(sl)
+            if price is None:
+                x["priced"] = False
+            else:
+                x["eur"] += b.wh / 1000 * price
+    on = pricing is not None
     return {
         d: RadiatorDay(
             x["wh"],
-            x["hc"] if priced else None,
-            x["hp"] if priced else None,
-            x["eur"] if priced else None,
+            x["hc"] if on and x["split"] else None,
+            x["hp"] if on and x["split"] else None,
+            x["eur"] if on and x["priced"] else None,
             x["i"],
             x["a"],
             x["cov"] == x["len"],

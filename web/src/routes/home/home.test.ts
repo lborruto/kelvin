@@ -22,11 +22,13 @@ vi.mock('$lib/api/client', () => ({
     revokeSession: vi.fn(),
     revokeOtherSessions: vi.fn(),
     settings: vi.fn().mockResolvedValue({ tariff: null, prefill: null }),
+    status: vi.fn().mockResolvedValue({ sources: null }),
     linkyStatus: vi.fn().mockResolvedValue({
       configured: false, prm: null, token_set: false, simulator: false, state: 'off', message: null,
       last_day: null, last_ok_at: null, retry_at: null, calls_today: 0, budget: 10, consent_expires: null
     }),
-    putTariff: vi.fn(),
+    putTariffDoc: vi.fn(),
+    tempoPrices: vi.fn(),
     putLinky: vi.fn(),
     logout: vi.fn().mockResolvedValue({ email: null, logged_in: false }),
     me: vi.fn().mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true })
@@ -242,7 +244,7 @@ describe('Maison alerts', () => {
   it('lists the active alerts, or says there are none', async () => {
     vi.mocked(api.alerts).mockResolvedValueOnce([
       { id: 1, kind: 'linky_stalled', severity: 'warn', params: { last_day: '2026-10-10', days: 4 }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false },
-      { id: 2, kind: 'tempo_red_tomorrow', severity: 'info', params: {}, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false }
+      { id: 2, kind: 'a_future_kind', severity: 'info', params: {}, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false }
     ]);
     alerts.reset();
     render(Page);
@@ -267,5 +269,26 @@ describe('Maison alerts', () => {
     alerts.reset();
     render(Page);
     expect(await screen.findByText('Aucune alerte.')).toBeInTheDocument();
+  });
+  it('an hc_changed alert offers its off-peak hours inside the tariff form', async () => {
+    const night = [{ start: '22:00', end: '06:00' }];
+    vi.mocked(api.settings).mockResolvedValueOnce({
+      tariff: {
+        option: 'hchp', kva: 9, hc_slots: night,
+        hc_schedules: [{ valid_from: '2025-01-15', variants: [{ months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], slots: night }] }],
+        tempo_hours: { hc_start: '22:00', hc_end: '06:00', day_start: '06:00' },
+        prices: [{ valid_from: '2025-01-15', option: 'hchp', subscription_eur_month: 15, rates: { hc: 0.2068, hp: 0.27 } }]
+      },
+      prefill: null
+    } as never);
+    vi.mocked(api.alerts).mockResolvedValueOnce([
+      { id: 3, kind: 'hc_changed', severity: 'info', params: { slots: [{ start: '23:00', end: '07:00' }] }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false }
+    ]);
+    alerts.reset();
+    render(Page);
+    const tariff = await screen.findByRole('button', { name: 'Enregistrer le tarif' });
+    const form = tariff.closest('section')!;
+    expect(await within(form).findByText(/Enedis indique de nouvelles heures creuses\s: 23:00–07:00\./)).toBeInTheDocument();
+    alerts.reset();
   });
 });

@@ -121,6 +121,36 @@ export interface HouseView {
   radiators: Radiator[];
 }
 
+export type TempoColour = 'blue' | 'white' | 'red';
+export interface EcowattRun { start: string; end: string; level: number }
+export interface GridView {
+  tempo: {
+    today: { date: string; colour: TempoColour | null };
+    tomorrow: { date: string; colour: TempoColour | null; expected_at: string | null };
+    fetched_at: number | null;
+  } | null;
+  ecowatt: { days: { date: string; level: number; hours: EcowattRun[] | null }[]; fetched_at: number | null };
+  source: string;
+}
+export interface SourceStatus {
+  state: 'off' | 'never' | 'ok' | 'error' | 'quota';
+  last_ok: number | null;
+  error_since: number | null;
+  next: number | null;
+  enabled: boolean;
+}
+export interface Sources {
+  tempo: SourceStatus;
+  ecowatt: SourceStatus;
+  med: { calls_today: number; grid_calls_today: number; budget: number };
+}
+export interface StatusView {
+  status: string;
+  overkiz: Status;
+  linky: string | null;
+  sources?: Sources | null;
+}
+
 export interface Snapshot {
   house: HouseView;
   pending: Pending[];
@@ -129,6 +159,7 @@ export interface Snapshot {
   overrides: Override[];
   status: Status;
   alerts?: AlertSummary;
+  grid?: GridView | null;
 }
 
 export interface HistoryPoint {
@@ -162,31 +193,48 @@ export interface Me {
   reauth?: boolean;
   simulator?: boolean;
 }
-export interface PriceEntry {
+export type TariffOption = 'base' | 'hchp' | 'tempo';
+export interface TariffRow extends PriceRow {
+  option: TariffOption;
+  hc_eur_kwh?: number;
+  hp_eur_kwh?: number;
+}
+export interface HcVariant {
+  months: number[];
+  slots: Slot[];
+}
+export interface HcSchedule {
   valid_from: string;
-  subscription_eur_month: number;
-  hc_eur_kwh: number;
-  hp_eur_kwh: number;
+  variants: HcVariant[];
+}
+export interface TempoHours {
+  hc_start: string;
+  hc_end: string;
+  day_start?: string;
 }
 export interface Tariff {
-  option: 'hchp';
+  option: TariffOption;
   kva: number;
   hc_slots: Slot[];
-  prices: PriceEntry[];
+  hc_schedules: HcSchedule[];
+  tempo_hours: TempoHours;
+  prices: TariffRow[];
 }
 export interface SettingsView {
   tariff: Tariff | null;
   /** From the Enedis contract (subscribed power, off-peak hours); prefills the form. */
   prefill: { kva: number | null; hc_slots: Slot[] } | null;
 }
-export interface TariffInput {
-  option: 'hchp';
+export interface TariffDoc {
   kva: number;
-  hc_slots: Slot[];
-  subscription_eur_month: number;
-  hc_eur_kwh: number;
-  hp_eur_kwh: number;
-  valid_from: string;
+  prices: { valid_from: string; option: TariffOption; subscription_eur_month: number; rates: Record<string, number> }[];
+  hc_schedules: HcSchedule[];
+  tempo_hours: { hc_start: string; hc_end: string };
+}
+export interface TempoPrices {
+  rates: Record<string, number>;
+  fetched_at: number;
+  source: string;
 }
 export type LinkyState = 'off' | 'never' | 'ok' | 'auth' | 'throttled' | 'quota' | 'error';
 export interface LinkyStatus {
@@ -236,7 +284,22 @@ export interface CurveSummary {
   base_w_p10?: number | null;
   night_min_w?: number | null;
 }
+export interface TempoCounts {
+  blue: number;
+  white: number;
+  red: number;
+  unknown: number;
+}
+export interface TempoLens {
+  rows: { key: string; kwh: number | null; eur: number | null }[];
+  days: TempoCounts;
+  unknown_kwh: number | null;
+}
 export interface EnergySummary {
+  tempo: TempoCounts | null;
+  by_rate: Record<string, number> | null;
+  missing_colour_days: number;
+  retro_scheduled: boolean;
   kwh: number | null;
   hc_kwh: number | null;
   hp_kwh: number | null;
@@ -321,10 +384,10 @@ export interface Comparisons {
 }
 export interface HcLens {
   hc_share: number | null;
-  slot_share: number;
+  slot_share: number | null;
   avg_price: number | null;
   /** P_hp − P_hc at today's prices. */
-  delta_price: number;
+  delta_price: number | null;
 }
 export interface Quality {
   fallback_share: number | null;
@@ -335,6 +398,8 @@ export interface Quality {
   curve_since: string | null;
   radiators_since: string | null;
   retro_priced_days: number;
+  missing_colour_days: number;
+  retro_scheduled_days: number;
 }
 export type ProjectionMethod = 'seasonal' | 'linear';
 export interface Projection {
@@ -390,6 +455,8 @@ export interface EnergyReport {
   by_radiator: ByRadiator[];
   comparison: Comparisons;
   hc_lens: HcLens | null;
+  option: TariffOption | null;
+  tempo_lens: TempoLens | null;
   /** An HC slot edge falls inside a half-hour: those half-hours' HC share is prorated (L11). */
   boundary_prorated: boolean;
   /** Over the chart window (the bars, the Qualité strip); the selected period's are `period.quality`. */
@@ -403,6 +470,7 @@ export interface EnergyInterval {
   w: number;
   /** Share of the interval inside the HC slots, 0…1; null without a tariff. */
   offpeak: number | null;
+  tempo_colour: TempoColour | null;
   boundary: boolean;
   price: number | null;
   eur: number | null;
@@ -470,6 +538,8 @@ export interface RoomEnergy {
   interpolated: boolean;
   apportioned: boolean;
   priced: boolean;
+  /** Days with energy but no € (a Tempo colour not published): why `eur` is null. */
+  missing_colour_days?: number;
 }
 export interface Run {
   start: number;
@@ -498,7 +568,15 @@ export interface SessionInfo {
 }
 
 export type Severity = 'info' | 'warn' | 'bad';
-export type AlertKind = 'price_change' | 'consent_expiring' | 'radiator_unreachable' | 'command_failed' | 'linky_stalled';
+export type AlertKind =
+  | 'price_change'
+  | 'consent_expiring'
+  | 'radiator_unreachable'
+  | 'command_failed'
+  | 'linky_stalled'
+  | 'tempo_red_tomorrow'
+  | 'ecowatt'
+  | 'hc_changed';
 export interface Alert {
   id: number;
   /** A kind this bundle does not know (a newer server) is not shown. */

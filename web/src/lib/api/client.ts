@@ -18,8 +18,10 @@ import type {
   SettingsView,
   SetupView,
   Snapshot,
+  StatusView,
   SyncStatus,
-  TariffInput,
+  TariffDoc,
+  TempoPrices,
   WeekProgram
 } from './types';
 import type { ApiParams } from '$lib/i18n';
@@ -102,6 +104,7 @@ const programOpts = (o: ProgramOpts) => ({
 
 export const api = {
   me: () => call<Me>('GET', '/auth/me'),
+  status: () => call<StatusView>('GET', '/status'),
   login: (email: string, password: string) => call<Me>('POST', '/auth/login', { email, password }),
   logout: () => call<Me>('POST', '/auth/logout'),
   house: () => call<Snapshot>('GET', '/house'),
@@ -169,7 +172,8 @@ export const api = {
   energyDay: (date: string, room?: string | null) =>
     call<EnergyDay>('GET', `/energy/day?date=${enc(date)}` + (room ? `&room=${enc(room)}` : '')),
   settings: () => call<SettingsView>('GET', '/settings'),
-  putTariff: (tariff: TariffInput) => call<SettingsView>('PUT', '/settings', { tariff }),
+  putTariffDoc: (doc: TariffDoc) => call<SettingsView>('PUT', '/settings', { tariff: doc }),
+  tempoPrices: () => call<TempoPrices>('POST', '/grid/tempo-prices'),
   linkyStatus: () => call<LinkyStatus>('GET', '/settings/linky'),
   putLinky: (prm: string, token?: string) =>
     call<LinkyStatus>('PUT', '/settings/linky', token ? { prm, token } : { prm })

@@ -24,6 +24,7 @@ export const ENERGY_HEADER = [
   // (last) is the share of the radiator-days up to that day that were fully measured.
   'radiateurs_jusqu_au', 'radiateurs_couverture'
 ];
+export const CSV_COLOUR: Record<string, string> = { blue: 'bleu', white: 'blanc', red: 'rouge' }; // i18n-ignore: CSV machine contract
 export const CURVE_HEADER = ['debut', 'fin', 'minutes', 'wh', 'w_moyen', 'part_hc', 'couleur_tempo', 'prix', 'eur', 'radiateurs_wh']; // i18n-ignore: CSV machine contract
 export const ROOMS_HEADER = [
   'piece', 'radiateur', 'kwh', 'part', 'hc_kwh', 'hp_kwh', 'eur', 'temp_moy', 'consigne_moy', 'heures_chauffe', 'couverture', 'depuis' // i18n-ignore: CSV machine contract, French headers in every locale
@@ -130,7 +131,7 @@ export function energyCsv(chart: EnergyReport, main: EnergyReport, period: Span,
   return file(`energie_${period.from}_${period.to}_${chart.group}.csv`, ENERGY_HEADER, rows);
 }
 
-/** The Courbe's day, one row per interval (46, 48 or 50). `couleur_tempo` stays empty until Plan 9. */
+/** The Courbe's day, one row per interval (46, 48 or 50). `couleur_tempo` is `bleu`/`blanc`/`rouge` for a Tempo-priced half-hour of known colour, else empty. */
 export function curveCsv(day: EnergyDay): CsvFile {
   const rows = day.intervals.map((iv) => [
     isoParis(iv.ts * 1000),
@@ -139,7 +140,7 @@ export function curveCsv(day: EnergyDay): CsvFile {
     csvNum(iv.wh, 0),
     csvNum(iv.w, 0),
     csvNum(iv.offpeak, 4),
-    '',
+    iv.tempo_colour ? CSV_COLOUR[iv.tempo_colour] : '',
     csvNum(iv.price, 4),
     csvNum(iv.eur, 4),
     csvNum(iv.radiators_wh, 0)

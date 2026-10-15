@@ -44,6 +44,26 @@
         "feature": "turbo"
       }
     },
+    "hc_months_missing": {
+      "fr": "Chaque mois doit avoir ses heures creuses.",
+      "params": {
+        "months": [
+          4
+        ]
+      }
+    },
+    "hc_months_overlap": {
+      "fr": "Un mois ne peut appartenir qu’à une seule saison.",
+      "params": {
+        "months": [
+          1
+        ]
+      }
+    },
+    "hc_schedules_missing": {
+      "fr": "Indiquez les heures creuses.",
+      "params": {}
+    },
     "header_missing": {
       "fr": "En-tête X-Kelvin manquant.",
       "params": {}
@@ -100,6 +120,10 @@
     },
     "login_required": {
       "fr": "Connexion requise.",
+      "params": {}
+    },
+    "med_quota": {
+      "fr": "Quota MyElectricalData du jour atteint : réessayez demain.",
       "params": {}
     },
     "med_unreachable": {
@@ -336,9 +360,29 @@
       "fr": "Trois plages d’heures creuses au maximum.",
       "params": {}
     },
-    "tariff_option_unsupported": {
-      "fr": "Seule l’option heures pleines / heures creuses est disponible.",
+    "tariff_dates_duplicate": {
+      "fr": "Deux lignes ne peuvent pas commencer le même jour.",
+      "params": {
+        "date": "2026-11-01"
+      }
+    },
+    "tariff_form_outdated": {
+      "fr": "Votre tarif a changé d’option : rechargez la page pour le modifier.",
       "params": {}
+    },
+    "tariff_option_unsupported": {
+      "fr": "Option tarifaire inconnue.",
+      "params": {}
+    },
+    "tariff_prices_missing": {
+      "fr": "Ajoutez au moins une ligne de prix.",
+      "params": {}
+    },
+    "tariff_rates_invalid": {
+      "fr": "Prix du kWh invalide.",
+      "params": {
+        "rate": "red_hp"
+      }
     },
     "temp_range": {
       "fr": "La température confort doit être comprise entre 12 et 28 °C.",
@@ -353,6 +397,14 @@
       "params": {
         "kind": "eco"
       }
+    },
+    "tempo_hours_invalid": {
+      "fr": "Heures creuses Tempo invalides.",
+      "params": {}
+    },
+    "tempo_prices_unavailable": {
+      "fr": "Prix Tempo indisponibles pour le moment.",
+      "params": {}
     },
     "token_missing": {
       "fr": "Collez le jeton MyElectricalData.",

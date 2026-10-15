@@ -12,9 +12,11 @@
     /** The days the figures cover: the selected period's elapsed days (up to yesterday, as `by_radiator` counts them). */
     span: Span;
     tariff: boolean;
+    /** False under Base: no off-peak split, so no HC / HP columns (the € column stays). */
+    split?: boolean;
     class?: string;
   }
-  let { rows, span, tariff, class: cls = '' }: Props = $props();
+  let { rows, span, tariff, split = true, class: cls = '' }: Props = $props();
   let list = $derived(roomEnergy(rows, house.rooms, house.radiators, span));
   let open = $state<Record<string, boolean>>({});
   let subtitle = $derived(spanLabel(span) || m.roomsEnergy.day(fmtDateLong(span.from)));
@@ -65,8 +67,10 @@
     {#if fraction != null}<span class="bar" aria-hidden="true"><span style:transform="scaleX({fraction})" style:background={SERIES.radiators}></span></span>{/if}
   </td>
   {#if tariff}
-    <td class="r mono">{k(f.shown.hc)}</td>
-    <td class="r mono">{k(f.shown.hp)}</td>
+    {#if split}
+      <td class="r mono">{k(f.shown.hc)}</td>
+      <td class="r mono">{k(f.shown.hp)}</td>
+    {/if}
     <td class="r mono">{fmtEurExact(f.eur, false)}</td>
   {/if}
   {@render stat(fmtTemp(f.temp, false), f)}
@@ -82,8 +86,10 @@
 {#snippet facts(f: Figures)}
   <dl class="facts">
     {#if tariff}
-      <div><dt>{m.roomsEnergy.hcShort}</dt><dd class="num">{fmtKwhExact(f.shown.hc)}</dd></div>
-      <div><dt>{m.roomsEnergy.hpShort}</dt><dd class="num">{fmtKwhExact(f.shown.hp)}</dd></div>
+      {#if split}
+        <div><dt>{m.roomsEnergy.hcShort}</dt><dd class="num">{fmtKwhExact(f.shown.hc)}</dd></div>
+        <div><dt>{m.roomsEnergy.hpShort}</dt><dd class="num">{fmtKwhExact(f.shown.hp)}</dd></div>
+      {/if}
       <div><dt>{m.roomsEnergy.eurShort}</dt><dd class="num">{fmtEurExact(f.eur)}</dd></div>
     {/if}
     <div><dt>{m.roomsEnergy.temp}</dt><dd class="num">{fmtTemp(f.temp)}</dd></div>
@@ -108,8 +114,10 @@
             <th scope="col" class="r">{m.roomsEnergy.kwh}</th>
             <th scope="col" class="r">{m.roomsEnergy.share}</th>
             {#if tariff}
-              <th scope="col" class="r">{m.roomsEnergy.hc}</th>
-              <th scope="col" class="r">{m.roomsEnergy.hp}</th>
+              {#if split}
+                <th scope="col" class="r">{m.roomsEnergy.hc}</th>
+                <th scope="col" class="r">{m.roomsEnergy.hp}</th>
+              {/if}
               <th scope="col" class="r">{m.roomsEnergy.eur}</th>
             {/if}
             <th scope="col" class="r">{m.roomsEnergy.temp}</th>

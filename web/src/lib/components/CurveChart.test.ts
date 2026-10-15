@@ -8,7 +8,7 @@ import CurveChart from './CurveChart.svelte';
 
 const NB = '\u00a0';
 const t0 = Date.UTC(2026, 9, 12, 22) / 1000; // 13 Oct 00:00 Paris
-const iv = (ts: number, wh: number, offpeak: number | null, o: Partial<EnergyInterval> = {}): EnergyInterval => ({
+const iv = (ts: number, wh: number, offpeak: number | null, o: Partial<EnergyInterval> = {}): EnergyInterval => ({ tempo_colour: null,
   ts, minutes: 30, wh, w: wh * 2, offpeak, boundary: false, price: offpeak == null ? null : 0.25, eur: offpeak == null ? null : (wh / 1000) * 0.25,
   radiators_wh: null, radiators_known: 0, radiators_total: 0, radiators_interp: false, radiators_apportioned: false, by_room: {}, ...o
 });

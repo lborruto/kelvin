@@ -7,8 +7,8 @@ import pytest
 
 from kelvin.billing.costs import day_energy
 from kelvin.billing.day_detail import day_detail
+from kelvin.billing.pricing import Pricing
 from kelvin.billing.slots import Slot
-from kelvin.billing.split import Share
 from kelvin.billing.tariff import Prices, Tariff
 from kelvin.linky.models import CurvePoint, day_bounds
 from kelvin.recorder.energy import Bucket, local_edges
@@ -24,8 +24,8 @@ def curve(day: date, wh: float = 500.0) -> list[CurvePoint]:
 
 def detail(day, points, daily_wh, tariff=NIGHT, radiators=None, rooms=None, life=None):
     edges = local_edges(day, day + timedelta(days=1), "halfhour", PARIS)
-    ranges = tariff.ranges() if tariff else None
-    e = day_energy(day, daily_wh, points, ranges, PARIS, Share(0.3, "fallback_all"))
+    pricing = Pricing(tariff, PARIS) if tariff else None
+    e = day_energy(day, daily_wh, points, pricing, PARIS, None)
     return day_detail(
         day,
         points,
@@ -144,3 +144,54 @@ def test_an_incomplete_day_has_no_power_figures_and_no_tariff_no_prices():
     d = detail(day, curve(day)[:40], 24_000, tariff=None)
     assert d["complete"] is False and d["power"]["peak_w"] is None and d["power"]["kva"] is None
     assert d["intervals"][0]["price"] is None and d["totals"]["hc_kwh"] is None
+
+
+TEMPO = {
+    "blue_hc": 0.1296,
+    "blue_hp": 0.1609,
+    "white_hc": 0.1486,
+    "white_hp": 0.1894,
+    "red_hc": 0.1568,
+    "red_hp": 0.7562,
+}
+
+
+def test_day_detail_colours_each_half_hour_of_a_dst_tempo_night():
+    from kelvin.billing.tariff import PriceRow
+
+    day = date(2026, 10, 25)
+    a, b = day_bounds(day, PARIS)
+    points = [CurvePoint(ts, 30, 500.0) for ts in range(a, b, 1800)]
+    edges = local_edges(day, date(2026, 10, 26), "halfhour", PARIS)
+    t = Tariff.build(9, [PriceRow.make(date(2025, 9, 1), "tempo", 15.0, TEMPO)])
+    d = day_detail(
+        day,
+        points,
+        None,
+        t,
+        PARIS,
+        {},
+        edges,
+        {},
+        True,
+        colours={date(2026, 10, 24): "white", day: "red"},
+    )
+    assert [iv["tempo_colour"] for iv in d["intervals"]] == ["white"] * 14 + ["red"] * 36
+    assert d["intervals"][13]["price"] == 0.1486 and d["intervals"][14]["price"] == 0.7562
+    assert (d["totals"]["hc_kwh_curve"], d["totals"]["hp_kwh_curve"]) == (9.0, 16.0)
+    plain = day_detail(day, points, None, NIGHT, PARIS, {}, edges, {}, True)
+    assert {iv["tempo_colour"] for iv in plain["intervals"]} == {None}
+
+
+def test_day_detail_under_base_has_prices_and_no_split():
+    from kelvin.billing.tariff import PriceRow
+
+    day = date(2026, 10, 14)
+    a, b = day_bounds(day, PARIS)
+    points = [CurvePoint(ts, 30, 500.0) for ts in range(a, b, 1800)]
+    edges = local_edges(day, date(2026, 10, 15), "halfhour", PARIS)
+    t = Tariff.build(9, [PriceRow.make(date(2026, 1, 1), "base", 15.0, {"base": 0.1952})])
+    d = day_detail(day, points, None, t, PARIS, {}, edges, {}, True)
+    assert {iv["offpeak"] for iv in d["intervals"]} == {None}
+    assert {iv["price"] for iv in d["intervals"]} == {0.1952}
+    assert d["totals"]["hc_kwh_curve"] is None and d["power"]["kva"] == 9

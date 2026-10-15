@@ -4,7 +4,7 @@ import { baseLoad, peakShare, shiftValue } from './power';
 
 const day = (n: number, price: number | null = 0.25): EnergyInterval[] =>
   Array.from({ length: n }, (_, i) => ({
-    ts: i * 1800, minutes: 30, wh: 500, w: 1000, offpeak: null, boundary: false, price, eur: null,
+    ts: i * 1800, minutes: 30, wh: 500, w: 1000, offpeak: null, tempo_colour: null, boundary: false, price, eur: null,
     radiators_wh: null, radiators_known: 0, radiators_total: 0, radiators_interp: false, radiators_apportioned: false, by_room: {}
   }));
 

@@ -1,10 +1,10 @@
-"""The alert rules of Plan 8 (spec §2.4). Pure: (context, now) → candidates. Plans 9 and 10a
-add theirs to RULES."""
+"""The alert rules of Plans 8 and 9 (spec §2.4). Pure: (context, now) → candidates. Plan 10a
+adds its own to RULES."""
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -12,6 +12,8 @@ from zoneinfo import ZoneInfo
 from kelvin.alerts.service import Rule
 from kelvin.alerts.store import Candidate
 from kelvin.billing.tariff import Tariff
+from kelvin.grid import service as grid_service
+from kelvin.grid.models import EcowattDay
 from kelvin.house.model import House
 from kelvin.recorder.db import Database
 
@@ -33,6 +35,9 @@ class AlertContext:
     linky: dict[str, Any] | None
     house: House
     db: Database
+    tempo: dict[date, str] = field(default_factory=dict)  # today and tomorrow (Tempo days)
+    ecowatt: dict[date, EcowattDay] = field(default_factory=dict)  # today and tomorrow
+    contract: dict[str, Any] | None = None  # the last contract read (Enedis via MED)
 
 
 def price_change(ctx: AlertContext, now: float) -> list[Candidate]:
@@ -170,10 +175,74 @@ def linky_stalled(ctx: AlertContext, now: float) -> list[Candidate]:
     ]
 
 
+def tempo_red_tomorrow(ctx: AlertContext, now: float) -> list[Candidate]:
+    """Tomorrow is a red Tempo day and tomorrow is Tempo-priced (ruling 1: Tempo only)."""
+    tomorrow = ctx.today + timedelta(days=1)
+    if ctx.tariff is None or ctx.tariff.option_on(tomorrow) != "tempo":
+        return []
+    if ctx.tempo.get(tomorrow) != "red":
+        return []
+    d = tomorrow.isoformat()
+    return [Candidate("tempo_red_tomorrow", f"tempo_red_tomorrow:{d}", "warn", {"date": d})]
+
+
+def ecowatt(ctx: AlertContext, now: float) -> list[Candidate]:
+    """EcoWatt orange (2) or red (3) today or tomorrow, for every household (ruling 1). The
+    level is in the key, so a dismissed orange that turns red shows again."""
+    out = []
+    for d in (ctx.today, ctx.today + timedelta(days=1)):
+        e = ctx.ecowatt.get(d)
+        if e is None or e.level < 2:
+            continue
+        hours = (
+            grid_service.hour_runs(e.hours)
+            if grid_service.ECOWATT_HOURS_VERIFIED and e.hours
+            else None
+        )
+        out.append(
+            Candidate(
+                "ecowatt",
+                f"ecowatt:{d.isoformat()}:{e.level}",
+                "bad" if e.level >= 3 else "warn",
+                {"date": d.isoformat(), "level": e.level, "hours": hours},
+            )
+        )
+    return out
+
+
+def hc_changed(ctx: AlertContext, now: float) -> list[Candidate]:
+    """The contract's off-peak hours differ from today's and from every later schedule's for
+    this month. Kelvin never applies them: the alert offers to add them from a date (spec §2.2)."""
+    t = ctx.tariff
+    raw = (ctx.contract or {}).get("offpeak") or []
+    if t is None or not raw or t.option_on(ctx.today) != "hchp":
+        return []
+    offered = tuple(sorted((s["start"], s["end"]) for s in raw))
+    known = {tuple(sorted((s.start, s.end) for s in (t.slots_on(ctx.today) or ())))}
+    for s in t.hc_schedules:
+        if s.valid_from > ctx.today:
+            slots = s.slots_for_month(ctx.today.month) or ()
+            known.add(tuple(sorted((x.start, x.end) for x in slots)))
+    if offered in known:
+        return []
+    sig = ",".join(f"{a}-{b}" for a, b in offered)
+    return [
+        Candidate(
+            "hc_changed",
+            f"hc_changed:{sig}",
+            "info",
+            {"slots": [{"start": a, "end": b} for a, b in offered]},
+        )
+    ]
+
+
 RULES: dict[str, Rule] = {
     "price_change": price_change,
     "consent_expiring": consent_expiring,
     "radiator_unreachable": radiator_unreachable,
     "command_failed": command_failed,
     "linky_stalled": linky_stalled,
+    "tempo_red_tomorrow": tempo_red_tomorrow,
+    "ecowatt": ecowatt,
+    "hc_changed": hc_changed,
 }

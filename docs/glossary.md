@@ -95,6 +95,19 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Pointe | Max power (never “Peak”, which is HP) |
 | Talon (veille) | Base load |
 | Jour Tempo Bleu / Blanc / Rouge | Tempo Blue / White / Red day |
+| Option tarifaire | Tariff option |
+| Base | Base |
+| HC/HP (option) | Peak/Off-peak |
+| Applicable à partir du | Valid from |
+| Heures creuses différentes selon la saison | Off-peak hours differ by season |
+| Saison | Season |
+| Jours Tempo | Tempo days |
+| Jours rouges | Red days |
+| Couleur pas encore publiée | Colour not published yet |
+| Signaux du réseau électrique | Power grid signals |
+| Système électrique tendu | The power grid is under strain |
+| Sources | Sources |
+| Préremplir | Prefill |
 | EcoWatt vert / orange / rouge | EcoWatt green / orange / red |
 | Alertes | Alerts |
 | Budget mensuel | Monthly budget |

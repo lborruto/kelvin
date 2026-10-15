@@ -3,6 +3,12 @@ a budget far below the 50 calls/day quota, and Enedis 429 nextAccessTime honoure
 
 After the 30-day curve window, spare budget extends the curve backwards to the contract start,
 at most CURVE_EXTRA_CHUNKS_PER_DAY chunks per local day, queued last so they only use spare calls.
+
+Every MyElectricalData call Kelvin makes — Linky, the monthly contract re-read and the grid's
+public Tempo and EcoWatt endpoints — is counted here, in one ledger of at most `DAILY_BUDGET`
+calls a Paris day (owner rule: never more than 10 of MED's 50). The grid takes at most
+`GRID_DAILY_MAX`; Linky's `backfill` requests stop while the grid still has calls planned today
+(`reserve`); `essential` requests — the newest Linky days and the monthly contract — go first.
 """
 
 from __future__ import annotations
@@ -20,7 +26,7 @@ from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from kelvin.errors import french
-from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, LinkyThrottled
+from kelvin.linky.models import Contract, LinkyAuthError, LinkyError, LinkySource, LinkyThrottled
 from kelvin.linky.store import LinkyStore
 from kelvin.recorder.db import Database
 
@@ -36,6 +42,8 @@ GIVE_UP_AFTER = 3  # tries before an old missing day is left alone
 ALWAYS_RETRY_DAYS = 3  # the newest days are retried whatever (Enedis publishes D-1 late)
 TRIES_HORIZON_DAYS = DAILY_BACKFILL_DAYS + 30  # try counters kept at least this far back
 DAILY_BUDGET = 10  # calls per local day, every call included (MED allows 50)
+GRID_DAILY_MAX = 4  # Tempo and EcoWatt calls a Paris day, inside DAILY_BUDGET
+Kind = Literal["essential", "backfill", "grid"]
 RUN_AT = (dtime(8, 0), dtime(14, 0))
 THROTTLE_FALLBACK_S = 3600
 STATE_KEY = "linky_sync"
@@ -54,7 +62,7 @@ class BudgetExceeded(LinkyError):
 
 @dataclass(frozen=True)
 class Request:
-    kind: Literal["daily", "curve"]
+    kind: Literal["daily", "curve", "contract"]
     start: date
     end: date  # exclusive
 
@@ -69,6 +77,8 @@ class SyncState:
     calls: int = 0
     extra_day: str | None = None  # local day of the `extra` counter
     extra: int = 0  # extra curve chunks (older than the 30-day window) fetched that day
+    grid_calls: int = 0  # grid calls (Tempo, EcoWatt) on `calls_day`, inside `calls`
+    contract_month: str | None = None  # "YYYY-MM" of the last contract read
     tries: dict[str, int] = field(default_factory=dict)  # "curve:2026-10-12" → failed tries
     not_before: str | None = None  # contract activation: Enedis has nothing earlier
     consent_expires: str | None = None
@@ -121,6 +131,10 @@ class LinkySync:
         self.budget = budget
         self.state = self._load()
         self._wake = asyncio.Event()
+        # Grid calls still planned today: Linky's backfill leaves them room (set by the runtime).
+        self.reserve: Callable[[], int] = lambda: 0
+        # When set, the contract is re-read once a month (spec §2.2 `hc_changed`).
+        self.on_contract: Callable[[Contract], None] | None = None
 
     def _load(self) -> SyncState:
         raw = self.db.get_setting(STATE_KEY) or {}
@@ -175,8 +189,17 @@ class LinkySync:
         The day's call counters stay: the budget is per Kelvin, not per PDL."""
         st = self.state
         self.state = SyncState(
-            calls_day=st.calls_day, calls=st.calls, extra_day=st.extra_day, extra=st.extra
+            calls_day=st.calls_day,
+            calls=st.calls,
+            extra_day=st.extra_day,
+            extra=st.extra,
+            grid_calls=st.grid_calls,
         )
+        self._save()
+
+    def mark_contract_read(self, today: date) -> None:
+        """A contract read made outside `run_once` (configure, prefill) is this month's read."""
+        self.state.contract_month = today.strftime("%Y-%m")
         self._save()
 
     def set_not_before(self, day: date | None) -> None:
@@ -186,15 +209,49 @@ class LinkySync:
     def calls_today(self) -> int:
         return self.state.calls if self.state.calls_day == self.today().isoformat() else 0
 
-    def spend(self, today: date | None = None) -> bool:
+    def spend(self, today: date | None = None, *, kind: Kind = "essential") -> bool:
+        """Count one MED call in today's ledger, or refuse it: the day's budget is spent, the
+        grid has had its share, or a backfill would eat the grid calls still planned today."""
         day = (today or self.today()).isoformat()
-        if self.state.calls_day != day:
-            self.state.calls_day, self.state.calls = day, 0
-        if self.state.calls >= self.budget:
+        st = self.state
+        if st.calls_day != day:
+            st.calls_day, st.calls, st.grid_calls = day, 0, 0
+        if st.calls >= self.budget:
             return False
-        self.state.calls += 1
+        if kind == "grid" and st.grid_calls >= GRID_DAILY_MAX:
+            return False
+        if kind == "backfill" and st.calls >= self.budget - max(0, self.reserve()):
+            return False
+        st.calls += 1
+        if kind == "grid":
+            st.grid_calls += 1
         self._save()
         return True
+
+    def essential_ahead(self) -> int:
+        """1 while a later sync run is still to come today (14:00 after the 08:00 one): the
+        runtime adds it to `reserve`, so a morning backfill leaves the afternoon's retry of the
+        newest days a call."""
+        now = datetime.fromtimestamp(self.wall(), self.tz)
+        return int(now.time() < RUN_AT[-1])
+
+    def grid_calls_today(self) -> int:
+        return self.state.grid_calls if self.state.calls_day == self.today().isoformat() else 0
+
+    @staticmethod
+    def priority(req: Request, today: date) -> Kind:
+        """The newest days (and the contract) are essential; older curve chunks are backfill."""
+        if req.kind == "curve" and req.end <= today - timedelta(days=ALWAYS_RETRY_DAYS):
+            return "backfill"
+        return "essential"
+
+    def _with_contract(self, reqs: list[Request], today: date) -> list[Request]:
+        month = today.strftime("%Y-%m")
+        if self.on_contract is None or self.state.contract_month == month:
+            return reqs
+        essential = [r for r in reqs if self.priority(r, today) == "essential"]
+        rest = [r for r in reqs if self.priority(r, today) != "essential"]
+        return [*essential, Request("contract", today, today), *rest]
 
     def _extra_today(self, today: date) -> int:
         return self.state.extra if self.state.extra_day == today.isoformat() else 0
@@ -300,11 +357,11 @@ class LinkySync:
         ok: set[str] = set()  # kinds with a request that succeeded in this run
         broken: list[Request] = []  # requests that failed with a plain LinkyError
         try:
-            for req in self.plan(today):
+            for req in self._with_contract(self.plan(today), today):
                 extra = self._is_extra(req, today)
                 if extra:
                     self._charge_extra(today)  # saved by spend(), with the call itself
-                if not self.spend(today):
+                if not self.spend(today, kind=self.priority(req, today)):
                     if extra:
                         self.state.extra -= 1
                     self.state.error = "quota"
@@ -314,8 +371,13 @@ class LinkySync:
                 try:
                     if req.kind == "daily":
                         self.store.upsert_daily(await self.source.fetch_daily(req.start, req.end))
-                    else:
+                    elif req.kind == "curve":
                         self.store.upsert_curve(await self.source.fetch_curve(req.start, req.end))
+                    else:
+                        contract = await self.source.fetch_contract()
+                        self.state.contract_month = today.strftime("%Y-%m")
+                        if self.on_contract is not None:
+                            self.on_contract(contract)
                 except LinkyThrottled as e:
                     self.state.error = "throttled"
                     self.state.retry_at = (
@@ -336,12 +398,13 @@ class LinkySync:
                     broken.append(req)
                     continue
                 ok.add(req.kind)
-                self._count_tries(req, self._have(req), today)
+                if req.kind != "contract":
+                    self._count_tries(req, self._have(req), today)
             # A failing request counts a try only when another request of the same kind
             # succeeded: then this request is the problem, and GIVE_UP_AFTER applies. In an
             # outage, or with one endpoint down, nothing is given up.
             for req in broken:
-                if req.kind in ok:
+                if req.kind in ok and req.kind != "contract":
                     self._count_tries(req, self._have(req), today)
             if not failed:
                 self.state.error = None
@@ -403,6 +466,7 @@ class LinkySync:
             "last_ok_at": st.last_ok_at,
             "retry_at": st.retry_at,
             "calls_today": self.calls_today(),
+            "grid_calls_today": self.grid_calls_today(),
             "budget": self.budget,
             "consent_expires": st.consent_expires,
         }

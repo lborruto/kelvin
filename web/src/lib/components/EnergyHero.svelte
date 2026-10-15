@@ -47,6 +47,7 @@
     if (p.estimated_split) out.push(m.hero.split(p.quality.estimated_days));
     if (p.radiators?.interpolated) out.push(m.hero.interpolated);
     if (p.retro_priced && p.prices.length) out.push(m.hero.retro(fmtDay(p.prices[0].valid_from)));
+    if (p.missing_colour_days > 0) out.push(m.energyTariff.notCounted(p.missing_colour_days));
     // Without Linky the figure is the radiators': a partial or missing sum says so.
     if (p.kwh == null && p.radiators?.coverage != null && p.radiators.coverage < 1) out.push(m.hero.radPartial(fmtPct1(p.radiators.coverage), p.to > today.iso));
     if (kind === 'rad' && !p.radiators) out.push(m.hero.radNone);

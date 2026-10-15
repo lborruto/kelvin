@@ -60,6 +60,15 @@ describe('RoomsEnergy', () => {
     expect(item.textContent).not.toContain('HC');
   });
 
+  it('under Base the HC and HP columns go, the € column stays', () => {
+    const { container } = render(RoomsEnergy, { rows, span, tariff: true, split: false });
+    const heads = [...container.querySelectorAll('.table thead th')].map((t) => t.textContent);
+    expect(heads).toContain('€');
+    expect(heads).not.toContain('HC (kWh)');
+    expect(heads).not.toContain('HP (kWh)');
+    expect(container.querySelector('.list > li')!.textContent).not.toContain('HC');
+  });
+
   it('holds a skeleton until the house is known, and says « le … » for a single day', () => {
     house.reset();
     const { container } = render(RoomsEnergy, { rows, span: { from: '2026-10-13', to: '2026-10-14' }, tariff: true });

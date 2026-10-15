@@ -2,13 +2,13 @@
 change, so a December report does not replay the half-hours from 1 January on every request; the
 cache never serves a figure a fresh computation would not give."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from kelvin.billing.slots import Slot
-from kelvin.billing.tariff import Prices, Tariff
+from kelvin.billing.tariff import PriceRow, Prices, Tariff
 from kelvin.house.model import build_house
 from kelvin.linky.fake import FakeLinkySource
 from kelvin.linky.service import LinkyService
@@ -249,3 +249,33 @@ def test_days_computed_at_a_power_that_changed_meanwhile_are_not_kept(home, monk
     report(svc, rec, rooms)  # request A
     monkeypatch.setattr(rec, "energy_buckets", original)
     assert report(svc, rec, rooms) == fresh(db, clock, rec, rooms)
+
+
+def test_an_unpriced_tempo_day_is_not_cached_and_is_priced_once_its_colour_arrives(home):
+    clock, db, house, rec, svc, rooms = home
+    tempo = {
+        "blue_hc": 0.1,
+        "blue_hp": 0.2,
+        "white_hc": 0.1,
+        "white_hp": 0.3,
+        "red_hc": 0.1,
+        "red_hp": 0.8,
+    }
+    svc.tariffs.save(Tariff.build(9, [PriceRow.make(date(2000, 1, 1), "tempo", 15.0, tempo)]))
+    colours = {date(2026, 11, 30) + timedelta(days=i): "blue" for i in range(16)}
+    del colours[date(2026, 12, 2)]  # not published (a MED outage): its Tempo day is unknown
+    svc.colours = lambda a, b: {d: c for d, c in colours.items() if a <= d < b}
+    first = report(svc, rec, rooms)
+    assert bucket(first, "2026-12-01")["radiators"]["eur"] is not None
+    # The Tempo day of 2 December runs 06:00 → 06:00: both calendar days hold unpriced half-hours.
+    assert bucket(first, "2026-12-02")["radiators"]["eur"] is None
+    assert bucket(first, "2026-12-03")["radiators"]["eur"] is None
+    cached = svc.radiator_days._days
+    assert (RID, date(2026, 12, 1)) in cached and (RID, date(2026, 12, 2)) not in cached
+    assert (RID, date(2026, 12, 3)) not in cached
+    colours[date(2026, 12, 2)] = "red"
+    second = report(svc, rec, rooms)
+    dec2 = bucket(second, "2026-12-02")["radiators"]["eur"]
+    assert dec2 is not None and dec2 > bucket(second, "2026-12-01")["radiators"]["eur"]  # red HP
+    assert bucket(second, "2026-12-03")["radiators"]["eur"] is not None
+    assert (RID, date(2026, 12, 2)) in svc.radiator_days._days

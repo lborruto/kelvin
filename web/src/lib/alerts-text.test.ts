@@ -66,7 +66,27 @@ describe('alert texts', () => {
     const stalled = alertText(a('linky_stalled', { last_day: '2026-10-10', days: 4 }))!;
     expect(stalled.text).toBe(`Linky${NB}: pas de nouvelle donnée depuis le 10/10 (4${NB}jours).`);
     expect(stalled.link).toEqual({ href: '/home#linky', label: 'Linky' });
-    expect(alertText(a('tempo_red_tomorrow', {}))).toBeNull();
+    expect(alertText(a('a_future_kind', {}))).toBeNull();
+  });
+
+  it('grid alerts: Tempo red tomorrow, EcoWatt, new off-peak hours', () => {
+    applyLocale('fr');
+    expect(alertText(a('tempo_red_tomorrow', { date: '2026-12-02' }))!.text).toBe(
+      `Jour Tempo Rouge demain (2 décembre)${NB}: les heures pleines sont au prix rouge.`
+    );
+    expect(alertText(a('ecowatt', { date: '2026-12-02', level: 2, hours: null }))!.text).toBe(
+      `EcoWatt orange le 2 décembre${NB}: système électrique tendu.`
+    );
+    expect(alertText(a('ecowatt', { date: '2026-12-02', level: 3, hours: [{ start: '18:00', end: '20:00', level: 3 }] }, 'bad'))!.text).toBe(
+      `EcoWatt rouge le 2 décembre, 18:00–20:00${NB}: système électrique très tendu, coupures possibles.`
+    );
+    const hc = alertText(a('hc_changed', { slots: [{ start: '23:00', end: '07:00' }] }, 'info'))!;
+    expect(hc.text).toBe(`Enedis indique de nouvelles heures creuses${NB}: 23:00–07:00.`);
+    expect(hc.link).toEqual({ href: '/home#tariff', label: 'Ajouter ces heures creuses' });
+    applyLocale('en');
+    expect(alertText(a('tempo_red_tomorrow', { date: '2026-12-02' }))!.text).toBe('Tempo Red day tomorrow (2 December): peak hours are at the red price.');
+    expect(alertText(a('ecowatt', { date: '2026-12-02', level: 2, hours: null }))!.text).toBe('EcoWatt orange on 2 December: the power grid is under strain.');
+    applyLocale('fr');
   });
 });
 

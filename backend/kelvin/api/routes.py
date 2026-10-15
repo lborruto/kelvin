@@ -18,7 +18,7 @@ from sse_starlette.sse import EventSourceResponse
 from kelvin.account import linky_credentials
 from kelvin.api.auth_routes import status_word
 from kelvin.api.guards import LoginRequired, require_kelvin_header, require_session
-from kelvin.api.runtime import Runtime
+from kelvin.api.runtime import Runtime, sources
 from kelvin.api.schemas import (
     AwayBody,
     BoostBody,
@@ -31,6 +31,7 @@ from kelvin.api.schemas import (
     ProgramBody,
     SetpointBody,
     SettingsBody,
+    TariffDocBody,
 )
 from kelvin.api.sse import event_stream
 from kelvin.auth.sessions import COOKIE_NAME, SessionIsCurrent
@@ -46,6 +47,7 @@ from kelvin.commands.translate import (
     plan_setpoint,
 )
 from kelvin.errors import UserError
+from kelvin.grid.models import BudgetSpent, GridError
 from kelvin.house.model import DAY_ORDER, Radiator
 from kelvin.labels import Label
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled, day_bounds
@@ -113,7 +115,22 @@ async def status(request: Request) -> dict:
         "status": status_word(request.app.state.ctx),
         "overkiz": rt.pump.status(),
         "linky": rt.linky.status()["state"] if rt.linky else None,
+        "sources": sources(rt),
     }
+
+
+@router.get("/grid")
+async def grid_view(request: Request) -> dict:
+    """The grid strip's data (spec §5.1 QW1): Tempo only when today's price row is Tempo
+    (ruling 1), EcoWatt for every option."""
+    rt = _rt(request)
+    if rt.grid is None:
+        return {
+            "tempo": None,
+            "ecowatt": {"days": [], "fetched_at": None},
+            "source": "MyElectricalData",
+        }
+    return rt.grid.view()
 
 
 @router.get("/overkiz/quotas")
@@ -599,15 +616,38 @@ async def get_settings(request: Request) -> dict:
 async def put_settings(body: SettingsBody, request: Request) -> dict:
     rt = _rt(request)
     linky = _linky(rt)
+    t = body.tariff
     try:
-        linky.tariffs.update(body.tariff.to_update())
-    except UserError:  # coded: prices, power, option, slots
+        if isinstance(t, TariffDocBody):
+            linky.tariffs.replace(t.to_tariff())
+        else:
+            linky.tariffs.update(t.to_update())
+    except UserError:
         raise
     except ValueError as e:  # anything the codes do not cover is still a 422, never a 500
         raise UserError("invalid_request") from e
     if rt.alerts:
         rt.alerts.request()  # a saved price row resolves price_change at once
+    if rt.grid is not None:
+        if rt.scheduler is not None and rt.grid.tempo_needed():
+            rt.scheduler.request("tempo")  # a Tempo tariff needs its colours now
+        rt.broadcaster.publish("grid", rt.grid.view())  # the strip follows the option at once
     return linky.settings_view()
+
+
+@router.post("/grid/tempo-prices")
+async def grid_tempo_prices(request: Request) -> dict:
+    """The six published Tempo prices for the tariff form (spec §2.2): at most one MED call a
+    week, from the shared ledger. Shown with their source and date; Kelvin never saves them."""
+    rt = _rt(request)
+    if rt.grid is None:
+        raise UserError("tempo_prices_unavailable", 503)
+    try:
+        return await rt.grid.tempo_prices()
+    except BudgetSpent:
+        raise UserError("med_quota", 429) from None
+    except GridError:
+        raise UserError("tempo_prices_unavailable", 503) from None
 
 
 @router.get("/settings/linky")

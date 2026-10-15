@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS alerts (
   id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, key TEXT NOT NULL UNIQUE,
   severity TEXT NOT NULL, params TEXT NOT NULL, first_seen REAL NOT NULL,
   last_seen REAL NOT NULL, resolved_at REAL, dismissed_at REAL);
+CREATE TABLE IF NOT EXISTS tempo_days (
+  day TEXT PRIMARY KEY, colour TEXT NOT NULL, source TEXT NOT NULL, fetched_at REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS ecowatt_days (
+  day TEXT PRIMARY KEY, level INTEGER NOT NULL, hours TEXT, source TEXT NOT NULL,
+  fetched_at REAL NOT NULL);
 """
 
 SCHEMA_VERSION_KEY = "schema_version"

@@ -1,27 +1,32 @@
 <script lang="ts">
-  import type { HcLens } from '$lib/api/types';
+  import type { HcLens, TariffOption, TempoLens } from '$lib/api/types';
   import { fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
   import { m } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
   import { shiftValue } from '$lib/power';
+  import TempoRows from './TempoRows.svelte';
 
   interface Props {
     lens: HcLens | null;
     tariff: boolean;
     /** The period's HP kWh. */
     hpKwh: number | null;
+    option?: TariffOption | null;
+    tempo?: TempoLens | null;
     class?: string;
   }
-  let { lens, tariff, hpKwh, class: cls = '' }: Props = $props();
+  let { lens, tariff, hpKwh, option = null, tempo = null, class: cls = '' }: Props = $props();
   const uid = $props.id();
   let pct = $state(10);
-  let value = $derived(lens && hpKwh != null ? shiftValue(pct / 100, hpKwh, lens.delta_price) : null);
+  let value = $derived(lens && lens.delta_price != null && hpKwh != null ? shiftValue(pct / 100, hpKwh, lens.delta_price) : null);
 </script>
 
 <section class="panel {cls}">
   <h2>{m.hcHp.title}</h2>
   {#if !tariff}
     <p class="line"><a href="{ROUTES.home}#{ANCHORS.tariff}">{m.hcHp.tariffLink}</a>{m.hcHp.tariffTail}</p>
+  {:else if option === 'base'}
+    <p class="line">{m.energyTariff.baseOption}</p>
   {:else}
     <dl class="figs">
       <div>
@@ -40,14 +45,14 @@
         <dt>{m.hcHp.avg}</dt>
         <dd class="num">{fmtPrice(lens?.avg_price)}</dd>
       </div>
-      {#if lens}
+      {#if lens && lens.delta_price != null}
         <div>
           <dt>{m.hcHp.perKwh}</dt>
           <dd class="num">{fmtSignedPrice(-lens.delta_price)}</dd>
         </div>
       {/if}
     </dl>
-    {#if lens && hpKwh != null && lens.hc_share != null && value != null}
+    {#if lens && lens.delta_price != null && hpKwh != null && lens.hc_share != null && value != null}
       <div class="shift">
         <label for="{uid}-shift">{m.hcHp.slider}</label>
         <input id="{uid}-shift" type="range" min="0" max="50" step="5" aria-valuetext={m.hcHp.valueText(pct)} bind:value={pct} />
@@ -56,6 +61,7 @@
       </div>
       <p class="muted note">{m.hcHp.caveat}</p>
     {/if}
+    {#if tempo}<TempoRows lens={tempo} />{/if}
   {/if}
 </section>
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyLocale } from '$lib/i18n';
 import type { EnergyInterval, EnergySummary, RoomSample } from './api/types';
 import { bucketSpan, periodOf } from './energy';
+import { fmtPrice } from '$lib/format';
 import { inspectBucket, inspectionTable, intervalLabel, pricesText, readInterval, roomInterval } from './inspector';
 import { parisDayStart } from './time';
 
@@ -12,7 +13,7 @@ const bucket = (o: Partial<EnergySummary> = {}): EnergySummary => ({
   prices: [{ valid_from: '2026-08-01', subscription_eur_month: 15, rates: { hc: 0.2068, hp: 0.27 } }],
   retro_priced: false, present_days: 1, curve: null,
   radiators: { kwh: 14.2, hc_kwh: 6.1, hp_kwh: 8.1, eur: 3.45, interpolated: false, apportioned: false, coverage: 1 },
-  rest_kwh: 7.841, ...o
+  rest_kwh: 7.841, tempo: null, by_rate: null, missing_colour_days: 0, retro_scheduled: false, ...o
 });
 const day = { group: 'day' as const, span: periodOf('day', '2026-10-13') };
 const values = (rows: { key: string; value: string }[]) => Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -154,7 +155,7 @@ describe('bucket inspector (spec §3.2.3)', () => {
 });
 
 const iv = (ts: number, o: Partial<EnergyInterval> = {}): EnergyInterval => ({
-  ts, minutes: 30, wh: 734, w: 1468, offpeak: 1, boundary: false, price: 0.2068, eur: 0.1518,
+  ts, minutes: 30, wh: 734, w: 1468, offpeak: 1, tempo_colour: null, boundary: false, price: 0.2068, eur: 0.1518,
   radiators_wh: 400, radiators_known: 1, radiators_total: 1, radiators_interp: false, radiators_apportioned: false, by_room: {}, ...o
 });
 const dayOf = (iso: string) => {
@@ -382,5 +383,28 @@ describe('inspector in English', () => {
     expect(cells.rows[0].cells[cells.columns.findIndex((c) => c.key === 'prices')]).toBe(
       'Off-peak €0.2068 · Peak €0.2700 per kWh; from 13/10: Off-peak €0.2100 · Peak €0.2800 per kWh'
     );
+  });
+});
+
+describe('tariff v2 in the inspector', () => {
+  it('a Tempo bucket counts its colour days and says which days have no €', () => {
+    const b = bucket({ tempo: { blue: 3, white: 1, red: 0, unknown: 1 }, missing_colour_days: 1 });
+    const ins = inspectBucket(b, { group: 'month', span: periodOf('month', '2026-12-01') });
+    expect(ins.rows.find((r) => r.key === 'tempo')?.value).toBe('3 bleus · 1 blanc · 0 rouge · 1 sans couleur connue');
+    expect(ins.notes).toContain('énergie de 1 jour sans couleur Tempo non comptée');
+  });
+  it('an HC/HP bucket has no Tempo row; a retro-scheduled one says so', () => {
+    const ins = inspectBucket(bucket({ retro_scheduled: true }), day);
+    expect(ins.rows.some((r) => r.key === 'tempo')).toBe(false);
+    expect(ins.notes).toContain('heures creuses du premier relevé appliquées aux jours antérieurs');
+  });
+  it('the readout names the Tempo colour, and Base keeps price and cost without a rate row', () => {
+    const red = iv(1_764_658_800, { wh: 500, offpeak: 0, tempo_colour: 'red', price: 0.7562, eur: 0.3781 });
+    const tempo = readInterval(red, { intervals: [red], tariff: true });
+    expect(tempo.rows.find((r) => r.key === 'rate')?.value).toBe('Heures pleines · Rouge');
+    const base = iv(1_764_658_800, { wh: 500, offpeak: null, tempo_colour: null, price: 0.1952, eur: 0.0976 });
+    const plain = readInterval(base, { intervals: [base], tariff: true });
+    expect(plain.rows.some((r) => r.key === 'rate')).toBe(false);
+    expect(plain.rows.find((r) => r.key === 'price')?.value).toBe(fmtPrice(0.1952));
   });
 });
