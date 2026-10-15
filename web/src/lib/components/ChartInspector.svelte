@@ -1,15 +1,10 @@
 <script lang="ts">
   import { fade, slide } from 'svelte/transition';
   import { CARD_W } from '$lib/chart';
+  import { m } from '$lib/i18n';
   import type { Inspection } from '$lib/inspector';
   import { dur, T } from '$lib/motion';
   import { ANCHORS } from '$lib/paths';
-
-  const COPY = {
-    est: 'est.',
-    estNote: 'est.\u00a0: valeur estimée, détail dans',
-    quality: 'Qualité des données'
-  } as const;
 
   interface Props {
     ins: Inspection;
@@ -41,7 +36,7 @@
       {#each ins.rows as r (r.key)}
         <div class="row" class:sub={r.sub}>
           <dt>{r.label}</dt>
-          <dd class="num">{r.value}{#if r.est}<span class="est">{COPY.est}</span>{/if}{#if r.note}<span class="why">{r.note}</span>{/if}</dd>
+          <dd class="num">{r.value}{#if r.est}<span class="est">{m.chartInspector.est}</span>{/if}{#if r.note}<span class="why">{r.note}</span>{/if}</dd>
         </div>
       {/each}
     </dl>
@@ -49,7 +44,7 @@
   {#if ins.notes.length}
     <ul class="notes">{#each ins.notes as n (n)}<li>{n}</li>{/each}</ul>
   {/if}
-  {#if hasEst}<p class="foot">{COPY.estNote} <a href="#{ANCHORS.quality}">{COPY.quality}</a>.</p>{/if}
+  {#if hasEst}<p class="foot">{m.chartInspector.estNote} <a href="#{ANCHORS.quality}">{m.chartInspector.quality}</a>.</p>{/if}
   {#if action}<button type="button" class="btn btn-sm" onclick={action.run}>{action.label}</button>{/if}
 {/snippet}
 

@@ -2,41 +2,24 @@
   import type { CurveSummary, EnergyDay } from '$lib/api/types';
   import { SERIES, type View } from '$lib/energy';
   import { fmtEurExact, fmtKwhExact, fmtPct, fmtTime, fmtW } from '$lib/format';
-  import { plural } from '$lib/plural';
+  import { locale, m } from '$lib/i18n';
   import { baseLoad, peakShare } from '$lib/power';
 
-  const COPY = {
-    title: 'Puissance',
-    // Linky's curve is half-hour means: the highest one, never an instantaneous peak.
-    peak: 'Pointe moyenne sur 30 min',
-    range: (a: string, b: string) => `${a}–${b}`,
-    instant: 'la pointe instantanée peut être plus élevée',
-    kva: (kva: number) => `abonnement ${kva} kVA`,
-    share: (pct: string) => `${pct} de la puissance souscrite (moyenne 30\u00a0min)`,
-    pf: 'kVA ≈ kW, facteur de puissance supposé 1',
-    base: 'Talon (veille)',
-    night: (w: string) => `minimum de nuit (00:00–06:00) : ${w}`,
-    p10: (w: string) => `10 % des demi-heures sont sous ${w}`,
-    floorDay: (kwh: string, eur: string | null) => `consommation de fond ≈\u00a0${kwh}${eur ? ` (≈\u00a0${eur})` : ''}`,
-    floorWeek: (kwh: string) => `consommation de fond ≈\u00a0${kwh} par jour`,
-    days: (n: number) => `sur ${plural(n, 'jour de courbe complète', 'jours de courbe complète')}`,
-    noDay: 'Pas de courbe complète ce jour-là.',
-    noWeek: 'Pas de courbe complète cette semaine.',
-    failed: 'Courbe du jour indisponible.'
-  } as const;
   /** The skeleton's stand-in texts: never shown (transparent, aria-hidden), they only give the bars a complete
    * day's line breaks, so the skeleton wraps as the figures will at every width. */
-  const GHOST = {
+  let GHOST = $derived({
     peak: fmtW(6840),
-    when: COPY.range('19:00', '19:30'),
-    kva: COPY.kva(12),
-    share: COPY.share(fmtPct(0.57)),
+    when: m.power.range('19:00', '19:30'),
+    kva: m.power.kva(12),
+    share: m.power.share(fmtPct(0.57)),
     base: fmtW(310),
-    night: COPY.night(fmtW(280)),
-    p10: COPY.p10(fmtW(310)),
-    floor: COPY.floorDay(fmtKwhExact(7.44), fmtEurExact(1.86))
-  } as const;
-  const dayName = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' });
+    night: m.power.night(fmtW(280)),
+    p10: m.power.p10(fmtW(310)),
+    floor: m.power.floorDay(fmtKwhExact(7.44), fmtEurExact(1.86))
+  });
+  let dayName = $derived(
+    new Intl.DateTimeFormat(locale.intl, { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
+  );
 
   interface Props {
     view: View;
@@ -63,38 +46,38 @@
   // The half-hour itself (« 06:30–07:00 »): on the autumn DST day the repeated hour stays true.
   let when = $derived(
     src?.peak_ts != null
-      ? `${view === 'week' ? `${dayName.format(new Date(src.peak_ts * 1000))}, ` : ''}${COPY.range(
+      ? `${view === 'week' ? `${dayName.format(new Date(src.peak_ts * 1000))}, ` : ''}${m.power.range(
           fmtTime(src.peak_ts * 1000),
           fmtTime((src.peak_ts + 1800) * 1000)
         )}`
       : ''
   );
-  let why = $derived(view === 'day' && failed ? COPY.failed : view === 'week' ? COPY.noWeek : COPY.noDay);
+  let why = $derived(view === 'day' && failed ? m.power.failed : view === 'week' ? m.power.noWeek : m.power.noDay);
 </script>
 
 {#snippet kvaGhost()}
   <p class="line skeleton inset">{GHOST.kva}</p>
   <div class="meter"></div>
   <p class="line skeleton inset">{GHOST.share}</p>
-  <p class="note skeleton inset">{COPY.pf}</p>
+  <p class="note skeleton inset">{m.power.pf}</p>
 {/snippet}
 
 <section class="panel {cls}" aria-busy={view === 'day' && waiting}>
-  <h2>{COPY.title}</h2>
+  <h2>{m.power.title}</h2>
   {#if view === 'day' && waiting}
     <!-- The loaded day's own structure, each line a skeleton bar of its text: same breaks, same height. -->
     <div class="ghost" aria-hidden="true">
       <dl class="figs">
         <div>
-          <dt>{COPY.peak}</dt>
+          <dt>{m.power.peak}</dt>
           <dd><strong class="num big skeleton inset">{GHOST.peak}</strong><span class="num when skeleton inset">{GHOST.when}</span></dd>
         </div>
       </dl>
-      <p class="note skeleton inset">{COPY.instant}</p>
+      <p class="note skeleton inset">{m.power.instant}</p>
       {@render kvaGhost()}
       <dl class="figs base">
         <div>
-          <dt>{COPY.base}</dt>
+          <dt>{m.power.base}</dt>
           <dd><strong class="num big skeleton inset">{GHOST.base}</strong></dd>
         </div>
       </dl>
@@ -105,36 +88,36 @@
   {:else}
     <dl class="figs">
       <div>
-        <dt>{COPY.peak}</dt>
+        <dt>{m.power.peak}</dt>
         <!-- {' '}: Svelte trims a block's leading space. -->
         <dd><strong class="num big">{fmtW(src?.peak_w)}</strong>{#if when}{' '}<span class="num when">{when}</span>{/if}</dd>
       </div>
     </dl>
-    {#if src}<p class="muted note">{COPY.instant}</p>{/if}
+    {#if src}<p class="muted note">{m.power.instant}</p>{/if}
     {#if src && waiting}
       <div class="ghost" aria-hidden="true">{@render kvaGhost()}</div>
     {:else if src && kva != null}
-      <p class="muted line">{COPY.kva(kva)}</p>
+      <p class="muted line">{m.power.kva(kva)}</p>
       {#if share != null}
         <div class="meter" aria-hidden="true"><span style:transform="scaleX({Math.min(1, share)})" style:background={SERIES.home}></span></div>
-        <p class="line">{COPY.share(fmtPct(share))}</p>
-        <p class="muted note">{COPY.pf}</p>
+        <p class="line">{m.power.share(fmtPct(share))}</p>
+        <p class="muted note">{m.power.pf}</p>
       {/if}
     {/if}
     <dl class="figs base">
       <div>
-        <dt>{COPY.base}</dt>
+        <dt>{m.power.base}</dt>
         <dd><strong class="num big">{fmtW(src?.base_w_p10)}</strong></dd>
       </div>
     </dl>
     {#if src}
-      {#if src.night_min_w != null}<p class="muted line num">{COPY.night(fmtW(src.night_min_w))}</p>{/if}
-      {#if src.base_w_p10 != null}<p class="muted line num">{COPY.p10(fmtW(src.base_w_p10))}</p>{/if}
+      {#if src.night_min_w != null}<p class="muted line num">{m.power.night(fmtW(src.night_min_w))}</p>{/if}
+      {#if src.base_w_p10 != null}<p class="muted line num">{m.power.p10(fmtW(src.base_w_p10))}</p>{/if}
       {#if floor?.kwh != null}
-        <p class="line num">{COPY.floorDay(fmtKwhExact(floor.kwh), floor.eur != null ? fmtEurExact(floor.eur) : null)}</p>
+        <p class="line num">{m.power.floorDay(fmtKwhExact(floor.kwh), floor.eur != null ? fmtEurExact(floor.eur) : null)}</p>
       {:else if floorWeek != null}
-        <p class="line num">{COPY.floorWeek(fmtKwhExact(floorWeek))}</p>
-        <p class="muted note">{COPY.days(src.days)}</p>
+        <p class="line num">{m.power.floorWeek(fmtKwhExact(floorWeek))}</p>
+        <p class="muted note">{m.power.days(src.days)}</p>
       {/if}
     {:else}
       <p class="muted note">{why}</p>

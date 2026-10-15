@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { EnergyDay } from '$lib/api/types';
 import { parisDayStart } from '$lib/time';
 import PowerPanel from './PowerPanel.svelte';
@@ -80,4 +82,28 @@ describe('PowerPanel', () => {
     expect(screen.getByText('Courbe du jour indisponible.')).toBeInTheDocument();
     expect(container.querySelector('.skeleton')).toBeNull();
   });
+});
+
+it('in English: max power and base load, never “Peak”; the week names its day in en-GB', () => {
+  applyLocale('en');
+  const { container } = render(PowerPanel, { view: 'day', day: day(), week: null });
+  expect(screen.getByRole('heading', { name: 'Power' })).toBeInTheDocument();
+  const t = text(container);
+  expect(t).toContain('Max power (30-min average) 6.84 kW 19:00–19:30');
+  expect(t).toContain('Base load 310 W');
+  expect(t).toContain('12 kVA subscribed power');
+  expect(t).toContain('night minimum (00:00–06:00): 280 W');
+  expect(t).toContain('background use ≈ 7.44 kWh (≈ €1.86)');
+  expect(t).not.toMatch(/\bPeak\b/);
+  const w = render(PowerPanel, { view: 'week', day: day(), week });
+  expect(text(w.container)).toContain('Max power (30-min average) 7.20 kW Tuesday 13 October, 19:00–19:30');
+  expect(text(w.container)).toContain('over 6 days of complete curve');
+});
+it('the skeleton’s stand-in lines follow the language', async () => {
+  const { container } = render(PowerPanel, { view: 'day', day: null, week: null });
+  expect(text(container.querySelector('.ghost')!)).toContain('abonnement 12 kVA');
+  applyLocale('en');
+  await tick();
+  expect(text(container.querySelector('.ghost')!)).toContain('12 kVA subscribed power');
+  expect(text(container.querySelector('.ghost')!)).toContain('night minimum (00:00–06:00): 280 W');
 });

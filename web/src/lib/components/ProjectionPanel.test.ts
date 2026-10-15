@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { Projection } from '$lib/api/types';
 import ProjectionPanel from './ProjectionPanel.svelte';
 
@@ -99,4 +100,23 @@ describe('ProjectionPanel (M4, M5)', () => {
       unmount();
     }
   });
+});
+
+it('in English: a late Linky says so', () => {
+  applyLocale('en');
+  const { container } = render(ProjectionPanel, { projection: null, last: '2026-10-11', today: '2026-10-15' });
+  expect(screen.getByRole('heading', { name: 'Forecast' })).toBeInTheDocument();
+  expect(text(container.querySelector('.note')!)).toBe('Linky readings are late (last day 11 October 2026): no forecast.');
+});
+it('in English: the month, the next 365 days, how it is calculated, the short month names', async () => {
+  applyLocale('en');
+  const { container } = render(ProjectionPanel, { projection, last: '2026-10-14', today: '2026-10-15' });
+  const rows = [...container.querySelectorAll('.row')];
+  expect(text(rows[0])).toBe('October 2026, full month ≈ €412.40 €268.20 of it measured · 3 missing days estimated');
+  expect(text(rows[1])).toBe('Next 365 days ≈ €2,141 15/10/2026 – 14/10/2027');
+  expect(text(container.querySelector('.spark-ends')!)).toBe('Oct 2026Sept 2027');
+  await fireEvent.click(screen.getByText('How it’s calculated'));
+  const d = text(container.querySelector('details')!);
+  expect(d).toContain('Base: 20.00 kWh a day, the average of the recorded days among the 30 days up to 14/10 (at least 7)');
+  expect(d).toContain('Average price €0.2437/kWh: prices of 14/10 weighted by your off-peak share over these 30 days');
 });

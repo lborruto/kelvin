@@ -1,5 +1,5 @@
 import type { Messages } from './fr';
-import type { Day } from '$lib/api/types';
+import type { Day, EnergyGroup } from '$lib/api/types';
 import { intFor, own, pluralFor, type ApiParams } from './rules';
 
 const NB = '\u00a0';
@@ -291,6 +291,155 @@ export const en: Messages = {
     stats: 'less than half the period measured',
     statsOf: (k: number, n: number) =>
       `average of ${int(k)} of ${int(n)} ${plural(n, { one: 'radiator', other: 'radiators' })} (${n - k > 1 ? 'the others' : 'the other one'}: less than half the period measured)`
+  },
+  hero: {
+    estimate: 'estimate',
+    details: 'Period details',
+    radiatorsFigure: (kwh: string) => `Radiators ${kwh}`,
+    hcFigure: (kwh: string) => `Off-peak ${kwh}`,
+    hpFigure: (kwh: string) => `Peak ${kwh}`,
+    breakdown: (energy: string, sub: string) => `Energy ${energy} + standing charge ${sub}`,
+    compare: (change: string, prev: string, n: number) =>
+      `${change} consumption compared with ${prev}, over ${int(n)} comparable ${plural(n, { one: 'day', other: 'days' })}`,
+    missing: (n: number) => `Partial data: ${int(n)} ${plural(n, { one: 'day', other: 'days' })} missing.`,
+    notCounted: 'The energy of those days isn’t counted in the cost.',
+    split: (n: number) =>
+      `Off-peak / peak split estimated for ${int(n)} ${plural(n, { one: 'day', other: 'days' })} without a complete curve.`,
+    interpolated: 'Radiators: energy spread over a recording gap (est.).',
+    retro: (day: string) => `Price of ${day} applied to earlier days.`,
+    sameLength: 'the same length of time just before',
+    radPartial: (pct: string, running: boolean) => `Radiators: coverage ${pct}, partial sum${running ? ' (up to yesterday)' : ''}.`,
+    radNone: 'Radiators: no reading over this period.',
+    noData: 'No data for this period.',
+    tariffLink: 'Enter your tariff',
+    tariffTail: ' to see the cost.'
+  },
+  periodNav: { group: 'Period shown', prev: 'Previous period', next: 'Next period', latest: 'Latest day' },
+  bars: { empty: 'No data yet.', period: 'Period', bars: (label: string) => `Chart bars: ${label}` },
+  chartInspector: { est: 'est.', estNote: 'est.: estimated value, details in', quality: 'Data quality' },
+  compare: {
+    title: 'Comparisons',
+    previous: 'Previous period',
+    sameLength: 'the same length of time just before',
+    lastYear: 'Same period last year',
+    avg4: {
+      day: 'Average of the last 4 days',
+      week: 'Average of the last 4 weeks',
+      month: 'Average of the last 4 months',
+      year: 'Average of the last 4 years'
+    },
+    range: (a: string, b: string) => `${a} – ${b}`,
+    pairs: (n: number) => `over ${int(n)} comparable ${plural(n, { one: 'day', other: 'days' })}`,
+    perDay: (cur: string, prev: string) => `${cur} a day against ${prev}`,
+    fewer: (n: number) => `over ${int(n)} comparable ${plural(n, { one: 'period', other: 'periods' })}`,
+    nothing: 'no recorded day to compare',
+    tooFew: (n: number, of: number) => `${int(n)} of ${int(of)} days comparable: no comparison`,
+    zero: (view: EnergyGroup) => `nothing used ${view === 'day' ? 'that day' : 'over this period'}: no comparison`,
+    noUnits: {
+      day: 'none of the last 4 days is comparable',
+      week: 'none of the last 4 weeks is comparable',
+      month: 'none of the last 4 months is comparable',
+      year: 'none of the last 4 years is comparable'
+    },
+    zeroBefore: 'nothing used over the previous periods',
+    basis: 'Only days recorded on both sides count.',
+    energyOnly: ' The cost compares energy alone, excluding the standing charge.'
+  },
+  hcHp: {
+    title: 'Off-peak / peak',
+    tariffLink: 'Enter your tariff',
+    tariffTail: ' to see the split.',
+    share: 'Off-peak share',
+    slots: (pct: string) => `your off-peak hours cover ${pct} of the day`,
+    none: 'No Linky consumption over the period.',
+    noSlots: 'The tariff has no off-peak hours.',
+    avg: 'Average price paid',
+    perKwh: 'Each kWh moved from peak to off-peak',
+    slider: 'Share of your peak use moved to off-peak',
+    valueText: (pct: number) => `${pct}%`,
+    result: (pct: number, kwh: string, eur: string) => `If ${pct}% of your peak use (${kwh}) were off-peak: ${eur}, for the same consumption.`,
+    formula: (pct: number, hp: string, delta: string, eur: string) => `${pct}% × ${hp} × €${delta}/kWh = ${eur}`,
+    caveat: 'Based on your prices and your consumption, not a guaranteed saving.'
+  },
+  heatingPanel: {
+    title: 'Heating',
+    sentence: 'of the home’s consumption comes from the radiators',
+    days: (n: number, of: number) => ` (${int(n)} of ${int(of)} ${plural(of, { one: 'day', other: 'days' })})`,
+    parts: (rad: string, rest: string) => `${rad} radiators · ${rest} rest`,
+    cost: (eur: string) => `Heating cost ≈${NB}${eur} (energy, excluding the standing charge)`,
+    noCost: 'Heating cost — (no radiator reading over the period)',
+    noTariff: 'Heating cost — (no tariff entered)',
+    unmeasured: (running: boolean) => `No radiator-day measured in full${running ? ' (up to yesterday)' : ''}: partial sum.`,
+    partial: (pct: string, running: boolean) => `Radiators measured on ${pct} of the days${running ? ' (up to yesterday)' : ''}: partial sum.`,
+    running: 'Period in progress: radiators counted up to yesterday.',
+    est: 'est.',
+    inconsistent: 'The radiators exceed the meter: inconsistent data.',
+    none: 'No day covered by both the Linky and every radiator.'
+  },
+  power: {
+    title: 'Power',
+    peak: 'Max power (30-min average)',
+    range: (a: string, b: string) => `${a}–${b}`,
+    instant: 'the instantaneous maximum can be higher',
+    kva: (kva: number) => `${kva}${NB}kVA subscribed power`,
+    share: (pct: string) => `${pct} of the subscribed power (30${NB}min average)`,
+    pf: 'kVA ≈ kW, power factor assumed to be 1',
+    base: 'Base load',
+    night: (w: string) => `night minimum (00:00–06:00): ${w}`,
+    p10: (w: string) => `10% of half-hours are below ${w}`,
+    floorDay: (kwh: string, eur: string | null) => `background use ≈${NB}${kwh}${eur ? ` (≈${NB}${eur})` : ''}`,
+    floorWeek: (kwh: string) => `background use ≈${NB}${kwh} a day`,
+    days: (n: number) => `over ${int(n)} ${plural(n, { one: 'day', other: 'days' })} of complete curve`,
+    noDay: 'No complete curve that day.',
+    noWeek: 'No complete curve this week.',
+    failed: 'The day’s curve is unavailable.'
+  },
+  projection: {
+    title: 'Forecast',
+    covers: 'Current month and next 365 days',
+    month: (month: string) => `${month}, full month`,
+    measured: (v: string) => `${v} of it measured`,
+    filled: (n: number) => `${int(n)} missing ${plural(n, { one: 'day', other: 'days' })} estimated`,
+    rolling: 'Next 365 days',
+    range: (a: string, b: string) => `${a} – ${b}`,
+    approx: (v: string) => `≈${NB}${v}`,
+    estimate: 'Estimate, at the recent pace and today’s prices.',
+    how: 'How it’s calculated',
+    base: (v: string, to: string | null) =>
+      `Base: ${v} a day, the average of the recorded days among the ${to ? `30 days up to ${to}` : 'last 30 days'} (at least 7)`,
+    method: {
+      linear: 'applied as it is to every day ahead (too few days recorded last year to adjust it by month)',
+      seasonal: 'adjusted each month by the same month last year, relative to the same 30 days last year',
+      mixed: 'adjusted by the same month last year when it is known, as it is otherwise'
+    },
+    price: (p: string, d: string) => `Average price ${p}: prices of ${d} weighted by your off-peak share over these 30 days`,
+    monthHow: 'Current month: measured days, plus the base for each remaining or missing day',
+    subscription: 'Standing charge included: at each day’s rate for measured days, at today’s rate for days ahead.',
+    none: 'Not enough recorded days for a forecast yet.',
+    late: (d: string) => `Linky readings are late (last day ${d}): no forecast.`,
+    monthsCaption: 'Forecast for the next 12 months (estimate)',
+    monthCol: 'Month',
+    value: 'Estimate'
+  },
+  quality: {
+    title: 'Data quality',
+    rows: { linky: 'Daily Linky', curve: 'Curve', radiators: 'Radiators' },
+    period: 'Period',
+    mark: { full: 'complete', partial: 'partial', missing: 'missing', none: '—' },
+    partialPct: (pct: string) => `partial (${pct})`,
+    partialNone: 'partial (no full day measured)',
+    legend: { full: 'complete', partial: 'partial', missing: 'missing' },
+    curveSince: (d: string) => `Curve available since ${d}`,
+    radiatorsSince: (d: string) => `Radiators recorded since ${d}`,
+    linkySince: (d: string) => `Linky since ${d}`,
+    estimated: (n: number, share: string, method: string) => `Off-peak/peak days estimated: ${n} (fallback share ${share}, method: ${method})`,
+    gap: (pct: string) => `Mean curve / reading gap: ${pct}`,
+    retro: (n: number) => `First tariff’s price applied to ${int(n)} earlier ${plural(n, { one: 'day', other: 'days' })}`,
+    est: '“est.” marks an estimate: off-peak/peak split without a complete curve, radiator energy spread between two readings, forecast.',
+    method: {
+      curve: 'curve', fallback_window: '±15 days', fallback_month: 'same month', fallback_all: 'whole history',
+      slots: 'off-peak hours length', mixed: 'mixed'
+    }
   },
   cozytouch: {
     auth: 'Cozytouch refused the sign-in.',

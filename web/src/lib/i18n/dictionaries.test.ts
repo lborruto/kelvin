@@ -17,11 +17,23 @@ export const ARGS: Record<string, unknown[]> = {
   'inspector.rates': [[['a', '1'], ['b', '2']]],
   'roomEnergy.roomFrom': [1, 2, '7/10'],
   'roomEnergy.roomPartial': [1, 2],
-  'roomEnergy.statsOf': [1, 3]
+  'roomEnergy.statsOf': [1, 3],
+  'hero.compare': ['C1', 'P', 12],
+  'compare.tooFew': [9, 13],
+  'heatingPanel.days': [3, 12],
+  'heatingPanel.unmeasured': [true],
+  'heatingPanel.partial': ['P', true],
+  'hero.radPartial': ['P', true],
+  'compare.zero': ['day'],
+  'power.floorDay': ['K', 'E'],
+  'projection.base': ['V', '12/10']
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
-export const SAME = new Set<string>(['page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord']);
+export const SAME = new Set<string>([
+  'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
+  'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none'
+]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
   return Object.entries(o).flatMap(([k, v]) =>

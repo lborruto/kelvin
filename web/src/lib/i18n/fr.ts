@@ -1,4 +1,4 @@
-import type { Day } from '$lib/api/types';
+import type { Day, EnergyGroup } from '$lib/api/types';
 import { intFor, own, pluralFor, type ApiParams } from './rules';
 
 const NB = '\u00a0';
@@ -301,6 +301,164 @@ export const fr = {
     stats: 'moins de la moitié de la période mesurée',
     statsOf: (k: number, n: number) =>
       `moyenne de ${int(k)} ${plural(k, { one: 'radiateur', other: 'radiateurs' })} sur ${int(n)} (${n - k > 1 ? 'les autres' : 'l’autre'}${NB}: moins de la moitié de la période mesurée)`
+  },
+  hero: {
+    estimate: 'estimation',
+    details: 'Détail de la période',
+    radiatorsFigure: (kwh: string) => `Radiateurs ${kwh}`,
+    hcFigure: (kwh: string) => `HC ${kwh}`,
+    hpFigure: (kwh: string) => `HP ${kwh}`,
+    breakdown: (energy: string, sub: string) => `Énergie ${energy} + abonnement ${sub}`,
+    compare: (change: string, prev: string, n: number) =>
+      `${change} de consommation par rapport à ${prev}, sur ${int(n)} ${plural(n, { one: 'jour comparable', other: 'jours comparables' })}`,
+    missing: (n: number) => `Données partielles${NB}: ${int(n)} ${plural(n, { one: 'jour manquant', other: 'jours manquants' })}.`,
+    notCounted: 'L’énergie de ces jours n’est pas comptée dans le coût.',
+    split: (n: number) =>
+      `Répartition heures creuses / pleines estimée pour ${int(n)} ${plural(n, { one: 'jour sans courbe complète', other: 'jours sans courbe complète' })}.`,
+    interpolated: `Radiateurs${NB}: énergie répartie sur une interruption de l’enregistrement (est.).`,
+    retro: (day: string) => `Prix du ${day} appliqué aux jours antérieurs.`,
+    sameLength: 'la même durée juste avant',
+    // « jusqu’à hier » only for a running period: a closed one counts all its days.
+    radPartial: (pct: string, running: boolean) => `Radiateurs${NB}: couverture ${pct}, somme partielle${running ? ' (jusqu’à hier)' : ''}.`,
+    radNone: `Radiateurs${NB}: aucun relevé sur cette période.`,
+    noData: 'Aucune donnée pour cette période.',
+    tariffLink: 'Renseignez le tarif',
+    tariffTail: ' pour voir le coût.'
+  },
+  periodNav: { group: 'Période affichée', prev: 'Période précédente', next: 'Période suivante', latest: 'Dernier jour' },
+  bars: { empty: 'Pas encore de données.', period: 'Période', bars: (label: string) => `Barres du graphique${NB}: ${label}` },
+  chartInspector: { est: 'est.', estNote: `est.${NB}: valeur estimée, détail dans`, quality: 'Qualité des données' },
+  compare: {
+    title: 'Comparaisons',
+    previous: 'Période précédente',
+    sameLength: 'la même durée juste avant',
+    lastYear: 'Même période l’an dernier',
+    avg4: {
+      day: 'Moyenne des 4 derniers jours',
+      week: 'Moyenne des 4 dernières semaines',
+      month: 'Moyenne des 4 derniers mois',
+      year: 'Moyenne des 4 dernières années'
+    },
+    range: (a: string, b: string) => `${a} – ${b}`,
+    pairs: (n: number) => `sur ${int(n)} ${plural(n, { one: 'jour comparable', other: 'jours comparables' })}`,
+    perDay: (cur: string, prev: string) => `${cur} par jour contre ${prev}`,
+    fewer: (n: number) => `sur ${int(n)} ${plural(n, { one: 'période comparable', other: 'périodes comparables' })}`,
+    // Why a row reads « — ».
+    nothing: 'aucun jour relevé à comparer',
+    tooFew: (n: number, of: number) =>
+      `${int(n)} ${plural(n, { one: 'jour comparable', other: 'jours comparables' })} sur ${int(of)}${NB}: pas de comparaison`,
+    zero: (view: EnergyGroup) => `rien de consommé ${view === 'day' ? 'ce jour-là' : 'sur cette période'}${NB}: pas de comparaison`,
+    noUnits: {
+      day: 'aucun des 4 derniers jours n’est comparable',
+      week: 'aucune des 4 dernières semaines n’est comparable',
+      month: 'aucun des 4 derniers mois n’est comparable',
+      year: 'aucune des 4 dernières années n’est comparable'
+    },
+    zeroBefore: 'rien de consommé sur les périodes précédentes',
+    basis: 'Seuls les jours relevés des deux côtés comptent.',
+    energyOnly: ' Le coût compare l’énergie seule, hors abonnement.'
+  },
+  hcHp: {
+    title: 'Heures creuses / pleines',
+    tariffLink: 'Renseignez le tarif',
+    tariffTail: ' pour voir la répartition.',
+    share: 'Part en heures creuses',
+    slots: (pct: string) => `vos heures creuses durent ${pct} de la journée`,
+    none: 'Aucune consommation Linky sur la période.',
+    noSlots: 'Le tarif n’a pas d’heures creuses.',
+    avg: 'Prix moyen payé',
+    perKwh: 'Chaque kWh passé d’HP en HC',
+    slider: 'Part de vos heures pleines déplacée en heures creuses',
+    valueText: (pct: number) => `${pct}${NB}%`,
+    result: (pct: number, kwh: string, eur: string) =>
+      `Si ${pct}${NB}% de vos HP (${kwh}) étaient en HC${NB}: ${eur}, à consommation identique.`,
+    formula: (pct: number, hp: string, delta: string, eur: string) => `${pct}${NB}% × ${hp} × ${delta}${NB}€/kWh = ${eur}`,
+    caveat: 'Calcul sur vos prix et votre consommation, pas une économie garantie.'
+  },
+  heatingPanel: {
+    title: 'Chauffage',
+    sentence: 'de la consommation de la maison vient des radiateurs',
+    days: (n: number, of: number) => ` (${int(n)} ${plural(n, { one: 'jour', other: 'jours' })} sur ${int(of)})`,
+    parts: (rad: string, rest: string) => `${rad} radiateurs · ${rest} reste`,
+    cost: (eur: string) => `Coût du chauffage ≈${NB}${eur} (énergie, hors abonnement)`,
+    noCost: 'Coût du chauffage — (aucun relevé de radiateur sur la période)',
+    noTariff: 'Coût du chauffage — (pas de tarif renseigné)',
+    // « jusqu’à hier » only for a running period: a closed one counts all its days.
+    unmeasured: (running: boolean) => `Aucun jour de radiateur mesuré en entier${running ? ' (jusqu’à hier)' : ''}${NB}: somme partielle.`,
+    partial: (pct: string, running: boolean) =>
+      `Radiateurs mesurés sur ${pct} des jours${running ? ' (jusqu’à hier)' : ''}${NB}: somme partielle.`,
+    running: `Période en cours${NB}: radiateurs comptés jusqu’à hier.`,
+    est: 'est.',
+    inconsistent: `Les radiateurs dépassent le compteur${NB}: données incohérentes.`,
+    none: 'Aucun jour couvert à la fois par le Linky et par tous les radiateurs.'
+  },
+  power: {
+    title: 'Puissance',
+    // Linky's curve is half-hour means: the highest one, never an instantaneous peak.
+    peak: 'Pointe moyenne sur 30 min',
+    range: (a: string, b: string) => `${a}–${b}`,
+    instant: 'la pointe instantanée peut être plus élevée',
+    kva: (kva: number) => `abonnement ${kva}${NB}kVA`,
+    share: (pct: string) => `${pct} de la puissance souscrite (moyenne 30${NB}min)`,
+    pf: 'kVA ≈ kW, facteur de puissance supposé 1',
+    base: 'Talon (veille)',
+    night: (w: string) => `minimum de nuit (00:00–06:00)${NB}: ${w}`,
+    p10: (w: string) => `10${NB}% des demi-heures sont sous ${w}`,
+    floorDay: (kwh: string, eur: string | null) => `consommation de fond ≈${NB}${kwh}${eur ? ` (≈${NB}${eur})` : ''}`,
+    floorWeek: (kwh: string) => `consommation de fond ≈${NB}${kwh} par jour`,
+    days: (n: number) => `sur ${int(n)} ${plural(n, { one: 'jour de courbe complète', other: 'jours de courbe complète' })}`,
+    noDay: 'Pas de courbe complète ce jour-là.',
+    noWeek: 'Pas de courbe complète cette semaine.',
+    failed: 'Courbe du jour indisponible.'
+  },
+  projection: {
+    title: 'Projection',
+    /** Always shown: the projection follows the latest Linky day, not the period on screen. */
+    covers: 'Mois en cours et 365 prochains jours',
+    month: (month: string) => `${month}, mois complet`,
+    measured: (v: string) => `dont ${v} mesurés`,
+    filled: (n: number) => `${int(n)} ${plural(n, { one: 'jour manquant estimé', other: 'jours manquants estimés' })}`,
+    rolling: '365 prochains jours',
+    range: (a: string, b: string) => `${a} – ${b}`,
+    approx: (v: string) => `≈${NB}${v}`,
+    estimate: 'Estimation, au rythme récent et aux prix d’aujourd’hui.',
+    how: 'Comment c’est calculé',
+    // The backend's formula (report.py `_projection`), step by step.
+    base: (v: string, to: string | null) =>
+      `Base${NB}: ${v} par jour, moyenne des jours relevés parmi les 30 jours ${to ? `jusqu’au ${to}` : 'les plus récents'} (7 au moins)`,
+    method: {
+      linear: 'appliquée telle quelle à chaque jour à venir (trop peu de jours relevés l’an dernier pour l’ajuster par mois)',
+      seasonal: 'ajustée chaque mois selon le même mois de l’an dernier, rapporté aux mêmes 30 jours de l’an dernier',
+      mixed: 'ajustée selon le même mois de l’an dernier quand il est connu, telle quelle sinon'
+    },
+    price: (p: string, d: string) => `Prix moyen ${p}${NB}: prix du ${d} pondérés par votre part d’heures creuses sur ces 30 jours`,
+    monthHow: `Mois en cours${NB}: jours mesurés, plus la base pour chaque jour restant ou manquant`,
+    subscription: `Abonnement compris${NB}: au tarif de chaque jour pour les jours mesurés, au tarif d’aujourd’hui pour les jours à venir.`,
+    none: 'Pas encore assez de jours relevés pour une projection.',
+    late: (d: string) => `Relevés Linky en retard (dernier jour le ${d})${NB}: pas de projection.`,
+    monthsCaption: 'Projection des 12 prochains mois (estimation)',
+    monthCol: 'Mois',
+    value: 'Estimation'
+  },
+  quality: {
+    title: 'Qualité des données',
+    rows: { linky: 'Linky journalier', curve: 'Courbe', radiators: 'Radiateurs' },
+    period: 'Période',
+    mark: { full: 'complet', partial: 'partiel', missing: 'manquant', none: '—' },
+    partialPct: (pct: string) => `partiel (${pct})`,
+    partialNone: 'partiel (aucun jour entier mesuré)',
+    legend: { full: 'complet', partial: 'partiel', missing: 'manquant' },
+    curveSince: (d: string) => `Courbe disponible depuis le ${d}`,
+    radiatorsSince: (d: string) => `Radiateurs enregistrés depuis le ${d}`,
+    linkySince: (d: string) => `Linky depuis le ${d}`,
+    estimated: (n: number, share: string, method: string) => `Jours HC/HP estimés${NB}: ${n} (part de repli ${share}, méthode${NB}: ${method})`,
+    gap: (pct: string) => `Écart moyen courbe / relevé${NB}: ${pct}`,
+    retro: (n: number) => `Prix du premier tarif appliqué à ${int(n)} ${plural(n, { one: 'jour antérieur', other: 'jours antérieurs' })}`,
+    est: `«${NB}est.${NB}» marque une estimation${NB}: répartition HC/HP sans courbe complète, énergie des radiateurs répartie entre deux relevés, projection.`,
+    method: {
+      curve: 'courbe', fallback_window: '±15 jours', fallback_month: 'même mois', fallback_all: 'tout l’historique',
+      slots: 'durée des heures creuses', mixed: 'mixte'
+    }
   },
   cozytouch: {
     auth: 'Cozytouch refuse la connexion.',

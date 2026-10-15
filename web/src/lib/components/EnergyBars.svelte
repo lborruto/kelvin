@@ -11,15 +11,10 @@
   import ChartInspector from './ChartInspector.svelte';
   import { cardLeft, nearestIndex, stepIndex, swipeDirection } from '$lib/chart';
   import { fmtKwh } from '$lib/format';
+  import { m } from '$lib/i18n';
   import { inspectionTable, type Inspection } from '$lib/inspector';
   import { desktop } from '$lib/media.svelte';
   import { announcer } from '$lib/stores/announcer.svelte';
-
-  const COPY = {
-    empty: 'Pas encore de données.',
-    period: 'Période',
-    bars: (label: string) => `Barres du graphique : ${label}`
-  } as const;
 
   interface Group {
     label: string;
@@ -245,7 +240,7 @@
 {/snippet}
 
 {#if !groups.length}
-  <p class="muted empty">{COPY.empty}</p>
+  <p class="muted empty">{m.bars.empty}</p>
 {:else}
   <!-- Pointer selection is a convenience for mouse and touch; the keyboard uses the bar buttons below. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -293,7 +288,7 @@
       {/if}
     </svg>
     {#if details}
-      <div class="keys" role="group" aria-label={COPY.bars(label)}>
+      <div class="keys" role="group" aria-label={m.bars.bars(label)}>
         {#each groups as g, i (g.label)}
           <button
             bind:this={buttons[i]}
@@ -334,7 +329,7 @@
     <caption>{label}</caption>
     {#if table}
       <thead>
-        <tr><th scope="col">{COPY.period}</th>{#each table.columns as c (c.key)}<th scope="col">{c.label}</th>{/each}</tr>
+        <tr><th scope="col">{m.bars.period}</th>{#each table.columns as c (c.key)}<th scope="col">{c.label}</th>{/each}</tr>
       </thead>
       <tbody>
         {#each table.rows as r, i (i)}
@@ -344,7 +339,7 @@
     {:else}
       <thead>
         <tr>
-          <th scope="col">{COPY.period}</th>
+          <th scope="col">{m.bars.period}</th>
           {#each keys as k (k)}<th scope="col">{names[k] ?? k}</th>{/each}
           {#if overlay}<th scope="col">{overlay.label}</th>{/if}
         </tr>

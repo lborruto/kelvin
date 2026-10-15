@@ -2,32 +2,11 @@
   import type { EnergyGroup, EnergyReport, Quality, SplitMethod } from '$lib/api/types';
   import { bucketLabel, bucketSpan } from '$lib/energy';
   import { fmtDateLong, fmtPct1 } from '$lib/format';
+  import { m } from '$lib/i18n';
   import { ANCHORS } from '$lib/paths';
-  import { plural } from '$lib/plural';
   import Icon from './Icon.svelte';
 
   type Mark = 'full' | 'partial' | 'missing' | 'none';
-  const COPY = {
-    title: 'Qualité des données',
-    rows: { linky: 'Linky journalier', curve: 'Courbe', radiators: 'Radiateurs' },
-    period: 'Période',
-    mark: { full: 'complet', partial: 'partiel', missing: 'manquant', none: '—' } as Record<Mark, string>,
-    partialPct: (pct: string) => `partiel (${pct})`,
-    partialNone: 'partiel (aucun jour entier mesuré)',
-    legend: { full: 'complet', partial: 'partiel', missing: 'manquant' },
-    curveSince: (d: string) => `Courbe disponible depuis le ${d}`,
-    radiatorsSince: (d: string) => `Radiateurs enregistrés depuis le ${d}`,
-    linkySince: (d: string) => `Linky depuis le ${d}`,
-    estimated: (n: number, share: string, method: string) => `Jours HC/HP estimés\u00a0: ${n} (part de repli ${share}, méthode\u00a0: ${method})`,
-    gap: (pct: string) => `Écart moyen courbe / relevé\u00a0: ${pct}`,
-    retro: (n: number) => `Prix du premier tarif appliqué à ${plural(n, 'jour antérieur', 'jours antérieurs')}`,
-    est: '« est. » marque une estimation\u00a0: répartition HC/HP sans courbe complète, énergie des radiateurs répartie entre deux relevés, projection.',
-    method: {
-      curve: 'courbe', fallback_window: '±15 jours', fallback_month: 'même mois', fallback_all: 'tout l’historique',
-      slots: 'durée des heures creuses', mixed: 'mixte'
-    } as Record<SplitMethod, string>
-  } as const;
-
   interface Props {
     /** The selected period's buckets: one strip cell each (in Jour, the day's alone, not the 7 bars). */
     buckets: EnergyReport['buckets'];
@@ -81,26 +60,26 @@
     return b.radiators.coverage == null || b.radiators.coverage >= 1 ? 'full' : 'partial';
   };
   // A coverage that rounds to « 0,0 % » is no figure: it says that no radiator-day was fully measured.
-  const word = (m: Mark, b: Bucket) => {
+  const word = (mark: Mark, b: Bucket) => {
     const c = b.radiators?.coverage;
-    if (m !== 'partial' || c == null) return COPY.mark[m];
-    return c >= 0.0005 ? COPY.partialPct(fmtPct1(c)) : COPY.partialNone;
+    if (mark !== 'partial' || c == null) return m.quality.mark[mark];
+    return c >= 0.0005 ? m.quality.partialPct(fmtPct1(c)) : m.quality.partialNone;
   };
   let strip = $derived([
-    { label: COPY.rows.linky, marks: buckets.map(linky) },
-    { label: COPY.rows.curve, marks: buckets.map(curve) },
-    { label: COPY.rows.radiators, marks: buckets.map(radiators) }
+    { label: m.quality.rows.linky, marks: buckets.map(linky) },
+    { label: m.quality.rows.curve, marks: buckets.map(curve) },
+    { label: m.quality.rows.radiators, marks: buckets.map(radiators) }
   ]);
   let facts = $derived(
     [
-      quality.linky_since ? COPY.linkySince(fmtDateLong(quality.linky_since)) : null,
-      quality.curve_since ? COPY.curveSince(fmtDateLong(quality.curve_since)) : null,
-      quality.radiators_since ? COPY.radiatorsSince(fmtDateLong(quality.radiators_since)) : null,
+      quality.linky_since ? m.quality.linkySince(fmtDateLong(quality.linky_since)) : null,
+      quality.curve_since ? m.quality.curveSince(fmtDateLong(quality.curve_since)) : null,
+      quality.radiators_since ? m.quality.radiatorsSince(fmtDateLong(quality.radiators_since)) : null,
       quality.estimated_days > 0 && quality.fallback_method
-        ? COPY.estimated(quality.estimated_days, fmtPct1(quality.fallback_share), COPY.method[quality.fallback_method])
+        ? m.quality.estimated(quality.estimated_days, fmtPct1(quality.fallback_share), m.quality.method[quality.fallback_method])
         : null,
-      quality.curve_vs_daily_pct != null ? COPY.gap(fmtPct1(quality.curve_vs_daily_pct / 100)) : null,
-      quality.retro_priced_days > 0 ? COPY.retro(quality.retro_priced_days) : null
+      quality.curve_vs_daily_pct != null ? m.quality.gap(fmtPct1(quality.curve_vs_daily_pct / 100)) : null,
+      quality.retro_priced_days > 0 ? m.quality.retro(quality.retro_priced_days) : null
     ].filter((x): x is string => !!x)
   );
 </script>
@@ -110,7 +89,7 @@
 <section id={ANCHORS.quality} class="panel {cls}" class:open aria-labelledby="{uid}-title">
   <h2 class="qtitle">
     <button type="button" id="{uid}-title" class="disclose" aria-expanded={open} aria-controls="{uid}-body" onclick={() => (open = !open)}>
-      <span class="chev" class:on={open} aria-hidden="true"><Icon name="chevron" size={16} /></span>{COPY.title}
+      <span class="chev" class:on={open} aria-hidden="true"><Icon name="chevron" size={16} /></span>{m.quality.title}
     </button>
   </h2>
   <!-- Hidden until found: find-in-page still reaches the facts and opens the panel (`beforematch`); a browser without
@@ -120,33 +99,33 @@
     {#each strip as row (row.label)}
       <div class="row">
         <span class="label">{row.label}</span>
-        <span class="cells">{#each row.marks as m, i (i)}<span class="cell {m}"></span>{/each}</span>
+        <span class="cells">{#each row.marks as mark, i (i)}<span class="cell {mark}"></span>{/each}</span>
       </div>
     {/each}
   </div>
   <ul class="legend" aria-hidden="true">
-    <li><span class="cell full"></span>{COPY.legend.full}</li>
-    <li><span class="cell partial"></span>{COPY.legend.partial}</li>
-    <li><span class="cell missing"></span>{COPY.legend.missing}</li>
+    <li><span class="cell full"></span>{m.quality.legend.full}</li>
+    <li><span class="cell partial"></span>{m.quality.legend.partial}</li>
+    <li><span class="cell missing"></span>{m.quality.legend.missing}</li>
   </ul>
   <div class="visually-hidden"><table>
-    <caption>{COPY.title}</caption>
+    <caption>{m.quality.title}</caption>
     <thead>
-      <tr><th scope="col">{COPY.period}</th><th scope="col">{COPY.rows.linky}</th><th scope="col">{COPY.rows.curve}</th><th scope="col">{COPY.rows.radiators}</th></tr>
+      <tr><th scope="col">{m.quality.period}</th><th scope="col">{m.quality.rows.linky}</th><th scope="col">{m.quality.rows.curve}</th><th scope="col">{m.quality.rows.radiators}</th></tr>
     </thead>
     <tbody>
       {#each buckets as b, i (b.key)}
         <tr>
           <th scope="row">{bucketLabel(b.key, group)}</th>
-          <td>{COPY.mark[strip[0].marks[i]]}</td>
-          <td>{COPY.mark[strip[1].marks[i]]}</td>
+          <td>{m.quality.mark[strip[0].marks[i]]}</td>
+          <td>{m.quality.mark[strip[1].marks[i]]}</td>
           <td>{word(strip[2].marks[i], b)}</td>
         </tr>
       {/each}
     </tbody>
   </table></div>
   <ul class="facts">{#each facts as f (f)}<li>{f}</li>{/each}</ul>
-  <p class="muted note">{COPY.est}</p>
+  <p class="muted note">{m.quality.est}</p>
   </div>
 </section>
 

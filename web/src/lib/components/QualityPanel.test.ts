@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { EnergyReport, Quality } from '$lib/api/types';
 import QualityPanel from './QualityPanel.svelte';
 
@@ -115,4 +116,17 @@ describe('QualityPanel', () => {
     expect(row(0)).toEqual(['partial', 'full', 'none']);
     expect(row(1)).toEqual(['full', 'full', 'none']);
   });
+});
+
+it('in English: the heading, the legend, the hidden table and the facts', () => {
+  applyLocale('en');
+  const { container } = render(QualityPanel, { buckets, group: 'day', quality });
+  expect(screen.getByRole('heading', { level: 2, name: 'Data quality' })).toBeInTheDocument();
+  expect([...container.querySelectorAll('.legend li')].map((l) => l.textContent)).toEqual(['complete', 'partial', 'missing']);
+  const cells = [...container.querySelectorAll('.visually-hidden tbody tr')[1].querySelectorAll('td')].map((t) => t.textContent);
+  expect(cells).toEqual(['complete', 'missing', 'partial (50.0%)']);
+  const t = container.textContent!.replace(/\s+/g, ' ');
+  expect(t).toContain('Off-peak/peak days estimated: 3 (fallback share 36.2%, method: ±15 days)');
+  expect(t).toContain('First tariff’s price applied to 6 earlier days');
+  expect(t).toContain('Curve available since 15 January 2026');
 });

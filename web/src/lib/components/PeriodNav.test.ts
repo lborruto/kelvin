@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import PeriodNav from './PeriodNav.svelte';
 
 describe('PeriodNav', () => {
@@ -34,4 +35,11 @@ describe('PeriodNav', () => {
     expect(onlatest).toHaveBeenCalledTimes(2);
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Période suivante' }));
   });
+});
+
+it('in English: the group and its buttons', () => {
+  applyLocale('en');
+  render(PeriodNav, { title: 'October 2026', canPrev: true, canNext: true, latest: false, onstep: vi.fn(), onlatest: vi.fn() });
+  expect(screen.getByRole('group', { name: 'Period shown' })).toBeInTheDocument();
+  for (const name of ['Previous period', 'Next period', 'Latest day']) expect(screen.getByRole('button', { name })).toBeInTheDocument();
 });

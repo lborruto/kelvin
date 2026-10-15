@@ -1,5 +1,6 @@
 import { render } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import type { Comparison } from '$lib/api/types';
 import ComparePanel from './ComparePanel.svelte';
 
@@ -79,4 +80,17 @@ describe('ComparePanel (M3)', () => {
     });
     expect(rows(container)[1]).toBe('Même période l’an dernier 13/10/2025 – 15/10/2025 −7 % −14,20 kWh sur 3 jours comparables');
   });
+});
+
+it('in English: named bases, en-GB figures, € before the figure', () => {
+  applyLocale('en');
+  const { container } = render(ComparePanel, {
+    comparison: { basis: 'unit', previous: cmp(), last_year: cmp({ from: '2025-10-01', pairs: 9, of: 13, comparable: false, change: null }), avg4: null },
+    view: 'month',
+    tariff: true
+  });
+  const r = rows(container);
+  expect(r[0]).toBe('Previous period September 2026 −7% −14.20 kWh · −€3.61 over 13 comparable days');
+  expect(r[1]).toBe('Same period last year October 2025 — 9 of 13 days comparable: no comparison');
+  expect(r[2]).toBe('Average of the last 4 months — no recorded day to compare');
 });

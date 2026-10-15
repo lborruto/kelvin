@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
+import { applyLocale } from '$lib/i18n';
 import HcHpPanel from './HcHpPanel.svelte';
 
 const lens = { hc_share: 0.384, slot_share: 0.3333, avg_price: 0.2437, delta_price: 0.0632 };
@@ -44,4 +45,17 @@ describe('HcHpPanel', () => {
     expect(screen.getByText('Aucune consommation Linky sur la période.')).toBeInTheDocument();
     expect(container.querySelector('input')).toBeNull();
   });
+});
+
+it('in English: off-peak share, prices with € first, the slider and its sentence', () => {
+  applyLocale('en');
+  const { container } = render(HcHpPanel, { lens, tariff: true, hpKwh: 254.3 });
+  const t = text(container);
+  expect(t).toContain('Off-peak share 38.4%');
+  expect(t).toContain('your off-peak hours cover 33.3% of the day');
+  expect(t).toContain('Average price paid €0.2437/kWh');
+  expect(t).toContain('Each kWh moved from peak to off-peak −€0.0632/kWh');
+  expect(t).toContain('If 10% of your peak use (25.43 kWh) were off-peak: −€1.61, for the same consumption.');
+  expect(t).toContain('10% × 254.30 kWh × €0.0632/kWh = €1.61');
+  expect(screen.getByRole('slider', { name: 'Share of your peak use moved to off-peak' })).toHaveAttribute('aria-valuetext', '10%');
 });
