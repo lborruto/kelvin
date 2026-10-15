@@ -85,6 +85,10 @@ HTTP status (mostly 422; 401, 403, 404, 429, 503 where they apply). `code` and `
 stable contract the web app translates (`web/src/lib/i18n/api-codes.json` lists every code);
 `detail` stays French for curl, logs and older clients. The full list is `kelvin/errors.py`.
 `DELETE /api/overrides/{id}` may return `202 {"pending": null}` when there is nothing to restore.
+A pending's `label` and `error` stay French; `label_code`/`label_params` and
+`error_code`/`error_params` are the codes the web translates, and `reason_code` (`quota`, `auth`,
+`network`, `unknown`) says why a send failed. `GET /api/status` carries the same kind of code in
+`overkiz.last_error_code`. Params hold keys and figures only, never an id, an email or a token.
 An ended boost or away stays listed with `"restoring": true` until the device confirms the restore;
 a restore the device does not confirm is retried after 30 s, then less and less often, at most every 30 min.
 

@@ -1,0 +1,356 @@
+{
+  "errors": {
+    "bad_credentials": {
+      "fr": "Email ou mot de passe Cozytouch incorrect.",
+      "params": {}
+    },
+    "cozytouch_unavailable": {
+      "fr": "Cozytouch injoignable, réessayez plus tard.",
+      "params": {}
+    },
+    "cozytouch_unreachable": {
+      "fr": "Cozytouch injoignable, réessayez dans un instant.",
+      "params": {}
+    },
+    "day_unknown": {
+      "fr": "Jour inconnu : funday.",
+      "params": {
+        "day": "funday"
+      }
+    },
+    "end_in_past": {
+      "fr": "La fin doit être dans le futur.",
+      "params": {}
+    },
+    "feature_unknown": {
+      "fr": "Fonction inconnue : turbo.",
+      "params": {
+        "feature": "turbo"
+      }
+    },
+    "header_missing": {
+      "fr": "En-tête X-Kelvin manquant.",
+      "params": {}
+    },
+    "intensity_light_off": {
+      "fr": "L’intensité ne peut être réglée que veilleuse allumée.",
+      "params": {}
+    },
+    "intensity_range": {
+      "fr": "L’intensité doit être comprise entre 1 et 100 %.",
+      "params": {}
+    },
+    "invalid_request": {
+      "fr": "Requête invalide.",
+      "params": {}
+    },
+    "kva_unknown": {
+      "fr": "Puissance souscrite inconnue.",
+      "params": {}
+    },
+    "linky_quota": {
+      "fr": "Quota Linky du jour atteint : réessayez demain.",
+      "params": {}
+    },
+    "linky_refused": {
+      "fr": "MyElectricalData refuse ce PDL ou ce jeton.",
+      "params": {}
+    },
+    "linky_status_auth": {
+      "fr": "MyElectricalData refuse le jeton : renouvelez-le dans Réglages.",
+      "params": {}
+    },
+    "linky_status_error": {
+      "fr": "Synchronisation Linky en échec.",
+      "params": {}
+    },
+    "linky_status_quota": {
+      "fr": "Quota Linky du jour atteint : reprise demain.",
+      "params": {}
+    },
+    "linky_status_throttled": {
+      "fr": "Enedis limite les requêtes : nouvel essai à 14:30.",
+      "params": {
+        "at": "14:30"
+      }
+    },
+    "linky_throttled": {
+      "fr": "Enedis limite les requêtes : réessayez plus tard.",
+      "params": {}
+    },
+    "linky_unavailable": {
+      "fr": "Linky indisponible.",
+      "params": {}
+    },
+    "login_required": {
+      "fr": "Connexion requise.",
+      "params": {}
+    },
+    "med_unreachable": {
+      "fr": "MyElectricalData injoignable, réessayez plus tard.",
+      "params": {}
+    },
+    "method_not_allowed": {
+      "fr": "Méthode non autorisée.",
+      "params": {}
+    },
+    "mode_unknown": {
+      "fr": "Mode inconnu : turbo.",
+      "params": {
+        "mode": "turbo"
+      }
+    },
+    "name_length": {
+      "fr": "Le nom doit faire entre 1 et 32 caractères.",
+      "params": {}
+    },
+    "no_confirmation": {
+      "fr": "Pas de confirmation du radiateur.",
+      "params": {}
+    },
+    "no_night_light": {
+      "fr": "Ce radiateur n’a pas de veilleuse.",
+      "params": {}
+    },
+    "no_radiator": {
+      "fr": "Aucun radiateur.",
+      "params": {}
+    },
+    "not_found": {
+      "fr": "Introuvable.",
+      "params": {}
+    },
+    "nothing_to_change": {
+      "fr": "Rien à modifier.",
+      "params": {}
+    },
+    "override_not_found": {
+      "fr": "Forçage ou absence introuvable.",
+      "params": {}
+    },
+    "pdl_invalid": {
+      "fr": "Le PDL compte 14 chiffres.",
+      "params": {}
+    },
+    "period_invalid": {
+      "fr": "Période invalide.",
+      "params": {}
+    },
+    "price_hc_invalid": {
+      "fr": "Prix du kWh en heures creuses invalide.",
+      "params": {}
+    },
+    "price_hp_invalid": {
+      "fr": "Prix du kWh en heures pleines invalide.",
+      "params": {}
+    },
+    "price_subscription_invalid": {
+      "fr": "Prix de l’abonnement invalide.",
+      "params": {}
+    },
+    "program_overlap": {
+      "fr": "mardi : des plages se chevauchent.",
+      "params": {
+        "day": "tuesday"
+      }
+    },
+    "program_slot_invalid": {
+      "fr": "lundi : la plage 10:00–09:00 est invalide.",
+      "params": {
+        "day": "monday",
+        "end": "09:00",
+        "start": "10:00"
+      }
+    },
+    "program_time_invalid": {
+      "fr": "lundi : heure invalide « 25:00 » (format HH:MM).",
+      "params": {
+        "day": "monday",
+        "value": "25:00"
+      }
+    },
+    "program_too_many": {
+      "fr": "dimanche : 3 plages confort au maximum.",
+      "params": {
+        "day": "sunday"
+      }
+    },
+    "quotas_unavailable": {
+      "fr": "Quotas indisponibles.",
+      "params": {}
+    },
+    "radiator_refused": {
+      "fr": "Le radiateur a refusé la commande.",
+      "params": {}
+    },
+    "radiator_unknown": {
+      "fr": "Radiateur inconnu.",
+      "params": {}
+    },
+    "radiator_unknown_id": {
+      "fr": "Radiateur inconnu dans la demande.",
+      "params": {}
+    },
+    "room_unknown": {
+      "fr": "Pièce inconnue.",
+      "params": {}
+    },
+    "send_failed": {
+      "fr": "Envoi impossible : timeout",
+      "params": {
+        "reason": "timeout"
+      }
+    },
+    "send_internal": {
+      "fr": "Envoi impossible : erreur interne.",
+      "params": {}
+    },
+    "setpoint_kind_unknown": {
+      "fr": "Type de consigne inconnu : turbo.",
+      "params": {
+        "kind": "turbo"
+      }
+    },
+    "slot_empty": {
+      "fr": "Une plage d’heures creuses ne peut pas être vide.",
+      "params": {}
+    },
+    "slot_time_invalid": {
+      "fr": "Heure invalide : 24:00 (format HH:MM).",
+      "params": {
+        "value": "24:00"
+      }
+    },
+    "slots_none": {
+      "fr": "Indiquez au moins une plage d’heures creuses.",
+      "params": {}
+    },
+    "slots_overlap": {
+      "fr": "Les plages d’heures creuses se chevauchent.",
+      "params": {}
+    },
+    "slots_too_many": {
+      "fr": "Trois plages d’heures creuses au maximum.",
+      "params": {}
+    },
+    "tariff_option_unsupported": {
+      "fr": "Seule l’option heures pleines / heures creuses est disponible.",
+      "params": {}
+    },
+    "temp_range": {
+      "fr": "La température confort doit être comprise entre 12 et 28 °C.",
+      "params": {
+        "kind": "comfort",
+        "max": 28.0,
+        "min": 12.0
+      }
+    },
+    "temp_step": {
+      "fr": "L’abaissement éco se règle par pas de 0,5 °C.",
+      "params": {
+        "kind": "eco"
+      }
+    },
+    "token_missing": {
+      "fr": "Collez le jeton MyElectricalData.",
+      "params": {}
+    },
+    "too_many_attempts": {
+      "fr": "Trop de tentatives. Réessayez dans 15 min.",
+      "params": {
+        "minutes": 15
+      }
+    },
+    "too_many_radiators": {
+      "fr": "Trop de radiateurs dans la demande.",
+      "params": {}
+    },
+    "unsupported_command": {
+      "fr": "Ce radiateur ne prend pas en charge « setName ».",
+      "params": {
+        "command": "setName"
+      }
+    },
+    "wrong_account": {
+      "fr": "Ce compte Cozytouch n’est pas celui de cette maison.",
+      "params": {}
+    }
+  },
+  "labels": {
+    "all_off": {
+      "fr": "Tout éteindre",
+      "params": {}
+    },
+    "all_program": {
+      "fr": "Tout en programme",
+      "params": {}
+    },
+    "away": {
+      "fr": "Absence à 12 °C",
+      "params": {
+        "temperature": 12.0
+      }
+    },
+    "away_end": {
+      "fr": "Fin de l’absence",
+      "params": {}
+    },
+    "boost": {
+      "fr": "Salon : forcé à 21,5 °C",
+      "params": {
+        "name": "Salon",
+        "temperature": 21.5
+      }
+    },
+    "boost_end": {
+      "fr": "Fin du forçage",
+      "params": {}
+    },
+    "identify": {
+      "fr": "Salon : identification",
+      "params": {
+        "name": "Salon"
+      }
+    },
+    "mode": {
+      "fr": "Salon : Manuel",
+      "params": {
+        "mode": "manual",
+        "name": "Salon"
+      }
+    },
+    "night_light": {
+      "fr": "Salon : veilleuse allumée",
+      "params": {
+        "name": "Salon",
+        "on": true
+      }
+    },
+    "program": {
+      "fr": "Salon : programme",
+      "params": {
+        "name": "Salon"
+      }
+    },
+    "setpoint": {
+      "fr": "Salon : confort 19,5 °C",
+      "params": {
+        "kind": "comfort",
+        "name": "Salon",
+        "value": 19.5
+      }
+    },
+    "settings": {
+      "fr": "Salon : réglages",
+      "params": {
+        "name": "Salon"
+      }
+    }
+  },
+  "status": [
+    "auth",
+    "network",
+    "quota",
+    "unknown"
+  ]
+}

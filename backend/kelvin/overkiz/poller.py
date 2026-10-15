@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from kelvin.commands.service import CommandService
+from kelvin.errors import gateway_error_code
 from kelvin.house.model import House
 from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
@@ -60,6 +61,7 @@ class EventPump:
         self.failures = 0
         self.last_ok_wall: float | None = None
         self.last_error: str | None = None
+        self.last_error_code: str | None = None  # quota, auth, network or unknown
         self._next_state_read = clock() + state_interval
         self._rotation = 0
         self._resync_due = False
@@ -80,6 +82,7 @@ class EventPump:
             "connected": self.connected,
             "last_ok_at": self.last_ok_wall,
             "last_error": self.last_error,
+            "last_error_code": self.last_error_code,
             "auth_rejected": self.auth_rejected,
             "setup_reads_24h": self.guard.used(),
         }
@@ -87,6 +90,7 @@ class EventPump:
     def mark_ok(self) -> None:
         self.failures = 0
         self.last_error = None
+        self.last_error_code = None
         self.last_ok_wall = self.wall()
         self._published = (True, self.auth_rejected)
 
@@ -150,6 +154,7 @@ class EventPump:
         except GatewayError as e:
             self.failures += 1
             self.last_error = str(e) or type(e).__name__
+            self.last_error_code = gateway_error_code(e)
             log.warning("overkiz poll failed (%s): %s", self.failures, self.last_error)
             if not events_ok:
                 # Events may have been lost: resync once Overkiz answers again (§3.1). A state
@@ -177,6 +182,7 @@ class EventPump:
             self._safe(self.commands.tick)
         self.failures = 0
         self.last_error = None
+        self.last_error_code = None
         self.last_ok_wall = self.wall()
         self._notify_status()
         if changed:

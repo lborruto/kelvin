@@ -34,7 +34,6 @@ from kelvin.api.sse import event_stream
 from kelvin.auth.sessions import COOKIE_NAME
 from kelvin.billing.report import next_unit, unit_start
 from kelvin.commands.translate import (
-    MODE_LABELS,
     Planned,
     plan_feature,
     plan_identify,
@@ -46,6 +45,7 @@ from kelvin.commands.translate import (
 )
 from kelvin.errors import UserError
 from kelvin.house.model import Radiator
+from kelvin.labels import Label
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkyThrottled, day_bounds
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import BudgetExceeded
@@ -61,7 +61,6 @@ _RADIATOR_ID = re.compile(r"[A-Za-z0-9_.-]{1,64}")
 FIRST_TS = 946_684_800  # 2000-01-01T00:00:00Z
 _PRM = re.compile(r"[0-9]{14}")  # ASCII digits only
 FIRST_DAY = date(2000, 1, 1)
-KIND_LABELS = {"manual": "consigne", "comfort": "confort", "eco": "abaissement éco"}
 
 
 def _rt(request: Request) -> Runtime:
@@ -86,15 +85,11 @@ def _room_radiators(rt: Runtime, room_id: str) -> tuple[str, list[Radiator]]:
 
 
 async def _submit(
-    rt: Runtime, label: str, rads: list[Radiator], build: Callable[[Radiator], Planned]
+    rt: Runtime, label: Label, rads: list[Radiator], build: Callable[[Radiator], Planned]
 ) -> JSONResponse:
     planned = reduce(add, [build(r) for r in rads])  # a CommandError answers 422 with its code
     p = await rt.commands.submit(label, tuple(r.id for r in rads), planned)
     return JSONResponse(status_code=202, content={"pending": p.view()})
-
-
-def _fmt(v: float) -> str:
-    return f"{v:g}".replace(".", ",")
 
 
 @router.get("/status")
@@ -142,7 +137,7 @@ async def room_mode(room_id: str, body: ModeBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
     return await _submit(
-        rt, f"{name} : {MODE_LABELS[body.mode]}", rads, lambda r: plan_mode(r, body.mode)
+        rt, Label.of("mode", name=name, mode=body.mode), rads, lambda r: plan_mode(r, body.mode)
     )
 
 
@@ -152,7 +147,7 @@ async def room_setpoint(room_id: str, body: SetpointBody, request: Request):
     name, rads = _room_radiators(rt, room_id)
     return await _submit(
         rt,
-        f"{name} : {KIND_LABELS[body.kind]} {_fmt(body.value)} °C",
+        Label.of("setpoint", name=name, kind=body.kind, value=body.value),
         rads,
         lambda r: plan_setpoint(r, body.kind, body.value),
     )
@@ -163,7 +158,7 @@ async def room_program(room_id: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
     week = body.week()
-    return await _submit(rt, f"{name} : programme", rads, lambda r: plan_program(r, week))
+    return await _submit(rt, Label.of("program", name=name), rads, lambda r: plan_program(r, week))
 
 
 @router.post("/radiators/{rid}/mode")
@@ -171,7 +166,7 @@ async def radiator_mode(rid: str, body: ModeBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
     return await _submit(
-        rt, f"{r.name} : {MODE_LABELS[body.mode]}", [r], lambda x: plan_mode(x, body.mode)
+        rt, Label.of("mode", name=r.name, mode=body.mode), [r], lambda x: plan_mode(x, body.mode)
     )
 
 
@@ -181,7 +176,7 @@ async def radiator_setpoint(rid: str, body: SetpointBody, request: Request):
     r = _radiator(rt, rid)
     return await _submit(
         rt,
-        f"{r.name} : {KIND_LABELS[body.kind]} {_fmt(body.value)} °C",
+        Label.of("setpoint", name=r.name, kind=body.kind, value=body.value),
         [r],
         lambda x: plan_setpoint(x, body.kind, body.value),
     )
@@ -192,7 +187,7 @@ async def radiator_program(rid: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
     week = body.week()
-    return await _submit(rt, f"{r.name} : programme", [r], lambda x: plan_program(x, week))
+    return await _submit(rt, Label.of("program", name=r.name), [r], lambda x: plan_program(x, week))
 
 
 @router.patch("/radiators/{rid}/features")
@@ -209,7 +204,7 @@ async def radiator_features(rid: str, body: FeaturesBody, request: Request):
     if not parts:
         raise UserError("nothing_to_change")
     return await _submit(
-        rt, f"{r.name} : réglages", [r], lambda x: reduce(add, [f(x) for f in parts])
+        rt, Label.of("settings", name=r.name), [r], lambda x: reduce(add, [f(x) for f in parts])
     )
 
 
@@ -217,7 +212,7 @@ async def radiator_features(rid: str, body: FeaturesBody, request: Request):
 async def radiator_light(rid: str, body: LightBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
-    label = f"{r.name} : veilleuse {'allumée' if body.on else 'éteinte'}"
+    label = Label.of("night_light", name=r.name, on=body.on)
     return await _submit(rt, label, [r], lambda x: plan_light(x, body.on, body.intensity))
 
 
@@ -225,7 +220,7 @@ async def radiator_light(rid: str, body: LightBody, request: Request):
 async def radiator_identify(rid: str, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
-    return await _submit(rt, f"{r.name} : identification", [r], plan_identify)
+    return await _submit(rt, Label.of("identify", name=r.name), [r], plan_identify)
 
 
 @router.post("/rooms/{room_id}/boost")
@@ -238,7 +233,7 @@ async def room_boost(room_id: str, body: BoostBody, request: Request):
         [r.id for r in rads],
         body.temperature,
         ends_at,
-        label=f"{name} : forcé à {_fmt(body.temperature)} °C",
+        label=Label.of("boost", name=name, temperature=body.temperature),
         room_id=room_id,
     )
     rt.publish_overrides()
@@ -256,7 +251,7 @@ async def house_away(body: AwayBody, request: Request):
         list(rt.house.radiators),
         body.temperature,
         until.timestamp(),
-        label=f"Absence à {_fmt(body.temperature)} °C",
+        label=Label.of("away", temperature=body.temperature),
     )
     rt.publish_overrides()
     return JSONResponse(status_code=202, content={"pending": p.view()})
@@ -277,7 +272,10 @@ async def cancel_override(override_id: str, request: Request):
 async def house_off(request: Request):
     rt = _rt(request)
     return await _submit(
-        rt, "Tout éteindre", list(rt.house.radiators.values()), lambda r: plan_mode(r, "off")
+        rt,
+        Label.of("all_off"),
+        list(rt.house.radiators.values()),
+        lambda r: plan_mode(r, "off"),
     )
 
 
@@ -286,7 +284,7 @@ async def house_program(request: Request):
     rt = _rt(request)
     return await _submit(
         rt,
-        "Tout en programme",
+        Label.of("all_program"),
         list(rt.house.radiators.values()),
         lambda r: plan_mode(r, "program"),
     )

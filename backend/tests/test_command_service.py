@@ -71,6 +71,7 @@ async def test_failed_exec_without_state_fails_after_grace(env):
     clock.advance(15)
     await drain(gw, house, svc)
     assert p.status == "failed" and p.error == "Le radiateur a refusé la commande."
+    assert (p.error_code, p.error_params) == ("radiator_refused", {})
 
 
 async def test_timeout_without_any_event(env):
@@ -81,6 +82,7 @@ async def test_timeout_without_any_event(env):
     clock.advance(CONFIRM_TIMEOUT)
     svc.tick()
     assert p.status == "failed" and p.error == "Pas de confirmation du radiateur."
+    assert p.error_code == "no_confirmation"
 
 
 async def test_newer_command_supersedes_older(env):
@@ -107,6 +109,12 @@ async def test_send_error_fails_immediately(env):
     r = house.radiators["9312063"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     assert p.status == "failed" and p.error == "Envoi impossible : réseau"
+    assert (p.error_code, p.error_params, p.reason_code) == (
+        "send_failed",
+        {"reason": "réseau"},
+        "network",
+    )
+    assert p.view()["reason_code"] == "network"
 
 
 async def test_command_without_expectation_confirms_on_completion(env):
@@ -140,6 +148,11 @@ async def test_view_shape(env):
         "error",
         "created_at",
         "expected",
+        "label_code",
+        "label_params",
+        "error_code",
+        "error_params",
+        "reason_code",
     }
 
 
@@ -285,3 +298,28 @@ async def test_settled_commands_stay_in_recent_for_a_while(env):
     assert {p.id: p.status for p in svc.recent()} == {p1.id: "superseded", p2.id: "confirmed"}
     clock.advance(RECENT_KEEP + 1)
     assert svc.recent() == []
+
+
+async def test_a_label_gives_the_pending_its_code_and_french_text(env):
+    from kelvin.labels import Label
+
+    _, gw, house, svc, _ = env
+    r = house.radiators["9312063"]
+    labels = []
+    execute = gw.execute
+
+    async def spy(commands, label):
+        labels.append(label)
+        return await execute(commands, label)
+
+    gw.execute = spy
+    p = await svc.submit(
+        Label.of("mode", name="Salon", mode="manual"), (r.id,), plan_mode(r, "manual")
+    )
+    v = p.view()
+    assert (v["label"], v["label_code"], v["label_params"]) == (
+        "Salon : Manuel",
+        "mode",
+        {"name": "Salon", "mode": "manual"},
+    )
+    assert labels == ["Salon : Manuel"]  # Overkiz gets the French text, never the Label

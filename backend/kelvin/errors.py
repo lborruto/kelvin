@@ -10,6 +10,7 @@ Params are keys and figures only: never a secret, an email, a PDL, a token or a 
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from kelvin.overkiz.errors import AuthError, GatewayError, QuotaError, SetupBudgetSpent
@@ -154,6 +155,18 @@ def invalid_request_detail(field: str, msg: str) -> str:
     """The French detail of a request pydantic refused. Its message is English and technical:
     it stays in `detail` only (the web shows the field)."""
     return f"Requête invalide : {field} — {msg}" if field else TEMPLATES["invalid_request"]
+
+
+# A URL (Overkiz device URLs hold the gateway id) or an email address in a third-party message.
+_ADDRESS = re.compile(r"\S+://\S+|\S+@\S+")
+REASON_MAX = 200
+
+
+def safe_reason(e: BaseException) -> str:
+    """The `reason` param of `send_failed`: the gateway's message without any address in it
+    (it reaches API bodies and logs), never empty, bounded."""
+    text = _ADDRESS.sub("…", str(e)).strip()
+    return text[:REASON_MAX] or type(e).__name__
 
 
 def gateway_error_code(e: BaseException) -> str:

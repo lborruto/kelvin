@@ -233,8 +233,7 @@ async def start_runtime(
         is_sim = isinstance(gateway, FakeGateway)
         if not is_sim and db.get_setting(SIM_DB_KEY) is True:
             raise RuntimeError(
-                "KELVIN_DATA contient des données du simulateur ; "
-                "utilisez un autre dossier pour la maison réelle."
+                "KELVIN_DATA holds simulator data; use another directory for a real installation."
             )
         if settings.kelvin_fake and is_sim:  # simulator only, never a real installation
             seeded = seed_history(db, house, wall(), tz=settings.tz)

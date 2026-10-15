@@ -19,6 +19,7 @@ from datetime import time as dtime
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
+from kelvin.errors import french
 from kelvin.linky.models import LinkyAuthError, LinkyError, LinkySource, LinkyThrottled
 from kelvin.linky.store import LinkyStore
 from kelvin.recorder.db import Database
@@ -39,10 +40,11 @@ RUN_AT = (dtime(8, 0), dtime(14, 0))
 THROTTLE_FALLBACK_S = 3600
 STATE_KEY = "linky_sync"
 
-MESSAGES = {
-    "auth": "MyElectricalData refuse le jeton : renouvelez-le dans Réglages.",
-    "quota": "Quota Linky du jour atteint : reprise demain.",
-    "error": "Synchronisation Linky en échec.",
+# The status message of each failed state: its error code (French text in kelvin/errors.py).
+MESSAGE_CODES = {
+    "auth": "linky_status_auth",
+    "quota": "linky_status_quota",
+    "error": "linky_status_error",
 }
 
 
@@ -388,9 +390,11 @@ class LinkySync:
             state = "ok"
         if state == "throttled" and st.retry_at:
             when = datetime.fromtimestamp(st.retry_at, self.tz).strftime("%H:%M")
-            message: str | None = f"Enedis limite les requêtes : nouvel essai à {when}."
+            message: str | None = french("linky_status_throttled", {"at": when})
+        elif state in MESSAGE_CODES:
+            message = french(MESSAGE_CODES[state], {})
         else:
-            message = MESSAGES.get(state)
+            message = None
         last = self.store.last_day()
         return {
             "state": state,

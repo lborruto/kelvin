@@ -10,7 +10,6 @@ from kelvin.errors import UserError
 from kelvin.house.model import DAY_ORDER, OVERKIZ_MODES, Radiator
 from kelvin.overkiz.models import DeviceCommand
 
-MODE_LABELS = {"off": "Arrêt", "manual": "Manuel", "program": "Programme"}
 EMPTY_SLOT = {"start": "00:00", "end": "00:00"}
 _HHMM = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 _FEATURES = {

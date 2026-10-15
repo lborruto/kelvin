@@ -57,9 +57,11 @@ async def test_backoff_and_recovery(env):
     assert await pump.run_once() == 30.0
     assert await pump.run_once() == 60.0
     assert pump.connected is False and "QUOTA" in pump.status()["last_error"]
+    assert pump.status()["last_error_code"] == "quota"
     gw.fail_fetch = None
     assert await pump.run_once() == 30.0
     assert pump.connected is True
+    assert pump.status()["last_error_code"] is None
     assert [s["connected"] for s in statuses] == [False, True]
 
 

@@ -14,6 +14,7 @@ from uuid import uuid4
 from kelvin.commands.service import CommandService, Pending
 from kelvin.commands.translate import CommandError, Planned, plan_mode, plan_setpoint
 from kelvin.house.model import MODES, House, Radiator
+from kelvin.labels import Label
 from kelvin.recorder.db import Database
 
 log = logging.getLogger(__name__)
@@ -249,7 +250,7 @@ class OverrideManager:
         temperature: float,
         ends_at: float,
         *,
-        label: str,
+        label: Label | str,
         room_id: str | None = None,
     ) -> tuple[Override, Pending]:
         async with self._lock:
@@ -261,7 +262,7 @@ class OverrideManager:
         radiator_ids: list[str],
         temperature: float,
         ends_at: float,
-        label: str,
+        label: Label | str,
         room_id: str | None,
     ) -> tuple[Override, Pending]:
         ids = list(dict.fromkeys(radiator_ids))
@@ -407,7 +408,7 @@ class OverrideManager:
         self._save(o)
         if planned is None:
             return None
-        label = "Fin du forçage" if o.kind == "boost" else "Fin de l'absence"
+        label = Label.of("boost_end" if o.kind == "boost" else "away_end")
         p = await self.commands.submit(label, tuple(rids), planned)
         self._restore_pending[o.id] = (p, rids)
         return p

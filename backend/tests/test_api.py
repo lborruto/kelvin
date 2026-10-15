@@ -405,3 +405,17 @@ async def test_route_errors_answer_with_code_and_params(ctx):
     rt.quotas = None
     r = await c.get("/api/overkiz/quotas")
     assert r.status_code == 503 and r.json() == err("quotas_unavailable")
+
+
+async def test_pending_views_carry_label_codes(ctx):
+    c, rt, _ = ctx
+    r = await c.post(f"/api/rooms/{salon_id(rt)}/mode", json={"mode": "manual"})
+    p = r.json()["pending"]
+    assert (p["label"], p["label_code"], p["label_params"]) == (
+        "Salon : Manuel",
+        "mode",
+        {"name": "Salon", "mode": "manual"},
+    )
+    assert p["error_code"] is None and p["reason_code"] is None
+    r = await c.post("/api/house/off")
+    assert r.json()["pending"]["label_code"] == "all_off"
