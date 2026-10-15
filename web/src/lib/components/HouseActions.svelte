@@ -14,8 +14,11 @@
     program?: boolean;
     /** The « Absence… » link (not on Maison, where the Absence panel is the page itself). */
     away?: boolean;
+    /** One row whatever the font (the Rooms header on a phone): a label that does not fit ends in « … »
+        instead of wrapping the row, so a late web font or a wider fallback never moves the page (CLS). */
+    oneLine?: boolean;
   }
-  let { stacked = false, program = false, away = true }: Props = $props();
+  let { stacked = false, program = false, away = true, oneLine = false }: Props = $props();
   // Mounted several times at once (sidebar, phone header, Maison): ids must be unique.
   const uid = $props.id();
 
@@ -39,12 +42,12 @@
 </script>
 
 <div class="wrap" class:stacked>
-  <div class="actions" class:stacked>
-    <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={ask}><Icon name="power" size={16} />{m.houseActions.allOff}</button>
+  <div class="actions" class:stacked class:one={oneLine}>
+    <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={ask}><Icon name="power" size={16} /><span class="lbl">{m.houseActions.allOff}</span></button>
     {#if program}
-      <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={() => !blocked && runHouse(() => api.houseProgram())}>{m.houseActions.allProgram}</button>
+      <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={() => !blocked && runHouse(() => api.houseProgram())}><span class="lbl">{m.houseActions.allProgram}</span></button>
     {/if}
-    {#if away}<a class="btn btn-sm" href="{ROUTES.home}#{ANCHORS.away}"><Icon name="away" size={16} />{m.houseActions.away}</a>{/if}
+    {#if away}<a class="btn btn-sm" href="{ROUTES.home}#{ANCHORS.away}"><Icon name="away" size={16} /><span class="lbl">{m.houseActions.away}</span></a>{/if}
   </div>
   <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
 </div>
@@ -76,6 +79,20 @@
   }
   .stacked {
     flex-direction: column;
+  }
+  .one {
+    flex-wrap: nowrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .one > :global(.btn) {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .one .lbl {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .stacked > * {
     width: 100%;

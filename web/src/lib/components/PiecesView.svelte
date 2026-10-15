@@ -32,7 +32,7 @@
         <p class="sub-sk"><span class="skeleton" aria-hidden="true"></span></p>
       {/if}
     </div>
-    <div class="phone-only"><HouseActions /></div>
+    <div class="phone-only"><HouseActions oneLine /></div>
   </header>
   {#if house.loaded}<GridStrip />{/if}
 {:else}
@@ -57,6 +57,11 @@
     align-items: end;
     gap: 12px;
     margin-bottom: 14px;
+  }
+  /* The actions' row may shrink (its labels end in « … ») rather than wrap: see HouseActions `oneLine`. */
+  .top > .phone-only {
+    min-width: 0;
+    max-width: 100%;
   }
   h1 {
     font-size: 22px;

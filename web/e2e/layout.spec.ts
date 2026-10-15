@@ -190,7 +190,8 @@ test.describe('layout with alerts', () => {
 
 // The grid strip on Rooms (Plan 9) arrives with the stream's snapshot: its room is held from the
 // first paint, so the cards never move when it lands — under the HC/HP demo (an EcoWatt line) and
-// under Tempo (the colour pair as well, two lines on a phone), fonts loaded or blocked, fr and en.
+// under Tempo (the colour pair as well, two lines on a phone), fonts loaded, blocked or late, fr and en.
+// The phone header's actions stay on one row whatever the font (HouseActions `oneLine`).
 test.describe('layout of / with the grid strip', () => {
   test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
   test.describe.configure({ mode: 'serial' });
@@ -225,12 +226,18 @@ test.describe('layout of / with the grid strip', () => {
       }
       await countShifts(page);
       for (const lang of ['fr', 'en'])
-        for (const fonts of ['loaded', 'blocked'])
+        for (const fonts of ['loaded', 'blocked', 'late'])
           for (const width of [320, 390, 1440]) {
             await page.unrouteAll({ behavior: 'ignoreErrors' });
             await page.addInitScript((l) => localStorage.setItem('kelvin-locale', l), lang);
             await page.setViewportSize({ width, height: 900 });
             if (fonts === 'blocked') await page.route(/\.woff2?(\?.*)?$/, (route) => route.abort());
+            // The web font lands after the first paint (a slow network): text swaps from the fallback.
+            if (fonts === 'late')
+              await page.route(/\.woff2?(\?.*)?$/, async (route) => {
+                await new Promise((r) => setTimeout(r, 400));
+                await route.continue();
+              });
             // A cold load: the data arrives after the first paint, as on a real visit.
             await page.route('**/api/**', async (route) => {
               await new Promise((r) => setTimeout(r, 150));
