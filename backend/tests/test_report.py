@@ -942,3 +942,34 @@ def test_a_bucket_reads_the_same_euros_in_any_window_and_the_buckets_sum_to_the_
     if _rad_eur(p) is not None:
         assert sum(cents(_rad_eur(b) or 0) for b in r["buckets"]) == cents(_rad_eur(p))
         assert sum(cents(x["eur"]) for x in r["by_radiator"]) == cents(_rad_eur(p))
+
+
+def test_period_quality_describes_the_selected_period_not_the_window():
+    """Final review I-1: in Jour the window is the 7 days ending on the day; `period.quality`
+    counts only the selected day, while `quality` keeps describing the window (the bars)."""
+    day = date(2026, 10, 12)
+    lo = day - timedelta(days=6)
+    daily = {d: 24_000 for d in days(lo, day + timedelta(days=1))}
+    curve = {day: flat(day, 24.0)}  # the selected day alone has a complete curve
+    r = build_report(
+        lo,
+        day + timedelta(days=1),
+        "day",
+        inputs(daily, curve=curve, t=tariff()),
+        (day, day + timedelta(days=1)),
+    )
+    assert r["quality"]["estimated_days"] == 6
+    pq = r["period"]["quality"]
+    assert pq["estimated_days"] == 0 and pq["retro_priced_days"] == 0
+    assert pq["curve_vs_daily_pct"] == pytest.approx(0.0)
+    assert set(pq) == set(r["quality"])
+    # An estimated selected day reads 1, never the window's count.
+    other = build_report(
+        lo,
+        day + timedelta(days=1),
+        "day",
+        inputs(daily, curve=curve, t=tariff()),
+        (lo, lo + timedelta(days=1)),
+    )
+    assert other["period"]["quality"]["estimated_days"] == 1
+    assert other["period"]["quality"]["curve_vs_daily_pct"] is None

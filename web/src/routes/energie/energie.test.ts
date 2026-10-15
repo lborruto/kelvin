@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '$lib/api/client';
-import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus } from '$lib/api/types';
+import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus, Quality } from '$lib/api/types';
 import { download } from '$lib/csv';
 import { addDays } from '$lib/energy';
 import { fmtTime } from '$lib/format';
@@ -48,12 +48,16 @@ const october = () =>
     })
   }));
 
+const QUALITY: Quality = {
+  fallback_share: null, fallback_method: null, estimated_days: 0, curve_vs_daily_pct: null, linky_since: '2025-11-01',
+  curve_since: '2025-11-01', radiators_since: '2026-09-01', retro_priced_days: 0
+};
+
 function report(o: Partial<EnergyReport> = {}): EnergyReport {
   return {
     group: 'day', from: '2026-10-01', to: '2026-11-01', last_day: '2026-10-12', linky: true, tariff: true,
     buckets: october(),
     total: summary(),
-    hero: { current: { from: '2026-10-01', to: '2026-10-13', ...summary() }, previous: { from: '2026-09-01', to: '2026-09-13', ...summary() } },
     heating_share: 0.47, heating_share_since: '2026-10-01', linky_since: '2025-11-01',
     radiators: [{ radiator_id: 'a', kwh: 140 }],
     projection: {
@@ -63,7 +67,8 @@ function report(o: Partial<EnergyReport> = {}): EnergyReport {
     },
     period: {
       from: '2026-10-01', to: '2026-11-01',
-      ...summary({ kwh: 412.64, hc_kwh: 158.3, hp_kwh: 254.34, eur: 98.4, energy_eur: 92.11, subscription_eur: 6.29, days: 31, present_days: 12 })
+      ...summary({ kwh: 412.64, hc_kwh: 158.3, hp_kwh: 254.34, eur: 98.4, energy_eur: 92.11, subscription_eur: 6.29, days: 31, present_days: 12 }),
+      quality: QUALITY
     },
     heating: { value: 0.47, days: 12, of_days: 12, since: '2026-10-01', inconsistent: false },
     by_radiator: [],
@@ -78,14 +83,11 @@ function report(o: Partial<EnergyReport> = {}): EnergyReport {
     },
     hc_lens: null,
     boundary_prorated: false,
-    quality: {
-      fallback_share: null, fallback_method: null, estimated_days: 0, curve_vs_daily_pct: null, linky_since: '2025-11-01',
-      curve_since: '2025-11-01', radiators_since: '2026-09-01', retro_priced_days: 0
-    },
+    quality: QUALITY,
     ...o
   };
 }
-const periodWith = (o: Partial<EnergySummary>) => ({ period: { from: '2026-10-01', to: '2026-11-01', ...summary(o) } });
+const periodWith = (o: Partial<EnergySummary>) => ({ period: { from: '2026-10-01', to: '2026-11-01', ...summary(o), quality: QUALITY } });
 
 function energyDay(date: string, o: Partial<EnergyDay> = {}): EnergyDay {
   const a = parisDayStart(date) / 1000;
@@ -399,13 +401,32 @@ describe('Énergie', () => {
         radiators: { kwh: 140, hc_kwh: 60, hp_kwh: 80, eur: 35, interpolated: true, apportioned: true, coverage: 1 }
       })
     );
-    r.quality = { ...r.quality, estimated_days: 3 };
+    r.quality = { ...r.quality, estimated_days: 5 };
+    r.period.quality = { ...r.period.quality, estimated_days: 3 };
     vi.mocked(api.energyReport).mockResolvedValue(r);
     render(Page);
     expect(await screen.findByText('Données partielles : 2 jours manquants. L’énergie de ces jours n’est pas comptée dans le coût.')).toBeInTheDocument();
     expect(screen.getByText('Répartition heures creuses / pleines estimée pour 3 jours sans courbe complète.')).toBeInTheDocument();
     expect(screen.getByText('Radiateurs : énergie répartie sur une interruption de l’enregistrement (est.).')).toBeInTheDocument();
     expect(screen.getByText('Prix du 5/10 appliqué aux jours antérieurs.')).toBeInTheDocument();
+  });
+
+  it('Jour: the hero and Qualité describe the selected day, not the 7 days of bars (final review I-1)', async () => {
+    const r = report(periodWith({ estimated_split: true, split_method: 'fallback_window', days: 1, present_days: 1 }));
+    r.quality = { ...r.quality, estimated_days: 4, fallback_method: 'fallback_window', fallback_share: 0.4, retro_priced_days: 3 };
+    r.period.quality = { ...r.period.quality, estimated_days: 1, fallback_method: 'fallback_window', fallback_share: 0.4 };
+    vi.mocked(api.energyReport).mockResolvedValue(r);
+    const { container } = render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    expect(await screen.findByText('Répartition heures creuses / pleines estimée pour 1 jour sans courbe complète.')).toBeInTheDocument();
+    expect(screen.queryByText(/estimée pour 4 jours/)).toBeNull();
+    const q = container.querySelector('details#qualite')!;
+    expect(q).toHaveTextContent('Jours HC/HP estimés : 1 (');
+    expect(q).not.toHaveTextContent('Prix du premier tarif');
+    // The strip has the selected day's cell only.
+    expect(q.querySelectorAll('.strip .row')[0].querySelectorAll('.cell')).toHaveLength(1);
+    expect(q.querySelectorAll('tbody tr')).toHaveLength(1);
   });
 
   it('never invents euros for a period with no Linky day: shows the missing-data state', async () => {

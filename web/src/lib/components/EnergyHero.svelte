@@ -63,7 +63,7 @@
     if (noData) return [];
     const out: string[] = [];
     if (p.missing_days > 0) out.push(p.eur != null ? `${COPY.missing(p.missing_days)} ${COPY.notCounted}` : COPY.missing(p.missing_days));
-    if (p.estimated_split) out.push(COPY.split(report.quality.estimated_days));
+    if (p.estimated_split) out.push(COPY.split(p.quality.estimated_days));
     if (p.radiators?.interpolated) out.push(COPY.interpolated);
     if (p.retro_priced && p.prices.length) out.push(COPY.retro(fmtDay(p.prices[0].valid_from)));
     // Without Linky the figure is the radiators': a partial or missing sum says so.

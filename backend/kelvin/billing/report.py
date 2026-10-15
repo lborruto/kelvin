@@ -680,7 +680,9 @@ def build_report(
         "tariff": inp.tariff is not None,
         "buckets": buckets,
         "total": en.summary(start, end),
-        "period": en.period(p_from, p_to),
+        # The selected period, with its own quality facts (`quality` below is the window's, the
+        # bars'; in Jour the window is the 7 days ending on the period's day).
+        "period": {**en.period(p_from, p_to), "quality": en.quality(p_from, p_to)},
         "hero": {
             "current": en.period(cur_start, cur_end),
             "previous": en.period(prev_start, prev_end),
@@ -694,7 +696,7 @@ def build_report(
         "comparison": _comparison(en, group, p_from, p_to),
         "boundary_prorated": bool(inp.tariff)
         and any(to_minutes(t) % 30 for s in inp.tariff.hc_slots for t in (s.start, s.end)),
-        "quality": en.quality(start, end),
+        "quality": en.quality(start, end),  # the chart window (the Qualité strip's buckets)
         "hc_lens": en.hc_lens(p_from, p_to),
         "by_radiator": en.by_radiator(p_from, p_to),
         "projection": _projection(en, anchor)

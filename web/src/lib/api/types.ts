@@ -233,6 +233,8 @@ export interface EnergyReportBucket extends EnergySummary {
 export interface PeriodSummary extends EnergySummary {
   from: string;
   to: string;
+  /** The selected period's own quality facts (`EnergyReport.quality` is the chart window's: in Jour, 7 days). */
+  quality: Quality;
 }
 export interface Heating {
   /** Radiators / Linky over the common days; raw, never clamped (L7). */
@@ -345,7 +347,6 @@ export interface EnergyReport {
   tariff: boolean;
   buckets: EnergyReportBucket[];
   total: EnergySummary;
-  hero: { current: PeriodSummary; previous: PeriodSummary };
   heating_share: number | null;
   /** First day of the span the share runs over (days with both Linky and radiator data). */
   heating_share_since: string | null;
@@ -361,6 +362,7 @@ export interface EnergyReport {
   hc_lens: HcLens | null;
   /** An HC slot edge falls inside a half-hour: those half-hours' HC share is prorated (L11). */
   boundary_prorated: boolean;
+  /** Over the chart window (the bars, the Qualité strip); the selected period's are `period.quality`. */
   quality: Quality;
 }
 /** One half-hour (or one interval) of `/api/energy/day`. */

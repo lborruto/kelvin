@@ -28,10 +28,10 @@
   } as const;
 
   interface Props {
-    /** The chart's buckets: one strip cell each. */
+    /** The selected period's buckets: one strip cell each (in Jour, the day's alone, not the 7 bars). */
     buckets: EnergyReport['buckets'];
     group: EnergyGroup;
-    /** The selected period's quality block. */
+    /** The selected period's quality block (`period.quality`). */
     quality: Quality;
     class?: string;
   }

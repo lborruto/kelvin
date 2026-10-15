@@ -153,6 +153,9 @@
       : []
   );
 
+  // Qualité describes the selected period: in Jour the bars are the 7 days ending on it, so only its own bucket.
+  let periodBars = $derived(loaded?.view === 'day' ? bars.filter((b) => b.key === loaded.period.from) : bars);
+
   // Température et chauffe is for Jour and Semaine (one day at a time, the Courbe's day): full width, under the Courbe
   // whose scrubber it shares. It holds its place (a skeleton) until the house is known, so nothing below moves.
   let roomDay = $derived(!!loaded && loaded.main.linky && (loaded.view === 'day' || loaded.view === 'week'));
@@ -343,7 +346,7 @@
 
   <!-- Collapsed: where every estimate comes from, opened by the « est. » links (#qualite). -->
   {#if main.linky}
-    <QualityPanel buckets={bars} group={chart.group} quality={main.quality} class="wide" />
+    <QualityPanel buckets={periodBars} group={chart.group} quality={main.period.quality} class="wide" />
   {/if}
 
   <section class="panel wide" aria-busy={!house.loaded}>
