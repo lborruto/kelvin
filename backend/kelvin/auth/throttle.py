@@ -8,8 +8,6 @@ import time
 from collections import deque
 from collections.abc import Callable
 
-from kelvin.errors import french
-
 IP_LIMIT, IP_WINDOW_S = 5, 15 * 60
 GLOBAL_LIMIT, GLOBAL_WINDOW_S = 20, 3600
 
@@ -80,7 +78,3 @@ def client_key(host: str) -> str:
 
 def retry_minutes(seconds: float) -> int:
     return max(1, math.ceil(seconds / 60))
-
-
-def retry_message(seconds: float) -> str:
-    return french("too_many_attempts", {"minutes": retry_minutes(seconds)})
