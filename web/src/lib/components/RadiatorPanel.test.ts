@@ -1,3 +1,4 @@
+import { fmtDateTime } from '$lib/format';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
@@ -157,11 +158,32 @@ describe('RadiatorPanel', () => {
   });
 
   it('an offline radiator: « Hors ligne depuis … » muted, no reading', () => {
-    const since = Date.now() / 1000 - 600;
-    const { container } = render(RadiatorPanel, { radiator: { ...radiator, reachable: false, unreachable_since: since }, showControls: false });
-    expect(screen.getByRole('button', { expanded: false })).toHaveTextContent(/Hors ligne depuis \d\d:\d\d/);
-    expect(container.querySelector('.temp')).toHaveTextContent('—');
-    expect(container.querySelector('.bad')).toBeNull();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-15T10:00:00Z')); // 12:00 in Paris
+    try {
+      const since = Date.now() / 1000 - 600; // 11:50, the same day: the time alone
+      const { container } = render(RadiatorPanel, { radiator: { ...radiator, reachable: false, unreachable_since: since }, showControls: false });
+      expect(screen.getByRole('button', { expanded: false })).toHaveTextContent(/Hors ligne depuis 11:50(?!\S)/);
+      expect(container.querySelector('.temp')).toHaveTextContent('—');
+      expect(container.querySelector('.bad')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('an offline radiator since before midnight says the date with the time', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-15T22:05:00Z')); // 00:05 on 16 October in Paris
+    try {
+      const since = Date.now() / 1000 - 600; // 23:55 the day before
+      render(RadiatorPanel, { radiator: { ...radiator, reachable: false, unreachable_since: since }, showControls: false });
+      expect(screen.getByRole('button', { expanded: false })).toHaveTextContent(
+        `Hors ligne depuis ${fmtDateTime(since * 1000)}`.replace(/\s/g, ' ')
+      );
+      expect(fmtDateTime(since * 1000)).toMatch(/15/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('a toggle shows its own command as pending until the radiator answers', async () => {
