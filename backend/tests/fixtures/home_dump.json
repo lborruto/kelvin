@@ -2,20 +2,24 @@
   "places": {
     "oid": "p-house",
     "label": "All House",
+    "type": null,
     "children": [
       {
         "oid": "p-ch1",
         "label": "Chambre 1 ",
+        "type": null,
         "children": []
       },
       {
         "oid": "p-salon",
         "label": "Salon",
+        "type": null,
         "children": []
       },
       {
         "oid": "p-ch2",
         "label": "Chambre 2 ",
+        "type": null,
         "children": []
       }
     ]

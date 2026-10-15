@@ -1,6 +1,13 @@
 from typing import Any, Protocol
 
-from kelvin.overkiz.models import DeviceCommand, Event, RawDevice, RawPlace
+from kelvin.overkiz.models import (
+    DeviceCommand,
+    Event,
+    RawDevice,
+    RawPlace,
+    SetupDevice,
+    SetupPlace,
+)
 
 
 class Gateway(Protocol):
@@ -25,6 +32,28 @@ class Gateway(Protocol):
 
     async def quotas(self) -> Any:
         """The raw `GET /setup/quotas` answer (remaining quota values; shape undocumented)."""
+        ...
+
+    # Setup (spec §2.7): two targeted reads and the five allowed writes. 404 raises
+    # SetupNotFoundError; nothing else in /setup is reachable.
+    async def read_place(self, oid: str) -> SetupPlace: ...
+
+    async def read_device(self, device_url: str) -> SetupDevice: ...
+
+    async def create_place(self, parent_oid: str, label: str, type_: int) -> str:
+        """Create a sub-place; returns its oid."""
+        ...
+
+    async def update_place(
+        self, oid: str, label: str, type_: int | None, metadata: Any
+    ) -> None: ...
+
+    async def delete_place(self, oid: str) -> None: ...
+
+    async def relocate_device(self, device_url: str, place_oid: str) -> None: ...
+
+    async def rename_device(self, device_url: str, label: str) -> None:
+        """Set the device's Cozytouch label (updateDeviceName=false)."""
         ...
 
     async def fetch_events(self) -> list[Event]: ...

@@ -54,3 +54,9 @@ def test_sample_heaters_do_not_share_time_program_state():
     _, fresh = sample_house()
     fresh_heater = next(d for d in fresh if "Heater" in d.widget)
     assert fresh_heater.states["core:TimeProgramState"][0]["monday"][0]["start"] == "06:15"
+
+
+def test_place_type_roundtrips_and_old_dicts_still_load():
+    p = RawPlace("h", "All House", (RawPlace("a", "Salon", (), 7),), 0)
+    assert place_from_dict(json.loads(json.dumps(place_to_dict(p)))) == p
+    assert place_from_dict({"oid": "h", "label": "H", "children": []}).type is None
