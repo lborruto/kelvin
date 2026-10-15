@@ -88,6 +88,10 @@ TEMPLATES: dict[str, str] = {
     "level_unknown": "Allure inconnue : {level}.",
     "unsupported_in_room": "Aucun des radiateurs concernés ne prend en charge cette commande.",
     "dryer_action_unknown": "Action inconnue : {action}.",
+    # Plan 12: the setup (rooms, placement, labels) is written on the Cozytouch servers only
+    "setup_experimental": (
+        "Sur un serveur expérimental, Kelvin ne modifie ni les pièces ni les appareils."
+    ),
     # Tariff
     "slot_time_invalid": "Heure invalide : {value} (format HH:MM).",
     "slots_none": "Indiquez au moins une plage d’heures creuses.",

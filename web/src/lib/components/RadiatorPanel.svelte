@@ -2,10 +2,11 @@
   import type { DryerAction, DryerState, PilotLevel, Radiator } from '$lib/api/types';
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
-  import { capsOf, isReadOnly, LEVEL_ORDER } from '$lib/capabilities';
+  import { canEditSetup, capsOf, isReadOnly, LEVEL_ORDER } from '$lib/capabilities';
   import { fmtKwh, fmtTemp } from '$lib/format';
   import { m, modeLabel } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
+  import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
   import CommandSwitch from './CommandSwitch.svelte';
   import Icon from './Icon.svelte';
@@ -84,7 +85,7 @@
       </form>
     {:else}
       <h4>{title}</h4>
-      {#if caps.rename && !readOnly}<button type="button" class="btn btn-icon" aria-label={m.radiator.rename} onclick={startRename}><Icon name="edit" size={16} /></button>{/if}
+      {#if caps.rename && !readOnly && canEditSetup(auth.server)}<button type="button" class="btn btn-icon" aria-label={m.radiator.rename} onclick={startRename}><Icon name="edit" size={16} /></button>{/if}
     {/if}
     <SupportChip support={radiator.support} />
     <span class="temp num" style:color={heatColor(radiator.temperature)}>{fmtTemp(radiator.temperature)}</span>

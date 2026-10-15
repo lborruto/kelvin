@@ -814,7 +814,11 @@ export const en: Messages = {
       bridge: 'Cozytouch bridge',
       box: 'Cozytouch box',
       wifi: 'Wi-Fi',
-      other: 'Device'
+      other: 'Device',
+      // Plan 12
+      water_heater: 'Water heater',
+      heat_pump: 'Heat pump',
+      heating: 'Heating'
     },
     reachable: 'Reachable',
     unreachable: 'Unreachable',
@@ -858,6 +862,11 @@ export const en: Messages = {
     undo: 'Undo',
     done: (label: string) => `${label} — done`,
     watts: (n: string) => `${n}${NB}W`,
+    // Plan 12
+    appliances: 'Other devices',
+    appliancesNote: 'Read-only: Kelvin doesn’t control these devices (water heaters, heat pumps, devices that don’t heat).',
+    introExperimental: (name: string) =>
+      `Read from your ${name} setup. On an experimental server, Kelvin doesn’t change rooms or devices.`,
     problem: {
       empty: 'Enter a name.',
       long: '32 characters at most.',
@@ -1069,7 +1078,8 @@ export const en: Messages = {
     read_only_device: () => 'Kelvin doesn’t control this device: it’s shown read-only.',
     level_unknown: (p: ApiParams) => `Unknown heating level: ${p.level}.`,
     dryer_action_unknown: (p: ApiParams) => `Unknown action: ${p.action}.`,
-    unsupported_in_room: () => 'None of these radiators supports this command.'
+    unsupported_in_room: () => 'None of these radiators supports this command.',
+    setup_experimental: () => 'On an experimental server, Kelvin doesn’t change rooms or devices.'
   },
   // Plan 12 (Task 12)
   kind: {

@@ -11,7 +11,14 @@ from statistics import mean
 from typing import Any, Literal
 
 from kelvin.devices.capabilities import Capabilities, capabilities
-from kelvin.devices.registry import PROFILES, RADIATOR_KINDS, Profile, kind_for, support_for
+from kelvin.devices.registry import (
+    APPLIANCE_KINDS,
+    PROFILES,
+    RADIATOR_KINDS,
+    Profile,
+    kind_for,
+    support_for,
+)
 from kelvin.overkiz.models import (
     DeviceUpdate,
     RawDevice,
@@ -96,15 +103,24 @@ class DeviceMeta:
     label: str
     widget: str
     place_oid: str | None
+    ui_class: str = ""
 
 
-def device_role(widget: str, heater: bool) -> str:
+BRIDGE_ROLES = ("bridge", "box", "wifi")
+
+
+def device_role(widget: str, heater: bool, ui_class: str = "") -> str:
     if heater:
         return "heater"
     if widget in ROLE_BY_WIDGET:
         return ROLE_BY_WIDGET[widget]
     if widget in ("IOStack", "ZigbeeStack"):
         return "bridge"
+    kind = kind_for(widget, ui_class)
+    if kind in APPLIANCE_KINDS:
+        return kind  # water_heater, heat_pump
+    if kind is not None:
+        return "heating"  # a heating device that is not a radiator's main device
     return {"Pod": "box", "Wifi": "wifi"}.get(widget, "other")
 
 
@@ -593,7 +609,8 @@ class House:
         self.root_oid = root.oid
         self.places = {p.oid: Place(p.oid, p.label, p.type, parent) for parent, p in _walk(root)}
         self.meta = {
-            d.device_url: DeviceMeta(d.device_url, d.label, d.widget, d.place_oid) for d in devices
+            d.device_url: DeviceMeta(d.device_url, d.label, d.widget, d.place_oid, d.ui_class)
+            for d in devices
         }
         self.others = {
             d.device_url: dict(d.states) for d in devices if d.device_url not in self._by_url
@@ -718,9 +735,10 @@ class House:
                 misplaced = heater_meta is not None and m.place_oid != heater_meta.place_oid
             else:
                 states, misplaced = self.others.get(url, {}), False
+            role = device_role(m.widget, heater, m.ui_class)
             return {
                 "id": ids[url],
-                "role": device_role(m.widget, heater),
+                "role": role,
                 "label": m.label,
                 "widget": m.widget,
                 "room_id": m.place_oid if m.place_oid in self.places else None,
@@ -728,6 +746,9 @@ class House:
                 "reachable": _reachable(states),
                 "last_event_at": self.last_event_ts.get(url),
                 "details": _details(states),
+                "support": self.radiators[rid].support
+                if heater and rid is not None
+                else ("readonly" if rid is None and role not in BRIDGE_ROLES else None),
             }
 
         rooms = [
@@ -748,14 +769,25 @@ class House:
                 "id": r.id,
                 "room_id": r.room_id,
                 "name": r.name,
+                "kind": r.kind,
+                "support": r.support,
                 "devices": [
                     d for u in sorted(r.states, key=_sub_index) if (d := device(u)) is not None
                 ],
             }
             for r in sorted(self.radiators.values(), key=lambda r: (r.name.casefold(), r.id))
         ]
-        bridges = [d for u in sorted(self.others) if (d := device(u)) is not None]
-        return {"rooms": rooms, "radiators": radiators, "bridges": bridges}
+        others = [d for u in sorted(self.others) if (d := device(u)) is not None]
+        bridges = [d for d in others if d["role"] in BRIDGE_ROLES]
+        # Plan 12: everything else Kelvin does not drive (water heaters, heat pumps, shutters…)
+        # is listed read-only, never hidden.
+        appliances = [d for d in others if d["role"] not in BRIDGE_ROLES]
+        return {
+            "rooms": rooms,
+            "radiators": radiators,
+            "bridges": bridges,
+            "appliances": appliances,
+        }
 
     def room_view(self, room_id: str) -> dict[str, Any]:
         room = self.rooms[room_id]

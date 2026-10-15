@@ -10,8 +10,11 @@ from pyoverkiz.enums import Server
 
 from kelvin.api.runtime import SERVER_KEY, DataServerMismatch, start_runtime, stop_runtime
 from kelvin.config import Settings
+from kelvin.errors import UserError
+from kelvin.house.model import build_house
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.overkiz.real import PyOverkizGateway
+from kelvin.overkiz.sample import sample_house
 from kelvin.overkiz.servers import (
     DEFAULT_SERVER,
     SERVERS,
@@ -20,6 +23,8 @@ from kelvin.overkiz.servers import (
     server_name,
 )
 from kelvin.recorder.db import Database
+from kelvin.setup.service import SetupService
+from tests.conftest import ManualClock
 
 
 def test_the_cozytouch_servers_come_first_with_sauter_the_default():
@@ -136,3 +141,46 @@ async def test_a_start_on_another_servers_data_is_refused_before_any_call(tmp_pa
         await start_runtime(settings, gw, start_tasks=False, db=db)
     assert e.value.server == "atlantic_cozytouch"
     assert gw.logins == 0 and gw.snapshots == 0
+
+
+async def _boom(*args, **kwargs):
+    raise AssertionError("a setup request was sent")
+
+
+async def test_setup_writes_are_refused_on_an_experimental_server():
+    gw = FakeGateway(server="somfy_europe")
+    for name in (
+        "create_place",
+        "update_place",
+        "delete_place",
+        "relocate_device",
+        "rename_device",
+        "read_place",
+        "read_device",
+    ):
+        setattr(gw, name, _boom)
+    root, devices = sample_house()
+    house = build_house(root, devices, wall=ManualClock(10_000.0))
+    svc = SetupService(gw, house)
+    assert svc.writable is False
+    some_room = next(p for p in house.places if p != house.root_oid)
+    some_radiator = next(iter(house.radiators))
+    attempts = [
+        svc.create_room("Bureau"),
+        svc.rename_room(some_room, "Bureau"),
+        svc.delete_room(some_room),
+        svc.move_radiator(some_radiator, some_room),
+        svc.rename_radiator(some_radiator, "Radiateur"),
+        svc.tidy(f"{some_radiator}#2"),
+    ]
+    for attempt in attempts:
+        with pytest.raises(UserError) as e:
+            await attempt
+        assert (e.value.code, e.value.status) == ("setup_experimental", 403)
+
+
+def test_setup_writes_stay_open_on_cozytouch_servers():
+    root, devices = sample_house()
+    house = build_house(root, devices, wall=ManualClock(10_000.0))
+    for sid in ("sauter_cozytouch", "atlantic_cozytouch", "thermor_cozytouch"):
+        assert SetupService(FakeGateway(server=sid), house).writable is True

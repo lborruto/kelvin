@@ -182,3 +182,28 @@ async def test_mixed_room_off_turns_every_heater_off(client_for):
         assert {x[0] for x in sent} == {"21000001#1", "21000002#1"}
     finally:
         await _close(manager, c)
+
+
+async def test_a_rename_is_a_label_write_where_the_setup_is_writable(client_for):
+    """Plan 8b made the rename a Cozytouch label write: any radiator Kelvin drives takes one on a
+    Cozytouch server (setName or not); a read-only device does not."""
+    manager, c, rt, gw, clock = await client_for("thermor", "thermor_cozytouch")
+    try:
+        assert rt.house.radiators["31000001"].capabilities.rename
+        r = await c.patch("/api/radiators/31000001/features", json={"name": "Bureau"})
+        assert r.status_code == 202, r.text
+        r = await c.patch("/api/radiators/31000004/features", json={"name": "Bureau"})
+        assert (r.status_code, r.json()["code"]) == (422, "read_only_device")
+    finally:
+        await _close(manager, c)
+
+
+async def test_an_experimental_server_never_writes_the_setup(client_for):
+    manager, c, rt, gw, clock = await client_for("experimental", "somfy_europe")
+    try:
+        r = await c.patch("/api/radiators/41000001/features", json={"name": "Bureau"})
+        assert (r.status_code, r.json()["code"]) == (403, "setup_experimental")
+        r = await c.post("/api/setup/rooms", json={"label": "Bureau"})
+        assert (r.status_code, r.json()["code"]) == (403, "setup_experimental")
+    finally:
+        await _close(manager, c)

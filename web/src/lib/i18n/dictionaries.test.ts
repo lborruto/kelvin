@@ -78,7 +78,8 @@ export const ARGS: Record<string, unknown[]> = {
   // Plan 12
   'login.leadServer': ['Flexom'],
   'servers.locked': ['Sauter Cozytouch'],
-  'roomCaps.partial': [2, 3]
+  'roomCaps.partial': [2, 3],
+  'devices.introExperimental': ['Flexom']
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
