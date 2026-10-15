@@ -33,7 +33,8 @@ export const en: Messages = {
     cancel: 'Cancel',
     retry: 'Retry',
     dismiss: 'Dismiss',
-    close: 'Close'
+    close: 'Close',
+    colon: ': '
   },
   error: {
     network: 'Can’t reach Kelvin.',
@@ -146,6 +147,60 @@ export const en: Messages = {
     presenceDetection: 'Presence detection',
     nightLight: 'Night light',
     identify: 'Blink'
+  },
+  days: {
+    monday: 'Monday',
+    tuesday: 'Tuesday',
+    wednesday: 'Wednesday',
+    thursday: 'Thursday',
+    friday: 'Friday',
+    saturday: 'Saturday',
+    sunday: 'Sunday'
+  },
+  daysShort: { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' },
+  program: {
+    nextTomorrow: (time: string, level: string) => `tomorrow ${time} → ${level}`,
+    nextOn: (day: Day, time: string, level: string) => `${DAY[day]} ${time} → ${level}`,
+    dayError: {
+      tooMany: '3 comfort periods at most.',
+      endBeforeStart: 'A period must end after it starts.',
+      overlap: 'Periods overlap.'
+    },
+    ecoAllDay: 'eco all day',
+    blockHint: `Arrows: move by 15${NB}min. Delete: remove the period.`,
+    slotRole: 'period',
+    slotStart: (day: string, n: number) => `${day}, period ${n}, start`,
+    slotEnd: (day: string, n: number) => `${day}, period ${n}, end`,
+    removeSlot: (n: number, day: string) => `Remove period ${n} from ${day}`,
+    addSlot: (day: string) => `Add a period on ${day}`,
+    addShort: 'Period',
+    discard: 'Discard the changes you haven’t sent?',
+    sending: 'Sending…',
+    daysChanged: (n: number) => `${int(n)} ${plural(n, { one: 'day', other: 'days' })} changed`,
+    noDaysChanged: 'No day changed',
+    otherRooms: (n: number) => `${int(n)} other ${plural(n, { one: 'room', other: 'rooms' })}`,
+    noSlots: 'no periods (eco)',
+    roomPicker: 'Room',
+    noRadiator: 'This room has no radiators: there is no schedule to set.',
+    mismatch: 'The radiators in this room don’t share a schedule; sending aligns them on this one.',
+    legend: () => ({
+      before: '',
+      comfort: 'Comfort',
+      middle: ' periods (3 a day at most); the rest of the time is ',
+      eco: 'eco',
+      after: '. Tap or click the bar to add a period, drag it to move it, pull its edges to adjust it.'
+    }),
+    today: 'Today',
+    previewLabel: (name: string) => `${name}, today’s temperature and this schedule’s periods`,
+    copy: 'Copy',
+    copyFrom: 'From',
+    copyTo: 'to',
+    alsoSend: 'Also send to',
+    changes: 'Changes',
+    changeBefore: (segs: string) => `(before: ${segs})`,
+    staleHint: 'Edit, then Send.',
+    undo: 'Undo changes',
+    send: 'Send'
   },
   strip: {
     range: (min: string, max: string) => `${min} to ${max}`,

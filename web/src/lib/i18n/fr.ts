@@ -37,7 +37,8 @@ export const fr = {
     cancel: 'Annuler',
     retry: 'Réessayer',
     dismiss: 'Ignorer',
-    close: 'Fermer'
+    close: 'Fermer',
+    colon: `${NB}: `
   },
   error: {
     network: 'Kelvin est injoignable.',
@@ -150,6 +151,60 @@ export const fr = {
     presenceDetection: 'Détection de présence',
     nightLight: 'Veilleuse',
     identify: 'Faire clignoter'
+  },
+  days: {
+    monday: 'Lundi',
+    tuesday: 'Mardi',
+    wednesday: 'Mercredi',
+    thursday: 'Jeudi',
+    friday: 'Vendredi',
+    saturday: 'Samedi',
+    sunday: 'Dimanche'
+  },
+  daysShort: { monday: 'Lun', tuesday: 'Mar', wednesday: 'Mer', thursday: 'Jeu', friday: 'Ven', saturday: 'Sam', sunday: 'Dim' },
+  program: {
+    nextTomorrow: (time: string, level: string) => `demain ${time} → ${level}`,
+    nextOn: (day: Day, time: string, level: string) => `${DAY_LOWER[day]} ${time} → ${level}`,
+    dayError: {
+      tooMany: '3 plages confort au maximum.',
+      endBeforeStart: 'Une plage doit finir après son début.',
+      overlap: 'Des plages se chevauchent.'
+    },
+    ecoAllDay: 'éco toute la journée',
+    blockHint: `Flèches${NB}: déplacer de 15${NB}min. Suppr${NB}: retirer la plage.`,
+    slotRole: 'plage',
+    slotStart: (day: string, n: number) => `${day}, plage ${n}, début`,
+    slotEnd: (day: string, n: number) => `${day}, plage ${n}, fin`,
+    removeSlot: (n: number, day: string) => `Supprimer la plage ${n} du ${day}`,
+    addSlot: (day: string) => `Ajouter une plage le ${day}`,
+    addShort: 'Plage',
+    discard: `Abandonner les modifications non envoyées${NB}?`,
+    sending: 'Envoi en cours…',
+    daysChanged: (n: number) => `${int(n)} ${plural(n, { one: 'jour modifié', other: 'jours modifiés' })}`,
+    noDaysChanged: 'Aucun jour modifié',
+    otherRooms: (n: number) => `${int(n)} ${plural(n, { one: 'autre pièce', other: 'autres pièces' })}`,
+    noSlots: 'aucune plage (éco)',
+    roomPicker: 'Pièce',
+    noRadiator: `Cette pièce n’a aucun radiateur${NB}: pas de programme à régler.`,
+    mismatch: `Les radiateurs de cette pièce n’ont pas le même programme${NB}; l’envoi les alignera sur celui-ci.`,
+    legend: () => ({
+      before: 'Plages ',
+      comfort: 'confort',
+      middle: ` (3 par jour au plus)${NB}; le reste du temps est en `,
+      eco: 'éco',
+      after: '. Touchez ou cliquez la barre pour ajouter une plage, glissez-la pour la déplacer, tirez ses bords pour l’ajuster.'
+    }),
+    today: 'Aujourd’hui',
+    previewLabel: (name: string) => `${name}, température d’aujourd’hui et plages de ce programme`,
+    copy: 'Copier',
+    copyFrom: 'Du',
+    copyTo: 'vers',
+    alsoSend: 'Envoyer aussi à',
+    changes: 'Modifications',
+    changeBefore: (segs: string) => `(avant${NB}: ${segs})`,
+    staleHint: 'Modifiez puis Envoyer.',
+    undo: 'Annuler',
+    send: 'Envoyer'
   },
   strip: {
     range: (min: string, max: string) => `de ${min} à ${max}`,

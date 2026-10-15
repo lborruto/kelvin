@@ -11,7 +11,8 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
  * a list, an object. A task that adds such a message adds its line here. */
 export const ARGS: Record<string, unknown[]> = {
   'strip.summary': [['a', 'b']],
-  'radiator.facts': ['HEKLA P', 1500]
+  'radiator.facts': ['HEKLA P', 1500],
+  'program.nextOn': ['monday', '06:15', 'B']
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
