@@ -3,10 +3,16 @@ import { loginHref, safeNext } from './auth';
 
 describe('safeNext', () => {
   it('keeps same-origin paths', () => {
-    expect(safeNext('/programme')).toBe('/programme');
-    expect(safeNext('/pieces/p-salon?x=1')).toBe('/pieces/p-salon?x=1');
-    expect(safeNext('/pieces/p-salon?x=1#y')).toBe('/pieces/p-salon?x=1#y');
+    expect(safeNext('/schedule')).toBe('/schedule');
+    expect(safeNext('/rooms/p-salon?x=1')).toBe('/rooms/p-salon?x=1');
+    expect(safeNext('/rooms/p-salon?x=1#y')).toBe('/rooms/p-salon?x=1#y');
     expect(safeNext('/%2F%2Fevil.com')).toBe('/%2F%2Fevil.com');
+  });
+  it('safeNext canonicalises a legacy next', () => {
+    expect(safeNext('/maison#tarif')).toBe('/home#tariff'); // legacy-path-test
+    expect(safeNext('/pieces/p-salon?x=1#y')).toBe('/rooms/p-salon?x=1#y'); // legacy-path-test
+    expect(safeNext('/energie?p=1')).toBe('/energy?p=1'); // legacy-path-test
+    expect(safeNext('/pieces')).toBe('/'); // legacy-path-test
   });
   it('refuses dot segments that normalise to a protocol-relative path', () => {
     for (const bad of ['/.//evil.com', '/..//evil.com/x', '/%2e//evil.com', '/a/..//evil.com']) {
@@ -24,11 +30,14 @@ describe('safeNext', () => {
 
 describe('loginHref', () => {
   it('carries the current page as next', () => {
-    expect(loginHref({ pathname: '/programme', search: '' })).toBe('/login?next=%2Fprogramme');
+    expect(loginHref({ pathname: '/schedule', search: '' })).toBe('/login?next=%2Fschedule');
     expect(loginHref({ pathname: '/', search: '' })).toBe('/login?next=%2F');
-    expect(loginHref({ pathname: '/energie', search: '?p=1' }, true)).toBe('/login?next=%2Fenergie%3Fp%3D1&reauth=1');
+    expect(loginHref({ pathname: '/energy', search: '?p=1' }, true)).toBe('/login?next=%2Fenergy%3Fp%3D1&reauth=1');
+  });
+  it('carries the English path of a legacy page', () => {
+    expect(loginHref({ pathname: '/programme', search: '' })).toBe('/login?next=%2Fschedule'); // legacy-path-test
   });
   it('never nests the login page', () => {
-    expect(loginHref({ pathname: '/login', search: '?next=%2Fmaison' })).toBe('/login?next=%2F');
+    expect(loginHref({ pathname: '/login', search: '?next=%2Fhome' })).toBe('/login?next=%2F');
   });
 });

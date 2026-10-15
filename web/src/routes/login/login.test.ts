@@ -4,7 +4,7 @@ import { goto } from '$app/navigation';
 import { api, ApiError } from '$lib/api/client';
 import Page from './+page.svelte';
 
-const url = { current: new URL('http://kelvin.test/login?next=%2Fprogramme') };
+const url = { current: new URL('http://kelvin.test/login?next=%2Fschedule') };
 vi.mock('$app/state', () => ({
   page: {
     get url() {
@@ -28,7 +28,7 @@ vi.mock('$lib/api/client', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  url.current = new URL('http://kelvin.test/login?next=%2Fprogramme');
+  url.current = new URL('http://kelvin.test/login?next=%2Fschedule');
   vi.mocked(api.me).mockResolvedValue({ email: null, logged_in: false, setup: true, simulator: false });
 });
 
@@ -45,7 +45,7 @@ describe('Login', () => {
     expect(screen.getByRole('heading', { name: 'Connexion' })).toBeInTheDocument();
     await fill(' demo@kelvin.local ', 'kelvin');
     expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin');
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/programme', { replaceState: true }));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replaceState: true }));
   });
 
   it('shows the server message and stays', async () => {
@@ -110,6 +110,6 @@ describe('Login', () => {
   it('leaves the form at once when a session already exists', async () => {
     vi.mocked(api.me).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
     render(Page);
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/programme', { replaceState: true }));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replaceState: true }));
   });
 });
