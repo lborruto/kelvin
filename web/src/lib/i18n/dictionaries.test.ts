@@ -46,7 +46,10 @@ export const ARGS: Record<string, unknown[]> = {
   'hero.radPartial': ['P', true],
   'compare.zero': ['day'],
   'power.floorDay': ['K', 'E'],
-  'projection.base': ['V', '12/10']
+  'projection.base': ['V', '12/10'],
+  // Plan 12
+  'login.leadServer': ['Flexom'],
+  'servers.locked': ['Sauter Cozytouch']
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
@@ -55,7 +58,9 @@ export const SAME = new Set<string>([
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
   'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
-  'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est'
+  'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est',
+  // Plan 12: a product name
+  'servers.cozytouch'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {

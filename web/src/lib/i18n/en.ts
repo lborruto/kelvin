@@ -750,6 +750,7 @@ export const en: Messages = {
   login: {
     title: 'Sign in',
     lead: 'Use the home’s Cozytouch account.',
+    leadServer: (name: string) => `Use the home’s ${name} account.`,
     reauth: 'Sign in again with the Cozytouch account.',
     password: 'Password',
     busy: 'Signing in…',
@@ -977,5 +978,13 @@ export const en: Messages = {
     level_unknown: (p: ApiParams) => `Unknown heating level: ${p.level}.`,
     dryer_action_unknown: (p: ApiParams) => `Unknown action: ${p.action}.`,
     unsupported_in_room: () => 'None of these radiators supports this command.'
+  },
+  // Plan 12
+  servers: {
+    label: 'Server',
+    cozytouch: 'Cozytouch',
+    experimental: 'Experimental — heating only',
+    experimentalNote: 'Experimental: Kelvin shows heating only, doesn’t change rooms, and some devices stay read-only.',
+    locked: (name: string) => `Server: ${name}. To change it, start from a fresh install (see the README).`
   }
 };

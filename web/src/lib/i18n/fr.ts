@@ -775,6 +775,7 @@ export const fr = {
   login: {
     title: 'Connexion',
     lead: 'Utilisez le compte Cozytouch de la maison.',
+    leadServer: (name: string) => `Utilisez le compte ${name} de la maison.`,
     reauth: 'Reconnectez-vous avec le compte Cozytouch.',
     password: 'Mot de passe',
     busy: 'Connexion…',
@@ -1007,6 +1008,15 @@ export const fr = {
     level_unknown: (p: ApiParams) => `Allure inconnue${NB}: ${p.level}.`,
     dryer_action_unknown: (p: ApiParams) => `Action inconnue${NB}: ${p.action}.`,
     unsupported_in_room: () => 'Aucun des radiateurs concernés ne prend en charge cette commande.'
+  },
+  // Plan 12
+  servers: {
+    label: 'Serveur',
+    cozytouch: 'Cozytouch',
+    experimental: 'Expérimental — chauffage seulement',
+    experimentalNote: `Expérimental${NB}: Kelvin n’affiche que le chauffage, ne modifie pas les pièces, et certains appareils restent en lecture seule.`,
+    locked: (name: string) =>
+      `Serveur${NB}: ${name}. Pour en changer, repartez d’une installation neuve (voir le README).`
   }
 };
 
