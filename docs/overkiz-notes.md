@@ -98,3 +98,7 @@ the setup once over the budget (at most once per 24 h). It never sends `states/r
   `io:CurrentWorkingRateState` (`RateIndex` clamps it to 0–100). Whether an unchanged value
   re-read later proves that no energy was used depends on that lag; until it is measured,
   Kelvin does not treat it as proof.
+- 2026-10-14 23:24 → 2026-10-15 01:24 (2 h), real installation, read-only event listener,
+  radiators in off mode: 0 errors; only `core:TemperatureState` changes (8 events from 2
+  devices), median gap ≈ 900 s, max 3000 s; no energy, tariff counter, working-rate or
+  running-state events. The heating-time cadence remains unverified.

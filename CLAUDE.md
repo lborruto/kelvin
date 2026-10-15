@@ -101,7 +101,23 @@ depends on.
   control shows the shared dashed→solid edge; controls that can hold focus are paused with
   `aria-disabled` and a guarded handler, never native `disabled`; every route shows skeletons
   before data, never placeholder values; no horizontal scroll from 320 px and CLS < 0.05
-  (e2e checks both). Buttons use the global `.btn-*` classes.
+  (e2e checks both). Buttons use the global `.btn-*` classes. Svelte 5 transitions on an element
+  that a parent mounts inside its own `{#if}` (ChartInspector) need `|global`, or they never play.
+- **Énergie figures:** formatted through the precision functions in `$lib/format.ts` (spec
+  §3.2.1), and every inspector, readout, hidden table and announcement built from
+  `$lib/inspector.ts`, so a value reads the same everywhere. Shown sums add up: a total shown
+  with its parts goes through `matchParts` (largest remainder at the total's decimals). € are
+  rounded once, in `billing/report.py`, from running sums anchored on 1 January (a span's cents
+  are round(cum(to)) − round(cum(from))); never round a bucket's € on its own, in the backend or
+  the web, so a day reads the same figure in Jour, Semaine, Mois, Année and the CSV. A « — »
+  always carries its reason. The Courbe readout's fields stack every text they take over the day
+  in one cell, so scrubbing never reflows them; keep that when adding a field. Énergie strings
+  live in one `COPY` constant per component or module (Plan 7 extracts them); the CSV export is a
+  machine contract documented in `web/README.md` (French headers, `;`, decimal comma, no ids, no
+  PDL).
+- **Time in tests:** tests that depend on the time of day use the injected clock
+  (`create_app(wall=…)` / `start_runtime(wall=…)` in the backend, `EnergieData(now)` in the web),
+  never the real hour, so they pass at 00:27 as at 14:00.
 
 ## Checks
 
