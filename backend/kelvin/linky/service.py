@@ -163,7 +163,7 @@ class LinkyService:
             self.sync.set_not_before(contract.activation_date)
 
     def seed_demo_tariff(self) -> None:
-        if self.tariffs.get() is None:
+        if not self.tariffs.stored():  # never over a stored document, even an invalid one
             self.tariffs.save(DEMO_TARIFF)
 
     async def run(self) -> None:

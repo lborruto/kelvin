@@ -8,6 +8,7 @@ import pytest
 from kelvin.billing.slots import Slot
 from kelvin.billing.tariff import (
     ALL_MONTHS,
+    TARIFF_INVALID_KEY,
     TARIFF_KEY,
     TARIFF_V1_KEY,
     HcSchedule,
@@ -278,3 +279,41 @@ def test_the_v1_body_adds_a_dated_schedule_only_when_the_slots_change():
             TariffUpdate(9, NIGHT, Prices(date(2026, 9, 1), 15.5, 0.21, 0.31), option="tempo")
         )
     assert e.value.code == "tariff_option_unsupported"
+
+
+def test_an_invalid_setting_is_logged_once_per_document(caplog):
+    db = Database(":memory:")
+    store = TariffStore(db)
+    db.set_setting(TARIFF_KEY, {**V1, "kva": 7})
+    for _ in range(3):
+        assert store.get() is None
+    assert caplog.text.count("tariff setting") == 1  # the report, the day view, the loop: once
+    db.set_setting(TARIFF_KEY, {"kva": 9})
+    store.get()
+    store.get()
+    assert caplog.text.count("tariff setting") == 2  # another document: logged again
+
+
+def test_saving_over_an_invalid_document_keeps_it_as_tariff_invalid():
+    db = Database(":memory:")
+    store = TariffStore(db)
+    bad = {**V1, "kva": 7}
+    db.set_setting(TARIFF_KEY, bad)
+    t = store.update(TariffUpdate(9, NIGHT, Prices(date(2026, 1, 1), 15.0, 0.2, 0.3)))
+    assert store.get() == t and db.get_setting(TARIFF_INVALID_KEY) == bad
+    store.update(TariffUpdate(9, NIGHT, Prices(date(2026, 2, 1), 15.0, 0.2, 0.3)))
+    assert db.get_setting(TARIFF_INVALID_KEY) == bad  # a valid document is never backed up
+
+
+def test_the_simulator_seed_never_overwrites_a_stored_document():
+    from kelvin.linky.service import LinkyService
+
+    db = Database(":memory:")
+    bad = {**V1, "kva": 7}
+    db.set_setting(TARIFF_KEY, bad)
+    svc = LinkyService(db, make_source=lambda *a: None, credentials=None, simulator=True)
+    svc.seed_demo_tariff()
+    assert db.get_setting(TARIFF_KEY) == bad
+    db.execute("DELETE FROM settings WHERE key = ?", (TARIFF_KEY,))
+    svc.seed_demo_tariff()
+    assert svc.tariffs.get() is not None

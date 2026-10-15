@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 KVA_CHOICES = (3, 6, 9, 12, 15, 18, 24, 30, 36)
 TARIFF_KEY = "tariff"
 TARIFF_V1_KEY = "tariff_v1"
+TARIFF_INVALID_KEY = "tariff_invalid"  # an invalid document a save replaced, kept for recovery
 PREFILL_KEY = "tariff_prefill"
 CONTRACT_KEY = "contract_last"
 OPTIONS = ("base", "hchp", "tempo")
@@ -377,6 +378,12 @@ class TariffUpdate:
 class TariffStore:
     def __init__(self, db: Database) -> None:
         self.db = db
+        self._logged: Any = None  # the last invalid document logged: one warning per document
+
+    def _warn(self, raw: Any, msg: str, what: str) -> None:
+        if raw != self._logged:
+            self._logged = raw
+            log.warning(msg, what)
 
     def _load(self) -> tuple[dict[str, Any] | None, Tariff | None]:
         """The stored document and its tariff; an invalid one gives no tariff (logged by code):
@@ -387,11 +394,15 @@ class TariffStore:
         try:
             return raw, Tariff.from_view(raw).validate()
         except UserError as e:
-            log.warning("tariff setting invalid: %s", e.code)
+            self._warn(raw, "tariff setting invalid: %s", e.code)
             return raw, None
         except (KeyError, TypeError, ValueError, AttributeError) as e:  # a malformed document
-            log.warning("tariff setting unreadable: %s", type(e).__name__)
+            self._warn(raw, "tariff setting unreadable: %s", type(e).__name__)
             return raw, None
+
+    def stored(self) -> bool:
+        """A document is stored, valid or not."""
+        return bool(self.db.get_setting(TARIFF_KEY))
 
     def get(self) -> Tariff | None:
         """The tariff (a v1 document not migrated yet reads the same, in memory). Never writes."""
@@ -413,8 +424,14 @@ class TariffStore:
         self.db.set_setting(TARIFF_KEY, tariff.view())
 
     def replace(self, tariff: Tariff) -> Tariff:
-        """The v2 document: validated as a whole, then stored as given."""
-        self.save(tariff.validate())
+        """The v2 document: validated as a whole, then stored as given. An invalid stored
+        document it replaces is kept first as `tariff_invalid` (saving is the user's way out of
+        it; a later, stricter validation must never erase their rows unseen)."""
+        tariff.validate()
+        raw, current = self._load()
+        if raw is not None and current is None:
+            self.db.set_setting(TARIFF_INVALID_KEY, raw)
+        self.save(tariff)
         return tariff
 
     def update(self, u: TariffUpdate) -> Tariff:
