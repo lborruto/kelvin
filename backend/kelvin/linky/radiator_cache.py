@@ -75,6 +75,7 @@ class RadiatorDayCache:
         out: dict[str, dict[date, RadiatorDay]] = {}
         with self._lock:
             self._check(recorder, ids, tariff)
+            powers = {rid: self._power.get(rid) for rid in ids}  # what this request computes at
             todo: list[tuple[str, date, date]] = []
             for rid in ids:
                 first = local_day(first_reading[rid], self.tz)
@@ -103,7 +104,11 @@ class RadiatorDayCache:
             fresh = tariff == self._tariff and recorder.energy_epoch == self._epoch
             for rid, per in computed:
                 out.setdefault(rid, {}).update(per)
-                if not fresh:
+                # Another request may have seen a new power meanwhile (and dropped the radiator's
+                # days): days computed at the old one are not kept.
+                radiator = recorder.house.radiators.get(rid)
+                power = radiator.power_w if radiator is not None else None
+                if not fresh or self._power.get(rid) != powers[rid] or power != powers[rid]:
                     continue
                 for d, rd in per.items():
                     if rd.complete:

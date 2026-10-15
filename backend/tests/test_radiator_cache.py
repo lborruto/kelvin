@@ -216,3 +216,36 @@ def test_samples_written_after_a_backward_clock_step_drop_what_is_cached():
     after = report(svc, rec, rooms, window=days, period=days)
     assert after == fresh(db, clock, rec, rooms, window=days, period=days)
     assert bucket(after, "2026-11-03")["radiators"] != bucket(before, "2026-11-03")["radiators"]
+
+
+def set_power(house, w: int) -> None:
+    house.apply(StateChange(f"{SAMPLE_GATEWAY}/{RID}#1", "io:PowerState", w))
+
+
+def test_a_power_change_drops_that_radiators_days(home):
+    clock, db, house, rec, svc, rooms = home
+    before = report(svc, rec, rooms)
+    set_power(house, 300)  # 500 Wh an hour is above 300 W: the readings become spikes
+    after = report(svc, rec, rooms)
+    assert after == fresh(db, clock, rec, rooms) != before
+
+
+def test_days_computed_at_a_power_that_changed_meanwhile_are_not_kept(home, monkeypatch):
+    """Final review minor: request A computes at the old power while request B sees the new one
+    and clears the radiator; A must not store its days afterwards."""
+    clock, db, house, rec, svc, rooms = home
+    original = rec.energy_buckets
+    raced = []
+
+    def racing(edges, *args, **kwargs):
+        out = original(edges, *args, **kwargs)
+        if not raced:  # request B arrives while A computes
+            raced.append(True)
+            set_power(house, 300)
+            report(svc, rec, rooms)
+        return out
+
+    monkeypatch.setattr(rec, "energy_buckets", racing)
+    report(svc, rec, rooms)  # request A
+    monkeypatch.setattr(rec, "energy_buckets", original)
+    assert report(svc, rec, rooms) == fresh(db, clock, rec, rooms)
