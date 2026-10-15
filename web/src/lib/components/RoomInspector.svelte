@@ -7,11 +7,14 @@
   import { heatColor } from '$lib/heat';
   import { flash } from '$lib/motion';
   import { fmtNextChange, nextChange } from '$lib/program';
+  import { alerts } from '$lib/stores/alerts.svelte';
+  import { auth } from '$lib/stores/auth.svelte';
   import { history } from '$lib/stores/history.svelte';
   import { agg } from '$lib/room';
   import { house } from '$lib/stores/house.svelte';
   import { roomActivity, roomsDuty } from '$lib/stores/roomdata.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
+  import AlertCallout from './AlertCallout.svelte';
   import ModeSwitch from './ModeSwitch.svelte';
   import OverrideBadge from './OverrideBadge.svelte';
   import PendingTag from './PendingTag.svelte';
@@ -27,6 +30,9 @@
     level?: 'h1' | 'h2';
   }
   let { roomId, level = 'h2' }: Props = $props();
+  $effect(() => {
+    if (auth.loggedIn !== false && alerts.list === null) void alerts.load(); // not while signing out (a 401 would re-ask the login)
+  });
   // On the phone room page the figure arrives from the card it was tapped on (view transition).
   let vtName = $derived(level === 'h1' ? `temp-${house.rooms.findIndex((r) => r.id === roomId)}` : undefined);
 
@@ -112,6 +118,7 @@
     {#if override || pending}
       <div class="status"><OverrideBadge {override} /><PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} /></div>
     {/if}
+    {#each alerts.of(['radiator_unreachable'], (a) => a.params.room_id === roomId) as a (a.id)}<AlertCallout alert={a} />{/each}
 
     <section>
       <h3>{m.room.controls}</h3>

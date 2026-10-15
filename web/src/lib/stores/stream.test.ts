@@ -146,3 +146,21 @@ describe('connectStream', () => {
     stop();
   });
 });
+
+describe('alerts over the stream', () => {
+  it('the snapshot count and the alerts event reach onAlerts', () => {
+    FakeES.all = [];
+    const seen: unknown[] = [];
+    connectStream(new HouseStore(), {
+      EventSourceImpl: FakeES as unknown as typeof EventSource,
+      schedule: () => 0,
+      cancel: () => {},
+      doc: new EventTarget() as unknown as Document,
+      onAlerts: (s) => seen.push(s)
+    });
+    const es = FakeES.all[0];
+    es.emit('snapshot', { ...snapshot, alerts: { active: 2, highest: 'bad' } });
+    es.emit('alerts', { active: 1, highest: 'warn' });
+    expect(seen).toEqual([{ active: 2, highest: 'bad' }, { active: 1, highest: 'warn' }]);
+  });
+});

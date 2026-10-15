@@ -1,4 +1,5 @@
 import type {
+  Alert,
   CommandResult,
   EnergyBucket,
   EnergyDay,
@@ -100,6 +101,8 @@ export const api = {
     cmd('POST', `/rooms/${enc(roomId)}/setpoint`, { kind, value }),
   roomProgram: (roomId: string, week: WeekProgram, opts: { base?: Base; force?: boolean } = {}) =>
     cmd('PUT', `/rooms/${enc(roomId)}/program`, { ...week, ...programOpts(opts) }),
+  alerts: (state: 'active' | 'all' = 'active') => call<Alert[]>('GET', `/alerts?state=${state}`),
+  dismissAlert: (id: number) => call<void>('POST', `/alerts/${id}/dismiss`),
   sessions: () => call<SessionInfo[]>('GET', '/sessions'),
   revokeSession: (id: string) => call<void>('DELETE', `/sessions/${enc(id)}`),
   revokeOtherSessions: () => call<{ revoked: number }>('POST', '/sessions/revoke-others'),

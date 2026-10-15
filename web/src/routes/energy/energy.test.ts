@@ -19,7 +19,8 @@ vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn(
 // The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
 vi.mock('$lib/api/client', async (orig) => ({
   ...(await orig<typeof import('$lib/api/client')>()),
-  api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]) }
+  api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]),
+    alerts: vi.fn().mockResolvedValue([]), dismissAlert: vi.fn() }
 }));
 
 const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({

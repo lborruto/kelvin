@@ -120,6 +120,7 @@ export interface Snapshot {
   recent?: Pending[];
   overrides: Override[];
   status: Status;
+  alerts?: AlertSummary;
 }
 
 export interface HistoryPoint {
@@ -486,4 +487,22 @@ export interface SessionInfo {
   browser: string | null;
   os: string | null;
   current: boolean;
+}
+
+export type Severity = 'info' | 'warn' | 'bad';
+export type AlertKind = 'price_change' | 'consent_expiring' | 'radiator_unreachable' | 'command_failed' | 'linky_stalled';
+export interface Alert {
+  id: number;
+  /** A kind this bundle does not know (a newer server) is not shown. */
+  kind: AlertKind | string;
+  severity: Severity;
+  params: Record<string, unknown>;
+  first_seen: number;
+  last_seen: number;
+  resolved_at: number | null;
+  dismissed: boolean;
+}
+export interface AlertSummary {
+  active: number;
+  highest: Severity | null;
 }

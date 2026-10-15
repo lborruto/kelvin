@@ -3,10 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { house } from '$lib/stores/house.svelte';
 import RoomInspector from './RoomInspector.svelte';
 import { applyLocale } from '$lib/i18n';
+import { alerts } from '$lib/stores/alerts.svelte';
 
 vi.mock('$lib/api/client', () => ({
   api: { roomMode: vi.fn(), roomSetpoint: vi.fn(), roomBoost: vi.fn(), cancelOverride: vi.fn(), history: vi.fn().mockResolvedValue([]),
-    roomEnergy: vi.fn(() => new Promise(() => {})),
+    roomEnergy: vi.fn(() => new Promise(() => {})), alerts: vi.fn().mockResolvedValue([]), dismissAlert: vi.fn(),
     roomActivity: vi.fn().mockResolvedValue({ step: 300, window: [], presence: [] }),
     roomsDuty: vi.fn().mockResolvedValue({ from: 0, to: 86400, rooms: { salon: { duty: 0.38, coverage: 1 } } }) },
   ApiError: class extends Error {}
@@ -92,5 +93,20 @@ describe('presence state and legend', () => {
     } as never);
     render(RoomInspector, { roomId: 'salon' });
     expect(screen.getByText(/Présence\s:\s—/)).toBeInTheDocument();
+  });
+});
+
+describe('RoomInspector alerts', () => {
+  const al = (id: number, room: string) => ({
+    id, kind: 'radiator_unreachable', severity: 'bad' as const, params: { radiator_id: 'a', room_id: room, since: null },
+    first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false
+  });
+  it('shows this room’s unreachable alert, not another room’s', () => {
+    applyLocale('fr');
+    alerts.list = [al(1, 'salon'), al(2, 'cuisine')];
+    render(RoomInspector, { roomId: 'salon' });
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByText(/Salon · Gauche\s:\sradiateur injoignable/)).toBeInTheDocument();
+    alerts.reset();
   });
 });

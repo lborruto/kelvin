@@ -3,6 +3,7 @@
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
   import type { LinkyStatus, SettingsView } from '$lib/api/types';
+  import AlertList from '$lib/components/AlertList.svelte';
   import HouseActions from '$lib/components/HouseActions.svelte';
   import LinkyPanel from '$lib/components/LinkyPanel.svelte';
   import SessionsPanel from '$lib/components/SessionsPanel.svelte';
@@ -151,6 +152,11 @@
   {:else}
     <p class="muted">{m.home.none}</p>
   {/if}
+</section>
+
+<section id="alerts" class="panel">
+  <h2>{m.alerts.title}</h2>
+  <AlertList />
 </section>
 
 <section class="panel">

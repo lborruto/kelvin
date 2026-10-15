@@ -669,6 +669,19 @@ export const fr = {
     linkyLoadFailed: 'Impossible de charger l’état du Linky.',
     logoutFailed: 'Déconnexion impossible. Réessayez.'
   },
+  alerts: {
+    title: 'Alertes',
+    none: 'Aucune alerte.',
+    dismissLabel: (text: string) => `Masquer${NB}: ${text}`,
+    priceChange: (when: string) => `Si votre offre suit le tarif réglementé, les prix changent le ${when}${NB}: ajoutez les nouveaux prix.`,
+    addPrices: 'Ajouter les prix',
+    consentExpiring: (when: string) => `Le consentement Enedis expire le ${when}${NB}: renouvelez-le sur MyElectricalData.`,
+    consentExpired: (when: string) => `Le consentement Enedis a expiré le ${when}${NB}: renouvelez-le sur MyElectricalData.`,
+    unreachableSince: (where: string, time: string) => `${where}${NB}: radiateur injoignable depuis ${time}.`,
+    unreachableLong: (where: string) => `${where}${NB}: radiateur injoignable depuis plus de 30${NB}min.`,
+    commandFailed: (time: string, label: string, error: string) => `Commande non aboutie à ${time}${NB}: ${label} — ${error}`,
+    linkyStalled: (day: string, days: number) => `Linky${NB}: pas de nouvelle donnée depuis le ${day} (${int(days)}${NB}jours).`
+  },
   sessions: {
     title: 'Appareils connectés',
     intro: 'Les navigateurs connectés à Kelvin avec le compte de la maison.',

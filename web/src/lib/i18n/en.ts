@@ -645,6 +645,19 @@ export const en: Messages = {
     linkyLoadFailed: 'Couldn’t load the Linky status.',
     logoutFailed: 'Couldn’t sign out. Try again.'
   },
+  alerts: {
+    title: 'Alerts',
+    none: 'No alerts.',
+    dismissLabel: (text: string) => `Dismiss: ${text}`,
+    priceChange: (when: string) => `If your plan follows the regulated tariff, prices change on ${when}: add the new prices.`,
+    addPrices: 'Add the prices',
+    consentExpiring: (when: string) => `Your Enedis consent expires on ${when}: renew it on MyElectricalData.`,
+    consentExpired: (when: string) => `Your Enedis consent expired on ${when}: renew it on MyElectricalData.`,
+    unreachableSince: (where: string, time: string) => `${where}: radiator unreachable since ${time}.`,
+    unreachableLong: (where: string) => `${where}: radiator unreachable for over 30${NB}min.`,
+    commandFailed: (time: string, label: string, error: string) => `Command not completed at ${time}: ${label} — ${error}`,
+    linkyStalled: (day: string, days: number) => `Linky: no new data since ${day} (${int(days)} ${plural(days, { one: 'day', other: 'days' })}).`
+  },
   sessions: {
     title: 'Signed-in devices',
     intro: 'Browsers signed in to Kelvin with the home’s account.',

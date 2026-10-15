@@ -1,3 +1,5 @@
+import type { AlertSummary } from '$lib/api/types';
+import { alerts } from './alerts.svelte';
 import type { HouseStore } from './house.svelte';
 
 export interface StreamOptions {
@@ -14,6 +16,8 @@ export interface StreamOptions {
   staleAfterMs?: number;
   /** Reconnect when nothing (not even the server's 15 s ping) arrived for this long. */
   livenessMs?: number;
+  /** The alerts count (snapshot and `alerts` event). */
+  onAlerts?: (s: AlertSummary) => void;
 }
 
 const MAX_DELAY_MS = 30_000;
@@ -26,6 +30,7 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
   const doc = opts.doc ?? (typeof document === 'undefined' ? undefined : document);
   const win = opts.win ?? (typeof window === 'undefined' ? undefined : window);
 
+  const onAlerts = opts.onAlerts ?? ((s: AlertSummary) => alerts.applySummary(s));
   const now = opts.now ?? (() => Date.now());
   const staleAfterMs = opts.staleAfterMs ?? 10_000;
   let hiddenAt: number | null = null;
@@ -81,8 +86,9 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
     const source = new ES(url);
     es = source;
     store.connection = attempts === 0 ? 'connecting' : 'reconnecting';
-    listen(source, 'snapshot', (d) => {
-      store.applySnapshot(d);
+    listen(source, 'snapshot', (d: { alerts?: AlertSummary }) => {
+      store.applySnapshot(d as never);
+      if (d.alerts) onAlerts(d.alerts);
       store.connection = 'open';
       attempts = 0;
     });
@@ -90,6 +96,7 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
     listen(source, 'pending', (d) => store.applyPending(d));
     listen(source, 'overrides', (d) => store.applyOverrides(d));
     listen(source, 'status', (d) => store.applyStatus(d));
+    listen(source, 'alerts', (d: AlertSummary) => onAlerts(d));
     listen(source, 'ping', () => {});
     source.onerror = () => fail(source);
     arm(source);
