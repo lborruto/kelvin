@@ -211,6 +211,14 @@
       "fr": "Envoi impossible : erreur interne.",
       "params": {}
     },
+    "session_is_current": {
+      "fr": "Utilisez « Se déconnecter » pour cet appareil.",
+      "params": {}
+    },
+    "session_unknown": {
+      "fr": "Cet appareil n’est plus connecté.",
+      "params": {}
+    },
     "setpoint_kind_unknown": {
       "fr": "Type de consigne inconnu : turbo.",
       "params": {

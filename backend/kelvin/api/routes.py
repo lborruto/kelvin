@@ -11,7 +11,7 @@ from operator import add
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
@@ -31,7 +31,7 @@ from kelvin.api.schemas import (
     SettingsBody,
 )
 from kelvin.api.sse import event_stream
-from kelvin.auth.sessions import COOKIE_NAME
+from kelvin.auth.sessions import COOKIE_NAME, SessionIsCurrent
 from kelvin.billing.report import next_unit, unit_start
 from kelvin.billing.room_energy import MAX_ROOM_DAYS
 from kelvin.commands.translate import (
@@ -436,6 +436,31 @@ async def energy_radiators(
     ids = _ids(radiators) or list(rt.house.radiators)
     # Off the event loop: years of readings take a moment to bucket.
     return await asyncio.to_thread(rt.recorder.radiator_energy, ids, start, end, group)  # type: ignore[arg-type]
+
+
+@router.get("/sessions")
+async def sessions_list(request: Request) -> list[dict]:
+    """The household's signed-in devices (spec §2.5): no hash, no raw user agent."""
+    ctx = request.app.state.ctx
+    return ctx.sessions.listing(request.cookies.get(COOKIE_NAME))
+
+
+@router.delete("/sessions/{sid}", status_code=204)
+async def session_revoke(sid: str, request: Request) -> Response:
+    ctx = request.app.state.ctx
+    try:
+        ok = ctx.sessions.revoke(sid, request.cookies.get(COOKIE_NAME))
+    except SessionIsCurrent:
+        raise UserError("session_is_current", 409) from None
+    if not ok:
+        raise UserError("session_unknown", 404)
+    return Response(status_code=204)
+
+
+@router.post("/sessions/revoke-others")
+async def sessions_revoke_others(request: Request) -> dict:
+    ctx = request.app.state.ctx
+    return {"revoked": ctx.sessions.revoke_others(request.cookies.get(COOKIE_NAME))}
 
 
 def _linky(rt: Runtime) -> LinkyService:

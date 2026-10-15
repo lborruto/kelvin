@@ -1,5 +1,6 @@
 import json
 import logging
+import secrets
 import sqlite3
 import threading
 import time
@@ -104,7 +105,20 @@ def _v1_energy_counters(conn: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS = {1: _v1_energy_counters}
+def _v2_session_ids(conn: sqlite3.Connection) -> None:
+    """v2 (Plan 8): sessions get an opaque id the API can name (spec §2.5). Random, never
+    derived from the token or its hash. Idempotent: an interrupted run is finished next start."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}
+    if "id" not in cols:
+        conn.execute("ALTER TABLE sessions ADD COLUMN id TEXT")
+    for (h,) in conn.execute("SELECT hash FROM sessions WHERE id IS NULL").fetchall():
+        _in_transaction(
+            conn, "UPDATE sessions SET id = ? WHERE hash = ?", (secrets.token_hex(8), h)
+        )
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS sessions_id ON sessions(id)")
+
+
+MIGRATIONS = {1: _v1_energy_counters, 2: _v2_session_ids}
 SCHEMA_VERSION = max(MIGRATIONS)  # a new migration is the new version
 
 

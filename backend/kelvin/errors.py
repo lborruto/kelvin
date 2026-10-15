@@ -33,6 +33,8 @@ KIND_SUBJECT_FR = {
 TEMPLATES: dict[str, str] = {
     # Auth and platform
     "login_required": "Connexion requise.",
+    "session_is_current": "Utilisez « Se déconnecter » pour cet appareil.",
+    "session_unknown": "Cet appareil n’est plus connecté.",
     "header_missing": "En-tête X-Kelvin manquant.",
     "bad_credentials": "Email ou mot de passe Cozytouch incorrect.",
     "wrong_account": "Ce compte Cozytouch n’est pas celui de cette maison.",
