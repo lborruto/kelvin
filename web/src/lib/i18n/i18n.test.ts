@@ -42,3 +42,10 @@ forEachLocale((l) => {
     expect(m.common.cancel).toBe(l === 'fr' ? 'Annuler' : 'Cancel');
   });
 });
+
+it('the rooms summary never reads “0 heating” in English', () => {
+  const en = dictionary('en');
+  expect(en.rooms.heating(0)).toBe('none heating');
+  expect(en.rooms.heating(2)).toBe('2 heating');
+  expect(dictionary('fr').rooms.heating(0)).toBe('0 en chauffe');
+});

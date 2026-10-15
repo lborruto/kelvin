@@ -21,7 +21,7 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Repos (level off) | Idle | The heater is not calling for heat |
 | Consigne / Consigne active | Setpoint / Current setpoint | |
 | Forcer / Forcé / Forçage / Forcer temporairement | Boost / Boosted / Boost / Temporary boost | « Annuler le forçage » → “Cancel boost” |
-| Absence | Away | « Activer l’absence » → “Start away mode” |
+| Absence | Away | « Activer l’absence » → “Start away mode”; « Absence en cours » → “Away mode on” |
 | Rétablissement… | Restoring… | |
 | En cours (Maison) | Active | |
 | Tout éteindre | Turn everything off | |
@@ -29,6 +29,8 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Heures creuses / HC | Off-peak | Never “HC”, even in compact places |
 | Heures pleines / HP | Peak | |
 | Plage (confort, HC) | Period | “Comfort period”, “Off-peak period” |
+| Période (Historique d’une pièce) | Time range | The room History selector (24 h / 7 d / 30 d): never “Period”, which is « plage » there |
+| Période (Énergie) | Period | The time Énergie shows (“Previous period”, “Share of the period”); no « plage » appears on that page |
 | Tarif | Tariff | |
 | Registre 1 / Registre 2 (radiator meters) | Register 1 / Register 2 | T1/T2 are the radiator’s registers, not off-peak/peak |
 | Pointe (moyenne sur 30 min) | Max power (30-min average) | Never “Peak”, which is HP |

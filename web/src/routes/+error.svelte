@@ -13,7 +13,7 @@
   });
 </script>
 
-<svelte:head><title>{m.page.title(page.status === 404 ? m.page.notFound : m.page.error)}</title></svelte:head>
+<svelte:head><title>{m.page.title(page.status === 404 ? m.page.notFoundTitle : m.page.errorTitle)}</title></svelte:head>
 
 {#if page.status === 404}
   {#if !target}

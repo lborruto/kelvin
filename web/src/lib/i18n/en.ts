@@ -56,7 +56,7 @@ export const en: Messages = {
     announceSending: (label: string) => `${label} — sending…`,
     announceConfirmed: (label: string) => `${label} — confirmed`,
     unknownToast: (label: string) => `${label}: unknown result — please check.`,
-    cannotRetry: 'Can’t retry from here: do it again.'
+    cannotRetry: 'Can’t retry from here: try the action again.'
   },
   banner: {
     reconnecting: 'Reconnecting to Kelvin…',
@@ -99,13 +99,15 @@ export const en: Messages = {
   page: {
     title: (name: string) => `${name} · Kelvin`,
     notFound: 'Page not found.',
+    notFoundTitle: 'Page not found',
+    errorTitle: 'Error',
     error: 'Something went wrong.',
     backToRooms: 'Back to rooms'
   },
   rooms: {
     count: (n: number) => `${int(n)} ${plural(n, { one: 'room', other: 'rooms' })}`,
-    heating: (n: number) => `${int(n)} heating`,
-    awayActive: 'Away active'
+    heating: (n: number) => (n === 0 ? 'none heating' : `${int(n)} heating`),
+    awayActive: 'Away mode on'
   },
   room: {
     title: 'Room',
@@ -130,7 +132,7 @@ export const en: Messages = {
     duration: 'Duration',
     boost: 'Boost',
     history: 'History',
-    range: 'Period',
+    range: 'Time range',
     historyLabel: (name: string, range: string) => `${name}, temperature over ${range}`,
     radiators: 'Radiators'
   },
@@ -177,12 +179,12 @@ export const en: Messages = {
     discard: 'Discard the changes you haven’t sent?',
     sending: 'Sending…',
     daysChanged: (n: number) => `${int(n)} ${plural(n, { one: 'day', other: 'days' })} changed`,
-    noDaysChanged: 'No day changed',
+    noDaysChanged: 'No days changed',
     otherRooms: (n: number) => `${int(n)} other ${plural(n, { one: 'room', other: 'rooms' })}`,
     noSlots: 'no periods (eco)',
     roomPicker: 'Room',
     noRadiator: 'This room has no radiators: there is no schedule to set.',
-    mismatch: 'The radiators in this room don’t share a schedule; sending aligns them on this one.',
+    mismatch: 'The radiators in this room don’t share a schedule; sending aligns them with this one.',
     legend: () => ({
       before: '',
       comfort: 'Comfort',

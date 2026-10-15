@@ -80,24 +80,36 @@ function params(fn: Fn): string[] {
     .filter(Boolean);
 }
 
+/** Every way `other`'s messages differ from `ref`'s: a missing or extra function, another arity,
+ * other parameter names. Empty when they match. */
+function paramMismatches(ref: object, other: object): string[] {
+  const fns = (o: object) => new Map(leaves(o).filter(([, v]) => typeof v === 'function') as [string, Fn][]);
+  const a = fns(ref);
+  const b = fns(other);
+  const out: string[] = [];
+  for (const [p, f] of a) {
+    const g = b.get(p);
+    if (!g) out.push(`${p}: missing`);
+    else if (g.length !== f.length) out.push(`${p}: arity ${g.length} ≠ ${f.length}`);
+    else if (params(g).join() !== params(f).join()) out.push(`${p}: (${params(g)}) ≠ (${params(f)})`);
+  }
+  for (const p of b.keys()) if (!a.has(p)) out.push(`${p}: extra`);
+  return out;
+}
+
 describe('English messages take the same parameters as French', () => {
-  const frFns = leaves(fr).filter(([, v]) => typeof v === 'function') as [string, Fn][];
-  const enFns = new Map(leaves(en).filter(([, v]) => typeof v === 'function') as [string, Fn][]);
-  it('same arity and the same parameter names', () => {
-    expect(frFns.length).toBeGreaterThan(0);
-    for (const [p, f] of frFns) {
-      const e = enFns.get(p);
-      expect(typeof e, p).toBe('function');
-      expect(e!.length, `${p} arity`).toBe(f.length);
-      expect(params(e!), `${p} names`).toEqual(params(f));
-    }
-    for (const p of enFns.keys()) expect(frFns.some(([q]) => q === p), p).toBe(true);
+  it('same functions, same arity and the same parameter names', () => {
+    expect(leaves(fr).some(([, v]) => typeof v === 'function')).toBe(true);
+    expect(paramMismatches(fr, en)).toEqual([]);
   });
-  it('the check notices a dropped parameter', () => {
-    const fewer: Fn = () => 'x';
-    const more: Fn = ((n: number) => `${n}`) as Fn;
-    expect(fewer.length).not.toBe(more.length);
-    expect(params(more)).toEqual(['n']);
-    expect(params(((a: string, b: number) => a + b) as Fn)).toEqual(['a', 'b']);
+  it('the check notices a dropped, renamed, missing or extra parameter or message', () => {
+    const ref = { g: { a: (n: number, s: string) => `${n}${s}`, b: (x: string) => x } };
+    expect(paramMismatches(ref, { g: { a: (n: number) => `${n}`, b: (x: string) => x } })).toEqual(['g.a: arity 1 ≠ 2']);
+    expect(paramMismatches(ref, { g: { a: (n: number, t: string) => `${n}${t}`, b: (x: string) => x } })).toEqual([
+      'g.a: (n,t) ≠ (n,s)'
+    ]);
+    expect(paramMismatches(ref, { g: { a: (n: number, s: string) => `${n}${s}` } })).toEqual(['g.b: missing']);
+    expect(paramMismatches(ref, { g: { ...ref.g, c: (y: string) => y } })).toEqual(['g.c: extra']);
+    expect(paramMismatches(ref, ref)).toEqual([]);
   });
 });

@@ -33,6 +33,7 @@ describe('+error', () => {
     expect(goto).not.toHaveBeenCalled();
     expect(screen.getByRole('heading', { level: 1, name: 'Page introuvable.' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Retour aux pièces' })).toHaveAttribute('href', '/');
+    expect(document.title).toBe('Page introuvable · Kelvin');
   });
   it('another status is not « introuvable »: a generic error with a retry', async () => {
     state.status = 500;
@@ -43,6 +44,7 @@ describe('+error', () => {
     expect(goto).not.toHaveBeenCalled();
     expect(screen.queryByText('Page introuvable.')).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'Une erreur est survenue.' })).toBeInTheDocument();
+    expect(document.title).toBe('Erreur · Kelvin');
     await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(reload).toHaveBeenCalled();
     vi.unstubAllGlobals();
@@ -55,5 +57,6 @@ it('the 404 reads in English', async () => {
   state.url = new URL('http://kelvin.test/nowhere');
   render(ErrorPage);
   expect(screen.getByRole('heading', { level: 1, name: 'Page not found.' })).toBeInTheDocument();
+  expect(document.title).toBe('Page not found · Kelvin');
   expect(screen.getByRole('link', { name: 'Back to rooms' })).toHaveAttribute('href', '/');
 });

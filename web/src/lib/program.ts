@@ -14,17 +14,17 @@ export const MIN_LEN = 15;
 const LAST = 1439;
 
 export function toMin(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
+  const [h, min] = hhmm.split(':').map(Number);
+  return h * 60 + min;
 }
 
-export function fromMin(m: number): string {
-  const c = Math.max(0, Math.min(LAST, Math.round(m)));
+export function fromMin(mins: number): string {
+  const c = Math.max(0, Math.min(LAST, Math.round(mins)));
   return `${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}`;
 }
 
-export function snap(m: number): number {
-  return Math.max(0, Math.min(LAST, Math.round(m / SNAP) * SNAP));
+export function snap(mins: number): number {
+  return Math.max(0, Math.min(LAST, Math.round(mins / SNAP) * SNAP));
 }
 
 export function daySegs(program: WeekProgram, day: Day): Seg[] {

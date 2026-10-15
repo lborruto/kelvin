@@ -84,7 +84,7 @@ describe('PiecesView in English', () => {
     media.desktop.matches = true;
     const a = render(PiecesView, { roomId: 'salon', home: true });
     expect(screen.getByRole('heading', { name: 'Rooms', level: 1 })).toBeInTheDocument();
-    expect(screen.getByText(/^1 room · \d+ heating$/)).toBeInTheDocument();
+    expect(screen.getByText(/^1 room · (none|\d+) heating$/)).toBeInTheDocument();
     a.unmount();
     media.desktop.matches = false;
     render(PiecesView, { roomId: 'salon' });

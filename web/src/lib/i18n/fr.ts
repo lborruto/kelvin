@@ -103,6 +103,8 @@ export const fr = {
   page: {
     title: (name: string) => `${name} · Kelvin`,
     notFound: 'Page introuvable.',
+    notFoundTitle: 'Page introuvable',
+    errorTitle: 'Erreur',
     error: 'Une erreur est survenue.',
     backToRooms: 'Retour aux pièces'
   },
