@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, bucketLabel, leadingMissing, spanLabel } from './energy';
+import { addDays, bucketLabel, firstCounted, leadingMissing, spanLabel } from './energy';
 
 describe('energy periods', () => {
   it('adds days across months and years', () => {
@@ -18,6 +18,12 @@ describe('energy periods', () => {
     expect(leadingMissing([0, null, 1])).toBe(0);
     expect(leadingMissing([null, null])).toBe(0);
     expect(leadingMissing([])).toBe(0);
+  });
+  it('the house chart starts at the first counted bucket: a counted day without Linky data is a gap, not history (final review minor 4)', () => {
+    const b = (kwh: number | null, missing_days: number) => ({ kwh, missing_days });
+    expect(firstCounted([b(null, 0), b(null, 0), b(3, 0)])).toBe(2); // before the report's first day
+    expect(firstCounted([b(null, 0), b(null, 2), b(3, 0)])).toBe(1); // from the contract start, before Linky's data
+    expect(firstCounted([b(null, 0)])).toBe(0);
   });
 });
 

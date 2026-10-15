@@ -147,6 +147,20 @@ describe('energie_<from>_<to>_<group>.csv', () => {
     expect(body.map((l) => l.split(';')[0])).toEqual(['2026-10-12', '2026-10-13', 'total']);
   });
 
+  it('a counted day before the first Linky day is a row: it pays its subscription, so the rows add up to the total (final review minor 4)', () => {
+    const early = {
+      group: 'day', linky: true,
+      buckets: [
+        { key: '2026-10-11', ...summary({ kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, subscription_eur: null, eur: null, rest_kwh: null, present_days: 0, prices: [], radiators: null }) },
+        { key: '2026-10-12', ...summary({ kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, eur: null, rest_kwh: null, present_days: 0, missing_days: 1, prices: [], radiators: null }) },
+        { key: '2026-10-13', ...summary() }
+      ]
+    } as unknown as EnergyReport;
+    const body = lines(energyCsv(early, main, { from: '2026-10-11', to: '2026-10-14' }, TODAY).text).slice(1);
+    expect(body.map((l) => l.split(';')[0])).toEqual(['2026-10-12', '2026-10-13', 'total']);
+    expect(body[0].split(';')[11]).toBe('0,48');
+  });
+
   it('month buckets: one row per month inside the year, the total last', () => {
     const year = {
       group: 'month',

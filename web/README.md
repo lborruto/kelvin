@@ -51,7 +51,7 @@ locale. Text cells that start with `=`, `+`, `-`, `@`, a tab or a CR are prefixe
 PDL, token, email or id is exported; rooms and radiators appear by name.
 
 - `energie_<from>_<to>_<group>.csv` (`<to>` exclusive) — one row per bar of the selected period
-  (with Linky, the buckets before the first one with Linky data are not bars, and not rows), then a
+  (with Linky, the buckets before the first counted one — Linky data, or a counted day without it, which pays its subscription — are not bars, and not rows), then a
   `total` row (the hero's figures):
   `periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_jusqu_au;radiateurs_couverture`.
   kWh have 3 decimals, € 2; `split_estime` and `radiateurs_interp` are `1`/`0` (radiator energy

@@ -16,7 +16,7 @@
   import RoomDayPanel from '$lib/components/RoomDayPanel.svelte';
   import RoomsEnergy from '$lib/components/RoomsEnergy.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
-  import { addDays, bucketLabel, bucketSpan, dataSpan, leadingMissing, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
+  import { addDays, bucketLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
   import { fmtDateLong, fmtDay, fmtKwh, fmtTime, monthName } from '$lib/format';
   import { inspectBucket } from '$lib/inspector';
   import { reducedMotion } from '$lib/motion';
@@ -121,8 +121,9 @@
   let split = $derived(!!main?.tariff);
   let names = $derived<Record<string, string>>(split ? { hc: COPY.hc, hp: COPY.hp } : { home: COPY.home });
   let colors = $derived<Record<string, string>>(split ? { hc: SERIES.hc, hp: SERIES.hp } : { home: SERIES.home });
-  // The house chart starts at the first bucket with Linky data: earlier ones are not gaps.
-  let trimmed = $derived(chart?.linky ? leadingMissing(chart.buckets.map((b) => b.kwh)) : 0);
+  // The house chart starts at the first counted bucket (Linky data, or a counted day without it, which pays its
+  // subscription): earlier ones are not gaps.
+  let trimmed = $derived(chart?.linky ? firstCounted(chart.buckets) : 0);
   let bars = $derived((chart?.buckets ?? []).slice(chart?.linky ? trimmed : 0));
   let groups = $derived(
     bars.map((b) => ({

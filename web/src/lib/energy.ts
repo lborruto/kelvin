@@ -39,6 +39,12 @@ export function leadingMissing(values: (number | null)[]): number {
   return i < 0 ? 0 : i;
 }
 
+/** The house chart's first bucket: the first with Linky data or a counted day without it (from the contract start on, a
+ * day without data is a gap that pays its subscription, not history before the report's first day). */
+export function firstCounted(buckets: { kwh: number | null; missing_days: number }[]): number {
+  return leadingMissing(buckets.map((b) => (b.kwh != null || b.missing_days > 0 ? 1 : null)));
+}
+
 /** The navigator's views; the same words as the bar groups (Plan 5's `group`). */
 export type View = EnergyGroup;
 

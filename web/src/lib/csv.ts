@@ -9,7 +9,7 @@
  * are exported (the backend anchors them on 1 January).
  */
 import type { EnergyDay, EnergyReport, EnergySummary, PriceRow } from './api/types';
-import { addDays, bucketSpan, leadingMissing, type Span } from './energy';
+import { addDays, bucketSpan, firstCounted, type Span } from './energy';
 import type { RoomRow } from './roomEnergy';
 import { isoParis, parisDayStart } from './time';
 
@@ -108,10 +108,10 @@ function summaryRow(label: string, s: EnergySummary, span: Span, today: string):
 }
 
 /** The selected period's bars, then its total (the hero's figures). Like the chart, a home with Linky starts at its
- * first bucket with Linky data: earlier ones are not gaps, and are not rows. `today`: Paris's ISO day, which no
+ * first counted bucket (`firstCounted`): earlier ones are not gaps, and are not rows. `today`: Paris's ISO day, which no
  * radiator sum counts yet. */
 export function energyCsv(chart: EnergyReport, main: EnergyReport, period: Span, today: string): CsvFile {
-  const first = chart.linky ? leadingMissing(chart.buckets.map((b) => b.kwh)) : 0;
+  const first = chart.linky ? firstCounted(chart.buckets) : 0;
   const rows = chart.buckets
     .slice(first)
     .map((b) => ({ b, span: bucketSpan(b.key, chart.group) }))
