@@ -2,6 +2,7 @@ import type {
   Alert,
   CommandResult,
   Day,
+  DryerAction,
   EnergyBucket,
   EnergyDay,
   EnergyGroup,
@@ -9,6 +10,8 @@ import type {
   HistoryPoint,
   LinkyStatus,
   Me,
+  PilotLevel,
+  ServerList,
   RoomActivity,
   RoomEnergy,
   SessionInfo,
@@ -102,7 +105,9 @@ const programOpts = (o: ProgramOpts) => ({
 
 export const api = {
   me: () => call<Me>('GET', '/auth/me'),
-  login: (email: string, password: string) => call<Me>('POST', '/auth/login', { email, password }),
+  login: (email: string, password: string, server?: string) =>
+    call<Me>('POST', '/auth/login', server ? { email, password, server } : { email, password }),
+  servers: () => call<ServerList>('GET', '/auth/servers'),
   logout: () => call<Me>('POST', '/auth/logout'),
   house: () => call<Snapshot>('GET', '/house'),
 
@@ -143,6 +148,8 @@ export const api = {
   renameRadiator: (id: string, name: string) => cmd('PATCH', `/radiators/${enc(id)}/features`, { name }),
   tidyDevice: (deviceId: string) => cmd('POST', `/setup/devices/${enc(deviceId)}/tidy`),
   syncSetup: () => call<{ sync: SyncStatus }>('POST', '/setup/sync'),
+  radiatorLevel: (id: string, level: PilotLevel) => cmd('POST', `/radiators/${enc(id)}/level`, { level }),
+  radiatorDryer: (id: string, action: DryerAction) => cmd('POST', `/radiators/${enc(id)}/dryer`, { action }),
 
   houseOff: () => cmd('POST', '/house/off'),
   houseProgram: () => cmd('POST', '/house/program'),

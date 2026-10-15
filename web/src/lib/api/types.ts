@@ -3,6 +3,44 @@ import type { ApiParams } from '$lib/i18n';
 export type Mode = 'off' | 'manual' | 'program' | 'other';
 export type RoomMode = Mode | 'mixed';
 export type SettableMode = 'off' | 'manual' | 'program';
+/** Plan 12: what a radiator is and what Kelvin can do with it. */
+export type DeviceKind = 'setpoint_heater' | 'pilot_wire_heater' | 'towel_dryer' | 'heater_unknown';
+export type Support = 'tested' | 'expected' | 'experimental' | 'readonly';
+export type PilotLevel = 'comfort' | 'comfort-1' | 'comfort-2' | 'eco' | 'frostprotection' | 'off';
+export type DryerState = 'boost' | 'drying';
+export type DryerAction = DryerState | 'stop';
+
+export interface Capabilities {
+  modes: SettableMode[];
+  manual: [number, number] | null;
+  comfort: [number, number] | null;
+  eco: [number, number] | null;
+  levels: PilotLevel[];
+  program: boolean;
+  dryer: DryerState[];
+  window_detection: boolean;
+  presence_detection: boolean;
+  night_light: boolean;
+  night_light_intensity: boolean;
+  identify: boolean;
+  energy: boolean;
+  boost: boolean;
+  read_only: boolean;
+}
+
+export interface ServerInfo {
+  id: string;
+  /** pyoverkiz's product name (« Sauter Cozytouch »): never translated. */
+  name: string;
+  tier: 'cozytouch' | 'experimental';
+  default: boolean;
+}
+export interface ServerList {
+  servers: ServerInfo[];
+  /** The home's server once claimed; null in setup mode. */
+  current: string | null;
+}
+
 export type SetpointKind = 'manual' | 'comfort' | 'eco';
 export const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 export type Day = (typeof DAYS)[number];
@@ -46,6 +84,11 @@ export interface Radiator {
   last_event_at?: number | null;
   /** Days Kelvin shows but never edits (QW8). */
   program_locked?: Partial<Record<Day, DayLock>>;
+  /** Plan 12 (absent from older backends: a Sauter setpoint heater). */
+  kind?: DeviceKind;
+  support?: Support;
+  capabilities?: Capabilities;
+  dryer?: DryerState | null;
 }
 
 export interface Room {
@@ -72,6 +115,8 @@ export interface Expected {
   comfort?: number;
   eco_delta?: number;
   light_intensity?: number;
+  level?: string;
+  dryer?: DryerState | null;
 }
 
 /** `unconfirmed`: a setup write Cozytouch accepted but did not confirm in time. Not an error:
@@ -161,6 +206,8 @@ export interface Me {
   /** The stored Cozytouch password was refused: log in with the new one. */
   reauth?: boolean;
   simulator?: boolean;
+  /** The home's server once logged in (Plan 12). */
+  server?: ServerInfo | null;
 }
 export interface PriceEntry {
   valid_from: string;

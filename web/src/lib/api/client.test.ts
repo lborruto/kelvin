@@ -133,4 +133,25 @@ describe('api client', () => {
     await api.energyDay('2026-10-13');
     expect(fn.mock.calls[2][0]).toBe('/api/energy/day?date=2026-10-13');
   });
+
+  it('sends the server at login and reads the server list', async () => {
+    const f = mockFetch(200, { email: 'demo@kelvin.local', logged_in: true });
+    await api.login('demo@kelvin.local', 'kelvin', 'atlantic_cozytouch');
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({
+      email: 'demo@kelvin.local', password: 'kelvin', server: 'atlantic_cozytouch'
+    });
+    const g = mockFetch(200, { servers: [], current: null });
+    await api.servers();
+    expect(g.mock.calls[0][0]).toBe('/api/auth/servers');
+  });
+
+  it('posts a level and a dryer action', async () => {
+    const f = mockFetch(202, { pending: null });
+    await api.radiatorLevel('r1', 'comfort-1');
+    await api.radiatorDryer('r1', 'stop');
+    expect(f.mock.calls.map((c) => [c[0], JSON.parse(c[1].body)])).toEqual([
+      ['/api/radiators/r1/level', { level: 'comfort-1' }],
+      ['/api/radiators/r1/dryer', { action: 'stop' }]
+    ]);
+  });
 });

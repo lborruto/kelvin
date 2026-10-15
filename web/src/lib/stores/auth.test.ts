@@ -55,4 +55,13 @@ describe('AuthStore', () => {
     expect(s.email).toBeNull();
     expect(s.loggedIn).toBe(false);
   });
+
+  it('keeps the home server from /auth/me', () => {
+    const s = new AuthStore();
+    const server = { id: 'thermor_cozytouch', name: 'Thermor Cozytouch', tier: 'cozytouch' as const, default: false };
+    s.apply({ email: 'a@b.fr', logged_in: true, server });
+    expect(s.server).toEqual(server);
+    s.apply({ email: null, logged_in: false });
+    expect(s.server).toBeNull();
+  });
 });

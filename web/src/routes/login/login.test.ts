@@ -38,7 +38,7 @@ describe('Login', () => {
     render(Page);
     expect(screen.getByRole('heading', { name: 'Connexion' })).toBeInTheDocument();
     await fill(' demo@kelvin.local ', 'kelvin');
-    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin');
+    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', undefined);
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replaceState: true }));
   });
 

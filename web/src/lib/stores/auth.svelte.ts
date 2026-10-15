@@ -1,5 +1,5 @@
 import { api, ApiError } from '$lib/api/client';
-import type { Me } from '$lib/api/types';
+import type { Me, ServerInfo } from '$lib/api/types';
 import { alerts } from './alerts.svelte';
 import { history } from './history.svelte';
 import { house } from './house.svelte';
@@ -11,12 +11,15 @@ export class AuthStore {
   loggedIn = $state<boolean | null>(null);
   reauth = $state(false);
   simulator = $state(false);
+  /** The home's Overkiz server (Plan 12), once logged in. */
+  server = $state<ServerInfo | null>(null);
 
   apply(me: Me): void {
     this.email = me.email;
     this.loggedIn = me.logged_in;
     this.reauth = !!me.reauth;
     this.simulator = !!me.simulator;
+    this.server = me.server ?? null;
   }
 
   async refresh(): Promise<boolean | null> {
@@ -29,14 +32,15 @@ export class AuthStore {
     }
   }
 
-  async login(email: string, password: string): Promise<void> {
-    this.apply(await api.login(email, password));
+  async login(email: string, password: string, server?: string): Promise<void> {
+    this.apply(await api.login(email, password, server));
   }
 
   /** Forget the session and every piece of house data held in the browser. */
   clearSession(): void {
     this.email = null;
     this.loggedIn = false;
+    this.server = null;
     house.reset();
     history.reset();
     resetRoomData();
