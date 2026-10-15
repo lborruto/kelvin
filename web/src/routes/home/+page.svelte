@@ -8,6 +8,7 @@
   import LinkyPanel from '$lib/components/LinkyPanel.svelte';
   import SessionsPanel from '$lib/components/SessionsPanel.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
+  import SupportChip from '$lib/components/SupportChip.svelte';
   import Stepper from '$lib/components/Stepper.svelte';
   import TariffForm from '$lib/components/TariffForm.svelte';
   import { fmtAgo, fmtDateTime, fmtTemp } from '$lib/format';
@@ -232,6 +233,10 @@
           <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l], lang: l }))} value={locale.current}
             label={m.settings.language} onchange={setLocale} />
         </dd>
+      </div>
+      <div class="item">
+        <dt>{m.settings.server}</dt>
+        <dd>{auth.server?.name ?? '—'}{#if auth.server?.tier === 'experimental'} <SupportChip support="experimental" />{/if}</dd>
       </div>
       <div class="item">
         <dt>Version</dt>
