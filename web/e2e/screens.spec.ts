@@ -36,3 +36,42 @@ for (const path of ['/', '/rooms/p-salon', '/schedule', '/energy', '/home', '/lo
     await page.screenshot({ path: `${outDir}/${name}`, fullPage: true });
   });
 }
+
+// One capture under a Tempo tariff (Plan 9): the strip's colours and the Tempo rows. The tariff is
+// restored afterwards so the other captures keep the HC/HP demo.
+test('screens under a Tempo tariff', async ({ page, request }, info) => {
+  const H = { 'X-Kelvin': '1' };
+  const before = (await (await request.get('/api/settings')).json()).tariff as {
+    kva: number;
+    prices: { valid_from: string; option: string; subscription_eur_month: number; rates: Record<string, number> }[];
+    hc_schedules: unknown[];
+    tempo_hours: { hc_start: string; hc_end: string };
+  };
+  const doc = (prices: unknown[]) => ({
+    kva: before.kva,
+    prices,
+    hc_schedules: before.hc_schedules,
+    tempo_hours: { hc_start: before.tempo_hours.hc_start, hc_end: before.tempo_hours.hc_end }
+  });
+  const from = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(Date.now() - 30 * 86_400_000));
+  const tempo = {
+    valid_from: from,
+    option: 'tempo',
+    subscription_eur_month: 15,
+    rates: { blue_hc: 0.1296, blue_hp: 0.1609, white_hc: 0.1486, white_hp: 0.1894, red_hc: 0.1568, red_hp: 0.7562 }
+  };
+  const all = before.prices.map((p) => ({ valid_from: p.valid_from, option: p.option, subscription_eur_month: p.subscription_eur_month, rates: p.rates }));
+  const bare = all.filter((p) => p.valid_from < from); // a row dated later would outrank the Tempo row
+  try {
+    await request.put('/api/settings', { headers: H, data: { tariff: doc([...bare, tempo]) } });
+    for (const [path, tag] of [['/', '_rooms_tempo'], ['/energy', '_energy_tempo']] as const) {
+      await page.goto(path);
+      await page.getByRole('main').waitFor();
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForTimeout(1200);
+      await page.screenshot({ path: `${outDir}/${scheme}_${locale}_${info.project.name}${tag}.png`, fullPage: true });
+    }
+  } finally {
+    await request.put('/api/settings', { headers: H, data: { tariff: doc(all) } });
+  }
+});
