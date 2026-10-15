@@ -1285,32 +1285,10 @@
       }
     ],
     "status": 202,
-    "label": [
-      "Radiateur : réglages",
-      "settings",
-      {
-        "name": "Radiateur"
-      }
-    ],
-    "commands": [
-      [
-        "io://1234-5678-9012/9312063#1",
-        "setName",
-        [
-          "Salon 2"
-        ]
-      ]
-    ],
-    "actions": [
-      1
-    ],
-    "expect": [
-      [
-        "io://1234-5678-9012/9312063#1",
-        "core:NameState",
-        "Salon 2"
-      ]
-    ]
+    "label": null,
+    "commands": [],
+    "actions": [],
+    "expect": []
   },
   {
     "request": [
@@ -1322,57 +1300,11 @@
         "name": "Radiateur"
       }
     ],
-    "status": 202,
-    "label": [
-      "Salon 2 : réglages",
-      "settings",
-      {
-        "name": "Salon 2"
-      }
-    ],
-    "commands": [
-      [
-        "io://1234-5678-9012/9312063#1",
-        "setOpenWindowDetectionActivation",
-        [
-          "active"
-        ]
-      ],
-      [
-        "io://1234-5678-9012/9312063#1",
-        "setOccupancyActivation",
-        [
-          "inactive"
-        ]
-      ],
-      [
-        "io://1234-5678-9012/9312063#1",
-        "setName",
-        [
-          "Radiateur"
-        ]
-      ]
-    ],
-    "actions": [
-      3
-    ],
-    "expect": [
-      [
-        "io://1234-5678-9012/9312063#1",
-        "core:OpenWindowDetectionActivationState",
-        "active"
-      ],
-      [
-        "io://1234-5678-9012/9312063#1",
-        "core:OccupancyActivationState",
-        "inactive"
-      ],
-      [
-        "io://1234-5678-9012/9312063#1",
-        "core:NameState",
-        "Radiateur"
-      ]
-    ]
+    "status": 422,
+    "label": null,
+    "commands": [],
+    "actions": [],
+    "expect": []
   },
   {
     "request": [
@@ -1384,10 +1316,10 @@
     ],
     "status": 202,
     "label": [
-      "Radiateur : veilleuse allumée",
+      "Salon 2 : veilleuse allumée",
       "night_light",
       {
-        "name": "Radiateur",
+        "name": "Salon 2",
         "on": true
       }
     ],
@@ -1420,10 +1352,10 @@
     ],
     "status": 202,
     "label": [
-      "Radiateur : veilleuse à 40 %",
+      "Salon 2 : veilleuse à 40 %",
       "night_light_intensity",
       {
-        "name": "Radiateur",
+        "name": "Salon 2",
         "intensity": 40
       }
     ],
@@ -1467,10 +1399,10 @@
     ],
     "status": 202,
     "label": [
-      "Radiateur : veilleuse éteinte",
+      "Salon 2 : veilleuse éteinte",
       "night_light",
       {
-        "name": "Radiateur",
+        "name": "Salon 2",
         "on": false
       }
     ],
@@ -1500,10 +1432,10 @@
     ],
     "status": 202,
     "label": [
-      "Radiateur : identification",
+      "Salon 2 : identification",
       "identify",
       {
-        "name": "Radiateur"
+        "name": "Salon 2"
       }
     ],
     "commands": [
