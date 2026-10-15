@@ -1,7 +1,9 @@
 """Grid sources (spec §2.3): parsers, the MED public client, the caches, the simulator's grid."""
 
+import json
 import logging
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -70,24 +72,23 @@ def test_parse_tempo_keeps_published_colours_inside_the_window(caplog):
 def test_parse_ecowatt_dates_hours_by_their_own_timestamps():
     oct14, oct15 = date(2026, 10, 14), date(2026, 10, 15)
     payload = {
-        # The live quirk (spec §2.3): the key 14 October holds the hours of 15 October.
-        "2026-10-14": {"value": 1, "message": "…", "detail": hours_of(oct15, {18: 2, 19: 2})},
-        "2026-10-15": {"value": 2, "message": "…", "detail": {"0": 1, "1": 1}},
-        "2026-10-16": {"value": 7, "detail": {}},  # unknown level: dropped
+        # The live quirk (spec §2.3): the key 14 October holds the hours of 15 October, and its
+        # `value` is not trusted: the 15th is orange because of its own 18:00.
+        "2026-10-14": {"value": 3, "message": "…", "detail": hours_of(oct15, {18: 2, 19: 2})},
+        "2026-10-16": {"value": 2, "detail": {}},  # no hours: no level
         "2026-10-17": {"message": "no value"},
     }
     got = parse_ecowatt(payload, oct14, date(2026, 10, 18), PARIS)
-    assert set(got) == {oct14, oct15}
-    assert got[oct14] == EcowattDay(oct14, 1, None)
+    assert set(got) == {oct15}
     assert got[oct15].level == 2 and got[oct15].hours[18:20] == (2, 2) and got[oct15].hours[17] == 1
-    bare = {"2026-10-15": {"value": 2, "detail": {str(h): (3 if h == 8 else 1) for h in range(24)}}}
-    assert (
-        parse_ecowatt(bare, oct15, date(2026, 10, 17), PARIS)[oct15].hours is None
-    )  # dating unverified
-    shifted = parse_ecowatt(bare, oct15, date(2026, 10, 17), PARIS, bare_offset=1)
-    assert (
-        shifted[oct15].hours is None and shifted.get(date(2026, 10, 16)) is None
-    )  # no level for the 16th
+    assert set(parse_ecowatt(payload, oct14, oct15, PARIS)) == set()  # outside the window
+    naive = {"2026-10-14": {"detail": {"2026-10-15 18:00:00": 3, "2026-10-15 03:00:00": 0}}}
+    got = parse_ecowatt(naive, oct14, date(2026, 10, 18), PARIS)[oct15]
+    assert got.level == 3 and got.hours[18] == 3 and got.hours[3] == 0 and got.hours[4] is None
+    low = {"2026-10-14": {"detail": {"2026-10-15 03:00:00": 0}}}
+    assert parse_ecowatt(low, oct14, date(2026, 10, 18), PARIS)[oct15].level == 1
+    bare = {"2026-10-15": {"value": 2, "detail": {str(h): 3 for h in range(24)}, "x": 1}}
+    assert parse_ecowatt(bare, oct15, date(2026, 10, 17), PARIS) == {}  # bare hours dropped
 
 
 def test_parse_tempo_prices_needs_the_six_prices():
@@ -115,7 +116,9 @@ async def test_the_client_calls_the_public_paths_with_no_credentials():
         if request.url.path.startswith("/rte/tempo/"):
             return httpx.Response(200, json={"2026-12-01": "BLUE"})
         if request.url.path.startswith("/rte/ecowatt/"):
-            return httpx.Response(200, json={"2026-12-01": {"value": 3, "detail": {}}})
+            return httpx.Response(
+                200, json={"2026-11-30": {"value": 1, "detail": hours_of(D, {18: 3})}}
+            )
         return httpx.Response(200, json=PRICES)
 
     c = client_for(handler)
@@ -221,7 +224,7 @@ async def test_non_finite_numbers_and_deep_nesting_are_unexpected_payloads():
             content=b'{"2026-12-01": {"value": 2, "detail": {"2026-12-01T18:00:00+01:00": NaN}}}',
         )
     )
-    assert (await hours.ecowatt(D, D + timedelta(days=1)))[D].hours is None
+    assert await hours.ecowatt(D, D + timedelta(days=1)) == {}
     with pytest.raises(GridError, match="unexpected payload"):
         await client_for(lambda r: httpx.Response(200, content=b"Infinity")).tempo(
             D, D + timedelta(days=1)
@@ -277,7 +280,9 @@ async def test_grid_view_hides_tempo_unless_the_row_in_force_is_tempo():
     v = svc.view()
     assert v["tempo"] is None and fake.calls == [f"ecowatt:{D}:{D + timedelta(days=4)}"]
     assert [x["level"] for x in v["ecowatt"]["days"]] == [1, 2, 1, 1]
-    assert v["ecowatt"]["days"][1]["hours"] is None  # hours hidden until verified (Task 15)
+    assert v["ecowatt"]["days"][1]["hours"] == [  # verified (Task 15): shown for every tariff
+        {"start": "18:00", "end": "20:00", "level": 2}
+    ]
     tariff["t"] = TEMPO_T
     await svc.tempo_job()
     v = svc.view()
@@ -337,10 +342,10 @@ async def test_planned_today_is_the_reserve_left_for_the_grid():
     assert svc.planned_today() == 0
 
 
-async def test_ecowatt_hours_show_once_verified(monkeypatch):
+async def test_ecowatt_hours_show_once_verified():
     clock, db, sync, tariff, fake, svc = grid_env(HCHP, datetime(2026, 12, 1, 12, 0, tzinfo=PARIS))
     await svc.ecowatt_job()
-    monkeypatch.setattr(grid_service, "ECOWATT_HOURS_VERIFIED", True)
+    assert grid_service.ECOWATT_HOURS_VERIFIED
     assert svc.view()["ecowatt"]["days"][1]["hours"] == [
         {"start": "18:00", "end": "20:00", "level": 2}
     ]
@@ -407,3 +412,36 @@ async def test_concurrent_tempo_price_requests_share_one_call():
     )
     a, b = await asyncio.gather(svc.tempo_prices(), svc.tempo_prices())
     assert a == b and fake.calls.count("tempo_prices") == 1 and sync.grid_calls_today() == 1
+
+
+FIXTURES = Path(__file__).parent / "fixtures" / "grid"
+
+
+def test_the_captured_tempo_shape_parses():
+    payload = json.loads((FIXTURES / "tempo.json").read_text())
+    got = parse_tempo(payload, date(2026, 1, 1), date(2026, 1, 31))
+    assert got and set(got.values()) <= {"blue", "white", "red"}
+    assert got[date(2026, 1, 8)] == "red" and got[date(2026, 1, 12)] == "blue"
+
+
+def test_an_unpublished_tempo_day_stays_unknown():
+    payload = json.loads((FIXTURES / "tempo.json").read_text())
+    got = parse_tempo(payload, date(2026, 1, 1), date(2026, 1, 31))
+    assert date(2026, 1, 13) not in got and date(2026, 1, 20) not in got
+    assert len(got) == len(payload)  # nothing invented for the missing days
+
+
+def test_the_captured_ecowatt_shape_is_dated_as_recorded():
+    payload = json.loads((FIXTURES / "ecowatt.json").read_text())
+    got = parse_ecowatt(payload, date(2026, 1, 1), date(2026, 1, 31), PARIS)
+    # Key D holds the hours of D+1 (naive Paris timestamps): the 12th's key dates the 13th.
+    assert set(got) == {date(2026, 1, d) for d in range(11, 16)}
+    orange = [d for d in got.values() if d.level == 2]
+    assert len(orange) == 1 and orange[0].day == date(2026, 1, 13)
+    assert orange[0].hours is not None and orange[0].hours[18] == 2 and orange[0].hours[3] == 0
+    assert all(d.level == 1 for d in got.values() if d.day != date(2026, 1, 13))
+
+
+def test_parse_tempo_prices_accepts_six_string_decimals():
+    strings = {k: f"{v:.4f}" for k, v in PRICES.items()}
+    assert parse_tempo_prices(strings) == PRICES

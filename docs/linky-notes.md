@@ -47,3 +47,26 @@ customer id 0000000000).
   resumed on its own, then fetched the 30-day window plus one extension chunk before reaching its
   own budget (10/10 calls, state `quota`). The rest of the curve arrives on the following days.
 - No token or password in the database, the log or API responses; no PDL in the log.
+
+## Tempo and EcoWatt (public endpoints, captured 2026-10-15)
+
+- `GET /rte/tempo/{start}/{end}` (no token): `{"YYYY-MM-DD": "BLUE" | "WHITE" | "RED"}`, upper-case,
+  keyed by ISO date. An unpublished day is **absent** (not `"UNKNOWN"`, not null): a request for
+  the 8th to the 17th returned the 8th to the 16th (tomorrow published, nothing after). Kelvin
+  keeps an absent day unknown. The colours were not compared with RTE's calendar by eye in this
+  capture.
+- `GET /rte/ecowatt/{start}/{end}` (no token): `{date D: {value, message, detail}}`, where `detail`
+  is `{"YYYY-MM-DD HH:MM:SS": 0..3}`: naive timestamps (Paris wall time), hourly. **Quirk: every
+  timestamp under key D belongs to D+1**, so `value` cannot be attributed to a day with
+  confidence. Hourly 0 occurs (decarbonised), 1 is green, 2 orange, 3 red.
+  Kelvin's dating rule: hours are dated by their own timestamps (Paris wall time), and a day's
+  level is `max(1, max(hourly values on that date))`; `value` is not used. A day with no hourly
+  value has no level; a bare hour index is dropped. Kelvin shows hours: yes
+  (`ECOWATT_HOURS_VERIFIED = True`). The comparison with monecowatt.fr was a ruling by the owner
+  and controller, not an hour-by-hour check.
+- `GET /edf/tempo/price` (documented): six keys `blue_hc`, `blue_hp`, `white_hc`, `white_hp`,
+  `red_hc`, `red_hp`, string decimals, €/kWh TTC. Prefill only, never saved by Kelvin.
+- Budget: Kelvin counts these calls in its 10-call MED day (grid ≤ 4: EcoWatt 07:15 and 17:15;
+  Tempo only with a Tempo price row, normally once at 11:15).
+- Contract re-read (first sync of the month): to be confirmed after the owner deploys Plan 9
+  (expected: one call beyond the daily and curve requests).

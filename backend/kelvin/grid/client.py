@@ -16,7 +16,7 @@ import logging
 import re
 import time
 from collections.abc import Callable
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -32,9 +32,6 @@ log = logging.getLogger(__name__)
 MED_BASE_URL = "https://www.myelectricaldata.fr"
 TIMEOUT_S = 10.0
 MAX_BYTES = 1_000_000
-# How a bare hour index in an EcoWatt `detail` is dated (days after its key), once the main
-# session has compared a capture with RTE's own signal (Task 15). None: bare hours are dropped.
-BARE_HOURS_OFFSET_DAYS: int | None = None
 _TEMPO = {
     "BLUE": "blue",
     "WHITE": "white",
@@ -82,62 +79,49 @@ def parse_tempo(payload: Any, start: date, end: date) -> dict[date, str]:
     return out
 
 
-def _level(value: Any) -> int | None:
+def _hour_level(value: Any) -> int | None:
+    """An hourly EcoWatt value: 0 (decarbonised), 1 green, 2 orange, 3 red."""
     if isinstance(value, bool):
         return None
     try:
         n = int(value)
     except (TypeError, ValueError, OverflowError):  # OverflowError: an infinite float
         return None
-    return n if n in (1, 2, 3) and str(value).strip() == str(n) else None
+    return n if 0 <= n <= 3 and str(value).strip() == str(n) else None
 
 
-def parse_ecowatt(
-    payload: Any,
-    start: date,
-    end: date,
-    tz: ZoneInfo,
-    bare_offset: int | None = BARE_HOURS_OFFSET_DAYS,
-) -> dict[date, EcowattDay]:
-    """A day's level is `value` under its own date key. Hours are dated by the `detail` key's own
-    timestamp; a bare hour index is dated only once its convention is known (`bare_offset`)."""
+def parse_ecowatt(payload: Any, start: date, end: date, tz: ZoneInfo) -> dict[date, EcowattDay]:
+    """Captured 2026-10-15 (docs/linky-notes.md): the `detail` under key D holds the hours of D+1,
+    as naive Paris wall-clock timestamps. Hours are therefore dated by their own timestamps, and a
+    day's level is max(1, its hourly values): `value` is not trusted across that shift. A day with
+    no hourly value has no level; a bare hour index is dropped."""
     if not isinstance(payload, dict):
         raise GridError("unexpected payload")
-    levels: dict[date, int] = {}
     hourly: dict[date, dict[int, int]] = {}
     dropped = 0
     for key, value in payload.items():
-        d = _day(key)
-        if d is None or not isinstance(value, dict):
+        detail = value.get("detail") if isinstance(value, dict) else None
+        if _day(key) is None or not isinstance(detail, dict):
             dropped += 1
-            continue
-        level = _level(value.get("value"))
-        if level is None:
-            dropped += 1
-        elif start <= d < end:
-            levels[d] = level
-        detail = value.get("detail")
-        if not isinstance(detail, dict):
             continue
         for hk, hv in detail.items():
-            hl = _level(hv)
-            if hl is None:
-                continue
+            level = _hour_level(hv)
             try:
                 ts = datetime.fromisoformat(str(hk))
             except ValueError:
                 ts = None
-            if ts is not None and ts.tzinfo is not None:
-                local = ts.astimezone(tz)
-                hourly.setdefault(local.date(), {})[local.hour] = hl
-            elif bare_offset is not None and str(hk).isdigit() and 0 <= int(hk) <= 23:
-                hourly.setdefault(d + timedelta(days=bare_offset), {})[int(hk)] = hl
+            if level is None or ts is None:
+                dropped += 1
+                continue
+            if ts.tzinfo is not None:
+                ts = ts.astimezone(tz)
+            hourly.setdefault(ts.date(), {})[ts.hour] = level
     if dropped:
-        log.info("ecowatt: %d entries without a known level", dropped)
+        log.info("ecowatt: %d entries without a known level or hour", dropped)
     out: dict[date, EcowattDay] = {}
-    for d, level in levels.items():
-        hrs = hourly.get(d)
-        out[d] = EcowattDay(d, level, tuple(hrs.get(h) for h in range(24)) if hrs else None)
+    for d, hrs in hourly.items():
+        if start <= d < end:
+            out[d] = EcowattDay(d, max(1, *hrs.values()), tuple(hrs.get(h) for h in range(24)))
     return out
 
 

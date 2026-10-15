@@ -33,8 +33,8 @@ ECOWATT_KEEP_DAYS = 30
 PRICES_KEY = "tempo_price_prefill"
 PRICES_TTL_S = 7 * 86400
 SOURCE = "MyElectricalData"
-# EcoWatt hours are served once their dating is verified against RTE's own signal (Task 15).
-ECOWATT_HOURS_VERIFIED = False
+# EcoWatt hours are served once their dating is verified (Task 15: dated by their own timestamps).
+ECOWATT_HOURS_VERIFIED = True
 
 
 def hour_runs(hours: tuple[int | None, ...]) -> list[dict[str, Any]]:
