@@ -80,10 +80,15 @@ export function sourceName(kind: ProvKind, name?: string | null): string {
   }
 }
 
-/** An instant in the fewest words: « il y a 3 min » within the hour, « 21:11 » today, else the date and time. */
+/** An instant as a clock: « 21:11 » today, else the date and time (« données de … »). */
+export function stamp(at: number, now: number): string {
+  return parisTodayIso(at) === parisTodayIso(now) ? fmtTime(at) : fmtDateTime(at);
+}
+
+/** An instant in the fewest words: « il y a 3 min » within the hour, else `stamp`. */
 export function when(at: number, now: number): string {
   if (now - at < 3_600_000 && at <= now) return fmtAgo(at, now);
-  return parisTodayIso(at) === parisTodayIso(now) ? fmtTime(at) : fmtDateTime(at);
+  return stamp(at, now);
 }
 
 /** The « Nature » value: « mesuré », « estimé · réparti entre deux relevés du radiateur ». */

@@ -49,7 +49,9 @@ export class HouseStore {
     return this.#connection;
   }
   set connection(c: 'connecting' | 'open' | 'reconnecting') {
-    if (c === 'reconnecting' && this.#connection !== 'reconnecting') this.lostAt = this.clock();
+    // The first loss starts the clock; a reset in between (visibility, online: 'connecting') keeps it,
+    // so the banner neither flickers nor drops back to its quiet minute. Only an open stream clears it.
+    if (c === 'reconnecting' && this.lostAt == null) this.lostAt = this.clock();
     if (c === 'open') this.lostAt = null;
     this.#connection = c;
   }

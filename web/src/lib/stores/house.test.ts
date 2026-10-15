@@ -323,9 +323,14 @@ describe('HouseStore: what the banner needs', () => {
     t = 5000;
     s.connection = 'reconnecting';
     expect(s.lostAt).toBe(1000);
+    // Down 5 min, the tab comes back (a reset to 'connecting'), the retry fails: the loss keeps its start.
+    t = 300_000;
+    s.connection = 'connecting';
+    s.connection = 'reconnecting';
+    expect(s.lostAt).toBe(1000);
     s.connection = 'open';
     expect(s.lostAt).toBeNull();
     s.heard();
-    expect(s.dataAt).toBe(5000);
+    expect(s.dataAt).toBe(300_000);
   });
 });

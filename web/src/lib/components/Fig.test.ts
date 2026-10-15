@@ -69,6 +69,13 @@ describe('Fig + Fiche (desktop card)', () => {
     expect(fig()).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('focus leaving to nowhere (a click on the page) closes a pinned card', async () => {
+    render(Fig, props);
+    await fireEvent.click(fig());
+    await fireEvent.focusOut(card()!, { relatedTarget: null });
+    expect(fig()).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('click pins it (close button), a second click unpins; Esc closes and returns focus to the figure', async () => {
     render(Fig, props);
     await fireEvent.click(fig());
@@ -79,7 +86,7 @@ describe('Fig + Fiche (desktop card)', () => {
     // Keyboard: Enter is a click with detail 0; focus goes into the card, Esc brings it back.
     await fireEvent.click(fig(), { detail: 0 });
     await vi.runAllTimersAsync();
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Fermer' }));
+    expect(document.activeElement).toBe(card());
     await fireEvent.keyDown(card()!, { key: 'Escape' });
     expect(document.activeElement).toBe(fig());
     expect(fig()).toHaveAttribute('aria-expanded', 'false');
@@ -116,9 +123,16 @@ describe('Fig + Fiche (phone sheet)', () => {
 describe('fichePlace', () => {
   const view = { width: 1440, height: 900 };
   const size = { width: 280, height: 200 };
-  it('right of the trigger, flipped left near the edge, clamped in the viewport', () => {
+  it('right of the trigger, else below (right-aligned), else above, else left, else clamped', () => {
     expect(fichePlace({ left: 100, right: 180, top: 300, bottom: 320 }, size, view)).toEqual({ left: 188, top: 294 });
-    expect(fichePlace({ left: 1200, right: 1300, top: 300, bottom: 320 }, size, view)).toEqual({ left: 912, top: 294 });
-    expect(fichePlace({ left: 20, right: 300, top: 850, bottom: 870 }, size, { width: 320, height: 900 })).toEqual({ left: 20, top: 692 });
+    // No room on the right: below, right-aligned to the trigger.
+    expect(fichePlace({ left: 1200, right: 1300, top: 300, bottom: 320 }, size, view)).toEqual({ left: 1020, top: 328 });
+    // Nor below: above.
+    expect(fichePlace({ left: 1200, right: 1300, top: 700, bottom: 720 }, size, view)).toEqual({ left: 1020, top: 492 });
+    // Nor above (a short viewport): left of it.
+    expect(fichePlace({ left: 1100, right: 1300, top: 100, bottom: 120 }, size, { width: 1440, height: 300 })).toEqual({ left: 812, top: 92 });
+    expect(fichePlace({ left: 20, right: 300, top: 850, bottom: 870 }, size, { width: 320, height: 900 })).toEqual({ left: 20, top: 642 });
+    // Nothing fits: below, clamped in the viewport.
+    expect(fichePlace({ left: 20, right: 300, top: 100, bottom: 200 }, size, { width: 320, height: 300 })).toEqual({ left: 20, top: 92 });
   });
 });
