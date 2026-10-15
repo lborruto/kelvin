@@ -78,10 +78,13 @@ export const fr = {
     cannotRetry: `Impossible de réessayer ici${NB}: refaites l’action.`
   },
   banner: {
-    reconnecting: 'Reconnexion à Kelvin…',
+    offline: (time: string | null) => (time ? `Hors connexion · données de ${time}` : 'Hors connexion'),
+    reconnecting: (time: string | null) => (time ? `Reconnexion à Kelvin… · données de ${time}` : 'Reconnexion à Kelvin…'),
+    kelvinDown: (minutes: number, time: string | null) =>
+      `Kelvin ne répond pas depuis ${minutes < 60 ? `${int(minutes)}${NB}min` : `${int(Math.floor(minutes / 60))}${NB}h`}${time ? ` · données de ${time}` : ''}`,
     passwordChanged: `Mot de passe Cozytouch modifié${NB}: reconnectez-vous`,
     unreachable: 'Cozytouch injoignable',
-    unreachableSince: (ago: string) => `Cozytouch injoignable — données ${ago}`,
+    unreachableAt: (time: string) => `Cozytouch injoignable — données de ${time}`,
     signInAgain: 'Se reconnecter'
   },
   mode: { off: 'Arrêt', manual: 'Manuel', program: 'Programme', other: 'Autre', mixed: 'Mixte' },
@@ -101,7 +104,8 @@ export const fr = {
     energy: 'Énergie',
     home: 'Maison',
     label: 'Navigation principale',
-    skip: 'Aller au contenu'
+    skip: 'Aller au contenu',
+    alerts: (name: string, n: number) => `${name}, ${int(n)} ${plural(n, { one: 'alerte', other: 'alertes' })}`
   },
   houseActions: {
     allOff: 'Tout éteindre',
@@ -112,11 +116,60 @@ export const fr = {
   },
   page: {
     title: (name: string) => `${name} · Kelvin`,
-    notFound: 'Page introuvable.',
-    notFoundTitle: 'Page introuvable',
+    notFound: 'Cette page n’existe pas',
+    notFoundBody: 'L’adresse est peut-être ancienne ou incomplète.',
     errorTitle: 'Erreur',
-    error: 'Une erreur est survenue.',
-    backToRooms: 'Retour aux pièces'
+    load: 'Kelvin n’a pas pu afficher cette page',
+    goRooms: 'Aller aux pièces',
+    unreachable: 'Kelvin n’est pas joignable. Vérifiez la connexion à la maison (Wi-Fi ou VPN).',
+    details: 'Détails',
+    code: 'Code',
+    time: 'Heure',
+    route: 'Adresse'
+  },
+  // The « data on demand » foundation (direction-2 §1): Fiche, Fig, SourceLine, Freshness, Disclosure, Menu.
+  prov: {
+    source: 'Source',
+    reading: 'Relevé',
+    nature: 'Nature',
+    natures: { measured: 'mesuré', estimated: 'estimé', projected: 'projection', computed: 'calculé', published: 'publié' } as Record<
+      'measured' | 'estimated' | 'projected' | 'computed' | 'published',
+      string
+    >,
+    withMethod: (nature: string, method: string) => `${nature} · ${method}`,
+    linky: 'Linky · Enedis via MyElectricalData',
+    radiator: (name: string) => `Compteur du radiateur (${name})`,
+    radiatorAny: 'Compteurs des radiateurs',
+    kelvin: 'Calcul Kelvin',
+    tariff: 'Votre tarif',
+    rte: 'RTE EcoWatt via MyElectricalData',
+    tempo: 'Tempo (EDF) via MyElectricalData',
+    cozytouch: 'Cozytouch',
+    until: (day: string) => `jusqu’au ${day}`,
+    curveUntil: (day: string) => `courbe jusqu’au ${day}`,
+    sync: (time: string) => `synchro ${time}`
+  },
+  fiche: {
+    close: 'Fermer',
+    est: 'est.'
+  },
+  fig: {
+    details: (value: string) => `${value}, détails`
+  },
+  menu: {
+    more: 'Plus d’actions'
+  },
+  detail: {
+    label: 'Afficher les détails techniques',
+    hint: 'Sources, heures exactes et sections détaillées ouvertes par défaut.'
+  },
+  shell: {
+    cozytouchTitle: 'Connexion à Cozytouch',
+    state: 'État',
+    lastRead: 'Dernier relevé',
+    waiting: 'connexion en cours',
+    never: 'pas encore de relevé',
+    lastError: 'Dernière erreur'
   },
   rooms: {
     summary: (heating: number, offline: number) =>
@@ -391,20 +444,32 @@ export const fr = {
     unreachableSince: (t: string) => `Hors ligne depuis ${t}`,
     lastSignal: 'Dernier signal'
   },
+  roomReading: {
+    title: (room: string) => `Température · ${room}`,
+    mean: 'Moyenne',
+    target: 'Consigne',
+    method: 'moyenne des radiateurs joignables'
+  },
   roomFigures: {
     title: (range: string) => `Énergie sur ${range}`,
     kwh: 'Consommation',
     eur: 'Coût (énergie)',
     eurHint: 'Énergie seulement, hors abonnement, à vos prix.',
+    eurMethod: 'kWh × vos prix, hors abonnement',
     hours: 'Heures de chauffe',
-    hoursHint: 'Équivalent pleine puissance.',
     hoursNote: 'équiv. pleine puissance',
+    hoursMethod: 'énergie ÷ puissance des radiateurs (équivalent pleine puissance)',
+    hc: 'dont heures creuses',
+    hp: 'dont heures pleines',
+    period: 'Période',
+    coverage: 'Période relevée',
+    estMethod: 'réparti entre deux relevés du compteur',
+    dutyMethod: 'taux de chauffe relevé toutes les 5 min, pondéré par la puissance',
     duty: 'Part du temps en chauffe',
     dutyHint: 'Part des dernières 24 heures où les radiateurs ont chauffé, pondérée par leur puissance (relevés toutes les 5 minutes).',
     notEnough: (range: string) => `Pas encore assez de relevés sur ${range} (il faut au moins la moitié de la période).`,
     noTariff: 'Renseignez le tarif',
     est: 'est.',
-    estHint: `Estimation${NB}: une partie de l’énergie est répartie entre deux relevés du compteur.`,
     partial: (pct: string) => `relevé sur ${pct} de la période`
   },
   roomEnergy: {
@@ -447,7 +512,7 @@ export const fr = {
   },
   periodNav: { group: 'Période affichée', prev: 'Période précédente', next: 'Période suivante', latest: 'Dernier jour' },
   bars: { empty: 'Pas encore de données.', period: 'Période', bars: (label: string) => `Barres du graphique${NB}: ${label}` },
-  chartInspector: { est: 'est.', estNote: `est.${NB}: valeur estimée, détail dans`, quality: 'Qualité des données' },
+  chartInspector: { estNote: `est.${NB}: valeur estimée, détail dans`, quality: 'Qualité des données' },
   compare: {
     title: 'Comparaisons',
     previous: 'Période précédente',

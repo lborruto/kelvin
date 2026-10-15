@@ -240,7 +240,16 @@ depends on.
   before data, never placeholder values; no horizontal scroll from 320 px and CLS < 0.05
   (e2e checks both). Buttons use the global `.btn-*` classes. Svelte 5 transitions on an element
   that a parent mounts inside its own `{#if}` (ChartInspector) need `|global`, or they never play.
-  `--tempo-*` tokens are used only by `TempoDot` (DESIGN « Tempo day chip »).
+  `--tempo-*` tokens are used only by `TempoDot` (DESIGN « Tempo day chip »); `--hc` / `--hp` (Tariff
+  blues, HC always hatched) only through `SERIES` / `Swatch` on Énergie and the tariff, never a round
+  dot. Controls are painted at `--ctl-h` (36 px) with a 44 px hit area (`.hit` / the `.btn` `::before`)
+  and sized by the `--w-*` widths, never stretched.
+- **Data on demand** (DESIGN « Data on demand: three depths »): L0 the rounded answer on screen, L1 the
+  exact value in a Fiche one hover/tap/Enter away, L2 the analysis in a `Disclosure` (`hidden="until-found"`).
+  Every exact figure goes through `Fig` (its Fiche) with a Provenance block from `$lib/provenance.ts`
+  (Source, Relevé, Nature: mesuré / estimé / projection / calculé / publié); freshness is said with
+  `Freshness` + `SourceLine` (`$lib/freshness.ts` cadences), never in ad-hoc words. Their props are
+  listed in DESIGN.md « Foundation components: API ».
 - **Énergie figures:** formatted through the precision functions in `$lib/format.ts` (spec
   §3.2.1), and every inspector, readout, hidden table and announcement built from
   `$lib/inspector.ts`, so a value reads the same everywhere. Shown sums add up: a total shown

@@ -75,7 +75,7 @@
       {#if heating}<span class="heat" aria-hidden="true"><span class="dot"></span>{m.room.heatingNow}</span>{/if}
       {#if partial}<span class="part" aria-hidden="true"><Icon name="plug-off" size={14} />{partial}</span>{/if}
     </span>
-    <span class="temp num" style:view-transition-name={vtName} aria-hidden="true">{#key reading}<span class="fig"
+    <span class="temp num" style:view-transition-name={vtName} aria-hidden="true">{#key reading}<span class="val"
         in:flash>{fmtTemp(reading)}</span>{/key}</span>
     <span class="status" aria-hidden="true">
       {#key status.text}<span class="sentence" class:dashed={status.pending || settle.confirmed} in:fade={{ duration: dur(T.state) }}><span
@@ -185,7 +185,7 @@
     letter-spacing: -0.02em;
     text-align: right;
   }
-  .fig {
+  .val {
     display: inline-block;
   }
   /* One line reserved on a wide card, two on a narrow one: a new sentence never moves the list. */

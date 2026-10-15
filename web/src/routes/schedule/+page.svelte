@@ -10,6 +10,7 @@
   import { capsOf, programRooms } from '$lib/capabilities';
   import ChoiceSheet from '$lib/components/ChoiceSheet.svelte';
   import DayEditor from '$lib/components/DayEditor.svelte';
+  import Disclosure from '$lib/components/Disclosure.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import PendingTag from '$lib/components/PendingTag.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
@@ -68,7 +69,6 @@
   let dayView = $state(false);
   // The days a copy just changed: their bars pulse once.
   let pulse = $state<{ days: Day[]; n: number } | null>(null);
-  let howTo = $state(false);
   let showChanges = $state(false);
   let alsoOpen = $state(false);
   let alsoTrigger = $state<HTMLButtonElement>();
@@ -471,13 +471,12 @@
       {/if}
       <span>{m.program.ecoRest}</span>
       {#if !offline}
-        <button type="button" class="howto" aria-expanded={howTo} aria-controls="kv-howto" onclick={() => (howTo = !howTo)}>
-          <Icon name="help" size={14} />{m.program.howTo}</button>
+        <!-- The shared Disclosure, inline: the question ends the line, its answer takes the next one. -->
+        <Disclosure variant="inline" title={m.program.howTo} id="kv-howto">
+          <p class="howto-body">{m.program.howToBody}</p>
+        </Disclosure>
       {/if}
     </div>
-    {#if howTo && !offline}
-      <p class="howto-body" id="kv-howto" transition:slide|global={{ duration: dur(T.enter), easing: easeOut }}>{m.program.howToBody}</p>
-    {/if}
 
     <div class="grid" class:solo={offline || !desktop.matches}>
       <WeekOverview week={shown} {today} {nowMinute} selected={desktop.matches && !offline ? selected : null} changed={changes}
@@ -590,7 +589,6 @@
     font-size: 13px;
     color: var(--mu);
   }
-  .howto,
   .also,
   .see {
     display: inline-flex;
@@ -608,7 +606,6 @@
     touch-action: manipulation;
   }
   @media (hover: hover) {
-    .howto:hover,
     .also:hover,
     .see:hover {
       color: var(--tx);
@@ -622,7 +619,7 @@
   }
   .howto-body {
     max-width: 65ch;
-    margin: -6px 0 14px;
+    margin: 0 0 8px;
     font-size: 13px;
     color: var(--mu);
   }

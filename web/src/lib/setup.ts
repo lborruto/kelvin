@@ -134,3 +134,10 @@ export function radiatorName(r: { name: string }): string {
   const name = r.name.trim();
   return !name || GENERIC_LABEL.test(name) || SERIAL_LIKE.test(name) ? m.devices.radiator : name;
 }
+
+/** A radiator as the room panel titles it: its own name, else (the device default « Radiateur » or its
+ * model says nothing) the model and power, « HEKLA P · 1500 W ». */
+export function radiatorTitle(r: { name: string; model?: string | null; power_w: number | null }): string {
+  const renamed = !!r.name.trim() && r.name !== 'Radiateur' && r.name !== r.model; // i18n-ignore: upstream device default
+  return renamed ? r.name : m.radiator.facts(r.model ?? m.radiator.default, r.power_w);
+}

@@ -349,6 +349,40 @@ h1[tabindex='-1']:focus {
   border-color: var(--line);
 }
 
+/* An exact-value trigger (DESIGN « Fig »): a figure that opens its Fiche. No box, the text's own style, a
+   dotted underline (the only cue, visible on touch too) that firms on hover; its hit area is 44 px tall
+   without changing the line it sits in. */
+.fig {
+  position: relative;
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-decoration: underline dotted var(--fa) 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: text-decoration-color var(--t-state) ease;
+}
+.fig::before {
+  content: '';
+  position: absolute;
+  inset: calc(50% - var(--ctl-hit) / 2) -2px;
+}
+@media (hover: hover) {
+  .fig:hover {
+    text-decoration-color: var(--mu);
+  }
+}
+.fig[aria-expanded='true'] {
+  text-decoration-color: var(--tx);
+}
+
 /* Skeleton: the shape of what is coming, at its final height. The shimmer is compositor-only and
    stops after about 10 s; a skeleton inside a panel sits one tone up (.inset). */
 .skeleton {

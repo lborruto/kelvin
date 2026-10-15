@@ -139,6 +139,15 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Séchage | Drying | |
 | Radiateur fil pilote | Pilot-wire radiator | |
 | Serveur | Server | The Overkiz server a home belongs to (Settings, login) |
+| Afficher les détails techniques / Détails techniques | Show technical details / Technical details | The per-device preference (direction-2 §1.3); « Fiche » is internal only, never shown |
+| Source / Relevé / Nature | Source / Reading / Kind | A Fiche's Provenance block |
+| mesuré / estimé / projection / calculé / publié | measured / estimated / projected / calculated / published | Nature of a figure (§1.4); « publié » for Tempo and EcoWatt as RTE/EDF gave them |
+| Calcul Kelvin / Votre tarif | Kelvin’s calculation / Your tariff | Sources of computed figures |
+| Hors connexion · données de 21:14 | Offline · data from 21:14 | Neutral banner (browser offline) |
+| Kelvin ne répond pas | Kelvin hasn’t answered | Banner after 3 min without Kelvin |
+| Cette page n’existe pas | This page doesn’t exist | 404 |
+| Aller aux pièces | Go to rooms | 404 and error pages |
+| Plus d’actions | More actions | A « ⋯ » menu's default name |
 
 ## Tone
 

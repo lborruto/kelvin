@@ -160,7 +160,9 @@ export const DYNAMIC = [
   'tariff.options',
   'tariff.rate',
   'tariff.rateShort',
-  'home.kind'
+  'home.kind',
+  // UX foundation: read by index (m.prov.natures[nature])
+  'prov.natures'
 ];
 
 const SRC = resolve(process.cwd(), 'src');

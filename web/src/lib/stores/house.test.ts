@@ -313,3 +313,19 @@ describe('a write Cozytouch did not confirm in time (unconfirmed)', () => {
     expect(s.pending.p1).toBeUndefined(); // dropped after its linger
   });
 });
+
+describe('HouseStore: what the banner needs', () => {
+  it('remembers when the stream was lost (once) and forgets it when it opens again; dates what it hears', () => {
+    let t = 1000;
+    const s = new HouseStore();
+    s.clock = () => t;
+    s.connection = 'reconnecting';
+    t = 5000;
+    s.connection = 'reconnecting';
+    expect(s.lostAt).toBe(1000);
+    s.connection = 'open';
+    expect(s.lostAt).toBeNull();
+    s.heard();
+    expect(s.dataAt).toBe(5000);
+  });
+});

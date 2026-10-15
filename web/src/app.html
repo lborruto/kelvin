@@ -64,6 +64,8 @@
             const c = t === 'light' ? '#f5f6f8' : '#0f1115';
             for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = c;
           }
+          // « Détails techniques » ($lib/stores/detail.svelte.ts): set before first paint, like the theme.
+          if (localStorage.getItem('kelvin-detail') === 'on') document.documentElement.dataset.detail = 'on';
         } catch {}
       })();
     </script>
@@ -81,11 +83,39 @@
       :root[data-theme='light'] #kv-shell { background: #f5f6f8; color: #14171f; }
       :root[data-theme='light'] #kv-shell :is(i, b) { background: #ffffff; }
       @media (min-width: 1024px) { #kv-shell { padding: 20px 28px 0 260px; } #kv-shell i { max-width: 640px; } }
+      /* Offline first load (direction-2 §7): if the app has not started after 8 s, say why, in the page's
+         language (the strings mirror m.page.unreachable and m.common.retry; app-shell.test.ts checks). */
+      #kv-shell .off { display: none; margin: 18px 0 0; max-width: 420px; font-weight: 400; font-size: 13px; }
+      #kv-shell.late .off { display: block; }
+      #kv-shell .off button { margin-top: 12px; min-height: 36px; padding: 0 14px; border: 1px solid #262a33;
+        border-radius: 8px; background: #1d212a; color: inherit; font: 600 13px system-ui, sans-serif; cursor: pointer; }
+      :root[data-theme='light'] #kv-shell .off button { background: #eef0f3; border-color: #dfe2e8; }
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme='dark']) #kv-shell .off button { background: #eef0f3; border-color: #dfe2e8; }
+      }
+      html:not([lang='en']) #kv-shell [lang='en'], html[lang='en'] #kv-shell [lang='fr'] { display: none; }
     </style>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
-    <div id="kv-shell" aria-hidden="true">Kelvin<b></b><i></i><i></i><i></i></div>
+    <div id="kv-shell">
+      <span aria-hidden="true">Kelvin<b></b><i></i><i></i><i></i></span>
+      <div class="off" role="status">
+        <!-- shell-offline:start -->
+        <p lang="fr">Kelvin n’est pas joignable. Vérifiez la connexion à la maison (Wi-Fi ou VPN).</p>
+        <p lang="en">Kelvin can’t be reached. Check your connection to home (Wi-Fi or VPN).</p>
+        <button type="button" lang="fr" onclick="location.reload()">Réessayer</button>
+        <button type="button" lang="en" onclick="location.reload()">Retry</button>
+        <!-- shell-offline:end -->
+      </div>
+    </div>
+    <script>
+      // The app removes #kv-shell when it starts; still there after 8 s, the shell says Kelvin is unreachable.
+      setTimeout(function () {
+        var s = document.getElementById('kv-shell');
+        if (s) s.className = 'late';
+      }, 8000);
+    </script>
     <div style="display: contents">%sveltekit.body%</div>
   </body>
 </html>

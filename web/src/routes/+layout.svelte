@@ -24,6 +24,23 @@
 
   let { children } = $props();
   let now = $state(Date.now());
+  /** The browser's own word on the network: the banner turns neutral « Hors connexion » at once. */
+  let offline = $state(typeof navigator !== 'undefined' && navigator.onLine === false);
+  $effect(() => {
+    const on = () => (offline = navigator.onLine === false);
+    addEventListener('online', on);
+    addEventListener('offline', on);
+    return () => {
+      removeEventListener('online', on);
+      removeEventListener('offline', on);
+    };
+  });
+  // The banner's stages (60 s quiet, 3 min bad) need a finer clock while the stream is down.
+  $effect(() => {
+    if (bare) return;
+    const t = setInterval(() => (now = Date.now()), house.connection === 'open' && !offline ? 30_000 : 5_000);
+    return () => clearInterval(t);
+  });
   let manifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
   /** The login screen stands alone: no shell, no stream. */
   let bare = $derived(page.url.pathname === ROUTES.login);
@@ -63,11 +80,9 @@
           })
       });
     });
-    const t = setInterval(() => (now = Date.now()), 30_000);
     return () => {
       cancelled = true;
       stop?.();
-      clearInterval(t);
     };
   });
 
@@ -116,9 +131,9 @@
   <a class="skip" href="#content">{m.nav.skip}</a>
   {#if loadingRoute}<div class="progress" aria-hidden="true"></div>{/if}
   <div class="app">
-    <div class="side"><Sidebar /></div>
+    <div class="side"><Sidebar {now} /></div>
     <div class="main">
-      <Banner connection={house.connection} status={house.status} {now} />
+      <Banner connection={house.connection} status={house.status} {now} {offline} lostAt={house.lostAt} dataAt={house.dataAt} />
       <main id="content" tabindex="-1">{@render children()}</main>
     </div>
   </div>

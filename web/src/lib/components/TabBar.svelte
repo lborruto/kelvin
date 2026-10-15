@@ -1,13 +1,20 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { m } from '$lib/i18n';
+  import { navAlerts } from '$lib/navAlerts';
   import { isActive, NAV } from '$lib/paths';
+  import { alerts } from '$lib/stores/alerts.svelte';
   import Icon from './Icon.svelte';
+
+  let dot = $derived(navAlerts(alerts.summary, alerts.list));
 </script>
 
 <nav class="tabbar" aria-label={m.nav.label}>
   {#each NAV as t (t.href)}
-    <a href={t.href} aria-current={isActive(page.url.pathname, t.href) ? 'page' : undefined}><Icon name={t.icon} size={20} /><span>{m.nav[t.key]}</span></a>
+    {@const flag = t.key === 'home' && dot.count > 0}
+    <a href={t.href} aria-current={isActive(page.url.pathname, t.href) ? 'page' : undefined}
+      aria-label={flag ? m.nav.alerts(m.nav[t.key], dot.count) : undefined}><span class="ic"><Icon name={t.icon} size={20} />{#if flag}<span
+            class="dot" class:bad={dot.bad} aria-hidden="true"></span>{/if}</span><span>{m.nav[t.key]}</span></a>
   {/each}
 </nav>
 
@@ -60,5 +67,23 @@
   }
   a:active {
     color: var(--tx);
+  }
+  /* The alert dot at the icon's top-right: absolutely placed, so the item never changes size. */
+  .ic {
+    position: relative;
+    display: grid;
+  }
+  .dot {
+    position: absolute;
+    top: -1px;
+    right: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--mu);
+    outline: 1.5px solid var(--bg);
+  }
+  .dot.bad {
+    background: var(--bad);
   }
 </style>

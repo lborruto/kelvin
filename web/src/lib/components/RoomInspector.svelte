@@ -11,12 +11,14 @@
   import { comfortBands, fmtDuration } from '$lib/program';
   import { agg } from '$lib/room';
   import { Settle } from '$lib/settle.svelte';
-  import { roomName, whenText as atText } from '$lib/setup';
+  import { provenance } from '$lib/provenance';
+  import { radiatorTitle, roomName, whenText as atText } from '$lib/setup';
   import { reportedKey, requestKey, roomReading, roomStatus, sharedProgram, whenText } from '$lib/status';
   import { history } from '$lib/stores/history.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { roomActivity, roomsDuty } from '$lib/stores/roomdata.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
+  import Fig from './Fig.svelte';
   import Icon from './Icon.svelte';
   import ModeSwitch from './ModeSwitch.svelte';
   import OfflineNotice from './OfflineNotice.svelte';
@@ -74,6 +76,19 @@
   let paused = $derived(!house.online || offline);
   let mode = $derived(expected.mode ?? room?.mode ?? null);
   let reading = $derived(room ? roomReading(room, radiators) : null);
+  // The reading's Fiche: every radiator that answers, then their mean when there are several.
+  let readingRows = $derived.by(() => {
+    const live = radiators.filter((r) => r.reachable !== false);
+    const rows = live.map((r, i) => ({ key: r.id || String(i), label: radiatorTitle(r), value: fmtTemp(r.temperature) }));
+    if (live.length > 1) rows.push({ key: 'mean', label: m.roomReading.mean, value: fmtTemp(reading) });
+    if (status?.target != null) rows.push({ key: 'target', label: m.roomReading.target, value: fmtTemp(status.target) });
+    return rows;
+  });
+  let readingProv = $derived.by(() => {
+    const last = Math.max(0, ...radiators.map((r) => r.last_event_at ?? 0));
+    const several = radiators.filter((r) => r.reachable !== false).length > 1;
+    return provenance('cozytouch', { at: last > 0 ? last * 1000 : null, method: several ? m.roomReading.method : null }, now);
+  });
   let heating = $derived(!offline && mode !== 'off' && house.roomHeating(roomId));
   let maxT = $derived(Math.min(...radiators.map((r) => r.max_temperature), 28));
   let end = $derived(range === 'day' ? addParisDays(parisMidnight(now), 1) : now);
@@ -215,7 +230,9 @@
       </div>
       {#if !offline}
         <div class="figure">
-          <span class="temp num" style:view-transition-name={vtName}>{#key reading}<span class="fig" in:flash>{fmtTemp(reading)}</span>{/key}</span>
+          <!-- L1: the reading opens its Fiche (each radiator's figure, the mean, when Cozytouch last reported). -->
+          <span class="temp num" style:view-transition-name={vtName}><Fig value={fmtTemp(reading)} title={m.roomReading.title(roomName(room))}
+              rows={readingRows} provenance={readingProv}>{#key reading}<span class="val" in:flash>{fmtTemp(reading)}</span>{/key}</Fig></span>
           {#if status.target != null}<span class="target num muted">{m.room.target(fmtTemp(status.target))}</span>{/if}
         </div>
       {/if}
@@ -503,7 +520,7 @@
   .target {
     font-size: 13px;
   }
-  .fig {
+  .val {
     display: inline-block;
   }
   .sk-head {

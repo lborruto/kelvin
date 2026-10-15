@@ -11,6 +11,8 @@
   import SourcesPanel from '$lib/components/SourcesPanel.svelte';
   import SupportChip from '$lib/components/SupportChip.svelte';
   import Stepper from '$lib/components/Stepper.svelte';
+  import Toggle from '$lib/components/Toggle.svelte';
+  import { detail } from '$lib/stores/detail.svelte';
   import TariffForm from '$lib/components/TariffForm.svelte';
   import { fmtAgo, fmtDateTime, fmtTemp } from '$lib/format';
   import { roomName } from '$lib/setup';
@@ -250,6 +252,11 @@
         <dd class="mono">Kelvin {VERSION}</dd>
       </div>
     </dl>
+    <!-- « Détails techniques » (direction-2 §1.3): per device; moves to Maison › Affichage with the overview. -->
+    <div class="detail-pref">
+      <Toggle checked={detail.on} label={m.detail.label} onchange={(v) => detail.set(v)} />
+      <p class="muted small">{m.detail.hint}</p>
+    </div>
   </section>
 {:else}
   <!-- No height: the anchors exist from the first render (/home#tariff, #linky), the panels come with the rest. -->
@@ -287,6 +294,14 @@
     flex-wrap: wrap;
     align-items: end;
     gap: 12px;
+  }
+  .detail-pref {
+    margin-top: 6px;
+    padding-top: 4px;
+    border-top: 1px solid var(--line);
+  }
+  .detail-pref p {
+    margin: -6px 0 0;
   }
   .field {
     display: grid;

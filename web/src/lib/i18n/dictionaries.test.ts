@@ -85,7 +85,11 @@ export const ARGS: Record<string, unknown[]> = {
   'login.leadServer': ['Flexom'],
   'servers.locked': ['Sauter Cozytouch'],
   'roomCaps.partial': [2, 3],
-  'devices.introExperimental': ['Flexom']
+  'devices.introExperimental': ['Flexom'],
+  // UX foundation
+  'nav.alerts': ['X', 2],
+  'banner.kelvinDown': [3, '21:14'],
+  'prov.withMethod': ['A', 'B']
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
@@ -99,7 +103,9 @@ export const SAME = new Set<string>([
   'energyTariff.colKwh', 'energyTariff.colEur', 'energyTariff.withColour',
   'sources.title', 'sources.tempo', 'sources.ecowatt', 'grid.source',
   // Plan 12: a product name
-  'servers.cozytouch', 'dryer.normal'
+  'servers.cozytouch', 'dryer.normal',
+  // UX foundation: source names (products), « Code », « Source », « est. »
+  'page.code', 'prov.source', 'prov.linky', 'prov.rte', 'prov.tempo', 'prov.cozytouch', 'prov.withMethod', 'fiche.est'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
@@ -212,7 +218,9 @@ const SCANNER_BLIND = new Set([
   // Programme redesign: figures and short words (« 7 h 30 », « … et … », « Week-end », « Raccourcis »)
   'program.duration', 'program.list', 'program.presets.weekend', 'program.presetsLabel',
   // Pièces redesign: short words in the boost sentence (« pendant », « Lancer », « ex. 22 °C pendant 2 h »)
-  'boost.during', 'boost.start', 'boost.meta'
+  'boost.during', 'boost.start', 'boost.meta',
+  // UX foundation: short labels (« Adresse », « Nature », « Calcul Kelvin », « Moyenne », « Période »)
+  'page.route', 'prov.nature', 'prov.kelvin', 'nav.alerts'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

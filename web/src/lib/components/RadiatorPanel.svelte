@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { radiatorTitle } from '$lib/setup';
   import type { DryerAction, DryerState, PilotLevel, Radiator } from '$lib/api/types';
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
@@ -67,7 +68,7 @@
   let facts = $derived(m.radiator.facts(radiator.model ?? m.radiator.default, radiator.power_w));
   // The device default ("Radiateur", or the model) says nothing; the model and power do.
   let renamed = $derived(!!radiator.name.trim() && radiator.name !== 'Radiateur' && radiator.name !== radiator.model); // i18n-ignore: upstream device default
-  let title = $derived(renamed ? radiator.name : facts);
+  let title = $derived(radiatorTitle(radiator));
   let sub = $derived([renamed && radiator.power_w ? m.roomInfo.watts(radiator.power_w) : null, reach === '—' ? null : reach].filter(Boolean).join(' · '));
   // The command each toggle sent last: dashed while the radiator has not answered it.
   let sent = $state<Record<string, string>>({});

@@ -147,7 +147,7 @@ test('an offline room: a calm notice in its panel, the alert in Home (neutral), 
   // Not repeated as an alert in the room, and never red.
   await expect(page.getByText(/Chambre 2\s:\sradiateur hors ligne/)).toHaveCount(0);
   await expect(page.locator('.inspector .bad')).toHaveCount(0);
-  await expect(page.locator('.inspector .fig')).toHaveCount(0);
+  await expect(page.locator('.inspector header .temp')).toHaveCount(0); // no reading for an offline room
   await page.goto('/home#alerts');
   const list = page.locator('#alerts');
   const callout = list.getByText(/Chambre 2\s:\sradiateur hors ligne/);

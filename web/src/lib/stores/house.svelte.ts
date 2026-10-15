@@ -37,7 +37,27 @@ export class HouseStore {
   pending = $state<Record<string, Pending>>({});
   overrides = $state<Override[]>([]);
   status = $state<Status>({ connected: false, last_ok_at: null, last_error: null });
-  connection = $state<'connecting' | 'open' | 'reconnecting'>('connecting');
+  #connection = $state<'connecting' | 'open' | 'reconnecting'>('connecting');
+  /** When the stream was lost (epoch ms): the banner waits 60 s before saying so, and turns bad after 3 min. */
+  lostAt = $state<number | null>(null);
+  /** When Kelvin last sent anything (epoch ms): the banner's « données de 21:14 ». */
+  dataAt = $state<number | null>(null);
+  /** The clock of `lostAt` / `dataAt` (tests inject one). */
+  clock: () => number = () => Date.now();
+
+  get connection(): 'connecting' | 'open' | 'reconnecting' {
+    return this.#connection;
+  }
+  set connection(c: 'connecting' | 'open' | 'reconnecting') {
+    if (c === 'reconnecting' && this.#connection !== 'reconnecting') this.lostAt = this.clock();
+    if (c === 'open') this.lostAt = null;
+    this.#connection = c;
+  }
+
+  /** Something arrived from Kelvin (a snapshot or any event). */
+  heard(): void {
+    this.dataAt = this.clock();
+  }
   loaded = $state(false);
   /** The last house-wide command (Tout éteindre, Tout remettre en programme), shown by every HouseActions. */
   houseCommandId = $state<string | null>(null);
@@ -61,6 +81,8 @@ export class HouseStore {
     this.overrides = [];
     this.status = { connected: false, last_ok_at: null, last_error: null };
     this.connection = 'connecting';
+    this.lostAt = null;
+    this.dataAt = null;
     this.loaded = false;
     this.houseCommandId = null;
     this.setup = null;

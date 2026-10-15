@@ -1,9 +1,13 @@
 <script lang="ts">
   import { api } from '$lib/api/client';
-  import { fmtEurExact, fmtHours, fmtKwhExact, fmtPct } from '$lib/format';
+  import { addDays, spanLabel } from '$lib/energy';
+  import { fmtEurExact, fmtHours, fmtKwhExact, fmtPct, fmtPct1, matchParts } from '$lib/format';
   import { m } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
+  import { provenance } from '$lib/provenance';
   import { roomEnergy } from '$lib/stores/roomdata.svelte';
+  import Fig from './Fig.svelte';
+  import type { FicheRow } from './FicheBody.svelte';
 
   interface Props {
     roomId: string;
@@ -25,6 +29,28 @@
   let entry = $derived(roomEnergy.data[key]);
   let v = $derived(entry?.value ?? null);
   let est = $derived(!!v && (v.interpolated || v.apportioned));
+  // L1 (direction-2 §1): each figure opens its Fiche: exact value, parts, period, where it comes from.
+  let title = $derived(m.roomFigures.title(rangeLabel));
+  let period = $derived(v ? spanLabel({ from: v.from, to: addDays(v.to, 1) }) || null : null);
+  let common = $derived.by((): FicheRow[] => {
+    const out: FicheRow[] = [];
+    if (period) out.push({ label: m.roomFigures.period, value: period });
+    if (v?.coverage != null) out.push({ label: m.roomFigures.coverage, value: fmtPct1(v.coverage) });
+    return out;
+  });
+  let kwhRows = $derived.by((): FicheRow[] => {
+    if (!v) return [];
+    const split = matchParts(v.kwh, [v.hc_kwh, v.hp_kwh], 2);
+    const rows: FicheRow[] = [{ label: m.roomFigures.kwh, value: fmtKwhExact(v.kwh), est }];
+    if (v.hc_kwh != null && v.hp_kwh != null) {
+      rows.push({ label: m.roomFigures.hc, value: fmtKwhExact(split.parts[0]), sub: true });
+      rows.push({ label: m.roomFigures.hp, value: fmtKwhExact(split.parts[1]), sub: true });
+    }
+    return [...rows, ...common];
+  });
+  let meters = $derived(
+    provenance('radiator-meter', est ? { nature: 'estimated', method: m.roomFigures.estMethod } : {}, now)
+  );
   // Every figure unknown (too few readings): one sentence with its reason instead of a row of « — ».
   let notEnough = $derived(!!v && v.kwh == null && v.eur == null && v.heating_hours == null && (duty === undefined || duty === null));
 </script>
@@ -39,24 +65,42 @@
     <dl class="tiles">
       <div>
         <dt>{m.roomFigures.kwh}</dt>
-        <dd class="num">{fmtKwhExact(v?.kwh)}{#if est && v?.kwh != null}<span class="est" title={m.roomFigures.estHint}>{m.roomFigures.est}</span>{/if}</dd>
+        <dd class="num">
+          {#if v?.kwh != null}<Fig value={fmtKwhExact(v.kwh)} label={est ? `${fmtKwhExact(v.kwh)} ${m.roomFigures.est}` : undefined}
+              {title} rows={kwhRows} provenance={meters} />{#if est}<span class="est">{m.roomFigures.est}</span>{/if}
+          {:else}{fmtKwhExact(null)}{/if}
+        </dd>
       </div>
       <div>
         <dt>{m.roomFigures.eur}</dt>
         <dd class="num">
-          {#if v && !v.priced}<a href="{ROUTES.home}#{ANCHORS.tariff}">{m.roomFigures.noTariff}</a>{:else}<span
-              title={m.roomFigures.eurHint}>{fmtEurExact(v?.eur)}</span>{#if est && v?.eur != null}<span class="est"
-                title={m.roomFigures.estHint}>{m.roomFigures.est}</span>{/if}{/if}
+          {#if v && !v.priced}<a href="{ROUTES.home}#{ANCHORS.tariff}">{m.roomFigures.noTariff}</a>
+          {:else if v?.eur != null}<Fig value={fmtEurExact(v.eur)} {title}
+              rows={[{ label: m.roomFigures.eur, value: fmtEurExact(v.eur), est }, ...common]}
+              notes={[m.roomFigures.eurHint]}
+              provenance={provenance('tariff', { method: m.roomFigures.eurMethod }, now)} />{#if est}<span class="est">{m.roomFigures.est}</span>{/if}
+          {:else}{fmtEurExact(null)}{/if}
         </dd>
       </div>
       <div>
         <dt>{m.roomFigures.hours}</dt>
-        <dd class="num" title={m.roomFigures.hoursHint}>{fmtHours(v?.heating_hours)}{#if v?.heating_hours != null}<small>{m.roomFigures.hoursNote}</small>{/if}</dd>
+        <dd class="num">
+          {#if v?.heating_hours != null}<Fig value={fmtHours(v.heating_hours)} {title}
+              rows={[{ label: m.roomFigures.hours, value: fmtHours(v.heating_hours) }, ...common]}
+              provenance={provenance('kelvin-calc', { method: m.roomFigures.hoursMethod }, now)} /><small>{m.roomFigures.hoursNote}</small>
+          {:else}{fmtHours(null)}{/if}
+        </dd>
       </div>
       {#if duty !== undefined}
         <div>
           <dt>{m.roomFigures.duty}</dt>
-          <dd class="num" title={m.roomFigures.dutyHint}>{fmtPct(duty)}</dd>
+          <dd class="num">
+            {#if duty != null}<Fig value={fmtPct(duty)} {title}
+                rows={[{ label: m.roomFigures.duty, value: fmtPct1(duty) }]}
+                notes={[m.roomFigures.dutyHint]}
+                provenance={provenance('cozytouch', { nature: 'computed', method: m.roomFigures.dutyMethod }, now)} />
+            {:else}{fmtPct(null)}{/if}
+          </dd>
         </div>
       {/if}
     </dl>

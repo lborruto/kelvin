@@ -2,7 +2,7 @@
   export type IconName =
     | 'rooms' | 'program' | 'energy' | 'house' | 'power' | 'away' | 'window'
     | 'presence' | 'light' | 'flash' | 'check' | 'alert' | 'chevron' | 'x' | 'plus' | 'minus'
-    | 'arrow-left' | 'edit' | 'chevron-left' | 'lock' | 'copy' | 'help' | 'plug-off';
+    | 'arrow-left' | 'edit' | 'chevron-left' | 'lock' | 'copy' | 'help' | 'plug-off' | 'more' | 'wifi-off' | 'info';
 </script>
 
 <script lang="ts">
@@ -34,7 +34,10 @@
     lock: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3',
     copy: 'M8 8h12v12H8zM16 8V4H4v12h4',
     help: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17v.5',
-    'plug-off': 'M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0zM12 16v5M3.5 3.5l17 17'
+    'plug-off': 'M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0zM12 16v5M3.5 3.5l17 17',
+    more: 'M5 11.2a.8.8 0 1 0 0 1.6.8.8 0 0 0 0-1.6zM12 11.2a.8.8 0 1 0 0 1.6.8.8 0 0 0 0-1.6zM19 11.2a.8.8 0 1 0 0 1.6.8.8 0 0 0 0-1.6z',
+    'wifi-off': 'M3 3l18 18M8.6 16.4a4.8 4.8 0 0 1 6.2-.5M5.3 13a9.5 9.5 0 0 1 4-2.3M18.7 13a9.5 9.5 0 0 0-2.1-1.5M2 9.3a14.5 14.5 0 0 1 4.3-2.9M22 9.3a14.5 14.5 0 0 0-11.6-3.6M12 20v.01',
+    info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5.5M12 7.8v.4'
   };
 </script>
 

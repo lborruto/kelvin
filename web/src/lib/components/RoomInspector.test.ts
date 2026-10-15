@@ -225,6 +225,21 @@ describe('the room panel, in order', () => {
     expect(screen.getByRole('link', { name: 'Modifier les horaires' })).toHaveAttribute('href', '/schedule?room=salon');
   });
 
+  it('the reading opens its Fiche: each radiator, the target, where it comes from', async () => {
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+    load(one());
+    render(RoomInspector, { roomId: 'salon' });
+    const fig = screen.getByRole('button', { name: /^19,5\s°C, détails$/ });
+    await fireEvent.click(fig);
+    const fiche = document.querySelector('.fiche, dialog[open]')!;
+    expect(fiche).toHaveTextContent(/Consigne\s*17,0\s°C/);
+    expect(fiche).toHaveTextContent('Cozytouch');
+    expect(fiche).toHaveTextContent('mesuré');
+    document.querySelectorAll('.fiche').forEach((n) => n.remove());
+  });
+
   it('Éco is shown as a temperature with its lowering, and sent as the lowering', async () => {
     vi.useRealTimers();
     load(one());

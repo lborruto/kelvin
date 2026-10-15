@@ -72,10 +72,13 @@ export const en: Messages = {
     cannotRetry: 'Can’t retry from here: try the action again.'
   },
   banner: {
-    reconnecting: 'Reconnecting to Kelvin…',
+    offline: (time: string | null) => (time ? `Offline · data from ${time}` : 'Offline'),
+    reconnecting: (time: string | null) => (time ? `Reconnecting to Kelvin… · data from ${time}` : 'Reconnecting to Kelvin…'),
+    kelvinDown: (minutes: number, time: string | null) =>
+      `Kelvin hasn’t answered for ${minutes < 60 ? `${int(minutes)}${NB}min` : `${int(Math.floor(minutes / 60))}${NB}h`}${time ? ` · data from ${time}` : ''}`,
     passwordChanged: 'Cozytouch password changed: sign in again',
     unreachable: 'Can’t reach Cozytouch',
-    unreachableSince: (ago: string) => `Can’t reach Cozytouch — last data ${ago}`,
+    unreachableAt: (time: string) => `Can’t reach Cozytouch — data from ${time}`,
     signInAgain: 'Sign in again'
   },
   mode: { off: 'Off', manual: 'Manual', program: 'Schedule', other: 'Other', mixed: 'Mixed' },
@@ -95,7 +98,8 @@ export const en: Messages = {
     energy: 'Energy',
     home: 'Home',
     label: 'Main navigation',
-    skip: 'Skip to content'
+    skip: 'Skip to content',
+    alerts: (name: string, n: number) => `${name}, ${int(n)} ${plural(n, { one: 'alert', other: 'alerts' })}`
   },
   houseActions: {
     allOff: 'Turn everything off',
@@ -106,11 +110,56 @@ export const en: Messages = {
   },
   page: {
     title: (name: string) => `${name} · Kelvin`,
-    notFound: 'Page not found.',
-    notFoundTitle: 'Page not found',
+    notFound: 'This page doesn’t exist',
+    notFoundBody: 'The address may be old or incomplete.',
     errorTitle: 'Error',
-    error: 'Something went wrong.',
-    backToRooms: 'Back to rooms'
+    load: 'Kelvin couldn’t show this page',
+    goRooms: 'Go to rooms',
+    unreachable: 'Kelvin can’t be reached. Check your connection to home (Wi-Fi or VPN).',
+    details: 'Details',
+    code: 'Code',
+    time: 'Time',
+    route: 'Address'
+  },
+  prov: {
+    source: 'Source',
+    reading: 'Reading',
+    nature: 'Kind',
+    natures: { measured: 'measured', estimated: 'estimated', projected: 'projected', computed: 'calculated', published: 'published' },
+    withMethod: (nature: string, method: string) => `${nature} · ${method}`,
+    linky: 'Linky · Enedis via MyElectricalData',
+    radiator: (name: string) => `Radiator meter (${name})`,
+    radiatorAny: 'Radiator meters',
+    kelvin: 'Kelvin’s calculation',
+    tariff: 'Your tariff',
+    rte: 'RTE EcoWatt via MyElectricalData',
+    tempo: 'Tempo (EDF) via MyElectricalData',
+    cozytouch: 'Cozytouch',
+    until: (day: string) => `up to ${day}`,
+    curveUntil: (day: string) => `curve up to ${day}`,
+    sync: (time: string) => `synced ${time}`
+  },
+  fiche: {
+    close: 'Close',
+    est: 'est.'
+  },
+  fig: {
+    details: (value: string) => `${value}, details`
+  },
+  menu: {
+    more: 'More actions'
+  },
+  detail: {
+    label: 'Show technical details',
+    hint: 'Sources, exact times and detail sections open by default.'
+  },
+  shell: {
+    cozytouchTitle: 'Connection to Cozytouch',
+    state: 'Status',
+    lastRead: 'Last reading',
+    waiting: 'connecting',
+    never: 'no reading yet',
+    lastError: 'Last error'
   },
   rooms: {
     summary: (heating: number, offline: number) =>
@@ -381,20 +430,32 @@ export const en: Messages = {
     unreachableSince: (t: string) => `Offline since ${t}`,
     lastSignal: 'Last signal'
   },
+  roomReading: {
+    title: (room: string) => `Temperature · ${room}`,
+    mean: 'Mean',
+    target: 'Target',
+    method: 'mean of the reachable radiators'
+  },
   roomFigures: {
     title: (range: string) => `Energy over ${range}`,
     kwh: 'Consumption',
     eur: 'Cost (energy)',
     eurHint: 'Energy only, without the standing charge, at your prices.',
+    eurMethod: 'kWh × your prices, standing charge excluded',
     hours: 'Heating hours',
-    hoursHint: 'Full-power equivalent.',
     hoursNote: 'full-power equivalent',
+    hoursMethod: 'energy ÷ radiator power (full-power equivalent)',
+    hc: 'of which off-peak',
+    hp: 'of which peak',
+    period: 'Period',
+    coverage: 'Period measured',
+    estMethod: 'spread between two meter readings',
+    dutyMethod: 'heating rate read every 5 min, weighted by power',
     duty: 'Share of time heating',
     dutyHint: 'Share of the last 24 hours the radiators heated, weighted by their power (5-minute readings).',
     notEnough: (range: string) => `Not enough readings over ${range} yet (at least half the period is needed).`,
     noTariff: 'Add your tariff',
     est: 'est.',
-    estHint: 'Estimate: some energy is spread between two meter readings.',
     partial: (pct: string) => `recorded over ${pct} of the period`
   },
   roomEnergy: {
@@ -434,7 +495,7 @@ export const en: Messages = {
   },
   periodNav: { group: 'Period shown', prev: 'Previous period', next: 'Next period', latest: 'Latest day' },
   bars: { empty: 'No data yet.', period: 'Period', bars: (label: string) => `Chart bars: ${label}` },
-  chartInspector: { est: 'est.', estNote: 'est.: estimated value, details in', quality: 'Data quality' },
+  chartInspector: { estNote: 'est.: estimated value, details in', quality: 'Data quality' },
   compare: {
     title: 'Comparisons',
     previous: 'Previous period',

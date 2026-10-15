@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import type { RoomEnergy as RE } from '$lib/api/types';
@@ -19,7 +19,34 @@ beforeEach(() => {
   vi.mocked(api.roomEnergy).mockReset();
 });
 
+const media = vi.hoisted(() => ({ desktop: { matches: true } }));
+vi.mock('$lib/media.svelte', () => media);
+
 describe('RoomFigures', () => {
+  it('data on demand: each figure is a Fig whose Fiche gives the exact value, its parts and its source', async () => {
+    vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, apportioned: true });
+    render(RoomFigures, props);
+    const kwh = await screen.findByRole('button', { name: /^4,57\skWh est\., détails$/ });
+    await fireEvent.click(kwh);
+    const card = document.querySelector('.fiche')!;
+    expect(card.querySelector('.title')).toHaveTextContent('Énergie sur 24 h');
+    const cell = (r: Element, t: string) => r.querySelector(t)!.textContent!.replace(/\s/g, ' ');
+    const rows = [...card.querySelectorAll('dl:not(.prov) .row')].map((r) => `${cell(r, 'dt')}|${cell(r, 'dd')}`);
+    expect(rows).toEqual(['Consommation|4,57 kWhest.', 'dont heures creuses|1,50 kWh', 'dont heures pleines|3,07 kWh', 'Période relevée|100,0 %']);
+    const prov = [...card.querySelectorAll('.prov .row')].map((r) => `${cell(r, 'dt')}|${cell(r, 'dd')}`);
+    expect(prov[0]).toBe('Source|Compteurs des radiateurs');
+    expect(prov.at(-1)).toBe('Nature|estimé · réparti entre deux relevés du compteur');
+    await fireEvent.keyDown(card, { key: 'Escape' });
+    expect(document.querySelector('.fiche')).toBeNull();
+    // The cost is calculated from your tariff; heating hours by Kelvin.
+    await fireEvent.click(screen.getByRole('button', { name: /^1,23\s€, détails$/ }));
+    expect([...document.querySelectorAll('.fiche .prov .row')].map((r) => `${cell(r, 'dt')}|${cell(r, 'dd')}`)).toEqual([
+      'Source|Votre tarif',
+      'Nature|calculé · kWh × vos prix, hors abonnement'
+    ]);
+    document.querySelectorAll('.fiche').forEach((n) => n.remove());
+  });
+
   it('a skeleton, then kWh, € and heating hours in seconds', async () => {
     vi.mocked(api.roomEnergy).mockResolvedValue(full);
     const { container } = render(RoomFigures, props);

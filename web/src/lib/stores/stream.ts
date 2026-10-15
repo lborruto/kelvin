@@ -64,6 +64,7 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
   function listen(source: EventSource, name: string, apply: (data: never) => void) {
     source.addEventListener(name, (e) => {
       if (es === source) arm(source);
+      store.heard();
       apply(JSON.parse((e as MessageEvent).data) as never);
     });
   }
