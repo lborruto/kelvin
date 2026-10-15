@@ -9,7 +9,9 @@ vi.mock('$lib/api/client', () => ({
   api: { roomMode: vi.fn(), roomSetpoint: vi.fn(), roomBoost: vi.fn(), cancelOverride: vi.fn(), history: vi.fn().mockResolvedValue([]),
     roomEnergy: vi.fn(() => new Promise(() => {})), alerts: vi.fn().mockResolvedValue([]), dismissAlert: vi.fn(),
     roomActivity: vi.fn().mockResolvedValue({ step: 300, window: [], presence: [] }),
-    roomsDuty: vi.fn().mockResolvedValue({ from: 0, to: 86400, rooms: { salon: { duty: 0.38, coverage: 1 } } }) },
+    roomsDuty: vi.fn().mockResolvedValue({ from: 0, to: 86400, rooms: { salon: { duty: 0.38, coverage: 1 } } }),
+    radiatorLevel: vi.fn(), radiatorDryer: vi.fn(), radiatorMode: vi.fn(), radiatorSetpoint: vi.fn(), radiatorFeatures: vi.fn(),
+    radiatorLight: vi.fn(), identify: vi.fn() },
   ApiError: class extends Error {}
 }));
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
@@ -108,5 +110,55 @@ describe('RoomInspector alerts', () => {
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.getByText(/Salon · Gauche\s:\sradiateur injoignable/)).toBeInTheDocument();
     alerts.reset();
+  });
+});
+
+const caps = (extra: object) => ({
+  modes: [], manual: null, comfort: null, eco: null, levels: [], program: false, dryer: [],
+  window_detection: false, presence_detection: false, night_light: false, night_light_intensity: false,
+  identify: false, energy: false, boost: false, read_only: false, ...extra
+});
+const snapshotOf = (radiators: object[], mode = 'manual') =>
+  ({
+    house: {
+      rooms: [{ id: 'salon', name: 'Salon', radiator_ids: radiators.map((r) => (r as { id: string }).id), temperature: 20, mode, target: 20, comfort: 20, eco: 17, effective_setpoint: 17, heating_level: 'eco', window_open: false, occupied: false }],
+      radiators
+    },
+    pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
+  }) as never;
+
+describe('RoomInspector across kinds', () => {
+  it('shows only what some radiator supports, with the partial note', () => {
+    const sauter = { ...a, mode: 'manual' as const };
+    const dryer = { ...base, id: 'd', name: 'Sèche-serviettes', comfort: null, mode: 'manual' as const, support: 'expected',
+      capabilities: caps({ modes: ['off', 'manual', 'program'], manual: [7, 26], boost: true }) };
+    const zone = { ...base, id: 'z', name: 'Zone PAC', comfort: null, mode: 'other' as const, support: 'readonly',
+      capabilities: caps({ read_only: true }) };
+    house.applySnapshot(snapshotOf([sauter, dryer, zone]));
+    render(RoomInspector, { roomId: 'salon' });
+    expect(screen.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeInTheDocument();
+    expect(screen.getAllByText('S’applique à 2 radiateurs sur 3')).toHaveLength(3); // mode, setpoint, boost
+    expect(screen.getAllByText('S’applique à 1 radiateur sur 3')).toHaveLength(2); // comfort, eco setback
+    expect(screen.getByText('Lecture seule')).toBeInTheDocument();
+  });
+
+  it('a pilot-wire room has no room mode, setpoint or boost, only its levels', () => {
+    const pilot = { ...base, id: 'p', name: 'Bureau', comfort: null, mode: 'manual' as const, support: 'expected',
+      capabilities: caps({ levels: ['comfort', 'eco', 'frostprotection', 'off'] }) };
+    house.applySnapshot(snapshotOf([pilot]));
+    render(RoomInspector, { roomId: 'salon' });
+    expect(screen.queryByRole('radiogroup', { name: 'Mode de la pièce' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Forcer' })).toBeNull();
+    expect(screen.queryByText('Consigne')).toBeNull();
+    expect(screen.getByRole('radiogroup', { name: 'Allure' })).toBeInTheDocument();
+  });
+
+  it('says so when Kelvin drives nothing in the room', () => {
+    const zone = { ...base, id: 'z', name: 'Zone PAC', comfort: null, mode: 'other' as const, support: 'readonly',
+      capabilities: caps({ read_only: true }) };
+    house.applySnapshot(snapshotOf([zone], 'other'));
+    render(RoomInspector, { roomId: 'salon' });
+    expect(screen.getByText('Kelvin ne pilote aucun appareil de cette pièce.')).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Mode de la pièce' })).toBeNull();
   });
 });

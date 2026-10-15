@@ -130,6 +130,11 @@ export const DYNAMIC = [
   'devices.problem',
   'devices.detail',
   'devices.role',
+  // Plan 12: read by index (m.support[shown], m.pilot[KEY[level]], m.dryer[state]); `kind` by the device screen (Task 17)
+  'kind',
+  'support',
+  'pilot',
+  'dryer',
   'api',
   'action',
   'cozytouch',

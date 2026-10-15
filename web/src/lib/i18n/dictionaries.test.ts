@@ -49,7 +49,8 @@ export const ARGS: Record<string, unknown[]> = {
   'projection.base': ['V', '12/10'],
   // Plan 12
   'login.leadServer': ['Flexom'],
-  'servers.locked': ['Sauter Cozytouch']
+  'servers.locked': ['Sauter Cozytouch'],
+  'roomCaps.partial': [2, 3]
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
@@ -60,7 +61,7 @@ export const SAME = new Set<string>([
   'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
   'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est',
   // Plan 12: a product name
-  'servers.cozytouch'
+  'servers.cozytouch', 'dryer.normal'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
@@ -166,7 +167,9 @@ const SCANNER_BLIND = new Set([
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
   'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',
   'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
-  'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title'
+  'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title',
+  // Plan 12: no accent and no listed French word
+  'support.expected', 'pilot.label', 'dryer.boost'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

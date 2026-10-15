@@ -190,6 +190,7 @@ export const en: Messages = {
     changedElsewhereDays: (days: string) => `Changed in the Cozytouch app or on another device: ${days}. Reload to see the current version, or replace it with your changes.`,
     reload: 'Reload',
     replaceAnyway: 'Replace anyway',
+    noRooms: 'No radiator in this home has a schedule Kelvin can edit. The others follow their own schedule or the maker’s app.',
     nextTomorrow: (time: string, level: string) => `tomorrow ${time} → ${level}`,
     nextOn: (day: Day, time: string, level: string) => `${DAY[day]} ${time} → ${level}`,
     dayError: {
@@ -978,6 +979,34 @@ export const en: Messages = {
     level_unknown: (p: ApiParams) => `Unknown heating level: ${p.level}.`,
     dryer_action_unknown: (p: ApiParams) => `Unknown action: ${p.action}.`,
     unsupported_in_room: () => 'None of these radiators supports this command.'
+  },
+  // Plan 12 (Task 12)
+  kind: {
+    setpoint_heater: 'Radiator',
+    pilot_wire_heater: 'Pilot-wire radiator',
+    towel_dryer: 'Towel dryer',
+    heater_unknown: 'Heating'
+  },
+  support: {
+    expected: 'Expected to work',
+    experimental: 'Experimental',
+    readonly: 'Read-only',
+    readonlyHint: 'Kelvin doesn’t control this kind of device: it’s shown as Cozytouch describes it.'
+  },
+  pilot: {
+    label: 'Heating level',
+    comfort: 'Comfort',
+    comfort1: 'Comfort −1',
+    comfort2: 'Comfort −2',
+    eco: 'Eco',
+    frostprotection: 'Frost protection',
+    off: 'Off'
+  },
+  dryer: { label: 'Towel dryer', normal: 'Normal', boost: 'Towel boost', drying: 'Drying' },
+  roomCaps: {
+    partial: (n: number, total: number) =>
+      n === 1 ? `Applies to 1 radiator of ${total}` : `Applies to ${n} radiators of ${total}`,
+    readOnly: 'Kelvin controls no device in this room.'
   },
   // Plan 12
   servers: {
