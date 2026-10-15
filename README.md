@@ -171,7 +171,12 @@ building it: in `docker-compose.yml`, replace `build: .` with the commented
 ### First login
 
 Log in with the email and password of the home's Cozytouch account (the one the Cozytouch app
-uses). Kelvin checks them with Cozytouch, stores them, and loads your rooms and radiators.
+uses). Kelvin checks them with Cozytouch, stores them, and loads your rooms and radiators. The
+login screen says so on a fresh install (“First sign-in: this account becomes the home's
+account.”). It names the server on one line, Sauter Cozytouch by default: choose **Change**
+(**Changer**) to pick Atlantic or Thermor Cozytouch or an experimental server before this first
+login; afterwards the server is fixed. The eye button in the password field shows the password
+while you type it.
 Anyone in the household logs in with the same account. If the Cozytouch password changes,
 Kelvin shows “Cozytouch password changed: sign in again” (« Mot de passe Cozytouch modifié :
 reconnectez-vous » in French); log in once with the new one.

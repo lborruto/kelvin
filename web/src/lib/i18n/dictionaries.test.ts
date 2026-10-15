@@ -213,6 +213,8 @@ const SCANNER_BLIND = new Set([
   'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
   'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title',
   'tariff.option', 'tariff.tempoEnd', 'tariff.season',
+  // Login (Batch 11): « Changer » alone
+  'login.change',
   // Plan 12: no accent and no listed French word
   'support.expected', 'pilot.label', 'dryer.boost',
   // Programme redesign: figures and short words (« 7 h 30 », « … et … », « Week-end », « Raccourcis »)
