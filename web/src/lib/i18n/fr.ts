@@ -669,6 +669,22 @@ export const fr = {
     linkyLoadFailed: 'Impossible de charger l’état du Linky.',
     logoutFailed: 'Déconnexion impossible. Réessayez.'
   },
+  sessions: {
+    title: 'Appareils connectés',
+    intro: 'Les navigateurs connectés à Kelvin avec le compte de la maison.',
+    unknownBrowser: 'Navigateur inconnu',
+    thisDevice: 'cet appareil',
+    lastActive: (ago: string) => `dernière activité ${ago}`,
+    created: (when: string) => `connecté le ${when}`,
+    signOut: 'Déconnecter',
+    signOutLabel: (device: string) => `Déconnecter ${device}`,
+    signOutOthers: 'Déconnecter les autres appareils',
+    confirmTitle: `Déconnecter les autres appareils${NB}?`,
+    confirmBody: 'Ils devront se reconnecter avec le compte Cozytouch de la maison. Cet appareil reste connecté.',
+    revoked: (n: number) => `${int(n)} ${plural(n, { one: 'appareil déconnecté', other: 'appareils déconnectés' })}.`,
+    loadError: 'Impossible de charger les appareils connectés.',
+    retry: 'Réessayer'
+  },
   settings: {
     title: 'Réglages',
     account: 'Compte',

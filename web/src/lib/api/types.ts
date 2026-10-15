@@ -477,3 +477,13 @@ export interface RoomsDuty {
   to: number;
   rooms: Record<string, { duty: number | null; coverage: number }>;
 }
+
+export interface SessionInfo {
+  id: string;
+  created: number;
+  last_seen: number;
+  /** Brand names parsed by the server from the user agent; the raw string never leaves it. */
+  browser: string | null;
+  os: string | null;
+  current: boolean;
+}

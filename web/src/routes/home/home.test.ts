@@ -15,6 +15,9 @@ vi.mock('$lib/api/client', () => ({
     houseProgram: vi.fn().mockResolvedValue({ pending: null }),
     houseOff: vi.fn().mockResolvedValue({ pending: null }),
     cancelOverride: vi.fn().mockResolvedValue({ pending: null }),
+    sessions: vi.fn().mockResolvedValue([]),
+    revokeSession: vi.fn(),
+    revokeOtherSessions: vi.fn(),
     settings: vi.fn().mockResolvedValue({ tariff: null, prefill: null }),
     linkyStatus: vi.fn().mockResolvedValue({
       configured: false, prm: null, token_set: false, simulator: false, state: 'off', message: null,
@@ -142,7 +145,7 @@ describe('Maison', () => {
     house.reset();
     const { container } = render(Page);
     expect(screen.queryByText('Aucun forçage ni absence.')).toBeNull();
-    expect(container.querySelectorAll('.skeleton').length).toBe(3);
+    expect(container.querySelectorAll('.skeleton').length).toBe(5); // + the two rows of the devices panel
     expect(screen.queryByText('Chargement…')).toBeNull();
   });
 

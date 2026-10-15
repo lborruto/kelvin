@@ -5,6 +5,7 @@
   import type { LinkyStatus, SettingsView } from '$lib/api/types';
   import HouseActions from '$lib/components/HouseActions.svelte';
   import LinkyPanel from '$lib/components/LinkyPanel.svelte';
+  import SessionsPanel from '$lib/components/SessionsPanel.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
   import Stepper from '$lib/components/Stepper.svelte';
   import TariffForm from '$lib/components/TariffForm.svelte';
@@ -222,6 +223,11 @@
     </dl>
   </section>
 {/if}
+
+<section id="sessions" class="panel">
+  <h2>{m.sessions.title}</h2>
+  <SessionsPanel />
+</section>
 
 <style>
   h1 {

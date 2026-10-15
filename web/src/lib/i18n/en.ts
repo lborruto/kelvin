@@ -645,6 +645,22 @@ export const en: Messages = {
     linkyLoadFailed: 'Couldn’t load the Linky status.',
     logoutFailed: 'Couldn’t sign out. Try again.'
   },
+  sessions: {
+    title: 'Signed-in devices',
+    intro: 'Browsers signed in to Kelvin with the home’s account.',
+    unknownBrowser: 'Unknown browser',
+    thisDevice: 'this device',
+    lastActive: (ago: string) => `last active ${ago}`,
+    created: (when: string) => `signed in ${when}`,
+    signOut: 'Sign out',
+    signOutLabel: (device: string) => `Sign out ${device}`,
+    signOutOthers: 'Sign out other devices',
+    confirmTitle: 'Sign out other devices?',
+    confirmBody: 'They’ll need to sign in again with the home’s Cozytouch account. This device stays signed in.',
+    revoked: (n: number) => `${int(n)} ${plural(n, { one: 'device', other: 'devices' })} signed out.`,
+    loadError: 'Couldn’t load the signed-in devices.',
+    retry: 'Try again'
+  },
   settings: {
     title: 'Settings',
     account: 'Account',

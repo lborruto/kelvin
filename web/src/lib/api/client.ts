@@ -9,6 +9,7 @@ import type {
   Me,
   RoomActivity,
   RoomEnergy,
+  SessionInfo,
   RoomsDuty,
   SetpointKind,
   SettableMode,
@@ -99,6 +100,9 @@ export const api = {
     cmd('POST', `/rooms/${enc(roomId)}/setpoint`, { kind, value }),
   roomProgram: (roomId: string, week: WeekProgram, opts: { base?: Base; force?: boolean } = {}) =>
     cmd('PUT', `/rooms/${enc(roomId)}/program`, { ...week, ...programOpts(opts) }),
+  sessions: () => call<SessionInfo[]>('GET', '/sessions'),
+  revokeSession: (id: string) => call<void>('DELETE', `/sessions/${enc(id)}`),
+  revokeOtherSessions: () => call<{ revoked: number }>('POST', '/sessions/revoke-others'),
   roomEnergy: (roomId: string, days: number) => call<RoomEnergy>('GET', `/rooms/${enc(roomId)}/energy?days=${days}`),
   roomActivity: (roomId: string, start: number, end: number) =>
     call<RoomActivity>('GET', `/rooms/${enc(roomId)}/activity?start=${start}&end=${end}`),
