@@ -805,7 +805,11 @@ export const fr = {
       bridge: 'Pont Cozytouch',
       box: 'Box Cozytouch',
       wifi: 'Wi-Fi',
-      other: 'Appareil'
+      other: 'Appareil',
+      // Plan 12
+      water_heater: 'Chauffe-eau',
+      heat_pump: 'Pompe à chaleur',
+      heating: 'Chauffage'
     },
     reachable: 'Joignable',
     unreachable: 'Injoignable',
@@ -850,6 +854,11 @@ export const fr = {
     undo: 'Annuler',
     done: (label: string) => `${label} — confirmé`,
     watts: (n: string) => `${n}${NB}W`,
+    // Plan 12
+    appliances: 'Autres appareils',
+    appliancesNote: `Lecture seule${NB}: Kelvin ne pilote pas ces appareils (chauffe-eau, pompes à chaleur, appareils qui ne chauffent pas).`,
+    introExperimental: (name: string) =>
+      `Lu dans votre installation ${name}. Sur un serveur expérimental, Kelvin ne modifie ni les pièces ni les appareils.`,
     problem: {
       empty: 'Indiquez un nom.',
       long: `32${NB}caractères au maximum.`,
@@ -1009,7 +1018,8 @@ export const fr = {
     read_only_device: () => `Kelvin ne pilote pas cet appareil${NB}: il est affiché en lecture seule.`,
     level_unknown: (p: ApiParams) => `Allure inconnue${NB}: ${p.level}.`,
     dryer_action_unknown: (p: ApiParams) => `Action inconnue${NB}: ${p.action}.`,
-    unsupported_in_room: () => 'Aucun des radiateurs concernés ne prend en charge cette commande.'
+    unsupported_in_room: () => 'Aucun des radiateurs concernés ne prend en charge cette commande.',
+    setup_experimental: () => 'Sur un serveur expérimental, Kelvin ne modifie ni les pièces ni les appareils.'
   },
   // Plan 12 (Task 12)
   kind: {

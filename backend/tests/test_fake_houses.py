@@ -18,7 +18,7 @@ from kelvin.overkiz.houses import (
     house_for_server,
 )
 from kelvin.overkiz.models import ExecUpdate, StateChange
-from kelvin.overkiz.sample import SAMPLE_GATEWAY, sample_house
+from kelvin.overkiz.sample import HOUSE_TYPE, ROOM_TYPE, SAMPLE_GATEWAY, sample_house
 from tests.conftest import ManualClock
 
 SERVER = {
@@ -41,6 +41,15 @@ def _summary(house):
     }
 
 
+def test_every_simulator_house_has_typed_places():
+    """8b creates a room with the type its siblings carry: every house names its types."""
+    for name in HOUSES:
+        root, _ = HOUSES[name]()
+        assert root.type == HOUSE_TYPE, name
+        assert {p.type for p in root.children} == {ROOM_TYPE}, name
+        assert build_house(*HOUSES[name](), server=SERVER[name]).room_type() == ROOM_TYPE
+
+
 def test_the_sauter_house_is_the_v1_sample():
     assert HOUSES["sauter"]() == sample_house()
     house = _build("sauter")
@@ -60,10 +69,12 @@ def test_the_atlantic_house():
     c = house.radiators["21000001"].capabilities
     assert c.program and c.boost and c.comfort and not c.night_light and c.energy
     assert not house.radiators["21000003"].capabilities.program
-    # Rooms with radiators only, today; Task 17 (Plan 8b merged) adds « Cellier » with its
-    # water heater.
+    # Rooms with radiators; the device tree lists every place, « Cellier » and its water heater.
     assert [r.name for r in house.rooms.values()] == ["Séjour", "Bureau", "Salle de bain"]
     assert house.radiator_for_url(f"{ATLANTIC_GATEWAY}/21000004#1") is None  # the water heater
+    view = house.setup_view()
+    assert [r["name"] for r in view["rooms"] if not r["is_root"]][-1] == "Cellier"
+    assert [(a["role"], a["support"]) for a in view["appliances"]] == [("water_heater", "readonly")]
 
 
 def test_the_thermor_house():
@@ -79,6 +90,8 @@ def test_the_thermor_house():
     assert house.radiators["31000004"].capabilities.read_only
     assert house.rooms["p-salon"].radiator_ids == ["31000001", "31000004"]  # a mixed room
     assert house.radiator_for_url(f"{THERMOR_GATEWAY}/31000005#1") is None  # the heat pump
+    appliances = house.setup_view()["appliances"]
+    assert [(a["role"], a["support"]) for a in appliances] == [("heat_pump", "readonly")]
 
 
 def test_the_experimental_house_commands_only_heating():
@@ -90,6 +103,7 @@ def test_the_experimental_house_commands_only_heating():
     }
     shutter = f"{EXPERIMENTAL_GATEWAY}/41000003#1"
     assert house.radiator_for_url(shutter) is None
+    assert [a["role"] for a in house.setup_view()["appliances"]] == ["other"]
     planned = [plan_off(r) for r in house.radiators.values() if not r.capabilities.read_only]
     assert [c.device_url for p in planned for c in p.commands] == [
         f"{EXPERIMENTAL_GATEWAY}/41000001#1"

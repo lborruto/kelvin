@@ -17,7 +17,7 @@ from collections.abc import Callable
 from typing import Any
 
 from kelvin.overkiz.models import RawDevice, RawPlace
-from kelvin.overkiz.sample import WEEK_PROGRAM, sample_house
+from kelvin.overkiz.sample import HOUSE_TYPE, ROOM_TYPE, WEEK_PROGRAM, sample_house
 
 ATLANTIC_GATEWAY = "io://2345-6789-0123"
 THERMOR_GATEWAY = "io://3456-7890-1234"
@@ -49,9 +49,13 @@ House = tuple[RawPlace, list[RawDevice]]
 
 
 def _root(*rooms: tuple[str, str]) -> RawPlace:
-    # Task 17 (Plan 8b merged): pass `type=ROOM_TYPE` / `type=HOUSE_TYPE` from
-    # kelvin.overkiz.sample.
-    return RawPlace("p-house", "All House", tuple(RawPlace(oid, label) for oid, label in rooms))
+    # Typed like the Sauter sample, so Plan 8b's « Nouvelle pièce » finds the room type.
+    return RawPlace(
+        "p-house",
+        "All House",
+        tuple(RawPlace(oid, label, type=ROOM_TYPE) for oid, label in rooms),
+        type=HOUSE_TYPE,
+    )
 
 
 def _common(name: str, model: str, power: int, maker: str) -> dict[str, Any]:

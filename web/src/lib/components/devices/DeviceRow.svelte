@@ -4,6 +4,7 @@
   import { fmtAgo } from '$lib/format';
   import { m } from '$lib/i18n';
   import { detailRows, deviceLabel } from '$lib/setup';
+  import SupportChip from '../SupportChip.svelte';
 
   interface Props {
     device: SetupDevice;
@@ -19,6 +20,7 @@
 <li class="device" class:misplaced={device.misplaced}>
   <div class="head">
     <span class="role">{m.devices.role[device.role]}</span>
+    <SupportChip support={device.support} />
     <span
       class="chip"
       class:bad={device.reachable === false}

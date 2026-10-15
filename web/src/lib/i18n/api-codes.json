@@ -325,6 +325,10 @@
       "fr": "Une modification est déjà en cours pour cette pièce ou ce radiateur.",
       "params": {}
     },
+    "setup_experimental": {
+      "fr": "Sur un serveur expérimental, Kelvin ne modifie ni les pièces ni les appareils.",
+      "params": {}
+    },
     "setup_failed": {
       "fr": "Cozytouch a refusé la modification.",
       "params": {}

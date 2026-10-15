@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import type { Capabilities } from '$lib/api/types';
+import { auth } from '$lib/stores/auth.svelte';
 import { house } from '$lib/stores/house.svelte';
 import RadiatorPanel from './RadiatorPanel.svelte';
 import { applyLocale } from '$lib/i18n';
@@ -74,14 +75,24 @@ describe('RadiatorPanel', () => {
     energy: false, boost: false, rename: false, read_only: false
   };
 
-  it('offers Renommer only when the device takes a name', () => {
+  it('offers Renommer only when capabilities.rename says so', () => {
     render(RadiatorPanel, { radiator: { ...radiator, capabilities: pilotCaps }, showControls: false });
     expect(screen.queryByRole('button', { name: 'Renommer' })).toBeNull();
   });
 
-  it('offers Renommer on a device that takes a name', () => {
+  it('offers Renommer when capabilities.rename says so', () => {
     render(RadiatorPanel, { radiator: { ...radiator, capabilities: { ...pilotCaps, rename: true } }, showControls: false });
     expect(screen.getByRole('button', { name: 'Renommer' })).toBeInTheDocument();
+  });
+
+  it('hides Renommer on an experimental server (the name is a setup write)', () => {
+    auth.server = { id: 'flexom', name: 'Flexom', tier: 'experimental', default: false };
+    try {
+      render(RadiatorPanel, { radiator: { ...radiator, capabilities: { ...pilotCaps, rename: true } }, showControls: false });
+      expect(screen.queryByRole('button', { name: 'Renommer' })).toBeNull();
+    } finally {
+      auth.server = null;
+    }
   });
 
   it('hides Renommer on a read-only device even if it names itself', () => {

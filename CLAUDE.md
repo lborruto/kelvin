@@ -60,7 +60,8 @@ depends on.
   `docs/overkiz-notes.md` before changing its support level.
 - **One server per home.** The account file stores the Overkiz server; the data folder stores it
   too (`overkiz_server`) and refuses another server's home, like simulator data. The data folder
-  is bound to its server: switching server is a fresh install.
+  is bound to its server: switching server is a fresh install. On experimental servers Kelvin
+  never writes the setup (`setup_experimental`) and never calls Atlantic's own APIs.
 - **Device state is the source of truth.** A command is done when the expected state arrives.
   Overkiz often reports `FAILED OVERRIDEMODE_ERROR` for commands that did apply.
 - **Overkiz quota:** never call `Gateway.snapshot()` (`GET /setup/places` + `/setup/devices`,

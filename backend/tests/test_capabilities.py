@@ -116,11 +116,12 @@ def test_a_pilot_wire_heater_offers_its_allowed_levels_and_no_setpoint():
     assert r.view()["heating_level"] == "eco"
 
 
-def test_rename_is_offered_only_where_the_device_takes_setname():
+def test_rename_is_a_label_write_offered_on_every_device_kelvin_drives():
+    """Plan 8b: the name is the heater's Cozytouch label, so setName does not matter."""
     plain = _house(_pilot(None)).radiators["1"]
-    assert not plain.capabilities.rename and plain.view()["capabilities"]["rename"] is False
-    named = _house(_pilot(None, commands=("setHeatingLevel", "setName"))).radiators["1"]
-    assert named.capabilities.rename and named.view()["capabilities"]["rename"] is True
+    assert plain.capabilities.rename and plain.view()["capabilities"]["rename"] is True
+    unknown = _house(_pilot(None), server="somfy_europe").radiators["1"]
+    assert unknown.capabilities.rename  # the server decides the setup write (setup_experimental)
 
 
 def test_a_pilot_wire_heater_without_listed_values_offers_every_level():
@@ -184,8 +185,7 @@ def test_an_unknown_heater_is_a_read_only_radiator_in_its_room():
 
 
 def test_water_heaters_heat_pumps_and_other_devices_are_never_radiators():
-    """They are never commanded; Task 17 lists them read-only in the device tree once Plan 8b's
-    setup view exists (the `appliances` assertions live there)."""
+    """They are never commanded, and the device tree lists them read-only (`appliances`)."""
     devices = [
         *_pilot(None),
         RawDevice(
@@ -218,3 +218,13 @@ def test_water_heaters_heat_pumps_and_other_devices_are_never_radiators():
     r = house.radiators["1"]
     assert (r.kind, r.support) == ("pilot_wire_heater", "expected")
     assert sorted(house.rooms) == ["p-a"]  # a place with only a water heater is no room today
+    view = house.setup_view()
+    assert [b["role"] for b in view["bridges"]] == ["bridge"]
+    assert sorted((a["role"], a["support"]) for a in view["appliances"]) == [
+        ("heat_pump", "readonly"),
+        ("other", "readonly"),
+        ("water_heater", "readonly"),
+    ]
+    rad = view["radiators"][0]
+    assert (rad["kind"], rad["support"]) == ("pilot_wire_heater", "expected")
+    assert rad["devices"][0]["support"] == "expected" and rad["devices"][1]["support"] is None

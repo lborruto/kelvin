@@ -565,7 +565,9 @@ export interface AlertSummary {
 }
 
 export type DeviceRole =
-  | 'heater' | 'temperature' | 'window' | 'occupancy' | 'energy' | 'light' | 'bridge' | 'box' | 'wifi' | 'other';
+  | 'heater' | 'temperature' | 'window' | 'occupancy' | 'energy' | 'light' | 'bridge' | 'box' | 'wifi' | 'other'
+  // Plan 12: read-only appliances and heating devices that are no radiator's main device
+  | 'water_heater' | 'heat_pump' | 'heating';
 
 export interface SetupDevice {
   id: string;
@@ -579,6 +581,8 @@ export interface SetupDevice {
   last_event_at: number | null;
   /** Raw read-only states the device reports (Cozytouch state name → value). */
   details: Record<string, string | number | boolean>;
+  /** Plan 12: a heater's support, `readonly` for an appliance, null for sub-devices and bridges. */
+  support?: Support | null;
 }
 
 export interface SetupRoom {
@@ -595,6 +599,8 @@ export interface SetupRadiator {
   room_id: string;
   name: string;
   devices: SetupDevice[];
+  kind?: DeviceKind;
+  support?: Support;
 }
 
 export interface SyncStatus {
@@ -611,6 +617,8 @@ export interface SetupView {
   rooms: SetupRoom[];
   radiators: SetupRadiator[];
   bridges: SetupDevice[];
+  /** Plan 12: every other device (water heaters, heat pumps, anything Kelvin does not drive). */
+  appliances?: SetupDevice[];
   sync: SyncStatus | null;
 }
 

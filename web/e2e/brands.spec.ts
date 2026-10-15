@@ -29,11 +29,12 @@ test.describe('on the Atlantic house', () => {
     await expect(levels).toHaveAttribute('aria-busy', 'false', { timeout: 20_000 });
   });
 
-  test('a pilot-wire room offers Arrêt, and shows no setpoint nor rename pencil', async ({ page }) => {
+  test('a pilot-wire room offers Arrêt and shows no setpoint; its name is a Cozytouch label', async ({ page }) => {
     await page.goto('/rooms/p-bureau');
     await expect(page.getByRole('button', { name: 'Arrêt' })).toBeVisible();
     await expect(page.getByText('Consigne active')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Renommer' })).toHaveCount(0);
+    // Plan 8b: the rename is a setup label write, offered on the Cozytouch servers whatever the kind.
+    await expect(page.getByRole('button', { name: 'Renommer' }).first()).toBeVisible();
   });
 
   test('a towel dryer starts drying, and the room has no comfort setting', async ({ page }) => {
@@ -45,7 +46,12 @@ test.describe('on the Atlantic house', () => {
     await expect(page.getByText('Confort', { exact: true })).toHaveCount(0);
   });
 
-  // Task 17 (Plan 8b merged) adds here: 'the water heater is listed read-only' on /home/devices.
+  test('the water heater is listed read-only', async ({ page }) => {
+    await page.goto('/home/devices');
+    const block = page.getByRole('region', { name: 'Autres appareils' });
+    await expect(block.getByText('Chauffe-eau').first()).toBeVisible();
+    await expect(block.getByText('Lecture seule', { exact: true })).toBeVisible();
+  });
 
   test('the schedule offers only rooms with an editable programme', async ({ page }) => {
     await page.goto('/schedule');
@@ -59,8 +65,7 @@ test.describe('on the Atlantic house', () => {
     await expect(page.getByText('Atlantic Cozytouch')).toBeVisible();
   });
 
-  // Task 17 adds '/home/devices' to this list once Plan 8b's page exists.
-  for (const path of ['/rooms/p-bureau', '/rooms/p-sdb', '/login']) {
+  for (const path of ['/rooms/p-bureau', '/rooms/p-sdb', '/home/devices', '/login']) {
     test(`no horizontal scroll at 320 px: ${path}`, async ({ page }) => {
       await page.setViewportSize({ width: 320, height: 700 });
       await page.goto(path);

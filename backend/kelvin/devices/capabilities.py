@@ -126,5 +126,6 @@ def capabilities(r: Radiator) -> Capabilities:
         night_light_intensity=light_url is not None and C.SET_INTENSITY.value in light,
         identify=bool({C.IDENTIFY.value, C.WINK.value} & heater),
         energy=energy,
-        rename=C.SET_NAME.value in heater,
+        # Plan 8b: a rename is the heater's Cozytouch label (a setup write), not setName.
+        rename=True,
     )
