@@ -63,14 +63,23 @@ describe('HeatingPanel', () => {
       radiators: { ...rad, coverage: 0.75 },
       restKwh: null
     });
-    expect(text(container)).toContain('Radiateurs mesurés sur 75,0 % des jours (jusqu’à hier) : somme partielle.');
+    // A closed period: no « jusqu’à hier » (final review minor 3), that is for a running one.
+    expect(text(container)).toContain('Radiateurs mesurés sur 75,0 % des jours : somme partielle.');
+    expect(text(container)).not.toContain('hier');
     // No radiator-day measured whole (a held reading): never « 0,0 % des jours » next to a cost.
     const none = render(HeatingPanel, {
       heating: { value: null, days: 0, of_days: 1, since: null, inconsistent: false },
       radiators: { ...rad, coverage: 0 },
       restKwh: null
     });
-    expect(text(none.container)).toContain('Aucun jour de radiateur mesuré en entier (jusqu’à hier) : somme partielle.');
+    expect(text(none.container)).toContain('Aucun jour de radiateur mesuré en entier : somme partielle.');
+    const running = render(HeatingPanel, {
+      heating: { value: 0.6, days: 10, of_days: 13, since: '2026-10-01', inconsistent: false },
+      radiators: { ...rad, coverage: 0.75 },
+      restKwh: null,
+      running: true
+    });
+    expect(text(running.container)).toContain('Radiateurs mesurés sur 75,0 % des jours (jusqu’à hier) : somme partielle.');
   });
 
   it('a running period says its radiators count up to yesterday', () => {

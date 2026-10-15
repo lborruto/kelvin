@@ -447,6 +447,20 @@ describe('Énergie', () => {
     expect(q.querySelectorAll('tbody tr')).toHaveLength(1);
   });
 
+  it('without Linky, a partial radiator sum says « jusqu’à hier » only for a running period (final review minor 3)', async () => {
+    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, configured: false, state: 'off', last_day: null });
+    const rad = { kwh: 140, hc_kwh: 60, hp_kwh: 80, eur: 35, interpolated: false, apportioned: false, coverage: 0.5 };
+    const closed = { period: { from: '2026-09-01', to: '2026-10-01', ...summary({ ...NONE, radiators: rad }), quality: QUALITY } };
+    vi.mocked(api.energyReport).mockResolvedValue(report({ linky: false, last_day: null, projection: null, ...closed }));
+    const { unmount } = render(Page);
+    expect(await screen.findByText('Radiateurs : couverture 50,0 %, somme partielle.')).toBeInTheDocument();
+    unmount();
+    const running = { period: { from: '2026-10-01', to: '2099-11-01', ...summary({ ...NONE, radiators: rad }), quality: QUALITY } };
+    vi.mocked(api.energyReport).mockResolvedValue(report({ linky: false, last_day: null, projection: null, ...running }));
+    render(Page);
+    expect(await screen.findByText('Radiateurs : couverture 50,0 %, somme partielle (jusqu’à hier).')).toBeInTheDocument();
+  });
+
   it('never invents euros for a period with no Linky day: shows the missing-data state', async () => {
     vi.mocked(api.energyReport).mockResolvedValue(report(periodWith({ ...NONE, subscription_eur: 15, missing_days: 13 })));
     const { container } = render(Page);

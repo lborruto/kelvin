@@ -21,7 +21,8 @@
     interpolated: 'Radiateurs\u00a0: énergie répartie sur une interruption de l’enregistrement (est.).',
     retro: (day: string) => `Prix du ${day} appliqué aux jours antérieurs.`,
     sameLength: 'la même durée juste avant',
-    radPartial: (pct: string) => `Radiateurs\u00a0: couverture ${pct}, somme partielle (jusqu’à hier).`,
+    // « jusqu’à hier » only for a running period: a closed one counts all its days.
+    radPartial: (pct: string, running: boolean) => `Radiateurs\u00a0: couverture ${pct}, somme partielle${running ? ' (jusqu’à hier)' : ''}.`,
     radNone: 'Radiateurs\u00a0: aucun relevé sur cette période.',
     noData: 'Aucune donnée pour cette période.',
     tariffLink: 'Renseignez le tarif',
@@ -67,7 +68,7 @@
     if (p.radiators?.interpolated) out.push(COPY.interpolated);
     if (p.retro_priced && p.prices.length) out.push(COPY.retro(fmtDay(p.prices[0].valid_from)));
     // Without Linky the figure is the radiators': a partial or missing sum says so.
-    if (p.kwh == null && p.radiators?.coverage != null && p.radiators.coverage < 1) out.push(COPY.radPartial(fmtPct1(p.radiators.coverage)));
+    if (p.kwh == null && p.radiators?.coverage != null && p.radiators.coverage < 1) out.push(COPY.radPartial(fmtPct1(p.radiators.coverage), p.to > today.iso));
     if (kind === 'rad' && !p.radiators) out.push(COPY.radNone);
     return out;
   });

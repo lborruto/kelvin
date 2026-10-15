@@ -12,8 +12,9 @@
     cost: (eur: string) => `Coût du chauffage ≈\u00a0${eur} (énergie, hors abonnement)`,
     noCost: 'Coût du chauffage — (aucun relevé de radiateur sur la période)',
     noTariff: 'Coût du chauffage — (pas de tarif renseigné)',
-    unmeasured: 'Aucun jour de radiateur mesuré en entier (jusqu’à hier)\u00a0: somme partielle.',
-    partial: (pct: string) => `Radiateurs mesurés sur ${pct} des jours (jusqu’à hier) : somme partielle.`,
+    // « jusqu’à hier » only for a running period: a closed one counts all its days.
+    unmeasured: (running: boolean) => `Aucun jour de radiateur mesuré en entier${running ? ' (jusqu’à hier)' : ''}\u00a0: somme partielle.`,
+    partial: (pct: string, running: boolean) => `Radiateurs mesurés sur ${pct} des jours${running ? ' (jusqu’à hier)' : ''} : somme partielle.`,
     running: 'Période en cours : radiateurs comptés jusqu’à hier.',
     est: 'est.',
     inconsistent: 'Les radiateurs dépassent le compteur : données incohérentes.',
@@ -59,7 +60,7 @@
     <p class="line cost num">{COPY.cost(fmtEurExact(radiators.eur))}{#if radiators.interpolated || radiators.apportioned}<span class="est">{COPY.est}</span>{/if}</p>
   {/if}
   {#if radiators?.coverage != null && radiators.coverage < 1}
-    <p class="muted note">{radiators.coverage > 0 ? COPY.partial(fmtPct1(radiators.coverage)) : COPY.unmeasured}</p>
+    <p class="muted note">{radiators.coverage > 0 ? COPY.partial(fmtPct1(radiators.coverage), running) : COPY.unmeasured(running)}</p>
   {:else if radiators && running}
     <p class="muted note">{COPY.running}</p>
   {/if}
