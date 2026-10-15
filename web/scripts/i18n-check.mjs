@@ -14,7 +14,8 @@ export const FRENCH_LETTERS = /[àâäçéèêëîïôöùûüÿœæÀÂÄÇÉÈ
 // Not here on purpose: « absence » (English too; the label is matched case-sensitively below); short forms that are English words or names
 // (« Lun », « Mar », « Dim », « Sam », « S42 », « 7 j », « Prog. »); see i18n-check notes in check.test.ts.
 const WORDS = [
-  'abaissement', 'abandonner', 'abonnement', 'activer', 'ajouter', 'ajoutez', 'ajuster', 'aller', 'annuler', 'appel',
+  'abaissement', 'abandonner', 'abonnement', 'activer', 'actualiser', 'appliquer', 'confirmer', 'continuer', 'date de fin',
+  'hors ligne', 'modifier', 'valider', 'ajouter', 'ajoutez', 'ajuster', 'aller', 'annuler', 'appel',
   'appels', 'assez', 'atteint', 'atteinte', 'attente', 'au', 'augmenter', 'aucun', 'aucune', 'aujourd', 'aussi', 'autre',
   'autres', 'aux', 'avant', 'avec', 'barre', 'barres', 'bleu', 'blanc', 'bords', 'celles', 'celui', 'cette', 'chaque',
   'chargement', 'chauffage', 'chauffe', 'chevauchent', 'chiffres', 'choisie', 'choisissez', 'clair', 'clignoter',
@@ -50,11 +51,29 @@ const FRENCH_ELISION = /\b(?:c|d|j|l|m|n|s|t|qu|jusqu|lorsqu|puisqu)’(?=\w)/i;
 // French typography: a no-break space (or &nbsp;) before : ; ? ! or %. English never has one there.
 const FRENCH_PUNCT = /(?:[\u00a0\u202f]|&nbsp;|&#160;)[:;?!%]/;
 
+// Named HTML entities for accented letters (&egrave;) and French punctuation.
+const MARKS = { grave: '\u0300', acute: '\u0301', circ: '\u0302', uml: '\u0308', cedil: '\u0327' };
+const NAMED = { laquo: '«', raquo: '»', rsquo: '’', nbsp: '\u00a0', oelig: 'œ', OElig: 'Œ', aelig: 'æ', AElig: 'Æ' };
+
 /**
- * Whether a piece of copy reads as French.
+ * Escapes (\u00e8, \u{e8}, \xe8) and HTML entities (&egrave; &#xa0; &#8217;) as the characters
+ * they stand for, so an escaped French string reads as one.
  * @param {string} text
  */
-export function isFrench(text) {
+export function decodeEscapes(text) {
+  return text
+    .replace(/\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})|\\x([0-9a-fA-F]{2})/g, (_, a, b, c) => String.fromCodePoint(parseInt(a ?? b ?? c, 16)))
+    .replace(/&#x([0-9a-fA-F]+);|&#(\d+);/g, (_, h, d) => String.fromCodePoint(h ? parseInt(h, 16) : Number(d)))
+    .replace(/&([a-zA-Z])(grave|acute|circ|uml|cedil);/g, (_, l, mk) => (l + MARKS[/** @type {keyof typeof MARKS} */ (mk)]).normalize('NFC'))
+    .replace(/&([a-zA-Z]+);/g, (e, n) => NAMED[/** @type {keyof typeof NAMED} */ (n)] ?? e);
+}
+
+/**
+ * Whether a piece of copy reads as French.
+ * @param {string} raw
+ */
+export function isFrench(raw) {
+  const text = decodeEscapes(raw);
   return (
     FRENCH_LETTERS.test(text) ||
     FRENCH_WORDS.test(text) ||

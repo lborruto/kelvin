@@ -58,6 +58,21 @@ describe('scanSource limits (batch-1 review M2)', () => {
     expect(svelte('<p>Simulateur&nbsp;: démo</p><p>Total&nbsp;: 3</p>')).toEqual(['Simulateur&nbsp;: démo', 'Total&nbsp;: 3']);
     expect(ts("const a = 'l’accord';")).toEqual(['l’accord']);
   });
+  it('common imperatives, short labels, escapes and entities (batch-6 review minor 3)', () => {
+    for (const w of ['Valider', 'Actualiser', 'Modifier', 'Confirmer', 'Continuer', 'Appliquer', 'Date de fin', 'Hors ligne']) {
+      expect(ts(`const a = '${w}';`), w).toEqual([w]);
+    }
+    expect(ts("const a = 'Pi\\u00e8ces';")).toHaveLength(1);
+    expect(ts("const a = 'Total\\u00a0: 3';")).toHaveLength(1);
+    expect(ts("const a = 'Pi\\xe8ces';")).toHaveLength(1);
+    expect(svelte('<p>Pi&egrave;ces</p>')).toHaveLength(1);
+    expect(svelte('<p>Total&#xa0;: 3</p>')).toHaveLength(1);
+    expect(svelte('<p>l&#8217;accord</p>')).toHaveLength(1);
+    expect(svelte('<p>&laquo; x &raquo;</p>')).toHaveLength(1);
+    // Still English: an escaped apostrophe in a contraction, a lone no-break space.
+    expect(ts("const a = 'Can\\u2019t reach Kelvin.'; const NB = '\\u00a0';")).toEqual([]);
+    expect(svelte('<p>Can&rsquo;t reach Kelvin&nbsp;—</p>')).toEqual([]);
+  });
   it('English copy and data values are not French', () => {
     expect(ts("const a = 'Can’t reach Kelvin.'; const b = 'the home’s radiators’ meters';")).toEqual([]);
     expect(ts("const a = 'No figure in the absence of a curve.';")).toEqual([]);
