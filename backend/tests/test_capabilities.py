@@ -85,6 +85,7 @@ def test_the_sauter_radiators_keep_every_control():
             "identify": True,
             "energy": True,
             "boost": True,
+            "rename": True,
             "read_only": False,
         }
 
@@ -113,6 +114,13 @@ def test_a_pilot_wire_heater_offers_its_allowed_levels_and_no_setpoint():
     assert c.modes == () and c.manual is None and c.comfort is None and c.eco is None
     assert not c.program and not c.boost and not c.read_only
     assert r.view()["heating_level"] == "eco"
+
+
+def test_rename_is_offered_only_where_the_device_takes_setname():
+    plain = _house(_pilot(None)).radiators["1"]
+    assert not plain.capabilities.rename and plain.view()["capabilities"]["rename"] is False
+    named = _house(_pilot(None, commands=("setHeatingLevel", "setName"))).radiators["1"]
+    assert named.capabilities.rename and named.view()["capabilities"]["rename"] is True
 
 
 def test_a_pilot_wire_heater_without_listed_values_offers_every_level():
