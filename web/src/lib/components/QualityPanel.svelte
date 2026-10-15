@@ -55,13 +55,20 @@
   });
 
   type Bucket = EnergyReport['buckets'][number];
-  /** Nothing was expected (not yet published, before the history): no mark rather than a false gap. */
+  /** Nothing was expected (not yet published, before the history): no mark rather than a false gap. A bucket is
+   * judged on the days expected so far (`present_days` + `missing_days`), never on days still to come, so a running
+   * month with every elapsed day reads complete so far. */
   const expected = (b: Bucket) => b.present_days > 0 || b.missing_days > 0;
-  const linky = (b: Bucket): Mark => (!expected(b) ? 'none' : b.present_days >= b.days ? 'full' : b.present_days > 0 ? 'partial' : 'missing');
+  const linky = (b: Bucket): Mark => (!expected(b) ? 'none' : b.missing_days === 0 ? 'full' : b.present_days > 0 ? 'partial' : 'missing');
+  // The curve, like the radiators, is expected from its first day on (`curve_since`); before it a bucket stays blank.
+  // A bucket that starts before that day holds a curve for part of it at most.
   const curve = (b: Bucket): Mark => {
-    if (!expected(b)) return 'none';
+    const since = quality.curve_since;
+    const span = bucketSpan(b.key, group);
+    if (!expected(b) || since == null || span.to <= since) return 'none';
     const n = b.curve?.complete_days ?? 0;
-    return n >= b.days ? 'full' : n > 0 ? 'partial' : 'missing';
+    if (n === 0) return 'missing';
+    return n >= b.present_days && span.from >= since ? 'full' : 'partial';
   };
   // Radiators were expected from their first recording on (`radiators_since`); before it a bucket stays blank.
   // A bucket holding only today has `radiators: null` (counted once the day is over) and is not expected yet either.

@@ -31,7 +31,7 @@ describe('ExportPanel', () => {
     expect(vi.mocked(download).mock.calls[1][0].name).toBe('courbe_2026-10-12.csv');
     await fireEvent.click(screen.getByRole('button', { name: 'Exporter par pièce (CSV)' }));
     expect(vi.mocked(download).mock.calls[2][0].name).toBe('pieces_2026-10-01_2026-10-13.csv');
-    expect(screen.getByText(/séparateur point-virgule, décimales avec un point/)).toBeInTheDocument();
+    expect(screen.getByText(/séparateur point-virgule, décimales avec une virgule/)).toBeInTheDocument();
   });
 
   it('offers no curve file without a curve', () => {
@@ -44,6 +44,8 @@ describe('ExportPanel', () => {
     render(ExportPanel, { chart, main, period, roomSpan: { from: '2026-10-01', to: '2026-10-13' }, day });
     await fireEvent.click(screen.getByRole('button', { name: 'Exporter la période (CSV)' }));
     expect(vi.mocked(download).mock.calls[0][0]).toEqual(energyCsv(chart, main, period));
+    const text = vi.mocked(download).mock.calls[0][0].text;
+    expect(text.split('\r\n')[1]).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;;;;;;;;;;;;0;');
   });
 
   it('holds the rooms file until the house is known (aria-disabled, never disabled)', async () => {

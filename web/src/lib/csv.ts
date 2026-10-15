@@ -1,7 +1,7 @@
 /**
  * The Énergie CSV export (spec §3.2.9): built in the browser from the same JSON the page shows,
  * never a second computation and no server endpoint. A machine contract documented in
- * web/README.md: French headers in every locale, UTF-8 with BOM, « ; », CRLF, dot decimals, ISO
+ * web/README.md: French headers, UTF-8 with BOM, « ; », CRLF, decimal commas (Plan 7: follow the UI locale), ISO
  * local times with their offset, an empty cell for a missing value. No PDL, token, email or id.
  *
  * Every figure is the API's own (kWh to 3 decimals, € to 2, as the backend rounds them), so a
@@ -9,7 +9,7 @@
  * are exported (the backend anchors them on 1 January).
  */
 import type { EnergyDay, EnergyReport, EnergySummary, PriceRow } from './api/types';
-import { bucketSpan, type Span } from './energy';
+import { bucketSpan, leadingMissing, type Span } from './energy';
 import type { RoomRow } from './roomEnergy';
 import { isoParis, parisDayStart } from './time';
 
@@ -31,22 +31,21 @@ export interface CsvFile {
 }
 
 const plain = new Map<number, Intl.NumberFormat>();
-/** A number with fixed decimals and a dot; an empty cell for a missing value (never 0). It rounds as the page's
- * formatters do (Intl: a decimal tie such as 32.535 rounds up, where binary `toFixed` gives 32.53), and a value
- * that rounds to zero has no minus sign. */
+/**
+ * A number with fixed decimals, a decimal comma and no grouping (the French spreadsheet convention, with « ; »
+ * between cells); an empty cell for a missing value (never 0). It rounds as the page's formatters do (Intl: a
+ * decimal tie such as 32.535 rounds up, where binary `toFixed` gives 32.53), and a value that rounds to zero has
+ * no minus sign (done by hand rather than with `signDisplay`, which older engines lack).
+ */
 export function csvNum(v: number | null | undefined, digits: number): string {
   if (v == null || !Number.isFinite(v)) return '';
   let f = plain.get(digits);
   if (!f) {
-    f = new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-      useGrouping: false,
-      signDisplay: 'negative'
-    });
+    f = new Intl.NumberFormat('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false });
     plain.set(digits, f);
   }
-  return f.format(v);
+  const s = f.format(v);
+  return (/^-0(\.0+)?$/.test(s) ? s.slice(1) : s).replace('.', ',');
 }
 
 /** A text cell: quoted when it holds « ; », a quote or a line break; a leading =, +, -, @, tab or CR
@@ -97,9 +96,12 @@ function summaryRow(label: string, s: EnergySummary, span: Span): string[] {
   ];
 }
 
-/** The selected period's bars, then its total (the hero's figures). */
+/** The selected period's bars, then its total (the hero's figures). Like the chart, a home with Linky starts at its
+ * first bucket with Linky data: earlier ones are not gaps, and are not rows. */
 export function energyCsv(chart: EnergyReport, main: EnergyReport, period: Span): CsvFile {
+  const first = chart.linky ? leadingMissing(chart.buckets.map((b) => b.kwh)) : 0;
   const rows = chart.buckets
+    .slice(first)
     .map((b) => ({ b, span: bucketSpan(b.key, chart.group) }))
     .filter(({ span }) => span.from >= period.from && span.to <= period.to)
     .map(({ b, span }) => summaryRow(b.key, b, span));

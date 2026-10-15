@@ -42,21 +42,24 @@ The version shown on Maison comes from `package.json`. Icons are rendered from
 Énergie › Exporter builds the files in the browser from the JSON the page shows (no server
 endpoint), so every figure is the one the page shows for the same bar or half-hour, at the API's
 precision: a day's € are the same in whatever period it is exported. Every file is UTF-8 with a
-BOM, `;`-separated, CRLF line ends, `.` as the decimal separator, timestamps in ISO 8601 Paris
+BOM, `;`-separated, CRLF line ends, `,` as the decimal separator with no thousands separator (the
+French spreadsheet convention, so a French Excel or LibreOffice opens it with numbers as numbers;
+Plan 7 makes the CSV follow the UI locale), timestamps in ISO 8601 Paris
 local time with their offset (`2026-10-25T02:30:00+01:00`, so the repeated autumn hour stays
 unambiguous), and an empty cell for a missing value (never 0). Headers stay French in every
 locale. Text cells that start with `=`, `+`, `-`, `@`, a tab or a CR are prefixed with `'`. No
 PDL, token, email or id is exported; rooms and radiators appear by name.
 
-- `energie_<from>_<to>_<group>.csv` (`<to>` exclusive) — one row per bar of the selected period,
-  then a `total` row (the hero's figures):
+- `energie_<from>_<to>_<group>.csv` (`<to>` exclusive) — one row per bar of the selected period
+  (with Linky, the buckets before the first one with Linky data are not bars, and not rows), then a
+  `total` row (the hero's figures):
   `periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_couverture`.
   kWh have 3 decimals, € 2; `split_estime` and `radiateurs_interp` are `1`/`0` (radiator energy
-  spread between two readings counts as estimated); `prix` is `hc=0.2068|hp=0.2700`, or, when a bar
+  spread between two readings counts as estimated); `prix` is `hc=0,2068|hp=0,2700`, or, when a bar
   used several price rows, each prefixed with its date and separated by a space.
   `radiateurs_couverture` (last, added after the spec's first header, so readers by name keep
   working) is the share of radiator-days `radiateurs_kwh` counts, a 4-decimal fraction: below
-  `1.0000` the radiator sum is partial (a radiator not measured every day, or a period running into
+  `1,0000` the radiator sum is partial (a radiator not measured every day, or a period running into
   today, counted up to yesterday). `reste_kwh` is given only when the radiators cover the whole bar.
   A counted day without Linky data keeps its `abonnement_eur`, with `total_eur` empty.
 - `courbe_<date>.csv` — one row per interval of the Courbe's day (46, 48 or 50):
@@ -67,5 +70,6 @@ PDL, token, email or id is exported; rooms and radiators appear by name.
 - `pieces_<from>_<to>.csv` — the period's elapsed days (up to yesterday), as Par pièce shows them;
   each room, then its radiators:
   `piece;radiateur;kwh;part;hc_kwh;hp_kwh;eur;temp_moy;consigne_moy;heures_chauffe;couverture;depuis`.
-  `part` (rooms) and `couverture` (radiators) are 4-decimal fractions; `eur` is energy only. A
+  `part` (rooms) and `couverture` (radiators) are 4-decimal fractions; `eur` is energy only; kWh, HC
+  and HP are the API's 3-decimal figures (the table at 2 decimals allocates its rounding so rows add up). A
   room's kWh sums its radiators with a figure: its radiators' `couverture` says whether it is whole.

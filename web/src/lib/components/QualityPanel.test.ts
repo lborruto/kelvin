@@ -62,4 +62,25 @@ describe('QualityPanel', () => {
     link.remove();
     window.location.hash = '';
   });
+
+  it('the Courbe is not « missing » before it was first available', () => {
+    const { container } = render(QualityPanel, { buckets, group: 'day', quality: { ...quality, curve_since: '2026-10-12' } });
+    const cells = [...container.querySelectorAll('.strip .row')[1].querySelectorAll('.cell')];
+    expect(cells[1]).toHaveClass('none'); // 11 October: before the curve existed
+    expect(cells[2]).toHaveClass('missing'); // 12 October: expected, absent
+  });
+
+  it('a running bucket is judged on the days expected so far: complete so far, not « partiel »', () => {
+    const months = [
+      b('2026-09', { days: 30, present_days: 28, missing_days: 2, curve: { complete_days: 28 } }),
+      b('2026-10', { days: 31, present_days: 14, missing_days: 0, curve: { complete_days: 14 } }),
+      b('2026-11', { days: 30, present_days: 0, missing_days: 0, curve: null, radiators: null })
+    ] as unknown as EnergyReport['buckets'];
+    const { container } = render(QualityPanel, { buckets: months, group: 'month', quality });
+    const MARKS = ['full', 'partial', 'missing', 'none'];
+    const row = (i: number) =>
+      [...container.querySelectorAll('.strip .row')[i].querySelectorAll('.cell')].map((c) => [...c.classList].find((x) => MARKS.includes(x)));
+    expect(row(0)).toEqual(['partial', 'full', 'none']);
+    expect(row(1)).toEqual(['full', 'full', 'none']);
+  });
 });

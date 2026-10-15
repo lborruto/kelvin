@@ -539,8 +539,8 @@ describe('Énergie', () => {
     const rows = file.text.slice(1).split('\r\n');
     expect(rows).toHaveLength(31 + 2 + 1); // header, 31 days, total, the final CRLF
     // The total row is the hero's period: 412,6 kWh, 98,40 €.
-    expect(rows[32].split(';').slice(0, 4).join(';')).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;412.640');
-    expect(rows[32].split(';')[12]).toBe('98.40');
+    expect(rows[32].split(';').slice(0, 4).join(';')).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;412,640');
+    expect(rows[32].split(';')[12]).toBe('98,40');
     expect(await screen.findByRole('button', { name: /^Exporter la courbe du / })).toBeInTheDocument();
   });
 });

@@ -12,7 +12,7 @@
     curve: (d: string) => `Exporter la courbe du ${d} (CSV)`,
     rooms: 'Exporter par pièce (CSV)',
     format:
-      'Fichiers CSV\u00a0: séparateur point-virgule, décimales avec un point, dates ISO avec leur fuseau, cellule vide quand une valeur manque. Les mêmes chiffres que la page.'
+      'Fichiers CSV\u00a0: séparateur point-virgule, décimales avec une virgule, dates ISO avec leur fuseau, cellule vide quand une valeur manque. Les chiffres de la page, avec toutes leurs décimales.'
   } as const;
 
   interface Props {

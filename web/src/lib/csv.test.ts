@@ -14,19 +14,19 @@ const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({
   rest_kwh: 7.841, ...o
 });
 
-describe('CSV cells (spec §3.2.9)', () => {
-  it('numbers use a dot, fixed decimals, and an empty cell for null (never 0)', () => {
-    expect(csvNum(1.23456, 3)).toBe('1.235');
-    expect(csvNum(0, 3)).toBe('0.000');
-    expect(csvNum(-0.0001, 2)).toBe('0.00');
+describe('CSV cells (spec §3,2.9)', () => {
+  it('numbers use a decimal comma (French spreadsheets), fixed decimals, no grouping, and an empty cell for null (never 0)', () => {
+    expect(csvNum(1.23456, 3)).toBe('1,235');
+    expect(csvNum(0, 3)).toBe('0,000');
+    expect(csvNum(-0.0001, 2)).toBe('0,00');
     expect(csvNum(null, 3)).toBe('');
     expect(csvNum(undefined, 2)).toBe('');
     expect(csvNum(Number.NaN, 2)).toBe('');
-    expect(csvNum(1234567.891, 2)).toBe('1234567.89');
+    expect(csvNum(1234567.891, 2)).toBe('1234567,89');
   });
   it('numbers round as the page does (a decimal tie rounds up, as Intl does), never as binary toFixed', () => {
-    expect(csvNum(32.535, 2)).toBe('32.54');
-    expect(csvNum(1.005, 2)).toBe('1.01');
+    expect(csvNum(32.535, 2)).toBe('32,54');
+    expect(csvNum(1.005, 2)).toBe('1,01');
     expect(csvNum(-0.4, 0)).toBe('0');
   });
   it('text is quoted when it must be, and a leading formula character is neutralised', () => {
@@ -43,13 +43,13 @@ describe('CSV cells (spec §3.2.9)', () => {
     expect(csvText(null)).toBe('');
   });
   it('price rows: compact, dated when a bucket used several', () => {
-    expect(pricesCsv([{ valid_from: '2026-08-01', subscription_eur_month: 15, rates: { hp: 0.27, hc: 0.2068 } }])).toBe('hc=0.2068|hp=0.2700');
+    expect(pricesCsv([{ valid_from: '2026-08-01', subscription_eur_month: 15, rates: { hp: 0.27, hc: 0.2068 } }])).toBe('hc=0,2068|hp=0,2700');
     expect(
       pricesCsv([
         { valid_from: '2026-01-01', subscription_eur_month: 15, rates: { hc: 0.2, hp: 0.3 } },
         { valid_from: '2026-09-16', subscription_eur_month: 16, rates: { hc: 0.25, hp: 0.35 } }
       ])
-    ).toBe('2026-01-01:hc=0.2000|hp=0.3000 2026-09-16:hc=0.2500|hp=0.3500');
+    ).toBe('2026-01-01:hc=0,2000|hp=0,3000 2026-09-16:hc=0,2500|hp=0,3500');
     expect(pricesCsv([])).toBe('');
   });
 });
@@ -78,7 +78,7 @@ describe('energie_<from>_<to>_<group>.csv', () => {
   const file = energyCsv(chart, main, { from: '2026-10-11', to: '2026-10-14' });
   const [head, ...rows] = lines(file.text);
 
-  it('exports exactly the period: its buckets, then the total; UTF-8 BOM, « ; », CRLF, dot decimals, ISO times with offset', () => {
+  it('exports exactly the period: its buckets, then the total; UTF-8 BOM, « ; », CRLF, decimal commas, ISO times with offset', () => {
     expect(file.name).toBe('energie_2026-10-11_2026-10-14_day.csv');
     expect(file.text.startsWith(BOM)).toBe(true);
     expect(file.text.endsWith('\r\n')).toBe(true);
@@ -87,23 +87,23 @@ describe('energie_<from>_<to>_<group>.csv', () => {
       'periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_couverture'
     );
     expect(rows).toHaveLength(4);
-    expect(rows[0]).toBe('2026-10-11;2026-10-11T00:00:00+02:00;2026-10-12T00:00:00+02:00;22.041;8.976;13.065;0;14.200;0;7.841;5.31;0.48;5.79;hc=0.2068|hp=0.2700;0;1.0000');
+    expect(rows[0]).toBe('2026-10-11;2026-10-11T00:00:00+02:00;2026-10-12T00:00:00+02:00;22,041;8,976;13,065;0;14,200;0;7,841;5,31;0,48;5,79;hc=0,2068|hp=0,2700;0;1,0000');
     for (const r of rows) expect(r.split(';')).toHaveLength(ENERGY_HEADER.length);
   });
 
   it('a missing value is an empty cell, never 0; the subscription a counted day pays stays', () => {
-    expect(rows[1]).toBe('2026-10-12;2026-10-12T00:00:00+02:00;2026-10-13T00:00:00+02:00;;;;;;;;;0.48;;;1;');
+    expect(rows[1]).toBe('2026-10-12;2026-10-12T00:00:00+02:00;2026-10-13T00:00:00+02:00;;;;;;;;;0,48;;;1;');
   });
 
   it('R1: a partial radiator sum carries its coverage (the last column), and estimates say so', () => {
     const c = rows[2].split(';');
-    expect(c.slice(6, 10)).toEqual(['1', '9.500', '1', '']);
-    expect(c.at(-1)).toBe('0.5000');
+    expect(c.slice(6, 10)).toEqual(['1', '9,500', '1', '']);
+    expect(c.at(-1)).toBe('0,5000');
   });
 
   it('the total row is the hero’s period, its own figures (never a sum recomputed here)', () => {
     expect(rows[3]).toBe(
-      'total;2026-10-11T00:00:00+02:00;2026-10-14T00:00:00+02:00;44.082;8.976;13.065;0;23.700;1;;10.62;1.44;12.06;hc=0.2068|hp=0.2700;1;0.8333'
+      'total;2026-10-11T00:00:00+02:00;2026-10-14T00:00:00+02:00;44,082;8,976;13,065;0;23,700;1;;10,62;1,44;12,06;hc=0,2068|hp=0,2700;1;0,8333'
     );
   });
 
@@ -113,6 +113,19 @@ describe('energie_<from>_<to>_<group>.csv', () => {
     const row = (f: { text: string }) => lines(f.text).find((l) => l.startsWith('2026-10-11;'));
     expect(row(week)).toBe(rows[0]);
     expect(row(one)).toBe(rows[0]);
+  });
+
+  it('one row per bar: the buckets before the first Linky day, which the chart leaves out, are not exported', () => {
+    const early = {
+      group: 'day', linky: true,
+      buckets: [
+        { key: '2026-10-11', ...summary({ kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, subscription_eur: null, eur: null, rest_kwh: null, present_days: 0, prices: [], radiators: null }) },
+        { key: '2026-10-12', ...summary() },
+        { key: '2026-10-13', ...summary({ kwh: null, hc_kwh: null, hp_kwh: null, energy_eur: null, eur: null, rest_kwh: null, present_days: 0, missing_days: 1, prices: [], radiators: null }) }
+      ]
+    } as unknown as EnergyReport;
+    const body = lines(energyCsv(early, main, { from: '2026-10-11', to: '2026-10-14' }).text).slice(1);
+    expect(body.map((l) => l.split(';')[0])).toEqual(['2026-10-12', '2026-10-13', 'total']);
   });
 
   it('month buckets: one row per month inside the year, the total last', () => {
@@ -147,7 +160,7 @@ describe('courbe_<date>.csv', () => {
     expect(new Set(rows.map((r) => r.split(';')[0])).size).toBe(50);
     expect(rows[4].split(';')[0]).toBe('2026-10-25T02:00:00+02:00');
     expect(rows[6].split(';')[0]).toBe('2026-10-25T02:00:00+01:00');
-    expect(rows[0]).toBe('2026-10-25T00:00:00+02:00;2026-10-25T00:30:00+02:00;30;367;735;1.0000;;0.2068;0.0760;211');
+    expect(rows[0]).toBe('2026-10-25T00:00:00+02:00;2026-10-25T00:30:00+02:00;30;367;735;1,0000;;0,2068;0,0760;211');
     expect(rows[3].split(';')[9]).toBe('');
     expect(rows.at(-1)!.split(';')[1]).toBe('2026-10-26T00:00:00+01:00');
   });
@@ -182,8 +195,8 @@ describe('pieces_<from>_<to>.csv', () => {
     const [head, ...body] = lines(file.text);
     expect(head).toBe('piece;radiateur;kwh;part;hc_kwh;hp_kwh;eur;temp_moy;consigne_moy;heures_chauffe;couverture;depuis');
     expect(body).toEqual([
-      "'=Salon;;100.000;0.6250;40.000;60.000;25.00;19.4;20.0;3.0;;",
-      "'=Salon;Fenêtre;100.000;;40.000;60.000;25.00;19.4;20.0;3.0;0.8000;2026-10-07",
+      "'=Salon;;100,000;0,6250;40,000;60,000;25,00;19,4;20,0;3,0;;",
+      "'=Salon;Fenêtre;100,000;;40,000;60,000;25,00;19,4;20,0;3,0;0,8000;2026-10-07",
       'Bureau;;;;;;;;;;;'
     ]);
     expect(file.text).not.toContain('rad-9312063');
