@@ -133,9 +133,12 @@ WIDGET_KINDS: dict[str, str] = {
 def kind_for(widget: str, ui_class: str = "") -> str | None:
     """The kind of a device, or None when it is not a heating device (sensors, lights,
     bridges, shutters…). Unknown widgets fall back on the UI class; setups stored before
-    Plan 12 have no UI class, so a widget naming a heater still counts as one."""
+    Plan 12 have no UI class, so a widget naming a heater still counts as one. A sensor never
+    does, whatever it measures (GasHeaterConsumptionSensor)."""
     if widget in WIDGET_KINDS:
         return WIDGET_KINDS[widget]
+    if widget.endswith("Sensor"):
+        return None
     if ui_class == UIClass.WATER_HEATING_SYSTEM.value:
         return "water_heater"
     if ui_class == UIClass.HEAT_PUMP_SYSTEM.value:

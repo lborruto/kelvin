@@ -11,6 +11,8 @@ from kelvin.devices.registry import (
     kind_for,
     support_for,
 )
+from kelvin.house.model import ROLE_BY_WIDGET
+from kelvin.overkiz.sample import sample_house
 
 
 def test_the_names_are_pyoverkiz_s_own():
@@ -135,3 +137,17 @@ def test_modes_read_from_the_profile():
         None,
     ]
     assert PROFILES["heater_unknown"].mode_of("basic") == "other"
+
+
+def test_sensors_named_after_a_heater_are_never_radiators():
+    """The « Heater » fallback is for unknown heater widgets of stored setups, not for sensors."""
+    assert kind_for("GasHeaterConsumptionSensor", "") is None
+    assert kind_for("GasHeaterConsumptionSensor", UIClass.HEATING_SYSTEM.value) is None
+    assert kind_for("ElectricalHeaterSensor", "") is None
+
+
+def test_every_simulator_widget_and_role_is_a_ui_widget_member():
+    members = {w.value for w in UIWidget}
+    _, devices = sample_house()
+    assert {d.widget for d in devices} <= members
+    assert set(ROLE_BY_WIDGET) <= members
