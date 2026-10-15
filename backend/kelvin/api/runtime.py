@@ -32,12 +32,18 @@ from kelvin.overkiz.models import (
     place_to_dict,
 )
 from kelvin.overkiz.poller import EventPump
+from kelvin.overkiz.sample import DEMO_OUTAGE_RID
 from kelvin.overkiz.simhistory import SIM_DB_KEY, seed_history
 from kelvin.recorder.db import Database
 from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
 
 log = logging.getLogger(__name__)
+
+# Simulator demo (spec §10.2): « Chambre 2 » unreachable from 45 min before start to 2 h after,
+# so the Infos block and the radiator_unreachable alert show in demos and e2e runs.
+DEMO_OUTAGE_BEFORE_S = 2700
+DEMO_OUTAGE_AFTER_S = 7200
 
 # The structure of the last full setup read (places, devices without their states), so a
 # start with the day's full reads spent can still build the house (final review I1).
@@ -84,7 +90,13 @@ class Runtime:
             self.publish_overrides()
 
 
-def make_gateway(settings: Settings, username: str, password: str) -> Gateway:
+def make_gateway(
+    settings: Settings,
+    username: str,
+    password: str,
+    *,
+    wall: Callable[[], float] = time.time,
+) -> Gateway:
     if settings.kelvin_fake:
         fixture = settings.kelvin_data / "fake_home.json"
         if fixture.exists():
@@ -95,7 +107,14 @@ def make_gateway(settings: Settings, username: str, password: str) -> Gateway:
                 username=username,
                 password=password,
             )
-        return FakeGateway(username=username, password=password)
+        gw = FakeGateway(username=username, password=password)
+        gw.demo_outage(
+            DEMO_OUTAGE_RID,
+            before_s=DEMO_OUTAGE_BEFORE_S,
+            after_s=DEMO_OUTAGE_AFTER_S,
+            wall=wall(),
+        )
+        return gw
     from kelvin.overkiz.real import PyOverkizGateway
 
     return PyOverkizGateway(username, password)
@@ -204,7 +223,7 @@ async def start_runtime(
     a documented daily limit is better than a home without heating control for up to 24 h.
     Beyond that overdraft, SetupBudgetSpent is raised before any Overkiz call."""
     gateway = gateway or make_gateway(
-        settings, settings.cozy_user, settings.cozy_pass.get_secret_value()
+        settings, settings.cozy_user, settings.cozy_pass.get_secret_value(), wall=wall
     )
     owns_db = db is None
     opened: Database | None = None
@@ -229,7 +248,9 @@ async def start_runtime(
         else:
             log.info("full setup read budget spent: starting from the stored setup")
             root, devices = stored
-        house = build_house(root, devices)
+        house = build_house(root, devices, wall=wall)
+        if isinstance(gateway, FakeGateway):
+            house.backdate_status(gateway.sim_status_since)
         is_sim = isinstance(gateway, FakeGateway)
         if not is_sim and db.get_setting(SIM_DB_KEY) is True:
             raise RuntimeError(

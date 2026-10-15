@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from statistics import mean
 from typing import Any
@@ -16,6 +18,28 @@ ROLE_BY_WIDGET = {
     "DimmerLight": "light",
 }
 DAY_ORDER = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+STATUS = "core:StatusState"
+
+
+@dataclass(frozen=True)
+class StatusSeen:
+    """A `core:StatusState` value and since when Kelvin has observed it.
+
+    `known_start` is False when the value was already there at startup: Kelvin does not know
+    when it began, only that it has lasted at least since `since`."""
+
+    value: Any
+    since: float
+    known_start: bool
+
+
+@dataclass
+class Signal:
+    """What Kelvin learned from the event stream, kept in memory (spec QW3)."""
+
+    wall: Callable[[], float] = time.time
+    last_event_ts: dict[str, float] = field(default_factory=dict)
+    status_seen: dict[str, StatusSeen] = field(default_factory=dict)
 
 
 def base_url(device_url: str) -> str:
@@ -65,6 +89,7 @@ class Radiator:
     urls: dict[str, str]
     states: dict[str, dict[str, Any]]
     commands: dict[str, list[str]] = field(default_factory=dict)
+    signal: Signal | None = field(default=None, repr=False, compare=False)
 
     def get(self, role: str, name: str, default: Any = None) -> Any:
         url = self.urls.get(role)
@@ -175,6 +200,27 @@ class Radiator:
     def program(self) -> dict[str, list[dict[str, str]]]:
         return program_from_state(self.get("heater", "core:TimeProgramState"))
 
+    @property
+    def reachable(self) -> bool | None:
+        v = self.get("heater", STATUS)
+        return None if v is None else v == "available"
+
+    @property
+    def unreachable_since(self) -> float | None:
+        if self.reachable is not False or self.signal is None:
+            return None
+        seen = self.signal.status_seen.get(self.heater_url)
+        return seen.since if seen is not None and seen.known_start else None
+
+    @property
+    def last_event_at(self) -> float | None:
+        if self.signal is None:
+            return None
+        times = [
+            self.signal.last_event_ts[u] for u in self.states if u in self.signal.last_event_ts
+        ]
+        return max(times) if times else None
+
     def view(self) -> dict[str, Any]:
         return {
             "id": self.id,
@@ -201,6 +247,9 @@ class Radiator:
             "energy_wh": self.energy_wh,
             "working_rate": self.working_rate,
             "rssi": self.rssi,
+            "reachable": self.reachable,
+            "unreachable_since": self.unreachable_since,
+            "last_event_at": self.last_event_at,
             "program": self.program,
         }
 
@@ -219,13 +268,56 @@ def _common(values: list[Any], mixed: Any = None) -> Any:
     return present[0] if all(v == present[0] for v in present) else mixed
 
 
+def _presence(values: list[bool | None]) -> bool | None:
+    """Detected if any radiator reports presence; None when none reports the sensor."""
+    present = [v for v in values if v is not None]
+    return any(present) if present else None
+
+
 class House:
-    def __init__(self, rooms: list[Room], radiators: dict[str, Radiator]) -> None:
+    def __init__(
+        self,
+        rooms: list[Room],
+        radiators: dict[str, Radiator],
+        *,
+        wall: Callable[[], float] = time.time,
+    ) -> None:
         self.rooms: dict[str, Room] = {r.id: r for r in rooms}
         self.radiators = radiators
         self._by_url: dict[str, str] = {
             url: rid for rid, r in radiators.items() for url in r.states
         }
+        self.signal = Signal(wall)
+        now = wall()
+        for r in radiators.values():
+            r.signal = self.signal
+            for url, states in r.states.items():
+                if STATUS in states:
+                    self.signal.status_seen[url] = StatusSeen(states[STATUS], now, False)
+
+    @property
+    def last_event_ts(self) -> dict[str, float]:
+        """Device URL → wall time of its last state event (memory only; Plan 8b reads it)."""
+        return self.signal.last_event_ts
+
+    def _track_status(self, device_url: str, value: Any) -> None:
+        seen = self.signal.status_seen.get(device_url)
+        if seen is None or seen.value != value:
+            self.signal.status_seen[device_url] = StatusSeen(value, self.signal.wall(), True)
+
+    def backdate_status(self, since: dict[str, float]) -> None:
+        """Simulator only: the demo outage began before Kelvin started."""
+        for url, t in since.items():
+            seen = self.signal.status_seen.get(url)
+            if seen is not None:
+                self.signal.status_seen[url] = StatusSeen(seen.value, t, True)
+
+    def unreachable_for(self, rid: str, now: float) -> float | None:
+        r = self.radiators.get(rid)
+        if r is None or r.reachable is not False:
+            return None
+        seen = self.signal.status_seen.get(r.heater_url)
+        return None if seen is None else max(0.0, now - seen.since)
 
     def room_radiators(self, room_id: str) -> list[Radiator]:
         return [self.radiators[i] for i in self.rooms[room_id].radiator_ids]
@@ -239,13 +331,20 @@ class House:
             return None
         return self.radiators[rid].states.get(device_url, {}).get(name)
 
-    def apply(self, change: StateChange) -> str | None:
+    def apply(self, change: StateChange, *, event: bool = True) -> str | None:
+        """Apply one state. `event` marks a listener event: it counts as a sign of life and
+        returns the radiator id even when the value did not change (its `last_event_at` moved).
+        Reads (startup, resync, per-device state reads) pass event=False."""
         rid = self._by_url.get(change.device_url)
         if rid is None:
             return None
+        if event:
+            self.signal.last_event_ts[change.device_url] = self.signal.wall()
+        if change.name == STATUS:
+            self._track_status(change.device_url, change.value)
         states = self.radiators[rid].states.setdefault(change.device_url, {})
         if change.name in states and states[change.name] == change.value:
-            return None
+            return rid if event else None
         states[change.name] = change.value
         return rid
 
@@ -258,9 +357,11 @@ class House:
             states = self.radiators[rid].states.get(d.device_url, {})
             for name in [n for n in states if n not in d.states]:
                 del states[name]
+                if name == STATUS:
+                    self.signal.status_seen.pop(d.device_url, None)
                 changed.add(rid)
             for name, value in d.states.items():
-                changed_rid = self.apply(StateChange(d.device_url, name, value))
+                changed_rid = self.apply(StateChange(d.device_url, name, value), event=False)
                 if changed_rid:
                     changed.add(changed_rid)
         return changed
@@ -289,6 +390,7 @@ class House:
             "heating_level": _common([r.heating_level for r in rads], "mixed"),
             "window_open": any(r.window_open for r in rads),
             "occupied": any(r.occupied for r in rads),
+            "presence": _presence([r.occupied for r in rads]),
         }
 
     def view(self) -> dict[str, Any]:
@@ -298,7 +400,9 @@ class House:
         }
 
 
-def build_house(root: RawPlace, devices: list[RawDevice]) -> House:
+def build_house(
+    root: RawPlace, devices: list[RawDevice], *, wall: Callable[[], float] = time.time
+) -> House:
     groups: dict[str, list[RawDevice]] = {}
     for d in devices:
         groups.setdefault(base_url(d.device_url), []).append(d)
@@ -331,4 +435,4 @@ def build_house(root: RawPlace, devices: list[RawDevice]) -> House:
         if rids:
             name = "Maison" if p.oid == root.oid else labels[p.oid]
             rooms.append(Room(id=p.oid, name=name, radiator_ids=rids))
-    return House(rooms, radiators)
+    return House(rooms, radiators, wall=wall)

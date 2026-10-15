@@ -9,6 +9,8 @@ from typing import Any
 from kelvin.overkiz.models import RawDevice, RawPlace
 
 SAMPLE_GATEWAY = "io://1234-5678-9012"
+# The simulator's « Chambre 2 » heater is unreachable for a while after start (spec §10.2).
+DEMO_OUTAGE_RID = "8370022"
 DAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 EMPTY_SLOT = {"start": "00:00", "end": "00:00"}
 # An invented programme: two comfort periods on weekdays, one long one at the weekend.

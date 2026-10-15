@@ -54,7 +54,7 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 - `GET /api/health` → `{"status": "ok" | "degraded" | "setup" | "reauth" | "offline"}` only; `GET /api/status` (session) adds the Overkiz pump status (with `setup_reads_24h`, full setup reads in the last 24 h) and the Linky state.
 - `GET /api/overkiz/quotas` — remaining Overkiz quotas (`GET /setup/quotas`), read only when asked, one read at a time, and cached for an hour (a failure for a minute); ids, URLs, emails and account keys are dropped. `503` « Cozytouch injoignable, réessayez plus tard. » or « Quotas indisponibles. ».
 - `POST /api/auth/login {email, password}` · `POST /api/auth/logout` · `GET /api/auth/me`
-- `GET /api/house`
+- `GET /api/house` — each radiator also has `reachable` (from `core:StatusState`, `null` when not reported), `unreachable_since` (when Kelvin saw it become unreachable, `null` if unknown) and `last_event_at` (last state event from any of its devices since start, `null` before the first). Each room has `presence` (`null` when no sensor reports). The simulator starts with « Chambre 2 » unreachable since 45 min before start, back 2 h after.
 - `GET /api/stream` — SSE; events: `snapshot`, `house`, `pending`, `overrides`, `status`
 - `POST /api/rooms/{room}/mode` · `POST /api/rooms/{room}/setpoint` · `POST /api/rooms/{room}/boost`
 - `PUT /api/rooms/{room}/program`

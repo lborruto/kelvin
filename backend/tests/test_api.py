@@ -439,3 +439,21 @@ async def test_framework_404_and_405_answer_with_codes_without_the_spa(ctx):
     r = await c.post("/api/status")
     assert r.status_code == 405 and r.json() == err("method_not_allowed")
     assert "GET" in r.headers["allow"]
+
+
+async def test_the_simulator_starts_with_chambre_2_unreachable(tmp_path):
+    from kelvin.api.runtime import make_gateway
+
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    gw = make_gateway(settings, "demo@kelvin.local", "kelvin")
+    url = next(u for u in gw.devices if u.endswith("/8370022#1"))
+    assert gw.devices[url].states["core:StatusState"] == "unavailable"
+    assert time.time() - gw.sim_status_since[url] >= 2700 - 5
+
+
+async def test_house_view_carries_signal_fields(ctx):
+    c, _, _ = ctx
+    body = (await c.get("/api/house")).json()["house"]
+    r = body["radiators"][0]
+    assert {"reachable", "unreachable_since", "last_event_at"} <= set(r)
+    assert all("presence" in room for room in body["rooms"])
