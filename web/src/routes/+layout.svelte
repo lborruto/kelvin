@@ -14,6 +14,7 @@
   import { initLocale, m } from '$lib/i18n';
   import { reducedMotion } from '$lib/motion';
   import { ROUTES } from '$lib/paths';
+  import { alerts } from '$lib/stores/alerts.svelte';
   import { announcer } from '$lib/stores/announcer.svelte';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
@@ -34,6 +35,10 @@
       removeEventListener('online', on);
       removeEventListener('offline', on);
     };
+  });
+  // The nav's alert dot reads the list on every page, not only where the alerts are shown.
+  $effect(() => {
+    if (!bare) alerts.ensure();
   });
   // The banner's stages (60 s quiet, 3 min bad) need a finer clock while the stream is down.
   $effect(() => {

@@ -41,6 +41,20 @@ describe('Banner', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(onretry).toHaveBeenCalled();
   });
+  it('a retry in between (tab back, online: « connecting ») neither hides the banner nor restarts its stages', async () => {
+    const props = { status: ok, dataAt, lostAt: now - 5 * 60_000, now };
+    const { rerender } = render(Banner, { ...props, connection: 'reconnecting' });
+    expect(tone()).toBe('bad');
+    await rerender({ ...props, connection: 'connecting' });
+    expect(tone()).toBe('bad');
+    expect(banner()).toHaveTextContent('Kelvin ne répond pas depuis 5 min');
+    await rerender({ ...props, connection: 'reconnecting' });
+    expect(tone()).toBe('bad');
+  });
+  it('data from another day is dated', () => {
+    render(Banner, { connection: 'reconnecting', status: ok, now, offline: true, dataAt: now - 26 * 3_600_000 });
+    expect(banner()).toHaveTextContent(/Hors connexion · données de lun\. 12 oct\., 12:00/);
+  });
   it('Kelvin unreachable at load (nothing ever arrived): neutral « Reconnexion » at once', () => {
     render(Banner, { connection: 'reconnecting', status: ok, now, lostAt: now, dataAt: null });
     expect(banner()).toHaveTextContent('Reconnexion à Kelvin…');
