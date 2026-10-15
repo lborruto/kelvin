@@ -6,7 +6,12 @@ from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
+from kelvin.grid.service import GridService
+from kelvin.scheduler import Scheduler
 
+from kelvin.billing.slots import Slot
+from kelvin.billing.tariff import PriceRow, Prices, Tariff
+from kelvin.grid import service as grid_service
 from kelvin.grid.client import (
     MAX_BYTES,
     MedPublicClient,
@@ -15,8 +20,10 @@ from kelvin.grid.client import (
     parse_tempo_prices,
 )
 from kelvin.grid.fake import FakeGridSource
-from kelvin.grid.models import EcowattDay, GridError, GridThrottled
+from kelvin.grid.models import BudgetSpent, EcowattDay, GridError, GridThrottled
 from kelvin.grid.store import GridStore
+from kelvin.linky.store import LinkyStore
+from kelvin.linky.sync import LinkySync
 from kelvin.recorder.db import Database
 from tests.conftest import ManualClock
 
@@ -239,3 +246,116 @@ def test_a_med_correction_is_logged_once_per_day_and_colour(caplog):
         store.upsert_tempo({D: "blue"}, 3000.0)  # another correction: said once more
         assert caplog.text.count("published colour is kept") == 2
     assert store.tempo_colours(D, D + timedelta(days=1)) == {D: "red"}
+
+
+HCHP = Tariff("hchp", 9, (Slot("22:00", "06:00"),), (Prices(date(2026, 1, 1), 15.0, 0.2, 0.3),))
+TEMPO_T = Tariff.build(9, [PriceRow.make(date(2026, 9, 1), "tempo", 15.0, PRICES)])
+
+
+def grid_env(t, when: datetime):
+    clock = ManualClock(when.timestamp())
+    db = Database(":memory:")
+    sync = LinkySync(LinkyStore(db), db, None, wall=clock)
+    tariff = {"t": t}
+    fake = FakeGridSource(wall=clock)
+    svc = GridService(
+        GridStore(db),
+        fake,
+        spend=lambda: sync.spend(kind="grid"),
+        tariff=lambda: tariff["t"],
+        db=db,
+        tz=PARIS,
+        wall=clock,
+    )
+    return clock, db, sync, tariff, fake, svc
+
+
+async def test_grid_view_hides_tempo_unless_the_row_in_force_is_tempo():
+    clock, db, sync, tariff, fake, svc = grid_env(HCHP, datetime(2026, 12, 1, 12, 0, tzinfo=PARIS))
+    await svc.ecowatt_job()
+    await svc.tempo_job()
+    v = svc.view()
+    assert v["tempo"] is None and fake.calls == [f"ecowatt:{D}:{D + timedelta(days=4)}"]
+    assert [x["level"] for x in v["ecowatt"]["days"]] == [1, 2, 1, 1]
+    assert v["ecowatt"]["days"][1]["hours"] is None  # hours hidden until verified (Task 15)
+    tariff["t"] = TEMPO_T
+    await svc.tempo_job()
+    v = svc.view()
+    assert v["tempo"]["today"] == {"date": "2026-12-01", "colour": FakeGridSource.colour(D)}
+    assert v["tempo"]["tomorrow"]["colour"] == FakeGridSource.colour(D + timedelta(days=1))
+    assert v["tempo"]["tomorrow"]["expected_at"] is None and v["source"] == "MyElectricalData"
+
+
+async def test_tempo_is_fetched_only_when_needed_with_its_history_in_the_same_call():
+    clock, db, sync, tariff, fake, svc = grid_env(
+        TEMPO_T, datetime(2026, 12, 1, 6, 30, tzinfo=PARIS)
+    )
+    assert svc.tempo_window(clock()) == (
+        date(2026, 9, 1),
+        date(2026, 12, 3),
+    )  # history + today; tomorrow if out
+    await svc.tempo_job()
+    assert fake.calls == ["tempo:2026-09-01:2026-12-03"]
+    await svc.tempo_job()  # today known, tomorrow not before 11:00: no call
+    assert len(fake.calls) == 1
+    clock.t = datetime(2026, 12, 1, 11, 15, tzinfo=PARIS).timestamp()
+    await svc.tempo_job()
+    assert fake.calls[-1] == "tempo:2026-12-02:2026-12-03"
+    await svc.tempo_job()
+    assert len(fake.calls) == 2 and sync.grid_calls_today() == 2
+
+
+async def test_a_day_of_jobs_stays_within_the_grid_share():
+    for t, most in ((HCHP, 2), (TEMPO_T, 4)):
+        clock, db, sync, tariff, fake, svc = grid_env(t, datetime(2026, 12, 1, 0, 5, tzinfo=PARIS))
+        s = Scheduler(db, svc.jobs(), wall=clock)
+        s.state = {
+            "tempo": {"slot": clock()},
+            "ecowatt": {"slot": clock()},
+        }  # running since yesterday
+        for _ in range(23 * 12):  # every 5 minutes, 00:05 to 23:00
+            await s.run_due()
+            clock.advance(300)
+        assert sync.calls_today() == sync.grid_calls_today() <= most
+        assert sum(c.startswith("ecowatt") for c in fake.calls) == 2
+
+
+async def test_planned_today_is_the_reserve_left_for_the_grid():
+    clock, db, sync, tariff, fake, svc = grid_env(HCHP, datetime(2026, 12, 1, 8, 0, tzinfo=PARIS))
+    assert svc.planned_today() == 2  # 17:15, and 07:15 not fetched yet (it runs at start)
+    await svc.ecowatt_job()
+    assert svc.planned_today() == 1
+    tariff["t"] = TEMPO_T
+    assert (
+        svc.planned_today() == 4
+    )  # + today's colour now, 11:15 and 13:15 while tomorrow is unknown
+    await svc.tempo_job()  # today's colour (tomorrow is not expected before 11:00)
+    assert svc.planned_today() == 3
+    clock.t = datetime(2026, 12, 1, 18, 0, tzinfo=PARIS).timestamp()
+    await svc.ecowatt_job()
+    await svc.tempo_job()
+    assert svc.planned_today() == 0
+
+
+async def test_ecowatt_hours_show_once_verified(monkeypatch):
+    clock, db, sync, tariff, fake, svc = grid_env(HCHP, datetime(2026, 12, 1, 12, 0, tzinfo=PARIS))
+    await svc.ecowatt_job()
+    monkeypatch.setattr(grid_service, "ECOWATT_HOURS_VERIFIED", True)
+    assert svc.view()["ecowatt"]["days"][1]["hours"] == [
+        {"start": "18:00", "end": "20:00", "level": 2}
+    ]
+
+
+async def test_a_spent_ledger_is_budget_not_failure_and_prices_are_cached_a_week():
+    clock, db, sync, tariff, fake, svc = grid_env(
+        TEMPO_T, datetime(2026, 12, 1, 12, 0, tzinfo=PARIS)
+    )
+    first = await svc.tempo_prices()
+    assert first["rates"] == PRICES and first["fetched_at"] == clock()
+    clock.advance(6 * 86400)
+    assert (await svc.tempo_prices()) == first and fake.calls.count("tempo_prices") == 1
+    clock.advance(2 * 86400)  # the cached prices are now stale
+    while sync.spend():
+        pass
+    with pytest.raises(BudgetSpent):
+        await svc.tempo_prices()

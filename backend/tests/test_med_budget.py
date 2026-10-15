@@ -142,3 +142,33 @@ async def test_a_prefill_read_is_saved_as_the_month_s_contract_read(env):
         db, make_source=lambda prm, token: fake, credentials=("12345678901234", "t"), wall=clock
     )
     assert again.sync.state.contract_month == "2026-10"
+
+
+def test_a_later_run_today_keeps_one_call_for_its_essentials(env):
+    """Review of batch 4 (Minor 3): the 08:00 run's backfill leaves the 14:00 retry of D−1 a
+    call; the runtime adds this to the grid's planned calls in `reserve`."""
+    clock, db, store, fake = env
+    sync = LinkySync(store, db, fake, wall=clock)
+    clock.t = at(2026, 10, 14, 0, 30)
+    assert sync.essential_ahead() == 1
+    clock.t = at(2026, 10, 14, 8, 0)
+    assert sync.essential_ahead() == 1  # the 14:00 run is still to come
+    clock.t = at(2026, 10, 14, 14, 0)
+    assert sync.essential_ahead() == 0
+
+
+async def test_the_morning_backfill_leaves_the_afternoon_retry_a_call(env):
+    clock, db, store, fake = env
+    sync = LinkySync(store, db, fake, wall=clock)
+    sync.reserve = lambda: 3 + sync.essential_ahead()  # as the runtime wires it
+    assert await sync.run_once() == 6  # 10 − 3 grid − 1 for 14:00
+    clock.t = at(2026, 10, 14, 14, 0)
+    fake.missing.add(date(2026, 10, 13))  # D−1 not published at 08:00 …
+    store.db.execute("DELETE FROM linky_daily WHERE day = ?", ("2026-10-13",))
+    fake.missing.discard(date(2026, 10, 13))  # … published by 14:00
+    sync.reserve = lambda: 3 + sync.essential_ahead()
+    before = sync.calls_today()
+    await sync.run_once()
+    assert sync.calls_today() == before + 1 and "2026-10-13" in {
+        d.isoformat() for d in store.daily()
+    }

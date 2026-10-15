@@ -18,7 +18,7 @@ from sse_starlette.sse import EventSourceResponse
 from kelvin.account import linky_credentials
 from kelvin.api.auth_routes import status_word
 from kelvin.api.guards import LoginRequired, require_kelvin_header, require_session
-from kelvin.api.runtime import Runtime
+from kelvin.api.runtime import Runtime, sources
 from kelvin.api.schemas import (
     AwayBody,
     BoostBody,
@@ -113,7 +113,22 @@ async def status(request: Request) -> dict:
         "status": status_word(request.app.state.ctx),
         "overkiz": rt.pump.status(),
         "linky": rt.linky.status()["state"] if rt.linky else None,
+        "sources": sources(rt),
     }
+
+
+@router.get("/grid")
+async def grid_view(request: Request) -> dict:
+    """The grid strip's data (spec §5.1 QW1): Tempo only when today's price row is Tempo
+    (ruling 1), EcoWatt for every option."""
+    rt = _rt(request)
+    if rt.grid is None:
+        return {
+            "tempo": None,
+            "ecowatt": {"days": [], "fetched_at": None},
+            "source": "MyElectricalData",
+        }
+    return rt.grid.view()
 
 
 @router.get("/overkiz/quotas")

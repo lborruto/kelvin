@@ -38,7 +38,7 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 |---|---|---|
 | COZY_USER / COZY_PASS | — | Optional bootstrap of the account file |
 | MED_PRM / MED_TOKEN | — | Optional fallback for the Linky PDL and token |
-| MED_BASE_URL | https://www.myelectricaldata.fr | MyElectricalData API base |
+| MED_BASE_URL | https://www.myelectricaldata.fr | MyElectricalData API base; also serves the public Tempo and EcoWatt endpoints (tests only) |
 | KELVIN_DATA | ./data | SQLite and runtime files |
 | KELVIN_WEB | — | Built SPA directory to serve |
 | KELVIN_FAKE | false | Use the simulator |
@@ -52,7 +52,8 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 ## API
 
 - `GET /api/health` and `/api/auth/*` are open; every other route needs the `kelvin_session` cookie and otherwise answers `401 {"detail": "Connexion requise.", "code": "login_required", "params": {}}`.
-- `GET /api/health` → `{"status": "ok" | "degraded" | "setup" | "reauth" | "offline"}` only; `GET /api/status` (session) adds the Overkiz pump status (with `setup_reads_24h`, full setup reads in the last 24 h) and the Linky state.
+- `GET /api/health` → `{"status": "ok" | "degraded" | "setup" | "reauth" | "offline"}` only; `GET /api/status` (session) adds the Overkiz pump status (with `setup_reads_24h`, full setup reads in the last 24 h) and the Linky state. `sources` gives each grid source's `state` (`off`, `never`, `ok`, `error`, `quota`), `last_ok`, `error_since`, `next` and, under `med`, the day's MyElectricalData calls (`calls_today`, `grid_calls_today`, `budget`).
+- `GET /api/grid` — `{tempo, ecowatt, source}`: `tempo` (`today`/`tomorrow` `{date, colour}`, `tomorrow.expected_at` while unpublished, `fetched_at`) only when the price row in force today is Tempo, else null; `ecowatt.days[]` `{date, level 1–3, hours}` for today and the next three days (`hours` null until their dating is verified). SSE `grid` carries the same object after every fetch, and the snapshot has it. Tempo is fetched at 06:30 (today missing), 11:15 and 13:15 (tomorrow missing) only when the tariff has a Tempo row; EcoWatt at 07:15 and 17:15; every call comes from the MyElectricalData ledger (at most 4 grid calls a day).
 - `GET /api/overkiz/quotas` — remaining Overkiz quotas (`GET /setup/quotas`), read only when asked, one read at a time, and cached for an hour (a failure for a minute); ids, URLs, emails and account keys are dropped. `503` « Cozytouch injoignable, réessayez plus tard. » or « Quotas indisponibles. ».
 - `POST /api/auth/login {email, password}` · `POST /api/auth/logout` · `GET /api/auth/me`
 - `GET /api/sessions` — signed-in devices `[{id, created, last_seen, browser, os, current}]`, most recent first: an opaque random id (never derived from the token or its hash), the browser and system names parsed from the user agent (brand names, `null` when unknown); never a hash or the raw user agent. `DELETE /api/sessions/{id}` — sign one out (204; the current one: `409 session_is_current`, sign out instead; unknown: `404 session_unknown`). `POST /api/sessions/revoke-others` — `{revoked}`, every other device; the current session is kept. A revoked session's next request answers 401 and its stream closes at its next session check (within 30 s). Schema v2 adds the ids (`recorder/db.py` `MIGRATIONS`).

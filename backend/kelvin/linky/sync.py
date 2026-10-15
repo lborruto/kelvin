@@ -228,6 +228,13 @@ class LinkySync:
         self._save()
         return True
 
+    def essential_ahead(self) -> int:
+        """1 while a later sync run is still to come today (14:00 after the 08:00 one): the
+        runtime adds it to `reserve`, so a morning backfill leaves the afternoon's retry of the
+        newest days a call."""
+        now = datetime.fromtimestamp(self.wall(), self.tz)
+        return int(now.time() < RUN_AT[-1])
+
     def grid_calls_today(self) -> int:
         return self.state.grid_calls if self.state.calls_day == self.today().isoformat() else 0
 

@@ -18,6 +18,11 @@ from kelvin.api.sse import Broadcaster
 from kelvin.commands.overrides import OverrideManager
 from kelvin.commands.service import CommandService, Pending
 from kelvin.config import Settings
+from kelvin.grid.client import MedPublicClient
+from kelvin.grid.fake import FakeGridSource
+from kelvin.grid.models import GridSource
+from kelvin.grid.service import GridService
+from kelvin.grid.store import GridStore
 from kelvin.house.model import House, build_house
 from kelvin.linky.fake import DEMO_PRM, FakeLinkySource
 from kelvin.linky.models import LinkySource
@@ -40,6 +45,7 @@ from kelvin.overkiz.simhistory import SIM_DB_KEY, seed_history
 from kelvin.recorder.db import Database
 from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
+from kelvin.scheduler import Scheduler
 from kelvin.setup.refresh import SetupRefresher
 from kelvin.setup.service import SetupPending, SetupService
 
@@ -75,6 +81,8 @@ class Runtime:
     quotas: QuotaReadout | None = None
     setup: SetupService | None = None
     refresher: SetupRefresher | None = None
+    grid: GridService | None = None
+    scheduler: Scheduler | None = None
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -89,6 +97,7 @@ class Runtime:
             "alerts": (
                 self.alerts.store.summary() if self.alerts else {"active": 0, "highest": None}
             ),
+            "grid": self.grid.view() if self.grid else None,
         }
 
     def setup_view(self) -> dict[str, Any]:
@@ -175,6 +184,31 @@ def make_linky_source(
     from kelvin.linky.med import MedSource
 
     return lambda prm, token: MedSource(prm, token, base_url=settings.med_base_url, tz=settings.tz)
+
+
+def make_grid_source(
+    settings: Settings, simulator: bool, wall: Callable[[], float] = time.time
+) -> GridSource:
+    """The simulator's grid, or MyElectricalData's public endpoints (no token, dates only)."""
+    if settings.kelvin_fake or simulator:
+        return FakeGridSource(tz=settings.tz, wall=wall)
+    return MedPublicClient(base_url=settings.med_base_url, tz=settings.tz)
+
+
+def sources(rt: Runtime) -> dict[str, Any] | None:
+    """Réglages › Sources: each grid job's state, and the MED ledger."""
+    if rt.grid is None or rt.scheduler is None or rt.linky is None:
+        return None
+    sync = rt.linky.sync
+    return {
+        "tempo": {**rt.scheduler.status("tempo"), "enabled": rt.grid.tempo_needed()},
+        "ecowatt": {**rt.scheduler.status("ecowatt"), "enabled": True},
+        "med": {
+            "calls_today": sync.calls_today(),
+            "grid_calls_today": sync.grid_calls_today(),
+            "budget": sync.budget,
+        },
+    }
 
 
 def _recorded_halfhours(recorder: Recorder, tz: str) -> Callable[[date], list[float | None] | None]:
@@ -268,6 +302,7 @@ async def start_runtime(
     owns_db = db is None
     opened: Database | None = None
     linky_service: LinkyService | None = None
+    grid: GridService | None = None
     guard = guard or SetupReadGuard()
     try:
         if db is None:
@@ -414,6 +449,25 @@ async def start_runtime(
         linky_service.tariffs.migrate()  # a v1 tariff becomes v2 once, before any read
         if settings.kelvin_fake and is_sim:
             linky_service.seed_demo_tariff()
+
+        def on_grid() -> None:
+            if runtime and runtime[0].grid is not None:
+                bc.publish("grid", runtime[0].grid.view())
+                # Task 18 (after Plan 8 merges) adds the alerts request here.
+
+        grid_store = GridStore(db)
+        grid = GridService(
+            grid_store,
+            make_grid_source(settings, is_sim, wall),
+            spend=linky_service.spend_grid,
+            tariff=linky_service.tariffs.get,
+            db=db,
+            tz=settings.tz,
+            wall=wall,
+            on_change=on_grid,
+        )
+        linky_service.colours = grid_store.tempo_colours
+        scheduler = Scheduler(db, grid.jobs(), tz=settings.tz, wall=wall)
         rt = Runtime(
             settings,
             gateway,
@@ -428,6 +482,8 @@ async def start_runtime(
             linky=linky_service,
             setup=setup,
             refresher=refresher,
+            grid=grid,
+            scheduler=scheduler,
         )
         rt.quotas = QuotaReadout(lambda: gateway.quotas())  # lazy: stub gateways need no quotas()
         rt.published_overrides = overrides.active()
@@ -443,18 +499,25 @@ async def start_runtime(
         try:
             if linky_service is not None:
                 await linky_service.close()
+            if grid is not None:
+                await grid.aclose()
         finally:
             if opened is not None:
                 opened.close()
             await gateway.close()
         raise
     if start_tasks:
+        # Linky's backfill leaves room for the grid calls still planned today and for the
+        # afternoon run's retry of the newest days (only when the scheduler runs).
+        sync = linky_service.sync
+        sync.reserve = lambda: grid.planned_today() + sync.essential_ahead()
         rt.tasks = [
             asyncio.create_task(pump.run()),
             asyncio.create_task(recorder.run()),
             asyncio.create_task(_override_loop(rt)),
             asyncio.create_task(linky_service.run()),
             asyncio.create_task(rt.alerts.run()),
+            asyncio.create_task(scheduler.run()),
         ]
     return rt
 
@@ -470,6 +533,8 @@ async def stop_runtime(rt: Runtime) -> None:
         try:
             if rt.linky is not None:
                 await rt.linky.close()
+            if rt.grid is not None:
+                await rt.grid.aclose()
         finally:
             await rt.gateway.close()
     finally:

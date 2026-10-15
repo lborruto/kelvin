@@ -36,3 +36,9 @@ class GridSource(Protocol):
     async def tempo_prices(self) -> dict[str, float]: ...
 
     async def aclose(self) -> None: ...
+
+
+class BudgetSpent(GridError):
+    """Kelvin's MED ledger has no call left for the grid today: not a source failure."""
+
+    quota = True

@@ -1,4 +1,5 @@
 import asyncio
+import json
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -675,3 +676,20 @@ def test_rooms_duty_is_routed_before_any_room_id_route():
     paths = [r.path for r in router.routes]
     first_room = next(i for i, p in enumerate(paths) if p.startswith("/rooms/{room_id}"))
     assert paths.index("/rooms/duty") < first_room
+
+
+async def test_grid_and_sources_in_the_simulator(ctx):
+    c, rt, _ = ctx
+    rt.linky.sync.state.calls = 0  # a fresh MED day for this test
+    q = rt.broadcaster.subscribe()
+    await rt.grid.ecowatt_job()
+    [event] = [q.get_nowait() for _ in range(q.qsize())]
+    rt.broadcaster.unsubscribe(q)
+    assert event["event"] == "grid"  # SSE: the same object as GET /api/grid, after the fetch
+    g = (await c.get("/api/grid")).json()
+    assert g["tempo"] is None  # the simulator's tariff is HC/HP: no Tempo colour
+    assert [d["level"] for d in g["ecowatt"]["days"]][:2] == [1, 2]
+    s = (await c.get("/api/status")).json()["sources"]
+    assert s["ecowatt"]["state"] in ("never", "ok") and s["tempo"]["enabled"] is False
+    assert s["med"]["budget"] == 10 and s["med"]["grid_calls_today"] >= 1
+    assert rt.snapshot()["grid"] == g and json.loads(event["data"]) == g
