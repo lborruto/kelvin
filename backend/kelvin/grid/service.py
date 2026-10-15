@@ -10,6 +10,7 @@ missing makes none.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
@@ -81,25 +82,35 @@ class GridService:
         self.tz = tz if isinstance(tz, ZoneInfo) else ZoneInfo(tz)
         self.wall = wall
         self.on_change = on_change
+        self._prices_call: asyncio.Future[dict[str, Any]] | None = None
 
     def _now(self) -> datetime:
         return datetime.fromtimestamp(self.wall(), self.tz)
 
     def tempo_needed(self) -> bool:
+        """A Tempo price row is in force today or dated ahead: after a later HC/HP or Base row
+        nobody prices a day with a colour."""
         t = self.tariff()
-        return t is not None and "tempo" in t.options()
+        if t is None:
+            return False
+        today = self._now().date()
+        return t.option_on(today) == "tempo" or any(
+            p.option == "tempo" and p.valid_from > today for p in t.prices
+        )
 
     def tempo_window(self, now: float | None = None) -> tuple[date, date] | None:
         """[from, to) for a Tempo call: the oldest Tempo-priced day without a colour (never more
         than 366 days back) to tomorrow; None when nothing is missing (tomorrow counts as missing
         only from 11:00)."""
         t = self.tariff()
-        if t is None or "tempo" not in t.options():
+        if t is None or not self.tempo_needed():
             return None
         local = datetime.fromtimestamp(now if now is not None else self.wall(), self.tz)
         today = local.date()
         first = min(p.valid_from for p in t.prices if p.option == "tempo")
-        lo = max(first, today - timedelta(days=TEMPO_HISTORY_DAYS))
+        # The half-hours before 06:00 on the first Tempo day are priced by the previous day's
+        # colour (the Tempo day starts at 06:00).
+        lo = max(first - timedelta(days=1), today - timedelta(days=TEMPO_HISTORY_DAYS))
         expect_tomorrow = local.time() >= TEMPO_PUBLISH
         hi = today + timedelta(days=2 if expect_tomorrow else 1)
         if lo >= hi:
@@ -205,6 +216,15 @@ class GridService:
         cached = self.db.get_setting(PRICES_KEY)
         if cached and self.wall() - cached["fetched_at"] < PRICES_TTL_S:
             return cached
+        if self._prices_call is None:  # concurrent requests share one in-flight call
+            self._prices_call = asyncio.ensure_future(self._fetch_prices())
+            self._prices_call.add_done_callback(self._clear_prices_call)
+        return await asyncio.shield(self._prices_call)
+
+    def _clear_prices_call(self, _: object) -> None:
+        self._prices_call = None
+
+    async def _fetch_prices(self) -> dict[str, Any]:
         if not self.spend():
             raise BudgetSpent("budget")
         rates = await self.source.tempo_prices()

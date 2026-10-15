@@ -3,10 +3,9 @@
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
-from kelvin.scheduler import BACKOFF_MAX_S, Job, Scheduler
-
 from kelvin.grid.models import BudgetSpent, GridThrottled
 from kelvin.recorder.db import Database
+from kelvin.scheduler import BACKOFF_MAX_S, Job, Scheduler
 from tests.conftest import ManualClock
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -104,3 +103,35 @@ async def test_disabled_jobs_cost_nothing_and_a_request_runs_one_soon():
     s.state["ecowatt"] = {"slot": at(8)}
     s.request("ecowatt")
     assert await s.run_due() == ["ecowatt"]
+
+
+async def test_a_failure_with_retry_after_does_not_double_the_backoff():
+    clock = ManualClock(at(7, 18))
+    run = Counter(GridThrottled(at(7, 28)))
+    job, s = make(clock, run, times=(time(7, 15),))
+    await s.run_due()
+    clock.t = at(7, 28)
+    run.fail = RuntimeError("boom")
+    await s.run_due()
+    assert s.due_at(job, clock()) - clock() == 300
+
+
+async def test_the_loop_survives_an_error_computing_what_is_due():
+    import asyncio
+
+    clock = ManualClock(at(9))
+    calls = {"n": 0}
+
+    def enabled():
+        calls["n"] += 1
+        if calls["n"] == 2:  # the loop's own computation of the next wake-up
+            raise RuntimeError("db")
+        return True
+
+    run = Counter()
+    job, s = make(clock, run, enabled=enabled)
+    s.state["ecowatt"] = {"slot": at(8)}
+    task = asyncio.create_task(s.run())
+    await asyncio.sleep(0.05)
+    assert not task.done()
+    task.cancel()

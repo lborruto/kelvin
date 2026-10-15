@@ -6,8 +6,6 @@ from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
-from kelvin.grid.service import GridService
-from kelvin.scheduler import Scheduler
 
 from kelvin.billing.slots import Slot
 from kelvin.billing.tariff import PriceRow, Prices, Tariff
@@ -21,10 +19,12 @@ from kelvin.grid.client import (
 )
 from kelvin.grid.fake import FakeGridSource
 from kelvin.grid.models import BudgetSpent, EcowattDay, GridError, GridThrottled
+from kelvin.grid.service import GridService
 from kelvin.grid.store import GridStore
 from kelvin.linky.store import LinkyStore
 from kelvin.linky.sync import LinkySync
 from kelvin.recorder.db import Database
+from kelvin.scheduler import Scheduler
 from tests.conftest import ManualClock
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -291,11 +291,11 @@ async def test_tempo_is_fetched_only_when_needed_with_its_history_in_the_same_ca
         TEMPO_T, datetime(2026, 12, 1, 6, 30, tzinfo=PARIS)
     )
     assert svc.tempo_window(clock()) == (
-        date(2026, 9, 1),
+        date(2026, 8, 31),
         date(2026, 12, 3),
-    )  # history + today; tomorrow if out
+    )  # history from the day before the switch (its night), + today; tomorrow if out
     await svc.tempo_job()
-    assert fake.calls == ["tempo:2026-09-01:2026-12-03"]
+    assert fake.calls == ["tempo:2026-08-31:2026-12-03"]
     await svc.tempo_job()  # today known, tomorrow not before 11:00: no call
     assert len(fake.calls) == 1
     clock.t = datetime(2026, 12, 1, 11, 15, tzinfo=PARIS).timestamp()
@@ -359,3 +359,51 @@ async def test_a_spent_ledger_is_budget_not_failure_and_prices_are_cached_a_week
         pass
     with pytest.raises(BudgetSpent):
         await svc.tempo_prices()
+
+
+async def test_the_switch_day_s_night_is_priced_by_the_day_before_s_colour():
+    from kelvin.billing.pricing import Pricing
+
+    clock, db, sync, tariff, fake, svc = grid_env(
+        TEMPO_T, datetime(2026, 12, 1, 6, 30, tzinfo=PARIS)
+    )
+    await svc.tempo_job()
+    colours = svc.store.tempo_colours(date(2026, 8, 31), date(2026, 12, 3))
+    assert date(2026, 8, 31) in colours
+    night = datetime(2026, 9, 1, 3, 0, tzinfo=PARIS).timestamp()
+    sl = Pricing(TEMPO_T, PARIS, colours).slice(night, 1800)
+    assert sl.colour is not None
+
+
+def _tempo_then(row):
+    return Tariff.build(9, [PriceRow.make(date(2026, 9, 1), "tempo", 15.0, PRICES), row])
+
+
+async def test_tempo_is_needed_only_while_a_tempo_row_is_in_force_or_ahead():
+    later = PriceRow.make(date(2026, 11, 1), "hchp", 15.0, {"hc": 0.2, "hp": 0.3})
+    clock, db, sync, tariff, fake, svc = grid_env(
+        _tempo_then(later), datetime(2026, 12, 1, 6, 30, tzinfo=PARIS)
+    )
+    assert not svc.tempo_needed() and svc.tempo_window(clock()) is None
+    tariff["t"] = _tempo_then(
+        PriceRow.make(date(2027, 1, 1), "base", 15.0, {"base": 0.2})
+    )  # base dated ahead: Tempo is still in force today
+    assert svc.tempo_needed()
+    tariff["t"] = Tariff.build(
+        9,
+        [
+            PriceRow.make(date(2026, 1, 1), "base", 15.0, {"base": 0.2}),
+            PriceRow.make(date(2027, 1, 1), "tempo", 15.0, PRICES),
+        ],
+    )
+    assert svc.tempo_needed()  # a Tempo row dated ahead
+
+
+async def test_concurrent_tempo_price_requests_share_one_call():
+    import asyncio
+
+    clock, db, sync, tariff, fake, svc = grid_env(
+        TEMPO_T, datetime(2026, 12, 1, 12, 0, tzinfo=PARIS)
+    )
+    a, b = await asyncio.gather(svc.tempo_prices(), svc.tempo_prices())
+    assert a == b and fake.calls.count("tempo_prices") == 1 and sync.grid_calls_today() == 1

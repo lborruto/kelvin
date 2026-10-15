@@ -123,9 +123,11 @@ class Scheduler:
                 st["state"] = "error"
                 if st.get("error_since") is None:  # a success sets it back to None
                     st["error_since"] = now
-                backoff = min(BACKOFF_MAX_S, (st.get("backoff") or BACKOFF_START_S // 2) * 2)
-                st["backoff"] = backoff
-                retry = getattr(e, "retry_at", None) or now + backoff
+                retry = getattr(e, "retry_at", None)
+                if retry is None:  # a Retry-After is the source's word: the backoff stays as is
+                    backoff = min(BACKOFF_MAX_S, (st.get("backoff") or BACKOFF_START_S // 2) * 2)
+                    st["backoff"] = backoff
+                    retry = now + backoff
                 st["retry_at"] = min(retry, nxt)
                 log.warning("job %s failed: %s", job.name, type(e).__name__)
         else:
@@ -154,10 +156,11 @@ class Scheduler:
             self._wake.clear()
             try:
                 await self.run_due()
+                now = self.wall()
+                dues = [d for j in self.jobs.values() if (d := self.due_at(j, now)) is not None]
+                delay = min(IDLE_S, max(1.0, min(dues, default=now + IDLE_S) - now))
             except Exception as e:  # never let one bad run kill the loop
                 log.error("scheduler run failed: %s", type(e).__name__)
-            now = self.wall()
-            dues = [d for j in self.jobs.values() if (d := self.due_at(j, now)) is not None]
-            delay = min(IDLE_S, max(1.0, min(dues, default=now + IDLE_S) - now))
+                delay = 60.0
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._wake.wait(), timeout=delay)
