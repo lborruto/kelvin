@@ -13,7 +13,7 @@ const rad = (extra: Partial<Radiator> = {}): Radiator => ({ ...BASE, ...extra })
 const NONE: Capabilities = {
   modes: [], manual: null, comfort: null, eco: null, levels: [], program: false, dryer: [],
   window_detection: false, presence_detection: false, night_light: false, night_light_intensity: false,
-  identify: false, energy: false, boost: false, read_only: true
+  identify: false, energy: false, boost: false, rename: false, read_only: true
 };
 const PILOT: Capabilities = { ...NONE, levels: ['comfort', 'eco', 'frostprotection', 'off'], read_only: false };
 const DRYER: Capabilities = {

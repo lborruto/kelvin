@@ -25,6 +25,8 @@ export interface Capabilities {
   identify: boolean;
   energy: boolean;
   boost: boolean;
+  /** The device takes a new name (setName): the rename pencil needs it. */
+  rename: boolean;
   read_only: boolean;
 }
 

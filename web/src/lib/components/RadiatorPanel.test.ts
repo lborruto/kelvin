@@ -68,6 +68,27 @@ describe('RadiatorPanel', () => {
     expect(api.radiatorFeatures).toHaveBeenCalledWith('9312063', { name: 'Fenêtre' });
   });
 
+  const pilotCaps: Capabilities = {
+    modes: [], manual: null, comfort: null, eco: null, levels: ['comfort', 'eco', 'frostprotection', 'off'], program: false, dryer: [],
+    window_detection: false, presence_detection: false, night_light: false, night_light_intensity: false, identify: false,
+    energy: false, boost: false, rename: false, read_only: false
+  };
+
+  it('offers Renommer only when the device takes a name', () => {
+    render(RadiatorPanel, { radiator: { ...radiator, capabilities: pilotCaps }, showControls: false });
+    expect(screen.queryByRole('button', { name: 'Renommer' })).toBeNull();
+  });
+
+  it('offers Renommer on a device that takes a name', () => {
+    render(RadiatorPanel, { radiator: { ...radiator, capabilities: { ...pilotCaps, rename: true } }, showControls: false });
+    expect(screen.getByRole('button', { name: 'Renommer' })).toBeInTheDocument();
+  });
+
+  it('hides Renommer on a read-only device even if it names itself', () => {
+    render(RadiatorPanel, { radiator: { ...radiator, support: 'readonly', capabilities: { ...pilotCaps, rename: true } }, showControls: false });
+    expect(screen.queryByRole('button', { name: 'Renommer' })).toBeNull();
+  });
+
   it('titles an unnamed radiator by model and power', () => {
     render(RadiatorPanel, { radiator: { ...radiator, model: 'HEKLA V', power_w: 2000 }, showControls: false });
     expect(screen.getByRole('heading', { name: 'HEKLA V · 2000\u00a0W' })).toBeInTheDocument();
@@ -128,7 +149,7 @@ describe('night-light slider placement', () => {
 const NONE: Capabilities = {
   modes: [], manual: null, comfort: null, eco: null, levels: [], program: false, dryer: [],
   window_detection: false, presence_detection: false, night_light: false, night_light_intensity: false,
-  identify: false, energy: false, boost: false, read_only: true
+  identify: false, energy: false, boost: false, rename: false, read_only: true
 };
 const pilot = {
   ...radiator, id: 'p1', mode: 'manual' as const, heating_level: 'eco', light: null, kind: 'pilot_wire_heater' as const,

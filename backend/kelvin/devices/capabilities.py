@@ -34,6 +34,7 @@ class Capabilities:
     night_light_intensity: bool = False
     identify: bool = False
     energy: bool = False
+    rename: bool = False
 
     @property
     def boost(self) -> bool:
@@ -75,6 +76,7 @@ class Capabilities:
             "identify": self.identify,
             "energy": self.energy,
             "boost": self.boost,
+            "rename": self.rename,
             "read_only": self.read_only,
         }
 
@@ -124,4 +126,5 @@ def capabilities(r: Radiator) -> Capabilities:
         night_light_intensity=light_url is not None and C.SET_INTENSITY.value in light,
         identify=bool({C.IDENTIFY.value, C.WINK.value} & heater),
         energy=energy,
+        rename=C.SET_NAME.value in heater,
     )

@@ -84,7 +84,7 @@
       </form>
     {:else}
       <h4>{title}</h4>
-      <button type="button" class="btn btn-icon" aria-label={m.radiator.rename} onclick={startRename}><Icon name="edit" size={16} /></button>
+      {#if caps.rename && !readOnly}<button type="button" class="btn btn-icon" aria-label={m.radiator.rename} onclick={startRename}><Icon name="edit" size={16} /></button>{/if}
     {/if}
     <SupportChip support={radiator.support} />
     <span class="temp num" style:color={heatColor(radiator.temperature)}>{fmtTemp(radiator.temperature)}</span>

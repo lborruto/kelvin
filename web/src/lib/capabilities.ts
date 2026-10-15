@@ -25,6 +25,7 @@ export function capsOf(r: Radiator): Capabilities {
       identify: true,
       energy: r.energy_wh !== null,
       boost: true,
+      rename: true,
       read_only: false
     }
   );
