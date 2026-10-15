@@ -4,6 +4,7 @@
   import type { EnergyDay } from '$lib/api/types';
   import { fmtDateLong } from '$lib/format';
   import { m } from '$lib/i18n';
+  import { roomName } from '$lib/setup';
   import { desktop } from '$lib/media.svelte';
   import { house } from '$lib/stores/house.svelte';
 
@@ -22,7 +23,7 @@
   let { day, dayIso, room, onroom, error, onretry, index = $bindable(null), class: cls = '' }: Props = $props();
   const uid = $props.id();
   // The rooms with a radiator (temperature and setpoint come from them), in the Pièces order.
-  let options = $derived(house.rooms.filter((r) => r.radiator_ids.length > 0).map((r) => ({ value: r.id, label: r.name })));
+  let options = $derived(house.rooms.filter((r) => r.radiator_ids.length > 0).map((r) => ({ value: r.id, label: roomName(r) })));
   // A room that lost its radiators (a live house update) leaves the picker: the first room takes its place, on screen
   // at once and in the day asked for.
   let chosen = $derived(options.some((o) => o.value === room) ? room : (options[0]?.value ?? null));
@@ -75,7 +76,7 @@
           intervals={view.intervals}
           roomId={view.room.id}
           samples={view.room.samples}
-          label={m.roomDayPanel.chart(view.room.name, fmtDateLong(view.date))}
+          label={m.roomDayPanel.chart(roomName(house.room(view.room.id) ?? view.room), fmtDateLong(view.date))}
           bind:index />
       {:else}
         <div class="skeleton inset body-sk" aria-hidden="true"></div>

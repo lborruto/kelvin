@@ -123,3 +123,11 @@ describe('roomEnergy (spec §3.2.7)', () => {
     for (const r of salon.radiators) expect(cents(r.shown.hc) + cents(r.shown.hp)).toBe(cents(r.shown.kwh));
   });
 });
+
+it('the house root reads « Maison » / “Home” in the active language, whatever the backend calls it', () => {
+  const root = [{ id: 'p-house', name: 'Maison', is_root: true, radiator_ids: ['a'] }] as Room[]; // i18n-ignore: the backend's root name, a data value
+  applyLocale('en');
+  expect(roomEnergy([row('a', 'p-house')], root, radiators, span)[0].name).toBe('Home');
+  applyLocale('fr');
+  expect(roomEnergy([row('a', 'p-house')], root, radiators, span)[0].name).toBe('Maison');
+});

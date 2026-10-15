@@ -12,6 +12,7 @@
   import Stepper from '$lib/components/Stepper.svelte';
   import TariffForm from '$lib/components/TariffForm.svelte';
   import { fmtAgo, fmtDateTime, fmtTemp } from '$lib/format';
+  import { roomName } from '$lib/setup';
   import { apiMessage, LOCALE_NAMES, LOCALES, locale, m, setLocale, statusError } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
   import { alerts } from '$lib/stores/alerts.svelte';
@@ -57,7 +58,7 @@
   });
 
   const roomsOf = (ids: string[]) =>
-    house.rooms.filter((r) => r.radiator_ids.some((i) => ids.includes(i))).map((r) => r.name).join(', ') || m.home.wholeHome;
+    house.rooms.filter((r) => r.radiator_ids.some((i) => ids.includes(i))).map((r) => roomName(r)).join(', ') || m.home.wholeHome;
 
   let loggingOut = $state(false);
   async function logout() {

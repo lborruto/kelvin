@@ -3,6 +3,7 @@ import type { ByRadiator, Radiator, Room } from './api/types';
 import type { Span } from './energy';
 import { fmtDay, fmtPct1, fmtShares, largestRemainder, matchParts } from './format';
 import { INTL, locale, m } from './i18n';
+import { roomName } from './setup';
 
 export const NO_ROOM = 'no-room';
 
@@ -98,7 +99,7 @@ export function roomEnergy(rows: ByRadiator[], rooms: Room[], radiators: Record<
     const id = r.room_id && ids.has(r.room_id) ? r.room_id : NO_ROOM;
     groups.set(id, [...(groups.get(id) ?? []), r]);
   }
-  const order = rooms.map((r) => ({ id: r.id, name: r.name }));
+  const order = rooms.map((r) => ({ id: r.id, name: roomName(r) }));
   if (groups.has(NO_ROOM)) order.push({ id: NO_ROOM, name: m.roomEnergy.noRoom });
 
   const radRow = (r: ByRadiator): RadiatorRow => ({

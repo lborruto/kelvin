@@ -20,6 +20,7 @@
   import { addDays, bucketLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
   import { fmtDateLong, fmtDay, fmtKwh, fmtTime, monthYear } from '$lib/format';
   import { apiMessage, m } from '$lib/i18n';
+  import { roomName } from '$lib/setup';
   import { inspectBucket } from '$lib/inspector';
   import { reducedMotion } from '$lib/motion';
   import { ANCHORS, ROUTES } from '$lib/paths';
@@ -340,8 +341,8 @@
             {#each Object.values(house.radiators) as r (r.id)}
               {#if r.energy_wh}
                 <tr>
-                  <td>{r.model ?? r.name}<span class="sub-room muted">{house.room(r.room_id)?.name ?? '—'}</span></td>
-                  <td class="room">{house.room(r.room_id)?.name ?? '—'}</td>
+                  <td>{r.model ?? r.name}<span class="sub-room muted">{house.room(r.room_id) ? roomName(house.room(r.room_id)!) : '—'}</span></td>
+                  <td class="room">{house.room(r.room_id) ? roomName(house.room(r.room_id)!) : '—'}</td>
                   <td class="r mono">{fmtKwh(r.energy_wh.total / 1000, false)}</td>
                   <td class="r mono opt">{fmtKwh(r.energy_wh.t1 != null ? r.energy_wh.t1 / 1000 : null, false)}</td>
                   <td class="r mono opt">{fmtKwh(r.energy_wh.t2 != null ? r.energy_wh.t2 / 1000 : null, false)}</td>

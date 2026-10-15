@@ -5,6 +5,8 @@
   import { halfHoursIn, type View } from '$lib/energy';
   import { fmtDateLong, fmtKwhExact, fmtPct1, matchParts } from '$lib/format';
   import { m } from '$lib/i18n';
+  import { roomName } from '$lib/setup';
+  import { house } from '$lib/stores/house.svelte';
   import { ANCHORS } from '$lib/paths';
 
   interface Props {
@@ -81,7 +83,7 @@
           {split}
           kva={shown.power.kva}
           samples={shown.room?.samples ?? null}
-          room={shown.room?.name ?? null}
+          room={shown.room ? roomName(house.room(shown.room.id) ?? shown.room) : null}
           label={m.curvePanel.chart(fmtDateLong(shown.date))}
           bind:index />
         {#if !shown.complete}<p class="muted note">{m.curvePanel.incomplete(shown.points, halfHoursIn(shown.date))}</p>{/if}
