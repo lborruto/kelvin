@@ -168,3 +168,51 @@ def test_the_cache_is_bounded(home):
     r = report(svc, rec, rooms)
     assert 0 < len(svc.radiator_days) <= 50
     assert report(svc, rec, rooms) == r == fresh(db, clock, rec, rooms)
+
+
+def test_samples_written_after_a_backward_clock_step_drop_what_is_cached():
+    """Final review I-5 (the reviewer's targeted.py): the wall clock steps back, and `sample()`
+    writes working rates inside spans already counted: their HC/HP split moves, so the cache
+    must not keep the old figures."""
+    clock = Clock(datetime(2026, 11, 2, 0, tzinfo=PARIS).timestamp())
+    db = Database(":memory:")
+    house = build_house(*sample_house())
+    rec = Recorder(db, house, wall=clock)
+    svc = LinkyService(db, make_source=lambda *_: FakeLinkySource(), credentials=None, wall=clock)
+    svc.tariffs.save(T_TARIFF)
+    rooms = {rid: r.room_id for rid, r in house.radiators.items()}
+
+    def rate(v: float) -> None:
+        house.apply(StateChange(f"{SAMPLE_GATEWAY}/{RID}#1", "io:CurrentWorkingRateState", v))
+
+    def reading() -> None:
+        set_total(house, total(house) + 600)
+        rec.snapshot_energy([RID])
+
+    # Readings every 6 h over 3 days; samples every 5 min, working at 100 % only in 22:00–06:00.
+    for i in range(3 * 288):
+        h = datetime.fromtimestamp(clock.t, PARIS).hour
+        rate(100 if h >= 22 or h < 6 else 0)
+        rec.sample()
+        if i % 36 == 0:
+            reading()
+        clock.t += 300
+    reading()
+    rec.sample()  # at the reading's own second: its span's weights stop before it
+    assert rec.energy_epoch == 0  # samples and readings moving forward rewrite nothing
+    days = (date(2026, 11, 1), date(2026, 11, 6))
+    before = report(svc, rec, rooms, window=days, period=days)
+    assert bucket(before, "2026-11-03")["radiators"]["coverage"] == 1  # cached
+    # The clock steps back to 3 November 21:01: an hour of samples at 100 % lands in that day.
+    now = clock.t
+    clock.t = datetime(2026, 11, 3, 21, 1, tzinfo=PARIS).timestamp()
+    epoch = rec.energy_epoch
+    for _ in range(11):
+        rate(100)
+        rec.sample()
+        clock.t += 300
+    clock.t = now
+    assert rec.energy_epoch > epoch
+    after = report(svc, rec, rooms, window=days, period=days)
+    assert after == fresh(db, clock, rec, rooms, window=days, period=days)
+    assert bucket(after, "2026-11-03")["radiators"] != bucket(before, "2026-11-03")["radiators"]

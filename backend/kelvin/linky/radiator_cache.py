@@ -10,7 +10,8 @@ complete day reads the same forever, unless
 - the tariff changes (the day's HC/HP and € are priced here): everything goes;
 - a radiator's power changes (it bounds what `clean_spans` accepts): that radiator's days go;
 - the recorder rewrites history (`Recorder.energy_epoch`: a reading that replaces or predates its
-  radiator's last one, or pruned samples): everything goes.
+  radiator's last one, a sample not after the newest sample and reading, or pruned samples):
+  everything goes.
 Every other day (today, the days since a counter last moved, a gap) is computed on every request,
 as before; the days before a radiator's first reading hold nothing and are not computed at all.
 Bounded: at most `max_days` radiator-days, the least recently used out first.

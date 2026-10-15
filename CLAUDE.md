@@ -60,7 +60,8 @@ depends on.
   guards it. Keep any change to `clean_spans` or the chunking window-consistent. A complete
   radiator-day (every half-hour inside an emitted span) is final, so the report caches it
   (`linky/radiator_cache.py`); a write that can change a past day (a reading replacing or
-  predating its radiator's last one, pruned samples) must bump `Recorder.energy_epoch`.
+  predating its radiator's last one, a sample not after the newest sample and reading, as after
+  a wall clock stepped back, pruned samples) must bump `Recorder.energy_epoch`.
 - **Report figures:** never pass a partial sum off as whole. In `/api/energy/day`, a
   half-hour's radiator sum (and a room's) is `null` unless every radiator that existed then is
   known (`radiators_known` / `radiators_total`). In the report, a radiator sum may be partial

@@ -61,10 +61,14 @@ class Recorder:
         # Per radiator: its last row's time and counters, as written.
         self._last_written: dict[str, tuple[int, tuple[float | None, ...]]] = {}
         # Moves when a write can change energy already computed for a past day: a reading that
-        # replaces or predates its radiator's last one, or pruned samples (old spans' weights).
-        # Appending a newer reading never does (a span `clean_spans` emitted is final), so the
-        # cache of complete radiator-days (`linky/radiator_cache.py`) is dropped only then.
+        # replaces or predates its radiator's last one, a sample not after every sample and
+        # reading already written (a wall clock stepped back: it lands in a span already
+        # counted and moves its weights), or pruned samples (old spans' weights). Appending a
+        # newer reading or sample never does (a span `clean_spans` emitted is final, its weights
+        # are samples before its end), so the cache of complete radiator-days
+        # (`linky/radiator_cache.py`) is dropped only then.
         self.energy_epoch = 0
+        self._high: list[int | None] | None = None  # newest sample, newest reading (`_highs`)
 
     def sample(self) -> int:
         if not self.is_fresh():
@@ -85,8 +89,27 @@ class Recorder:
             )
             for r in self.house.radiators.values()
         ]
+        sample_high, energy_high = self._highs()
         self.db.executemany("INSERT OR REPLACE INTO samples VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+        # A sample at a reading's own second is safe (a span's weights stop before its end); one
+        # at or before an earlier sample, or before a reading, lands in what is already counted.
+        if rows and (
+            (sample_high is not None and t <= sample_high)
+            or (energy_high is not None and t < energy_high)
+        ):
+            self.energy_epoch += 1
+        if rows:
+            self._high[0] = t if sample_high is None else max(sample_high, t)  # type: ignore[index]
         return len(rows)
+
+    def _highs(self) -> tuple[int | None, int | None]:
+        """The newest sample time and the newest reading time ever written (high-water marks,
+        read from the tables once, then kept)."""
+        if self._high is None:
+            s = self.db.rows("SELECT MAX(ts) FROM samples")
+            e = self.db.rows("SELECT MAX(ts) FROM energy")
+            self._high = [s[0][0] if s else None, e[0][0] if e else None]
+        return self._high[0], self._high[1]
 
     def _last_row(self, rid: str) -> tuple[int, tuple[float | None, ...]] | None:
         if rid not in self._last_written:
@@ -131,6 +154,9 @@ class Recorder:
             self._last_written[rid] = (max(t, last[0]) if last else t, row[2:])
         if rewrites:
             self.energy_epoch += 1
+        if rows:
+            energy_high = self._highs()[1]
+            self._high[1] = t if energy_high is None else max(energy_high, t)  # type: ignore[index]
         return len(rows)
 
     def prune(self, chunk: int = PRUNE_CHUNK) -> int:
