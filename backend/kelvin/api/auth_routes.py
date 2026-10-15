@@ -52,7 +52,7 @@ async def login(body: LoginBody, request: Request) -> JSONResponse:
             body.email,
             body.password,
             _client_ip(request),
-            body.server.strip() if body.server else None,
+            body.chosen_server(),
         )
     except LoginRefused as e:
         return JSONResponse(status_code=e.status, content=e.body())
