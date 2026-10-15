@@ -432,3 +432,69 @@ test.describe('layout in English', () => {
     await context.close();
   });
 });
+
+// Énergie (UX batches 6–7): the CLS matrix over its four views (a cold load in Mois, then each view switch) at every
+// width and font mode, and no sideways scroll with its sheets, menus and disclosures open.
+test.describe('Énergie layout matrix', () => {
+  test.skip(({ isMobile }) => isMobile, 'explicit widths');
+  test.use({ serviceWorkers: 'block' });
+  const VIEWS = ['Jour', 'Semaine', 'Année'];
+
+  for (const fonts of ['normal', 'blocked', 'late'] as const) {
+    test(`/energy · Jour, Semaine, Mois, Année · fonts ${fonts} · CLS < 0.05 from 320 to 1440 px`, async ({ page }) => {
+      test.setTimeout(240_000);
+      const { measureCls, CLS_WIDTHS } = await import('./cls');
+      for (const width of CLS_WIDTHS) {
+        await page.setViewportSize({ width, height: 900 });
+        const cls = await measureCls(page, '/energy', { fonts });
+        expect(cls, `/energy Mois at ${width} px, fonts ${fonts}`).toBeLessThan(0.05);
+        // Each view after the first: the data arrives 150 ms late, as on a real visit (shifts within 500 ms of the
+        // click are input-driven by definition, but the panels must not keep moving after).
+        await page.route('**/api/**', async (r) => {
+          await new Promise((ok) => setTimeout(ok, 150));
+          await r.continue().catch(() => {});
+        });
+        for (const view of VIEWS) {
+          await page.evaluate(() => ((window as unknown as { __cls: number }).__cls = 0));
+          await page.getByRole('radio', { name: view, exact: true }).click();
+          await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'), null, { timeout: 15_000 });
+          await page.waitForTimeout(1200);
+          const v = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+          expect(v, `/energy ${view} at ${width} px, fonts ${fonts}`).toBeLessThan(0.05);
+        }
+        await page.unrouteAll({ behavior: 'ignoreErrors' });
+      }
+    });
+  }
+  test('/energy never scrolls sideways, fr and en, in every view and with its Fiche, menu and disclosures open', async ({ browser }) => {
+    test.setTimeout(240_000);
+    for (const locale of ['fr-FR', 'en-GB']) {
+      const ctx = await browser.newContext({ storageState: 'e2e/.auth/state.json', locale });
+      const page = await ctx.newPage();
+      const en = locale === 'en-GB';
+      for (const width of WIDTHS) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto('/energy');
+        await settled(page);
+        for (const view of en ? ['Day', 'Week', 'Month', 'Year'] : ['Jour', 'Semaine', 'Mois', 'Année']) {
+          await page.getByRole('radio', { name: view, exact: true }).click();
+          await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'), null, { timeout: 15_000 });
+          expect(await overflow(page), `/energy ${view} at ${width} px (${locale})`).toBeLessThanOrEqual(0);
+        }
+        // Every disclosure open (the Courbe, the rooms, Analyse « Détails », Qualité).
+        await page.evaluate(() => document.querySelectorAll<HTMLButtonElement>('main button[aria-expanded="false"][aria-controls]').forEach((b) => b.click()));
+        await page.waitForTimeout(400);
+        expect(await overflow(page), `/energy disclosures open at ${width} px (${locale})`).toBeLessThanOrEqual(0);
+        await page.locator('.hero .fig').first().click();
+        await page.waitForTimeout(300);
+        expect(await overflow(page), `/energy hero Fiche at ${width} px (${locale})`).toBeLessThanOrEqual(0);
+        await page.keyboard.press('Escape');
+        await page.locator('.export button[aria-haspopup="menu"]').filter({ visible: true }).first().click();
+        await page.waitForTimeout(300);
+        expect(await overflow(page), `/energy export menu at ${width} px (${locale})`).toBeLessThanOrEqual(0);
+        await page.keyboard.press('Escape');
+      }
+      await ctx.close();
+    }
+  });
+});

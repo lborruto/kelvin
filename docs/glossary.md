@@ -148,6 +148,10 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Cette page n’existe pas | This page doesn’t exist | 404 |
 | Aller aux pièces | Go to rooms | 404 and error pages |
 | Plus d’actions | More actions | A « ⋯ » menu's default name |
+| Non réparti | Not split | Énergie bars: a day with no off-peak/peak split beside split days (series-1) |
+| Journée | Whole day | The Courbe readout at rest (the day as a whole) |
+| Mois complet | Full month | Énergie key figure: the current month projected |
+| Exporter / Exporter (CSV) | Export / Export (CSV) | Énergie's export menu and its closing button |
 
 ## Tone
 

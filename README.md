@@ -64,13 +64,16 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   it happens again.
 - **Signed-in devices:** Home › Settings lists the browsers signed in with the home's account and
   signs any of them out.
-- **Energy:** whole-home consumption from Linky (through MyElectricalData) by day, ISO week,
-  month or year, with a period navigator. Every bar, half-hour and figure shows its exact value on
+- **Energy:** answer first — the period's cost (or kWh) with its off-peak/peak split, the
+  comparison with the previous period and three key figures (full month, heating share, off-peak
+  share) — then the evidence: whole-home consumption from Linky (through MyElectricalData) by day,
+  ISO week, month or year, with a period navigator (and a condensed bar once it scrolls away). Every bar, half-hour and figure shows its exact value on
   hover, tap or keyboard: off-peak/peak, radiators and the rest of the home, energy and standing charge €,
   the prices applied. A half-hour scrubber with power and price, max power and base load, the off-peak/peak
   share, the radiators' share and cost, per room and per radiator (energy, €, temperature,
   heating hours), a room's temperature against its heating, comparisons on comparable days only,
-  a month and a 365-day projection, a data-quality panel, and a CSV export of what is shown
+  a month and a 365-day projection, a data-quality panel, and a CSV export of what is shown (from the page
+  header's « Exporter » menu)
   (numbers in the UI language: `;` and a decimal comma in French, `,` and a point in English;
   French headers in both). Shown parts add up to their
   total, and a day reads the same € in every view. A missing figure reads « — » with its reason,

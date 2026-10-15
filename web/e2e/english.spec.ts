@@ -98,7 +98,8 @@ test.describe('key flows in English', () => {
     await page.goto('/energy');
     await expect(page.getByRole('heading', { name: 'Energy', level: 1 })).toBeVisible();
     await expect(page.locator('.hero .big')).toHaveText(/^€[\d,]+(\.\d{2})?/);
-    await expect(page.locator('.hero .tag')).toHaveText('estimate');
+    await expect(page.locator('.hero .tag')).toHaveText('est.');
+    await expect(page.getByRole('button', { name: /^€[\d,.]+, estimate, details$/ })).toBeVisible();
     // Month (the default view) draws day bars.
     await expect(page.getByRole('img', { name: 'Home consumption by day' })).toBeVisible();
     await expect(page.getByRole('heading', { name: /^Load curve, / })).toBeVisible();
@@ -115,7 +116,10 @@ test.describe('key flows in English', () => {
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
     const [dl] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Export the period (CSV)' }).click()
+      (async () => {
+        await page.locator('.export button[aria-haspopup="menu"]').filter({ visible: true }).first().click();
+        await page.getByRole('menuitem', { name: 'Export the period (CSV)' }).click();
+      })()
     ]);
     expect(dl.suggestedFilename()).toMatch(/^energie_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}_day\.csv$/);
     const rows = readFileSync((await dl.path())!, 'utf8').slice(1).split('\r\n');

@@ -3,7 +3,7 @@
   import { fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
   import { SERIES, seriesBackground } from '$lib/energy';
   import { m } from '$lib/i18n';
-  import { ANCHORS, ROUTES } from '$lib/paths';
+  import { ANCHORS, ROUTES, ENERGY_ANCHORS } from '$lib/paths';
   import { shiftValue } from '$lib/power';
   import TempoRows from './TempoRows.svelte';
 
@@ -22,7 +22,7 @@
   let value = $derived(lens && lens.delta_price != null && hpKwh != null ? shiftValue(pct / 100, hpKwh, lens.delta_price) : null);
 </script>
 
-<section class="panel {cls}">
+<section class="panel {cls}" id={ENERGY_ANCHORS.offpeak}>
   <h2>{m.hcHp.title}</h2>
   {#if !tariff}
     <p class="line"><a href="{ROUTES.home}#{ANCHORS.tariff}">{m.hcHp.tariffLink}</a>{m.hcHp.tariffTail}</p>

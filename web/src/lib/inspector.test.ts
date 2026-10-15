@@ -3,7 +3,7 @@ import { applyLocale } from '$lib/i18n';
 import type { EnergyInterval, EnergySummary, RoomSample } from './api/types';
 import { bucketSpan, periodOf } from './energy';
 import { fmtPrice } from '$lib/format';
-import { inspectBucket, inspectionTable, intervalLabel, pricesText, readInterval, roomInterval } from './inspector';
+import { inspectBucket, inspectionTable, intervalLabel, pricesText, readDay, readInterval, roomInterval } from './inspector';
 import { parisDayStart } from './time';
 
 const NB = '\u00a0';
@@ -406,5 +406,39 @@ describe('tariff v2 in the inspector', () => {
     const plain = readInterval(base, { intervals: [base], tariff: true });
     expect(plain.rows.some((r) => r.key === 'rate')).toBe(false);
     expect(plain.rows.find((r) => r.key === 'price')?.value).toBe(fmtPrice(0.1952));
+  });
+});
+
+describe('readDay (the Courbe at rest)', () => {
+  const a = parisDayStart('2026-10-12') / 1000;
+  const power = { peak_w: 5530, peak_ts: a + 6.5 * 3600, base_w_p10: 224, night_min_w: 200, kva: 9 };
+  const totals = { curve_kwh: 29.0, daily_kwh: 29.07, hc_kwh: 9, hp_kwh: 20.07, split_method: 'curve' as const, hc_kwh_curve: 9, hp_kwh_curve: 20 };
+  const ctx = { intervals: [], tariff: true };
+
+  it('takes the day bar’s own rows, so the day reads the same figure in the readout and the bar', () => {
+    const bar = inspectBucket(bucket(), { group: 'day', span: bucketSpan('2026-10-12', 'day') });
+    const d = readDay({ power, totals }, bar, ctx);
+    const v = (k: string) => d.rows.find((r) => r.key === k)?.value;
+    expect(d.title).toBe('Journée');
+    expect(v('energy')).toBe(bar.rows.find((r) => r.key === 'home')!.value);
+    expect(v('cost')).toBe(bar.rows.find((r) => r.key === 'cost')!.value);
+    expect(v('power')).toMatch(/^pointe 5,53\u00a0kW à \d\d:\d\d$/);
+    // No whole-day Tarif or Prix.
+    expect(d.rows.map((r) => r.key)).not.toContain('rate');
+    expect(d.rows.map((r) => r.key)).not.toContain('price');
+  });
+
+  it('without a day bar (Année) the energy is the daily reading; the room’s mean temperature is « moy. »', () => {
+    const samples = [
+      { ts: a, temperature: 17, setpoint: 19 },
+      { ts: a + 300, temperature: 18, setpoint: 19 },
+      { ts: a + 600, temperature: null, setpoint: 19 }
+    ] as unknown as RoomSample[];
+    const d = readDay({ power: { ...power, peak_w: null, peak_ts: null }, totals }, null, { ...ctx, samples, room: 'Salon' });
+    const v = (k: string) => d.rows.find((r) => r.key === k)?.value;
+    expect(v('energy')).toBe(`29,07${NB}kWh`);
+    expect(v('power')).toBe('—');
+    expect(v('temperature')).toBe(`moy. 17,5${NB}°C`);
+    expect(d.rows.find((r) => r.key === 'cost')).toBeUndefined();
   });
 });

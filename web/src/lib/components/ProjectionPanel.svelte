@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ENERGY_ANCHORS } from '$lib/paths';
   import { scaleLinear } from 'd3-scale';
   import type { Projection } from '$lib/api/types';
   import { addDays, SERIES } from '$lib/energy';
@@ -37,7 +38,7 @@
   let points = $derived(values.map((v, i) => `${2 + (i / Math.max(1, values.length - 1)) * (SW - 4)},${y(v)}`).join(' '));
 </script>
 
-<section class="panel {cls}">
+<section class="panel {cls}" id={ENERGY_ANCHORS.projection}>
   <h2>{m.projection.title}</h2>
   <p class="muted covers">{m.projection.covers}</p>
   {#if !projection}

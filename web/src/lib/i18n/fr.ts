@@ -489,11 +489,6 @@ export const fr = {
   },
   hero: {
     estimate: 'estimation',
-    details: 'Détail de la période',
-    radiatorsFigure: (kwh: string) => `Radiateurs ${kwh}`,
-    hcFigure: (kwh: string) => `HC ${kwh}`,
-    hpFigure: (kwh: string) => `HP ${kwh}`,
-    breakdown: (energy: string, sub: string) => `Énergie ${energy} + abonnement ${sub}`,
     compare: (change: string, prev: string, n: number) =>
       `${change} de consommation par rapport à ${prev}, sur ${int(n)} ${plural(n, { one: 'jour comparable', other: 'jours comparables' })}`,
     missing: (n: number) => `Données partielles${NB}: ${int(n)} ${plural(n, { one: 'jour manquant', other: 'jours manquants' })}.`,
@@ -506,9 +501,7 @@ export const fr = {
     // « jusqu’à hier » only for a running period: a closed one counts all its days.
     radPartial: (pct: string, running: boolean) => `Radiateurs${NB}: couverture ${pct}, somme partielle${running ? ' (jusqu’à hier)' : ''}.`,
     radNone: `Radiateurs${NB}: aucun relevé sur cette période.`,
-    noData: 'Aucune donnée pour cette période.',
-    tariffLink: 'Renseignez le tarif',
-    tariffTail: ' pour voir le coût.'
+    noData: 'Aucune donnée pour cette période.'
   },
   periodNav: { group: 'Période affichée', prev: 'Période précédente', next: 'Période suivante', latest: 'Dernier jour' },
   bars: { empty: 'Pas encore de données.', period: 'Période', bars: (label: string) => `Barres du graphique${NB}: ${label}` },
@@ -735,12 +728,9 @@ export const fr = {
     empty: 'Aucun radiateur enregistré sur la période.'
   },
   exportPanel: {
-    title: 'Exporter',
     period: 'Exporter la période (CSV)',
     curve: (d: string) => `Exporter la courbe du ${d} (CSV)`,
-    rooms: 'Exporter par pièce (CSV)',
-    format:
-      `Fichiers CSV${NB}: séparateur point-virgule, décimales avec une virgule, dates ISO avec leur fuseau, cellule vide quand une valeur manque. Les chiffres de la page, avec toutes leurs décimales.`
+    rooms: 'Exporter par pièce (CSV)'
   },
   energyData: { reportFailed: 'Impossible de charger la consommation.', dayFailed: 'Impossible de charger la courbe.' },
   energyPage: {
@@ -761,23 +751,67 @@ export const fr = {
     curveShown: (d: string) => `Courbe du ${d}`,
     retry: 'Réessayer',
     failedPeriod: (period: string, error: string) => `${period}${NB}: ${error}`,
-    fresh: (d: string) => `Linky${NB}: données jusqu’au ${d}`,
-    connect: 'Reliez le compteur Linky pour voir la consommation de toute la maison et son coût.',
     settings: 'Réglages',
     renew: 'Renouveler le jeton',
     statusFailed: 'État du Linky indisponible.',
-    never: `Linky relié${NB}: première synchronisation en attente.`,
-    quota: `Historique en cours de récupération${NB}: la suite arrive demain.`,
-    throttledAt: (t: string) => `Enedis limite les requêtes${NB}: nouvel essai à ${t}.`,
-    throttled: `Enedis limite les requêtes${NB}: nouvel essai plus tard.`,
     auth: 'MyElectricalData refuse le jeton Linky.',
-    syncFailed: 'Synchronisation Linky en échec.',
-    counters: 'Compteurs des radiateurs',
-    radiator: 'Radiateur',
-    room: 'Pièce',
-    lifetime: 'Depuis l’installation (kWh)',
-    register1: 'Registre 1 (kWh)',
-    register2: 'Registre 2 (kWh)'
+    syncFailed: 'Synchronisation Linky en échec.'
+  },
+  energyUi: {
+    // Header and export menu
+    export: 'Exporter',
+    exportMore: 'Exporter (CSV)',
+    exportFormat: `CSV${NB}: «${NB};${NB}» entre les colonnes, virgule décimale, dates ISO.`,
+    waitHouse: 'Disponible une fois les pièces chargées',
+    // Context row: the Linky source line and its Fiche
+    linkyTitle: 'Compteur Linky',
+    linkyUntil: (d: string) => `données jusqu’au ${d}`,
+    linkyNever: 'première synchronisation en attente',
+    linkyQuota: 'historique en cours, la suite demain',
+    linkyThrottledAt: (t: string) => `Enedis limite les requêtes, nouvel essai à ${t}`,
+    linkyThrottled: 'Enedis limite les requêtes, nouvel essai plus tard',
+    linkyUnknown: 'état inconnu',
+    linkyDaily: 'Dernier relevé journalier',
+    linkySync: 'Dernière synchronisation',
+    linkyCalls: 'Appels MyElectricalData',
+    linkyCallsValue: (n: number, of: number) => `${int(n)} sur ${int(of)} aujourd’hui`,
+    linkyRetry: 'Nouvel essai',
+    linkySince: 'Historique depuis le',
+    // Grid chips
+    unknownColour: 'couleur inconnue',
+    notYet: (at: string) => `vers ${at}`,
+    tempoToday: 'Tempo aujourd’hui',
+    tempoTomorrow: 'Tempo demain',
+    ecowatt: 'Alerte EcoWatt',
+    fetched: 'Relevé RTE',
+    // Résumé
+    heroMethod: 'kWh Linky × votre tarif',
+    radRange: (range: string) => `des radiateurs, ${range}`,
+    splitLabel: (hc: string, hp: string) => `Heures creuses ${hc}, heures pleines ${hp}`,
+    hcPart: (kwh: string) => `Heures creuses ${kwh}`,
+    hpPart: (kwh: string) => `Heures pleines ${kwh}`,
+    keyMonth: 'Mois complet',
+    keyHeating: 'Chauffage',
+    keyHeatingVal: 'de la maison',
+    keyOffpeak: 'Heures creuses',
+    keyOffpeakVal: (slots: string) => `${slots} du temps`,
+    keyName: (label: string, value: string) => `${label}, ${value}`,
+    noTariff: 'Ajoutez votre tarif pour voir les coûts.',
+    noTariffCta: 'Renseigner le tarif',
+    firstSync: `Première synchronisation${NB}: l’historique Linky arrive dans quelques minutes.`,
+    noData: (period: string, date: string) => `Pas de données pour ${period}${NB}: l’historique commence le ${date}.`,
+    goFirst: (date: string) => `Aller au ${date}`,
+    noLinkyTitle: 'Reliez votre compteur Linky',
+    noLinkyBody:
+      'Vous verrez la consommation de toute la maison, son coût et la part du chauffage. En attendant, voici l’énergie des radiateurs.',
+    noLinkyCta: 'Relier le Linky',
+    // Chart, Courbe, period bar
+    notSplit: 'Non réparti',
+    day: 'Journée',
+    peakAt: (w: string, t: string) => `pointe ${w} à ${t}`,
+    tempAvg: (t: string) => `moy. ${t}`,
+    scrubHint: 'Survolez, touchez ou utilisez ← → pour lire chaque demi-heure',
+    barView: (view: string) => `· ${view}`
   },
   away: {
     title: 'Absence',

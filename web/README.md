@@ -91,7 +91,8 @@ The version shown on Maison comes from `package.json`. Icons are rendered from
 
 ## Énergie CSV export (machine contract)
 
-Énergie › Exporter builds the files in the browser from the JSON the page shows (no server
+Énergie's export menu (« Exporter » in the page header, « ⋯ » on a phone, and the « Exporter (CSV) » button at the
+end of the page; the actions are `src/lib/export.ts`) builds the files in the browser from the JSON the page shows (no server
 endpoint), so every figure is the one the page shows for the same bar or half-hour, at the API's
 precision: a day's € are the same in whatever period it is exported. Every file is UTF-8 with a
 BOM, CRLF line ends, no thousands separator, and follows the UI language for its number format:

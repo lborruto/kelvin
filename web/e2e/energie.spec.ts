@@ -50,6 +50,31 @@ async function previousMonth(page: Page) {
   await expect(label).not.toHaveText(month);
   await settled(page);
 }
+/** Mois and Année show the Courbe as its summary row: open it (Jour and Semaine show it open). */
+async function openCurve(page: Page) {
+  const b = page.locator('#curve-title');
+  await expect(b).toBeVisible();
+  if ((await b.getAttribute('aria-expanded')) === 'false') await b.click();
+  await expect(page.locator('#curve').getByRole('slider', { name: SCRUB })).toBeVisible();
+}
+/** One of the export menu's files: the header menu (desktop « Exporter », phone « ⋯ »). */
+async function exportItem(page: Page, name: string | RegExp): Promise<Locator> {
+  await page.locator('.export button[aria-haspopup="menu"]').filter({ visible: true }).first().click();
+  const item = page.getByRole('menuitem', { name });
+  await expect(item).toBeVisible();
+  return item;
+}
+/** The hero Fiche's row values (desktop card or phone sheet), read then closed. */
+async function heroRows(page: Page): Promise<Record<string, string>> {
+  await page.locator('.hero .fig').first().click();
+  const box = page.locator('.fiche, dialog[open]').filter({ visible: true }).first();
+  await expect(box.locator('.row').first()).toBeVisible();
+  const rows = await box.locator('.row').evaluateAll((els) =>
+    Object.fromEntries(els.map((e) => [e.querySelector('dt')!.textContent!, e.querySelector('dd')!.firstChild?.textContent ?? '']))
+  );
+  await page.keyboard.press('Escape');
+  return rows;
+}
 const houseBars = (page: Page) => page.getByRole('group', { name: /^Barres du graphique\s:\s/ });
 /** An inspector row's shown value (its first text, without « est. » or a reason). */
 const rowValue = (ins: Locator, label: string) =>
@@ -70,11 +95,12 @@ test.describe('Énergie', () => {
     await expect(page.getByRole('heading', { name: 'Énergie', level: 1 })).toBeVisible();
     await expect(page.locator('#period-label')).toHaveText(/^\p{Lu}\p{Ll}+ \d{4}$/u); // « Octobre 2026 »
     await expect(page.locator('.hero .big')).toContainText('€');
-    await expect(page.locator('.hero .tag')).toHaveText('estimation');
+    await expect(page.locator('.hero .tag')).toHaveText('est.');
     const chart = page.getByRole('img', { name: 'Consommation de la maison par jour' });
     await expect(chart).toBeVisible();
     const heights = await chart.locator('rect.part').evaluateAll((els) => els.map((e) => Number(e.getAttribute('height'))));
     expect(heights.filter((h) => h > 0).length).toBeGreaterThan(0);
+    await openCurve(page);
     await expect(page.getByRole('img', { name: /^Consommation par demi-heure le / })).toBeVisible();
     await page.getByRole('radio', { name: 'Mois' }).focus();
     await page.keyboard.press('ArrowRight');
@@ -145,7 +171,8 @@ test.describe('Énergie', () => {
     await page.keyboard.press('ArrowLeft');
     await expect(bar).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page.locator('#curve-title')).toHaveText(`Courbe du ${title.replace(/^\p{L}+ /u, '')}`, { ignoreCase: true });
+    await expect(page.locator('#curve-title')).toHaveText(new RegExp(`^\\s*Courbe du ${title.replace(/^\p{L}+ /u, '')}`, 'i'));
+    await expect(page.locator('#curve-title')).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator('div.visually-hidden[role="status"][aria-live="polite"]')).toContainText(/^Courbe du /);
   });
 
@@ -184,6 +211,8 @@ test.describe('Énergie', () => {
   test('the scrubber: arrows move by 30 minutes, PageUp by 3 hours, the readout and the crosshair follow', async ({ page }) => {
     await page.goto('/energy');
     await settled(page);
+    await openCurve(page);
+    await expect(page.locator('#curve .readout .when dd')).toHaveText('Journée');
     const slider = page.locator('#curve').getByRole('slider', { name: SCRUB });
     const when = page.locator('#curve .readout .when dd');
     await expect(slider).toHaveAttribute('aria-valuetext', /./);
@@ -213,6 +242,7 @@ test.describe('Énergie', () => {
     test.skip(!isMobile, 'touch only');
     await page.goto('/energy');
     await settled(page);
+    await openCurve(page);
     const slider = page.locator('#curve').getByRole('slider', { name: SCRUB });
     await slider.scrollIntoViewIfNeeded();
     const box = (await slider.boundingBox())!;
@@ -226,7 +256,7 @@ test.describe('Énergie', () => {
   test('CSV: the period file is the hero’s period, the curve file is the Courbe’s day', async ({ page }) => {
     await page.goto('/energy');
     await settled(page);
-    const period = await csvRows(page, page.getByRole('button', { name: 'Exporter la période (CSV)' }));
+    const period = await csvRows(page, await exportItem(page, 'Exporter la période (CSV)'));
     expect(period.name).toMatch(/^energie_\d{4}-\d{2}-01_\d{4}-\d{2}-01_day\.csv$/);
     expect(period.text).not.toMatch(/\d{14}/); // no PDL
     expect(period.text).not.toContain('@'); // no email
@@ -250,18 +280,19 @@ test.describe('Énergie', () => {
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     if (total[7] !== '') expect(total[15]).toBe(yesterday.toISOString().slice(0, 10));
     // The file's total is the hero's figures, at the hero's precision: kWh, and € (the big figure and its breakdown).
-    const kwh = shown((await page.locator('.hero .sub .figs').textContent())!.split(' · ')[0]);
+    const kwh = shown((await page.locator('.hero .range').textContent())!.split(' · ')[1]);
     expect(rounded(total[3], decimals(kwh))).toBe(kwh);
     const big = shown((await page.locator('.hero .big').textContent())!);
     expect(rounded(total[12], decimals(big))).toBe(big);
-    const breakdown = (await page.locator('.hero .breakdown').textContent())!.match(/\d[\d\s\u202f]*,\d\d/g)!.map(shown);
-    expect([rounded(total[10], 2), rounded(total[11], 2)]).toEqual(breakdown);
+    // The hero's Fiche: the energy and the subscription, exact.
+    const fiche = await heroRows(page);
+    expect([rounded(total[10], 2), rounded(total[11], 2)]).toEqual([shown(fiche['dont énergie']), shown(fiche['dont abonnement'])]);
     // A day not yet published reads empty, never 0.
     for (const l of days) if (l.split(';')[3] === '') expect(l.split(';')[12]).toBe('');
 
-    const curveButton = page.getByRole('button', { name: /^Exporter la courbe du / });
-    const day = (await page.locator('#curve-title').textContent())!.replace(/^Courbe du /, '');
-    const curve = await csvRows(page, curveButton);
+    await openCurve(page);
+    const day = (await page.locator('#curve-title .dtitle').textContent())!.replace(/^Courbe du /, '');
+    const curve = await csvRows(page, await exportItem(page, /^Exporter la courbe du /));
     expect(curve.name).toMatch(/^courbe_\d{4}-\d{2}-\d{2}\.csv$/);
     expect(curve.rows[0]).toBe(CURVE_HEADER);
     const n = curve.rows.length - 1;
@@ -293,7 +324,8 @@ test.describe('Énergie', () => {
     await expect(inspector.locator('.title')).toHaveText(/^\p{L}+ 3 /u);
     const cost = shown(await rowValue(inspector, 'Coût estimé'));
     const kwh = shown(await rowValue(inspector, 'Maison'));
-    const month = await csvRows(page, page.getByRole('button', { name: 'Exporter la période (CSV)' }));
+    await page.keyboard.press('Escape');
+    const month = await csvRows(page, await exportItem(page, 'Exporter la période (CSV)'));
     const key = month.name.slice(8, 15) + '-03';
     const row = month.rows.find((r) => r.startsWith(`${key};`))!;
     expect(rounded(row.split(';')[12], 2)).toBe(cost);
@@ -301,10 +333,10 @@ test.describe('Énergie', () => {
     // Enter on the bar opens that day's Courbe; Jour then shows that day: its file holds the same row.
     await keys.nth(2).focus();
     await page.keyboard.press('Enter');
-    await expect(page.locator('#curve-title')).toHaveText(/^Courbe du 3 /);
+    await expect(page.locator('#curve-title')).toHaveText(/^\s*Courbe du 3 /);
     await page.getByRole('radio', { name: 'Jour', exact: true }).click();
     await settled(page);
-    const one = await csvRows(page, page.getByRole('button', { name: 'Exporter la période (CSV)' }));
+    const one = await csvRows(page, await exportItem(page, 'Exporter la période (CSV)'));
     expect(one.name).toBe(`energie_${key}_${one.name.slice(19, 29)}_day.csv`);
     expect(one.rows.find((r) => r.startsWith(`${key};`))).toBe(row);
     expect(one.rows.at(-1)!.split(';').slice(3)).toEqual(row.split(';').slice(3));
@@ -357,7 +389,7 @@ test.describe('Énergie', () => {
     const action = sheet.getByRole('button', { name: /^Voir la courbe du / });
     const [d] = (await action.textContent())!.replace(/^Voir la courbe du /, '').split('/');
     await action.click();
-    await expect(page.locator('#curve-title')).toHaveText(new RegExp(`^Courbe du ${d} `));
+    await expect(page.locator('#curve-title')).toHaveText(new RegExp(`^\\s*Courbe du ${d} `));
     await expect(sheet).toBeVisible(); // the pin stays while its day's Courbe opens
     await tapBar();
     await expect(sheet).toBeHidden();
@@ -410,7 +442,7 @@ test.describe('Énergie', () => {
       await page.mouse.down();
       await page.mouse.up();
       const [d] = label.replace(/^Voir la courbe du /, '').split('/'); // « 3/10 »
-      await expect(page.locator('#curve-title')).toHaveText(new RegExp(`^Courbe du ${d} `));
+      await expect(page.locator('#curve-title')).toHaveText(new RegExp(`^\\s*Courbe du ${d} `));
       expect(await overflow(page)).toBeLessThanOrEqual(0);
     }
   });
@@ -452,7 +484,7 @@ test.describe('Énergie layout', () => {
       await page.goto('/energy');
       await settled(page);
       const tail = await page.evaluate(() => {
-        const panels = [...document.querySelectorAll('main .panel')];
+        const panels = [...document.querySelectorAll('main .panel, main .end')];
         const bottom = Math.max(...panels.map((p) => p.getBoundingClientRect().bottom + scrollY));
         return document.scrollingElement!.scrollHeight - bottom;
       });
@@ -466,6 +498,7 @@ test.describe('Énergie layout', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/energy');
       await settled(page);
+      await openCurve(page);
       const readout = page.locator('#curve .readout');
       // The day the page opens on has radiator data in the simulator: the radiator fields (and their reasons) are measured too.
       await expect(readout.locator('dt', { hasText: /^Radiateurs$/ })).toHaveCount(1);
@@ -518,5 +551,102 @@ test.describe('Énergie layout', () => {
       const when = (await panel.locator('.readout .when dd').textContent())!.trim();
       await expect(page.locator('#curve .readout .when dd')).toHaveText(when);
     }
+  });
+});
+
+test.describe('Énergie Résumé and context (UX batch 6)', () => {
+  test.skip(({ isMobile }) => isMobile, 'explicit widths');
+
+  test('first viewport at 390 × 844: title, views, period, the figure, its range, the split bar and the comparison', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/energy');
+    await settled(page);
+    for (const loc of [
+      page.getByRole('heading', { level: 1, name: 'Énergie' }),
+      page.getByRole('radiogroup', { name: 'Période' }),
+      page.locator('#period-label'),
+      page.locator('.hero .big'),
+      page.locator('.hero .range'),
+      page.locator('.hero .split .bar'),
+      page.locator('.hero .delta')
+    ]) {
+      const b = (await loc.boundingBox())!;
+      expect(b.y + b.height, (await loc.evaluate((e) => e.className || e.tagName)) as string).toBeLessThanOrEqual(844);
+    }
+  });
+
+  test('1440 × 900: the whole Résumé and the top of the bars; the key figures link to their sections', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/energy');
+    await settled(page);
+    const hero = (await page.locator('.hero').boundingBox())!;
+    expect(hero.y + hero.height).toBeLessThanOrEqual(900);
+    const chart = (await page.getByRole('img', { name: 'Consommation de la maison par jour' }).boundingBox())!;
+    expect(chart.y).toBeLessThan(900);
+    await expect(page.locator('.hero .keys a')).not.toHaveCount(0);
+    for (const a of await page.locator('.hero .keys a').all()) {
+      const id = (await a.getAttribute('href'))!.slice(1);
+      expect(await page.locator(`[id="${id}"]`).count(), `#${id} exists`).toBe(1);
+    }
+  });
+
+  test('the condensed period bar appears once the navigator is scrolled away, steps the period, moves nothing', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/energy');
+    await settled(page);
+    const bar = page.getByTestId('period-bar');
+    await expect(bar).not.toHaveClass(/shown/);
+    const label = page.locator('#period-label');
+    const month = (await label.textContent())!;
+    await page.mouse.wheel(0, 1200);
+    await expect(bar).toHaveClass(/shown/);
+    await expect(bar).toHaveAttribute('aria-hidden', 'true');
+    await expect(bar).toContainText(month);
+    await bar.locator('button').first().click();
+    await expect(label).not.toHaveText(month);
+    await expect(bar).not.toContainText(month);
+    await page.mouse.wheel(0, -5000);
+    await expect(bar).not.toHaveClass(/shown/);
+  });
+
+  test('the hero Fiche, the export menu and the ghost button: open at 320 px without sideways scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto('/energy');
+    await settled(page);
+    await page.locator('.hero .fig').first().click();
+    const sheet = page.locator('dialog[open]');
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText('Linky · Enedis via MyElectricalData');
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+    await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+    const item = await exportItem(page, 'Exporter la période (CSV)');
+    await expect(item).toBeVisible();
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+    await page.keyboard.press('Escape');
+    // The same files at the end of the page.
+    const ghost = page.getByRole('button', { name: 'Exporter (CSV)' });
+    await ghost.scrollIntoViewIfNeeded();
+    const [dl] = await Promise.all([page.waitForEvent('download'), (async () => {
+      await ghost.click();
+      await page.getByRole('menuitem', { name: 'Exporter la période (CSV)' }).click();
+    })()]);
+    expect(dl.suggestedFilename()).toMatch(/^energie_.*_day\.csv$/);
+  });
+
+  test('desktop: the hero figure by keyboard: Enter opens the Fiche with its Source and Nature, Esc gives focus back', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/energy');
+    await settled(page);
+    const fig = page.locator('.hero .fig').first();
+    await fig.focus();
+    await page.keyboard.press('Enter');
+    const card = page.locator('.fiche');
+    await expect(card).toBeVisible();
+    await expect(card.locator('dt', { hasText: /^Source$/ })).toHaveCount(1);
+    await expect(card.locator('dt', { hasText: /^Nature$/ })).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(card).toHaveCount(0);
+    await expect(fig).toBeFocused();
   });
 });

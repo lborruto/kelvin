@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ENERGY_ANCHORS } from '$lib/paths';
   import type { Heating, RadiatorSum } from '$lib/api/types';
   import { SERIES } from '$lib/energy';
   import { fmtEurExact, fmtKwhExact, fmtPct, fmtPct1 } from '$lib/format';
@@ -18,7 +19,7 @@
   let value = $derived(heating.inconsistent ? null : heating.value);
 </script>
 
-<section class="panel {cls}">
+<section class="panel {cls}" id={ENERGY_ANCHORS.where}>
   <h2>{m.heatingPanel.title}</h2>
   <!-- {' '}: Svelte trims a block's leading space. -->
   <p class="share-line">
