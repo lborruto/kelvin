@@ -463,6 +463,26 @@ async def sessions_revoke_others(request: Request) -> dict:
     return {"revoked": ctx.sessions.revoke_others(request.cookies.get(COOKIE_NAME))}
 
 
+def _alerts(rt: Runtime):
+    if rt.alerts is None:
+        raise UserError("alert_unknown", 404)
+    return rt.alerts
+
+
+@router.get("/alerts")
+async def alerts_list(request: Request, state: Literal["active", "all"] = "active") -> list[dict]:
+    """Kinds and params only: the web writes the words (spec §2.4)."""
+    return _alerts(_rt(request)).store.listing(state)
+
+
+@router.post("/alerts/{aid}/dismiss", status_code=204)
+async def alert_dismiss(aid: str, request: Request) -> Response:
+    svc = _alerts(_rt(request))
+    if not aid.isdigit() or len(aid) > 12 or not svc.dismiss(int(aid)):
+        raise UserError("alert_unknown", 404)
+    return Response(status_code=204)
+
+
 def _linky(rt: Runtime) -> LinkyService:
     if rt.linky is None:
         raise UserError("linky_unavailable", 503)

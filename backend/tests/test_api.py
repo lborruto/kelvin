@@ -580,3 +580,30 @@ async def test_an_intensity_out_of_range_reads_its_own_message(ctx):
     for value in (0, 101):
         r = await c.post("/api/radiators/8370011/light", json={"on": True, "intensity": value})
         assert (r.status_code, r.json()["code"]) == (422, "intensity_range"), value
+
+
+async def test_alerts_api_list_dismiss_and_snapshot(ctx):
+    from kelvin.alerts.store import Candidate
+
+    c, rt, _ = ctx
+    rt.alerts.rules = {
+        "command_failed": lambda cx, now: [
+            Candidate("command_failed", "command_failed:p1", "bad", {"label_code": "all_off"})
+        ]
+    }
+    rt.alerts.evaluate()
+    body = (await c.get("/api/alerts")).json()
+    assert [(a["kind"], a["severity"], a["dismissed"]) for a in body] == [
+        ("command_failed", "bad", False)
+    ]
+    assert (await c.get("/api/house")).json()["alerts"] == {"active": 1, "highest": "bad"}
+    aid = body[0]["id"]
+    assert (await c.post(f"/api/alerts/{aid}/dismiss", headers={"X-Kelvin": ""})).status_code == 403
+    assert (await c.post(f"/api/alerts/{aid}/dismiss")).status_code == 204
+    assert (await c.get("/api/alerts")).json() == []
+    assert len((await c.get("/api/alerts", params={"state": "all"})).json()) == 1
+    for bad in ("99999", "abc", "-1"):
+        r = await c.post(f"/api/alerts/{bad}/dismiss")
+        assert (r.status_code, r.json()["code"]) == (404, "alert_unknown")
+    r = await c.get("/api/alerts", params={"state": "nope"})
+    assert r.status_code == 422

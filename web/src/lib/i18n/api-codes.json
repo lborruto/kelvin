@@ -1,5 +1,9 @@
 {
   "errors": {
+    "alert_unknown": {
+      "fr": "Alerte introuvable.",
+      "params": {}
+    },
     "bad_credentials": {
       "fr": "Email ou mot de passe Cozytouch incorrect.",
       "params": {}

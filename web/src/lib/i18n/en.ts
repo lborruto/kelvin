@@ -692,6 +692,7 @@ export const en: Messages = {
     login_required: () => 'Please sign in.',
     session_is_current: () => 'Use “Sign out” for this device.',
     session_unknown: () => 'That device is no longer signed in.',
+    alert_unknown: () => 'Alert not found.',
     header_missing: () => 'Missing X-Kelvin header.',
     bad_credentials: () => 'Wrong Cozytouch email or password.',
     wrong_account: () => 'This Cozytouch account isn’t the one for this home.',

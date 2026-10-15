@@ -11,6 +11,8 @@ from datetime import date, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from kelvin.alerts.service import AlertService
+from kelvin.alerts.store import AlertStore
 from kelvin.api.sse import Broadcaster
 from kelvin.commands.overrides import OverrideManager
 from kelvin.commands.service import CommandService, Pending
@@ -66,6 +68,7 @@ class Runtime:
     closed: bool = False
     owns_db: bool = True
     linky: LinkyService | None = None
+    alerts: AlertService | None = None
     quotas: QuotaReadout | None = None
 
     def snapshot(self) -> dict[str, Any]:
@@ -76,6 +79,9 @@ class Runtime:
             "recent": [p.view() for p in self.commands.recent()],
             "overrides": self.overrides.active(),
             "status": self.pump.status(),
+            "alerts": (
+                self.alerts.store.summary() if self.alerts else {"active": 0, "highest": None}
+            ),
         }
 
     def publish_overrides(self) -> None:
@@ -350,6 +356,13 @@ async def start_runtime(
         )
         rt.quotas = QuotaReadout(lambda: gateway.quotas())  # lazy: stub gateways need no quotas()
         rt.published_overrides = overrides.active()
+        rt.alerts = AlertService(
+            AlertStore(db, wall=wall),
+            {},  # Task 9 installs the rules
+            lambda: None,
+            publish=lambda s: bc.publish("alerts", s),
+            wall=wall,  # the runtime's clock, as the recorder and the overrides (tests pin it)
+        )
         runtime.append(rt)
     except BaseException:
         try:
@@ -366,6 +379,7 @@ async def start_runtime(
             asyncio.create_task(recorder.run()),
             asyncio.create_task(_override_loop(rt)),
             asyncio.create_task(linky_service.run()),
+            asyncio.create_task(rt.alerts.run()),
         ]
     return rt
 

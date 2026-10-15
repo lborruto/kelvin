@@ -35,6 +35,7 @@ TEMPLATES: dict[str, str] = {
     "login_required": "Connexion requise.",
     "session_is_current": "Utilisez « Se déconnecter » pour cet appareil.",
     "session_unknown": "Cet appareil n’est plus connecté.",
+    "alert_unknown": "Alerte introuvable.",
     "header_missing": "En-tête X-Kelvin manquant.",
     "bad_credentials": "Email ou mot de passe Cozytouch incorrect.",
     "wrong_account": "Ce compte Cozytouch n’est pas celui de cette maison.",
