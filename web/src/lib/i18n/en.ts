@@ -959,6 +959,9 @@ export const en: Messages = {
       `This home is linked to the ${p.server} server. To change servers, start from a fresh install (see the README).`,
     data_other_server: (p: ApiParams) =>
       `This data folder belongs to a home linked to ${p.server}: use another KELVIN_DATA folder.`,
-    bad_credentials_server: (p: ApiParams) => `Wrong ${p.server} email or password.`
+    bad_credentials_server: (p: ApiParams) => `Wrong ${p.server} email or password.`,
+    read_only_device: () => 'Kelvin doesn’t control this device: it’s shown read-only.',
+    level_unknown: (p: ApiParams) => `Unknown heating level: ${p.level}.`,
+    dryer_action_unknown: (p: ApiParams) => `Unknown action: ${p.action}.`
   }
 };

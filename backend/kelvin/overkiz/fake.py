@@ -48,6 +48,13 @@ EFFECTS: dict[str, Callable[[tuple[Any, ...]], list[tuple[str, Any]]]] = {
     "off": lambda p: [("core:OnOffState", "off"), ("core:LightState", "off")],
     "setIntensity": lambda p: [("core:LightIntensityState", int(p[0]))],
     "setName": lambda p: [("core:NameState", p[0])],
+    # Plan 12 kinds (simulator only; the real behaviour is unverified, docs/overkiz-notes.md).
+    "setHeatingLevel": lambda p: [
+        ("io:TargetHeatingLevelState", p[0]),
+        ("core:OnOffState", "off" if p[0] == "off" else "on"),
+    ],
+    "setTowelDryerOperatingMode": lambda p: [("core:OperatingModeState", p[0])],
+    "setTowelDryerTemporaryState": lambda p: [("io:TowelDryerTemporaryStateState", p[0])],
 }
 
 QUIRK_COMMANDS = frozenset({"setComfortTemperature", "setEcoTemperature"})
