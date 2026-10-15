@@ -85,9 +85,11 @@ async def test_nothing_confirms_within_60_s_and_the_write_ends_unconfirmed(env):
     )
     assert written == [1]  # the refresher reconciles it
     assert len(house.places) == 4
+    assert gw.place_reads == 4  # one settle read at the timeout: still 404, so kept
     with pytest.raises(UserError) as e:  # its label stays reserved until that refresh
         await svc.create_room("bureau")
-    assert e.value.code == "room_label_taken" and len(gw.setup_writes) == 1
+    assert (e.value.code, e.value.status) == ("room_label_reserved", 409)
+    assert e.value.params["label"] == "bureau" and len(gw.setup_writes) == 1
     svc.reconciled()  # the full read showed it did not apply
     await svc.create_room("Bureau")
     assert len(gw.setup_writes) == 2
@@ -106,7 +108,7 @@ async def test_a_write_applied_after_the_timeout_is_not_lost(env):
     assert p.status == "unconfirmed" and written == [1]
     with pytest.raises(UserError) as e:
         await svc.create_room("Bureau")  # no duplicate room while it may exist
-    assert e.value.code == "room_label_taken"
+    assert e.value.code == "room_label_reserved"
     await pump(clock, gw, svc, 10)  # the bare PlaceCreatedEvent at +70 s
     assert outside == [1]  # not swallowed as an echo: the refresher reads the tree
     root, devices = await gw.snapshot()
@@ -130,7 +132,7 @@ async def test_a_create_that_errored_keeps_its_label_until_the_refresh(env):
     gw.fail_setup = {}
     with pytest.raises(UserError) as e:
         await svc.create_room("bureau")
-    assert e.value.code == "room_label_taken"
+    assert e.value.code == "room_label_reserved"
     svc.reconciled()
     await svc.create_room("Bureau")
     assert len(gw.setup_writes) == 1
@@ -464,3 +466,57 @@ async def test_tidy_when_the_heater_s_place_is_unknown_is_room_unknown(env):
         await svc.tidy(f"{RAD}#3")
     assert (e.value.code, e.value.status) == ("room_unknown", 404)
     assert gw.setup_writes == []
+
+
+async def test_the_settle_read_at_the_timeout_applies_a_write_that_landed_silently(env):
+    clock, gw, house, svc, _ = env
+    gw.silent_setup = True
+    gw.setup_delay = 40.0  # after the +30 s read, before the timeout
+    p = await svc.create_room("Bureau")
+    await pump(clock, gw, svc, 60)
+    assert p.status == "unconfirmed"
+    assert house.places[p.room_id].label == "Bureau"  # the one settle read found it
+    with pytest.raises(UserError) as e:
+        await svc.create_room("Bureau")
+    assert e.value.code == "room_label_taken"  # it exists: taken for real, not « reserved »
+
+
+async def test_a_withheld_refresh_settles_the_reservation_with_one_targeted_read(env):
+    """Review R1: never reserved for a day because no full read is free."""
+    clock, gw, _, svc, _ = env
+    gw.silent_setup = True
+    gw.setup_delay = 10_000.0  # never applied
+    await svc.create_room("Bureau")
+    await pump(clock, gw, svc, 60)
+    reads = gw.place_reads
+    svc.settle_soon()  # the refresher withheld or failed its after-write read
+    await pump(clock, gw, svc, 1)
+    assert gw.place_reads == reads + 1 and gw.snapshots == 0
+    await svc.create_room("Bureau")  # released: the targeted read says it is not there
+    assert len(gw.setup_writes) == 2
+
+
+async def test_an_unconfirmed_rename_is_settled_by_its_read(env):
+    clock, gw, house, svc, _ = env
+    gw.silent_setup = True
+    gw.setup_delay = 10_000.0
+    await svc.rename_room("p-ch1", "Studio")
+    await pump(clock, gw, svc, 60)
+    with pytest.raises(UserError) as e:
+        await svc.create_room("studio")
+    assert e.value.code == "room_label_reserved"
+    svc.settle_soon()
+    await pump(clock, gw, svc, 1)
+    assert house.places["p-ch1"].label == "Chambre 1 "
+    await svc.create_room("Studio")
+    assert [w[0] for w in gw.setup_writes] == ["update_place", "create_place"]
+
+
+async def test_the_reserved_answer_carries_the_next_sync_time(env):
+    _, gw, _, svc, _ = env
+    svc.next_sync_text = lambda: "14:30"
+    gw.fail_setup = setup_failures("create_place")
+    await svc.create_room("Bureau")
+    with pytest.raises(UserError) as e:
+        await svc.create_room("Bureau")
+    assert e.value.params == {"label": "Bureau", "at": "14:30"}

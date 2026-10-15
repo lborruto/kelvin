@@ -836,6 +836,8 @@ export const en: Messages = {
     linky_status_throttled: (p: ApiParams) => `Enedis is limiting requests: next try at ${p.at}.`,
     room_label_invalid: () => 'A room name must be 1 to 32 characters, with no invisible characters.',
     room_label_taken: (p: ApiParams) => `A room called “${p.label}” already exists.`,
+    room_label_reserved: (p: ApiParams) =>
+      `“${p.label}” is still waiting for Cozytouch to confirm it: try again after the next sync${p.at ? ` (possible at ${p.at})` : ''}.`,
     room_not_empty: () => 'Empty the room first: move its radiators and devices to another room.',
     room_protected: () => 'This room can’t be deleted: it’s the home itself, or it holds the Cozytouch bridge or other rooms.',
     room_type_unknown: () => 'Create a first room in the Cozytouch app: Kelvin uses its type.',
@@ -848,7 +850,7 @@ export const en: Messages = {
     device_unknown: () => 'Unknown device.',
     setup_move_partial: (p: ApiParams) => `Partly moved (${p.done} of ${p.total}).`,
     rename_alone: () => 'Rename the radiator on its own, without other settings in the same request.',
-    setup_sync_spent: (p: ApiParams) => `All ${p.limit} full Cozytouch reads for the last 24 hours are used: try again later.`,
+    setup_sync_spent: () => 'The full Cozytouch reads available over 24 hours are used (the last one is kept for a restart): try again later.',
     device_label_invalid: () => 'A name must be 1 to 32 characters, with no invisible characters or reserved words.',
     send_failed: (p: ApiParams) => {
       const why = own(REASON, p.reason_code);

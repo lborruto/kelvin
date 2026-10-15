@@ -106,6 +106,10 @@ TEMPLATES: dict[str, str] = {
         "Le nom de la pièce doit faire de 1 à 32 caractères, sans caractère invisible."
     ),
     "room_label_taken": "Une pièce s’appelle déjà « {label} ».",
+    "room_label_reserved": (
+        "« {label} » attend encore la confirmation de Cozytouch : "
+        "réessayez après la prochaine synchronisation."
+    ),
     "room_not_empty": (
         "Videz d’abord la pièce : déplacez ses radiateurs et appareils vers une autre pièce."
     ),
@@ -128,8 +132,8 @@ TEMPLATES: dict[str, str] = {
     "setup_move_partial": "Déplacement partiel ({done} sur {total}).",
     "rename_alone": "Renommez le radiateur seul, sans autre réglage dans la même demande.",
     "setup_sync_spent": (
-        "Les {limit} lectures complètes de Cozytouch des dernières 24 h sont "
-        "utilisées : réessayez plus tard."
+        "Les lectures complètes de Cozytouch disponibles sur 24 h sont utilisées "
+        "(la dernière reste pour un redémarrage) : réessayez plus tard."
     ),
     "device_label_invalid": (
         "Le nom doit faire de 1 à 32 caractères, sans caractère invisible ni mot réservé."
@@ -160,6 +164,7 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "slot_time_invalid": {"value": "24:00"},
     "linky_status_throttled": {"at": "14:30"},
     "room_label_taken": {"label": "Salon"},
+    "room_label_reserved": {"label": "Studio", "at": None},
     "room_not_empty": {"count": 2},
     "setup_move_partial": {"done": 5, "total": 6},
     "setup_sync_spent": {"used": 3, "limit": 3, "next_at": 1760500000.0},

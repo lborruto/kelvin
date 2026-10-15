@@ -327,7 +327,12 @@ async def start_runtime(
         # The runtime's clock: a pending's time is what the command_failed rule compares with.
         commands = CommandService(gateway, house, wall=wall, on_update=on_update)
         refresher = SetupRefresher(guard, wall=wall, tz=settings.tz)
-        refresher.full_read_done()  # the startup read above
+        if stored is None:
+            refresher.full_read_done()  # the startup read above
+        else:
+            # Started from the stored structure: no read happened, so none is claimed, and
+            # what changed in the Cozytouch app meanwhile is unknown until the next read.
+            refresher.stale_since = wall()
 
         def on_setup_update(p: SetupPending) -> None:
             view = p.view()
@@ -341,6 +346,14 @@ async def start_runtime(
         setup = SetupService(gateway, house, wall=wall, on_update=on_setup_update)
         setup.on_outside_change = refresher.outside_change
         setup.on_written = refresher.after_write
+        refresher.on_withheld = setup.settle_soon
+        zone = ZoneInfo(settings.tz)
+
+        def next_sync_text() -> str | None:
+            at = refresher.view()["next_possible_at"]
+            return None if at is None else datetime.fromtimestamp(at, zone).strftime("%H:%M")
+
+        setup.next_sync_text = next_sync_text
 
         recorder_ref: list[Recorder] = []
 

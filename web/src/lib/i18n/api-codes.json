@@ -233,6 +233,13 @@
       "fr": "Le nom de la pièce doit faire de 1 à 32 caractères, sans caractère invisible.",
       "params": {}
     },
+    "room_label_reserved": {
+      "fr": "« Studio » attend encore la confirmation de Cozytouch : réessayez après la prochaine synchronisation.",
+      "params": {
+        "at": null,
+        "label": "Studio"
+      }
+    },
     "room_label_taken": {
       "fr": "Une pièce s’appelle déjà « Salon ».",
       "params": {
@@ -303,7 +310,7 @@
       "params": {}
     },
     "setup_sync_spent": {
-      "fr": "Les 3 lectures complètes de Cozytouch des dernières 24 h sont utilisées : réessayez plus tard.",
+      "fr": "Les lectures complètes de Cozytouch disponibles sur 24 h sont utilisées (la dernière reste pour un redémarrage) : réessayez plus tard.",
       "params": {
         "limit": 3,
         "next_at": 1760500000.0,

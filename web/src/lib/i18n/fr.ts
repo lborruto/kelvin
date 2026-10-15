@@ -863,6 +863,8 @@ export const fr = {
     linky_status_throttled: (p: ApiParams) => `Enedis limite les requêtes${NB}: nouvel essai à ${p.at}.`,
     room_label_invalid: () => `Le nom de la pièce doit faire de 1 à 32${NB}caractères, sans caractère invisible.`,
     room_label_taken: (p: ApiParams) => `Une pièce s’appelle déjà «${NB}${p.label}${NB}».`,
+    room_label_reserved: (p: ApiParams) =>
+      `«${NB}${p.label}${NB}» attend encore la confirmation de Cozytouch${NB}: réessayez après la prochaine synchronisation${p.at ? ` (possible à ${p.at})` : ''}.`,
     room_not_empty: () => `Videz d’abord la pièce${NB}: déplacez ses radiateurs et appareils vers une autre pièce.`,
     room_protected: () =>
       `Cette pièce ne peut pas être supprimée${NB}: c’est la maison, ou elle contient le pont Cozytouch ou d’autres pièces.`,
@@ -876,8 +878,8 @@ export const fr = {
     device_unknown: () => 'Appareil inconnu.',
     setup_move_partial: (p: ApiParams) => `Déplacement partiel (${p.done} sur ${p.total}).`,
     rename_alone: () => 'Renommez le radiateur seul, sans autre réglage dans la même demande.',
-    setup_sync_spent: (p: ApiParams) =>
-      `Les ${p.limit}${NB}lectures complètes de Cozytouch des dernières 24${NB}h sont utilisées${NB}: réessayez plus tard.`,
+    setup_sync_spent: () =>
+      `Les lectures complètes de Cozytouch disponibles sur 24${NB}h sont utilisées (la dernière reste pour un redémarrage)${NB}: réessayez plus tard.`,
     device_label_invalid: () => `Le nom doit faire de 1 à 32${NB}caractères, sans caractère invisible ni mot réservé.`,
     send_failed: (p: ApiParams) => {
       const why = own(REASON, p.reason_code);

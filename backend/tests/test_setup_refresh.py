@@ -259,3 +259,30 @@ async def test_an_unconfirmed_write_is_reconciled_by_the_after_write_read(stack)
     assert gw.snapshots == 1
     await setup.create_room("Bureau")  # the read showed it did not apply: the label is free
     assert len(gw.setup_writes) == 2
+
+
+def test_a_withheld_or_failed_after_write_read_asks_for_targeted_settling():
+    clock, guard, ref = _refresher(at(14, 12))
+    withheld: list[int] = []
+    ref.on_withheld = lambda: withheld.append(1)
+    ref.after_write()
+    ref.read_failed("after_write")  # a quota answer
+    assert withheld == [1]
+    guard.record()  # only the restart's read left
+    ref.after_write()
+    clock.advance(30)
+    assert ref.due() is None and withheld == [1, 1]
+
+
+async def test_a_reservation_never_waits_a_day_for_a_full_read(stack):
+    """Review R1, probe G2: the write times out while only the reserve is left."""
+    clock, gw, _, setup, refresher, pump, _ = stack
+    refresher.on_withheld = setup.settle_soon
+    pump.guard.record()  # an outage resync: one read left, the restart's
+    gw.silent_setup = True
+    gw.setup_delay = 10_000.0
+    await setup.create_room("Bureau")
+    await run(pump, clock, 92)  # timeout at 60, after-write due at 90 and withheld
+    assert gw.snapshots == 0
+    await setup.create_room("Bureau")  # settled by one targeted read: free again
+    assert len(gw.setup_writes) == 2

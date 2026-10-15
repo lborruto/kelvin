@@ -64,6 +64,9 @@ class SetupRefresher:
         self._outside_at: float | None = None
         self._daily_due = False
         self.next_daily_at = self._next_daily(wall())
+        # Set by the runtime: an after-write read was withheld (only the restart's read left)
+        # or failed. SetupService then settles its reserved labels with targeted reads.
+        self.on_withheld: Callable[[], None] = lambda: None
 
     def _next_daily(self, now: float) -> float:
         local = datetime.fromtimestamp(now, self.tz)
@@ -110,6 +113,7 @@ class SetupRefresher:
             self._outside_at = None
         else:
             self._after_write_at = None
+            self.on_withheld()
 
     def due(self) -> Reason | None:
         now = self.wall()
@@ -128,6 +132,7 @@ class SetupRefresher:
                 self._outside_at = None
             if after_write_due:
                 self._after_write_at = None
+                self.on_withheld()
             return None
         if self.manual_requested_at is not None:
             return "manual"

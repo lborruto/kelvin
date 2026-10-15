@@ -6,9 +6,12 @@ import pytest
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
+from kelvin.account import Account, AccountStore
 from kelvin.api.app import create_app
+from kelvin.api.context import boot, open_context
 from kelvin.config import Settings
-from kelvin.overkiz.fake import FakeGateway
+from kelvin.overkiz.budget import FULL_READS_PER_DAY
+from kelvin.overkiz.fake import DEMO_EMAIL, DEMO_PASSWORD, FakeGateway
 from kelvin.overkiz.sample import SAMPLE_GATEWAY
 from tests.conftest import ManualClock, err, login
 
@@ -180,3 +183,34 @@ async def test_setup_writes_are_logged_with_labels_not_ids(ctx):
     assert row["label"] == "Nouvelle pièce « Bureau »" and row["status"] == "confirmed"
     assert json.loads(row["radiator_ids"]) == []
     assert json.loads(row["commands"]) == [{"setup": "create_room", "steps": 1}]
+
+
+async def test_a_start_from_the_stored_setup_claims_no_full_read(tmp_path):
+    """Review T7-1: the sync line never claims a read that did not happen."""
+    clock = ManualClock(0.0)
+    AccountStore(tmp_path).save(Account(DEMO_EMAIL, DEMO_PASSWORD))
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    ctx = open_context(settings, FakeGateway(clock=clock), start_tasks=False, wall=clock)
+    try:
+        await boot(ctx)
+        assert ctx.rt.refresher.view()["last_full_at"] == 0.0  # the startup read
+        for _ in range(FULL_READS_PER_DAY - 1):
+            ctx.setup_reads.record()
+    finally:
+        await ctx.close()
+    clock.advance(3600)
+    gw = FakeGateway(clock=clock)
+    ctx = open_context(settings, gw, start_tasks=False, wall=clock)
+    try:
+        await boot(ctx)
+        view = ctx.rt.refresher.view()
+        assert gw.snapshots == 0
+        assert view["last_full_at"] is None and view["stale_since"] == clock.t
+    finally:
+        await ctx.close()
+
+
+async def test_features_name_is_bounded(ctx):
+    c, _, _ = ctx
+    r = await c.patch("/api/radiators/9312063/features", json={"name": "x" * 201})
+    assert r.status_code == 422 and r.json()["code"] == "invalid_request"

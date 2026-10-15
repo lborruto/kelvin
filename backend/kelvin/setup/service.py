@@ -24,7 +24,7 @@ from kelvin.labels import Label
 from kelvin.overkiz.errors import GatewayError, SetupNotFoundError
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import DeviceUpdate, PlaceEvent, SetupEvent, SetupPlace
-from kelvin.setup.validate import device_label, room_label
+from kelvin.setup.validate import clean_label, device_label, room_label
 
 log = logging.getLogger(__name__)
 
@@ -121,6 +121,9 @@ class SetupService:
         # Set by the runtime (Task 6): a place change Kelvin did not make; a write settled.
         self.on_outside_change: Callable[[], None] = lambda: None
         self.on_written: Callable[[], None] = lambda: None
+        # Set by the runtime: when « Synchroniser » can next read (« HH:MM »), for the answer
+        # to a label still waiting for Cozytouch.
+        self.next_sync_text: Callable[[], str | None] = lambda: None
         self._pending: dict[str, SetupPending] = {}
         self._recent: dict[str, tuple[float, SetupPending]] = {}
         self._lock = asyncio.Lock()
@@ -130,6 +133,11 @@ class SetupService:
         # lost): reserved until a full read shows the truth (`reconciled`). Casefolded.
         self._reserved: set[str] = set()
         self._missing: dict[str, float] = {}  # place oid -> when it answered 404
+        # Reserved labels whose place oid is known (a create that got its oid, a rename): one
+        # targeted read settles each, at the timeout and when a full read is withheld.
+        self._unsettled: dict[str, Step] = {}
+        self._settle_due = False
+        self._settle_final = False
 
     # --- state ---
 
@@ -142,17 +150,62 @@ class SetupService:
 
     @property
     def has_active(self) -> bool:
-        return bool(self._pending) or bool(self._lookups)
+        return bool(self._pending) or bool(self._lookups) or self._settle_due
 
     def reconciled(self) -> None:
         """A full read was applied to the house: it shows what the unconfirmed writes did."""
         self._reserved.clear()
+        self._unsettled.clear()
         self._missing.clear()
+
+    def settle_soon(self) -> None:
+        """The refresher withheld or failed its after-write read: settle the reserved labels
+        with targeted reads instead, and release them whatever those say (no reservation
+        waits a day for a full read)."""
+        if self._unsettled:
+            self._settle_due = True
+            self._settle_final = True
 
     def _reserve(self, p: SetupPending) -> None:
         for st in p.steps:
             if st.op in ("create", "rename") and not st.done:
-                self._reserved.add(st.want.casefold())
+                key = st.want.casefold()
+                self._reserved.add(key)
+                if st.target:
+                    self._unsettled[key] = st
+
+    def _release(self, key: str) -> None:
+        self._reserved.discard(key)
+        self._unsettled.pop(key, None)
+
+    async def _settle(self) -> bool:
+        """One targeted read per reserved label with a known place. Applied → the house has
+        it (taken for real); not applied → released when final, kept otherwise (Cozytouch may
+        still be applying it; the after-write full read, or a final settle, decides)."""
+        final, self._settle_due, self._settle_final = self._settle_final, False, False
+        changed = False
+        for key, st in list(self._unsettled.items()):
+            try:
+                place = await self.gateway.read_place(st.target)
+            except SetupNotFoundError:
+                if final:
+                    self._release(key)
+                continue
+            except GatewayError as e:
+                log.info("setup settle read failed (%s)", type(e).__name__)
+                continue
+            if place.label == st.want:
+                changed |= self.house.put_place(place, st.parent)
+                self._release(key)
+            elif final:
+                changed |= self.house.put_place(place, st.parent)
+                self._release(key)
+        return changed
+
+    def _check_reserved(self, raw: str) -> None:
+        s = clean_label(raw)
+        if s is not None and s.casefold() in self._reserved:
+            raise UserError("room_label_reserved", 409, label=s, at=self.next_sync_text())
 
     def _prune_recent(self) -> None:
         cutoff = self.clock() - RECENT_KEEP
@@ -181,7 +234,6 @@ class SetupService:
             for s in p.steps
             if s.op in ("create", "rename") and s.target != except_oid
         ]
-        labels += list(self._reserved)
         return labels
 
     def _new(
@@ -207,6 +259,7 @@ class SetupService:
 
     async def create_room(self, raw: str) -> SetupPending:
         label = room_label(raw, self._room_labels())
+        self._check_reserved(label)
         type_ = self.house.room_type()
         if type_ is None or self.house.root_oid is None:
             raise UserError("room_type_unknown", 409)
@@ -220,6 +273,7 @@ class SetupService:
         if oid == self.house.root_oid:
             raise UserError("room_protected", 409)
         label = room_label(raw, self._room_labels(except_oid=oid))
+        self._check_reserved(label)
         if label == self.house.places[oid].label.strip():
             raise UserError("nothing_to_change")
         self._busy({oid}, set())
@@ -538,6 +592,8 @@ class SetupService:
             self._judge(p)
         changed |= await self._lookup_places()
         self._timeouts()
+        if self._settle_due:
+            changed |= await self._settle()
         return changed
 
     async def _lookup_places(self) -> bool:
@@ -575,3 +631,5 @@ class SetupService:
                 "setup_no_confirmation",
                 reason_code=p.refusal[1] if p.refusal else None,
             )
+            if any(st.target for st in p.steps if st.op in ("create", "rename")):
+                self._settle_due = True  # one targeted read now; a 404 keeps the label
