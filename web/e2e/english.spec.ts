@@ -1,10 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { expect, test, type Page } from '@playwright/test';
 
 // Choosing the language (Plan 7, Task 16). The French suite stays the default (an fr-FR browser,
 // playwright.config.ts); these tests opt into English through the browser or the stored choice.
 test.describe.configure({ mode: 'serial' });
 
-const overflow = (page: import('@playwright/test').Page) =>
+const overflow = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
 
 test('an English browser with no stored choice boots in English, <html lang> from the first paint', async ({ browser }) => {
@@ -61,4 +62,73 @@ test('Home › Settings: Language switches without a reload and is remembered', 
   expect(await page.evaluate(() => document.documentElement.lang)).toBe('fr');
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
+});
+
+// The key flows in English (Plan 7, Task 18), from a stored choice on every navigation.
+test.describe('key flows in English', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('kelvin-locale', 'en'));
+  });
+
+  /** Waiting for "Sending…" first matters: a previous "Confirmed" lingers a few seconds. */
+  async function confirmed(page: Page) {
+    await expect(page.getByText('Sending…').first()).toBeVisible();
+    await expect(page.getByText('Confirmed').first()).toBeVisible();
+  }
+
+  test('<html lang> is English, and the Rooms page reads in English', async ({ page }) => {
+    await page.goto('/');
+    expect(await page.evaluate(() => document.documentElement.lang)).toBe('en');
+    await expect(page.getByRole('heading', { name: 'Rooms', level: 1 })).toBeVisible();
+    await expect(page.getByText(/^\d+ rooms · (\d+|none) heating/)).toBeVisible();
+    await expect(page).toHaveTitle('Rooms · Kelvin');
+  });
+
+  test('a mode change shows Sending… then Confirmed', async ({ page }) => {
+    await page.goto('/rooms/p-ch1');
+    const mode = page.getByRole('radiogroup', { name: 'Room mode' });
+    await mode.getByRole('radio', { name: 'Manual' }).click();
+    await confirmed(page);
+    await mode.getByRole('radio', { name: 'Schedule' }).click();
+    await confirmed(page);
+  });
+
+  test('Energy: the euro before the figure, English chart labels', async ({ page }) => {
+    await page.goto('/energy');
+    await expect(page.getByRole('heading', { name: 'Energy', level: 1 })).toBeVisible();
+    await expect(page.locator('.hero .big')).toHaveText(/^€[\d,]+(\.\d{2})?/);
+    await expect(page.locator('.hero .tag')).toHaveText('estimate');
+    // Month (the default view) draws day bars.
+    await expect(page.getByRole('img', { name: 'Home consumption by day' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Load curve, / })).toBeVisible();
+  });
+
+  test('Energy: the CSV follows the UI language, its headers stay French (Decision 30)', async ({ page }) => {
+    await page.goto('/energy');
+    await expect(page.getByRole('heading', { name: 'Energy', level: 1 })).toBeVisible();
+    // The previous month is complete in the simulator at any hour.
+    const label = page.locator('#period-label');
+    const month = (await label.textContent())!;
+    await page.getByRole('button', { name: 'Previous period' }).click();
+    await expect(label).not.toHaveText(month);
+    await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Export the period (CSV)' }).click()
+    ]);
+    expect(dl.suggestedFilename()).toMatch(/^energie_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}_day\.csv$/);
+    const rows = readFileSync((await dl.path())!, 'utf8').slice(1).split('\r\n');
+    expect(rows[0]).toBe(
+      'periode,debut,fin,maison_kwh,hc_kwh,hp_kwh,split_estime,radiateurs_kwh,radiateurs_interp,reste_kwh,energie_eur,abonnement_eur,total_eur,prix,jours_manquants,radiateurs_jusqu_au,radiateurs_couverture'
+    );
+    for (const r of rows.filter(Boolean)) expect(r.split(',')).toHaveLength(17); // no text cell of this file holds a comma
+    const total = rows.find((r) => r.startsWith('total,'))!;
+    expect(total.split(',')[3]).toMatch(/^\d+\.\d{3}$/); // maison_kwh: a decimal point, 3 decimals
+  });
+
+  test('a French bookmark lands on the English page, in English', async ({ page }) => {
+    await page.goto('/maison#tarif'); // legacy-path-test
+    await expect(page).toHaveURL(/\/home#tariff$/);
+    await expect(page.locator('#tariff h2')).toHaveText('Tariff');
+  });
 });
