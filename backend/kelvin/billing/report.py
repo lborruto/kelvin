@@ -20,10 +20,10 @@ from kelvin.billing.costs import (
     subscription_eur,
 )
 from kelvin.billing.power import power_stats
-from kelvin.billing.pricing import Pricing
+from kelvin.billing.pricing import COLOURS, Pricing
 from kelvin.billing.radiators import RadiatorDay
 from kelvin.billing.split import FallbackShares, Profile
-from kelvin.billing.tariff import PriceRow, Tariff
+from kelvin.billing.tariff import RATE_KEYS, PriceRow, Tariff
 from kelvin.linky.models import CurvePoint
 
 Group = Literal["day", "week", "month", "year"]
@@ -248,6 +248,22 @@ def radiator_shares(
         return {}
     cents = _allocate(list(exact.values()), radiator_cents(years, a, b))
     return dict(zip(exact, cents, strict=True))
+
+
+def _colour_counts(days: list[date], colours: dict[date, str]) -> dict[str, int]:
+    counts = {"blue": 0, "white": 0, "red": 0, "unknown": 0}
+    for d in days:
+        c = colours.get(d)
+        counts[c if c in COLOURS else "unknown"] += 1
+    return counts
+
+
+def _shown_parts(exact: dict[str, float], total: float, n: int) -> dict[str, float]:
+    """Parts rounded to `n` decimals that add up to `total` rounded to `n` (largest remainder,
+    spec §9.1-3): the shown kWh per rate add up to the shown kWh."""
+    keys = list(exact)
+    units = _allocate([max(exact[k], 0.0) for k in keys], round(total * 10**n))
+    return {k: u / 10**n for k, u in zip(keys, units, strict=True)}
 
 
 def _projected_price(days: list[DayEnergy], row: PriceRow) -> float | None:
@@ -503,6 +519,11 @@ class _Energy:
             else []
         )
         curve_days = [d for d in _days(a, b) if d in self.complete and self.day(d) is not None]
+        tempo_days = [d for d in counted if tariff is not None and tariff.option_on(d) == "tempo"]
+        by_rate: dict[str, float] = {}
+        for e in present:
+            for k, v in e.by_rate:
+                by_rate[k] = by_rate.get(k, 0.0) + v
         return {
             "kwh": _r(kwh),
             "hc_kwh": _r(hc),
@@ -511,12 +532,22 @@ class _Energy:
             "prices": [
                 {
                     "valid_from": p.valid_from.isoformat(),
+                    "option": p.option,
                     "subscription_eur_month": p.subscription_eur_month,
-                    "rates": {"hc": p.hc_eur_kwh, "hp": p.hp_eur_kwh},
+                    "rates": dict(p.rates),
                 }
                 for p in used
             ],
             "retro_priced": first_price is not None and any(e.day < first_price for e in present),
+            "retro_scheduled": tariff is not None
+            and any(tariff.retro_scheduled(d) for d in counted),
+            "tempo": _colour_counts(tempo_days, self.inp.colours) if tempo_days else None,
+            "by_rate": _shown_parts(dict(sorted(by_rate.items())), kwh or 0.0, 3)
+            if self.pricing
+            else None,
+            # Present days whose € is unknown for want of a Tempo colour: their kWh count, their €
+            # does not, so `energy_eur`/`eur` are the priced days' only (never a whole) — spec §2.2.
+            "missing_colour_days": sum(e.colour_missing for e in present),
             "present_days": len(present),
             "curve": self._curve(curve_days),
             "radiators_kwh": rad["kwh"] if rad else None,
@@ -566,6 +597,58 @@ class _Energy:
             "delta_price": _r(delta, 4),
         }
 
+    def tempo_lens(self, a: date, b: date) -> dict[str, Any] | None:
+        """Spec §3.2.6 under Tempo: kWh and € per colour and per off-peak/peak over [a, b), and
+        the Tempo days by colour. Each day is priced by its own row; unknown colours are counted
+        apart. None when no day of [a, b) is Tempo-priced. Shown parts add up: the kWh rows (and
+        the kWh without a colour) to the Tempo days' kWh, the € rows to the period's energy €
+        when every day of it is Tempo-priced and priced (else to their own total)."""
+        tariff = self.inp.tariff
+        if self.pricing is None or tariff is None or self.first is None or self.last is None:
+            return None
+        tempo_days = [
+            d
+            for d in _days(a, b)
+            if self.first <= d <= self.last and tariff.option_on(d) == "tempo"
+        ]
+        if not tempo_days:
+            return None
+        keys = RATE_KEYS["tempo"]
+        kwh = dict.fromkeys(keys, 0.0)
+        eur = dict.fromkeys(keys, 0.0)
+        unknown = 0.0
+        found = []
+        for d in tempo_days:
+            e = self.day(d)
+            if e is None:
+                continue
+            found.append(e)
+            row = self.pricing.row(d)
+            for k, v in e.by_rate:
+                if k in kwh:
+                    kwh[k] += v
+                    eur[k] += v * (row.rate(k) or 0.0)
+                else:
+                    unknown += v
+        shown = _shown_parts({**kwh, "unknown": unknown}, sum(e.kwh for e in found), 3)
+        _, present = self._present(a, b)
+        whole = (
+            len(found) == len(present)
+            and bool(present)
+            and all(e.energy_eur is not None for e in present)
+        )
+        energy = self.costs(a, b)[0] if whole else None
+        cents = round(energy * 100) if energy is not None else round(sum(eur.values()) * 100)
+        units = _allocate([eur[k] for k in keys], cents)
+        return {
+            "rows": [
+                {"key": k, "kwh": shown[k], "eur": u / 100}
+                for k, u in zip(keys, units, strict=True)
+            ],
+            "days": _colour_counts(tempo_days, self.inp.colours),
+            "unknown_kwh": shown["unknown"] if unknown > 0 else None,
+        }
+
     def _curve(self, days: list[date]) -> dict[str, Any] | None:
         """Curve figures over the complete curve days of a bucket (None without one)."""
         if not days:
@@ -593,6 +676,10 @@ class _Energy:
             "fallback_share": _r(share, 4),
             "fallback_method": overall.method if share is not None else None,
             "estimated_days": sum(e.estimated for e in present),
+            "missing_colour_days": sum(e.colour_missing for e in present),
+            "retro_scheduled_days": sum(
+                1 for e in present if tariff is not None and tariff.retro_scheduled(e.day)
+            ),
             "curve_vs_daily_pct": _r(sum(gaps) / len(gaps), 2) if gaps else None,
             "linky_since": self.since.isoformat() if self.since else None,
             "curve_since": self.inp.curve_since.isoformat() if self.inp.curve_since else None,
@@ -778,6 +865,7 @@ def build_report(
         "linky_since": en.since.isoformat() if en.since else None,
         "linky": en.last is not None,
         "tariff": inp.tariff is not None,
+        "option": inp.tariff.option_on(inp.today) if inp.tariff else None,
         "buckets": buckets,
         "total": en.summary(start, end),
         # The selected period, with its own quality facts (`quality` below is the window's, the
@@ -797,6 +885,7 @@ def build_report(
         "boundary_prorated": bool(inp.tariff) and any(m % 30 for m in inp.tariff.edges()),
         "quality": en.quality(start, end),  # the chart window (the Qualité strip's buckets)
         "hc_lens": en.hc_lens(p_from, p_to),
+        "tempo_lens": en.tempo_lens(p_from, p_to),
         "by_radiator": en.by_radiator(p_from, p_to),
         "projection": _projection(en, anchor)
         if en.last and (inp.today - en.last).days <= STALE_DAYS

@@ -128,6 +128,12 @@ async def test_a_stored_tempo_row_prices_every_route(api):
         "/api/energy", params={"from": "2026-11-01", "to": "2026-12-01", "group": "month"}
     )
     assert r.status_code == 200, r.text
+    nov = r.json()["buckets"][0]
+    # 10 and 11 November have no €: the month says so, and its € are the priced days' only.
+    assert nov["missing_colour_days"] == 2 and nov["tempo"]["unknown"] == 1
+    assert nov["energy_eur"] == pytest.approx(
+        sum(buckets[f"2026-11-{d:02d}"]["energy_eur"] or 0.0 for d in range(1, 20)), abs=1e-9
+    )
     assert any(x["eur"] is not None for x in r.json()["by_radiator"])
     r = await c.get("/api/linky/curve", params={"date": "2026-11-15"})
     assert r.status_code == 200 and r.json()["hc_kwh"] is not None

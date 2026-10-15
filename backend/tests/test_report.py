@@ -15,9 +15,19 @@ from kelvin.billing.report import (
     unit_start,
 )
 from kelvin.billing.slots import Slot
-from kelvin.billing.tariff import Prices, Tariff
+from kelvin.billing.tariff import (
+    ALL_MONTHS,
+    TARIFF_KEY,
+    HcSchedule,
+    HcVariant,
+    PriceRow,
+    Prices,
+    Tariff,
+    TariffStore,
+)
 from kelvin.linky.models import CurvePoint, day_bounds
 from kelvin.linky.service import LOOKBACK_DAYS, radiator_ranges
+from kelvin.recorder.db import Database
 
 PARIS = ZoneInfo("Europe/Paris")
 HALF = (Slot("00:00", "12:00"),)  # half of every hour-weighted flat day is off-peak
@@ -469,6 +479,7 @@ def test_l5_days_before_the_first_price_are_flagged():
     assert sep["prices"] == [
         {
             "valid_from": "2026-10-01",
+            "option": "hchp",
             "subscription_eur_month": 15.0,
             "rates": {"hc": 0.2, "hp": 0.3},
         }
@@ -1006,3 +1017,280 @@ def test_the_projection_reprices_the_trailing_rate_mix_at_today_s_row():
     other = PriceRow.make(date(2026, 1, 1), "base", 15.0, {"base": 0.19})
     assert _projected_price(days_, other) == pytest.approx(1.6 / 10)  # keys differ: mean price paid
     assert _projected_price([], row) is None
+
+
+TEMPO_RATES = {
+    "blue_hc": 0.1296,
+    "blue_hp": 0.1609,
+    "white_hc": 0.1486,
+    "white_hp": 0.1894,
+    "red_hc": 0.1568,
+    "red_hp": 0.7562,
+}
+
+
+def tempo_tariff() -> Tariff:
+    return Tariff.build(12, [PriceRow.make(date(2025, 9, 1), "tempo", 15.0, TEMPO_RATES)])
+
+
+def test_unknown_colours_are_counted_and_not_priced():
+    start, end = date(2026, 12, 1), date(2026, 12, 5)
+    daily = {d: 24_000 for d in days(start, end)}
+    curve = {d: flat(d, 24.0) for d in days(start, end)}
+    colours = {
+        date(2026, 11, 30): "blue",
+        date(2026, 12, 1): "white",
+        date(2026, 12, 2): "red",
+        date(2026, 12, 3): "blue",
+    }
+    r = build_report(
+        start, end, "day", inputs(daily, curve=curve, t=tempo_tariff(), colours=colours)
+    )
+    b = r["buckets"]
+    assert [x["tempo"] for x in b] == [
+        {"blue": 0, "white": 1, "red": 0, "unknown": 0},
+        {"blue": 0, "white": 0, "red": 1, "unknown": 0},
+        {"blue": 1, "white": 0, "red": 0, "unknown": 0},
+        {"blue": 0, "white": 0, "red": 0, "unknown": 1},
+    ]
+    assert b[0]["by_rate"] == {"blue_hc": 6.0, "white_hc": 2.0, "white_hp": 16.0}
+    assert b[0]["energy_eur"] == pytest.approx(round(6 * 0.1296 + 16 * 0.1894 + 2 * 0.1486, 2))
+    assert (b[3]["kwh"], b[3]["energy_eur"], b[3]["eur"], b[3]["missing_colour_days"]) == (
+        24.0,
+        None,
+        None,
+        1,
+    )
+    total = r["total"]
+    assert total["missing_colour_days"] == 1 and total["kwh"] == 96.0
+    assert total["energy_eur"] == pytest.approx(sum(x["energy_eur"] for x in b[:3]), abs=0.02)
+    assert r["option"] == "tempo" and r["quality"]["missing_colour_days"] == 1
+
+
+def test_tempo_lens_gives_six_rows_and_the_colour_days():
+    start, end = date(2026, 12, 1), date(2026, 12, 4)
+    daily = {d: 24_000 for d in days(start, end)}
+    curve = {d: flat(d, 24.0) for d in days(start, end)}
+    colours = {
+        date(2026, 11, 30): "blue",
+        date(2026, 12, 1): "white",
+        date(2026, 12, 2): "red",
+        date(2026, 12, 3): "blue",
+    }
+    r = build_report(
+        start,
+        end,
+        "day",
+        inputs(daily, curve=curve, t=tempo_tariff(), colours=colours),
+        period=(start, end),
+    )
+    lens = r["tempo_lens"]
+    assert lens["days"] == {"blue": 1, "white": 1, "red": 1, "unknown": 0}
+    rows = {x["key"]: x for x in lens["rows"]}
+    assert [x["key"] for x in lens["rows"]] == [
+        "blue_hc",
+        "blue_hp",
+        "white_hc",
+        "white_hp",
+        "red_hc",
+        "red_hp",
+    ]
+    assert (
+        rows["red_hp"]["kwh"] == 16.0 and rows["red_hc"]["kwh"] == 8.0
+    )  # 2 kWh after 22:00 + 6 kWh before 06:00 next day
+    assert (
+        rows["blue_hc"]["kwh"] == 8.0 and rows["blue_hp"]["kwh"] == 16.0
+    )  # 1 Dec before 06:00 (30 Nov blue) + 3 Dec after 22:00
+    assert rows["white_hc"]["kwh"] == 8.0 and rows["white_hp"]["kwh"] == 16.0
+    assert rows["red_hp"]["eur"] == pytest.approx(round(16 * 0.7562, 2))
+    assert lens["unknown_kwh"] is None
+    assert r["hc_lens"]["delta_price"] is None and r["hc_lens"]["hc_share"] == pytest.approx(
+        1 / 3, abs=1e-4
+    )
+    plain = build_report(
+        start, end, "day", inputs(daily, curve=curve, t=tariff()), period=(start, end)
+    )
+    assert plain["tempo_lens"] is None and {x["tempo"] for x in plain["buckets"]} == {None}
+
+
+def test_a_switch_to_tempo_prices_each_side_by_its_own_row():
+    t = Tariff.build(
+        12,
+        [
+            Prices(date(2025, 1, 1), 15.0, 0.2, 0.3),
+            PriceRow.make(date(2026, 11, 1), "tempo", 15.0, TEMPO_RATES),
+        ],
+        [HcSchedule(date(2025, 1, 1), (HcVariant(ALL_MONTHS, HALF),))],
+    )
+    start, end = date(2026, 10, 30), date(2026, 11, 3)
+    daily = {d: 24_000 for d in days(start, end)}
+    curve = {d: flat(d, 24.0) for d in days(start, end)}
+    colours = {date(2026, 10, 31): "blue", date(2026, 11, 1): "white", date(2026, 11, 2): "red"}
+    octo, nov = build_report(start, end, "month", inputs(daily, curve=curve, t=t, colours=colours))[
+        "buckets"
+    ]
+    assert octo["by_rate"] == {"hc": 24.0, "hp": 24.0} and octo["tempo"] is None
+    assert octo["energy_eur"] == pytest.approx(24 * 0.2 + 24 * 0.3)
+    assert nov["by_rate"] == {
+        "blue_hc": 6.0,
+        "red_hc": 2.0,
+        "red_hp": 16.0,
+        "white_hc": 8.0,
+        "white_hp": 16.0,
+    }
+    assert nov["tempo"] == {"blue": 0, "white": 1, "red": 1, "unknown": 0}
+    assert (nov["hc_kwh"], nov["hp_kwh"]) == (16.0, 32.0)
+    assert [set(p["rates"]) for p in nov["prices"]] == [set(TEMPO_RATES)]
+
+
+def test_the_migration_changes_no_figure():
+    v1 = {
+        "option": "hchp",
+        "kva": 9,
+        "hc_slots": [{"start": "22:00", "end": "06:00"}],
+        "prices": [
+            {
+                "valid_from": "2025-01-15",
+                "subscription_eur_month": 15.0,
+                "hc_eur_kwh": 0.2,
+                "hp_eur_kwh": 0.27,
+            },
+            {
+                "valid_from": "2026-08-01",
+                "subscription_eur_month": 15.5,
+                "hc_eur_kwh": 0.2068,
+                "hp_eur_kwh": 0.27,
+            },
+        ],
+    }
+    daily = {d: 10_000 for d in days(date(2026, 7, 1), date(2026, 10, 1))}
+    legacy = Tariff(
+        "hchp",
+        9,
+        (Slot("22:00", "06:00"),),
+        (
+            Prices(date(2025, 1, 15), 15.0, 0.2, 0.27),
+            Prices(date(2026, 8, 1), 15.5, 0.2068, 0.27),
+        ),
+    )
+    db = Database(":memory:")
+    db.set_setting(TARIFF_KEY, v1)
+    migrated = TariffStore(db).get()
+    a = build_report(date(2026, 7, 1), date(2026, 10, 1), "month", inputs(daily, t=legacy))
+    b = build_report(date(2026, 7, 1), date(2026, 10, 1), "month", inputs(daily, t=migrated))
+    assert a == b
+    sep = a["buckets"][2]
+    assert sep["energy_eur"] == pytest.approx(
+        100 * 0.2068 + 200 * 0.27
+    )  # a third off-peak, 30 × 10 kWh
+
+
+def test_base_buckets_have_euros_and_no_split():
+    t = Tariff.build(12, [PriceRow.make(date(2026, 1, 1), "base", 15.0, {"base": 0.1952})])
+    daily = {d: 10_000 for d in days(date(2026, 10, 1), date(2026, 10, 4))}
+    r = build_report(date(2026, 10, 1), date(2026, 10, 4), "month", inputs(daily, t=t))
+    [b] = r["buckets"]
+    assert (b["hc_kwh"], b["hp_kwh"], b["tempo"], b["estimated_split"]) == (None, None, None, False)
+    assert b["by_rate"] == {"base": 30.0} and b["energy_eur"] == pytest.approx(5.86)
+    assert r["hc_lens"] is None and r["option"] == "base"
+
+
+def test_a_bucket_mixing_base_and_split_days_has_no_hc_hp_but_all_its_euros():
+    t = Tariff.build(
+        12,
+        [
+            PriceRow.make(date(2026, 1, 1), "base", 15.0, {"base": 0.2}),
+            Prices(date(2026, 10, 3), 15.0, 0.2, 0.3),
+        ],
+        [HcSchedule(date(2026, 10, 3), (HcVariant(ALL_MONTHS, HALF),))],
+    )
+    daily = {d: 10_000 for d in days(date(2026, 10, 1), date(2026, 10, 5))}
+    [b] = build_report(date(2026, 10, 1), date(2026, 10, 5), "month", inputs(daily, t=t))["buckets"]
+    assert (b["hc_kwh"], b["hp_kwh"]) == (None, None)
+    assert b["energy_eur"] == pytest.approx(2 * 10 * 0.2 + 2 * (5 * 0.2 + 5 * 0.3))
+
+
+def test_days_before_the_first_schedule_are_retro_scheduled():
+    t = Tariff.build(
+        12,
+        [Prices(date(2025, 1, 1), 15.0, 0.2, 0.3)],
+        [HcSchedule(date(2026, 10, 10), (HcVariant(ALL_MONTHS, HALF),))],
+    )
+    daily = {d: 10_000 for d in days(date(2026, 10, 5), date(2026, 10, 12))}
+    r = build_report(date(2026, 10, 5), date(2026, 10, 12), "month", inputs(daily, t=t))
+    assert r["buckets"][0]["retro_scheduled"] is True
+    assert r["quality"]["retro_scheduled_days"] == 5
+
+
+def test_a_month_with_an_unknown_colour_never_reads_as_whole():
+    """Review of batch 2 (Important 1): December under Tempo, 12 December's colour unknown. The
+    12th and the 13th (00:00–06:00 is on the 12th's colour) have no €; the month's € adds the
+    priced days only and says how many days it leaves out."""
+    start, end = date(2026, 12, 1), date(2027, 1, 1)
+    daily = {d: 24_000 for d in days(start, end)}
+    curve = {d: flat(d, 24.0) for d in days(start, end)}
+    every = {d: ("blue", "white", "red")[d.day % 3] for d in days(date(2026, 11, 30), end)}
+    some = {d: c for d, c in every.items() if d != date(2026, 12, 12)}
+    full = build_report(
+        start, end, "month", inputs(daily, curve=curve, t=tempo_tariff(), colours=every, today=end)
+    )
+    part = build_report(
+        start, end, "month", inputs(daily, curve=curve, t=tempo_tariff(), colours=some, today=end)
+    )
+    by_day = build_report(
+        start, end, "day", inputs(daily, curve=curve, t=tempo_tariff(), colours=some, today=end)
+    )
+    [f], [m] = full["buckets"], part["buckets"]
+    assert f["missing_colour_days"] == 0 and m["missing_colour_days"] == 2
+    assert m["tempo"]["unknown"] == 1 and m["kwh"] == f["kwh"]
+    unpriced = [b["key"] for b in by_day["buckets"] if b["energy_eur"] is None]
+    assert unpriced == ["2026-12-12", "2026-12-13"]
+    priced = [b["energy_eur"] for b in by_day["buckets"] if b["energy_eur"] is not None]
+    assert m["energy_eur"] == pytest.approx(sum(priced), abs=1e-9)  # the days add up to the month
+    assert m["energy_eur"] < f["energy_eur"]
+    assert part["total"]["missing_colour_days"] == 2 and part["quality"]["missing_colour_days"] == 2
+    # The 12th from 06:00 (18 kWh) and the 13th before 06:00 (6 kWh) have no colour.
+    assert part["tempo_lens"]["unknown_kwh"] == pytest.approx(24.0)
+
+
+@settings(max_examples=60, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    wh=st.lists(st.integers(1, 60_000), min_size=1, max_size=5),
+    unknown=st.booleans(),
+)
+def test_shown_rate_parts_add_up_to_the_shown_kwh(wh, unknown):
+    start = date(2026, 12, 1)
+    span = list(days(start, start + timedelta(days=len(wh))))
+    daily = dict(zip(span, wh, strict=True))
+    curve = {
+        d: [CurvePoint(p.ts, 30, p.wh * (1 + (i % 7) / 3)) for i, p in enumerate(flat(d, 24.0))]
+        for d in span
+    }
+    colours = {
+        d: ("blue", "white", "red")[d.day % 3]
+        for d in days(date(2026, 11, 30), span[-1] + timedelta(days=1))
+    }
+    if unknown:
+        del colours[span[0]]
+    r = build_report(
+        start,
+        span[-1] + timedelta(days=1),
+        "month",
+        inputs(
+            daily,
+            curve=curve,
+            t=tempo_tariff(),
+            colours=colours,
+            today=span[-1] + timedelta(days=1),
+        ),
+        period=(start, span[-1] + timedelta(days=1)),
+    )
+    for b in [*r["buckets"], r["total"]]:
+        assert round(sum(b["by_rate"].values()) * 1000) == round(b["kwh"] * 1000)
+    lens = r["tempo_lens"]
+    shown = sum(x["kwh"] for x in lens["rows"]) + (lens["unknown_kwh"] or 0.0)
+    assert round(shown * 1000) == round(r["period"]["kwh"] * 1000)
+    if not unknown:
+        assert round(sum(x["eur"] for x in lens["rows"]) * 100) == round(
+            r["period"]["energy_eur"] * 100
+        )
