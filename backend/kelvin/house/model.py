@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import copy
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from statistics import mean
-from typing import Any
+from typing import Any, Literal
 
 from kelvin.overkiz.models import RawDevice, RawPlace, StateChange, iter_places
 
@@ -59,26 +61,75 @@ def _num(v: Any) -> float | None:
         return None
 
 
-def program_from_state(value: Any) -> dict[str, list[dict[str, str]]]:
-    """Overkiz TimeProgramState (list of one-key dicts) -> {day: [non-empty slots]}."""
+EMPTY_SLOT = {"start": "00:00", "end": "00:00"}
+_HHMM = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+LockReason = Literal["midnight", "unrecognised"]
+
+
+def _minutes(hhmm: str) -> int:
+    return int(hhmm[:2]) * 60 + int(hhmm[3:])
+
+
+def parse_day(slots: Any) -> tuple[list[dict[str, str]] | None, LockReason | None]:
+    """One day of `core:TimeProgramState` → (comfort slots sorted by start, lock).
+
+    `00:00–00:00` is the device's empty marker. `X–00:00` with X ≠ 00:00 reads as « until
+    midnight » (`24:00`, ruling 3) and locks the day: nothing ever wrote one, so Kelvin shows it
+    but never edits it. Anything else Kelvin cannot read whole locks the day as unrecognised
+    (slots None): it is shown as such and re-sent exactly as read (spec QW8)."""
+    if not isinstance(slots, list):
+        return None, "unrecognised"
+    parsed: list[tuple[int, int, dict[str, str]]] = []
+    midnight = False
+    for s in slots:
+        if not (
+            isinstance(s, dict)
+            and set(s) == {"start", "end"}
+            and all(isinstance(s[k], str) and _HHMM.match(s[k]) for k in ("start", "end"))
+        ):
+            return None, "unrecognised"
+        if s == EMPTY_SLOT:
+            continue
+        a, b, end = _minutes(s["start"]), _minutes(s["end"]), s["end"]
+        if b == 0:
+            b, end, midnight = 1440, "24:00", True
+        if a >= b:
+            return None, "unrecognised"
+        parsed.append((a, b, {"start": s["start"], "end": end}))
+    parsed.sort(key=lambda p: p[0])
+    if len(parsed) > 3 or any(y[0] < x[1] for x, y in zip(parsed, parsed[1:], strict=False)):
+        return None, "unrecognised"
+    return [p[2] for p in parsed], ("midnight" if midnight else None)
+
+
+def parse_program(value: Any) -> tuple[dict[str, list[dict[str, str]]], dict[str, LockReason]]:
+    """Overkiz TimeProgramState (a list of one-key dicts) → (readable days, locked days)."""
     if not isinstance(value, list):
-        return {}
-    merged: dict[str, list[dict[str, str]]] = {}
+        return {}, {}
+    program: dict[str, list[dict[str, str]]] = {}
+    locked: dict[str, LockReason] = {}
     for entry in value:
         if not isinstance(entry, dict):
             continue
         for day, slots in entry.items():
-            if not isinstance(slots, list):
+            if day not in DAY_ORDER:
                 continue
-            merged[day] = [
-                {"start": s["start"], "end": s["end"]}
-                for s in slots
-                if isinstance(s, dict)
-                and isinstance(s.get("start"), str)
-                and isinstance(s.get("end"), str)
-                and not (s["start"] == "00:00" and s["end"] == "00:00")
-            ]
-    return {d: merged[d] for d in DAY_ORDER if d in merged}
+            parsed, lock = parse_day(slots)
+            program.pop(day, None)
+            locked.pop(day, None)
+            if parsed is not None:
+                program[day] = parsed
+            if lock is not None:
+                locked[day] = lock
+    order = {d: i for i, d in enumerate(DAY_ORDER)}
+    return (
+        dict(sorted(program.items(), key=lambda kv: order[kv[0]])),
+        dict(sorted(locked.items(), key=lambda kv: order[kv[0]])),
+    )
+
+
+def program_from_state(value: Any) -> dict[str, list[dict[str, str]]]:
+    return parse_program(value)[0]
 
 
 @dataclass
@@ -198,7 +249,21 @@ class Radiator:
 
     @property
     def program(self) -> dict[str, list[dict[str, str]]]:
-        return program_from_state(self.get("heater", "core:TimeProgramState"))
+        return parse_program(self.get("heater", "core:TimeProgramState"))[0]
+
+    @property
+    def program_locked(self) -> dict[str, LockReason]:
+        return parse_program(self.get("heater", "core:TimeProgramState"))[1]
+
+    def raw_day(self, day: str) -> dict[str, Any] | None:
+        """That day's entry exactly as the radiator reported it (re-sent for a locked day)."""
+        value = self.get("heater", "core:TimeProgramState")
+        found = None
+        if isinstance(value, list):
+            for entry in value:
+                if isinstance(entry, dict) and day in entry:
+                    found = {day: copy.deepcopy(entry[day])}
+        return found
 
     @property
     def reachable(self) -> bool | None:
@@ -251,6 +316,7 @@ class Radiator:
             "unreachable_since": self.unreachable_since,
             "last_event_at": self.last_event_at,
             "program": self.program,
+            "program_locked": self.program_locked,
         }
 
 

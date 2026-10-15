@@ -20,6 +20,21 @@ WEEK_PROGRAM = [
     {day: copy.deepcopy(WEEKEND_SLOTS if day in ("saturday", "sunday") else WEEKDAY_SLOTS)}
     for day in DAYS
 ]
+
+# Chambre 1's programme holds one day Kelvin cannot read (four comfort slots) and one day ending
+# at midnight (spec §10.2, QW8): both are shown, locked, and re-sent as read. Invented.
+CH1_PROGRAM = [
+    *copy.deepcopy(WEEK_PROGRAM[:5]),
+    {
+        "saturday": [
+            {"start": "08:00", "end": "10:00"},
+            {"start": "11:00", "end": "13:00"},
+            {"start": "14:00", "end": "16:00"},
+            {"start": "18:00", "end": "22:00"},
+        ]
+    },
+    {"sunday": [{"start": "20:00", "end": "00:00"}, dict(EMPTY_SLOT), dict(EMPTY_SLOT)]},
+]
 HEATER_COMMANDS = [
     "setOperatingMode",
     "setTargetTemperature",
@@ -47,6 +62,7 @@ def _heater(
     eco: float,
     level: str,
     effective: float,
+    program: list | None = None,
 ) -> RawDevice:
     states: dict[str, Any] = {
         "core:NameState": "Radiateur",
@@ -65,7 +81,7 @@ def _heater(
         "core:OccupancyActivationState": "inactive",
         "io:CurrentWorkingRateState": 0.0,
         "core:RSSILevelState": 100.0,
-        "core:TimeProgramState": copy.deepcopy(WEEK_PROGRAM),
+        "core:TimeProgramState": copy.deepcopy(program or WEEK_PROGRAM),
     }
     return RawDevice(
         f"{SAMPLE_GATEWAY}/{rid}#1",
@@ -175,6 +191,7 @@ def sample_house() -> tuple[RawPlace, list[RawDevice]]:
             eco=3.5,
             level="off",
             effective=19.0,
+            program=CH1_PROGRAM,
         ),
         *_sensors("8370011", "p-ch1", 18.9, (2_050_000, 950_000, 1_100_000)),
         _heater(

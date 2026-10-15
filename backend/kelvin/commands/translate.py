@@ -131,8 +131,16 @@ def normalize_program(week: Week) -> list[Week]:
 
 
 def plan_program(r: Radiator, week: dict[str, list[dict[str, str]]]) -> Planned:
+    """Locked days (a midnight end, a shape Kelvin cannot read) are never written from the
+    payload: each is re-sent exactly as this radiator reported it (spec QW8)."""
     _require(r, r.heater_url, "setTimeProgram")
-    payload = normalize_program(week)
+    locked = r.program_locked
+    payload = normalize_program({d: v for d, v in week.items() if d not in locked})
+    if locked:
+        payload = [
+            (r.raw_day(day) or entry) if (day := next(iter(entry))) in locked else entry
+            for entry in payload
+        ]
     return _one(r.heater_url, "setTimeProgram", (payload,), "core:TimeProgramState", payload)
 
 

@@ -1,0 +1,117 @@
+"""Programme days Kelvin cannot edit (spec QW8, ruling 3) and the changed-elsewhere guard."""
+
+import copy
+
+import pytest
+
+from kelvin.commands.translate import plan_program
+from kelvin.house.model import build_house, parse_day, parse_program
+from kelvin.overkiz.sample import SAMPLE_GATEWAY, WEEK_PROGRAM, sample_house
+from tests.test_api import ctx, settle  # noqa: F401  (the API fixture)
+
+E = {"start": "00:00", "end": "00:00"}
+
+
+def test_a_midnight_end_reads_as_24_00_and_locks_the_day():
+    slots, lock = parse_day([{"start": "22:00", "end": "00:00"}, E, E])
+    assert (slots, lock) == ([{"start": "22:00", "end": "24:00"}], "midnight")
+
+
+@pytest.mark.parametrize(
+    "slots",
+    [
+        "garbage",
+        None,
+        [{"start": "25:00", "end": "26:00"}],
+        [{"start": "08:00"}],
+        [{"start": "08:00", "end": "09:00", "mode": "x"}],
+        [{"start": 8, "end": "09:00"}],
+        [None, {"start": "06:00", "end": "08:00"}],
+        [{"start": "09:00", "end": "08:00"}],
+        [{"start": "06:00", "end": "08:00"}, {"start": "07:00", "end": "09:00"}],
+        [{"start": f"{h:02d}:00", "end": f"{h:02d}:30"} for h in (6, 8, 10, 12)],
+    ],
+)
+def test_unrecognised_shapes_lock_the_day(slots):
+    assert parse_day(slots) == (None, "unrecognised")
+
+
+def test_empty_markers_are_not_slots_and_slots_come_sorted():
+    assert parse_day([E, E, E]) == ([], None)
+    got = parse_day([{"start": "17:30", "end": "22:30"}, {"start": "06:15", "end": "08:00"}, E])
+    assert got == ([{"start": "06:15", "end": "08:00"}, {"start": "17:30", "end": "22:30"}], None)
+
+
+def test_parse_program_keeps_readable_days_and_lists_locked_ones():
+    value = copy.deepcopy(WEEK_PROGRAM)
+    value[4] = {"friday": [{"start": "22:00", "end": "00:00"}, E, E]}
+    value[5] = {"saturday": [{"start": "aa", "end": "bb"}]}
+    program, locked = parse_program(value)
+    assert locked == {"friday": "midnight", "saturday": "unrecognised"}
+    assert program["friday"] == [{"start": "22:00", "end": "24:00"}]
+    assert "saturday" not in program
+    assert program["monday"] == [
+        {"start": "06:15", "end": "08:00"},
+        {"start": "17:30", "end": "22:30"},
+    ]
+    assert parse_program(None) == ({}, {})
+
+
+def _house_with(day: str, slots):
+    root, devices = sample_house()
+    url = f"{SAMPLE_GATEWAY}/9312063#1"
+    heater = next(d for d in devices if d.device_url == url)
+    prog = heater.states["core:TimeProgramState"]
+    i = next(i for i, e in enumerate(prog) if day in e)
+    prog[i] = {day: slots}
+    return build_house(root, devices).radiators["9312063"]
+
+
+def test_a_locked_day_is_resent_byte_for_byte_whatever_the_payload_says():
+    raw = [{"start": "06:00", "end": "07:00"}, {"start": "06:30", "end": "09:00"}, E, {"x": 1}]
+    r = _house_with("friday", raw)
+    assert r.program_locked == {"friday": "unrecognised"}
+    week = {
+        "monday": [{"start": "07:00", "end": "09:00"}],
+        "friday": [{"start": "10:00", "end": "11:00"}],
+    }
+    payload = plan_program(r, week).commands[0].parameters[0]
+    assert payload[4] == {"friday": raw}
+    assert payload[0] == {"monday": [{"start": "07:00", "end": "09:00"}, E, E]}
+    assert payload[1] == {"tuesday": [E, E, E]}  # a readable day left out has no slot, as before
+
+
+def test_a_midnight_day_is_resent_as_read_and_24_00_is_never_written():
+    raw = [{"start": "20:00", "end": "00:00"}, E, E]
+    r = _house_with("sunday", raw)
+    payload = plan_program(r, {"sunday": []}).commands[0].parameters[0]
+    assert payload[6] == {"sunday": raw}
+    with pytest.raises(ValueError):
+        plan_program(
+            _house_with("sunday", [E, E, E]), {"sunday": [{"start": "20:00", "end": "24:00"}]}
+        )
+
+
+async def test_each_radiator_keeps_its_own_locked_day(ctx):  # noqa: F811
+    c, rt, clock = ctx
+    gw = rt.gateway
+    a, b = f"{SAMPLE_GATEWAY}/14172536#1", f"{SAMPLE_GATEWAY}/9312063#1"
+    odd = copy.deepcopy(WEEK_PROGRAM)
+    odd[4] = {"friday": [{"start": "21:00", "end": "00:00"}, E, E]}
+    gw.push_state(a, "core:TimeProgramState", odd)
+    await settle(rt, clock)
+    week = {d: [{"start": "07:00", "end": "08:00"}] for d in ("monday", "friday")}
+    r = await c.put("/api/rooms/p-salon/program", json=week)
+    assert r.status_code == 202, r.text
+    sent = {cmd.device_url: cmd.parameters[0] for cmd in gw.executed[-1]}
+    assert sent[a][4] == {"friday": [{"start": "21:00", "end": "00:00"}, E, E]}
+    assert sent[b][4] == {"friday": [{"start": "07:00", "end": "08:00"}, E, E]}
+    assert sent[a][0] == sent[b][0] == {"monday": [{"start": "07:00", "end": "08:00"}, E, E]}
+
+
+def test_the_simulator_has_a_midnight_day_and_an_unrecognised_day():
+    root, devices = sample_house()
+    r = build_house(root, devices).radiators["8370011"]
+    assert r.program_locked == {"saturday": "unrecognised", "sunday": "midnight"}
+    assert r.view()["program"]["sunday"] == [{"start": "20:00", "end": "24:00"}]
+    assert r.view()["program_locked"] == {"saturday": "unrecognised", "sunday": "midnight"}
