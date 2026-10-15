@@ -13,7 +13,7 @@
       "params": {}
     },
     "day_unknown": {
-      "fr": "Jour inconnu : funday.",
+      "fr": "Jour inconnu : funday.",
       "params": {
         "day": "funday"
       }
@@ -23,7 +23,7 @@
       "params": {}
     },
     "feature_unknown": {
-      "fr": "Fonction inconnue : turbo.",
+      "fr": "Fonction inconnue : turbo.",
       "params": {
         "feature": "turbo"
       }
@@ -37,7 +37,7 @@
       "params": {}
     },
     "intensity_range": {
-      "fr": "L’intensité doit être comprise entre 1 et 100 %.",
+      "fr": "L’intensité doit être comprise entre 1 et 100 %.",
       "params": {}
     },
     "invalid_request": {
@@ -49,7 +49,7 @@
       "params": {}
     },
     "linky_quota": {
-      "fr": "Quota Linky du jour atteint : réessayez demain.",
+      "fr": "Quota Linky du jour atteint : réessayez demain.",
       "params": {}
     },
     "linky_refused": {
@@ -57,7 +57,7 @@
       "params": {}
     },
     "linky_status_auth": {
-      "fr": "MyElectricalData refuse le jeton : renouvelez-le dans Réglages.",
+      "fr": "MyElectricalData refuse le jeton : renouvelez-le dans Réglages.",
       "params": {}
     },
     "linky_status_error": {
@@ -65,17 +65,17 @@
       "params": {}
     },
     "linky_status_quota": {
-      "fr": "Quota Linky du jour atteint : reprise demain.",
+      "fr": "Quota Linky du jour atteint : reprise demain.",
       "params": {}
     },
     "linky_status_throttled": {
-      "fr": "Enedis limite les requêtes : nouvel essai à 14:30.",
+      "fr": "Enedis limite les requêtes : nouvel essai à 14:30.",
       "params": {
         "at": "14:30"
       }
     },
     "linky_throttled": {
-      "fr": "Enedis limite les requêtes : réessayez plus tard.",
+      "fr": "Enedis limite les requêtes : réessayez plus tard.",
       "params": {}
     },
     "linky_unavailable": {
@@ -95,7 +95,7 @@
       "params": {}
     },
     "mode_unknown": {
-      "fr": "Mode inconnu : turbo.",
+      "fr": "Mode inconnu : turbo.",
       "params": {
         "mode": "turbo"
       }
@@ -149,13 +149,13 @@
       "params": {}
     },
     "program_overlap": {
-      "fr": "mardi : des plages se chevauchent.",
+      "fr": "mardi : des plages se chevauchent.",
       "params": {
         "day": "tuesday"
       }
     },
     "program_slot_invalid": {
-      "fr": "lundi : la plage 10:00–09:00 est invalide.",
+      "fr": "lundi : la plage 10:00–09:00 est invalide.",
       "params": {
         "day": "monday",
         "end": "09:00",
@@ -163,14 +163,14 @@
       }
     },
     "program_time_invalid": {
-      "fr": "lundi : heure invalide « 25:00 » (format HH:MM).",
+      "fr": "lundi : heure invalide « 25:00 » (format HH:MM).",
       "params": {
         "day": "monday",
         "value": "25:00"
       }
     },
     "program_too_many": {
-      "fr": "dimanche : 3 plages confort au maximum.",
+      "fr": "dimanche : 3 plages confort au maximum.",
       "params": {
         "day": "sunday"
       }
@@ -196,15 +196,15 @@
       "params": {}
     },
     "send_failed": {
-      "fr": "Envoi impossible : timeout",
+      "fr": "Envoi impossible : timeout.",
       "params": {}
     },
     "send_internal": {
-      "fr": "Envoi impossible : erreur interne.",
+      "fr": "Envoi impossible : erreur interne.",
       "params": {}
     },
     "setpoint_kind_unknown": {
-      "fr": "Type de consigne inconnu : turbo.",
+      "fr": "Type de consigne inconnu : turbo.",
       "params": {
         "kind": "turbo"
       }
@@ -214,7 +214,7 @@
       "params": {}
     },
     "slot_time_invalid": {
-      "fr": "Heure invalide : 24:00 (format HH:MM).",
+      "fr": "Heure invalide : 24:00 (format HH:MM).",
       "params": {
         "value": "24:00"
       }
@@ -236,7 +236,7 @@
       "params": {}
     },
     "temp_range": {
-      "fr": "La température confort doit être comprise entre 12 et 28 °C.",
+      "fr": "La température confort doit être comprise entre 12 et 28 °C.",
       "params": {
         "kind": "comfort",
         "max": 28.0,
@@ -244,7 +244,7 @@
       }
     },
     "temp_step": {
-      "fr": "L’abaissement éco se règle par pas de 0,5 °C.",
+      "fr": "L’abaissement éco se règle par pas de 0,5 °C.",
       "params": {
         "kind": "eco"
       }
@@ -254,7 +254,7 @@
       "params": {}
     },
     "too_many_attempts": {
-      "fr": "Trop de tentatives. Réessayez dans 15 min.",
+      "fr": "Trop de tentatives. Réessayez dans 15 min.",
       "params": {
         "minutes": 15
       }
@@ -264,7 +264,7 @@
       "params": {}
     },
     "unsupported_command": {
-      "fr": "Ce radiateur ne prend pas en charge « setName ».",
+      "fr": "Ce radiateur ne prend pas en charge « setName ».",
       "params": {
         "command": "setName"
       }

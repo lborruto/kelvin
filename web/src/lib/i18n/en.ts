@@ -359,7 +359,7 @@ export const en: Messages = {
     slider: 'Share of your peak use moved to off-peak',
     valueText: (pct: number) => `${pct}%`,
     result: (pct: number, kwh: string, eur: string) => `If ${pct}% of your peak use (${kwh}) were off-peak: ${eur}, for the same consumption.`,
-    formula: (pct: number, hp: string, delta: string, eur: string) => `${pct}% × ${hp} × €${delta}/kWh = ${eur}`,
+    formula: (pct: number, hp: string, delta: string, eur: string) => `${pct}% × ${hp} × ${delta} = ${eur}`,
     caveat: 'Based on your prices and your consumption, not a guaranteed saving.'
   },
   heatingPanel: {
@@ -706,7 +706,7 @@ export const en: Messages = {
     radiator_unknown_id: () => 'Unknown radiator in the request.',
     end_in_past: () => 'The end must be in the future.',
     unsupported_command: (p: ApiParams) => `This radiator doesn’t support “${p.command}”.`,
-    temp_range: (p: ApiParams) => `${subject(p.kind)} must be between ${p.min} and ${p.max}${NB}°C.`,
+    temp_range: (p: ApiParams) => `${subject(p.kind)} must be between ${String(p.min).replace(/^-/, '−')} and ${String(p.max).replace(/^-/, '−')}${NB}°C.`,
     temp_step: (p: ApiParams) => `${subject(p.kind)} goes in steps of 0.5${NB}°C.`,
     mode_unknown: (p: ApiParams) => `Unknown mode: ${p.mode}.`,
     setpoint_kind_unknown: (p: ApiParams) => `Unknown setpoint type: ${p.kind}.`,

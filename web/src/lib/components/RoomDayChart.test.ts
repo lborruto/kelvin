@@ -144,3 +144,22 @@ it('in English: the legend and the readout’s field names', () => {
   expect([...container.querySelectorAll('.readout .field dt')].map((d) => d.textContent)).toEqual(['Radiators', 'Temperature', 'Setpoint']);
   expect(container.querySelector('.readout')!.textContent).toContain('no radiator recorded at this time');
 });
+
+describe('°C axis ticks', () => {
+  const cold: RoomSample[] = Array.from({ length: 12 }, (_, k) => ({ ts: t0 + k * 300, temperature: k < 6 ? -5 : 3, setpoint: -2, working_rate: 0 }));
+  const ticks = (c: HTMLElement) => [...c.querySelectorAll('text.tick-t')].map((e) => e.textContent!);
+
+  it('French: the true minus below 0 °C', () => {
+    applyLocale('fr');
+    const t = ticks(render(RoomDayChart, { ...props, samples: cold }).container);
+    expect(t.some((x) => x.startsWith('\u2212'))).toBe(true);
+    expect(t.join('')).not.toContain('-');
+  });
+
+  it('English: the true minus too', () => {
+    applyLocale('en');
+    const t = ticks(render(RoomDayChart, { ...props, samples: cold }).container);
+    expect(t.some((x) => x.startsWith('\u2212'))).toBe(true);
+    expect(t.join('')).not.toContain('-');
+  });
+});

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { HcLens } from '$lib/api/types';
-  import { fmtAmount, fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
+  import { fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
   import { m } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
   import { shiftValue } from '$lib/power';
@@ -52,7 +52,7 @@
         <label for="{uid}-shift">{m.hcHp.slider}</label>
         <input id="{uid}-shift" type="range" min="0" max="50" step="5" aria-valuetext={m.hcHp.valueText(pct)} bind:value={pct} />
         <p class="line num">{m.hcHp.result(pct, fmtKwhExact((pct / 100) * hpKwh), fmtSigned(-value, '€'))}</p>
-        <p class="muted note num">{m.hcHp.formula(pct, fmtKwhExact(hpKwh), fmtAmount(lens.delta_price, 4), fmtEurExact(value))}</p>
+        <p class="muted note num">{m.hcHp.formula(pct, fmtKwhExact(hpKwh), fmtPrice(lens.delta_price), fmtEurExact(value))}</p>
       </div>
       <p class="muted note">{m.hcHp.caveat}</p>
     {/if}

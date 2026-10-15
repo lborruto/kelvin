@@ -3,7 +3,7 @@
   import Scrubber from './Scrubber.svelte';
   import type { EnergyInterval, RoomSample } from '$lib/api/types';
   import { SERIES } from '$lib/energy';
-  import { fmtTemp, fmtTime, fmtWh } from '$lib/format';
+  import { fmtTemp, fmtTempTick, fmtTime, fmtWh } from '$lib/format';
   import { heatColor } from '$lib/heat';
   import { locale, m } from '$lib/i18n';
   import { intervalLabel, roomInterval } from '$lib/inspector';
@@ -161,7 +161,7 @@
         <text class="tick-w" x={AXIS - 6} y={yW(t)} dy="0.32em">{whole.format(t)}</text>
       {/each}
       {#each yT.ticks(3) as t (t)}
-        <text class="tick-t" x={W - AXIS + 6} y={yT(t)} dy="0.32em">{whole.format(t)}</text>
+        <text class="tick-t" x={W - AXIS + 6} y={yT(t)} dy="0.32em">{fmtTempTick(t)}</text>
       {/each}
       {#each rows as r, i (intervals[i].ts)}
         {#if r.wh != null && r.wh > 0}

@@ -22,6 +22,8 @@ const MODE_NAME: Record<string, string> = { off: 'Arrêt', manual: 'Manuel', pro
 const KIND: Record<string, string> = { manual: 'consigne', comfort: 'confort', eco: 'abaissement éco' };
 /** A number as the backend writes it in a label (Python `{:g}` with a comma): 19,5 — 12. */
 const num = (v: unknown) => String(v).replace('.', ',');
+/** A bound as the backend writes it in `temp_range` (decimal comma, true minus). */
+const bound = (v: unknown) => num(v).replace(/^-/, '−');
 /** Why a command could not be sent (the pending's reason_code, backend gateway_error_code). */
 const REASON: Record<string, string> = {
   quota: 'limite de requêtes Cozytouch atteinte',
@@ -373,7 +375,7 @@ export const fr = {
     valueText: (pct: number) => `${pct}${NB}%`,
     result: (pct: number, kwh: string, eur: string) =>
       `Si ${pct}${NB}% de vos HP (${kwh}) étaient en HC${NB}: ${eur}, à consommation identique.`,
-    formula: (pct: number, hp: string, delta: string, eur: string) => `${pct}${NB}% × ${hp} × ${delta}${NB}€/kWh = ${eur}`,
+    formula: (pct: number, hp: string, delta: string, eur: string) => `${pct}${NB}% × ${hp} × ${delta} = ${eur}`,
     caveat: 'Calcul sur vos prix et votre consommation, pas une économie garantie.'
   },
   heatingPanel: {
@@ -729,7 +731,7 @@ export const fr = {
     radiator_unknown_id: () => 'Radiateur inconnu dans la demande.',
     end_in_past: () => 'La fin doit être dans le futur.',
     unsupported_command: (p: ApiParams) => `Ce radiateur ne prend pas en charge «${NB}${p.command}${NB}».`,
-    temp_range: (p: ApiParams) => `${subject(p.kind)} doit être comprise entre ${p.min} et ${p.max}${NB}°C.`,
+    temp_range: (p: ApiParams) => `${subject(p.kind)} doit être comprise entre ${bound(p.min)} et ${bound(p.max)}${NB}°C.`,
     temp_step: (p: ApiParams) => `${subject(p.kind)} se règle par pas de 0,5${NB}°C.`,
     mode_unknown: (p: ApiParams) => `Mode inconnu${NB}: ${p.mode}.`,
     setpoint_kind_unknown: (p: ApiParams) => `Type de consigne inconnu${NB}: ${p.kind}.`,

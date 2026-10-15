@@ -108,7 +108,7 @@ async def test_send_error_fails_immediately(env):
     gw.fail_next_execute = GatewayError("réseau")
     r = house.radiators["9312063"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
-    assert p.status == "failed" and p.error == "Envoi impossible : réseau"
+    assert p.status == "failed" and p.error == "Envoi impossible : réseau."
     assert (p.error_code, p.error_params, p.reason_code) == (
         "send_failed",
         {},
@@ -333,5 +333,5 @@ async def test_gateway_text_reaches_the_french_error_scrubbed_and_never_the_para
     r = house.radiators["9312063"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     v = p.view()
-    assert v["error"] == "Envoi impossible : connect to …; serial … …"
+    assert v["error"] == "Envoi impossible : connect to …; serial … …."
     assert (v["error_code"], v["error_params"], v["reason_code"]) == ("send_failed", {}, "network")

@@ -35,6 +35,13 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Registre 1 / Registre 2 (radiator meters) | Register 1 / Register 2 | T1/T2 are the radiator’s registers, not off-peak/peak |
 | Pointe (moyenne sur 30 min) | Max power (30-min average) | Never “Peak”, which is HP |
 | Talon (veille) | Base load | |
+| Reste (de la maison) | Rest (of the home) | The meter minus the radiators; compact « Reste » → “Rest” |
+| Consommation de fond | Background use | The floor under a day’s curve (“background use ≈ 1.2 kWh”); not « talon », which is the base load row |
+| Couverture | Coverage | Radiator-days measured over radiator-days that existed |
+| Relevé (journalier) | (Daily) reading | A meter or Linky reading; « pas de relevé » → “no reading” |
+| Écart | Gap | Between two figures (“measurement gap”, “curve / reading gap”) |
+| Jour comparable | Comparable day | |
+| Qualité | Quality | The Énergie section; the longer « Qualité des données » is “Data quality” |
 | Qualité des données | Data quality | |
 | Comparaisons | Comparisons | |
 | Abonnement (€/mois) | Standing charge (€/month) | |

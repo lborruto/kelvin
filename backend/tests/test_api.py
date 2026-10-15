@@ -61,7 +61,7 @@ async def test_room_mode_roundtrip(ctx):
 async def test_radiator_setpoint_validation_is_french(ctx):
     c, _, _ = ctx
     r = await c.post("/api/radiators/9312063/setpoint", json={"kind": "manual", "value": 21.3})
-    assert r.status_code == 422 and "0,5 °C" in r.json()["detail"]
+    assert r.status_code == 422 and "0,5 °C" in r.json()["detail"]
 
 
 async def test_unknown_ids_404(ctx):
@@ -389,7 +389,7 @@ async def test_validation_errors_carry_invalid_request_and_the_field(ctx):
     assert r.status_code == 422
     body = r.json()
     assert (body["code"], body["params"]) == ("invalid_request", {"field": "mode"})
-    assert body["detail"].startswith("Requête invalide : mode — ")
+    assert body["detail"].startswith("Requête invalide : mode — ")
 
 
 async def test_route_errors_answer_with_code_and_params(ctx):
@@ -399,7 +399,7 @@ async def test_route_errors_answer_with_code_and_params(ctx):
     week = {"monday": [{"start": f"0{i}:00", "end": f"0{i}:30"} for i in range(4)]}
     r = await c.put(f"/api/rooms/{salon_id(rt)}/program", json=week)
     assert r.status_code == 422 and r.json() == err("program_too_many", day="monday")
-    assert r.json()["detail"] == "lundi : 3 plages confort au maximum."
+    assert r.json()["detail"] == "lundi : 3 plages confort au maximum."
     r = await c.delete("/api/overrides/nope")
     assert r.status_code == 404 and r.json() == err("override_not_found")
     rt.quotas = None

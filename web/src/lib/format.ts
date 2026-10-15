@@ -63,6 +63,11 @@ export function fmtTemp(v: number | null | undefined, unit = true): string {
   return unit ? `${s}${NB}°C` : s;
 }
 
+/** A whole-degree axis tick, no unit: "20", "−5" (the true minus below 0 °C). */
+export function fmtTempTick(v: number): string {
+  return signed(whole(), v);
+}
+
 export function fmtDelta(v: number | null | undefined): string {
   if (bad(v)) return '—';
   const a = Math.abs(v);

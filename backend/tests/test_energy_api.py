@@ -281,7 +281,7 @@ async def test_linky_settings_errors_are_french(api, caplog):
     rt.linky.sync.budget = rt.linky.sync.calls_today()
     r = await c.put("/api/settings/linky", json={"prm": PRM, "token": TOKEN})
     assert r.status_code == 429
-    assert r.json()["detail"] == "Quota Linky du jour atteint : réessayez demain."
+    assert r.json()["detail"] == "Quota Linky du jour atteint : réessayez demain."
     r = await c.put("/api/settings/linky", json={"prm": "123", "token": TOKEN})
     assert r.status_code == 422 and r.json()["detail"] == "Le PDL compte 14 chiffres."
     arabic = "\u0661" * 14  # Unicode digits that are not ASCII

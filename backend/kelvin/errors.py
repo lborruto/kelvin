@@ -39,7 +39,7 @@ TEMPLATES: dict[str, str] = {
     "cozytouch_unreachable": "Cozytouch injoignable, réessayez dans un instant.",
     "cozytouch_unavailable": "Cozytouch injoignable, réessayez plus tard.",
     "quotas_unavailable": "Quotas indisponibles.",
-    "too_many_attempts": "Trop de tentatives. Réessayez dans {minutes} min.",
+    "too_many_attempts": "Trop de tentatives. Réessayez dans {minutes} min.",
     "not_found": "Introuvable.",
     "method_not_allowed": "Méthode non autorisée.",
     "invalid_request": "Requête invalide.",
@@ -54,23 +54,23 @@ TEMPLATES: dict[str, str] = {
     "radiator_unknown_id": "Radiateur inconnu dans la demande.",
     "end_in_past": "La fin doit être dans le futur.",
     # Command validation
-    "unsupported_command": "Ce radiateur ne prend pas en charge « {command} ».",
-    "temp_range": "{subject} doit être comprise entre {min:g} et {max:g} °C.",
-    "temp_step": "{subject} se règle par pas de 0,5 °C.",
-    "mode_unknown": "Mode inconnu : {mode}.",
-    "setpoint_kind_unknown": "Type de consigne inconnu : {kind}.",
-    "program_time_invalid": "{day_fr} : heure invalide « {value} » (format HH:MM).",
-    "day_unknown": "Jour inconnu : {day}.",
-    "program_too_many": "{day_fr} : 3 plages confort au maximum.",
-    "program_slot_invalid": "{day_fr} : la plage {start}–{end} est invalide.",
-    "program_overlap": "{day_fr} : des plages se chevauchent.",
-    "feature_unknown": "Fonction inconnue : {feature}.",
+    "unsupported_command": "Ce radiateur ne prend pas en charge « {command} ».",
+    "temp_range": "{subject} doit être comprise entre {min_fr} et {max_fr} °C.",
+    "temp_step": "{subject} se règle par pas de 0,5 °C.",
+    "mode_unknown": "Mode inconnu : {mode}.",
+    "setpoint_kind_unknown": "Type de consigne inconnu : {kind}.",
+    "program_time_invalid": "{day_fr} : heure invalide « {value} » (format HH:MM).",
+    "day_unknown": "Jour inconnu : {day}.",
+    "program_too_many": "{day_fr} : 3 plages confort au maximum.",
+    "program_slot_invalid": "{day_fr} : la plage {start}–{end} est invalide.",
+    "program_overlap": "{day_fr} : des plages se chevauchent.",
+    "feature_unknown": "Fonction inconnue : {feature}.",
     "no_night_light": "Ce radiateur n’a pas de veilleuse.",
     "intensity_light_off": "L’intensité ne peut être réglée que veilleuse allumée.",
-    "intensity_range": "L’intensité doit être comprise entre 1 et 100 %.",
+    "intensity_range": "L’intensité doit être comprise entre 1 et 100 %.",
     "name_length": "Le nom doit faire entre 1 et 32 caractères.",
     # Tariff
-    "slot_time_invalid": "Heure invalide : {value} (format HH:MM).",
+    "slot_time_invalid": "Heure invalide : {value} (format HH:MM).",
     "slots_none": "Indiquez au moins une plage d’heures creuses.",
     "slots_too_many": "Trois plages d’heures creuses au maximum.",
     "slot_empty": "Une plage d’heures creuses ne peut pas être vide.",
@@ -85,17 +85,17 @@ TEMPLATES: dict[str, str] = {
     "period_invalid": "Période invalide.",
     "pdl_invalid": "Le PDL compte 14 chiffres.",
     "token_missing": "Collez le jeton MyElectricalData.",
-    "linky_quota": "Quota Linky du jour atteint : réessayez demain.",
+    "linky_quota": "Quota Linky du jour atteint : réessayez demain.",
     "linky_refused": "MyElectricalData refuse ce PDL ou ce jeton.",
-    "linky_throttled": "Enedis limite les requêtes : réessayez plus tard.",
+    "linky_throttled": "Enedis limite les requêtes : réessayez plus tard.",
     "med_unreachable": "MyElectricalData injoignable, réessayez plus tard.",
-    "linky_status_auth": "MyElectricalData refuse le jeton : renouvelez-le dans Réglages.",
-    "linky_status_quota": "Quota Linky du jour atteint : reprise demain.",
+    "linky_status_auth": "MyElectricalData refuse le jeton : renouvelez-le dans Réglages.",
+    "linky_status_quota": "Quota Linky du jour atteint : reprise demain.",
     "linky_status_error": "Synchronisation Linky en échec.",
-    "linky_status_throttled": "Enedis limite les requêtes : nouvel essai à {at}.",
+    "linky_status_throttled": "Enedis limite les requêtes : nouvel essai à {at}.",
     # Pending failures
-    "send_failed": "Envoi impossible : {reason}",
-    "send_internal": "Envoi impossible : erreur interne.",
+    "send_failed": "Envoi impossible : {reason}.",
+    "send_internal": "Envoi impossible : erreur interne.",
     "radiator_refused": "Le radiateur a refusé la commande.",
     "no_confirmation": "Pas de confirmation du radiateur.",
 }
@@ -122,6 +122,11 @@ SAMPLES: dict[str, dict[str, Any]] = {
 STATUS_CODES = ("auth", "network", "quota", "unknown")
 
 
+def french_number(v: Any) -> str:
+    """A figure as the French copy writes it: shortest form, decimal comma, true minus (−7,5)."""
+    return f"{v:g}".replace(".", ",").replace("-", "\u2212")
+
+
 def french(code: str, params: dict[str, Any]) -> str:
     """The French text of `code`. A `day` param (a key) reads as the French day name, a `kind`
     param (manual, comfort, eco) as the subject of the sentence."""
@@ -130,6 +135,9 @@ def french(code: str, params: dict[str, Any]) -> str:
         extra["day_fr"] = DAY_FR.get(str(params["day"]), str(params["day"]))
     if "kind" in params:
         extra["subject"] = KIND_SUBJECT_FR.get(str(params["kind"]), str(params["kind"]))
+    for bound in ("min", "max"):
+        if bound in params:
+            extra[f"{bound}_fr"] = french_number(params[bound])
     return TEMPLATES[code].format(**params, **extra)
 
 
@@ -153,7 +161,7 @@ class UserError(ValueError):
 def invalid_request_detail(field: str, msg: str) -> str:
     """The French detail of a request pydantic refused. Its message is English and technical:
     it stays in `detail` only (the web shows the field)."""
-    return f"Requête invalide : {field} — {msg}" if field else TEMPLATES["invalid_request"]
+    return f"Requête invalide\u00a0: {field} — {msg}" if field else TEMPLATES["invalid_request"]
 
 
 # Third-party text (a gateway's error message) may hold addresses, ids and secrets. `scrub`

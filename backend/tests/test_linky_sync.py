@@ -318,7 +318,7 @@ async def test_budget_exhaustion_keeps_progress_and_resumes(env):
     sync = LinkySync(store, db, fake, wall=clock, budget=3)
     assert await sync.run_once() == 3
     assert sync.status()["state"] == "quota"
-    assert sync.status()["message"] == "Quota Linky du jour atteint : reprise demain."
+    assert sync.status()["message"] == "Quota Linky du jour atteint : reprise demain."
     assert len(store.daily()) == 365
     newest = store.complete_curve_days(date(2026, 9, 14), date(2026, 10, 14))
     assert len(newest) == 14 and max(newest) == date(2026, 10, 13)  # the two newest chunks
@@ -365,7 +365,7 @@ async def test_auth_error_stops_until_a_new_source(env):
     assert sync.status()["state"] == "auth"
     assert (
         sync.status()["message"]
-        == "MyElectricalData refuse le jeton : renouvelez-le dans Réglages."
+        == "MyElectricalData refuse le jeton : renouvelez-le dans Réglages."
     )
     clock.advance(86400)
     fake.calls.clear()

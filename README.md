@@ -14,7 +14,7 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
 - **Truthful commands.** A change counts as done only when the radiator reports the new state.
   Pending, confirmed and failed are shown as such, including Overkiz's misleading
   `OVERRIDEMODE_ERROR` on commands that did apply.
-- **Control:** off, manual, programme; setpoint; the weekly programme editor (the radiators'
+- **Control:** off, manual, schedule; setpoint; the weekly schedule editor (the radiators'
   own three slots a day); boost a room for a few hours; away for the whole house. Boost and away
   restore what was there before.
 - **History:** temperature and setpoint per room, a 24-hour thermal strip, radiator energy from
@@ -25,8 +25,8 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   change stays unknown until it moves again.
 - **Energy:** whole-home consumption from Linky (through MyElectricalData) by day, ISO week,
   month or year, with a period navigator. Every bar, half-hour and figure shows its exact value on
-  hover, tap or keyboard: HC/HP, radiators and the rest of the home, energy and subscription €,
-  the prices applied. A half-hour scrubber with power and price, peak and base load, the HC/HP
+  hover, tap or keyboard: off-peak/peak, radiators and the rest of the home, energy and standing charge €,
+  the prices applied. A half-hour scrubber with power and price, max power and base load, the off-peak/peak
   share, the radiators' share and cost, per room and per radiator (energy, €, temperature,
   heating hours), a room's temperature against its heating, comparisons on comparable days only,
   a month and a 365-day projection, a data-quality panel, and a CSV export of what is shown
@@ -192,7 +192,7 @@ Early (0.x). Kelvin is developed against one installation: Sauter IPALA H and HE
 on io-homecontrol, with a Cozytouch bridge. Other heaters on the Atlantic group's Cozytouch
 server may work but are untested. The UI is in French and English (French by default; switch in
 Home › Settings, or on the sign-in screen). The Linky bill estimate supports the
-HC/HP option.
+off-peak/peak option.
 
 ## Licence
 

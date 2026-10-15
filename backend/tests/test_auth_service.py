@@ -140,7 +140,7 @@ async def test_blocked_ip_gets_429_even_with_the_stored_password_or_a_wrong_emai
         with pytest.raises(LoginRefused) as e:
             await login(ctx, email, pw, IP)
         assert e.value.status == 429
-        assert e.value.message == "Trop de tentatives. Réessayez dans 15 min."
+        assert e.value.message == "Trop de tentatives. Réessayez dans 15 min."
         assert (e.value.code, e.value.params) == ("too_many_attempts", {"minutes": 15})
     assert gw.checks == checks
 

@@ -155,3 +155,14 @@ describe('English copy: one term per condition', () => {
     ]);
   });
 });
+
+describe('temp_range bounds', () => {
+  it('French: decimal comma and true minus, as the backend detail', () => {
+    expect(call(fr.api, 'temp_range', { kind: 'comfort', min: 7.5, max: 28 })).toBe('La température confort doit être comprise entre 7,5 et 28\u00a0°C.');
+    expect(call(fr.api, 'temp_range', { kind: 'eco', min: -2, max: 8 })).toContain('entre \u22122 et 8');
+  });
+  it('English: a point and a true minus', () => {
+    expect(call(en.api, 'temp_range', { kind: 'comfort', min: 7.5, max: 28 })).toContain('between 7.5 and 28');
+    expect(call(en.api, 'temp_range', { kind: 'eco', min: -2, max: 8 })).toContain('between \u22122 and 8');
+  });
+});

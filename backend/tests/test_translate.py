@@ -105,14 +105,14 @@ def test_normalize_program_pads_sorts_and_orders_days():
     ],
 )
 def test_normalize_program_rejects_invalid(slots):
-    with pytest.raises(CommandError, match="^lundi : "):
+    with pytest.raises(CommandError, match="^lundi : "):
         normalize_program({"monday": slots})
 
 
 def test_normalize_program_errors_name_the_day_in_french():
-    with pytest.raises(CommandError, match="^dimanche : 3 plages"):
+    with pytest.raises(CommandError, match="^dimanche : 3 plages"):
         normalize_program({"sunday": [{"start": f"0{i}:00", "end": f"0{i}:30"} for i in range(4)]})
-    with pytest.raises(CommandError, match="^mercredi : heure invalide"):
+    with pytest.raises(CommandError, match="^mercredi : heure invalide"):
         normalize_program({"wednesday": [{"start": "8h", "end": "9h"}]})
 
 
@@ -231,7 +231,7 @@ def test_command_errors_carry_codes_and_key_params(r):
     with pytest.raises(CommandError) as e:
         plan_setpoint(r, "eco", 9.0)
     assert (e.value.code, e.value.params) == ("temp_range", {"kind": "eco", "min": 1.0, "max": 8.0})
-    assert str(e.value) == "L’abaissement éco doit être comprise entre 1 et 8 °C."
+    assert str(e.value) == "L’abaissement éco doit être comprise entre 1 et 8 °C."
     with pytest.raises(CommandError) as e:
         plan_mode(r, "turbo")
     assert (e.value.code, e.value.params) == ("mode_unknown", {"mode": "turbo"})

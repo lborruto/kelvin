@@ -5,7 +5,7 @@ The design Plan 7 implements, kept for its inventory, codes and reasoning. The l
 codes, exported to `web/src/lib/i18n/api-codes.json`). Counts and line references below are the
 2026-10-14 snapshot.
 
-Status: design, not implemented. Written against branch `feat/polish` on 2026-10-14, read-only. A UI polish batch
+Status: was a design, now implemented by Plan 7 (2026-10-14). Written against branch `feat/polish` on 2026-10-14, read-only. A UI polish batch
 is landing at the same time, so every count and line below is a snapshot. The plan (§10) re-extracts strings
 with a script instead of trusting this list.
 

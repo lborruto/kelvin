@@ -59,3 +59,21 @@ it('in English: off-peak share, prices with € first, the slider and its senten
   expect(t).toContain('10% × 254.30 kWh × €0.0632/kWh = €1.61');
   expect(screen.getByRole('slider', { name: 'Share of your peak use moved to off-peak' })).toHaveAttribute('aria-valuetext', '10%');
 });
+
+describe('a negative price difference (off-peak dearer than peak)', () => {
+  const dear = { ...lens, delta_price: -0.07 };
+
+  it('French: the sign leads the figure', () => {
+    applyLocale('fr');
+    const { container } = render(HcHpPanel, { lens: dear, tariff: true, hpKwh: 254.3, });
+    expect(text(container)).toContain('10 % × 254,30 kWh × −0,0700 €/kWh = ');
+  });
+
+  it('English: the sign comes before the euro, as in fmtPrice', () => {
+    applyLocale('en');
+    const { container } = render(HcHpPanel, { lens: dear, tariff: true, hpKwh: 254.3 });
+    const t = text(container);
+    expect(t).toContain('10% × 254.30 kWh × −€0.0700/kWh = ');
+    expect(t).not.toContain('€−');
+  });
+});
