@@ -155,6 +155,8 @@ export const fr = {
     windowDetection: 'Détection de fenêtre ouverte',
     presenceDetection: 'Détection de présence',
     nightLight: 'Veilleuse',
+    brightness: 'Intensité',
+    brightnessLabel: 'Intensité de la veilleuse',
     identify: 'Faire clignoter'
   },
   days: {
@@ -702,6 +704,7 @@ export const fr = {
     program: (p: ApiParams) => `${p.name}${NB}: programme`,
     settings: (p: ApiParams) => `${p.name}${NB}: réglages`,
     night_light: (p: ApiParams) => `${p.name}${NB}: veilleuse ${p.on ? 'allumée' : 'éteinte'}`,
+    night_light_intensity: (p: ApiParams) => `${p.name}${NB}: veilleuse à ${p.intensity}${NB}%`,
     identify: (p: ApiParams) => `${p.name}${NB}: identification`,
     boost: (p: ApiParams) => `${p.name}${NB}: forcé à ${num(p.temperature)}${NB}°C`,
     away: (p: ApiParams) => `Absence à ${num(p.temperature)}${NB}°C`,

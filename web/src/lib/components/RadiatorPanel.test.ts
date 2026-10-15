@@ -104,3 +104,16 @@ it('in English: facts, toggles and actions', () => {
   expect(screen.getByRole('button', { name: 'Blink' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Rename' })).toBeInTheDocument();
 });
+
+describe('night-light slider placement', () => {
+  it('only while the light is on and reports its brightness', () => {
+    const a = render(RadiatorPanel, { radiator: { ...radiator, light: { on: false, intensity: 1 } }, showControls: false });
+    expect(screen.queryByRole('slider')).toBeNull();
+    a.unmount();
+    const b = render(RadiatorPanel, { radiator: { ...radiator, light: { on: true, intensity: null } }, showControls: false });
+    expect(screen.queryByRole('slider')).toBeNull();
+    b.unmount();
+    render(RadiatorPanel, { radiator: { ...radiator, light: { on: true, intensity: 30 } }, showControls: false });
+    expect(screen.getByRole('slider', { name: 'Intensité de la veilleuse' })).toBeInTheDocument();
+  });
+});

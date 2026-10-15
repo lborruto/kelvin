@@ -551,3 +551,25 @@ async def test_activity_and_duty_read_the_runtime_clock(tmp_path):
             p = {"start": pinned - 7 * 86400, "end": pinned + 86400}  # end clamped to the clock
             win = (await c.get(f"/api/rooms/{ch1}/activity", params=p)).json()["window"]
             assert win and max(w["end"] for w in win) <= pinned
+
+
+async def test_light_intensity_has_its_label_and_expected_value(ctx):
+    c, rt, clock = ctx
+    rid = "8370011"
+    r = await c.post(f"/api/radiators/{rid}/light", json={"on": True, "intensity": 40})
+    p = r.json()["pending"]
+    assert (p["label_code"], p["label_params"]) == (
+        "night_light_intensity",
+        {"name": "Radiateur", "intensity": 40},
+    )
+    assert p["label"] == "Radiateur : veilleuse à 40 %"
+    assert p["expected"][rid]["light_intensity"] == 40
+    await settle(rt, clock)
+    light = rt.house.radiators[rid].view()["light"]
+    assert light == {"on": True, "intensity": 40}
+
+
+async def test_intensity_with_the_light_off_is_refused(ctx):
+    c, _, _ = ctx
+    r = await c.post("/api/radiators/8370011/light", json={"on": False, "intensity": 40})
+    assert (r.status_code, r.json()["code"]) == (422, "intensity_light_off")

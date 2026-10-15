@@ -149,6 +149,8 @@ export const en: Messages = {
     windowDetection: 'Open-window detection',
     presenceDetection: 'Presence detection',
     nightLight: 'Night light',
+    brightness: 'Brightness',
+    brightnessLabel: 'Night-light brightness',
     identify: 'Blink'
   },
   days: {
@@ -677,6 +679,7 @@ export const en: Messages = {
     program: (p: ApiParams) => `${p.name}: schedule`,
     settings: (p: ApiParams) => `${p.name}: settings`,
     night_light: (p: ApiParams) => `${p.name}: night light ${p.on ? 'on' : 'off'}`,
+    night_light_intensity: (p: ApiParams) => `${p.name}: night light at ${p.intensity}%`,
     identify: (p: ApiParams) => `${p.name}: blink`,
     boost: (p: ApiParams) => `${p.name}: boost to ${p.temperature}${NB}°C`,
     away: (p: ApiParams) => `Away at ${p.temperature}${NB}°C`,

@@ -102,3 +102,11 @@ the setup once over the budget (at most once per 24 h). It never sends `states/r
   radiators in off mode: 0 errors; only `core:TemperatureState` changes (8 events from 2
   devices), median gap ≈ 900 s, max 3000 s; no energy, tariff counter, working-rate or
   running-state events. The heating-time cadence remains unverified.
+
+## Night-light brightness (unverified, 2026-10-14)
+
+Kelvin's slider sends `on` then `setIntensity(<1–100>)` to the `DimmerLight` device (`#6`) and
+treats the command as done when `core:LightIntensityState` reports the value (both names are in
+the real capability dump). No real radiator was written to verify this (owner rule): until the
+owner uses it and the state is seen to follow, a slider change that the state never confirms
+ends as « Pas de confirmation du radiateur ». Record the observed behaviour here when it is known.

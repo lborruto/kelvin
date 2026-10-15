@@ -324,6 +324,13 @@
         "on": true
       }
     },
+    "night_light_intensity": {
+      "fr": "Salon : veilleuse à 40 %",
+      "params": {
+        "intensity": 40,
+        "name": "Salon"
+      }
+    },
     "program": {
       "fr": "Salon : programme",
       "params": {

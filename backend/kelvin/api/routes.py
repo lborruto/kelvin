@@ -285,7 +285,11 @@ async def radiator_features(rid: str, body: FeaturesBody, request: Request):
 async def radiator_light(rid: str, body: LightBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
-    label = Label.of("night_light", name=r.name, on=body.on)
+    label = (
+        Label.of("night_light_intensity", name=r.name, intensity=body.intensity)
+        if body.intensity is not None
+        else Label.of("night_light", name=r.name, on=body.on)
+    )
     return await _submit(rt, label, [r], lambda x: plan_light(x, body.on, body.intensity))
 
 

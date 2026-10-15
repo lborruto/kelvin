@@ -59,6 +59,7 @@ export interface Expected {
   target?: number;
   comfort?: number;
   eco_delta?: number;
+  light_intensity?: number;
 }
 
 export type PendingStatus = 'sending' | 'pending' | 'confirmed' | 'failed' | 'superseded';

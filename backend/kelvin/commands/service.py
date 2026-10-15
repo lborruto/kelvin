@@ -79,11 +79,12 @@ _EXPECTED_KEYS = {
     "core:TargetTemperatureState": "target",
     "core:ComfortRoomTemperatureState": "comfort",
     "core:EcoRoomTemperatureState": "eco_delta",
+    "core:LightIntensityState": "light_intensity",
 }
 
 
 def expected_by_radiator(house: House, planned: Planned) -> dict[str, dict[str, Any]]:
-    """What the UI may show as 'pending' per radiator: mode/target/comfort/eco_delta."""
+    """What the UI may show as 'pending' per radiator (`_EXPECTED_KEYS`)."""
     out: dict[str, dict[str, Any]] = {}
     for e in planned.expectations:
         key = _EXPECTED_KEYS.get(e.name)

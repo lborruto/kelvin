@@ -7,6 +7,7 @@
   import { heatColor } from '$lib/heat';
   import { house } from '$lib/stores/house.svelte';
   import Icon from './Icon.svelte';
+  import LightSlider from './LightSlider.svelte';
   import ModeSwitch from './ModeSwitch.svelte';
   import Stepper from './Stepper.svelte';
   import Toggle from './Toggle.svelte';
@@ -87,6 +88,7 @@
     {#if radiator.light}
       <Toggle label={m.radiator.nightLight} checked={radiator.light.on} pending={busy('light')} disabled={!house.online}
         onchange={(v) => toggle('light', () => api.radiatorLight(radiator.id, v))} />
+      {#if radiator.light.on && radiator.light.intensity != null}<LightSlider {radiator} />{/if}
     {/if}
   </div>
   <button type="button" class="btn btn-ghost identify" aria-disabled={!house.online}
