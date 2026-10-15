@@ -28,6 +28,15 @@ const seen = (c: HTMLElement) =>
     .replace(/\s+/g, ' ');
 
 describe('RoomDayChart', () => {
+  it('names its three marks in a legend, and only when something was measured', () => {
+    const { container, unmount } = render(RoomDayChart, props);
+    expect([...container.querySelectorAll('.legend li')].map((l) => l.textContent)).toEqual(['Radiateurs de la pièce', 'Température', 'Consigne']);
+    unmount();
+    const empty = render(RoomDayChart, { ...props, intervals: [iv(0, null), iv(1, null)], samples: [] });
+    expect(screen.getByText('Pas de relevé pour cette pièce ce jour-là.')).toBeInTheDocument();
+    expect(empty.container.querySelector('.legend')).toBeNull();
+  });
+
   it('draws the room’s radiator energy as bars, unknown half-hours as nothing, on two labelled axes', () => {
     const { container } = render(RoomDayChart, props);
     expect(container.querySelectorAll('rect.bar')).toHaveLength(2); // 100 and 250 Wh; 0 Wh draws nothing, null too

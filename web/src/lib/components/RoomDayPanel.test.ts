@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EnergyDay } from '$lib/api/types';
 import { house } from '$lib/stores/house.svelte';
@@ -76,6 +77,28 @@ describe('RoomDayPanel', () => {
     const { container } = render(RoomDayPanel, { ...base, day: day(null), room: null, onroom: vi.fn() });
     expect(screen.getByText('Aucune pièce avec un radiateur.')).toBeInTheDocument();
     expect(container.querySelector('section')).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it('a chosen room that loses its radiators gives way to the first room, in the picker and in the day asked for', async () => {
+    const onroom = vi.fn();
+    const r = render(RoomDayPanel, { ...base, day: day('chambre'), room: 'chambre', onroom });
+    expect((screen.getByRole('combobox', { name: 'Pièce' }) as HTMLSelectElement).value).toBe('chambre');
+    expect(onroom).not.toHaveBeenCalled();
+    // A live house update: Chambre has no radiator any more.
+    house.applySnapshot({
+      house: { rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a'] }, { id: 'chambre', name: 'Chambre', radiator_ids: [] }] as never, radiators: [] as never },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
+    });
+    await tick();
+    expect(onroom).toHaveBeenCalledExactlyOnceWith('salon');
+    const select = screen.getByRole('combobox', { name: 'Pièce' }) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual(['Salon']);
+    expect(select.value).toBe('salon');
+    r.unmount();
+    // Desktop: the Segmented checks the first room as well.
+    media.desktop.matches = true;
+    render(RoomDayPanel, { ...base, day: day('salon'), room: 'chambre', onroom: vi.fn() });
+    expect(screen.getByRole('radio', { name: 'Salon' })).toBeChecked();
   });
 
   it('lists only rooms with a radiator', () => {

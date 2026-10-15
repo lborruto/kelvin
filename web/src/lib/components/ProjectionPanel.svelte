@@ -21,13 +21,13 @@
     base: (v: string, to: string | null) =>
       `Base : ${v} par jour, moyenne des jours relevés parmi les 30 jours ${to ? `jusqu’au ${to}` : 'les plus récents'} (7 au moins)`,
     method: {
-      linear: 'appliquée telle quelle à chaque jour à venir (pas encore un an d’historique)',
+      linear: 'appliquée telle quelle à chaque jour à venir (trop peu de jours relevés l’an dernier pour l’ajuster par mois)',
       seasonal: 'ajustée chaque mois selon le même mois de l’an dernier, rapporté aux mêmes 30 jours de l’an dernier',
       mixed: 'ajustée selon le même mois de l’an dernier quand il est connu, telle quelle sinon'
     },
     price: (p: string, d: string) => `Prix moyen ${p} : prix du ${d} pondérés par votre part d’heures creuses sur ces 30 jours`,
     monthHow: 'Mois en cours : jours mesurés, plus la base pour chaque jour restant ou manquant',
-    subscription: 'Abonnement compris, au tarif d’aujourd’hui.',
+    subscription: 'Abonnement compris\u00a0: au tarif de chaque jour pour les jours mesurés, au tarif d’aujourd’hui pour les jours à venir.',
     none: 'Pas encore assez de jours relevés pour une projection.',
     late: (d: string) => `Relevés Linky en retard (dernier jour le ${d}) : pas de projection.`,
     monthsCaption: 'Projection des 12 prochains mois (estimation)',

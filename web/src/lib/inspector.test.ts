@@ -235,6 +235,9 @@ describe('half-hour readout (spec §3.2.4)', () => {
     const all = dayOf('2026-10-14');
     const r = readInterval(all[0], { intervals: all, tariff: true, samples });
     expect(r.rows.at(-1)).toMatchObject({ key: 'temperature', value: `19,3${NB}°C · consigne 20,0${NB}°C` });
+    expect(r.rows.at(-1)).toMatchObject({ label: 'Température' });
+    // The Courbe names the room whose temperature it reads.
+    expect(readInterval(all[0], { intervals: all, tariff: true, samples, room: 'Salon' }).rows.at(-1)).toMatchObject({ label: 'Température (Salon)' });
   });
 });
 

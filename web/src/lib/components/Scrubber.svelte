@@ -63,10 +63,13 @@
   {onkeydown}></div>
 
 <style>
-  /* Over the whole plot: the full column height is the hit area, the nearest interval wins. */
+  /* Over the whole plot and 12 px past its top and bottom, so a finger just off the bars still scrubs; only x picks
+     the interval (the nearest wins). Above the readout's margin and the axis labels, never over a control; vertical
+     drags still scroll the page (pan-y). */
   .scrub {
     position: absolute;
-    inset: 0;
+    inset: -12px 0;
+    z-index: 1;
     touch-action: pan-y;
     cursor: crosshair;
     border-radius: 4px;

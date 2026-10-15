@@ -117,14 +117,49 @@
     padding-top: 12px;
     border-top: 1px solid var(--line);
   }
-  /* A 44 px tall target; the thumb and track take the ink (no new colour). */
+  /* A 44 px tall target. The track takes the field line (3:1 on the panel in both themes), the thumb the ink:
+     no new colour. The global focus ring stays. */
   input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
     display: block;
     width: 100%;
     height: 44px;
+    min-height: 44px;
     margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
     accent-color: var(--tx);
     background: none;
+    cursor: pointer;
+  }
+  input[type='range']::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--field-line);
+  }
+  input[type='range']::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--field-line);
+  }
+  input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -6px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--tx);
+  }
+  input[type='range']::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--tx);
   }
   a {
     color: var(--tx);

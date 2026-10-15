@@ -24,6 +24,18 @@
     noWeek: 'Pas de courbe complète cette semaine.',
     failed: 'Courbe du jour indisponible.'
   } as const;
+  /** The skeleton's stand-in texts: never shown (transparent, aria-hidden), they only give the bars a complete
+   * day's line breaks, so the skeleton wraps as the figures will at every width. */
+  const GHOST = {
+    peak: fmtW(6840),
+    when: COPY.range('19:00', '19:30'),
+    kva: COPY.kva(12),
+    share: COPY.share(fmtPct(0.57)),
+    base: fmtW(310),
+    night: COPY.night(fmtW(280)),
+    p10: COPY.p10(fmtW(310)),
+    floor: COPY.floorDay(fmtKwhExact(7.44), fmtEurExact(1.86))
+  } as const;
   const dayName = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' });
 
   interface Props {
@@ -60,10 +72,36 @@
   let why = $derived(view === 'day' && failed ? COPY.failed : view === 'week' ? COPY.noWeek : COPY.noDay);
 </script>
 
+{#snippet kvaGhost()}
+  <p class="line skeleton inset">{GHOST.kva}</p>
+  <div class="meter"></div>
+  <p class="line skeleton inset">{GHOST.share}</p>
+  <p class="note skeleton inset">{COPY.pf}</p>
+{/snippet}
+
 <section class="panel {cls}" aria-busy={view === 'day' && waiting}>
   <h2>{COPY.title}</h2>
   {#if view === 'day' && waiting}
-    <div class="skeleton inset sk-day" aria-hidden="true"></div>
+    <!-- The loaded day's own structure, each line a skeleton bar of its text: same breaks, same height. -->
+    <div class="ghost" aria-hidden="true">
+      <dl class="figs">
+        <div>
+          <dt>{COPY.peak}</dt>
+          <dd><strong class="num big skeleton inset">{GHOST.peak}</strong><span class="num when skeleton inset">{GHOST.when}</span></dd>
+        </div>
+      </dl>
+      <p class="note skeleton inset">{COPY.instant}</p>
+      {@render kvaGhost()}
+      <dl class="figs base">
+        <div>
+          <dt>{COPY.base}</dt>
+          <dd><strong class="num big skeleton inset">{GHOST.base}</strong></dd>
+        </div>
+      </dl>
+      <p class="line num skeleton inset">{GHOST.night}</p>
+      <p class="line num skeleton inset">{GHOST.p10}</p>
+      <p class="line num skeleton inset">{GHOST.floor}</p>
+    </div>
   {:else}
     <dl class="figs">
       <div>
@@ -74,7 +112,7 @@
     </dl>
     {#if src}<p class="muted note">{COPY.instant}</p>{/if}
     {#if src && waiting}
-      <div class="skeleton inset sk-kva" aria-hidden="true"></div>
+      <div class="ghost" aria-hidden="true">{@render kvaGhost()}</div>
     {:else if src && kva != null}
       <p class="muted line">{COPY.kva(kva)}</p>
       {#if share != null}
@@ -147,13 +185,20 @@
     font-size: 12px;
     margin: 4px 0 0;
   }
-  /* Skeletons at the height of what they stand for: a complete day's figures, the subscribed-power block. */
-  .sk-day {
-    height: 286px;
+  /* Skeletons in the figures' own boxes: each bar is its text's box, the text itself transparent. */
+  .ghost .skeleton {
+    width: fit-content;
+    max-width: 100%;
+    color: transparent;
+    user-select: none;
   }
-  .sk-kva {
-    height: 81px;
-    margin-top: 6px;
+  /* overflow: clip (not hidden) keeps the inline-block on its text baseline, so the row is as tall as the figure's. */
+  .ghost .big.skeleton {
+    display: inline-block;
+    overflow: clip;
+  }
+  .ghost .when.skeleton {
+    margin-left: auto;
   }
   .meter {
     height: 6px;

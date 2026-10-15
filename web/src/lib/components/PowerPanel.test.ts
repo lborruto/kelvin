@@ -62,6 +62,18 @@ describe('PowerPanel', () => {
     expect(w.container.querySelector('.skeleton')).not.toBeNull();
   });
 
+  it('the day’s skeleton is a complete day’s own lines, so it wraps (and stands as tall) as the figures will', () => {
+    const shape = (c: HTMLElement) => [...c.querySelectorAll('section > *:not(h2), .ghost > *')].filter((e) => !e.classList.contains('ghost')).map((e) => `${e.tagName}.${[...e.classList].filter((k) => ['figs', 'base', 'line', 'note', 'meter'].includes(k)).join('.')}`);
+    const sk = render(PowerPanel, { view: 'day', day: null, week: null });
+    const ghost = sk.container.querySelector('.ghost')!;
+    expect(ghost).toHaveAttribute('aria-hidden', 'true');
+    expect(ghost.querySelectorAll('.skeleton').length).toBeGreaterThan(5);
+    const skShape = shape(sk.container);
+    sk.unmount();
+    const loaded = render(PowerPanel, { view: 'day', day: day(), week: null });
+    expect(skShape).toEqual(shape(loaded.container));
+  });
+
   it('a day that failed to load reads « — » and says so', () => {
     const { container } = render(PowerPanel, { view: 'day', day: null, week: null, failed: true });
     expect(text(container)).toContain('Pointe moyenne sur 30 min —');

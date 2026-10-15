@@ -95,6 +95,7 @@
           {split}
           kva={shown.power.kva}
           samples={shown.room?.samples ?? null}
+          room={shown.room?.name ?? null}
           label={COPY.chart(fmtDateLong(shown.date))}
           bind:index />
         {#if !shown.complete}<p class="muted note">{COPY.incomplete(shown.points, halfHoursIn(shown.date))}</p>{/if}

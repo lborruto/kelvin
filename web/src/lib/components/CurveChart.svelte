@@ -28,10 +28,12 @@
     kva?: number | null;
     /** The selected room's 5-min samples: the readout's « Température » row. */
     samples?: RoomSample[] | null;
+    /** The selected room's name: the readout says whose temperature it is. */
+    room?: string | null;
     /** The scrubbed interval, shared with Température et chauffe. */
     index?: number | null;
   }
-  let { intervals, label, split = true, kva = null, samples = null, index = $bindable(null) }: Props = $props();
+  let { intervals, label, split = true, kva = null, samples = null, room = null, index = $bindable(null) }: Props = $props();
 
   let width = $state(0);
   let W = $derived(width > 0 ? width : 600);
@@ -67,7 +69,7 @@
     });
     return d;
   });
-  let ctx = $derived({ intervals, samples, tariff: split });
+  let ctx = $derived({ intervals, samples, room, tariff: split });
   let current = $derived(index != null && intervals[index] ? intervals[index] : null);
   let readout = $derived(readInterval(current, ctx));
   let readings = $derived(intervals.map((p) => readInterval(p, ctx)));
@@ -157,13 +159,14 @@
     {#each ticks as t (t.i)}<span class="curve-tick" style:left="{((x(t.i) ?? 0) / W) * 100}%">{t.text}</span>{/each}
     <span class="curve-tick end">24</span>
   </div>
-  {#if radPath || kvaWh != null}
+  <!-- A legend only for what is drawn: no empty list when the subscribed power is only stated. -->
+  {#if radPath || (kvaShown && kva != null)}
     <ul class="legend">
       {#if radPath}<li><span class="line" style:background={SERIES.radiators}></span>{COPY.radiators}</li>{/if}
       {#if kvaShown && kva != null}<li><span class="dash"></span>{COPY.kva(kva)}</li>{/if}
     </ul>
-    {#if kva != null && !kvaShown}<p class="muted kva-note">{COPY.kvaOff(kva, fmtWh(kvaWh))}</p>{/if}
   {/if}
+  {#if kva != null && !kvaShown}<p class="muted kva-note">{COPY.kvaOff(kva, fmtWh(kvaWh))}</p>{/if}
   <div class="visually-hidden"><table>
     <caption>{label}</caption>
     <thead>

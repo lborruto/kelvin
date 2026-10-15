@@ -12,6 +12,7 @@
     period: 'Période',
     mark: { full: 'complet', partial: 'partiel', missing: 'manquant', none: '—' } as Record<Mark, string>,
     partialPct: (pct: string) => `partiel (${pct})`,
+    partialNone: 'partiel (aucun jour entier mesuré)',
     legend: { full: 'complet', partial: 'partiel', missing: 'manquant' },
     curveSince: (d: string) => `Courbe disponible depuis le ${d}`,
     radiatorsSince: (d: string) => `Radiateurs enregistrés depuis le ${d}`,
@@ -77,7 +78,12 @@
     if (!b.radiators) return expected(b) && since != null && bucketSpan(b.key, group).to > since ? 'missing' : 'none';
     return b.radiators.coverage == null || b.radiators.coverage >= 1 ? 'full' : 'partial';
   };
-  const word = (m: Mark, b: Bucket) => (m === 'partial' && b.radiators?.coverage != null ? COPY.partialPct(fmtPct1(b.radiators.coverage)) : COPY.mark[m]);
+  // A coverage that rounds to « 0,0 % » is no figure: it says that no radiator-day was fully measured.
+  const word = (m: Mark, b: Bucket) => {
+    const c = b.radiators?.coverage;
+    if (m !== 'partial' || c == null) return COPY.mark[m];
+    return c >= 0.0005 ? COPY.partialPct(fmtPct1(c)) : COPY.partialNone;
+  };
   let strip = $derived([
     { label: COPY.rows.linky, marks: buckets.map(linky) },
     { label: COPY.rows.curve, marks: buckets.map(curve) },
@@ -146,9 +152,11 @@
   summary::-webkit-details-marker {
     display: none;
   }
-  /* Beats the page's section-label margin: the summary row is the whole collapsed panel. */
-  details > summary > h2.qtitle {
+  /* Beats the page's section-label margin (.panels > .panel h2): the summary row is the whole collapsed panel, and the
+     title's line box is the chevron's height, so both centre on the row. */
+  details.panel > summary > h2.qtitle {
     margin: 0;
+    line-height: 16px;
   }
   details[open] > summary {
     margin-bottom: 0;
@@ -187,15 +195,21 @@
   }
   .cell {
     display: block;
+    box-sizing: border-box;
     height: 10px;
     border-radius: 2px;
   }
-  /* Full / partial / missing as ink / faint / dashed; « none » (nothing expected) is blank. */
+  /* Full / partial / missing as ink / half ink in a faint frame / dashed; « none » (nothing expected) is a hairline
+     frame, so the strip keeps its length when a running period has days still to come. */
   .cell.full {
     background: var(--tx);
   }
   .cell.partial {
-    background: var(--fa);
+    background: linear-gradient(to top, var(--tx) 50%, transparent 50%);
+    border: 1px solid var(--fa);
+  }
+  .cell.none {
+    border: 1px solid var(--line);
   }
   .cell.missing {
     border: 1px dashed var(--fa);

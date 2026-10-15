@@ -135,6 +135,23 @@ describe('CurveChart', () => {
     expect(container.querySelector('.kva-note')).toHaveTextContent(/Puissance souscrite \(12 kVA, soit 6\s000 Wh par demi-heure\) hors de l’échelle du graphique\./);
   });
 
+  it('a legend only for what is drawn: no empty list when the subscribed power is only stated', () => {
+    const { container, unmount } = render(CurveChart, { intervals: four, label: 'Courbe', kva: 12 });
+    expect(container.querySelector('.legend')).toBeNull(); // no radiator line, kVA off the scale
+    expect(container.querySelector('.kva-note')).not.toBeNull();
+    unmount();
+    const drawn = render(CurveChart, { intervals: four, label: 'Courbe', kva: 1 });
+    expect([...drawn.container.querySelectorAll('.legend li')].map((l) => l.textContent)).toEqual([`Puissance souscrite (1${NB}kVA)`]);
+    drawn.unmount();
+    expect(render(CurveChart, { intervals: four, label: 'Courbe' }).container.querySelector('.legend')).toBeNull();
+  });
+
+  it('the readout’s temperature names its room', () => {
+    const samples = [0, 300, 600, 900, 1200, 1500].map((s) => ({ ts: t0 + s, temperature: 19, setpoint: 20, working_rate: 40 }));
+    const { container } = render(CurveChart, { intervals: four, label: 'Courbe', samples, room: 'Chambre 2' });
+    expect([...container.querySelectorAll('.readout .field dt')].map((d) => d.textContent)).toContain('Température (Chambre 2)');
+  });
+
   it('a DST day has 50 bars, and the repeated hour says which one it is', async () => {
     const a = parisDayStart('2026-10-25') / 1000;
     const day = Array.from({ length: 50 }, (_, i) => iv(a + i * 1800, 400, i < 12 ? 1 : 0));

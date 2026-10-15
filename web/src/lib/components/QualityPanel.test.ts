@@ -30,6 +30,16 @@ describe('QualityPanel', () => {
     expect(cells).toEqual(['complet', 'manquant', 'partiel (50,0\u00a0%)']);
   });
 
+  it('a coverage that rounds to 0,0 % says no radiator-day was fully measured, never « partiel (0,0 %) »', () => {
+    const tiny = [
+      b('2026-10-10', { radiators: { coverage: 0.0004 } }),
+      b('2026-10-11', { radiators: { coverage: 0.0005 } })
+    ] as unknown as EnergyReport['buckets'];
+    const { container } = render(QualityPanel, { buckets: tiny, group: 'day', quality });
+    const radiators = [...container.querySelectorAll('.visually-hidden tbody tr')].map((r) => r.querySelectorAll('td')[2].textContent);
+    expect(radiators).toEqual(['partiel (aucun jour entier mesuré)', 'partiel (0,1\u00a0%)']);
+  });
+
   it('radiators are not « missing » before they were first recorded', () => {
     const { container } = render(QualityPanel, { buckets, group: 'day', quality: { ...quality, radiators_since: '2026-10-13' } });
     const cells = [...container.querySelectorAll('.strip .row')[2].querySelectorAll('.cell')];

@@ -40,6 +40,7 @@
   }
   let { intervals, roomId, samples, label, index = $bindable(null) }: Props = $props();
   const uid = $props.id();
+  const heat = `linear-gradient(90deg, ${heatColor(15)}, ${heatColor(20)}, ${heatColor(25)})`;
 
   let width = $state(0);
   let W = $derived(width > 0 ? width : 600);
@@ -200,6 +201,12 @@
     {#each ticks as t (t.i)}<span class="tick" style:left="{((x(t.i) ?? 0) / W) * 100}%">{t.text}</span>{/each}
     <span class="tick" style:left="{((W - AXIS) / W) * 100}%">24</span>
   </div>
+  <!-- Only with something measured: an empty day has nothing for a legend to name. -->
+  <ul class="legend">
+    <li><span class="swatch" style:background={SERIES.radiators}></span>{COPY.radiatorsCol}</li>
+    <li><span class="line" style:background={heat}></span>{COPY.temperature}</li>
+    <li><span class="line set"></span>{COPY.setpoint}</li>
+  </ul>
   <div class="visually-hidden"><table>
     <caption>{label}</caption>
     <thead>
@@ -337,5 +344,35 @@
   }
   .empty {
     font-size: 13px;
+  }
+  .legend {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 0;
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--mu);
+  }
+  .legend li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    opacity: 0.55;
+  }
+  .line {
+    width: 14px;
+    height: 2px;
+    border-radius: 1px;
+  }
+  .line.set {
+    height: 1px;
+    background: var(--mu);
   }
 </style>

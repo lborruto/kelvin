@@ -32,11 +32,12 @@ describe('ProjectionPanel (M4, M5)', () => {
     const d = text(container.querySelector('details')!);
     expect(d).toContain('20,00 kWh par jour');
     expect(d).toContain('Base : 20,00 kWh par jour, moyenne des jours relevés parmi les 30 jours jusqu’au 14/10');
-    expect(d).toContain('appliquée telle quelle à chaque jour à venir (pas encore un an d’historique)');
+    expect(d).toContain('appliquée telle quelle à chaque jour à venir (trop peu de jours relevés l’an dernier pour l’ajuster par mois)');
     expect(d).toContain('Prix moyen 0,2437 €/kWh : prix du 14/10 pondérés par votre part d’heures creuses sur ces 30 jours');
     expect(d).toContain('Mois en cours : jours mesurés, plus la base pour chaque jour restant ou manquant');
     expect(d).not.toContain('consommation d’aujourd’hui');
-    expect(d).toContain('Abonnement compris');
+    // Measured days at their own day's price, days to come at today's.
+    expect(d).toContain('Abonnement compris : au tarif de chaque jour pour les jours mesurés, au tarif d’aujourd’hui pour les jours à venir.');
   });
 
   it('draws the 12 projected months as a dashed line, with their values in a hidden table', () => {

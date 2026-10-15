@@ -55,7 +55,8 @@ export const COPY = {
   restShort: 'Reste',
   restNegative: `Radiateurs au-dessus du compteur${NB}: écart de mesure`,
   noPrice: 'aucun tarif pour cette demi-heure',
-  temperature: 'Température',
+  /** The Courbe's readout names the room its temperature is from. */
+  temperature: (room: string | null | undefined) => (room ? `Température (${room})` : 'Température'),
   setpoint: 'consigne',
   offpeak: 'Heures creuses',
   peak: 'Heures pleines',
@@ -272,6 +273,8 @@ function rateText(f: number, boundary: boolean): string {
 export interface ReadoutCtx {
   intervals: EnergyInterval[];
   samples?: RoomSample[] | null;
+  /** The room the samples are from. */
+  room?: string | null;
   tariff: boolean;
 }
 
@@ -320,7 +323,7 @@ export function readInterval(iv: EnergyInterval | null, ctx: ReadoutCtx): Inspec
     const t = iv ? roomInterval(ctx.samples, iv.ts, iv.minutes) : { temperature: null, setpoint: null };
     rows.push({
       key: 'temperature',
-      label: COPY.temperature,
+      label: COPY.temperature(ctx.room),
       value: t.temperature != null ? `${fmtTemp(t.temperature)} · ${COPY.setpoint} ${fmtTemp(t.setpoint)}` : '—'
     });
   }

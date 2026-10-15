@@ -37,7 +37,7 @@
   <div class="actions">
     <button type="button" class="btn btn-ghost" onclick={() => download(energyCsv(chart, main, period))}>{COPY.period}</button>
     {#if day && day.points > 0}
-      <button type="button" class="btn btn-ghost" onclick={() => download(curveCsv(day))}>{COPY.curve(fmtDay(day.date))}</button>
+      <button type="button" class="btn btn-ghost num" onclick={() => download(curveCsv(day))}>{COPY.curve(fmtDay(day.date))}</button>
     {/if}
     {#if main.by_radiator.length}
       <!-- Held (aria-disabled) until the house is known: the file names rooms and radiators. It holds its place, so nothing moves. -->
