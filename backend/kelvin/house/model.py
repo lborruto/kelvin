@@ -202,8 +202,8 @@ class Radiator:
 
     @property
     def reachable(self) -> bool | None:
-        v = self.get("heater", STATUS)
-        return None if v is None else v == "available"
+        # Only these two values are known; anything else is unknown (null), not unreachable.
+        return {"available": True, "unavailable": False}.get(self.get("heater", STATUS))
 
     @property
     def unreachable_since(self) -> float | None:

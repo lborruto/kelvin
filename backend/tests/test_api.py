@@ -451,6 +451,20 @@ async def test_the_simulator_starts_with_chambre_2_unreachable(tmp_path):
     assert time.time() - gw.sim_status_since[url] >= 2700 - 5
 
 
+async def test_the_demo_outage_ends_on_the_runtime_clock(tmp_path):
+    from kelvin.api.runtime import DEMO_OUTAGE_AFTER_S, make_gateway
+    from kelvin.overkiz.models import StateChange
+
+    wall = ManualClock(1_760_000_000.0)
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    gw = make_gateway(settings, "demo@kelvin.local", "kelvin", wall=wall)
+    url = next(u for u in gw.devices if u.endswith("/8370022#1"))
+    assert gw.sim_status_since[url] == wall() - 2700
+    wall.advance(DEMO_OUTAGE_AFTER_S)
+    changes = [e for e in await gw.fetch_events() if isinstance(e, StateChange)]
+    assert changes == [StateChange(url, "core:StatusState", "available")]
+
+
 async def test_house_view_carries_signal_fields(ctx):
     c, _, _ = ctx
     body = (await c.get("/api/house")).json()["house"]

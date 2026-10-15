@@ -819,7 +819,14 @@ async def test_a_room_s_day_reads_its_par_piece_row(api):
     rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
     report = await c.get(
         "/api/energy",
-        params={"from": str(day), "to": str(day + timedelta(days=1)), "group": "day"},
+        params={
+            "from": str(day),
+            "to": str(day + timedelta(days=1)),
+            "group": "day",
+            # Explicit: by_radiator must describe this day, not the report's default period.
+            "period_from": str(day),
+            "period_to": str(day + timedelta(days=1)),
+        },
     )
     assert report.status_code == 200, report.text
     rows = report.json()["by_radiator"]

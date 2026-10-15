@@ -94,6 +94,15 @@ def test_view_has_null_reachability_and_signal_when_unknown():
     assert house.unreachable_for(RID, 99_999.0) is None
 
 
+def test_an_unknown_status_value_is_null_not_unreachable():
+    house = make()
+    r = house.radiators[RID]
+    house.apply(StateChange(HEATER, "core:StatusState", "maintenance"))
+    assert (r.reachable, r.unreachable_since) == (None, None)
+    assert house.unreachable_for(RID, 99_999.0) is None
+    assert r.view()["reachable"] is None
+
+
 def test_room_presence_is_null_when_no_radiator_reports_it_else_any():
     def mutate(devices):
         for d in devices:
@@ -108,16 +117,17 @@ def test_room_presence_is_null_when_no_radiator_reports_it_else_any():
     assert house.room_view(room)["presence"] is True
 
 
-async def test_demo_outage_flips_back_after_its_delay():
-    clock = ManualClock(0.0)
+async def test_demo_outage_flips_back_after_its_delay_on_the_wall_clock():
+    clock = ManualClock(0.0)  # the fake's own clock (command delays) does not move
+    wall = ManualClock(50_000.0)
     gw = FakeGateway(clock=clock)
     url = f"{SAMPLE_GATEWAY}/{DEMO_OUTAGE_RID}#1"
-    gw.demo_outage(DEMO_OUTAGE_RID, before_s=2700, after_s=7200, wall=50_000.0)
+    gw.demo_outage(DEMO_OUTAGE_RID, before_s=2700, after_s=7200, wall=wall)
     assert gw.devices[url].states["core:StatusState"] == "unavailable"
     assert gw.sim_status_since == {url: 47_300.0}
-    clock.advance(7199)
+    wall.advance(7199)
     assert not [e for e in await gw.fetch_events() if isinstance(e, StateChange)]
-    clock.advance(1)
+    wall.advance(1)
     events = [e for e in await gw.fetch_events() if isinstance(e, StateChange)]
     assert events == [StateChange(url, "core:StatusState", "available")]
 

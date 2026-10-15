@@ -202,7 +202,9 @@ async def rooms_duty(request: Request) -> dict:
     rt = _rt(request)
     end = int(rt.recorder.wall())  # the runtime's injected clock
     start = end - DUTY_WINDOW_S
-    samples = rt.recorder.activity_samples(list(rt.house.radiators), start, end)
+    samples = await asyncio.to_thread(
+        rt.recorder.activity_samples, list(rt.house.radiators), start, end
+    )
     out: dict[str, dict] = {}
     for room in rt.house.rooms.values():
         rads = rt.house.room_radiators(room.id)
@@ -223,7 +225,7 @@ async def room_activity(room_id: str, request: Request, start: float, end: float
     rt = _rt(request)
     _, rads = _room_radiators(rt, room_id)
     a, z = _window(start, end, rt.recorder.wall())
-    samples = rt.recorder.activity_samples([r.id for r in rads], a, z)
+    samples = await asyncio.to_thread(rt.recorder.activity_samples, [r.id for r in rads], a, z)
     window: list[dict] = []
     presence: list[dict] = []
     for rows in samples.values():
