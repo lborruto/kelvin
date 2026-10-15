@@ -88,6 +88,10 @@ depends on.
 - **Language:** user-facing strings (errors, labels, UI) are French and follow DESIGN.md
   (no-break space before units, `−`, `—` for a missing value, typographic `’`). Code, logs and
   docs are English.
+- **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`; anchors
+  `#away`, `#tariff`, `#linky`, `#quality`, `#curve`) and come from `web/src/lib/paths.ts`. Old
+  French paths are redirected only by its legacy table and the marked block in `app.html` (a test
+  keeps them equal; `scripts/check-paths.mjs` fails on a French path anywhere else).
 - **API header:** mutating API routes require the header `X-Kelvin: 1`.
 - **Login:** every `/api` route except `/api/auth/*` and `/api/health` needs a session (cookie
   `kelvin_session`), `/api/stream` included. Login is the home's Cozytouch account.

@@ -26,7 +26,7 @@ describe('scanSource', () => {
     expect(svelte('<!-- Maison --><style>.maison::after { content: "Pièce"; }</style>')).toEqual([]);
     expect(ts("if (name !== 'Radiateur') x(); // i18n-ignore: upstream device default")).toEqual([]);
     expect(ts("const url = 'https://www.myelectricaldata.fr';")).toEqual([]);
-    expect(ts("/* legacy-paths:start — data */\nconst H = { '#tarif': '#tariff' };\n/* legacy-paths:end */")).toEqual([]);
+    expect(ts("/* legacy-paths:start — data */\nconst H = { '#tarif': '#tariff' };\n/* legacy-paths:end */")).toEqual([]); // legacy-path-test
   });
   it('reports the line of each finding', () => {
     expect(scanSource("const a = 1;\nconst b = 'Envoi…';", false)).toEqual([{ line: 2, text: 'Envoi…' }]);

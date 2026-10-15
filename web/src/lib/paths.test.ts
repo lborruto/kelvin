@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ANCHORS, canonical, isActive, NAV, ROUTES } from './paths';
+import { findLegacyPaths } from '../../scripts/check-paths.mjs';
+import { ANCHORS, canonical, isActive, LEGACY, LEGACY_HASH, NAV, ROUTES } from './paths';
 
 describe('ROUTES', () => {
   it('English paths; a room id is encoded', () => {
@@ -45,5 +48,44 @@ describe('isActive', () => {
     expect(isActive('/home', '/home')).toBe(true);
     expect(isActive('/home/devices', '/home')).toBe(true);
     expect(isActive('/homework', '/home')).toBe(false);
+  });
+});
+
+const appHtml = readFileSync(resolve(process.cwd(), 'src/app.html'), 'utf8');
+
+describe('app.html legacy redirect', () => {
+  const block = appHtml.match(/\/\* legacy-paths:start \*\/([\s\S]*?)\/\* legacy-paths:end \*\//)?.[1] ?? '';
+  const mirror = new Function(`${block}; return { LEGACY, LEGACY_HASH };`)() as {
+    LEGACY: [RegExp, string][];
+    LEGACY_HASH: Record<string, string>;
+  };
+
+  it('mirrors paths.ts exactly', () => {
+    expect(mirror.LEGACY.map(([re, to]) => [re.source, to])).toEqual(LEGACY.map(([re, to]) => [re.source, to]));
+    expect(mirror.LEGACY_HASH).toEqual(LEGACY_HASH);
+  });
+
+  it('rewrites before the router boots, keeping query and mapping the hash', () => {
+    const script = appHtml.match(/<script>\s*\(function \(\) \{\s*\/\* legacy-paths:start[\s\S]*?<\/script>/)?.[0] ?? '';
+    const calls: string[] = [];
+    const run = (href: string) => {
+      const u = new URL(href);
+      const fake = {
+        location: { pathname: u.pathname, search: u.search, hash: u.hash },
+        history: { replaceState: (_s: unknown, _t: string, url: string) => calls.push(url) }
+      };
+      new Function('location', 'history', script.replace(/<\/?script>/g, ''))(fake.location, fake.history);
+    };
+    run('http://k/maison?x=1#tarif'); // legacy-path-test
+    run('http://k/pieces/p-salon'); // legacy-path-test
+    run('http://k/energie#qualite'); // legacy-path-test
+    run('http://k/home#tarif');
+    expect(calls).toEqual(['/home?x=1#tariff', '/rooms/p-salon', '/energy#quality']);
+  });
+});
+
+describe('no French path outside the legacy blocks', () => {
+  it('finds none in the web app, the e2e suite, the backend and the docs', () => {
+    expect(findLegacyPaths(resolve(process.cwd(), '..'))).toEqual([]);
   });
 });

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Layout guards, run once (desktop project; widths are set per check).
 const WIDTHS = [320, 360, 390, 768, 1024, 1280, 1440];
-const ROUTES = ['/', '/pieces/p-salon', '/programme', '/energie', '/maison'];
+const ROUTES = ['/', '/rooms/p-salon', '/schedule', '/energy', '/home'];
 
 /** The page is in its loaded state: a title, no skeleton left. */
 async function settled(page: Page) {
@@ -39,7 +39,7 @@ test.describe('layout', () => {
     }
   });
 
-  for (const path of ['/maison', '/energie']) {
+  for (const path of ['/home', '/energy']) {
     test(`${path} loads without layout shift (CLS < 0.05)`, async ({ page }) => {
       // Registered once: every navigation starts a fresh count.
       await page.addInitScript(() => {

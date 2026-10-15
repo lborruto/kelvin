@@ -22,7 +22,7 @@ test('rooms load with temperatures and thermal strips', async ({ page, isMobile 
 });
 
 test('a mode change shows pending then confirmed', async ({ page }) => {
-  await page.goto('/pieces/p-ch1');
+  await page.goto('/rooms/p-ch1');
   await roomMode(page).getByRole('radio', { name: 'Manuel' }).click();
   await confirmed(page);
   await expect(roomMode(page).getByRole('radio', { name: 'Manuel' })).toHaveAttribute('aria-checked', 'true');
@@ -31,7 +31,7 @@ test('a mode change shows pending then confirmed', async ({ page }) => {
 });
 
 test('rapid stepper taps send one setpoint', async ({ page }) => {
-  await page.goto('/pieces/p-ch1');
+  await page.goto('/rooms/p-ch1');
   await roomMode(page).getByRole('radio', { name: 'Manuel' }).click();
   await confirmed(page);
   const output = page.getByRole('group', { name: 'Consigne' }).getByRole('status');
@@ -52,7 +52,7 @@ test('rapid stepper taps send one setpoint', async ({ page }) => {
 });
 
 test('programme edit round-trips', async ({ page }) => {
-  await page.goto('/programme');
+  await page.goto('/schedule');
   await page.getByRole('radio', { name: 'Chambre 2' }).click();
   await expect(page.getByRole('radio', { name: 'Chambre 2' })).toHaveAttribute('aria-checked', 'true');
   // Phone: only one day shows its slots; open Monday if it is not today.
@@ -69,7 +69,7 @@ test('programme edit round-trips', async ({ page }) => {
 });
 
 test('absence can be started and cancelled', async ({ page }) => {
-  await page.goto('/maison');
+  await page.goto('/home');
   await page.getByRole('button', { name: 'Activer l’absence' }).click();
   const cancel = page.getByRole('button', { name: /^Annuler Absence/ });
   await expect(cancel).toBeVisible();
@@ -80,7 +80,7 @@ test('absence can be started and cancelled', async ({ page }) => {
 
 test('desktop shows the sidebar and the inspector with every radiator', async ({ page, isMobile }) => {
   test.skip(isMobile, 'desktop layout only');
-  await page.goto('/pieces/p-salon');
+  await page.goto('/rooms/p-salon');
   await expect(page.getByRole('navigation', { name: 'Navigation principale' }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Salon', level: 2 })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Faire clignoter' })).toHaveCount(2);
@@ -92,7 +92,7 @@ test('desktop: choosing a room card keeps keyboard focus on it and marks it curr
   const card = page.getByRole('link', { name: /^Salon/ });
   await card.focus();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/pieces\/p-salon$/);
+  await expect(page).toHaveURL(/\/rooms\/p-salon$/);
   await expect(page.getByRole('heading', { name: 'Salon', level: 2 })).toBeVisible();
   await expect(card).toHaveAttribute('aria-current', 'page');
   await expect(card).toBeFocused();
@@ -100,7 +100,7 @@ test('desktop: choosing a room card keeps keyboard focus on it and marks it curr
 
 test('phone room page: the room is the h1, and moving to another tab focuses its title', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'phone layout only');
-  await page.goto('/pieces/p-salon');
+  await page.goto('/rooms/p-salon');
   await expect(page.getByRole('heading', { name: 'Salon', level: 1 })).toBeVisible();
   await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Programme' }).click();
   await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeFocused();
@@ -147,7 +147,7 @@ test('offline after install still opens the app shell', async ({ page, context, 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
   // A deep link is served the precached SPA fallback too.
-  await page.goto('/programme');
+  await page.goto('/schedule');
   await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeVisible();
   await context.setOffline(false);
 });
@@ -156,7 +156,7 @@ test('a deep link registers the service worker at the root', async ({ page, isMo
   test.skip(isMobile, 'service worker check runs once');
   const errors: string[] = [];
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  await page.goto('/pieces/p-salon');
+  await page.goto('/rooms/p-salon');
   const reg = await page.evaluate(async () => {
     const r = await navigator.serviceWorker.ready;
     return { scope: r.scope, script: r.active?.scriptURL };
@@ -167,9 +167,9 @@ test('a deep link registers the service worker at the root', async ({ page, isMo
   expect(errors.filter((e) => /MIME type/.test(e))).toEqual([]);
 });
 
-test('/maison#linky and #tarif land on their panel once it has loaded', async ({ page }) => {
-  for (const id of ['linky', 'tarif']) {
-    await page.goto(`/maison#${id}`);
+test('/home#linky and #tariff land on their panel once it has loaded', async ({ page }) => {
+  for (const id of ['linky', 'tariff']) {
+    await page.goto(`/home#${id}`);
     await expect(page.locator(`#${id} h2`)).toBeVisible();
     await expect(page.locator(`#${id}`).getByRole('button').first()).toBeVisible();
     await expect(page.locator(`#${id} h2`)).toBeInViewport();
@@ -177,8 +177,8 @@ test('/maison#linky and #tarif land on their panel once it has loaded', async ({
 });
 
 test('Réglages saves a tariff and shows the simulated Linky', async ({ page }) => {
-  await page.goto('/maison');
-  const tarif = page.locator('#tarif');
+  await page.goto('/home');
+  const tarif = page.locator('#tariff');
   await tarif.getByLabel('Prix heures creuses (€/kWh)').fill('0,2068');
   await tarif.getByRole('button', { name: 'Enregistrer le tarif' }).click();
   await expect(tarif.getByText('Tarif enregistré.')).toBeVisible();
@@ -193,7 +193,7 @@ test('the manifest has a stable id; theme-color and the version follow the app',
   const manifest = await (await request.get('/manifest.webmanifest')).json();
   expect(manifest.id).toBe('/');
   const pkg = JSON.parse(await (await import('node:fs/promises')).readFile('package.json', 'utf8'));
-  await page.goto('/maison');
+  await page.goto('/home');
   await expect(page.getByText(`Kelvin ${pkg.version}`)).toBeVisible();
   const themes = page.getByRole('radiogroup', { name: 'Thème' });
   const colours = () =>

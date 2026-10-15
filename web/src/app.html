@@ -9,6 +9,30 @@
     <link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
     <title>Kelvin</title>
     <script>
+      (function () {
+        /* legacy-paths:start */
+        var LEGACY = [
+          [/^\/pieces\/?$/, '/'],
+          [/^\/pieces\/(.+)$/, '/rooms/$1'],
+          [/^\/programme\/?$/, '/schedule'],
+          [/^\/energie\/?$/, '/energy'],
+          [/^\/maison\/?$/, '/home']
+        ];
+        var LEGACY_HASH = { '#tarif': '#tariff', '#absence': '#away', '#qualite': '#quality', '#courbe': '#curve' };
+        /* legacy-paths:end */
+        // Old French URLs (bookmarks, the offline PWA, typed links) become English before the
+        // router reads the URL: no double render, no history entry, query kept, anchor mapped.
+        var p = location.pathname;
+        for (var i = 0; i < LEGACY.length; i++) {
+          if (LEGACY[i][0].test(p)) {
+            var h = location.hash;
+            history.replaceState(null, '', p.replace(LEGACY[i][0], LEGACY[i][1]) + location.search + (LEGACY_HASH[h] || h));
+            return;
+          }
+        }
+      })();
+    </script>
+    <script>
       try {
         const t = localStorage.getItem('kelvin-theme');
         if (t === 'light' || t === 'dark') {
