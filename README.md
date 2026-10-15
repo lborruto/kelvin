@@ -14,6 +14,19 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
 - **Truthful commands.** A change counts as done only when the radiator reports the new state.
   Pending, confirmed and failed are shown as such, including Overkiz's misleading
   `OVERRIDEMODE_ERROR` on commands that did apply.
+- **Rooms and devices managed from Kelvin** (Home › Rooms and devices): create, rename and delete
+  rooms, move a radiator to another room, rename a radiator. Kelvin writes to your Cozytouch
+  setup, so the Cozytouch app shows the same thing. Every device is listed with its room,
+  connectivity, last signal and read-only details (model, power, version, signal…). A change is
+  shown as done only when Cozytouch reports it; if Cozytouch accepted it but has not confirmed it
+  after a minute, it reads « non confirmé » (not failed) and its room name stays reserved until the
+  next read settles it. A reserved name, like one already used, cannot be taken again.
+  « Annuler » undoes a change for 10 s.
+- **Changes made in the Cozytouch app show up.** Device moves and renames at once; room names
+  and new rooms within a day (a refresh every night at 04:30), or right away with « Synchroniser »,
+  as long as Kelvin's setup-read budget allows it (3 full reads in 24 h). The last read of the 24 h
+  is always kept for a restart, so « Synchroniser » can say « not now » with the time it is
+  possible again.
 - **Control:** off, manual, schedule; setpoint; the weekly schedule editor (the radiators'
   own three slots a day); boost a room for a few hours; away for the whole house. Boost and away
   restore what was there before. The night light's brightness (1–100 %). The programme editor
@@ -51,7 +64,7 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
 - **French and English.** The whole UI, errors included, in French (the default) or English
   (en-GB, with its own number, date and currency formats), chosen per device in Home › Settings or
   on the sign-in screen, without a reload. A browser in French starts in French, any other
-  language in English. URLs are English (`/rooms`, `/schedule`, `/energy`, `/home`); old
+  language in English. URLs are English (`/rooms`, `/schedule`, `/energy`, `/home`, `/home/devices`); old
   bookmarks are redirected.
 - **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets.
 - **A simulator** of a whole home and a synthetic Linky, for trying Kelvin and for every test.
@@ -187,7 +200,9 @@ Kelvin keeps both in `account.json` (0600) in its data volume.
   from the device events, confirms each command by the state the radiator reports, and records
   samples and meter readings in SQLite. It follows Cozytouch events and re-reads one radiator's
   states every 10 minutes; it reads the whole Cozytouch setup only at startup, after an outage
-  or a password change (at most 3 times a day), because Overkiz limits those reads. It runs
+  or a password change, for a nightly refresh and for changes made in the Cozytouch app or from
+  Kelvin (at most 3 times a day, the last one always kept for a restart), because Overkiz limits
+  those reads. It runs
   boost and away itself, syncs Linky within its quota, and serves a REST API with server-sent
   events. See [backend/README.md](backend/README.md).
 - **Web** (`web/`, SvelteKit, Svelte 5): a static PWA served by the backend. Every string lives

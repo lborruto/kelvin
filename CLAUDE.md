@@ -27,6 +27,10 @@ depends on.
 - `backend/scripts/` talk to a real installation. Run them only when the human asks and is
   watching, on their own installation. Read-only first; revert any write at once and confirm the
   original state. They write only under `backend/captures/` (gitignored).
+- `backend/scripts/places_try.py --write --i-am-watching` is the only thing that writes to the
+  Cozytouch setup (a temporary « Kelvin test » place, created, renamed and deleted). Only the
+  controller runs it, with the owner watching and Kelvin stopped; the read-only form prints
+  counts and types only. Never write to the real radiators from a test or a script.
 - Never read `.env`, `account.json`, `backend/captures/` or a real `KELVIN_DATA`. Never put an
   email, password, token, PDL, gateway id, device serial, place id or real reading into code,
   tests, fixtures, docs, screenshots or commit messages.
@@ -41,6 +45,26 @@ depends on.
   with `device_states(url)` instead (one radiator every 10 minutes). The poller never takes the
   last read of the day; a start never waits for the budget (stored setup structure, else one
   overdraft read a day). Never send `states/refresh`.
+- **Cozytouch setup writes** go only through the allowlisted client `kelvin/setup/client.py`:
+  five writes (create, rename and delete a place; relocate a device; set a device label) and two
+  targeted reads. Never add a setup operation without adding it there and to its test; device
+  delete, firmware, pairing, metadata and re-parenting stay unreachable. Requests go through the
+  pyoverkiz session and are sent once (never `_post`/`_put`/`_delete`: they retry a POST). A write
+  is done only when an event or a targeted read (`read_place`) shows it; a sent write not
+  confirmed in 60 s is « unconfirmed », never failed, and keeps its label reserved.
+- **Setup read budget:** full setup reads for rooms and devices go through `SetupRefresher`
+  (`setup/refresh.py`) and the one `SetupReadGuard`: a daily read at 04:30, one after Kelvin's own
+  changes, one after a change made in the Cozytouch app, and « Synchroniser » (`POST
+  /api/setup/sync`). Every reason leaves the last read of the 24 h for a restart, never one read
+  per write (several writes share one read), and a spent budget answers `setup_sync_spent` with
+  the next possible time. The device tree is served from memory.
+- **Rooms are Cozytouch places:** a radiator's room is its heater's place and its name its
+  heater's Cozytouch label (the device name when the label is Overkiz's generic one); Kelvin keeps
+  no room mapping of its own.
+- **Labels shown, never serials:** a device label that is Cozytouch's generic « IO (…#n) » or
+  holds a serial or device URL is shown as its role. No device URL, serial, place id or gateway id
+  appears in an API body, an SSE event, a log or the UI (`setup/service.py` is in
+  `FRENCH_PASS_THROUGH` of `tests/test_error_codes.py` for that reason).
 - **Radiator energy:** a meter reading is a value at the time Kelvin learned it; rows are
   written only when a counter changes, so an equal value is no reading and proves nothing
   (Overkiz's value can lag the meter). Every radiator kWh comes from `recorder/energy.py`
@@ -112,8 +136,9 @@ depends on.
   Params hold keys and figures only: never an id, email, PDL, token or other secret, and
   third-party text (a gateway's message) goes through `errors.scrub` before any API body, SSE
   or log.
-- **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`; anchors
-  `#away`, `#tariff`, `#linky`, `#quality`, `#curve`, `#alerts`, `#sessions`) and come from `web/src/lib/paths.ts`. Old
+- **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/home/devices`;
+  anchors `#away`, `#tariff`, `#linky`, `#quality`, `#curve`, `#alerts`, `#sessions`) and come from
+  `web/src/lib/paths.ts`. Old
   French paths are redirected only by its legacy table and the marked block in `app.html` (a test
   keeps them equal; `scripts/check-paths.mjs` fails on a French path anywhere else).
 - **API header:** mutating API routes require the header `X-Kelvin: 1`.

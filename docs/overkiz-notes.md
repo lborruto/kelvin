@@ -82,6 +82,35 @@ structure of the last full read and reads each device's states; with nothing sto
 the setup once over the budget (at most once per 24 h). It never sends `states/refresh`: that is a radio action on the radiators.
 `GET /api/overkiz/quotas` reads `GET /setup/quotas` only when asked (cached for an hour).
 
+## Setup writes (Kelvin's rules, 2026-10-14) — UNVERIFIED on real hardware
+
+Nothing in this section has run against a real account yet. The five writes below and the room
+and house place types are what Kelvin sends, built from the Overkiz API documentation and the
+simulator; they are recorded here as **unverified**.
+
+- pyoverkiz 2.2.2 has no place or label writes; `_post` rejects the 201 of place creation and
+  retries a POST after a dropped connection. Kelvin sends setup requests itself, once each,
+  through the client's session (`kelvin/setup/client.py`), with the same error mapping.
+- The allowlisted writes (unverified): create a place, rename a place, delete a place, relocate
+  a device to a place, set a device's label. Targeted reads: one place, one device. Everything
+  else is refused before a byte is sent.
+- Room and house place types (the type Kelvin gives a new room, and the type of the root) are
+  unverified: they come from the documentation and the simulator, not from a real place tree.
+- pyoverkiz structures `PlaceCreated/Updated/DeletedEvent` into its base `Event`: the listener
+  sees the name only, so Kelvin confirms place writes with a targeted `GET /setup/places/{oid}`
+  (reads at +5, +15 and +30 s). `DeviceUpdatedEvent` carries `placeOID` and `label` and is
+  applied directly.
+- An unknown oid may answer 400 « Unknown object » instead of 404: both mean « not found ».
+
+### Real-account check « Kelvin test » (Task 13) — NOT RUN YET
+
+Placeholder. `backend/scripts/places_try.py --write --i-am-watching` creates a temporary place
+named « Kelvin test », renames it, deletes it and compares the tree before and after. It needs
+the owner present and Kelvin stopped. Record here, once it has run: the date; whether the create
+answered 201 and what the place type was; whether place events arrived and with what content;
+how long each confirmation took; whether the delete answered 200, 204 or 404 on re-read; and
+whether the tree came back unchanged. Until then every statement above stays unverified.
+
 ## Energy counters: cadence (main-session observation)
 
 - 2026-10-14, afternoon, 10 minutes of the event listener on the real installation (read-only):
