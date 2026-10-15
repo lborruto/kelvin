@@ -58,7 +58,13 @@ class Recorder:
         self.wall = wall
         self.is_fresh = is_fresh
         self.tz = ZoneInfo(tz)
-        self._last_written: dict[str, tuple[float | None, ...]] = {}
+        # Per radiator: its last row's time and counters, as written.
+        self._last_written: dict[str, tuple[int, tuple[float | None, ...]]] = {}
+        # Moves when a write can change energy already computed for a past day: a reading that
+        # replaces or predates its radiator's last one, or pruned samples (old spans' weights).
+        # Appending a newer reading never does (a span `clean_spans` emitted is final), so the
+        # cache of complete radiator-days (`linky/radiator_cache.py`) is dropped only then.
+        self.energy_epoch = 0
 
     def sample(self) -> int:
         if not self.is_fresh():
@@ -82,16 +88,17 @@ class Recorder:
         self.db.executemany("INSERT OR REPLACE INTO samples VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
         return len(rows)
 
-    def _last_counters(self, rid: str) -> tuple[float | None, ...] | None:
+    def _last_row(self, rid: str) -> tuple[int, tuple[float | None, ...]] | None:
         if rid not in self._last_written:
             rows = self.db.query(
-                "SELECT total_wh, t1_wh, t2_wh FROM energy WHERE radiator_id = ?"
+                "SELECT ts, total_wh, t1_wh, t2_wh FROM energy WHERE radiator_id = ?"
                 " ORDER BY ts DESC LIMIT 1",
                 (rid,),
             )
             if not rows:
                 return None
-            self._last_written[rid] = (rows[0]["total_wh"], rows[0]["t1_wh"], rows[0]["t2_wh"])
+            r = rows[0]
+            self._last_written[rid] = (r["ts"], (r["total_wh"], r["t1_wh"], r["t2_wh"]))
         return self._last_written[rid]
 
     def snapshot_energy(self, radiator_ids: Iterable[str] | None = None) -> int:
@@ -105,18 +112,25 @@ class Recorder:
         t = int(self.wall())
         ids = list(radiator_ids) if radiator_ids is not None else list(self.house.radiators)
         rows = []
+        rewrites = False
         for rid in ids:
             r = self.house.radiators.get(rid)
             e = r.energy_wh if r is not None else None
             if e is None:
                 continue
             values = (e["total"], e["t1"], e["t2"])
-            if values == self._last_counters(rid):
+            last = self._last_row(rid)
+            if last is not None and values == last[1]:
                 continue
             rows.append((t, rid, *values))
+            rewrites |= last is not None and t <= last[0]  # replaces (same second) or predates it
         self.db.executemany("INSERT OR REPLACE INTO energy VALUES (?,?,?,?,?)", rows)
         for row in rows:  # only once written: a failed insert is retried at the next call
-            self._last_written[row[1]] = row[2:]
+            rid = row[1]
+            last = self._last_written.get(rid)
+            self._last_written[rid] = (max(t, last[0]) if last else t, row[2:])
+        if rewrites:
+            self.energy_epoch += 1
         return len(rows)
 
     def prune(self, chunk: int = PRUNE_CHUNK) -> int:
@@ -140,6 +154,8 @@ class Recorder:
                         (cutoff, chunk),
                     )
                     total += n
+                    if n and table == "samples":  # the weights of old spans changed
+                        self.energy_epoch += 1
                     if n < chunk:
                         break
         except DatabaseClosed:
