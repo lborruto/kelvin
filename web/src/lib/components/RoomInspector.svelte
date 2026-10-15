@@ -3,7 +3,7 @@
   import { run, retry } from '$lib/actions';
   import { api } from '$lib/api/client';
   import { activityKey, dutyText } from '$lib/activity';
-  import { roomControls, roomRange } from '$lib/capabilities';
+  import { capsOf, isReadOnly, roomControls, roomRange } from '$lib/capabilities';
   import { fmtDelta, fmtTemp, fmtTime } from '$lib/format';
   import { levelLabel, m } from '$lib/i18n';
   import { heatColor } from '$lib/heat';
@@ -57,6 +57,7 @@
   let first = $derived(radiators[0]);
   // Plan 12: room controls reach the radiators that support them; none → the control is absent.
   let rc = $derived(roomControls(radiators));
+  let canOff = $derived(radiators.some((r) => !isReadOnly(r) && capsOf(r).levels.includes('off')));
   let manualRange = $derived(roomRange(radiators, 'manual'));
   let comfortRange = $derived(roomRange(radiators, 'comfort'));
   let ecoRange = $derived(roomRange(radiators, 'eco'));
@@ -136,8 +137,12 @@
           <ModeSwitch label={m.room.modeLabel} disabled={!house.online} value={room.mode} pending={expected.mode ?? null} modes={rc.modes}
             onchange={(next) => run(() => api.roomMode(roomId, next))} />
           {#if rc.mode < rc.total}<p class="note">{m.roomCaps.partial(rc.mode, rc.total)}</p>{/if}
+        {:else if canOff}
+          <!-- Pilot-wire rooms have levels, not modes: « Arrêt » is the house-off rule for this room. -->
+          <button type="button" class="btn secondary" aria-pressed={mode === 'off'} aria-disabled={busy || !house.online}
+            onclick={() => !busy && house.online && mode !== 'off' && run(() => api.roomMode(roomId, 'off'))}>{m.mode.off}</button>
         {/if}
-        {#if room.mode === 'mixed'}<p class="note">{m.room.mixedMode}</p>{/if}
+        {#if rc.modes.length && room.mode === 'mixed'}<p class="note">{m.room.mixedMode}</p>{/if}
         {#if mode === 'manual' && manualRange}
           <div class="row"><span>{m.room.setpoint}</span>
             <Stepper label={m.room.setpoint} announce={false} value={expected.target ?? aTarget.value} min={manualRange[0]} max={manualRange[1]}

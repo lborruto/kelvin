@@ -89,6 +89,16 @@ describe('RadiatorPanel', () => {
     expect(screen.queryByRole('button', { name: 'Renommer' })).toBeNull();
   });
 
+  it('hides « Consigne active » when the device has no manual setpoint', () => {
+    render(RadiatorPanel, { radiator: { ...radiator, capabilities: pilotCaps }, showControls: false });
+    expect(screen.queryByText('Consigne active')).toBeNull();
+  });
+
+  it('shows « Consigne active » on a setpoint heater', () => {
+    render(RadiatorPanel, { radiator, showControls: false });
+    expect(screen.getByText('Consigne active')).toBeInTheDocument();
+  });
+
   it('titles an unnamed radiator by model and power', () => {
     render(RadiatorPanel, { radiator: { ...radiator, model: 'HEKLA V', power_w: 2000 }, showControls: false });
     expect(screen.getByRole('heading', { name: 'HEKLA V · 2000\u00a0W' })).toBeInTheDocument();

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { api } from '$lib/api/client';
 import { house } from '$lib/stores/house.svelte';
 import RoomInspector from './RoomInspector.svelte';
 import { applyLocale } from '$lib/i18n';
@@ -116,7 +117,7 @@ describe('RoomInspector alerts', () => {
 const caps = (extra: object) => ({
   modes: [], manual: null, comfort: null, eco: null, levels: [], program: false, dryer: [],
   window_detection: false, presence_detection: false, night_light: false, night_light_intensity: false,
-  identify: false, energy: false, boost: false, read_only: false, ...extra
+  identify: false, energy: false, boost: false, rename: false, read_only: false, ...extra
 });
 const snapshotOf = (radiators: object[], mode = 'manual') =>
   ({
@@ -151,6 +152,35 @@ describe('RoomInspector across kinds', () => {
     expect(screen.queryByRole('button', { name: 'Forcer' })).toBeNull();
     expect(screen.queryByText('Consigne')).toBeNull();
     expect(screen.getByRole('radiogroup', { name: 'Allure' })).toBeInTheDocument();
+  });
+
+  it('a pilot-wire room offers « Arrêt », which switches the room off', async () => {
+    const pilot = { ...base, id: 'p', name: 'Bureau', comfort: null, mode: 'manual' as const, support: 'expected',
+      capabilities: caps({ levels: ['comfort', 'eco', 'frostprotection', 'off'] }) };
+    house.applySnapshot(snapshotOf([pilot]));
+    house.connection = 'open';
+    render(RoomInspector, { roomId: 'salon' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Arrêt' }));
+    expect(api.roomMode).toHaveBeenCalledWith('salon', 'off');
+  });
+
+  it('a room that takes a mode keeps its mode switch and no separate « Arrêt » button', () => {
+    const dryer = { ...base, id: 'd', name: 'Sèche', comfort: null, mode: 'manual' as const, support: 'expected',
+      capabilities: caps({ modes: ['off', 'manual', 'program'], manual: [7, 26], boost: true }) };
+    house.applySnapshot(snapshotOf([dryer]));
+    render(RoomInspector, { roomId: 'salon' });
+    expect(screen.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Arrêt' })).toBeNull();
+  });
+
+  it('the « Mixte » note needs a room mode control', () => {
+    const pilot = { ...base, id: 'p', name: 'Bureau', comfort: null, mode: 'manual' as const, support: 'expected',
+      capabilities: caps({ levels: ['comfort', 'eco', 'off'] }) };
+    const zone = { ...base, id: 'z', name: 'Zone PAC', comfort: null, mode: 'other' as const, support: 'readonly',
+      capabilities: caps({ read_only: true }) };
+    house.applySnapshot(snapshotOf([pilot, zone], 'mixed'));
+    render(RoomInspector, { roomId: 'salon' });
+    expect(screen.queryByText(/Mixte — les radiateurs/)).toBeNull();
   });
 
   it('says so when Kelvin drives nothing in the room', () => {

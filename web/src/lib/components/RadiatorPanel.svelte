@@ -96,7 +96,7 @@
     {:else}
       <dt>Mode</dt><dd>{modeLabel(radiator.mode)}</dd>
     {/if}
-    <dt>{m.radiator.setpointActive}</dt><dd class="num">{fmtTemp(radiator.effective_setpoint)}</dd>
+    {#if caps.manual}<dt>{m.radiator.setpointActive}</dt><dd class="num">{fmtTemp(radiator.effective_setpoint)}</dd>{/if}
     {#if radiator.energy_wh}<dt>{m.radiator.energyTotal}</dt><dd class="num">{fmtKwh(radiator.energy_wh.total / 1000)}</dd>{/if}
   </dl>
   <RadiatorInfo {radiator} />
