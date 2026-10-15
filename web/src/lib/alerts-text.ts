@@ -9,6 +9,7 @@ const MED = 'https://www.myelectricaldata.fr/';
 /** « 1er février » / « 3 décembre »; “1 February”. */
 export function fmtDayMonth(iso: string): string {
   const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return '—'; // a malformed param must not take the page down
   const month = new Intl.DateTimeFormat(locale.intl, { month: 'long', timeZone: 'UTC' }).format(d);
   const day = d.getUTCDate();
   return locale.current === 'fr' && day === 1 ? `1er ${month}` : `${day} ${month}`;

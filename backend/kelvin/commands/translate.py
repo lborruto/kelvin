@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -130,17 +131,20 @@ def normalize_program(week: Week) -> list[Week]:
     return out
 
 
-def plan_program(r: Radiator, week: dict[str, list[dict[str, str]]]) -> Planned:
-    """Locked days (a midnight end, a shape Kelvin cannot read) are never written from the
-    payload: each is re-sent exactly as this radiator reported it (spec QW8)."""
+def plan_program(
+    r: Radiator, week: dict[str, list[dict[str, str]]], *, keep: Iterable[str] = ()
+) -> Planned:
+    """Only the days `week` names are written (`[]` clears one). A day it leaves out, a day in
+    `keep`, and a locked day (a midnight end, a shape Kelvin cannot read; spec QW8) are re-sent
+    exactly as this radiator reported them (final review C1). A day the radiator never reported
+    has nothing to keep and reads as no slot."""
     _require(r, r.heater_url, "setTimeProgram")
-    locked = r.program_locked
-    payload = normalize_program({d: v for d, v in week.items() if d not in locked})
-    if locked:
-        payload = [
-            (r.raw_day(day) or entry) if (day := next(iter(entry))) in locked else entry
-            for entry in payload
-        ]
+    kept = set(r.program_locked) | set(keep) | {d for d in DAY_ORDER if d not in week}
+    payload = normalize_program({d: v for d, v in week.items() if d not in kept})
+    payload = [
+        (r.raw_day(day) or entry) if (day := next(iter(entry))) in kept else entry
+        for entry in payload
+    ]
     return _one(r.heater_url, "setTimeProgram", (payload,), "core:TimeProgramState", payload)
 
 

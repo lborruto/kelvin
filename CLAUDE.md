@@ -125,13 +125,17 @@ depends on.
 - **Missing data is `null`, never 0**, in the API, and « — » in the UI.
 - **Programme days Kelvin cannot edit** (a slot ending at midnight, any shape it cannot parse or
   does not write: unsorted, not three entries) are locked: `plan_program` re-sends them exactly
-  as the radiator reported them, whatever the payload says. The editor never makes an end after
-  23:45. Every editor send carries `base` (each radiator's programme when the editor loaded); the
-  backend answers `409 program_changed_elsewhere` (`params.days` only) instead of overwriting a
-  change made elsewhere, unless `force`.
+  as the radiator reported them, whatever the payload says. Only the days a programme body names
+  are written (`[]` clears one); a day it leaves out or lists in `keep` is re-sent as read on
+  every radiator it reaches, so « Envoyer aussi à » or a mixed room never empties a day. The
+  editor never makes an end after 23:45. Every editor send carries `base` (each radiator's
+  programme when the editor loaded); the backend answers `409 program_changed_elsewhere`
+  (`params.days` only) instead of overwriting a change made elsewhere, unless `force`; the editor
+  stops a multi-room send at the first 409.
 - **Alerts:** a rule is a pure `(context, now) -> list[Candidate]` in `kelvin/alerts/rules.py`;
-  keys embed the occurrence (a dismissed alert returns only when its key changes); the backend
-  stores kinds and params, never text: the web writes the words in both dictionaries (`alertText`).
+  keys embed the occurrence (a dismissed alert returns only when its key changes, or when it was
+  resolved and comes back); the backend stores kinds and params, never text: the web writes the
+  words in both dictionaries (`alertText`).
   A new kind needs its rule, its `alertText` case and its two messages in the same PR. Alert
   params may name Kelvin's own room and radiator ids (already in the house view), never a device
   URL, serial or secret (error params stay id-free).
@@ -139,9 +143,12 @@ depends on.
   `alert_context(rt, now)` take `wall`; nothing in them reads `time.time()` or `datetime.now()`.
 - **A room's € is the sum of its radiators' Par pièce cents** (`report.radiator_shares`, day by
   day), never re-priced or rounded on its own.
-- **Device signal:** `House.last_event_ts` and `core:StatusState` timing are memory only and
-  count listener events, not state reads (`House.apply(…, event=False)` for reads). Reachability
-  comes from `core:StatusState`; `radiator_unreachable` needs 30 continuous minutes.
+- **Device signal:** `House.last_event_ts` is memory only and counts listener events, not state
+  reads (`House.apply(…, event=False)` for reads). Reachability comes from `core:StatusState`,
+  whether an event or a read brings it (a status change seen by a read starts or ends a run too);
+  its timing is memory only. `radiator_unreachable` needs 30 continuous minutes; an outage
+  already alerted on keeps its key across restarts (one seen only from a start is keyed
+  `startup`), so a dismissal holds until the radiator is seen reachable again.
 - **Sessions:** a session's `id` is an opaque random value, never derived from the token or its
   hash; the API lists browser and system names only, never the user agent or the token. The
   current session cannot be signed out through the list.

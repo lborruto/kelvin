@@ -665,3 +665,13 @@ async def test_a_failed_command_alert_resolves_after_24_hours_on_the_runtime_clo
             wall.advance(86_400 + 1)
             rt.alerts.evaluate()
             assert [a["kind"] for a in (await c.get("/api/alerts")).json()] == []
+
+
+def test_rooms_duty_is_routed_before_any_room_id_route():
+    """FastAPI takes the first match: `/rooms/duty` must come before `/rooms/{room_id}…` so a
+    later `GET /rooms/{room_id}` cannot shadow it (final review, merge note)."""
+    from kelvin.api.routes import router
+
+    paths = [r.path for r in router.routes]
+    first_room = next(i for i, p in enumerate(paths) if p.startswith("/rooms/{room_id}"))
+    assert paths.index("/rooms/duty") < first_room

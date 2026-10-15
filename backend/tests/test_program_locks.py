@@ -112,7 +112,8 @@ def test_a_locked_day_is_resent_byte_for_byte_whatever_the_payload_says():
     payload = plan_program(r, week).commands[0].parameters[0]
     assert payload[4] == {"friday": raw}
     assert payload[0] == {"monday": [{"start": "07:00", "end": "09:00"}, E, E]}
-    assert payload[1] == {"tuesday": [E, E, E]}  # a readable day left out has no slot, as before
+    # A day left out is kept as read (final review C1): only days the body names are written.
+    assert payload[1] == {"tuesday": WEEK_PROGRAM[1]["tuesday"]}
 
 
 def test_a_midnight_day_is_resent_as_read_and_24_00_is_never_written():
@@ -204,9 +205,9 @@ async def test_the_radiator_route_is_guarded_too_and_a_missing_base_entry_confli
     )  # no base for it: every readable day differs
 
 
-def test_body_week_is_the_seven_days_only():
+def test_body_week_is_the_named_days_only():
     body = ProgramBody.model_validate({**WEEK, "base": {"r": {}}, "force": True})
-    assert list(body.week()) == list(DAY_ORDER)
+    assert list(body.week()) == ["monday"]  # the others are kept as read (final review C1)
     assert body.base_programs() == {"r": {}}
     with pytest.raises(ValueError):
         ProgramBody.model_validate({"base": {f"r{i}": {} for i in range(51)}})
@@ -218,3 +219,72 @@ def test_the_base_day_names_are_the_house_s_days():
     from kelvin.api.schemas import DayName
 
     assert get_args(DayName) == DAY_ORDER
+
+
+# --- Final review C1: a day is written only when the body names it ---------------------------
+
+CH1, CH2 = "8370011", "8370022"
+WEEKEND_RAW = [{"start": "08:30", "end": "22:45"}, E, E]
+
+
+def test_a_day_left_out_or_kept_is_resent_as_read_on_an_unlocked_radiator():
+    r = _house_with("monday", [{"start": "06:15", "end": "08:00"}, E, E])
+    assert r.program_locked == {}
+    week = {
+        "monday": [{"start": "07:00", "end": "08:00"}],
+        "sunday": [{"start": "09:00", "end": "10:00"}],
+    }
+    payload = plan_program(r, week, keep={"sunday"}).commands[0].parameters[0]
+    assert payload[0] == {"monday": [{"start": "07:00", "end": "08:00"}, E, E]}
+    assert payload[5] == {"saturday": WEEKEND_RAW}  # absent: as read
+    assert payload[6] == {"sunday": WEEKEND_RAW}  # named, but kept: as read
+
+
+def test_only_an_explicitly_cleared_day_is_written_empty():
+    r = _house_with("monday", [{"start": "06:15", "end": "08:00"}, E, E])
+    payload = plan_program(r, {"tuesday": []}).commands[0].parameters[0]
+    assert payload[1] == {"tuesday": [E, E, E]}
+    assert payload[2] == {"wednesday": WEEK_PROGRAM[2]["wednesday"]}
+
+
+def test_the_body_keeps_absent_days_and_its_keep_list():
+    body = ProgramBody.model_validate({**WEEK, "tuesday": [], "keep": ["sunday", "saturday"]})
+    assert body.week() == {"monday": WEEK["monday"], "tuesday": []}
+    assert body.kept() == {"saturday", "sunday"}
+    with pytest.raises(ValueError):
+        ProgramBody.model_validate({"keep": ["funday"]})
+
+
+async def test_chambre_1_also_sent_to_chambre_2_never_empties_its_weekend(ctx):  # noqa: F811
+    """The review's repro: the page sends Chambre 1's week (Saturday and Sunday locked there) to
+    Chambre 2 too. Chambre 2's weekend is not locked, and must stay as it was."""
+    c, rt, clock = ctx
+    for keep in (["saturday", "sunday"], None):  # marked kept, or absent: both keep
+        house = (await c.get("/api/house")).json()["house"]
+        ch2 = next(r for r in house["radiators"] if r["id"] == CH2)
+        week = {d: ch2["program"][d] for d in DAY_ORDER[:5]}
+        week["monday"] = [{"start": "07:00", "end": "08:00"}]
+        body = {**week, "base": {CH2: ch2["program"]}, **({"keep": keep} if keep else {})}
+        r = await c.put("/api/rooms/p-ch2/program", json=body)
+        assert r.status_code == 202, r.text
+        sent = rt.gateway.executed[-1][0].parameters[0]
+        assert sent[5] == {"saturday": WEEKEND_RAW} and sent[6] == {"sunday": WEEKEND_RAW}
+        await settle(rt, clock)
+        prog = rt.house.radiators[CH2].program
+        assert prog["saturday"] == prog["sunday"] == [{"start": "08:30", "end": "22:45"}]
+        assert prog["monday"] == [{"start": "07:00", "end": "08:00"}]
+
+
+async def test_a_mixed_room_never_empties_a_day_locked_on_its_other_radiator(ctx):  # noqa: F811
+    c, rt, clock = ctx
+    a, b = f"{SAMPLE_GATEWAY}/14172536#1", f"{SAMPLE_GATEWAY}/9312063#1"
+    odd = copy.deepcopy(WEEK_PROGRAM)
+    odd[6] = {"sunday": [{"start": "21:00", "end": "00:00"}, E, E]}
+    rt.gateway.push_state(a, "core:TimeProgramState", odd)
+    await settle(rt, clock)
+    # The page sends the room's week without Sunday (locked on one radiator) and marks it kept.
+    r = await c.put("/api/rooms/p-salon/program", json={**WEEK, "keep": ["sunday"]})
+    assert r.status_code == 202, r.text
+    sent = {cmd.device_url: cmd.parameters[0] for cmd in rt.gateway.executed[-1]}
+    assert sent[a][6] == {"sunday": [{"start": "21:00", "end": "00:00"}, E, E]}
+    assert sent[b][6] == {"sunday": WEEKEND_RAW}  # unlocked here, and still not emptied

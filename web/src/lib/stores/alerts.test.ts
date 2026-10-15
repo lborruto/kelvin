@@ -39,4 +39,13 @@ describe('AlertsStore', () => {
     s.reset();
     expect([s.list, s.summary]).toEqual([null, { active: 0, highest: null }]);
   });
+  it('a failed load is an error, never an empty list; the next load clears it', async () => {
+    vi.mocked(api.alerts).mockRejectedValueOnce(new Error('x'));
+    const s = new AlertsStore();
+    await s.load();
+    expect([s.list, s.error]).toEqual([null, true]);
+    await s.load();
+    expect(s.list).toHaveLength(1);
+    expect(s.error).toBe(false);
+  });
 });

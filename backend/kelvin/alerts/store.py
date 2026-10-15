@@ -37,7 +37,10 @@ class AlertStore:
                 "INSERT INTO alerts (kind, key, severity, params, first_seen, last_seen)"
                 " VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET"
                 " severity = excluded.severity, params = excluded.params,"
-                " last_seen = excluded.last_seen, resolved_at = NULL",
+                " last_seen = excluded.last_seen, resolved_at = NULL,"
+                # A key that comes back after it was resolved is a new occurrence: shown again.
+                # One still open keeps its dismissal (SQLite reads the old row on the right).
+                " dismissed_at = CASE WHEN alerts.resolved_at IS NULL THEN alerts.dismissed_at END",
                 (c.kind, c.key, c.severity, json.dumps(c.params, sort_keys=True), now, now),
             )
         keep = {c.key for c in candidates}

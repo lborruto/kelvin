@@ -76,23 +76,45 @@ def consent_expiring(ctx: AlertContext, now: float) -> list[Candidate]:
     ]
 
 
+def _open_unreachable(db: Database) -> dict[str, tuple[str, dict[str, Any]]]:
+    """The unreachable alerts still open, by radiator: (key, params)."""
+    out: dict[str, tuple[str, dict[str, Any]]] = {}
+    for row in db.query(
+        "SELECT key, params FROM alerts WHERE kind = 'radiator_unreachable' AND resolved_at IS NULL"
+    ):
+        params = json.loads(row["params"])
+        if isinstance(params.get("radiator_id"), str):
+            out[params["radiator_id"]] = (row["key"], params)
+    return out
+
+
 def radiator_unreachable(ctx: AlertContext, now: float) -> list[Candidate]:
+    """`core:StatusState` unavailable for 30 continuous minutes. Kelvin's memory of when a run
+    began is lost at a restart, so an outage it already alerted on and never saw end keeps its
+    key (and its dismissal) across restarts; a run seen only from a start is keyed `startup`,
+    stable across restarts too (final review I1)."""
     out = []
+    open_ = _open_unreachable(ctx.db)
     for rid, r in ctx.house.radiators.items():
         lasted = ctx.house.unreachable_for(rid, now)
-        if lasted is None or lasted < UNREACHABLE_S:
+        if lasted is None:
             continue
         seen = ctx.house.signal.status_seen[r.heater_url]
+        since = seen.since if seen.known_start else None
+        prior = open_.get(rid)
+        if prior is not None:  # the same outage: never seen ending
+            key = prior[0]
+            since = prior[1].get("since", since)
+        elif lasted < UNREACHABLE_S:
+            continue
+        else:
+            key = f"radiator_unreachable:{rid}:{int(seen.since) if seen.known_start else 'startup'}"
         out.append(
             Candidate(
                 "radiator_unreachable",
-                f"radiator_unreachable:{rid}:{int(seen.since)}",
+                key,
                 "bad",
-                {
-                    "radiator_id": rid,
-                    "room_id": r.room_id,
-                    "since": seen.since if seen.known_start else None,
-                },
+                {"radiator_id": rid, "room_id": r.room_id, "since": since},
             )
         )
     return out

@@ -1,6 +1,7 @@
 import type {
   Alert,
   CommandResult,
+  Day,
   EnergyBucket,
   EnergyDay,
   EnergyGroup,
@@ -85,9 +86,16 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 
 const cmd = (method: string, path: string, body?: unknown) => call<CommandResult>(method, path, body);
 
-const programOpts = (o: { base?: Base; force?: boolean }) => ({
+export interface ProgramOpts {
+  base?: Base;
+  force?: boolean;
+  /** Days to leave as each radiator reported them (a locked day): never written, never emptied. */
+  keep?: Day[];
+}
+const programOpts = (o: ProgramOpts) => ({
   ...(o.base ? { base: o.base } : {}),
-  ...(o.force ? { force: true } : {})
+  ...(o.force ? { force: true } : {}),
+  ...(o.keep?.length ? { keep: o.keep } : {})
 });
 
 export const api = {
@@ -99,7 +107,7 @@ export const api = {
   roomMode: (roomId: string, mode: SettableMode) => cmd('POST', `/rooms/${enc(roomId)}/mode`, { mode }),
   roomSetpoint: (roomId: string, kind: SetpointKind, value: number) =>
     cmd('POST', `/rooms/${enc(roomId)}/setpoint`, { kind, value }),
-  roomProgram: (roomId: string, week: WeekProgram, opts: { base?: Base; force?: boolean } = {}) =>
+  roomProgram: (roomId: string, week: WeekProgram, opts: ProgramOpts = {}) =>
     cmd('PUT', `/rooms/${enc(roomId)}/program`, { ...week, ...programOpts(opts) }),
   alerts: (state: 'active' | 'all' = 'active') => call<Alert[]>('GET', `/alerts?state=${state}`),
   dismissAlert: (id: number) => call<void>('POST', `/alerts/${id}/dismiss`),
@@ -116,7 +124,7 @@ export const api = {
   radiatorMode: (id: string, mode: SettableMode) => cmd('POST', `/radiators/${enc(id)}/mode`, { mode }),
   radiatorSetpoint: (id: string, kind: SetpointKind, value: number) =>
     cmd('POST', `/radiators/${enc(id)}/setpoint`, { kind, value }),
-  radiatorProgram: (id: string, week: WeekProgram, opts: { base?: Base; force?: boolean } = {}) =>
+  radiatorProgram: (id: string, week: WeekProgram, opts: ProgramOpts = {}) =>
     cmd('PUT', `/radiators/${enc(id)}/program`, { ...week, ...programOpts(opts) }),
   radiatorFeatures: (
     id: string,

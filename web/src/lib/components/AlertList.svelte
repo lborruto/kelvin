@@ -20,7 +20,10 @@
   let shown = $derived((alerts.list ?? []).filter((a) => alertText(a) !== null));
 </script>
 
-{#if alerts.list === null || hold}
+{#if alerts.error && alerts.list === null && !hold}
+  <p class="error" role="alert">{m.alerts.loadError} <button type="button" class="btn btn-sm" onclick={() => alerts.load()}
+      >{m.common.retry}</button></p>
+{:else if alerts.list === null || hold}
   <div class="sk" aria-hidden="true">
     {#if expected === 0}
       <div class="skeleton inset none-sk"></div>
@@ -47,6 +50,12 @@
   p {
     margin: 0;
     font-size: 13px;
+  }
+  .error {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
   }
   /* Final heights: a callout is 1 to 5 lines of 19.5 px by the width it gets; the empty line is a 13 px line at 1.5. */
   .sk {

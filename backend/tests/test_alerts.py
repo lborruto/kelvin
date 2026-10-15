@@ -355,3 +355,107 @@ def test_rules_table_names_the_plan_8_kinds():
 def test_linky_stalled_ignores_a_malformed_last_day():
     st = {"configured": True, "state": "ok", "last_day": "2026-13-45", "last_ok_at": 0}
     assert linky_stalled(actx(linky=st), 2_000_000_000.0) == []
+
+
+# --- Final review I1: a dismissed unreachable alert stays dismissed across a restart ---------
+
+HEATER_CH1 = f"{SAMPLE_GATEWAY}/8370011#1"
+
+
+class _Kelvin:
+    """One Kelvin run on a database file: its house, alert store and engine (the unreachable
+    rule only). A restart is a new _Kelvin on the same file."""
+
+    def __init__(self, path, clock, *, unavailable_at_start=False):
+        root, devices = sample_house()
+        if unavailable_at_start:
+            next(d for d in devices if d.device_url == HEATER_CH1).states["core:StatusState"] = (
+                "unavailable"
+            )
+        self.house = build_house(root, devices, wall=clock)
+        self.db = Database(path)
+        self.store = AlertStore(self.db, wall=clock)
+        self.svc = AlertService(
+            self.store,
+            {"radiator_unreachable": radiator_unreachable},
+            lambda: actx(house=self.house, db=self.db),
+            publish=lambda s: None,
+            wall=clock,
+        )
+
+    def status(self, value):
+        self.house.apply(StateChange(HEATER_CH1, "core:StatusState", value))
+
+
+def test_a_dismissed_unreachable_alert_stays_hidden_after_a_restart(tmp_path):
+    path, clock = tmp_path / "k.db", ManualClock(1_000_000.0)
+    k = _Kelvin(path, clock)
+    k.status("unavailable")
+    clock.advance(31 * 60)
+    k.svc.evaluate()
+    [a] = k.store.listing("active")
+    assert k.svc.dismiss(a["id"])
+    k.db.close()
+    # Restart while the radiator is still unavailable: Kelvin sees it from its start.
+    clock.advance(600)
+    k = _Kelvin(path, clock, unavailable_at_start=True)
+    k.svc.evaluate()
+    assert k.store.listing("active") == []
+    [row] = k.store.listing("all")
+    assert (row["id"], row["dismissed"], row["resolved_at"]) == (a["id"], True, None)
+    clock.advance(2 * 3600)
+    k.svc.evaluate()
+    assert k.store.listing("active") == []
+    # It comes back, then drops again: a new occurrence, shown.
+    k.status("available")
+    k.svc.evaluate()
+    assert k.store.listing("all")[0]["resolved_at"] is not None
+    k.status("unavailable")
+    clock.advance(31 * 60)
+    k.svc.evaluate()
+    [b] = k.store.listing("active")
+    assert b["id"] != a["id"]
+    k.db.close()
+
+
+def test_an_outage_seen_only_from_a_start_has_a_stable_key(tmp_path):
+    path, clock = tmp_path / "k.db", ManualClock(1_000_000.0)
+    k = _Kelvin(path, clock, unavailable_at_start=True)
+    k.svc.evaluate()
+    assert k.store.listing("active") == []  # 30 minutes first, as any outage
+    clock.advance(31 * 60)
+    k.svc.evaluate()
+    [a] = k.store.listing("active")
+    assert a["params"]["since"] is None
+    k.svc.dismiss(a["id"])
+    k.db.close()
+    clock.advance(3600)
+    k = _Kelvin(path, clock, unavailable_at_start=True)
+    clock.advance(31 * 60)
+    k.svc.evaluate()
+    assert k.store.listing("active") == []  # the same outage, still dismissed
+    # Resolved, then seen again only from a later start: the same key reopens, shown again.
+    k.status("available")
+    k.svc.evaluate()
+    k.db.close()
+    clock.advance(3600)
+    k = _Kelvin(path, clock, unavailable_at_start=True)
+    clock.advance(31 * 60)
+    k.svc.evaluate()
+    assert [x["id"] for x in k.store.listing("active")] == [a["id"]]
+    k.db.close()
+
+
+def test_a_resolved_key_that_returns_is_shown_again_even_if_it_was_dismissed():
+    svc, store, _, _ = make()
+    emitted = [cand("consent_expiring:2026-10-30:warn", "consent_expiring", "warn")]
+    svc.rules = {"consent_expiring": lambda ctx, now: emitted}
+    svc.evaluate()
+    svc.dismiss(store.listing("active")[0]["id"])
+    svc.evaluate()
+    assert store.listing("active") == []  # still open: stays dismissed
+    emitted[:] = []
+    svc.evaluate()  # resolved
+    emitted[:] = [cand("consent_expiring:2026-10-30:warn", "consent_expiring", "warn")]
+    svc.evaluate()
+    assert len(store.listing("active")) == 1

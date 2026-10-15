@@ -648,6 +648,7 @@ export const en: Messages = {
   alerts: {
     title: 'Alerts',
     none: 'No alerts.',
+    loadError: 'Couldn’t load the alerts.',
     dismissLabel: (text: string) => `Dismiss: ${text}`,
     priceChange: (when: string) => `If your plan follows the regulated tariff, prices change on ${when}: add the new prices.`,
     addPrices: 'Add the prices',

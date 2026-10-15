@@ -672,6 +672,7 @@ export const fr = {
   alerts: {
     title: 'Alertes',
     none: 'Aucune alerte.',
+    loadError: 'Impossible de charger les alertes.',
     dismissLabel: (text: string) => `Masquer${NB}: ${text}`,
     priceChange: (when: string) => `Si votre offre suit le tarif réglementé, les prix changent le ${when}${NB}: ajoutez les nouveaux prix.`,
     addPrices: 'Ajouter les prix',

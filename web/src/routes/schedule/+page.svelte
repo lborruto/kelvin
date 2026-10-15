@@ -52,6 +52,8 @@
   let base = $state<Base>({});
   // Days changed elsewhere that also hold unsent edits; non-empty shows the notice.
   let conflict = $state<Day[]>([]);
+  // After a 409 mid-send: the rooms not written yet (the first of them refused); null otherwise.
+  let unsentRooms = $state<string[] | null>(null);
 
   $effect(() => {
     const t = setInterval(() => (now = Date.now()), 60_000);
@@ -89,6 +91,7 @@
         }
         if (JSON.stringify(freshBase) !== JSON.stringify(base)) base = freshBase;
         if (conflict.length) conflict = [];
+        unsentRooms = null;
         return;
       }
       const r = follow({ draft: draft!, baseline: baseline!, base }, fresh, freshBase);
@@ -181,6 +184,7 @@
     baseline = null;
     base = {};
     conflict = [];
+    unsentRooms = null;
     alsoRooms = [];
   }
   function applyCopy() {
@@ -191,38 +195,50 @@
     draft = next;
     copyTo = [];
   }
-  async function send(force = false) {
+  /** `only`: after a 409, « Remplacer quand même » sends the rooms not written yet, once each. */
+  async function send(force = false, only: string[] | null = null) {
     if (!draft || !roomId || !(canSend || (force && !busy && house.online && !invalid))) return;
     const week = draft;
-    const ids = [roomId, ...alsoRooms];
+    const ids = only ?? [roomId, ...alsoRooms];
     const results: (Pending | null)[] = [];
+    let stopped = false;
     sending = true;
     try {
-      for (const id of ids) {
-        const b = id === ids[0] ? base : baseOf(house.roomRadiators(id));
+      for (const [i, id] of ids.entries()) {
+        const b = id === roomId ? base : baseOf(house.roomRadiators(id));
+        // Locked days are kept as each radiator reports them, in this room and every other
+        // (final review C1): a send never empties a day it does not mean to change.
+        const opts = { base: b, ...(lockedList.length ? { keep: lockedList } : {}), ...(force ? { force: true } : {}) };
         results.push(
-          await run(() => api.roomProgram(id, toWeekProgram(week, lockedList), { base: b, ...(force ? { force: true } : {}) }), {
+          await run(() => api.roomProgram(id, toWeekProgram(week, lockedList), opts), {
             onError: (e) => {
               if (!(e instanceof ApiError) || e.code !== 'program_changed_elsewhere') return false;
               const days = ((e.params?.days as Day[] | undefined) ?? []).filter((d) => DAYS.includes(d));
               conflict = days.length ? days : changes;
+              unsentRooms = ids.slice(i);
+              stopped = true;
               return true;
             }
           })
         );
+        // A change made elsewhere stops the whole send: nothing more is written (final review I2).
+        if (stopped) break;
       }
     } finally {
       sending = false;
     }
-    sentList = ids.flatMap((id, i) => {
+    const sentNow = ids.flatMap((id, i) => {
       const p = results[i];
       return p ? [{ roomId: id, pendingId: p.id, week }] : [];
     });
-    // Any failure keeps the edits as they are; the toast already explains.
-    if (results.some((p) => p === null)) return;
+    sentList = only ? [...sentList.filter((e) => !ids.includes(e.roomId)), ...sentNow] : sentNow;
+    // Any failure keeps the edits as they are; the toast or the notice already explains.
+    if (stopped || results.some((p) => p === null)) return;
     alsoRooms = [];
     conflict = [];
-    lock = { roomId: ids[0], pendingId: results[0]!.id, week };
+    unsentRooms = null;
+    const mine = sentList.find((e) => e.roomId === roomId);
+    if (mine) lock = { roomId, pendingId: mine.pendingId, week };
   }
   function reload() {
     const fresh = fromWeekProgram(source);
@@ -230,8 +246,9 @@
     baseline = fresh;
     base = baseOf(radiators);
     conflict = [];
+    unsentRooms = null;
   }
-  const replace = () => !busy && house.online && send(true);
+  const replace = () => !busy && house.online && send(true, unsentRooms);
   async function retryEntry(id: string) {
     const entry = sentList.find((e) => e.pendingId === id);
     const np = await retry(id);

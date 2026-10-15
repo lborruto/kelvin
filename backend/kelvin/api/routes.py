@@ -142,6 +142,29 @@ async def stream(request: Request) -> EventSourceResponse:
     )
 
 
+@router.get("/rooms/duty")
+async def rooms_duty(request: Request) -> dict:
+    """Each room's share of time heating over the last 24 h (spec QW5)."""
+    rt = _rt(request)
+    end = int(rt.recorder.wall())  # the runtime's injected clock
+    start = end - DUTY_WINDOW_S
+    samples = await asyncio.to_thread(
+        rt.recorder.activity_samples, list(rt.house.radiators), start, end
+    )
+    out: dict[str, dict] = {}
+    for room in rt.house.rooms.values():
+        rads = rt.house.room_radiators(room.id)
+        per = {
+            r.id: radiator_duty(((s[0], s[3]) for s in samples.get(r.id, [])), start, end)
+            for r in rads
+        }
+        out[room.id] = {
+            "duty": room_duty(per, {r.id: r.power_w for r in rads}),
+            "coverage": min((c for _, c in per.values()), default=0.0),
+        }
+    return {"from": start, "to": end, "rooms": out}
+
+
 @router.post("/rooms/{room_id}/mode")
 async def room_mode(room_id: str, body: ModeBody, request: Request):
     rt = _rt(request)
@@ -184,8 +207,10 @@ async def room_program(room_id: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
     _check_base(body, rads)
-    week = body.week()
-    return await _submit(rt, Label.of("program", name=name), rads, lambda r: plan_program(r, week))
+    week, keep = body.week(), body.kept()
+    return await _submit(
+        rt, Label.of("program", name=name), rads, lambda r: plan_program(r, week, keep=keep)
+    )
 
 
 @router.get("/rooms/{room_id}/energy")
@@ -211,29 +236,6 @@ def _window(start: float, end: float, now: float) -> tuple[int, int]:
     if not FIRST_TS <= start < end or end - start > MAX_SPAN_S:
         raise UserError("period_invalid")
     return int(start), int(end)
-
-
-@router.get("/rooms/duty")
-async def rooms_duty(request: Request) -> dict:
-    """Each room's share of time heating over the last 24 h (spec QW5)."""
-    rt = _rt(request)
-    end = int(rt.recorder.wall())  # the runtime's injected clock
-    start = end - DUTY_WINDOW_S
-    samples = await asyncio.to_thread(
-        rt.recorder.activity_samples, list(rt.house.radiators), start, end
-    )
-    out: dict[str, dict] = {}
-    for room in rt.house.rooms.values():
-        rads = rt.house.room_radiators(room.id)
-        per = {
-            r.id: radiator_duty(((s[0], s[3]) for s in samples.get(r.id, [])), start, end)
-            for r in rads
-        }
-        out[room.id] = {
-            "duty": room_duty(per, {r.id: r.power_w for r in rads}),
-            "coverage": min((c for _, c in per.values()), default=0.0),
-        }
-    return {"from": start, "to": end, "rooms": out}
 
 
 @router.get("/rooms/{room_id}/activity")
@@ -277,8 +279,10 @@ async def radiator_program(rid: str, body: ProgramBody, request: Request):
     rt = _rt(request)
     r = _radiator(rt, rid)
     _check_base(body, [r])
-    week = body.week()
-    return await _submit(rt, Label.of("program", name=r.name), [r], lambda x: plan_program(x, week))
+    week, keep = body.week(), body.kept()
+    return await _submit(
+        rt, Label.of("program", name=r.name), [r], lambda x: plan_program(x, week, keep=keep)
+    )
 
 
 @router.patch("/radiators/{rid}/features")

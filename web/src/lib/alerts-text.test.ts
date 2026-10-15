@@ -69,3 +69,10 @@ describe('alert texts', () => {
     expect(alertText(a('tempo_red_tomorrow', {}))).toBeNull();
   });
 });
+
+describe('fmtDayMonth', () => {
+  it('a malformed date reads —, never throws', () => {
+    expect(fmtDayMonth('')).toBe('—');
+    expect(fmtDayMonth('garbage')).toBe('—');
+  });
+});

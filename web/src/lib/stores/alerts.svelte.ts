@@ -4,6 +4,8 @@ import type { Alert, AlertSummary } from '$lib/api/types';
 /** The active alerts (spec §2.4). The SSE `alerts` count says when to reload the list. */
 export class AlertsStore {
   list = $state<Alert[] | null>(null);
+  /** The last load failed: the UI says so (with a retry) instead of « Aucune alerte. ». */
+  error = $state(false);
   summary = $state<AlertSummary>({ active: 0, highest: null });
   #gen = 0;
 
@@ -11,9 +13,12 @@ export class AlertsStore {
     const gen = this.#gen;
     try {
       const got = await api.alerts('active');
-      if (gen === this.#gen) this.list = got;
+      if (gen === this.#gen) {
+        this.list = got;
+        this.error = false;
+      }
     } catch {
-      if (gen === this.#gen && this.list === null) this.list = [];
+      if (gen === this.#gen) this.error = true; // the last list (or none) stays: never an empty one
     }
   }
 
@@ -40,6 +45,7 @@ export class AlertsStore {
   reset(): void {
     this.#gen++;
     this.list = null;
+    this.error = false;
     this.summary = { active: 0, highest: null };
   }
 }
