@@ -412,6 +412,10 @@
         "command": "setName"
       }
     },
+    "unsupported_in_room": {
+      "fr": "Aucun des radiateurs concernés ne prend en charge cette commande.",
+      "params": {}
+    },
     "wrong_account": {
       "fr": "Ce compte Cozytouch n’est pas celui de cette maison.",
       "params": {}
@@ -447,10 +451,24 @@
       "fr": "Fin du forçage",
       "params": {}
     },
+    "dryer": {
+      "fr": "Salle de bain : séchage",
+      "params": {
+        "action": "drying",
+        "name": "Salle de bain"
+      }
+    },
     "identify": {
       "fr": "Salon : identification",
       "params": {
         "name": "Salon"
+      }
+    },
+    "level": {
+      "fr": "Bureau : allure éco",
+      "params": {
+        "level": "eco",
+        "name": "Bureau"
       }
     },
     "mode": {

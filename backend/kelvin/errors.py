@@ -86,6 +86,7 @@ TEMPLATES: dict[str, str] = {
     # Plan 12: kinds the command layer refuses or does not know
     "read_only_device": "Kelvin ne pilote pas cet appareil : il est affiché en lecture seule.",
     "level_unknown": "Allure inconnue : {level}.",
+    "unsupported_in_room": "Aucun des radiateurs concernés ne prend en charge cette commande.",
     "dryer_action_unknown": "Action inconnue : {action}.",
     # Tariff
     "slot_time_invalid": "Heure invalide : {value} (format HH:MM).",

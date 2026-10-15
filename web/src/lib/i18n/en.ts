@@ -3,6 +3,16 @@ import type { Day, EnergyGroup } from '$lib/api/types';
 import { intFor, listFor, own, pluralFor, type ApiParams } from './rules';
 
 const NB = '\u00a0';
+// Plan 12: a pilot-wire heater's levels and a towel dryer's actions (action labels)
+const LEVEL_EN: Record<string, string> = {
+  comfort: 'comfort',
+  'comfort-1': 'comfort −1',
+  'comfort-2': 'comfort −2',
+  eco: 'eco',
+  frostprotection: 'frost protection',
+  off: 'off'
+};
+const DRYER_EN: Record<string, string> = { boost: 'towel boost', drying: 'drying', stop: 'back to normal' };
 const int = intFor('en');
 const plural = pluralFor('en');
 const list = listFor('en');
@@ -854,6 +864,9 @@ export const en: Messages = {
     night_light: (p: ApiParams) => `${p.name}: night light ${p.on ? 'on' : 'off'}`,
     night_light_intensity: (p: ApiParams) => `${p.name}: night light at ${p.intensity}%`,
     identify: (p: ApiParams) => `${p.name}: blink`,
+    // Plan 12
+    level: (p: ApiParams) => `${p.name}: heating level ${own(LEVEL_EN, p.level) ?? p.level}`,
+    dryer: (p: ApiParams) => `${p.name}: ${own(DRYER_EN, p.action) ?? p.action}`,
     boost: (p: ApiParams) => `${p.name}: boost to ${p.temperature}${NB}°C`,
     away: (p: ApiParams) => `Away at ${p.temperature}${NB}°C`,
     all_off: () => 'Turn everything off',
@@ -962,6 +975,7 @@ export const en: Messages = {
     bad_credentials_server: (p: ApiParams) => `Wrong ${p.server} email or password.`,
     read_only_device: () => 'Kelvin doesn’t control this device: it’s shown read-only.',
     level_unknown: (p: ApiParams) => `Unknown heating level: ${p.level}.`,
-    dryer_action_unknown: (p: ApiParams) => `Unknown action: ${p.action}.`
+    dryer_action_unknown: (p: ApiParams) => `Unknown action: ${p.action}.`,
+    unsupported_in_room: () => 'None of these radiators supports this command.'
   }
 };
