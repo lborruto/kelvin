@@ -206,10 +206,12 @@ async def rooms_duty(request: Request) -> dict:
 async def room_mode(room_id: str, body: ModeBody, request: Request):
     rt = _rt(request)
     name, rads = _room_radiators(rt, room_id)
+    label = Label.of("mode", name=name, mode=body.mode)
+    if body.mode == "off":  # same rule as « Tout éteindre »: a pilot-wire heater's level off
+        rads = _capable(rads, lambda c: "off" in c.modes or "off" in c.levels)
+        return await _submit(rt, label, rads, plan_off)
     rads = _capable(rads, lambda c: body.mode in c.modes)
-    return await _submit(
-        rt, Label.of("mode", name=name, mode=body.mode), rads, lambda r: plan_mode(r, body.mode)
-    )
+    return await _submit(rt, label, rads, lambda r: plan_mode(r, body.mode))
 
 
 @router.post("/rooms/{room_id}/setpoint")
