@@ -37,6 +37,7 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 | Variable | Default | Meaning |
 |---|---|---|
 | COZY_USER / COZY_PASS | — | Optional bootstrap of the account file |
+| COZY_SERVER | sauter_cozytouch | The home's Overkiz server: `atlantic_cozytouch`, `thermor_cozytouch`, or an experimental server id from `kelvin/overkiz/servers.py`. Read only when `COZY_USER`/`COZY_PASS` create `account.json`, which stores it |
 | MED_PRM / MED_TOKEN | — | Optional fallback for the Linky PDL and token |
 | MED_BASE_URL | https://www.myelectricaldata.fr | MyElectricalData API base |
 | KELVIN_DATA | ./data | SQLite and runtime files |
