@@ -69,6 +69,17 @@ class SetupReadGuard:
         self._trim()
         return len(self._reads)
 
+    def next_at(self, reserve: int = 0) -> float | None:
+        """When the next full read is possible (keeping `reserve` reads back): None when one
+        is possible now."""
+        self._trim()
+        free = self.limit - reserve
+        if len(self._reads) < free:
+            return None
+        if free <= 0:
+            return None if not self._reads else self._reads[-1] + DAY_S
+        return self._reads[len(self._reads) - free] + DAY_S
+
     def remaining(self) -> int:
         """Full reads left in the rolling 24 h (negative after a startup overdraft)."""
         return self.limit - self.used()

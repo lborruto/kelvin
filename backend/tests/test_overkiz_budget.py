@@ -119,3 +119,25 @@ async def test_quota_readout_turns_any_other_failure_into_unavailable_and_caches
     with pytest.raises(QuotasUnavailable):
         await readout.get()
     assert calls == 1
+
+
+def test_next_at_says_when_the_oldest_read_leaves_the_window():
+    clock = ManualClock(0.0)
+    guard = SetupReadGuard(wall=clock)
+    assert guard.next_at() is None
+    for _ in range(FULL_READS_PER_DAY):
+        guard.record()
+        clock.advance(100)
+    assert guard.next_at() == DAY_S
+    clock.t = DAY_S
+    assert guard.next_at() is None
+
+
+def test_next_at_with_a_reserve_counts_the_reads_kept_back():
+    clock = ManualClock(0.0)
+    guard = SetupReadGuard(wall=clock)
+    guard.record()
+    clock.advance(100)
+    guard.record()
+    assert guard.next_at() is None
+    assert guard.next_at(reserve=1) == DAY_S
