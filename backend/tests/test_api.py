@@ -691,5 +691,5 @@ async def test_grid_and_sources_in_the_simulator(ctx):
     assert [d["level"] for d in g["ecowatt"]["days"]][:2] == [1, 2]
     s = (await c.get("/api/status")).json()["sources"]
     assert s["ecowatt"]["state"] in ("never", "ok") and s["tempo"]["enabled"] is False
-    assert s["med"]["budget"] == 10 and s["med"]["grid_calls_today"] >= 1
+    assert s["med"]["budget"] == rt.linky.sync.budget and s["med"]["grid_calls_today"] >= 1
     assert rt.snapshot()["grid"] == g and json.loads(event["data"]) == g

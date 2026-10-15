@@ -27,6 +27,7 @@ from kelvin.house.model import House, build_house
 from kelvin.linky.fake import DEMO_PRM, FakeLinkySource
 from kelvin.linky.models import LinkySource
 from kelvin.linky.service import LinkyService
+from kelvin.linky.sync import DAILY_BUDGET
 from kelvin.overkiz.budget import QuotaReadout, SetupReadGuard
 from kelvin.overkiz.errors import SetupBudgetSpent
 from kelvin.overkiz.fake import FakeGateway, setup_failures
@@ -59,6 +60,7 @@ DEMO_OUTAGE_AFTER_S = 7200
 # The structure of the last full setup read (places, devices without their states), so a
 # start with the day's full reads spent can still build the house (final review I1).
 SETUP_KEY = "overkiz_setup"
+SIMULATOR_EXTRA_CALLS = 4
 
 
 @dataclass
@@ -445,6 +447,9 @@ async def start_runtime(
             credentials=credentials,
             simulator=settings.kelvin_fake,
             wall=wall,
+            # The simulator's backfill would spend the whole day's ledger at start and leave a demo
+            # that switches to Tempo the same day without colours; real installations keep 10.
+            budget=DAILY_BUDGET + SIMULATOR_EXTRA_CALLS if settings.kelvin_fake else DAILY_BUDGET,
         )
         linky_service.tariffs.migrate()  # a v1 tariff becomes v2 once, before any read
         if settings.kelvin_fake and is_sim:
