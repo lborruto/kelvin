@@ -110,7 +110,8 @@ ID_LIKE = re.compile(
 # french(code, params) is called with a non-literal dict only here: errors.py and catalogue.py
 # pass through params their callers gave (checked at those calls); service.py `_resolve` passes
 # its own keyword params (checked at every `_resolve` call) plus the scrubbed detail-only reason.
-FRENCH_PASS_THROUGH = {"errors.py", "catalogue.py", "commands/service.py"}
+# setup/service.py `_resolve` passes its own keyword params (checked at every `_resolve` call).
+FRENCH_PASS_THROUGH = {"errors.py", "catalogue.py", "commands/service.py", "setup/service.py"}
 
 
 def _user_error_classes() -> set[str]:
@@ -200,7 +201,7 @@ def test_api_codes_json_is_up_to_date():
     assert API_CODES.read_text(encoding="utf-8") == dump(catalogue())
     data = json.loads(API_CODES.read_text(encoding="utf-8"))
     assert set(data["errors"]) == set(TEMPLATES) and set(data["labels"]) == set(LABEL_TEMPLATES)
-    assert len(data["errors"]) + len(data["labels"]) + len(data["status"]) == 82
+    assert len(data["errors"]) + len(data["labels"]) + len(data["status"]) == 95
 
 
 def _literals(path: Path):

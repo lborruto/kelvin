@@ -789,7 +789,10 @@ export const fr = {
     all_off: () => 'Tout éteindre',
     all_program: () => 'Tout en programme',
     boost_end: () => 'Fin du forçage',
-    away_end: () => 'Fin de l’absence'
+    away_end: () => 'Fin de l’absence',
+    setup_room_create: (p: ApiParams) => `Nouvelle pièce «${NB}${p.label}${NB}»`,
+    setup_room_rename: (p: ApiParams) => `${p.name}${NB}: renommée «${NB}${p.label}${NB}»`,
+    setup_room_delete: (p: ApiParams) => `Suppression de la pièce ${p.name}`
   },
   api: {
     login_required: () => 'Connexion requise.',
@@ -855,6 +858,17 @@ export const fr = {
     linky_status_quota: () => `Quota Linky du jour atteint${NB}: reprise demain.`,
     linky_status_error: () => 'Synchronisation Linky en échec.',
     linky_status_throttled: (p: ApiParams) => `Enedis limite les requêtes${NB}: nouvel essai à ${p.at}.`,
+    room_label_invalid: () => `Le nom de la pièce doit faire de 1 à 32${NB}caractères, sans caractère invisible.`,
+    room_label_taken: (p: ApiParams) => `Une pièce s’appelle déjà «${NB}${p.label}${NB}».`,
+    room_not_empty: () => `Videz d’abord la pièce${NB}: déplacez ses radiateurs et appareils vers une autre pièce.`,
+    room_protected: () =>
+      `Cette pièce ne peut pas être supprimée${NB}: c’est la maison, ou elle contient le pont Cozytouch ou d’autres pièces.`,
+    room_type_unknown: () => `Créez d’abord une pièce dans l’application Cozytouch${NB}: Kelvin reprend son type.`,
+    setup_busy: () => 'Une modification est déjà en cours pour cette pièce ou ce radiateur.',
+    setup_not_found: () => 'Cozytouch ne trouve plus cette pièce ou cet appareil.',
+    setup_failed: () => 'Cozytouch a refusé la modification.',
+    setup_no_confirmation: () => 'Pas de confirmation de Cozytouch.',
+    device_label_invalid: () => `Le nom doit faire de 1 à 32${NB}caractères, sans caractère invisible ni mot réservé.`,
     send_failed: (p: ApiParams) => {
       const why = own(REASON, p.reason_code);
       return why ? `Envoi impossible${NB}: ${why}.` : 'Envoi impossible.';

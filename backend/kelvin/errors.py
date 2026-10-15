@@ -101,6 +101,28 @@ TEMPLATES: dict[str, str] = {
     "linky_status_quota": "Quota Linky du jour atteint : reprise demain.",
     "linky_status_error": "Synchronisation Linky en échec.",
     "linky_status_throttled": "Enedis limite les requêtes : nouvel essai à {at}.",
+    # Rooms and devices (Cozytouch setup, spec §2.7)
+    "room_label_invalid": (
+        "Le nom de la pièce doit faire de 1 à 32 caractères, sans caractère invisible."
+    ),
+    "room_label_taken": "Une pièce s’appelle déjà « {label} ».",
+    "room_not_empty": (
+        "Videz d’abord la pièce : déplacez ses radiateurs et appareils vers une autre pièce."
+    ),
+    "room_protected": (
+        "Cette pièce ne peut pas être supprimée : c’est la maison, ou elle contient "
+        "le pont Cozytouch ou d’autres pièces."
+    ),
+    "room_type_unknown": (
+        "Créez d’abord une pièce dans l’application Cozytouch : Kelvin reprend son type."
+    ),
+    "setup_busy": "Une modification est déjà en cours pour cette pièce ou ce radiateur.",
+    "setup_not_found": "Cozytouch ne trouve plus cette pièce ou cet appareil.",
+    "setup_failed": "Cozytouch a refusé la modification.",
+    "setup_no_confirmation": "Pas de confirmation de Cozytouch.",
+    "device_label_invalid": (
+        "Le nom doit faire de 1 à 32 caractères, sans caractère invisible ni mot réservé."
+    ),
     # Pending failures
     "send_failed": "Envoi impossible : {reason}.",
     "send_internal": "Envoi impossible : erreur interne.",
@@ -126,6 +148,8 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "feature_unknown": {"feature": "turbo"},
     "slot_time_invalid": {"value": "24:00"},
     "linky_status_throttled": {"at": "14:30"},
+    "room_label_taken": {"label": "Salon"},
+    "room_not_empty": {"count": 2},
 }
 
 # Status.last_error_code: why the last Cozytouch poll failed.

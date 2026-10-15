@@ -764,7 +764,10 @@ export const en: Messages = {
     all_off: () => 'Turn everything off',
     all_program: () => 'Everything back on schedule',
     boost_end: () => 'Boost ended',
-    away_end: () => 'Away ended'
+    away_end: () => 'Away ended',
+    setup_room_create: (p: ApiParams) => `New room “${p.label}”`,
+    setup_room_rename: (p: ApiParams) => `${p.name}: renamed “${p.label}”`,
+    setup_room_delete: (p: ApiParams) => `Delete room ${p.name}`
   },
   api: {
     login_required: () => 'Please sign in.',
@@ -828,6 +831,16 @@ export const en: Messages = {
     linky_status_quota: () => 'Today’s Linky quota is used up: resuming tomorrow.',
     linky_status_error: () => 'Linky sync failed.',
     linky_status_throttled: (p: ApiParams) => `Enedis is limiting requests: next try at ${p.at}.`,
+    room_label_invalid: () => 'A room name must be 1 to 32 characters, with no invisible characters.',
+    room_label_taken: (p: ApiParams) => `A room called “${p.label}” already exists.`,
+    room_not_empty: () => 'Empty the room first: move its radiators and devices to another room.',
+    room_protected: () => 'This room can’t be deleted: it’s the home itself, or it holds the Cozytouch bridge or other rooms.',
+    room_type_unknown: () => 'Create a first room in the Cozytouch app: Kelvin uses its type.',
+    setup_busy: () => 'A change is already in progress for this room or radiator.',
+    setup_not_found: () => 'Cozytouch can no longer find this room or device.',
+    setup_failed: () => 'Cozytouch refused the change.',
+    setup_no_confirmation: () => 'No confirmation from Cozytouch.',
+    device_label_invalid: () => 'A name must be 1 to 32 characters, with no invisible characters or reserved words.',
     send_failed: (p: ApiParams) => {
       const why = own(REASON, p.reason_code);
       return why ? `Couldn’t send: ${why}.` : 'Couldn’t send.';
