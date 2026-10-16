@@ -367,7 +367,7 @@
     <span class="k"><i class="sw e" aria-hidden="true"></i>{m.level.eco} <b class="num">{fmtTemp(room?.eco)}</b></span>
     {#if offline}
       <span class="muted small">{m.program.lastKnown}</span>
-    {:else if !compact && roomId && desktop.matches}
+    {:else if !compact && roomId}
       <a class="link" href={ROUTES.room(roomId)}>{m.program.editTemps}<Icon name="chevron" size={14} /></a>
     {/if}
   </div>

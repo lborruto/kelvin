@@ -685,6 +685,8 @@ describe('/schedule: the Tableau agenda', () => {
     await screen.findByRole('button', { name: /^Lundi,/ });
     expect(container.querySelector('.cal.compact')).not.toBeNull();
     expect(screen.getByText('Touchez un jour pour l’éditer.')).toBeInTheDocument();
+    // The temperatures stay one tap away on a phone too.
+    expect(screen.getByRole('link', { name: 'Modifier les températures' })).toHaveAttribute('href', '/rooms/salon');
     expect(container.querySelector('[data-lock="saturday"]')).toHaveTextContent(/^Samedi · Plage non reconnue/);
     const how = screen.getByRole('button', { name: 'Comment modifier ?' });
     await fireEvent.click(how);

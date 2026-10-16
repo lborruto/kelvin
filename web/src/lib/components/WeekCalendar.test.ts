@@ -185,6 +185,44 @@ describe('WeekCalendar: drag (desktop)', () => {
     expect(onedit).toHaveBeenLastCalledWith('monday', [{ start: 390, end: 480 }, { start: 720, end: 870 }, { start: 1020, end: 1380 }]);
   });
 
+  it('drawing upward extends the new period upward from where the drag began, snapped and within its gap', async () => {
+    const onedit = vi.fn();
+    const { container } = render(WeekCalendar, { ...base, selected: 'monday', onedit });
+    const bar = stubDay(container, 'monday');
+    await fireEvent.pointerDown(bar, { clientY: 720, button: 0, pointerId: 1 });
+    await fireEvent.pointerMove(bar, { clientY: 700, pointerId: 1 });
+    // 15 min up: the period starts there and keeps its hour.
+    expect(onedit).toHaveBeenLastCalledWith('monday', [{ start: 390, end: 480 }, { start: 705, end: 765 }, { start: 1020, end: 1380 }]);
+    expect(bar.querySelector('.bubble')).toHaveTextContent('début 11:45');
+    await fireEvent.pointerMove(bar, { clientY: 557, pointerId: 1 });
+    expect(onedit).toHaveBeenLastCalledWith('monday', [{ start: 390, end: 480 }, { start: 555, end: 720 }, { start: 1020, end: 1380 }]);
+    // Never over the period above: it stops at its end.
+    await fireEvent.pointerMove(bar, { clientY: 300, pointerId: 1 });
+    expect(onedit).toHaveBeenLastCalledWith('monday', [{ start: 390, end: 480 }, { start: 480, end: 720 }, { start: 1020, end: 1380 }]);
+  });
+
+  it('a cancelled drag puts the day back as it was (no stray « modifié »)', async () => {
+    const onedit = vi.fn();
+    const { container } = render(WeekCalendar, { ...base, selected: 'monday', onedit });
+    const bar = stubDay(container, 'monday');
+    const blk = bar.querySelector('.blk')!;
+    await fireEvent.pointerDown(blk, { clientY: 400, button: 0, pointerId: 1 });
+    await fireEvent.pointerMove(blk, { clientY: 460, pointerId: 1 });
+    await fireEvent.pointerCancel(blk, { pointerId: 1 });
+    expect(onedit).toHaveBeenLastCalledWith('monday', week.monday);
+    expect(bar.querySelector('.bubble')).toBeNull();
+    onedit.mockClear();
+    await fireEvent.pointerDown(bar, { clientY: 720, button: 0, pointerId: 2 });
+    await fireEvent.pointerMove(bar, { clientY: 800, pointerId: 2 });
+    await fireEvent.pointerCancel(bar, { pointerId: 2 });
+    expect(onedit).toHaveBeenLastCalledWith('monday', week.monday);
+    // A cancel before any move changes nothing.
+    onedit.mockClear();
+    await fireEvent.pointerDown(blk, { clientY: 400, button: 0, pointerId: 3 });
+    await fireEvent.pointerCancel(blk, { pointerId: 3 });
+    expect(onedit).not.toHaveBeenCalled();
+  });
+
   it('a day with 3 periods, a locked day, a pending send or the phone agenda never take a drag', async () => {
     const onedit = vi.fn();
     const r = render(WeekCalendar, { ...base, selected: 'wednesday', onedit, locks: { sunday: 'midnight' } });

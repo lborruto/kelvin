@@ -7,7 +7,7 @@
 <script lang="ts">
   import { DAYS, type Day, type DayLock } from '$lib/api/types';
   import { m } from '$lib/i18n';
-  import { addSlot, comfortMinutes, fmtDuration, fromMin, moveSlot, resizeSlot, slotTimes, snap, type Seg, type Week } from '$lib/program';
+  import { comfortMinutes, drawSlot, fmtDuration, fromMin, moveSlot, resizeSlot, slotTimes, type Seg, type Week } from '$lib/program';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -38,6 +38,7 @@
   let heads = $state<HTMLButtonElement[]>([]);
   let bodies: Partial<Record<Day, HTMLElement>> = {};
   let bodyH = $state(0);
+  // `base`: the day when the drag began (a cancelled drag puts it back).
   let drag = $state<{ day: Day; i: number; kind: Kind; origin: number; base: Seg[]; y0: number; moved: boolean } | null>(null);
   let sel = $state<{ day: Day; i: number } | null>(null);
   let bubble = $state<{ day: Day; at: number; text: string } | null>(null);
@@ -101,18 +102,18 @@
     g.moved = true;
     const at = minuteAt(d, e.clientY);
     if (g.kind === 'new') {
-      // The first move draws a 1 h period from where the drag began; it then follows as its end.
-      const made = addSlot(g.base, g.origin, 60);
+      // A period drawn from where the drag began, down or up (1 h at least while the gap allows).
+      const made = drawSlot(g.base, g.origin, at, 60);
       if (!made) {
-        drag = null;
+        if (g.i < 0) drag = null;
         return;
       }
-      const i = made.findIndex((s) => s.start === snap(g.origin));
-      drag = { ...g, kind: 'end', base: made, i };
+      const up = at < g.origin;
+      const i = made.findIndex((s) => !g.base.some((b) => b.start === s.start && b.end === s.end));
+      g.i = i;
       sel = { day: d, i };
-      const next = resizeSlot(made, i, 'end', Math.max(at, made[i].end));
-      show(d, next[i], 'end');
-      onedit?.(d, next);
+      show(d, made[i], up ? 'start' : 'end');
+      onedit?.(d, made);
       return;
     }
     const next = g.kind === 'move' ? moveSlot(g.base, g.i, at - g.origin) : resizeSlot(g.base, g.i, g.kind, at);
@@ -127,6 +128,13 @@
   function up() {
     drag = null;
     bubble = null;
+  }
+  // The system took the pointer (a scroll, a gesture): the day goes back to how the drag found it.
+  function cancel() {
+    const g = drag;
+    if (g?.moved) onedit?.(g.day, g.base);
+    if (g?.kind === 'new') sel = null;
+    up();
   }
   // A selection belongs to its day: another day in the editor, or a period removed, clears it.
   $effect(() => {
@@ -161,7 +169,7 @@
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <div class="bar" class:edit={canEdit(d) && segs.length < 3} bind:this={bodies[d]} aria-hidden="true"
           style:animation-name={pulsing ? (pulse!.n % 2 ? 'kv-pulse-a' : 'kv-pulse-b') : 'none'}
-          onpointerdown={(e) => grab(e, d, -1, 'new')} onpointermove={(e) => move(e, d)} onpointerup={up} onpointercancel={up}
+          onpointerdown={(e) => grab(e, d, -1, 'new')} onpointermove={(e) => move(e, d)} onpointerup={up} onpointercancel={cancel}
           onclick={() => interactive && compact && onselect?.(d)}>
           {#each hours.slice(1, -1) as h (h)}<span class="gl" class:minor={h % 6 !== 0} style:top={pct(h * 60)}></span>{/each}
           {#if lock}
