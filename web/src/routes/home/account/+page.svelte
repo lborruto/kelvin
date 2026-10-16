@@ -19,6 +19,8 @@
     return () => clearInterval(t);
   });
 
+  // « Se déconnecter » follows the signed-in devices: it appears with their list, never pushed by it.
+  let sessionsReady = $state(false);
   let loggingOut = $state(false);
   async function logout() {
     if (loggingOut) return;
@@ -65,12 +67,14 @@
 
   <section id={ANCHORS.sessions} class="panel" aria-labelledby="account-sessions">
     <h2 id="account-sessions" class="sl">{m.sessions.title}</h2>
-    <SessionsPanel />
+    <SessionsPanel bind:ready={sessionsReady} />
   </section>
 
-  <div class="out">
-    <button type="button" class="btn" aria-disabled={loggingOut} onclick={logout}>{m.settings.signOut}</button>
-  </div>
+  {#if sessionsReady}
+    <div class="out">
+      <button type="button" class="btn" aria-disabled={loggingOut} onclick={logout}>{m.settings.signOut}</button>
+    </div>
+  {/if}
 </div>
 
 <style>

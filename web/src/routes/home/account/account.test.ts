@@ -45,18 +45,20 @@ describe('Maison › Compte', () => {
     expect(screen.getByRole('link', { name: 'Maison' })).toHaveAttribute('href', '/home');
     expect(screen.getAllByText('demo@kelvin.local').length).toBeGreaterThan(0);
     expect(screen.getByText('Sauter Cozytouch')).toBeInTheDocument();
-    expect(screen.getByText(/repartez d’une installation neuve/)).toBeInTheDocument();
+    expect(screen.getByText('Fixé à la première connexion.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Cozytouch · / })).toBeInTheDocument(); // the SourceLine (its Fiche)
     expect(document.getElementById('sessions')).toBeInTheDocument();
-    // « Se déconnecter » comes last, after the signed-in devices (the future « Accès MCP » panel goes between).
-    const out = screen.getByRole('button', { name: 'Se déconnecter' });
+    // « Se déconnecter » comes last, after the signed-in devices (the future « Accès MCP » panel goes between),
+    // and only once their list is known, so the list's height never pushes it (CLS).
+    expect(screen.queryByRole('button', { name: 'Se déconnecter' })).toBeNull();
+    const out = await screen.findByRole('button', { name: 'Se déconnecter' });
     expect(document.getElementById('sessions')!.compareDocumentPosition(out) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('logs out to the login screen and empties the stores', async () => {
     history.data = { k: [{ t: 1, v: 20, s: 17 }] };
     render(Page);
-    await fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
     expect(api.logout).toHaveBeenCalled();
     await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replaceState: true }));
     expect(house.overrides).toEqual([]);
@@ -67,7 +69,7 @@ describe('Maison › Compte', () => {
   it('stays with a toast when the logout fails', async () => {
     vi.mocked(api.logout).mockRejectedValueOnce(new Error('network'));
     render(Page);
-    await fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
     await vi.waitFor(() => expect(toasts.items.map((t) => t.text())).toContain('Déconnexion impossible. Réessayez.'));
     expect(goto).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Se déconnecter' })).toHaveAttribute('aria-disabled', 'false');
@@ -80,7 +82,7 @@ describe('Maison › Compte', () => {
     expect(screen.getByText(/Expérimental/)).toBeInTheDocument();
   });
 
-  it('in English, with the Cozytouch error by code', () => {
+  it('in English, with the Cozytouch error by code', async () => {
     applyLocale('en');
     house.status = { connected: false, last_ok_at: null, last_error: 'QUOTA_EXCEEDED', last_error_code: 'quota' };
     house.connection = 'open';
@@ -88,6 +90,6 @@ describe('Maison › Compte', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Account' })).toBeInTheDocument();
     expect(screen.getByText('Cozytouch request limit reached.')).toHaveAttribute('title', 'QUOTA_EXCEEDED');
     expect(screen.getByRole('button', { name: /Unreachable/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Sign out' })).toBeInTheDocument();
   });
 });

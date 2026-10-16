@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { CLS_WIDTHS, FONT_MODES, measureCls } from './cls';
+import { CLS_WIDTHS, clsWidths, FONT_MODES, measureCls } from './cls';
 
 // Its own browser session: logging out here must not end the session the other specs share.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -74,7 +74,7 @@ test.describe('CLS matrix · /login', () => {
   for (const fonts of FONT_MODES) {
     test(`/login · fonts ${fonts} · CLS < 0.05 from 320 to 1440 px`, async ({ page }) => {
       test.setTimeout(150_000);
-      for (const width of CLS_WIDTHS) {
+      for (const width of clsWidths(fonts)) {
         await page.setViewportSize({ width, height: 900 });
         const cls = await measureCls(page, '/login', { fonts });
         expect(cls, `/login at ${width} px, fonts ${fonts}`).toBeLessThan(0.05);

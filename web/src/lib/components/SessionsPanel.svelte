@@ -14,6 +14,12 @@
   import { errorText } from '$lib/i18n';
   import { toasts } from '$lib/stores/toasts.svelte';
 
+  interface Props {
+    /** True once the list (or its error) is known: what follows the panel waits for it, so the list's
+     * real height never moves it (CLS). */
+    ready?: boolean;
+  }
+  let { ready = $bindable(false) }: Props = $props();
   const uid = $props.id();
   let list = $state<SessionInfo[] | null>(null);
   let failed = $state(false);
@@ -38,6 +44,9 @@
     load();
   });
 
+  $effect(() => {
+    ready = list !== null || failed;
+  });
   let others = $derived((list ?? []).filter((s) => !s.current).length);
 
   async function revoke(s: SessionInfo) {

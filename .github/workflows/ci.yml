@@ -67,9 +67,37 @@ jobs:
       - run: uv run pytest -q
 
   web:
-    name: Web (vitest, svelte-check, build, e2e)
+    name: Web (vitest, svelte-check, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-07-20)
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0 (2026-07-14)
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx vitest run
+      - run: npm run check
+      - run: npm run build
+
+  # The Playwright suite (every project, the CLS matrix and axe included) in four shards: each shard
+  # runs the setup project, starts its own fresh simulator backends (playwright.config.ts) and a
+  # quarter of the files, so every test runs in exactly one shard.
+  web-e2e:
+    name: Web e2e (shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     defaults:
       run:
         working-directory: web
@@ -89,25 +117,30 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - run: npx vitest run
-      - run: npm run check
-      - run: npm run build
       - run: uv sync --locked
         working-directory: backend
       - run: npx playwright install --with-deps --no-shell chromium
-      # The e2e server is the backend in simulator mode (KELVIN_FAKE=1) serving web/build.
-      - run: npx playwright test
+      # The e2e server is the backend in simulator mode (KELVIN_FAKE=1) serving web/build (built by
+      # the config's webServer command).
+      - run: npx playwright test --shard="$SHARD/4"
+        env:
+          SHARD: ${{ matrix.shard }}
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 (2026-04-10)
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.shard }}
           path: web/test-results
           retention-days: 7
 
+  # Each shard builds and smoke-tests the image, then runs a third of the suite against a fresh container.
   image:
-    name: Docker image (build, smoke, e2e)
+    name: Docker image (build, smoke, e2e shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-07-20)
         with:
@@ -148,12 +181,14 @@ jobs:
           exit 1
       - name: e2e against the container
         working-directory: web
-        run: KELVIN_E2E_URL=http://127.0.0.1:18080 npx playwright test
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: KELVIN_E2E_URL=http://127.0.0.1:18080 npx playwright test --shard="$SHARD/3"
       - if: failure()
         run: docker logs --tail 100 kelvin-e2e
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 (2026-04-10)
         with:
-          name: playwright-results-image
+          name: playwright-results-image-${{ matrix.shard }}
           path: web/test-results
           retention-days: 7

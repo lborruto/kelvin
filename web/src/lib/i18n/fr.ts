@@ -919,7 +919,7 @@ export const fr = {
     title: 'Compte',
     cozytouch: 'Compte Cozytouch',
     connection: 'Connexion',
-    serverNote: `Choisi à la première connexion${NB}; pour en changer, repartez d’une installation neuve.`,
+    serverNote: 'Fixé à la première connexion.',
     email: 'Email'
   },
   alerts: {
@@ -943,7 +943,7 @@ export const fr = {
   },
   sessions: {
     title: 'Appareils connectés',
-    intro: 'Les navigateurs connectés à Kelvin avec le compte de la maison.',
+    intro: 'Navigateurs connectés avec le compte de la maison.',
     unknownBrowser: 'Navigateur inconnu',
     thisDevice: 'cet appareil',
     lastActive: (ago: string) => `dernière activité ${ago}`,

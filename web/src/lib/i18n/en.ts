@@ -885,7 +885,7 @@ export const en: Messages = {
     title: 'Account',
     cozytouch: 'Cozytouch account',
     connection: 'Connection',
-    serverNote: 'Chosen at the first sign-in; to change it, start again from a fresh install.',
+    serverNote: 'Set at the first sign-in.',
     email: 'Email'
   },
   alerts: {
@@ -909,7 +909,7 @@ export const en: Messages = {
   },
   sessions: {
     title: 'Signed-in devices',
-    intro: 'Browsers signed in to Kelvin with the home’s account.',
+    intro: 'Browsers signed in with the home’s account.',
     unknownBrowser: 'Unknown browser',
     thisDevice: 'this device',
     lastActive: (ago: string) => `last active ${ago}`,

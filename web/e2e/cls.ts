@@ -4,6 +4,12 @@ import { expect, type Page } from '@playwright/test';
 export type FontMode = 'normal' | 'blocked' | 'late';
 export const FONT_MODES: FontMode[] = ['normal', 'blocked', 'late'];
 export const CLS_WIDTHS = [320, 390, 768, 1024, 1280, 1440];
+/** The widths each font mode runs at. Blocked fonts (the fallback for the whole visit, as in CI) is where
+ * wrapping differs most, so it runs every width; normal and late fonts run the phone floor, the common
+ * phone and the widest desktop, which keeps 320 / 390 / 1440 × the three modes for a third of the loads. */
+export function clsWidths(fonts: FontMode): number[] {
+  return fonts === 'blocked' ? CLS_WIDTHS : [320, 390, 1440];
+}
 export const LATE_FONT_MS = 3000;
 
 /** The page is in its loaded state: a title, no skeleton left. */
