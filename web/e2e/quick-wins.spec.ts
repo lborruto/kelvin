@@ -56,17 +56,26 @@ test('schedule: a change made elsewhere is never overwritten silently', async ({
   await other.close();
 });
 
-test('schedule: Chambre 1 shows its locked days read-only', async ({ page }) => {
+test('schedule: Chambre 1 shows its locked days read-only', async ({ page, isMobile }) => {
   await page.goto('/schedule');
   await page.getByRole('radio', { name: 'Chambre 1' }).click();
-  // The week says why, on the locked day's own line.
+  // The agenda hatches them and says why: in the day's name, in its column (desktop) or the notes under it (phone).
   const sunday = page.locator('[data-day="sunday"]');
-  await expect(sunday.getByText(/Fin à minuit\s:\smodifiez ce jour/)).toBeVisible();
-  await expect(sunday.getByText('20:00–24:00')).toBeVisible();
-  await expect(page.locator('[data-day="saturday"]').getByText(/Plage non reconnue/)).toBeVisible();
+  await expect(sunday.getByRole('button')).toHaveAccessibleName(/^Dimanche, 20:00–24:00, .*Fin à minuit\s:\smodifiez ce jour/);
+  await expect(page.getByRole('button', { name: /^Samedi, Plage non reconnue/ })).toBeVisible();
+  if (isMobile) {
+    await expect(page.locator('[data-lock="sunday"]')).toContainText(/Fin à minuit\s:\smodifiez ce jour/);
+    await expect(page.locator('[data-lock="saturday"]')).toContainText('Plage non reconnue');
+  } else {
+    await expect(sunday.locator('.why')).toHaveText('fin à minuit');
+    await expect(sunday.getByText('20:00–24:00')).toBeVisible();
+    await expect(page.locator('[data-day="saturday"] .why')).toHaveText('non reconnu');
+  }
   // Opened, the day is shown but never editable.
-  await sunday.click();
+  await sunday.getByRole('button').click();
   await expect(page.getByRole('heading', { name: /^Dimanche/ })).toBeVisible();
+  await expect(page.getByText(/^Fin à minuit\s:\smodifiez ce jour/)).toBeVisible();
+  await expect(page.getByText('Ce jour reste tel que le radiateur l’a.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ajouter une plage le Dimanche' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Copier vers…' })).toHaveCount(0);
 });

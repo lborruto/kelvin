@@ -301,6 +301,50 @@ The « Tout éteindre » dialog and the setup dialogs use `--pop`, radius 18, th
   16) at the final size; `inset` inside a surface. Never a value or « Chargement… »; content that arrives in parts
   is rendered together.
 
+### Programme (`/schedule`, Tableau §4)
+The week as an agenda, the day as a form; nothing is sent before « Envoyer ».
+- **Header:** the h1 and, on desktop, the one-line rule « Hors des plages Confort, la pièce est en Éco. »; « Comment modifier ? »
+  (help glyph + dotted underline on desktop, a 36 px round s2 « ? » on a phone, `aria-expanded`) opens the gestures and keys
+  in an s1 panel (on a phone it also holds the rule).
+- **Room chips:** `Segmented variant="chips"` (32 px pills on s2, the checked one ink on bg, radio-group keys); an offline room
+  reads « Chambre 2 · hors ligne » in faint on s1 (the phone keeps the hint for assistive tech only, `hideHints`). Desktop: a
+  hairline, then the temperatures (`[■] Confort 19,0 °C [□] Éco 16,5 °C`, heat swatch / empty well) and « Modifier les
+  températures › » (desktop only); the phone puts the temperatures under the chips. Then the plan line (13 px faint,
+  `fmtNow`, or « La pièce est en mode … » outside Programme mode).
+- **WeekCalendar** (s1 widget, 22 px): days are columns (« lun. » 12/600; letters on a phone), hours run down (600 px desktop
+  body, 300 px phone; labels every 3 h / 6 h, solid gridlines every 6 h, dashed at 3 h). Comfort blocks are heat at 78 % on
+  s1 (8 px; 5 px compact) with « Confort » and the times in heat ink when tall enough; the selected block is full heat with a 2 px
+  ink edge and two 28 × 5 ink handles. Today: ink header and a dot (or « ● modifié » for an unsent edited day), the 2 px ink now
+  line with its dot. Locked days: a faint 45° hatch, a lock and « non reconnu » / « fin à minuit » (a midnight day keeps its
+  periods at heat 45 %); no drag ever reaches them. Pending: dashed muted outlines. Each day's header is a button named as a
+  sentence (periods, comfort total, today, edited, lock reason); beside the editor it is `aria-pressed`, a roving tab stop, and
+  arrows/Home/End move and select. Desktop drag (pointer only; the header and the editor are the keyboard path): a block moves,
+  its top or bottom edge resizes, in 15-minute steps through `$lib/program` (23:45 at the latest, never over a neighbour), with
+  an ink time bubble (« fin 23:30 »); a drag on an empty area of a day under 3 periods draws out a 1 h period; any drag selects
+  the day in the editor. The phone agenda is a picture: a tap on a day opens `?day=`. Under it on a phone: « Touchez un jour
+  pour l’éditer. » and each locked day's reason (`data-lock`). An offline room's agenda is read-only (no buttons, sentences
+  as hidden text) beside a neutral Notice (plug-off).
+- **DayEditor** (desktop: s1 widget beside the agenda, `1fr | clamp(340px, 32 %, 410px)`, sticky): round s2 « ‹ › » around the
+  day (h2 20/700), then a reserved 13 px line « Chambre 1 · aujourd’hui · ● modifié ». The ProgramDay bar (40 px; 44 on a phone;
+  --in well, field edge, 10 px; heat 80 % blocks with times in heat ink; the block being adjusted keeps two 5 × 18 ink handles
+  and an ink edge; a drag shows the time bubble above, leaning inwards near the ends; labels 00 · 06 · 12 · 18 · 24, gridlines
+  every 3 h). « PLAGES CONFORT · N SUR 3 » over a grouped list of rows « ■ Plage 1 [06:00] › [07:30] (×) » (36 px s2 time pills,
+  600 text, no clock glyph; the phone shows the number only). Desktop: « + Ajouter une plage » and « Copier vers… » (.btn-sm),
+  « 3 plages au maximum · pas de 15 min »; the phone has « Glissez une plage ou ses bords · pas de 15 min » under the bar and
+  Ajouter / Copier vers… as list rows (the add row says « 3 plages au maximum » when full). Then « **Confort 8 h 30** · éco le
+  reste du temps ». A locked day: the hatched bar, the lock line with its reason, and a neutral Notice « Ce jour reste tel que
+  le radiateur l’a. » (Kelvin sends it back unchanged; no copy lands on it); the phone header says « 🔒 verrouillé » and the
+  page lists the room's temperatures in a grouped list. Phone day view: « ‹ Semaine · Salon » left, ‹ › right, the day as h1.
+- **CopySheet** (« Copier mardi vers… », ChoiceSheet: 400 px dialog / bottom sheet): shortcut chips, then the days as 40 px
+  chips in 4 columns (picked: ink with ✓; the source day dashed, not a choice; locked days absent with « Dimanche est
+  verrouillé : il n’est pas proposé. »), the large primary « Copier sur N jours » and « Rien n’est envoyé avant « Envoyer ». ».
+- **SendBar:** an s2 card (16 px, hairline): « 1 jour modifié » (14/600; « Envoi arrêté » after a 409, « Envoi en cours… »
+  while sending) over « Aussi pour… », then Annuler (s3) and Envoyer (ink), both .btn-sm. Desktop adds « Rien n’est envoyé
+  avant « Envoyer ». Voir les modifications ». The conflict Notice (bad, `role="alert"`, Recharger / Remplacer quand même
+  in danger) sits above the bar; on a phone both ride a dock sticky above the tab bar. « Aussi pour… » picks rooms as ink
+  pills in a sheet. The send logic (base + 409, stop at the first 409 and resend only the rooms not written, locked days
+  kept, offline rooms read-only) is unchanged.
+
 ## Rules that still hold (carried over)
 
 These behaviours are unchanged by Tableau; where a sentence below names an old look (s2 cards, 10 px radii, a light theme), the tokens and kit above win.
@@ -627,24 +671,6 @@ A room control appears when at least one radiator takes it, with « S’applique
 #### RadiatorPanel
 One per radiator in the room panel, separated by hairlines, as a disclosure: the row (an h4 holding a 52 px button, `aria-expanded`) shows the name (14/600; the model and power when it has no name of its own), a 12 px muted line (power when named, « En ligne » or « Hors ligne depuis 14:32 », never red; with « Détails techniques » also the raw « RSSI n » and « dernier signal il y a 3 min » inline), the reading in ink (« — » muted when offline) and a turning chevron. Open (slide 220 ms): the facts list, the **Infos** section (modèle, puissance, niveau de signal as the raw « RSSI n » with its scale marked unverified, connexion, dernier signal, each « — » when unknown), the level or dryer switch, the mode switch and setpoint when the room has several radiators, the toggles (fenêtre ouverte, présence, veilleuse and its slider), and ghost « Renommer » (pencil) and « Faire clignoter » buttons. An offline radiator's commands are `aria-disabled` (its slider hidden) under « Les commandes reprendront quand il sera rallumé. ».
 
-#### Programme page (week + one day)
-The week is a picture, the day is the form. Under the h1 and the room picker:
-- **Temperatures row:** `[swatch] Confort 21,0 °C · [swatch] Éco 18,0 °C` (14 px, values 600 tabular; the comfort swatch is the block colour, the eco swatch the empty well with its field-line edge) and a muted « Modifier les températures › » link to the room. An offline room says « derniers connus » instead of the link.
-- **Plan line** (13 px muted): « Maintenant : Confort · 23:00 → Éco » (`fmtNow` in `$lib/program`: the level now, then the next change, « demain 06:15 » or « lundi 06:15 » when it is not today; « Éco, sans changement cette semaine » when nothing changes; a room not in programme mode says the programme applies in Programme mode), the one-line rule « Hors des plages confort, la pièce est en éco. » and a « Comment modifier ? » inline Disclosure (dotted underline, help glyph, `aria-expanded`, its answer on the next line, sliding over `dur(T.enter)`, findable while closed) holding the gestures and keys. No paragraph, no midnight note, no « Aujourd’hui » chart.
-- **Layout:** desktop (≥ 1024 px) is the week (fluid) beside the day editor column (`clamp(320px, 38 %, 440px)`, sticky at 16 px, today selected by default) with the send area under the editor. A phone shows the week; a row opens the day view (`?day=monday`, the day name becomes the h1, « ← Semaine · Salon » goes back, the temperatures sit left-aligned under the day header, above the bar). `?room=` opens a room (the room panel's « Modifier les horaires »). Moving between week and day stays on the page, so unsent edits are kept and nothing asks.
-
-#### WeekOverview
-A s1 panel (hairline, 10 px) with an hour scale and seven rows. It is a container (`container-type: inline-size`): at 560 px and wider a row is `92 px | bar | 176 px` (day name with « aujourd’hui » under it; a 28 px bar; the times right-aligned, two periods per line at most) and the scale is 00 · 03 · … · 24 with matching gridlines every 3 h; narrower (a phone, a small desktop column) the name and times share the first line, a 24 px bar sits under them and the scale is every 6 h. The bar is the editor's well (in, field-line edge, 6 px) with 35 % field-line gridlines, comfort blocks warm at 75 % (4 px), the 2 px ink now-marker on today. An edited, unsent day carries « ● modifié » (ink, 12 px 600) above its times. A locked day is hatched (its blocks warm at 45 %) with its reason on its own 12 px muted line with the lock glyph; an unrecognised day draws no block. Each row is a button named as a sentence (« Jeudi, aujourd’hui, 06:30–08:00 et 17:00–23:00, 7 h 30 confort, modifié »); beside the editor the selected row is `aria-pressed` (s2, muted inset edge), a roving tab stop, and the arrows (Home/End) move and select; on a phone the arrows move focus and a tap opens the day. An offline room's week is read-only: rows are plain, each with its sentence as hidden text. While a send is pending the blocks are dashed muted outlines.
-
-#### DayEditor
-The one day being edited: a s1 panel (on a phone, the page itself). Header: 36 px edged « Jour précédent » / « Jour suivant » icon buttons (44 px hit) around the day name (h2, 20 px 700; h1 in the phone day view) and a reserved 12 px muted line « aujourd’hui · modifié ». Then the ProgramDay bar, the periods as rows « [swatch] Plage 1 [06:30] → [08:00] [×] » (36 px time fields as wide as « 22:00 » (`--w-time`, shrinking a little on the narrowest phones), the remove button a 36 px `.btn-icon` with a 44 px hit; one period per line from 320 px; the phone shows the number only), the summary « **Confort 8 h** · éco le reste du temps » (or « Éco toute la journée »), validation errors (bad, `role="alert"`), and « Ajouter une plage » + « Copier vers… » (`.btn-sm`). At three periods « Ajouter une plage » is `aria-disabled` and described by « 3 plages au maximum ». While a send is pending the fields stay focusable but are `readonly` + `aria-disabled` and every handler is guarded. A locked day shows its hatched bar, its periods as text and its reason; no field, no add, no copy.
-
-#### ProgramDay
-The editor's bar: 48 px well (field-line edge, 10 px) with gridlines and hour labels under it every 3 h (6 h on a phone), comfort blocks (warm at 75 %, 6 px) that drag and resize by edge handles with a wider invisible grip; the grips (3 × 16 px dark marks) show on the hovered, focused or dragged block. A block wide enough (≥ 76 px) writes its times inside in 11 px 600 dark ink, on a halo of the block's fill above the now-marker, so the marker never cuts them. A tap on the empty bar adds a period there. Blocks are `aria-roledescription="plage"` with a hidden hint (arrows move by 15 min, Suppr removes). The page does not scroll under a finger while a block is dragged. While pending, blocks become dashed muted outlines and lock.
-
-#### Offline room (Programme)
-A calm notice, never red: s2 at 60 %, hairline, the plug-off glyph, « Chambre 2 est hors ligne » (14 px 600 ink) and « Le programme affiché est le dernier connu. Il pourra être modifié quand le radiateur sera rallumé. » (13 px muted), `role="status"`. The picker suffixes the room « hors ligne ». The week stays visible read-only; no editor, no Envoyer.
-
 #### Alert callout
 A calm notice on the screen it concerns: s1, hairline, 10 px, 13 px text, an alert glyph; bad alerts take the bad tint (8 % over s1, 60 % edge) and are an `alert` region, others a `status`. `radiator_unreachable` is always drawn neutral (a `status`), whatever its backend severity: an offline radiator is not a fault here; it shows in Home only (the room panel's offline notice says it there). A 44 px « Masquer » icon button ends the row. Never stacked more than the screen's own kinds (Énergie and the room); Home lists them all (`#alerts`). The callouts and the list hold their space while loading, so they never shift the layout (CLS ≤ 0.0003 measured).
 
@@ -654,11 +680,6 @@ Under « Veilleuse » while it is on: « Intensité » and the value on one line
 #### Strip bands
 Window open: a neutral 45° hatch; presence: a 10 % neutral fill; both under the comfort wash, with their exact times in a title and their counts in the text equivalent. They are what the radiators reported, edges ±5 min: reports, not heat, so never a heat hue.
 
-#### Locked programme day
-A hatched bar (its blocks warm at 45 %) for a day Kelvin cannot edit, with its reason on its own 12 px muted line and the lock glyph, in the week and in the day editor; a midnight end shows its periods as text (« 20:00–24:00 »); an unrecognised day draws no block. No handles, inputs, add or copy; copies never land on it. The day stays exactly as the radiator has it.
-
-#### Conflict notice
-Shown when a send answers `program_changed_elsewhere` (« Programme modifié ailleurs »): bad tint, the two choices « Recharger » and « Remplacer quand même » (danger).
 
 #### EnergyBars
 Stacked SVG bars, drawn at the measured width and a fixed 160 px height (so a phone keeps tall bars and true corners); bars grow from the baseline (360 ms, 12 ms stagger capped at 180 ms) on first draw and on each period change, one series colour per part (2 px corners; HC hatched over its blue, a 1 px knockout between stacked parts), hairline grid at four ticks, micro faint axis labels thinned so each keeps 44 px. The radiators are an **overlay mark**: a 2.5 px round-capped line across the bar at its value, in series-3, over a 4 px s1 knockout so it reads on any bar; the y-scale includes it. Missing parts are never drawn as zero: an interior bucket with no data (data on both sides) gets a faint 2 px dashed (3/3) baseline tick; leading and trailing empties stay blank. With `details` the bars are inspectable: the whole plot is the hit area and the nearest bar wins; a mouse hover shows its ChartInspector, a click or tap pins it, a second tap unpins; while a bar is pinned, hovering another only gives it a muted outline and the card stays. A horizontal touch swipe of 48 px (at least twice its vertical travel) steps the period instead. Each bar has an invisible full-height button in a roving-tabindex group (« Barres du graphique : … ») whose name carries its values: `←`/`→`/`Home`/`End` move and pin, `Enter` drills down (a month opens Mois, a day its Courbe, another day of Jour its own Jour) or, with nothing to drill, pins the bar, and `Esc` clears; Esc inside the card closes it and puts focus back on its bar. The inspected bar takes a 1 px ink outline, never animated. No SVG `<title>`. Empty: « Pas encore de données. » The legend below uses `Swatch`: 10 px squares (3 px radius, HC hatched) for stacked series and a 14 × 2 px line for the radiator mark.

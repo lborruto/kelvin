@@ -276,6 +276,9 @@ export const fr = {
     sunday: 'Dimanche'
   },
   daysShort: { monday: 'Lun', tuesday: 'Mar', wednesday: 'Mer', thursday: 'Jeu', friday: 'Ven', saturday: 'Sam', sunday: 'Dim' },
+  /** Programme calendar headers and copy chips (« lun. »), and the phone calendar's letters (« L »). */
+  daysAbbr: { monday: 'lun.', tuesday: 'mar.', wednesday: 'mer.', thursday: 'jeu.', friday: 'ven.', saturday: 'sam.', sunday: 'dim.' },
+  daysLetter: { monday: 'L', tuesday: 'M', wednesday: 'M', thursday: 'J', friday: 'V', saturday: 'S', sunday: 'D' },
   program: {
     lockedMidnight: `Fin à minuit${NB}: modifiez ce jour dans l’app Cozytouch`,
     lockedUnrecognised: `Plage non reconnue${NB}: modifiez ce jour dans l’app Cozytouch`,
@@ -318,7 +321,7 @@ export const fr = {
     whenTomorrow: (time: string) => `demain ${time}`,
     whenOn: (day: Day, time: string) => `${DAY_LOWER[day]} ${time}`,
     notRunning: (mode: string) => `La pièce est en mode ${mode}${NB}: ce programme s’applique en mode Programme.`,
-    ecoRest: 'Hors des plages confort, la pièce est en éco.',
+    ecoRest: 'Hors des plages Confort, la pièce est en Éco.',
     howTo: `Comment modifier${NB}?`,
     howToBody: `Choisissez un jour. Touchez sa barre pour ajouter une plage (3 au plus), glissez-la pour la déplacer, tirez ses bords pour l’ajuster, ou saisissez les heures. Clavier${NB}: flèches ±${NB}15${NB}min, Suppr retire la plage. Rien n’est envoyé avant «${NB}Envoyer${NB}».`,
     week: 'Semaine',
@@ -350,7 +353,22 @@ export const fr = {
     changeBefore: (segs: string) => `(avant${NB}: ${segs})`,
     staleHint: 'Modifiez, puis renvoyez.',
     undo: 'Annuler',
-    send: 'Envoyer'
+    send: 'Envoyer',
+    slotsHead: (n: number) => `Plages Confort · ${int(n)} sur 3`,
+    stepNote: `pas de 15${NB}min`,
+    dragHint: `Glissez une plage ou ses bords · pas de 15${NB}min`,
+    bubbleStart: (t: string) => `début ${t}`,
+    bubbleEnd: (t: string) => `fin ${t}`,
+    lockedTag: 'verrouillé',
+    lockedShort: { midnight: 'fin à minuit', unrecognised: 'non reconnu' },
+    lockedKeepTitle: 'Ce jour reste tel que le radiateur l’a.',
+    lockedKeepBody: 'Kelvin le renvoie à l’identique à chaque envoi. Aucune copie n’arrive sur ce jour.',
+    tapDay: 'Touchez un jour pour l’éditer.',
+    dayReason: (day: string, reason: string) => `${day} · ${reason}`,
+    lockedNotOffered: (days: string, n: number) =>
+      n > 1 ? `${days} sont verrouillés${NB}: ils ne sont pas proposés.` : `${days} est verrouillé${NB}: il n’est pas proposé.`,
+    sendStopped: 'Envoi arrêté',
+    roomTemps: 'Températures de la pièce'
   },
   strip: {
     windowRun: (a: string, b: string) => `Fenêtre ouverte (signalée par le radiateur) ${a}–${b}`,

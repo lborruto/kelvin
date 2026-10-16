@@ -13,8 +13,10 @@
     onchange: (segs: Seg[]) => void;
     /** QW8: shown, never edited (re-sent as read). */
     locked?: DayLock | null;
+    /** The well's height (40 beside the agenda, 44 in the phone day view). */
+    height?: number;
   }
-  let { day, segs, nowMinute = null, pending = false, step = 3, onchange, locked = null }: Props = $props();
+  let { day, segs, nowMinute = null, pending = false, step = 3, onchange, locked = null, height = 40 }: Props = $props();
   const uid = $props.id();
   let label = $derived(m.days[day]);
   // A pending send or a locked day: nothing here edits it.
@@ -27,6 +29,10 @@
   let drag: { i: number; kind: 'move' | 'start' | 'end'; origin: number; base: Seg[] } | null = null;
   let moved = false;
   let hours = $derived(Array.from({ length: 24 / step + 1 }, (_, i) => i * step));
+  // Gridlines every 3 h whatever the labels' step.
+  const TICKS = [3, 6, 9, 12, 15, 18, 21];
+  // While a block or an edge is dragged: the time it lands on, over the bar (« fin 23:30 »).
+  let bubble = $state<{ at: number; text: string } | null>(null);
 
   const minuteAt = (clientX: number) => {
     const r = bar!.getBoundingClientRect();
@@ -49,12 +55,25 @@
     if (!drag || inert) return;
     const at = minuteAt(e.clientX);
     moved = true;
-    onchange(drag.kind === 'move' ? moveSlot(drag.base, drag.i, at - drag.origin) : resizeSlot(drag.base, drag.i, drag.kind, at));
+    const next = drag.kind === 'move' ? moveSlot(drag.base, drag.i, at - drag.origin) : resizeSlot(drag.base, drag.i, drag.kind, at);
+    const s = next[drag.i];
+    if (s)
+      bubble =
+        drag.kind === 'start'
+          ? { at: s.start, text: m.program.bubbleStart(fromMin(s.start)) }
+          : drag.kind === 'end'
+            ? { at: s.end, text: m.program.bubbleEnd(fromMin(s.end)) }
+            : { at: (s.start + s.end) / 2, text: `${fromMin(s.start)}–${fromMin(s.end)}` };
+    onchange(next);
   }
+  $effect(() => {
+    if (active != null && active >= segs.length) active = null;
+  });
+  // The last block touched keeps its handles (the one being adjusted), until another is.
   function up() {
     drag = null;
     dragging = false;
-    active = null;
+    bubble = null;
   }
   function barDown() {
     moved = false;
@@ -81,18 +100,19 @@
   }
 </script>
 
-<div class="day">
+<div class="day" style:--bar-h="{height}px">
   <span class="visually-hidden" id="{uid}-hint">{m.program.blockHint}</span>
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
   <div class="bar" class:pending class:dragging class:locked={!!locked} class:unknown={locked === 'unrecognised'}
+    role={locked === 'unrecognised' ? 'img' : undefined}
     aria-label={locked === 'unrecognised' ? m.program.unknownDayLabel(label) : undefined} data-testid="bar-{day}" bind:this={bar}
     bind:clientWidth={width} onclick={addAt} onpointerdown={barDown} onpointermove={move} onpointerup={up} onpointercancel={up}>
-    {#each hours.slice(1, -1) as h (h)}<span class="tick" style:left={pct(h * 60)}></span>{/each}
+    {#each TICKS as h (h)}<span class="tick" style:left={pct(h * 60)}></span>{/each}
     {#each locked === 'unrecognised' ? [] : segs as s, i (i)}
       <div class="block" class:active={active === i} role="button" tabindex={locked ? -1 : 0} aria-roledescription={m.program.slotRole}
         aria-describedby="{uid}-hint" aria-label="{label} {fromMin(s.start)}–{fromMin(s.end)}"
         style:left={pct(s.start)} style:width={pct(s.end - s.start)}
-        onpointerdown={(e) => down(e, i, 'move')} onkeydown={(e) => key(e, i)}
+        onpointerdown={(e) => down(e, i, 'move')} onkeydown={(e) => key(e, i)} onfocus={() => !inert && (active = i)}
         onclick={(e) => e.stopPropagation()}>
         {#if fits(s)}<span class="times num" aria-hidden="true">{fromMin(s.start)}–{fromMin(s.end)}</span>{/if}
         {#if !locked}
@@ -102,6 +122,9 @@
       </div>
     {/each}
     {#if nowMinute != null}<span class="now" style:left={pct(nowMinute)}></span>{/if}
+    <!-- Near an end of the day the bubble leans inwards, so it never leaves the bar's width. -->
+    {#if bubble}<span class="bubble num" class:lead={bubble.at < 240} class:trail={bubble.at > 1200} aria-hidden="true"
+        style:left={pct(bubble.at)}>{bubble.text}</span>{/if}
   </div>
   <div class="hours num" aria-hidden="true">
     {#each hours as h (h)}<span style:left={pct(h * 60)}>{String(h).padStart(2, '0')}</span>{/each}
@@ -109,6 +132,9 @@
 </div>
 
 <style>
+  /* Tableau day bar (spec « DayEditor »): the input well (--in, field edge, 10 px), gridlines every 3 h, comfort
+     blocks heat at 80 % (8 px) with their times in heat ink when they fit; the block being adjusted shows two
+     ink handles and an ink edge; a drag shows the time it lands on in an ink bubble over the bar. */
   .day {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -116,10 +142,10 @@
   }
   .bar {
     position: relative;
-    height: 48px;
-    border-radius: var(--radius);
+    height: var(--bar-h);
+    border-radius: 10px;
     background: var(--in);
-    border: 1px solid var(--field-line);
+    border: 1px solid var(--field);
     cursor: copy;
     touch-action: pan-y;
   }
@@ -132,16 +158,15 @@
     cursor: default;
   }
   .bar.locked {
-    background: repeating-linear-gradient(45deg, var(--s2) 0 4px, color-mix(in srgb, var(--mu) 18%, var(--s2)) 4px 8px);
+    background: repeating-linear-gradient(45deg, var(--in) 0 4px, color-mix(in srgb, var(--fa-mark) 55%, var(--in)) 4px 5.5px);
   }
   .tick {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 3px;
+    bottom: 3px;
     width: 1px;
-    background: color-mix(in srgb, var(--field-line) 35%, transparent);
+    background: color-mix(in srgb, var(--field) 35%, transparent);
   }
-  /* Comfort blocks: warm at 75 % (3:1 against the well in both themes, WCAG 1.4.11). */
   .block {
     position: absolute;
     top: 3px;
@@ -150,40 +175,41 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--warm) 75%, var(--in));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--heat) 80%, var(--in));
     cursor: grab;
     touch-action: none;
   }
+  .block.active {
+    overflow: visible;
+    box-shadow: 0 0 0 2px var(--tx);
+  }
   .locked .block {
-    background: color-mix(in srgb, var(--warm) 45%, var(--in));
+    background: color-mix(in srgb, var(--heat) 45%, var(--in));
     cursor: default;
   }
   .pending .block {
     background: transparent;
-    border: 1.5px dashed var(--mu);
+    outline: 1.5px dashed var(--mu);
+    outline-offset: -1.5px;
+    box-shadow: none;
     cursor: default;
   }
-  /* Times in a block: dark ink on a halo of the warm fill at 82 % (≥ 4.9:1 in both themes, axe), above
-     the now marker so a marker never cuts the times. A locked day's paler halo takes ink (≥ 6.6:1). */
+  /* Times in a block: heat ink on the block (≥ 5:1), above the now marker so a marker never cuts them. */
   .times {
     position: relative;
     z-index: 2;
     padding: 0 3px;
-    border-radius: 3px;
-    background: color-mix(in srgb, var(--warm) 82%, var(--in));
     font-size: 11px;
     font-weight: 600;
-    color: #1a0d05;
+    color: var(--heat-ink);
     white-space: nowrap;
     pointer-events: none;
   }
   .locked .times {
-    background: color-mix(in srgb, var(--warm) 45%, var(--in));
     color: var(--tx);
   }
   .pending .times {
-    background: var(--in);
     color: var(--mu);
   }
   .handle {
@@ -200,19 +226,24 @@
     position: absolute;
     inset: -6px -8px;
   }
-  /* The grips show on the block being pointed at, focused or dragged. */
+  /* The ink handles show on the block being adjusted, pointed at or focused. */
   .handle::after {
     content: '';
     position: absolute;
     top: 50%;
-    left: 3.5px;
-    width: 3px;
-    height: 16px;
-    margin-top: -8px;
-    border-radius: 2px;
-    background: color-mix(in srgb, #1a0d05 55%, transparent);
+    width: 5px;
+    height: 18px;
+    margin-top: -9px;
+    border-radius: 3px;
+    background: var(--tx);
     opacity: 0;
     transition: opacity var(--t-state) ease;
+  }
+  .handle.start::after {
+    left: -2.5px;
+  }
+  .handle.end::after {
+    right: -2.5px;
   }
   .block:focus-visible .handle::after,
   .block.active .handle::after {
@@ -240,10 +271,30 @@
     background: var(--tx);
     pointer-events: none;
   }
+  .bubble {
+    position: absolute;
+    z-index: 3;
+    bottom: calc(100% + 8px);
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: var(--tx);
+    color: var(--bg);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .bubble.lead {
+    transform: translateX(-12px);
+  }
+  .bubble.trail {
+    transform: translateX(calc(-100% + 12px));
+  }
   .hours {
     position: relative;
     height: 15px;
-    font-size: 11px;
+    font-size: var(--fs-axis);
     color: var(--fa);
   }
   .hours span {

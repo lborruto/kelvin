@@ -148,6 +148,10 @@ export const DYNAMIC = [
   'nav',
   'days',
   'daysShort',
+  // Programme (Tableau batch): the agenda's headers and copy chips read by day key
+  'daysAbbr',
+  'daysLetter',
+  'program.lockedShort',
   'range',
   'program.dayError',
   'program.presets',

@@ -264,7 +264,7 @@ describe('/schedule: what the page says', () => {
       expect(container.querySelector('.temps')).toHaveTextContent(/Confort\s19,0\s°C\s*Éco\s17,0\s°C/);
       expect(screen.getByRole('link', { name: 'Modifier les températures' })).toHaveAttribute('href', '/rooms/salon');
       expect(screen.getByText(/^Maintenant\s:\sConfort · 23:00 → Éco$/)).toBeInTheDocument();
-      expect(screen.getByText('Hors des plages confort, la pièce est en éco.')).toBeInTheDocument();
+      expect(screen.getByText('Hors des plages Confort, la pièce est en Éco.')).toBeInTheDocument();
       const how = screen.getByRole('button', { name: 'Comment modifier\u00a0?' });
       expect(how).toHaveAttribute('aria-expanded', 'false');
       await fireEvent.click(how);
@@ -274,7 +274,8 @@ describe('/schedule: what the page says', () => {
       expect(container.querySelector('.today, svg[aria-label^="Salon"]')).toBeNull();
       expect(screen.queryByText(/Une fin à minuit/)).toBeNull();
       // Today is in the editor by default, with the now marker on its bar and its week row.
-      expect(screen.getByRole('heading', { level: 2, name: /^Jeudi aujourd’hui/ })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: 'Jeudi' })).toBeInTheDocument();
+      expect(container.querySelector('.editor .sub')).toHaveTextContent('aujourd’hui');
       expect(row('Jeudi')).toHaveAttribute('aria-pressed', 'true');
       expect(container.querySelectorAll('.now')).toHaveLength(2);
     } finally {
@@ -307,7 +308,9 @@ describe('/schedule: what the page says', () => {
     render(Page);
     await editMonday();
     expect(row('Lundi')).toHaveAccessibleName(/, modifié$/);
-    expect(screen.getByRole('heading', { level: 2, name: 'Lundi modifié' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Lundi' })).toBeInTheDocument();
+    expect(document.querySelector('.editor .sub')).toHaveTextContent(/^Salon·?\s*modifié$/);
+    expect(document.querySelector('[data-day="monday"] .ed')).toHaveTextContent('modifié');
   });
 
   it('« Copier vers… » copies the day onto the chosen days of the draft only; the copies pulse and are announced', async () => {
@@ -341,7 +344,11 @@ describe('/schedule: what the page says', () => {
     expect(screen.getByRole('heading', { level: 2, name: /^Dimanche/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Ajouter une plage le Dimanche' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Copier vers…' })).toBeNull();
-    expect(screen.getAllByText(/^Fin à minuit\s:\smodifiez ce jour dans l’app Cozytouch$/)).toHaveLength(2); // week row + editor
+    // The editor says why; the agenda's header button names it and its column says « fin à minuit ».
+    expect(screen.getAllByText(/^Fin à minuit\s:\smodifiez ce jour dans l’app Cozytouch$/)).toHaveLength(1);
+    expect(row('Dimanche')).toHaveAccessibleName(/Fin à minuit\s:\smodifiez ce jour dans l’app Cozytouch$/);
+    expect(document.querySelector('[data-day="sunday"] .why')).toHaveTextContent('fin à minuit');
+    expect(screen.getByText('Ce jour reste tel que le radiateur l’a.')).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: /^Lundi,/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Copier vers…' }));
     expect(screen.queryByRole('checkbox', { name: 'Dimanche' })).toBeNull();
@@ -496,7 +503,7 @@ describe('changed elsewhere', () => {
     await editMonday();
     house.applyHouse({ rooms: [], radiators: [{ ...rad, program: { monday: [{ start: '05:00', end: '06:00' }] } }] } as never);
     expect(await screen.findByText('Programme modifié ailleurs')).toBeInTheDocument();
-    expect(screen.getByText(/lundi/i, { selector: '.conflict p' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/Programme modifié ailleurs.*Lundi/);
     expect(screen.getByRole('button', { name: 'Envoyer' })).toHaveAttribute('aria-disabled', 'true');
     await fireEvent.click(screen.getByRole('button', { name: 'Recharger' }));
     expect(screen.queryByText('Programme modifié ailleurs')).toBeNull();
@@ -534,7 +541,7 @@ describe('changed elsewhere', () => {
     const payload = vi.mocked(api.roomProgram).mock.calls[0][1];
     expect(Object.keys(payload)).not.toContain('sunday');
     expect(Object.keys(payload)).not.toContain('saturday');
-    expect(screen.getByText(/Fin à minuit/)).toBeInTheDocument();
+    expect(row('Dimanche')).toHaveAccessibleName(/Fin à minuit/);
   });
 });
 
@@ -642,5 +649,59 @@ describe('Schedule across kinds', () => {
     snapshot([roomOf('bureau', 'Bureau', ['p'])], [pilot]);
     render(Page);
     expect(await screen.findByText(/Aucun radiateur de cette maison n’a de programme/)).toBeInTheDocument();
+  });
+});
+
+describe('/schedule: the Tableau agenda', () => {
+  it('a drag in the agenda edits that day of the draft and brings it into the editor; nothing is sent', async () => {
+    const { container } = render(Page);
+    await screen.findByRole('button', { name: /^Mardi,/ });
+    const bar = container.querySelector<HTMLElement>('[data-day="tuesday"] .bar')!;
+    bar.getBoundingClientRect = () => ({ left: 0, width: 100, top: 0, height: 1440, right: 100, bottom: 1440, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    await fireEvent.pointerDown(bar, { clientY: 600, button: 0, pointerId: 1 });
+    await fireEvent.pointerMove(bar, { clientY: 610, pointerId: 1 });
+    await fireEvent.pointerUp(bar, { pointerId: 1 });
+    expect(screen.getByRole('heading', { level: 2, name: 'Mardi' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Mardi, plage 1, début')).toHaveValue('10:00');
+    expect(screen.getByLabelText('Mardi, plage 1, fin')).toHaveValue('11:00');
+    expect(sendBar()).toHaveTextContent('1 jour modifié');
+    expect(api.roomProgram).not.toHaveBeenCalled();
+  });
+
+  it('a send stopped by a 409 says « Envoi arrêté » under the notice', async () => {
+    vi.mocked(api.roomProgram).mockRejectedValueOnce(
+      new (ApiError as never as new (...a: unknown[]) => Error)(409, 'x', 'program_changed_elsewhere', { days: ['monday'] })
+    );
+    await editAndSend();
+    expect(await screen.findByText('Envoi arrêté')).toBeInTheDocument();
+    const alert = screen.getByRole('alert');
+    expect(alert.compareDocumentPosition(sendBar()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('on a phone: the compact agenda, « Touchez un jour… » and each locked day’s reason; « ? » opens the help', async () => {
+    media.desktop.matches = false;
+    snapshot([salonRoom], [{ ...rad, program_locked: { saturday: 'unrecognised' } }]);
+    const { container } = render(Page);
+    await screen.findByRole('button', { name: /^Lundi,/ });
+    expect(container.querySelector('.cal.compact')).not.toBeNull();
+    expect(screen.getByText('Touchez un jour pour l’éditer.')).toBeInTheDocument();
+    // The temperatures stay one tap away on a phone too.
+    expect(screen.getByRole('link', { name: 'Modifier les températures' })).toHaveAttribute('href', '/rooms/salon');
+    expect(container.querySelector('[data-lock="saturday"]')).toHaveTextContent(/^Samedi · Plage non reconnue/);
+    const how = screen.getByRole('button', { name: 'Comment modifier ?' });
+    await fireEvent.click(how);
+    expect(how).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Hors des plages Confort, la pièce est en Éco.')).toBeInTheDocument();
+  });
+
+  it('on a phone a locked day lists the room’s temperatures instead of the swatches', async () => {
+    media.desktop.matches = false;
+    snapshot([salonRoom], [{ ...rad, program_locked: { saturday: 'unrecognised' } }]);
+    state.page.url = new URL('http://kelvin.test/schedule?day=saturday');
+    const { container } = render(Page);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Samedi' })).toBeInTheDocument();
+    expect(screen.getByText('Températures de la pièce')).toBeInTheDocument();
+    expect(container.querySelector('.temps-grp')).toHaveTextContent(/Confort\s*19,0\s°C\s*Éco\s*17,0\s°C/);
+    expect(container.querySelector('.dayview .temps')).toBeNull();
   });
 });

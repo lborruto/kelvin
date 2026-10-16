@@ -99,6 +99,8 @@ export const ARGS: Record<string, unknown[]> = {
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
 export const SAME = new Set<string>([
+  // Programme (Tableau batch): « S » is Saturday (and Sunday) in both languages
+  'daysLetter.saturday', 'program.dayReason',
   // Batch 13: « ≈ 1,70 kW » and « Total » read the same in both languages
   'room.livePower', 'room.livePowerTotal',
   'energyUi.keyName', 'energyUi.barView', 'energyUi.roomKwhName',
@@ -221,6 +223,10 @@ const SCANNER_BLIND = new Set([
   // Réglages (Tableau settings batch): « 2 jetons MCP », « brouillon »
   'home.cardMcp',
   'tariff.draft',
+  // Programme (Tableau batch): day abbreviations and letters
+  'daysAbbr.monday', 'daysAbbr.tuesday', 'daysAbbr.wednesday', 'daysAbbr.thursday', 'daysAbbr.friday', 'daysAbbr.saturday',
+  'daysAbbr.sunday', 'daysLetter.monday', 'daysLetter.tuesday', 'daysLetter.wednesday', 'daysLetter.thursday',
+  'daysLetter.friday', 'daysLetter.sunday', 'program.bubbleEnd', 'program.lockedShort.unrecognised',
   'energyUi.ecowatt', 'energyUi.analysis', 'energyUi.qualityMeta',
   // Maison (UX batch 8): short French words the scanner reads as neutral.
   'tariff.historyMeta', 'linky.show', 'linky.hide',

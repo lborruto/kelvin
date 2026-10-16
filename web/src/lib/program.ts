@@ -138,6 +138,32 @@ export function addSlot(segs: Seg[], at: number, len = 120): Seg[] | null {
   return [...segs, { start, end }].sort((a, b) => a.start - b.start);
 }
 
+/**
+ * A period drawn from `from` towards `to` (down or up) in the free gap holding `from`: snapped, at least `min`
+ * long while the gap allows, never over a neighbour or past EDIT_MAX; null when the day is full, `from` sits in a
+ * period, or the gap is shorter than MIN_LEN.
+ */
+export function drawSlot(segs: Seg[], from: number, to: number, min = 60): Seg[] | null {
+  if (segs.length >= 3) return null;
+  const o = snap(from);
+  if (segs.some((s) => o >= s.start && o < s.end)) return null;
+  const lo = Math.max(0, ...segs.filter((s) => s.end <= o).map((s) => s.end));
+  const hi = Math.min(EDIT_MAX, ...segs.filter((s) => s.start > o).map((s) => s.start));
+  let start: number;
+  let end: number;
+  if (to >= from) {
+    start = o;
+    end = Math.max(snap(to), o + min);
+  } else {
+    start = snap(to);
+    end = Math.max(o, start + min);
+  }
+  start = Math.max(start, lo);
+  end = Math.min(end, hi);
+  if (end - start < MIN_LEN) return null;
+  return [...segs, { start, end }].sort((a, b) => a.start - b.start);
+}
+
 export function moveSlot(segs: Seg[], i: number, delta: number): Seg[] {
   const s = segs[i];
   const len = s.end - s.start;
