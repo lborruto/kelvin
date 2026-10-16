@@ -872,7 +872,7 @@ export const en: Messages = {
     cardTariff: (option: string, kva: string, sub: string) => `${option} · ${kva} · ${sub}/month`,
     cardTariffNone: 'No tariff yet',
     cardTariffSet: 'Add it to see your costs in euros.',
-    cardTempo: 'Blue, White and Red prices',
+    cardTempoHours: (slots: string) => `Tempo off-peak hours: ${slots} · a day runs 06:00 to 06:00`,
     cardLinkyOff: 'Not connected · connect it for the home’s consumption',
     cardLinkyWhat: 'Home consumption and the half-hourly curve',
     cardSourcesOk: 'Everything is up to date',

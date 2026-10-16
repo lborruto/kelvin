@@ -907,7 +907,7 @@ export const fr = {
     cardTariff: (option: string, kva: string, sub: string) => `${option} · ${kva} · ${sub}/mois`,
     cardTariffNone: 'Pas encore de tarif',
     cardTariffSet: 'Renseignez-le pour voir vos coûts en euros.',
-    cardTempo: 'Prix Bleu, Blanc et Rouge',
+    cardTempoHours: (slots: string) => `Heures creuses Tempo${NB}: ${slots} · le jour va de 06:00 à 06:00`,
     cardLinkyOff: 'Non relié · reliez-le pour la consommation de la maison',
     cardLinkyWhat: 'Consommation de la maison et courbe à la demi-heure',
     cardSourcesOk: 'Tout est à jour',

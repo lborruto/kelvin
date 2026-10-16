@@ -159,6 +159,19 @@ describe('Réglages overview', () => {
     expect(await screen.findByText('Sauter Cozytouch · 2 appareils connectés · 1 jeton MCP')).toBeInTheDocument();
   });
 
+  it('Tarif card under Tempo: the Tempo colours and hours, never the HC/HP blue band', async () => {
+    const tempo = { ...TARIFF, prices: [{ valid_from: '2025-01-15', option: 'tempo', subscription_eur_month: 15, rates: {
+      blue_hc: 0.13, blue_hp: 0.16, white_hc: 0.15, white_hp: 0.18, red_hc: 0.16, red_hp: 0.7 } }] };
+    vi.mocked(api.settings).mockResolvedValueOnce({ tariff: tempo, prefill: null } as never);
+    const { container } = render(Page);
+    await screen.findByRole('link', { name: /^Tarif, Tempo · 9\skVA/ });
+    const card = container.querySelector('a[href="/home/tariff"]')!.closest('article')!;
+    expect(within(card as HTMLElement).getByText(/^Heures creuses Tempo\s: 22:00–06:00/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText('Rouge')).toBeInTheDocument();
+    expect(card.querySelectorAll('.dot')).toHaveLength(3);
+    expect(within(card as HTMLElement).queryByRole('img', { name: /^Heures creuses/ })).toBeNull();
+  });
+
   it('a tariff never set says so; a failed load says « Indisponible » in its card', async () => {
     const { unmount } = render(Page);
     expect(await screen.findByText('Pas encore de tarif')).toBeInTheDocument();

@@ -17,6 +17,7 @@
   import SourceLine from '$lib/components/SourceLine.svelte';
   import Swatch from '$lib/components/Swatch.svelte';
   import TariffBand from '$lib/components/TariffBand.svelte';
+  import TempoDot from '$lib/components/TempoDot.svelte';
   import Toggle from '$lib/components/Toggle.svelte';
   import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
   import { canEditSetup } from '$lib/capabilities';
@@ -34,6 +35,8 @@
   import { house } from '$lib/stores/house.svelte';
   import { inForce, RATE_KEYS } from '$lib/tariff';
   import { VERSION } from '$lib/version';
+
+  const TEMPO_COLOURS = ['blue', 'white', 'red'] as const;
 
   // An old anchor (/home#tariff, #linky, #sessions, #mcp) lands on its page; #away opens the sheet here.
   let leaving = $state(typeof location !== 'undefined' && !!homeAnchor(location.hash) && homeAnchor(location.hash) !== 'away');
@@ -161,13 +164,15 @@
                       ? fmtPrice(tariffRow.rates[k])
                       : `${m.tariff.rateShort[k]} ${fmtPrice(tariffRow.rates[k])}`}</span>
                 {/each}
-                {#if tariffRow.option === 'tempo'}<span>{m.home.cardTempo}</span>{/if}
+                <!-- Tempo in force (decision 3): its colours as a legend, never the HC/HP blues. -->
+                {#if tariffRow.option === 'tempo'}{#each TEMPO_COLOURS as c (c)}<span class="price"><TempoDot colour={c} />{m.grid.colour[c]}</span>{/each}{/if}
               </p>
             {:else if settings && !settings.tariff}
               <p>{m.home.cardTariffSet}</p>
             {/if}
             {#snippet foot()}
-              {#if tariffBlocks}<TariffBand blocks={tariffBlocks} label={m.tariffSummary.hoursLabel(hcText(tariffBlocks))} ticks={false} height={8} />{/if}
+              {#if tariffBlocks && tariffRow?.option === 'tempo'}<p class="tempo-hours">{m.home.cardTempoHours(hcText(tariffBlocks))}</p>
+              {:else if tariffBlocks}<TariffBand blocks={tariffBlocks} label={m.tariffSummary.hoursLabel(hcText(tariffBlocks))} ticks={false} height={8} />{/if}
             {/snippet}
           </HomeCard>
           <HomeCard href={ROUTES.linky} icon="meter" title="Linky" summary={linkySummary} vt="home-linky">
@@ -237,6 +242,11 @@
     flex-wrap: wrap;
     gap: 2px 12px;
     margin: 0;
+  }
+  .tempo-hours {
+    margin: 0;
+    font-size: 13px;
+    color: var(--mu);
   }
   .price {
     display: inline-flex;

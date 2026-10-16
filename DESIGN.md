@@ -497,7 +497,7 @@ h1 « Réglages » and its state line (« Tout va bien » | « 2 alertes · Abse
 min-height 150, padding 18 × 20: a 36 px s2 glyph disc (grid · tag · meter · sync · user), the title 16/600 and a
 chevron; the summary in 14 px ink, detail lines 13 muted, the SourceLine or the tariff band (`TariffBand`, 8 px, no
 ticks) at the bottom. Pièces et appareils (« 3 pièces · 4 radiateurs », « 1 hors ligne », « lecture seule sur ce
-serveur »), Tarif (« HC/HP · 9 kVA · 23,48 €/mois », the prices with 10 px swatches), Linky (state, « synchro il y a
+serveur »), Tarif (« HC/HP · 9 kVA · 23,48 €/mois », the prices with 10 px swatches; under Tempo the three TempoDots with their colour names and « Heures creuses Tempo : 22:00–06:00 · le jour va de 06:00 à 06:00 » in place of the band, never the HC/HP blues), Linky (state, « synchro il y a
 12 min », Linky SourceLine), Sources de données (« Tout est à jour », the source names), Compte (email, « Sauter
 Cozytouch · 3 appareils connectés · 1 jeton MCP »: active tokens counted, never a secret). The whole card is the
 title's link, named « Tarif, HC/HP · 9 kVA · 15,00 €/mois ». **Affichage** is the sixth cell (not a link): Langue
