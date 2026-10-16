@@ -15,6 +15,13 @@ describe('HcHpPanel', () => {
 
   it('states the facts, and the value of moving HP to HC with its formula, never as advice', async () => {
     const { container } = render(HcHpPanel, { lens, tariff: true, hpKwh: 254.3 });
+    // L0: the share against the hours, its meter; the rest one « Détails » away (closed, findable).
+    expect(text(container.querySelector('.lead')!)).toBe('38,4 % de l’énergie, pour 33,3 % des heures');
+    expect(container.querySelector('#offpeak')).not.toBeNull();
+    const details = screen.getByRole('button', { name: /^Détails/ });
+    expect(details).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('slider')).toBeNull();
+    await fireEvent.click(details);
     let t = text(container);
     expect(t).toContain('Part en heures creuses 38,4 %');
     expect(t).toContain('vos heures creuses durent 33,3 % de la journée');
@@ -34,22 +41,24 @@ describe('HcHpPanel', () => {
 
   it('a tariff without HC slots reads « — » and says so', () => {
     const { container } = render(HcHpPanel, { lens: null, tariff: true, hpKwh: 10 });
-    expect(text(container)).toContain('Part en heures creuses —');
+    expect(container.querySelector('.big')).toHaveTextContent('—');
     expect(screen.getByText('Le tarif n’a pas d’heures creuses.')).toBeInTheDocument();
   });
 
   it('a period without consumption reads « — » and says why', () => {
     const { container } = render(HcHpPanel, { lens: { ...lens, hc_share: null, avg_price: null }, tariff: true, hpKwh: null });
-    expect(text(container)).toContain('Part en heures creuses —');
+    expect(container.querySelector('.big')).toHaveTextContent('—');
     expect(text(container)).toContain('Prix moyen payé —');
     expect(screen.getByText('Aucune consommation Linky sur la période.')).toBeInTheDocument();
     expect(container.querySelector('input')).toBeNull();
   });
 });
 
-it('in English: off-peak share, prices with € first, the slider and its sentence', () => {
+it('in English: off-peak share, prices with € first, the slider and its sentence', async () => {
   applyLocale('en');
   const { container } = render(HcHpPanel, { lens, tariff: true, hpKwh: 254.3 });
+  expect(text(container.querySelector('.lead')!)).toBe('38.4% of the energy, for 33.3% of the hours');
+  await fireEvent.click(screen.getByRole('button', { name: /^Details/ }));
   const t = text(container);
   expect(t).toContain('Off-peak share 38.4%');
   expect(t).toContain('your off-peak hours cover 33.3% of the day');

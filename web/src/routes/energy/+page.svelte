@@ -7,10 +7,10 @@
   import CurvePanel from '$lib/components/CurvePanel.svelte';
   import EnergyBars from '$lib/components/EnergyBars.svelte';
   import EnergyHero from '$lib/components/EnergyHero.svelte';
+  import EnergyWhere from '$lib/components/EnergyWhere.svelte';
   import type { FicheRow } from '$lib/components/FicheBody.svelte';
   import GridChips from '$lib/components/GridChips.svelte';
   import HcHpPanel from '$lib/components/HcHpPanel.svelte';
-  import HeatingPanel from '$lib/components/HeatingPanel.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Menu, { type MenuItem } from '$lib/components/Menu.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -20,7 +20,6 @@
   import ProjectionPanel from '$lib/components/ProjectionPanel.svelte';
   import QualityPanel from '$lib/components/QualityPanel.svelte';
   import RoomDayPanel from '$lib/components/RoomDayPanel.svelte';
-  import RoomsEnergy from '$lib/components/RoomsEnergy.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
   import SourceLine from '$lib/components/SourceLine.svelte';
   import Swatch from '$lib/components/Swatch.svelte';
@@ -158,16 +157,12 @@
   // Qualité describes the selected period: in Jour the bars are the 7 days ending on it, so only its own bucket.
   let periodBars = $derived(loaded?.view === 'day' ? bars.filter((b) => b.key === loaded.period.from) : bars);
 
-  // Température et chauffe is for Jour and Semaine (one day at a time, the Courbe's day): full width, under the Courbe
-  // whose scrubber it shares. It holds its place (a skeleton) until the house is known, so nothing below moves.
+  // Température et chauffe is for Jour and Semaine (one day at a time, the Courbe's day): inside « Où part
+  // l'énergie », under the rooms, sharing the Courbe's scrubber. It holds its place (a skeleton) until the house is
+  // known, so nothing below moves.
   let roomDay = $derived(!!loaded && loaded.main.linky && (loaded.view === 'day' || loaded.view === 'week'));
-  // Puissance (Jour, Semaine), HC/HP and Chauffage sit three abreast; with fewer, they share the row.
-  let trio = $derived.by(() => {
-    if (!loaded || !loaded.main.linky) return { power: '', hchp: '', heating: '' };
-    const power = loaded.view === 'day' || loaded.view === 'week';
-    if (power) return { power: 'third', hchp: 'third', heating: 'third last' };
-    return { power: '', hchp: 'half', heating: 'half' };
-  });
+  // Analyse: Puissance (Jour, Semaine), Heures creuses, Comparaisons, Projection; four cards go two by two, three abreast.
+  let cards = $derived(!loaded || !loaded.main.linky ? 0 : loaded.view === 'day' || loaded.view === 'week' ? 4 : 3);
   // Puissance in Jour reads the period's own day, never another day still on screen.
   let powerDay = $derived(loaded && (loaded.view !== 'day' || data.day?.date === loaded.period.from) ? data.day : null);
   // A period running into today counts its radiators up to yesterday.
@@ -390,33 +385,46 @@
       bind:open={curveOpen}
       bind:index={scrub} />
   {/if}
-  {#if roomDay && data.dayIso}
-    <RoomDayPanel
-      day={data.day}
-      dayIso={data.dayIso}
-      room={data.room}
-      onroom={(id) => data.setRoom(id)}
-      error={data.dayError?.() ?? null}
-      onretry={() => data.retryDay()}
-      bind:index={scrub}
-      class="wide" />
-  {/if}
-
-  {#if main.linky}
-    {#if loaded.view === 'day' || loaded.view === 'week'}
-      <PowerPanel view={loaded.view} day={powerDay} week={main.period.curve} failed={!!data.dayError} class={trio.power} />
+  <EnergyWhere
+    heating={main.heating}
+    radiators={main.period.radiators}
+    restKwh={main.period.rest_kwh}
+    {running}
+    linky={main.linky}
+    rows={main.by_radiator}
+    span={elapsed ?? loaded.period}
+    tariff={main.tariff}
+    split={main.option !== 'base'}
+    onroom={(id) => roomDay && data.setRoom(id)}
+    class="wide">
+    {#if roomDay && data.dayIso}
+      <RoomDayPanel
+        day={data.day}
+        dayIso={data.dayIso}
+        room={data.room}
+        onroom={(id) => data.setRoom(id)}
+        error={data.dayError?.() ?? null}
+        onretry={() => data.retryDay()}
+        heading="h3"
+        bind:index={scrub}
+        class="inner" />
     {/if}
-    <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} option={main.option} tempo={main.tempo_lens} class={trio.hchp} />
-    <HeatingPanel heating={main.heating} radiators={main.period.radiators} restKwh={main.period.rest_kwh} {running} class={trio.heating} />
-  {/if}
+  </EnergyWhere>
 
   {#if main.linky}
-    <!-- A pair in every view, so neither sits alone beside an empty half. -->
-    <ComparePanel comparison={main.comparison} view={loaded.view} tariff={main.tariff} class="half" />
-    <ProjectionPanel projection={main.projection} last={main.last_day} today={today.iso} class="half" />
+    <!-- Analyse: summary cards, their detail one « Détails » away. -->
+    <section class="analysis wide" aria-labelledby="analysis-title">
+      <h2 id="analysis-title" class="label">{m.energyUi.analysis}</h2>
+      <div class="cards n{cards}">
+        {#if loaded.view === 'day' || loaded.view === 'week'}
+          <PowerPanel view={loaded.view} day={powerDay} week={main.period.curve} failed={!!data.dayError} />
+        {/if}
+        <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} option={main.option} tempo={main.tempo_lens} />
+        <ComparePanel comparison={main.comparison} view={loaded.view} tariff={main.tariff} />
+        <ProjectionPanel projection={main.projection} last={main.last_day} today={today.iso} />
+      </div>
+    </section>
   {/if}
-
-  <RoomsEnergy rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} split={main.option !== 'base'} class="wide" />
 
   <!-- Collapsed: where every estimate comes from, opened by the « est. » links (#quality). -->
   {#if main.linky}
@@ -589,8 +597,7 @@
     font-size: 13px;
     color: var(--mu);
   }
-  /* The grid answers to its own width (the sidebar takes 232 px of a 1024 px screen): one column,
-     then pairs from 720 px, then the Puissance · HC/HP · Chauffage trio from 960 px. */
+  /* The grid answers to its own width (the sidebar takes 232 px of a 1024 px screen); every section is full width. */
   .cq {
     container-type: inline-size;
     max-width: 1180px;
@@ -609,27 +616,6 @@
   .panels.busy > :global(*) {
     opacity: 0.55;
   }
-  @container (min-width: 720px) {
-    .panels {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-    }
-    .panels > :global(*) {
-      grid-column: span 6;
-    }
-    .panels > :global(.half),
-    .panels > :global(.third) {
-      grid-column: span 3;
-    }
-    .panels > :global(.third.last) {
-      grid-column: span 6;
-    }
-  }
-  @container (min-width: 960px) {
-    .panels > :global(.third),
-    .panels > :global(.third.last) {
-      grid-column: span 2;
-    }
-  }
   .panels > :global(.panel) {
     padding: 14px;
     border: 1px solid var(--line);
@@ -647,6 +633,55 @@
   }
   .panel-sk {
     border: 1px solid var(--line);
+  }
+  /* Analyse: a section label over summary cards; one column, two from 640 px of content, three abreast (three
+     cards) from 900 px. */
+  .analysis {
+    container-type: inline-size;
+  }
+  .analysis .label {
+    margin: 4px 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mu);
+  }
+  .cards {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cards > :global(.panel) {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--s1);
+  }
+  .cards > :global(.panel) :global(h3) {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mu);
+    margin: 0 0 8px;
+  }
+  @container (min-width: 640px) {
+    .cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .cards.n3 > :global(:last-child) {
+      grid-column: span 2;
+    }
+  }
+  @container (min-width: 900px) {
+    .cards.n3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .cards.n3 > :global(:last-child) {
+      grid-column: auto;
+    }
   }
   /* A key figure's link lands its section clear of the condensed period bar. */
   .panels > :global([id]) {

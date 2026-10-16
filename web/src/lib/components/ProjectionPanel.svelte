@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ENERGY_ANCHORS } from '$lib/paths';
+  import Disclosure from './Disclosure.svelte';
   import { scaleLinear } from 'd3-scale';
   import type { Projection } from '$lib/api/types';
   import { addDays, SERIES } from '$lib/energy';
@@ -33,13 +34,15 @@
   let values = $derived(months.map((mo) => (euros ? (mo.eur as number) : mo.kwh)));
   let width = $state(0);
   let SW = $derived(width > 0 ? width : 240);
-  const SH = 36;
+  const SH = 32;
   let y = $derived(scaleLinear().domain([0, Math.max(1, ...values)]).range([SH - 1, 2]));
   let points = $derived(values.map((v, i) => `${2 + (i / Math.max(1, values.length - 1)) * (SW - 4)},${y(v)}`).join(' '));
 </script>
 
+<!-- Analyse card: the full month and the next 365 days with the 12-month sparkline (the current month marked) in L0;
+     the method one « Comment c'est calculé » away. -->
 <section class="panel {cls}" id={ENERGY_ANCHORS.projection}>
-  <h2>{m.projection.title}</h2>
+  <h3>{m.projection.title}</h3>
   <p class="muted covers">{m.projection.covers}</p>
   {#if !projection}
     <p class="muted note">{why}</p>
@@ -68,6 +71,8 @@
           <!-- The scale starts at zero: the baseline says so, so a level year reads level. -->
           <line class="zero" x1="0" x2={SW} y1={SH - 0.5} y2={SH - 0.5} />
           <polyline class="proj" {points} style:stroke={SERIES.home} />
+          <!-- The current month (the first point, partly measured). -->
+          <circle class="now" cx="2" cy={y(values[0])} r="2.5" style:fill={SERIES.home} />
         </svg>
         <div class="spark-ends" aria-hidden="true"><span>{monthShort(months[0].key)}</span><span>{monthShort(months[months.length - 1].key)}</span></div>
       </div>
@@ -81,16 +86,15 @@
         </tbody>
       </table></div>
     {/if}
-    <p class="muted note est">{m.projection.estimate}</p>
-    <details>
-      <summary>{m.projection.how}</summary>
-      <ul>
+    <Disclosure title={m.projection.how} meta={m.energyUi.projectionMeta} detail class="more">
+      <p class="muted note est">{m.projection.estimate}</p>
+      <ul class="how">
         <li class="num">{m.projection.base(fmtKwhExact(r.per_day_kwh), last ? fmtDay(last) : null)}, {m.projection.method[r.method]}.</li>
         {#if r.price_eur_kwh != null}<li class="num">{m.projection.price(fmtPrice(r.price_eur_kwh), fmtDay(addDays(r.from, -1)))}.</li>{/if}
         <li>{m.projection.monthHow}.</li>
         {#if r.eur != null}<li>{m.projection.subscription}</li>{/if}
       </ul>
-    </details>
+    </Disclosure>
   {/if}
 </section>
 
@@ -152,46 +156,17 @@
   .est {
     margin-top: 8px;
   }
-  details {
-    margin-top: 2px;
-    font-size: 12px;
+  .panel :global(.disclosure.more) {
+    margin-top: 8px;
+    border-top: 1px solid var(--line);
   }
-  summary {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    color: var(--tx);
-    list-style: none;
-  }
-  summary::-webkit-details-marker {
-    display: none;
-  }
-  /* The disclosure's own chevron, drawn in ink like the page's other controls. */
-  summary::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    border-right: 1.5px solid currentColor;
-    border-bottom: 1.5px solid currentColor;
-    transform: rotate(-45deg);
-    transition: transform var(--t-state) ease;
-  }
-  details[open] summary::before {
-    transform: rotate(45deg);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    summary::before {
-      transition: none;
-    }
-  }
-  details ul {
-    margin: 0;
+  .how {
+    margin: 4px 0 0;
     padding-left: 18px;
+    font-size: 12px;
     color: var(--mu);
   }
-  details li + li {
+  .how li + li {
     margin-top: 2px;
   }
 </style>

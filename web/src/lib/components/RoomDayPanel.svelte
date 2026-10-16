@@ -18,9 +18,11 @@
     onretry: () => void;
     /** The half-hour shared with the Courbe's scrubber. */
     index?: number | null;
+    /** Its heading level: an h3 inside « Où part l'énergie ». */
+    heading?: 'h2' | 'h3';
     class?: string;
   }
-  let { day, dayIso, room, onroom, error, onretry, index = $bindable(null), class: cls = '' }: Props = $props();
+  let { day, dayIso, room, onroom, error, onretry, index = $bindable(null), heading = 'h2', class: cls = '' }: Props = $props();
   const uid = $props.id();
   // The rooms with a radiator (temperature and setpoint come from them), in the Pièces order.
   let options = $derived(house.rooms.filter((r) => r.radiator_ids.length > 0).map((r) => ({ value: r.id, label: roomName(r) })));
@@ -41,7 +43,7 @@
 
 <section class="panel {cls}" aria-busy={busy} aria-labelledby="{uid}-title">
   <div class="head">
-    <h2 id="{uid}-title">{m.roomDayPanel.title}</h2>
+    <svelte:element this={heading} id="{uid}-title" class="title">{m.roomDayPanel.title}</svelte:element>
     <p class="muted sub">{m.roomDayPanel.day(fmtDateLong(dayIso))}</p>
   </div>
   {#if none}
@@ -92,8 +94,14 @@
     align-items: baseline;
     gap: 0 10px;
   }
-  .head h2 {
-    margin-bottom: 8px;
+  /* A section label at either level (DESIGN.md Typography). */
+  .head .title {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mu);
   }
   .sub {
     font-size: 12px;

@@ -190,7 +190,7 @@ test.describe('Énergie', () => {
       (await keys.nth(3).getAttribute('aria-label'))!
     );
     const quality = page.locator('#quality');
-    const toggle = page.getByRole('heading', { level: 2, name: 'Qualité des données' }).getByRole('button', { name: 'Qualité des données' });
+    const toggle = page.getByRole('heading', { level: 2, name: /^Qualité des données/ }).getByRole('button', { name: /^Qualité des données/ });
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(quality.getByText(/^Linky depuis le /)).toBeHidden(); // hidden until found while closed
     // HC/HP of a day without a complete curve are estimates: some bar of the month carries « est. ». Else open it at #quality.
@@ -447,31 +447,46 @@ test.describe('Énergie', () => {
     }
   });
 
-  test('Par pièce: a full-width table on desktop in every view; focus follows a room toggle across the table/list switch', async ({ page, isMobile }) => {
+  test('Où part l’énergie: rooms ranked by kWh in every view, a row opens on its radiators and their lifetime counters', async ({ page, isMobile }) => {
     test.skip(isMobile, 'explicit desktop widths');
-    const panel = page.locator('section.panel').filter({ has: page.getByRole('heading', { name: 'Par pièce et par radiateur' }) });
-    for (const width of [1024, 1440]) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/energy');
-      for (const view of ['Jour', 'Semaine', 'Mois', 'Année']) {
-        await page.getByRole('radio', { name: view, exact: true }).click();
-        await expect(panel.locator('.table table')).toBeVisible();
-        await expect(panel.locator('.list')).toBeHidden();
-      }
+    const panel = page.locator('#energy-where');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/energy');
+    await settled(page);
+    for (const view of ['Jour', 'Semaine', 'Mois', 'Année']) {
+      await page.getByRole('radio', { name: view, exact: true }).click();
+      await settled(page);
+      const kwh = await panel.locator('.rooms > li .kwh .fig').evaluateAll((els) => els.map((e) => Number(e.textContent!.replace(/[^\d,]/g, '').replace(',', '.'))));
+      expect(kwh.length, `rooms in ${view}`).toBeGreaterThan(0);
+      expect([...kwh].sort((a, b) => b - a), `ranked in ${view}`).toEqual(kwh);
+      // Température et chauffe sits inside the panel in Jour and Semaine only.
+      await expect(panel.getByRole('heading', { name: 'Température et chauffe' })).toHaveCount(view === 'Jour' || view === 'Semaine' ? 1 : 0);
     }
-    // A room toggle keeps the focus when the panel narrows to the list (and back).
-    const toggle = panel.locator('.table button[aria-expanded]').first();
-    const room = await toggle.getAttribute('data-room');
-    await toggle.focus();
-    await page.setViewportSize({ width: 400, height: 900 });
-    await expect(panel.locator('.list')).toBeVisible();
-    await expect
-      .poll(() => page.evaluate(() => (document.activeElement?.closest('.list') ? document.activeElement.getAttribute('data-room') : null)))
-      .toBe(room);
-    await page.setViewportSize({ width: 1024, height: 900 });
-    await expect
-      .poll(() => page.evaluate(() => (document.activeElement?.closest('.table') ? document.activeElement.getAttribute('data-room') : null)))
-      .toBe(room);
+    const toggle = panel.locator('.rooms button.name').first();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const region = page.locator(`[id="${await toggle.getAttribute('aria-controls')}"]`);
+    await expect(region).toBeVisible();
+    const life = region.locator('.life .fig').first();
+    await expect(life).toHaveText(/^depuis l’installation /);
+    await life.click();
+    const card = page.locator('.fiche');
+    await expect(card).toContainText('Compteur interne 1 du radiateur');
+    await expect(card.locator('dt', { hasText: /^Source$/ })).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test('Mois on a desktop with every disclosure closed stays under 1 800 px; the key figures land on their sections', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'explicit desktop width');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/energy');
+    await settled(page);
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(1800);
+    await page.getByRole('link', { name: /^Chauffage, / }).click();
+    await expect(page.locator('#energy-where')).toBeInViewport();
+    const analysis = page.locator('.analysis');
+    for (const b of await analysis.locator('.dbtn').all()) await expect(b).toHaveAttribute('aria-expanded', 'false');
   });
 });
 
@@ -529,7 +544,7 @@ test.describe('Énergie layout', () => {
       await page.goto('/energy');
       await settled(page);
       await page.getByRole('radio', { name: 'Jour', exact: true }).click();
-      const panel = page.locator('section.panel', { has: page.getByRole('heading', { name: 'Température et chauffe' }) });
+      const panel = page.locator('section.panel.inner', { has: page.getByRole('heading', { name: 'Température et chauffe' }) });
       await expect(panel).toHaveAttribute('aria-busy', 'false');
       const body = panel.locator('.body');
       const readout = panel.locator('.readout');

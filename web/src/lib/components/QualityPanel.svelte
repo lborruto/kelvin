@@ -65,6 +65,10 @@
     if (mark !== 'partial' || c == null) return m.quality.mark[mark];
     return c >= 0.0005 ? m.quality.partialPct(fmtPct1(c)) : m.quality.partialNone;
   };
+  // The heading's meta (direction-2 §2): how many estimates the period holds (days whose HC/HP split is estimated,
+  // buckets whose radiator energy was spread between readings), else « tout est mesuré ».
+  let estimates = $derived(quality.estimated_days + buckets.filter((b) => b.radiators?.interpolated || b.radiators?.apportioned).length);
+  let meta = $derived(estimates > 0 ? m.energyUi.qualityMeta(estimates) : m.energyUi.allMeasured);
   let strip = $derived([
     { label: m.quality.rows.linky, marks: buckets.map(linky) },
     { label: m.quality.rows.curve, marks: buckets.map(curve) },
@@ -89,7 +93,7 @@
 <!-- A heading holding its toggle (the shared Disclosure): find-in-page reaches the closed facts and opens the
      panel (`hidden="until-found"` + `beforematch`); « détails techniques » opens it by default. -->
 <section id={ANCHORS.quality} class="panel {cls}" class:open aria-labelledby="{uid}-title">
-  <Disclosure title={m.quality.title} heading="h2" buttonId="{uid}-title" detail bind:open>
+  <Disclosure title={m.quality.title} meta={meta} heading="h2" buttonId="{uid}-title" detail bind:open>
   <div class="strip" aria-hidden="true" style:--n={buckets.length}>
     {#each strip as row (row.label)}
       <div class="row">

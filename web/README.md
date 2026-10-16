@@ -127,7 +127,7 @@ PDL, token, email or id is exported; rooms and radiators appear by name.
   (the colour of the half-hour's Tempo day: before 06:00, the previous day's), empty when the half-hour
   is not Tempo-priced or its colour is unknown. `radiateurs_wh` is empty unless every radiator was measured in
   that half-hour (never a partial sum).
-- `pieces_<from>_<to>.csv` — the period's elapsed days (up to yesterday), as Par pièce shows them;
+- `pieces_<from>_<to>.csv` — the period's elapsed days (up to yesterday), as « Où part l’énergie » shows them;
   each room, then its radiators:
   `piece;radiateur;kwh;part;hc_kwh;hp_kwh;eur;temp_moy;consigne_moy;heures_chauffe;couverture;depuis`.
   `part` (rooms) and `couverture` (radiators) are 4-decimal fractions; `eur` is energy only; kWh, HC

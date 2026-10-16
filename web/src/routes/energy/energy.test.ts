@@ -749,17 +749,26 @@ describe('Énergie', () => {
     const { container } = render(Page);
     expect(await screen.findByRole('img', { name: 'Consommation de la maison par jour' })).toBeInTheDocument();
     expect(container.querySelector('.hero .big')).toHaveTextContent('€');
-    expect(screen.getByRole('heading', { name: 'Par pièce et par radiateur' }).closest('section')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('heading', { name: 'Où part l’énergie' }).closest('section')).toHaveAttribute('aria-busy', 'true');
   });
 
   it('Mois shows Heures creuses / pleines and Chauffage; Jour and Semaine add Puissance', async () => {
     vi.mocked(api.energyReport).mockResolvedValue(report({ hc_lens: { hc_share: 0.384, slot_share: 0.3333, avg_price: 0.2437, delta_price: 0.0632 } }));
     render(Page);
-    expect(await screen.findByRole('heading', { name: 'Heures creuses / pleines' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Chauffage' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Puissance' })).toBeNull();
+    // Order: Résumé, Consommation, Courbe, Où part l'énergie, Analyse (its cards' labels are h3), Qualité.
+    const analysis = (await screen.findByRole('heading', { level: 2, name: 'Analyse' })).closest('section')!;
+    const cards = () => [...analysis.querySelectorAll('.cards > section h3')].map((h) => h.textContent);
+    expect(cards()).toEqual(['Heures creuses / pleines', 'Comparaisons', 'Projection']);
+    const order = () =>
+      [...document.querySelectorAll('.panels > section')].map((x) => x.querySelector('h2')?.textContent?.trim().split(/\s{2,}|\n/)[0] ?? x.className);
+    expect(order().slice(2)).toEqual([expect.stringMatching(/^Courbe du/), 'Où part l’énergie', 'Analyse', expect.stringMatching(/^Qualité des données/)]);
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
-    expect(await screen.findByRole('heading', { name: 'Puissance' })).toBeInTheDocument();
+    await screen.findByRole('heading', { level: 2, name: 'Lundi 12 octobre 2026' });
+    const day = screen.getByRole('heading', { level: 2, name: 'Analyse' }).closest('section')!;
+    expect([...day.querySelectorAll('.cards > section h3')].map((h) => h.textContent)).toEqual(['Puissance', 'Heures creuses / pleines', 'Comparaisons', 'Projection']);
+    expect(day.querySelector('.cards')).toHaveClass('n4');
+    // Every card's detail is closed by default.
+    for (const b of day.querySelectorAll('.cards .dbtn')) expect(b).toHaveAttribute('aria-expanded', 'false');
   });
   it('Jour shows Température et chauffe under the Courbe for a room, and another room re-reads the day', async () => {
     house.applySnapshot({
@@ -778,10 +787,9 @@ describe('Énergie', () => {
     expect(screen.queryByRole('heading', { name: 'Température et chauffe' })).toBeNull();
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
     const h = await screen.findByRole('heading', { name: 'Température et chauffe' });
-    // Full width, straight under the Courbe whose scrubber it shares.
-    const panel = h.closest('section')!;
-    expect(panel).toHaveClass('wide');
-    expect(panel.previousElementSibling).toHaveAttribute('id', 'curve');
+    // Inside « Où part l'énergie », under the rooms (an h3 there), sharing the Courbe's scrubber.
+    expect(h.tagName).toBe('H3');
+    expect(h.closest('#energy-where')).not.toBeNull();
     // The first room in the Pièces order.
     await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'salon'));
     // The half-hour scrubbed on one chart is the other's.
@@ -792,19 +800,40 @@ describe('Énergie', () => {
     // Chambre's radiator has no figure that day: said, never a flat zero.
     expect(await screen.findByText('Pas de relevé pour cette pièce ce jour-là.')).toBeInTheDocument();
   });
-  it('Comparaisons and Projection share a row in every view; the Projection is an estimate that says how', async () => {
-    const { container } = render(Page);
+  it('Comparaisons and Projection are Analyse cards in every view; the Projection says how, one disclosure away', async () => {
+    render(Page);
     for (const view of ['Mois', 'Jour', 'Semaine', 'Année']) {
       if (view !== 'Mois') await fireEvent.click(screen.getByRole('radio', { name: view }));
       const cmp = (await screen.findByRole('heading', { name: 'Comparaisons' })).closest('section')!;
-      const proj = screen.getByRole('heading', { name: 'Projection' }).closest('section')!;
-      expect(cmp).toHaveClass('half');
-      expect(proj).toHaveClass('half');
-      expect(cmp.nextElementSibling).toBe(proj);
+      expect(cmp.parentElement).toHaveClass('cards');
+      expect(screen.getByRole('heading', { name: 'Projection' }).closest('section')).toHaveAttribute('id', 'projection');
     }
-    expect(screen.getByText('Comment c’est calculé')).toBeInTheDocument();
-    expect(container.textContent).not.toContain('12 prochains mois');
+    expect(screen.getByRole('button', { name: /^Comment c’est calculé/ })).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('expanding a room in Jour selects it in Température et chauffe', async () => {
+    house.applySnapshot({
+      house: {
+        rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a'] }, { id: 'chambre', name: 'Chambre', radiator_ids: ['b'] }] as never,
+        radiators: [{ id: 'a', room_id: 'salon', energy_wh: null, model: 'HEKLA', name: 'R' }, { id: 'b', room_id: 'chambre', energy_wh: null, model: 'HEKLA', name: 'S' }] as never
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
+    });
+    const r = report();
+    r.by_radiator = [
+      { radiator_id: 'a', room_id: 'salon', kwh: 5, hc_kwh: 2, hp_kwh: 3, eur: 1.2, coverage: 1, interpolated: false, apportioned: false, from: null, temp_avg: 19, setpoint_avg: 20, heating_hours: 2 },
+      { radiator_id: 'b', room_id: 'chambre', kwh: 3, hc_kwh: 1, hp_kwh: 2, eur: 0.8, coverage: 1, interpolated: false, apportioned: false, from: null, temp_avg: 18, setpoint_avg: 19, heating_hours: 1 }
+    ];
+    vi.mocked(api.energyReport).mockResolvedValue(r);
+    const { container } = render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    await screen.findByRole('heading', { name: 'Température et chauffe' });
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'salon'));
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('#energy-where button.name[data-room="chambre"]')!);
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'chambre'));
+  });
+
   it('the default room is the first, in the Pièces order, that has a radiator', async () => {
     house.applySnapshot({
       house: {
@@ -829,9 +858,9 @@ describe('Énergie', () => {
     desktop.matches = true;
     try {
       const { container } = render(Page);
-      const quality = (await screen.findByRole('heading', { name: 'Qualité des données' })).closest('section')!;
+      const quality = (await screen.findByRole('heading', { name: /^Qualité des données/ })).closest('section')!;
       expect(quality).toHaveAttribute('id', 'quality');
-      expect(within(quality).getByRole('button', { name: 'Qualité des données' })).toHaveAttribute('aria-expanded', 'false');
+      expect(within(quality).getByRole('button', { name: /^Qualité des données/ })).toHaveAttribute('aria-expanded', 'false');
       expect([...container.querySelectorAll('.panels > *')].at(-1)).toBe(quality);
       const trigger = container.querySelector<HTMLButtonElement>('.export .desk button')!;
       expect(trigger).toHaveTextContent('Exporter');

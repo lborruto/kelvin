@@ -35,12 +35,16 @@ describe('PowerPanel', () => {
     expect(t).toContain('10 % des demi-heures sont sous 310 W');
     expect(t).toContain('consommation de fond ≈ 7,44 kWh (≈ 1,86 €)');
     expect(container.querySelector<HTMLElement>('.meter span')!.style.transform).toBe('scaleX(0.57)');
+    // L0 is the peak against the subscription; the baseload and the method sit in « Détails » (closed, findable).
+    const details = screen.getByRole('button', { name: /^Détails/ });
+    expect(details).toHaveAttribute('aria-expanded', 'false');
+    expect(document.getElementById(details.getAttribute('aria-controls')!)).toHaveTextContent('Talon (veille)');
   });
 
   it('an incomplete day reads « — » and says why', () => {
     const { container } = render(PowerPanel, { view: 'day', day: day({ complete: false }), week: null });
     expect(text(container)).toContain('Pointe moyenne sur 30 min —');
-    expect(text(container)).toContain('Talon (veille) —');
+    expect(text(container)).not.toContain('Talon');
     expect(screen.getByText('Pas de courbe complète ce jour-là.')).toBeInTheDocument();
     expect(container.querySelector('.meter')).toBeNull();
   });
@@ -65,11 +69,13 @@ describe('PowerPanel', () => {
   });
 
   it('the day’s skeleton is a complete day’s own lines, so it wraps (and stands as tall) as the figures will', () => {
-    const shape = (c: HTMLElement) => [...c.querySelectorAll('section > *:not(h2), .ghost > *')].filter((e) => !e.classList.contains('ghost')).map((e) => `${e.tagName}.${[...e.classList].filter((k) => ['figs', 'base', 'line', 'note', 'meter'].includes(k)).join('.')}`);
+    // The L0 lines and the « Détails » row (a 45 px stand-in while the day loads).
+    const kind = (e: Element) => (e.classList.contains('more-sk') || e.classList.contains('disclosure') ? 'more' : `${e.tagName}.${[...e.classList].filter((k) => ['figs', 'line', 'note', 'meter'].includes(k)).join('.')}`);
+    const shape = (c: HTMLElement) => [...c.querySelectorAll('section > *:not(h3), .ghost > *')].filter((e) => !e.classList.contains('ghost')).map(kind);
     const sk = render(PowerPanel, { view: 'day', day: null, week: null });
     const ghost = sk.container.querySelector('.ghost')!;
     expect(ghost).toHaveAttribute('aria-hidden', 'true');
-    expect(ghost.querySelectorAll('.skeleton').length).toBeGreaterThan(5);
+    expect(ghost.querySelectorAll('.skeleton').length).toBeGreaterThan(3);
     const skShape = shape(sk.container);
     sk.unmount();
     const loaded = render(PowerPanel, { view: 'day', day: day(), week: null });
@@ -105,5 +111,4 @@ it('the skeleton’s stand-in lines follow the language', async () => {
   applyLocale('en');
   await tick();
   expect(text(container.querySelector('.ghost')!)).toContain('12 kVA subscribed power');
-  expect(text(container.querySelector('.ghost')!)).toContain('night minimum (00:00–06:00): 280 W');
 });

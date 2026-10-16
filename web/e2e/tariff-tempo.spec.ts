@@ -81,6 +81,8 @@ test('switching to Tempo: six prices prefilled with their source, then the day c
   await expect(strip(page)).toContainText(/Demain : (Bleu|Blanc|Rouge|couleur pas encore publiée \(vers 11:00\))/);
   await expect(strip(page).locator('.dot').first()).toBeVisible();
   await page.goto('/energy');
+  // The six colours live in the Heures creuses card's « Détails ».
+  await page.locator('#offpeak').getByRole('button', { name: /^Détails/ }).click();
   await expect(page.getByText(/Jours rouges : \d+/)).toBeVisible();
   await expect(page.getByRole('table', { name: 'Énergie par couleur Tempo' })).toBeVisible();
 });
