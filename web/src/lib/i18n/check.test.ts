@@ -159,7 +159,6 @@ export const DYNAMIC = [
   'projection.method',
   'quality.mark',
   'quality.method',
-  'settings.themes',
   'grid.colour',
   'tariff.options',
   'tariff.rate',
