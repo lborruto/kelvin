@@ -54,9 +54,9 @@ export const fr = {
     colon: `${NB}: `
   },
   error: {
-    network: 'Kelvin est injoignable.',
-    unexpected: 'Erreur inattendue.',
-    server: 'Le serveur Kelvin a rencontré une erreur.'
+    network: 'Kelvin est injoignable. Vérifiez la connexion.',
+    unexpected: 'Erreur inattendue. Réessayez.',
+    server: 'Kelvin a rencontré une erreur. Réessayez dans un instant.'
   },
   ago: {
     justNow: 'à l’instant',
@@ -66,15 +66,15 @@ export const fr = {
   },
   pending: {
     failed: 'Échec de la commande.',
-    lost: 'Commande non confirmée (connexion perdue).',
-    unknownResult: 'Résultat inconnu (connexion perdue) — vérifiez.',
+    lost: `Connexion perdue${NB}: commande non confirmée. Vérifiez la pièce.`,
+    unknownResult: `Connexion perdue${NB}: résultat inconnu. Vérifiez la pièce.`,
     sending: 'Envoi…',
     confirmed: 'Confirmé',
     unconfirmed: 'Pas encore confirmé',
     announceUnconfirmed: (label: string) => `${label} — pas encore confirmé par Cozytouch`,
     announceSending: (label: string) => `${label} — envoi…`,
     announceConfirmed: (label: string) => `${label} — confirmé`,
-    unknownToast: (label: string) => `${label}${NB}: résultat inconnu — vérifiez.`,
+    unknownToast: (label: string) => `${label}${NB}: résultat inconnu, vérifiez la pièce.`,
     cannotRetry: `Impossible de réessayer ici${NB}: refaites l’action.`
   },
   banner: {
@@ -112,7 +112,7 @@ export const fr = {
     allProgram: 'Tout remettre en programme',
     away: 'Absence…',
     confirmTitle: `Tout éteindre${NB}?`,
-    confirmBody: 'Les radiateurs passent à l’arrêt. Vous pourrez les remettre en programme depuis Maison.'
+    confirmBody: `Toutes les pièces passent à l’arrêt. Pour les rallumer${NB}: Maison › Tout remettre en programme.`
   },
   page: {
     title: (name: string) => `${name} · Kelvin`,
@@ -208,7 +208,7 @@ export const fr = {
     ecoBelow: (d: string) => `${d} sous le confort`,
     mixedMean: 'Mixte (moyenne)',
     mixedMode: 'Mixte — les radiateurs n’ont pas le même mode',
-    notFound: 'Pièce introuvable.',
+    notFound: `Pièce introuvable${NB}: elle a peut-être été supprimée.`,
     controls: 'Réglage',
     modeLabel: 'Mode de la pièce',
     editHours: 'Modifier les horaires',
@@ -231,7 +231,9 @@ export const fr = {
     start: 'Lancer',
     stop: 'Arrêter',
     meta: (temp: string, dur: string) => `ex. ${temp} pendant ${dur}`,
-    thenProgram: (t: string) => `Puis retour au programme vers ${t}.`,
+    /** Owner ruling: the day comes before « vers » (« Puis retour au programme demain vers 00:19 »). */
+    thenProgram: (time: string, on: Day | 'tomorrow' | null) =>
+      `Puis retour au programme ${on === 'tomorrow' ? 'demain ' : on ? `${DAY_LOWER[on]} ` : ''}vers ${time}.`,
     thenManual: (temp: string) => `Puis retour au mode manuel, ${temp}.`,
     thenOff: 'Puis retour à l’arrêt.',
     then: 'Puis retour au réglage actuel.'
@@ -239,7 +241,7 @@ export const fr = {
   range: { day: `24${NB}h`, week: `7${NB}j`, month: `30${NB}j` },
   radiator: {
     default: 'Radiateur',
-    facts: (model: string, watts: number | null) => (watts ? `${model} · ${watts}${NB}W` : model),
+    facts: (model: string, watts: number | null) => (watts ? `${model} · ${int(watts)}${NB}W` : model),
     nameLabel: 'Nom du radiateur',
     rename: 'Renommer',
     setpointActive: 'Consigne active',
@@ -294,7 +296,7 @@ export const fr = {
     noSlots: 'aucune plage (éco)',
     roomPicker: 'Pièce',
     noRadiator: `Cette pièce n’a aucun radiateur${NB}: pas de programme à régler.`,
-    mismatch: `Les radiateurs de cette pièce n’ont pas le même programme${NB}; l’envoi les alignera sur celui-ci.`,
+    mismatch: 'Les radiateurs de cette pièce ont des programmes différents. L’envoi leur donnera à tous celui-ci.',
     offline: 'hors ligne',
     offlineTitle: (room: string) => `${room} est hors ligne`,
     offlineBody: 'Le programme affiché est le dernier connu. Il pourra être modifié quand le radiateur sera rallumé.',
@@ -308,7 +310,7 @@ export const fr = {
     notRunning: (mode: string) => `La pièce est en mode ${mode}${NB}: ce programme s’applique en mode Programme.`,
     ecoRest: 'Hors des plages confort, la pièce est en éco.',
     howTo: `Comment modifier${NB}?`,
-    howToBody: `Choisissez un jour dans la semaine. Touchez sa barre pour ajouter une plage (3 par jour au plus), glissez une plage pour la déplacer, tirez ses bords pour l’ajuster, ou saisissez les heures. Clavier${NB}: flèches ±${NB}15${NB}min, Suppr retire la plage. Rien n’est envoyé avant «${NB}Envoyer${NB}».`,
+    howToBody: `Choisissez un jour. Touchez sa barre pour ajouter une plage (3 au plus), glissez-la pour la déplacer, tirez ses bords pour l’ajuster, ou saisissez les heures. Clavier${NB}: flèches ±${NB}15${NB}min, Suppr retire la plage. Rien n’est envoyé avant «${NB}Envoyer${NB}».`,
     week: 'Semaine',
     weekOf: (room: string) => `Semaine · ${room}`,
     todayTag: 'aujourd’hui',
@@ -336,7 +338,7 @@ export const fr = {
     alsoNote: 'La semaine affichée leur sera aussi envoyée. Leurs jours verrouillés restent tels quels.',
     seeChanges: 'Voir les modifications',
     changeBefore: (segs: string) => `(avant${NB}: ${segs})`,
-    staleHint: 'Modifiez puis Envoyer.',
+    staleHint: 'Modifiez, puis renvoyez.',
     undo: 'Annuler',
     send: 'Envoyer'
   },
@@ -439,7 +441,7 @@ export const fr = {
     rssi: (v: number) => `RSSI ${v}`,
     rssiHint: `Valeur brute rapportée par le radiateur${NB}; échelle non vérifiée.`,
     reachability: 'Connexion',
-    reachable: 'Joignable',
+    reachable: 'En ligne',
     unreachable: 'Hors ligne',
     unreachableSince: (t: string) => `Hors ligne depuis ${t}`,
     lastSignal: 'Dernier signal'
@@ -448,7 +450,7 @@ export const fr = {
     title: (room: string) => `Température · ${room}`,
     mean: 'Moyenne',
     target: 'Consigne',
-    method: 'moyenne des radiateurs joignables'
+    method: 'moyenne des radiateurs en ligne'
   },
   roomFigures: {
     title: (range: string) => `Énergie sur ${range}`,
@@ -457,7 +459,7 @@ export const fr = {
     eurHint: 'Énergie seulement, hors abonnement, à vos prix.',
     eurMethod: 'kWh × vos prix, hors abonnement',
     hours: 'Heures de chauffe',
-    hoursNote: 'équiv. pleine puissance',
+    hoursNote: 'à pleine puissance',
     hoursMethod: 'énergie ÷ puissance des radiateurs (équivalent pleine puissance)',
     hc: 'dont heures creuses',
     hp: 'dont heures pleines',
@@ -468,7 +470,7 @@ export const fr = {
     duty: 'Part du temps en chauffe',
     dutyHint: 'Part des dernières 24 heures où les radiateurs ont chauffé, pondérée par leur puissance (relevés toutes les 5 minutes).',
     notEnough: (range: string) => `Pas encore assez de relevés sur ${range} (il faut au moins la moitié de la période).`,
-    noTariff: 'Renseignez le tarif',
+    noTariff: 'Renseigner le tarif',
     est: 'est.',
     partial: (pct: string) => `relevé sur ${pct} de la période`
   },
@@ -545,11 +547,11 @@ export const fr = {
     none: 'Aucune consommation Linky sur la période.',
     noSlots: 'Le tarif n’a pas d’heures creuses.',
     avg: 'Prix moyen payé',
-    perKwh: 'Chaque kWh passé d’HP en HC',
+    perKwh: 'Gain par kWh déplacé en heures creuses',
     slider: 'Part de vos heures pleines déplacée en heures creuses',
     valueText: (pct: number) => `${pct}${NB}%`,
     result: (pct: number, kwh: string, eur: string) =>
-      `Si ${pct}${NB}% de vos HP (${kwh}) étaient en HC${NB}: ${eur}, à consommation identique.`,
+      `Si ${pct}${NB}% de vos heures pleines (${kwh}) passaient en heures creuses${NB}: ${eur}, à consommation égale.`,
     formula: (pct: number, hp: string, delta: string, eur: string) => `${pct}${NB}% × ${hp} × ${delta} = ${eur}`,
     caveat: 'Calcul sur vos prix et votre consommation, pas une économie garantie.'
   },
@@ -576,8 +578,8 @@ export const fr = {
     instant: 'la pointe instantanée peut être plus élevée',
     kva: (kva: number) => `abonnement ${kva}${NB}kVA`,
     share: (pct: string) => `${pct} de la puissance souscrite (moyenne 30${NB}min)`,
-    pf: 'kVA ≈ kW, facteur de puissance supposé 1',
-    base: 'Talon (veille)',
+    pf: `Hypothèse${NB}: 1${NB}kVA ≈ 1${NB}kW.`,
+    base: 'Consommation de fond',
     night: (w: string) => `minimum de nuit (00:00–06:00)${NB}: ${w}`,
     p10: (w: string) => `10${NB}% des demi-heures sont sous ${w}`,
     floorDay: (kwh: string, eur: string | null) => `consommation de fond ≈${NB}${kwh}${eur ? ` (≈${NB}${eur})` : ''}`,
@@ -640,7 +642,7 @@ export const fr = {
     empty: 'Pas de courbe pour ce jour.',
     scrub: 'Parcourir la courbe, demi-heure par demi-heure',
     idle: 'Survolez ou touchez la courbe',
-    idleKeys: ', ou utilisez les flèches',
+    idleKeys: ', ou utilisez ← →',
     idleShort: 'aucune demi-heure choisie',
     hour: 'Heure',
     est: 'est.',
@@ -670,7 +672,7 @@ export const fr = {
     empty: 'Pas de relevé pour cette pièce ce jour-là.',
     scrub: 'Parcourir la journée de la pièce, demi-heure par demi-heure',
     idle: 'Survolez ou touchez le graphique',
-    idleKeys: ', ou utilisez les flèches',
+    idleKeys: ', ou utilisez ← →',
     idleShort: 'aucune demi-heure choisie',
     hour: 'Heure',
     radiators: 'Radiateurs',
@@ -739,7 +741,7 @@ export const fr = {
     curveShown: (d: string) => `Courbe du ${d}`,
     retry: 'Réessayer',
     failedPeriod: (period: string, error: string) => `${period}${NB}: ${error}`,
-    settings: 'Réglages',
+    settings: 'Ouvrir Linky',
     renew: 'Renouveler le jeton',
     statusFailed: 'État du Linky indisponible.',
     auth: 'MyElectricalData refuse le jeton Linky.',
@@ -1031,7 +1033,7 @@ export const fr = {
     never: 'Relié · première synchronisation en attente.',
     ok: (day: string | null) => (day ? `Relié · données jusqu’au ${day}` : 'Relié'),
     quota: (day: string | null) =>
-      `Relié${day ? ` · données jusqu’au ${day}` : ''} · historique en cours de récupération, la suite arrive demain`,
+      `Relié${day ? ` · données jusqu’au ${day}` : ''} · historique en cours, la suite demain`,
     throttledAt: (day: string | null, time: string) =>
       `Relié${day ? ` · données jusqu’au ${day}` : ''} · Enedis limite les requêtes, nouvel essai à ${time}`,
     throttledLater: (day: string | null) =>
@@ -1048,7 +1050,7 @@ export const fr = {
     testing: 'Test en cours…',
     saveTest: 'Enregistrer et tester',
     help: () => ({
-      before: 'Le PDL figure sur la facture (14 chiffres). Le jeton s’obtient sur',
+      before: `PDL${NB}: 14 chiffres, sur votre facture. Jeton${NB}: sur`,
       after: 'après l’accord Enedis.'
     })
   },
@@ -1091,12 +1093,12 @@ export const fr = {
     wifiName: 'Wi-Fi de la box',
     notReported: '— non signalé par la box',
     syncTitle: 'Synchronisation avec Cozytouch',
-    lastFull: 'Dernière lecture complète',
+    lastFull: 'Dernière synchronisation',
     syncAt: (when: string) => `possible ${when}`,
     byCurrentPlacement: 'Pièces selon la répartition actuelle des radiateurs.',
     title: 'Pièces et appareils',
-    intro: `Lu et écrit dans votre installation Cozytouch${NB}: ce que vous changez ici change aussi dans l’application Cozytouch.`,
-    radiatorCount: (n: number) => (n === 1 ? '1 radiateur' : `${n} radiateurs`),
+    intro: `Vos pièces telles que Cozytouch les connaît${NB}: un changement ici s’applique aussi dans l’application Cozytouch.`,
+    radiatorCount: (n: number) => `${int(n)} ${plural(n, { one: 'radiateur', other: 'radiateurs' })}`,
     emptyRoom: 'Pièce vide',
     bridges: 'Box et pont Cozytouch',
     role: {
@@ -1115,8 +1117,8 @@ export const fr = {
       heat_pump: 'Pompe à chaleur',
       heating: 'Chauffage'
     },
-    reachable: 'Joignable',
-    unreachable: 'Injoignable',
+    reachable: 'En ligne',
+    unreachable: 'Hors ligne',
     reachUnknownLabel: 'Connexion inconnue',
     lastSignal: (ago: string) => `Dernier signal${NB}: ${ago}`,
     lastSignalNone: `Dernier signal${NB}: —`,
@@ -1136,18 +1138,18 @@ export const fr = {
     deleteBody: `La pièce est supprimée dans Cozytouch. «${NB}Annuler${NB}», juste après, la recrée avec le même nom.`,
     moveTo: 'Déplacer vers…',
     moveTitle: (name: string) => `Déplacer ${name} vers…`,
-    moveBody: 'Ses six appareils changent de pièce dans Cozytouch, le chauffage en dernier.',
+    moveBody: 'Le radiateur et ses appareils changent de pièce dans Cozytouch, le chauffage en dernier.',
     moveLegend: 'Pièce de destination',
     move: 'Déplacer',
     syncedAgo: (ago: string) => `Synchronisé avec Cozytouch ${ago}`,
     neverSynced: 'Pas encore synchronisé avec Cozytouch',
-    budget: (used: number, limit: number) => `Lectures complètes${NB}: ${used} sur ${limit} en 24${NB}h`,
+    budget: (used: number, limit: number) => `Synchronisations${NB}: ${int(used)} sur ${int(limit)} en 24${NB}h`,
     dailyAt: (t: string) => `Synchronisation automatique chaque jour à ${t}.`,
     sync: 'Synchroniser',
     syncing: 'Synchronisation en cours…',
-    syncHelp: 'Relit les pièces et les noms depuis Cozytouch. Kelvin en fait au plus 3 par 24 heures, tout compris.',
+    syncHelp: `Relit les pièces et les noms dans Cozytouch. 3 au plus par 24${NB}h, automatiques comprises.`,
     spent: (when: string) =>
-      `Les lectures disponibles sur 24${NB}h sont utilisées (la dernière reste pour un redémarrage)${NB}: prochaine synchronisation possible ${when}.`,
+      `Plus de synchronisation disponible sur 24${NB}h (la dernière reste pour un redémarrage)${NB}: prochaine possible ${when}.`,
     stale: `Des pièces ont pu être modifiées dans l’application Cozytouch${NB}: elles apparaîtront à la prochaine synchronisation.`,
     atTime: (t: string) => `à ${t}`,
     onDate: (d: string) => `le ${d}`,
@@ -1194,7 +1196,7 @@ export const fr = {
   },
   cozytouch: {
     auth: 'Cozytouch refuse la connexion.',
-    network: 'Cozytouch ne répond pas.',
+    network: 'Cozytouch injoignable.',
     quota: 'Limite de requêtes Cozytouch atteinte.',
     unknown: 'Erreur Cozytouch.'
   },
@@ -1205,15 +1207,15 @@ export const fr = {
     settings: (p: ApiParams) => `${p.name}${NB}: réglages`,
     night_light: (p: ApiParams) => `${p.name}${NB}: veilleuse ${p.on ? 'allumée' : 'éteinte'}`,
     night_light_intensity: (p: ApiParams) => `${p.name}${NB}: veilleuse à ${p.intensity}${NB}%`,
-    identify: (p: ApiParams) => `${p.name}${NB}: identification`,
+    identify: (p: ApiParams) => `${p.name}${NB}: clignotement`,
     // Plan 12
     level: (p: ApiParams) => `${p.name}${NB}: allure ${own(LEVEL_FR, p.level) ?? p.level}`,
     dryer: (p: ApiParams) => `${p.name}${NB}: ${own(DRYER_FR, p.action) ?? p.action}`,
-    boost: (p: ApiParams) => `${p.name}${NB}: forcé à ${num(p.temperature)}${NB}°C`,
+    boost: (p: ApiParams) => `${p.name}${NB}: chauffe temporaire à ${num(p.temperature)}${NB}°C`,
     away: (p: ApiParams) => `Absence à ${num(p.temperature)}${NB}°C`,
     all_off: () => 'Tout éteindre',
-    all_program: () => 'Tout en programme',
-    boost_end: () => 'Fin du forçage',
+    all_program: () => 'Tout remettre en programme',
+    boost_end: () => 'Fin de la chauffe temporaire',
     away_end: () => 'Fin de l’absence',
     setup_room_create: (p: ApiParams) => `Nouvelle pièce «${NB}${p.label}${NB}»`,
     setup_room_rename: (p: ApiParams) => `${p.name}${NB}: renommée «${NB}${p.label}${NB}»`,
@@ -1298,11 +1300,11 @@ export const fr = {
     session_unknown: () => 'Cet appareil n’est plus connecté.',
     alert_unknown: () => 'Alerte introuvable.',
     header_missing: () => 'En-tête X-Kelvin manquant.',
-    bad_credentials: () => 'Email ou mot de passe Cozytouch incorrect.',
+    bad_credentials: () => 'Cozytouch refuse cet email ou ce mot de passe.',
     wrong_account: () => 'Ce compte Cozytouch n’est pas celui de cette maison.',
-    cozytouch_unreachable: () => 'Cozytouch injoignable, réessayez dans un instant.',
-    cozytouch_unavailable: () => 'Cozytouch injoignable, réessayez plus tard.',
-    quotas_unavailable: () => 'Quotas indisponibles.',
+    cozytouch_unreachable: () => 'Cozytouch injoignable. Réessayez dans un instant.',
+    cozytouch_unavailable: () => 'Cozytouch injoignable. Réessayez plus tard.',
+    quotas_unavailable: () => 'Limites de requêtes Cozytouch indisponibles. Réessayez plus tard.',
     too_many_attempts: (p: ApiParams) => `Trop de tentatives. Réessayez dans ${p.minutes}${NB}min.`,
     not_found: () => 'Introuvable.',
     method_not_allowed: () => 'Méthode non autorisée.',
@@ -1311,10 +1313,10 @@ export const fr = {
     room_unknown: () => 'Pièce inconnue.',
     too_many_radiators: () => 'Trop de radiateurs dans la demande.',
     nothing_to_change: () => 'Rien à modifier.',
-    override_not_found: () => 'Forçage ou absence introuvable.',
+    override_not_found: () => `Chauffe temporaire ou absence introuvable${NB}: elle est peut-être déjà terminée.`,
     no_radiator: () => 'Aucun radiateur.',
     radiator_unknown_id: () => 'Radiateur inconnu dans la demande.',
-    end_in_past: () => 'La fin doit être dans le futur.',
+    end_in_past: () => 'Choisissez une fin dans le futur.',
     unsupported_command: (p: ApiParams) => `Ce radiateur ne prend pas en charge «${NB}${p.command}${NB}».`,
     temp_range: (p: ApiParams) => `${subject(p.kind)} doit être comprise entre ${bound(p.min)} et ${bound(p.max)}${NB}°C.`,
     temp_step: (p: ApiParams) => `${subject(p.kind)} se règle par pas de 0,5${NB}°C.`,
@@ -1360,8 +1362,8 @@ export const fr = {
     linky_quota: () => `Quota Linky du jour atteint${NB}: réessayez demain.`,
     linky_refused: () => 'MyElectricalData refuse ce PDL ou ce jeton.',
     linky_throttled: () => `Enedis limite les requêtes${NB}: réessayez plus tard.`,
-    med_unreachable: () => 'MyElectricalData injoignable, réessayez plus tard.',
-    linky_status_auth: () => `MyElectricalData refuse le jeton${NB}: renouvelez-le dans Réglages.`,
+    med_unreachable: () => 'MyElectricalData injoignable. Réessayez plus tard.',
+    linky_status_auth: () => `MyElectricalData refuse le jeton${NB}: renouvelez-le dans Maison › Linky.`,
     linky_status_quota: () => `Quota Linky du jour atteint${NB}: reprise demain.`,
     linky_status_error: () => 'Synchronisation Linky en échec.',
     linky_status_throttled: (p: ApiParams) => `Enedis limite les requêtes${NB}: nouvel essai à ${p.at}.`,
@@ -1383,7 +1385,7 @@ export const fr = {
     setup_move_partial: (p: ApiParams) => `Déplacement partiel (${p.done} sur ${p.total}).`,
     rename_alone: () => 'Renommez le radiateur seul, sans autre réglage dans la même demande.',
     setup_sync_spent: () =>
-      `Les lectures complètes de Cozytouch disponibles sur 24${NB}h sont utilisées (la dernière reste pour un redémarrage)${NB}: réessayez plus tard.`,
+      `Plus de synchronisation disponible sur 24${NB}h (la dernière reste pour un redémarrage)${NB}: réessayez plus tard.`,
     device_label_invalid: () => `Le nom doit faire de 1 à 32${NB}caractères, sans caractère invisible ni mot réservé.`,
     send_failed: (p: ApiParams) => {
       const why = own(REASON, p.reason_code);
@@ -1391,14 +1393,14 @@ export const fr = {
     },
     send_internal: () => `Envoi impossible${NB}: erreur interne.`,
     radiator_refused: () => 'Le radiateur a refusé la commande.',
-    no_confirmation: () => 'Pas de confirmation du radiateur.',
+    no_confirmation: () => 'Le radiateur n’a pas confirmé la commande.',
     // Plan 12
     server_unknown: () => 'Serveur inconnu.',
     server_mismatch: (p: ApiParams) =>
       `Cette maison est reliée au serveur ${p.server}. Pour changer de serveur, repartez d’une installation neuve (voir le README).`,
     data_other_server: (p: ApiParams) =>
       `Ce dossier de données appartient à une maison reliée au serveur ${p.server}${NB}: utilisez un autre dossier KELVIN_DATA.`,
-    bad_credentials_server: (p: ApiParams) => `Email ou mot de passe ${p.server} incorrect.`,
+    bad_credentials_server: (p: ApiParams) => `${p.server} refuse cet email ou ce mot de passe.`,
     read_only_device: () => `Kelvin ne pilote pas cet appareil${NB}: il est affiché en lecture seule.`,
     level_unknown: (p: ApiParams) => `Allure inconnue${NB}: ${p.level}.`,
     dryer_action_unknown: (p: ApiParams) => `Action inconnue${NB}: ${p.action}.`,

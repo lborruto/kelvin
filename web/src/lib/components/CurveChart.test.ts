@@ -136,7 +136,7 @@ describe('CurveChart', () => {
     const { container } = render(CurveChart, { intervals: four, label: 'Courbe' });
     const when = container.querySelector('.readout .when dd')!;
     expect(when.firstChild?.textContent).toBe('Survolez ou touchez la courbe');
-    expect(when.querySelector('.wide')).toHaveTextContent(', ou utilisez les flèches');
+    expect(when.querySelector('.wide')).toHaveTextContent(', ou utilisez ← →');
   });
 
   it('states the subscribed power instead of drawing it when it is off the scale', () => {

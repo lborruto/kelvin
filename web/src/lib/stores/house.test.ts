@@ -58,7 +58,7 @@ describe('HouseStore', () => {
     expect(s.pending.p1).toBeUndefined();
     s.applyPending(pending('p2', { status: 'superseded' }));
     expect(s.pending.p2).toBeUndefined();
-    s.applyPending(pending('p3', { status: 'failed', error: 'Pas de confirmation du radiateur.' }));
+    s.applyPending(pending('p3', { status: 'failed', error: 'Le radiateur n’a pas confirmé la commande.' }));
     expect(s.pendingFor(['a'])?.id).toBe('p3');
     s.dismiss('p3');
     expect(s.pendingFor(['a'])).toBeUndefined();
@@ -122,7 +122,7 @@ describe('HouseStore', () => {
     expect(s.pending.ok).toBeUndefined();
     expect(s.pending.ko?.status).toBe('failed');
     expect(s.pending.ko?.error_code).toBe(LOST);
-    expect(pendingError(s.pending.ko!)).toBe('Commande non confirmée (connexion perdue).');
+    expect(pendingError(s.pending.ko!)).toBe('Connexion perdue\u00a0: commande non confirmée. Vérifiez la pièce.');
   });
 
   it('a newer command re-sending the same values retires the old failure (no stale Réessayer)', () => {

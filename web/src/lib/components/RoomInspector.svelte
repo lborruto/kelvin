@@ -13,7 +13,7 @@
   import { Settle } from '$lib/settle.svelte';
   import { provenance } from '$lib/provenance';
   import { radiatorTitle, roomName, whenText as atText } from '$lib/setup';
-  import { reportedKey, requestKey, roomReading, roomStatus, sharedProgram, whenText } from '$lib/status';
+  import { reportedKey, requestKey, roomReading, roomStatus, sharedProgram, whenParts, whenText } from '$lib/status';
   import { history } from '$lib/stores/history.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { roomActivity, roomsDuty } from '$lib/stores/roomdata.svelte';
@@ -169,7 +169,10 @@
   // What follows a boost, in words: back to the programme at its end, or to the manual setpoint.
   let boostEnd = $derived(now + boostHours * 3_600_000);
   let boostThen = $derived.by(() => {
-    if (mode === 'program' && sharedProgram(radiators)) return m.boost.thenProgram(whenText(boostEnd, now));
+    if (mode === 'program' && sharedProgram(radiators)) {
+      const w = whenParts(boostEnd, now);
+      return m.boost.thenProgram(w.time, w.on);
+    }
     if (mode === 'manual' && aTarget.value != null) return m.boost.thenManual(fmtTemp(expected.target ?? aTarget.value));
     if (mode === 'off') return m.boost.thenOff;
     return m.boost.then;

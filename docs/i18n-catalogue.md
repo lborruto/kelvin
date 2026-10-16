@@ -5,6 +5,27 @@ The design Plan 7 implements, kept for its inventory, codes and reasoning. The l
 codes, exported to `web/src/lib/i18n/api-codes.json`). Counts and line references below are the
 2026-10-14 snapshot.
 
+## Copy pass (UX batch 12, 2026-10-16)
+
+Every key of `fr.ts` / `en.ts` was reread in context against DESIGN.md « Copy » and `docs/glossary.md`.
+The rows below supersede the matching rows further down (a snapshot, not edited line by line):
+
+- Errors say what happened, then what to do: `error.*`, `pending.lost/unknownResult/unknownToast`, and the
+  backend codes `bad_credentials`, `bad_credentials_server`, `cozytouch_unreachable`, `cozytouch_unavailable`,
+  `quotas_unavailable`, `override_not_found`, `end_in_past`, `med_unreachable`, `linky_status_auth`
+  (« renouvelez-le dans Maison › Linky », “renew it in Home › Linky”; « Réglages » left the UI),
+  `setup_sync_spent`, `no_confirmation` (changed in `errors.py` and `fr.ts` together; `codes.test.ts` pins them).
+- Pending labels: `labels.py` French is the Overkiz execution label, pinned byte for byte by the Sauter golden
+  fixture, so it never changes. The web rewords four from `label_code` (`codes.test.ts` « REWORDED »):
+  `boost` « Salon : chauffe temporaire à 21,5 °C », `boost_end` « Fin de la chauffe temporaire »,
+  `all_program` « Tout remettre en programme » (“Put everything back on schedule”), `identify`
+  « Salon : clignotement ».
+- One term per concept: « Consommation de fond » / “Baseload” (was « Talon (veille) » / “Base load” and
+  “background use”), « En ligne » / “Online” beside « Hors ligne » (was « Joignable »), « Synchronisations :
+  1 sur 3 en 24 h » / “Syncs: 1 of 3 in 24 h” (was « Lectures complètes »), “Off-peak / peak” for the option.
+- Boost end (owner ruling): « Puis retour au programme demain vers 00:19. » / “Then back to the schedule
+  tomorrow at about 00:19.” (`boost.thenProgram(time, on)` with `whenParts` in `$lib/status`).
+
 Status: was a design, now implemented by Plan 7 (2026-10-14). Written against branch `feat/polish` on 2026-10-14, read-only. A UI polish batch
 is landing at the same time, so every count and line below is a snapshot. The plan (§10) re-extracts strings
 with a script instead of trusting this list.

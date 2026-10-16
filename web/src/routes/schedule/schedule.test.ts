@@ -157,7 +157,7 @@ describe('/schedule', () => {
     await screen.findByRole('button', { name: 'Réessayer' });
     await fireEvent.click(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' }));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Réessayer' })).toBeNull());
-    expect(screen.getByText(/Modifiez puis Envoyer/)).toBeInTheDocument();
+    expect(screen.getByText(/Modifiez, puis renvoyez/)).toBeInTheDocument();
   });
 
   it('shows an empty state instead of the editor for a room without radiators', async () => {
@@ -269,7 +269,7 @@ describe('/schedule: what the page says', () => {
       expect(how).toHaveAttribute('aria-expanded', 'false');
       await fireEvent.click(how);
       expect(how).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByText(/glissez une plage pour la déplacer/)).toBeInTheDocument();
+      expect(screen.getByText(/glissez-la pour la déplacer/)).toBeInTheDocument();
       // Gone: the flat « Aujourd’hui » chart, the long paragraph and the midnight note.
       expect(container.querySelector('.today, svg[aria-label^="Salon"]')).toBeNull();
       expect(screen.queryByText(/Une fin à minuit/)).toBeNull();

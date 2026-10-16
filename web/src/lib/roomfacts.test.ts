@@ -18,7 +18,7 @@ describe('infoRows', () => {
   it('French: model, power, raw RSSI, reachable, last signal', () => {
     applyLocale('fr');
     expect(values(base)).toEqual({
-      model: 'HEKLA P', power: `1500${NB}W`, signal: 'RSSI 87', reach: 'Joignable', last: `il y a 3${NB}min`
+      model: 'HEKLA P', power: `1500${NB}W`, signal: 'RSSI 87', reach: 'En ligne', last: `il y a 3${NB}min`
     });
     expect(infoRows(base, now).map((x) => x.label)).toEqual(['Modèle', 'Puissance', 'Niveau de signal', 'Connexion', 'Dernier signal']);
   });

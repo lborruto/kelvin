@@ -48,9 +48,9 @@ export const en: Messages = {
     colon: ': '
   },
   error: {
-    network: 'Can’t reach Kelvin.',
-    unexpected: 'Something went wrong.',
-    server: 'The Kelvin server hit an error.'
+    network: 'Can’t reach Kelvin. Check your connection.',
+    unexpected: 'Something went wrong. Try again.',
+    server: 'Kelvin hit an error. Try again in a moment.'
   },
   ago: {
     justNow: 'just now',
@@ -60,15 +60,15 @@ export const en: Messages = {
   },
   pending: {
     failed: 'Command failed.',
-    lost: 'Command not confirmed (connection lost).',
-    unknownResult: 'Unknown result (connection lost) — please check.',
+    lost: 'Connection lost: command not confirmed. Check the room.',
+    unknownResult: 'Connection lost: result unknown. Check the room.',
     sending: 'Sending…',
     confirmed: 'Confirmed',
     unconfirmed: 'Not confirmed yet',
     announceUnconfirmed: (label: string) => `${label} — not confirmed by Cozytouch yet`,
     announceSending: (label: string) => `${label} — sending…`,
     announceConfirmed: (label: string) => `${label} — confirmed`,
-    unknownToast: (label: string) => `${label}: unknown result — please check.`,
+    unknownToast: (label: string) => `${label}: result unknown, check the room.`,
     cannotRetry: 'Can’t retry from here: try the action again.'
   },
   banner: {
@@ -106,7 +106,7 @@ export const en: Messages = {
     allProgram: 'Put everything back on schedule',
     away: 'Away…',
     confirmTitle: 'Turn everything off?',
-    confirmBody: 'The radiators switch off. You can put them back on schedule from Home.'
+    confirmBody: 'Every room switches off. To turn them back on: Home › Put everything back on schedule.'
   },
   page: {
     title: (name: string) => `${name} · Kelvin`,
@@ -198,7 +198,7 @@ export const en: Messages = {
     ecoBelow: (d: string) => `${d} below comfort`,
     mixedMean: 'Mixed (average)',
     mixedMode: 'Mixed — the radiators aren’t in the same mode',
-    notFound: 'Room not found.',
+    notFound: 'Room not found: it may have been deleted.',
     controls: 'Controls',
     modeLabel: 'Room mode',
     editHours: 'Edit schedule',
@@ -221,7 +221,8 @@ export const en: Messages = {
     start: 'Start',
     stop: 'Stop',
     meta: (temp: string, dur: string) => `e.g. ${temp} for ${dur}`,
-    thenProgram: (t: string) => `Then back to the schedule at about ${t}.`,
+    thenProgram: (time: string, on: Day | 'tomorrow' | null) =>
+      `Then back to the schedule ${on === 'tomorrow' ? 'tomorrow ' : on ? `on ${DAY[on]} ` : ''}at about ${time}.`,
     thenManual: (temp: string) => `Then back to manual, ${temp}.`,
     thenOff: 'Then back to off.',
     then: 'Then back to the current setting.'
@@ -229,7 +230,7 @@ export const en: Messages = {
   range: { day: `24${NB}h`, week: `7${NB}d`, month: `30${NB}d` },
   radiator: {
     default: 'Radiator',
-    facts: (model: string, watts: number | null) => (watts ? `${model} · ${watts}${NB}W` : model),
+    facts: (model: string, watts: number | null) => (watts ? `${model} · ${int(watts)}${NB}W` : model),
     nameLabel: 'Radiator name',
     rename: 'Rename',
     setpointActive: 'Current setpoint',
@@ -283,8 +284,8 @@ export const en: Messages = {
     noDaysChanged: 'No days changed',
     noSlots: 'no periods (eco)',
     roomPicker: 'Room',
-    noRadiator: 'This room has no radiators: there is no schedule to set.',
-    mismatch: 'The radiators in this room don’t share a schedule; sending aligns them with this one.',
+    noRadiator: 'This room has no radiators: there’s no schedule to set.',
+    mismatch: 'The radiators in this room have different schedules. Sending gives them all this one.',
     offline: 'offline',
     offlineTitle: (room: string) => `${room} is offline`,
     offlineBody: 'This is the last known schedule. You can edit it once the radiator is switched back on.',
@@ -298,7 +299,7 @@ export const en: Messages = {
     notRunning: (mode: string) => `The room is in ${mode} mode: this schedule applies in Schedule mode.`,
     ecoRest: 'Outside comfort periods, the room is on eco.',
     howTo: 'How to edit',
-    howToBody: `Choose a day in the week. Tap its bar to add a period (3 a day at most), drag a period to move it, pull its edges to adjust it, or type the times. Keyboard: arrows ±15${NB}min, Delete removes the period. Nothing is sent until you press Send.`,
+    howToBody: `Choose a day. Tap its bar to add a period (3 at most), drag it to move it, pull its edges to adjust it, or type the times. Keyboard: arrows ±15${NB}min, Delete removes the period. Nothing is sent until you press Send.`,
     week: 'Week',
     weekOf: (room: string) => `Week · ${room}`,
     todayTag: 'today',
@@ -326,7 +327,7 @@ export const en: Messages = {
     alsoNote: 'The week shown is sent to them too. Their locked days stay as they are.',
     seeChanges: 'See changes',
     changeBefore: (segs: string) => `(before: ${segs})`,
-    staleHint: 'Edit, then Send.',
+    staleHint: 'Edit, then send again.',
     undo: 'Undo changes',
     send: 'Send'
   },
@@ -385,7 +386,7 @@ export const en: Messages = {
     estimatedSplit: 'no curve: off-peak/peak estimated',
     coverage: (pct: string) => `radiators: coverage ${pct}`,
     retro: (day: string) => `price of ${day} applied to earlier days`,
-    radToday: 'day in progress, counted once it is over',
+    radToday: 'day in progress, counted once it’s over',
     radNone: 'no radiator reading',
     radUntilYesterday: 'radiators: up to yesterday',
     radMeasured: (k: number, n: number) => `${int(k)} of ${int(n)} ${plural(n, { one: 'radiator', other: 'radiators' })} measured`,
@@ -425,7 +426,7 @@ export const en: Messages = {
     rssi: (v: number) => `RSSI ${v}`,
     rssiHint: 'Raw value reported by the radiator; scale not verified.',
     reachability: 'Connection',
-    reachable: 'Reachable',
+    reachable: 'Online',
     unreachable: 'Offline',
     unreachableSince: (t: string) => `Offline since ${t}`,
     lastSignal: 'Last signal'
@@ -434,7 +435,7 @@ export const en: Messages = {
     title: (room: string) => `Temperature · ${room}`,
     mean: 'Mean',
     target: 'Target',
-    method: 'mean of the reachable radiators'
+    method: 'mean of the online radiators'
   },
   roomFigures: {
     title: (range: string) => `Energy over ${range}`,
@@ -443,7 +444,7 @@ export const en: Messages = {
     eurHint: 'Energy only, without the standing charge, at your prices.',
     eurMethod: 'kWh × your prices, standing charge excluded',
     hours: 'Heating hours',
-    hoursNote: 'full-power equivalent',
+    hoursNote: 'at full power',
     hoursMethod: 'energy ÷ radiator power (full-power equivalent)',
     hc: 'of which off-peak',
     hp: 'of which peak',
@@ -519,17 +520,17 @@ export const en: Messages = {
   },
   hcHp: {
     title: 'Off-peak / peak',
-    tariffLink: 'Enter your tariff',
+    tariffLink: 'Add your tariff',
     tariffTail: ' to see the split.',
     share: 'Off-peak share',
     slots: (pct: string) => `your off-peak hours cover ${pct} of the day`,
     none: 'No Linky consumption over the period.',
     noSlots: 'The tariff has no off-peak hours.',
     avg: 'Average price paid',
-    perKwh: 'Each kWh moved from peak to off-peak',
+    perKwh: 'Saving per kWh moved to off-peak',
     slider: 'Share of your peak use moved to off-peak',
     valueText: (pct: number) => `${pct}%`,
-    result: (pct: number, kwh: string, eur: string) => `If ${pct}% of your peak use (${kwh}) were off-peak: ${eur}, for the same consumption.`,
+    result: (pct: number, kwh: string, eur: string) => `If ${pct}% of your peak use (${kwh}) moved to off-peak: ${eur}, for the same consumption.`,
     formula: (pct: number, hp: string, delta: string, eur: string) => `${pct}% × ${hp} × ${delta} = ${eur}`,
     caveat: 'Based on your prices and your consumption, not a guaranteed saving.'
   },
@@ -553,12 +554,12 @@ export const en: Messages = {
     instant: 'the instantaneous maximum can be higher',
     kva: (kva: number) => `${kva}${NB}kVA subscribed power`,
     share: (pct: string) => `${pct} of the subscribed power (30-min average)`,
-    pf: 'kVA ≈ kW, power factor assumed to be 1',
-    base: 'Base load',
+    pf: `Assumes 1${NB}kVA ≈ 1${NB}kW.`,
+    base: 'Baseload',
     night: (w: string) => `night minimum (00:00–06:00): ${w}`,
     p10: (w: string) => `10% of half-hours are below ${w}`,
-    floorDay: (kwh: string, eur: string | null) => `background use ≈${NB}${kwh}${eur ? ` (≈${NB}${eur})` : ''}`,
-    floorWeek: (kwh: string) => `background use ≈${NB}${kwh} a day`,
+    floorDay: (kwh: string, eur: string | null) => `baseload ≈${NB}${kwh}${eur ? ` (≈${NB}${eur})` : ''}`,
+    floorWeek: (kwh: string) => `baseload ≈${NB}${kwh} a day`,
     days: (n: number) => `over ${int(n)} ${plural(n, { one: 'day', other: 'days' })} of complete curve`,
     noDay: 'No complete curve that day.',
     noWeek: 'No complete curve this week.',
@@ -578,9 +579,9 @@ export const en: Messages = {
     base: (v: string, to: string | null) =>
       `Base: ${v} a day, the average of the recorded days among the ${to ? `30 days up to ${to}` : 'last 30 days'} (at least 7)`,
     method: {
-      linear: 'applied as it is to every day ahead (too few days recorded last year to adjust it by month)',
+      linear: 'applied unchanged to every day ahead (too few days recorded last year to adjust it by month)',
       seasonal: 'adjusted each month by the same month last year, relative to the same 30 days last year',
-      mixed: 'adjusted by the same month last year when it is known, as it is otherwise'
+      mixed: 'adjusted by the same month last year when known, unchanged otherwise'
     },
     price: (p: string, d: string) => `Average price ${p}: prices of ${d} weighted by your off-peak share over these 30 days`,
     monthHow: 'Current month: measured days, plus the base for each remaining or missing day',
@@ -615,7 +616,7 @@ export const en: Messages = {
     empty: 'No curve for this day.',
     scrub: 'Step through the curve, half-hour by half-hour',
     idle: 'Hover over or touch the curve',
-    idleKeys: ', or use the arrow keys',
+    idleKeys: ', or use ← →',
     idleShort: 'no half-hour chosen',
     hour: 'Time',
     est: 'est.',
@@ -645,7 +646,7 @@ export const en: Messages = {
     empty: 'No reading for this room that day.',
     scrub: 'Step through the room’s day, half-hour by half-hour',
     idle: 'Hover over or touch the chart',
-    idleKeys: ', or use the arrow keys',
+    idleKeys: ', or use ← →',
     idleShort: 'no half-hour chosen',
     hour: 'Time',
     radiators: 'Radiators',
@@ -666,7 +667,7 @@ export const en: Messages = {
     day: (d: string) => `on ${d}`,
     chart: (room: string, d: string) => `Radiators, temperature and setpoint · ${room} · ${d}`,
     noRooms: 'No room with a radiator.',
-    beforeCounted: (d: string) => `No data for this day: it is before the first counted day (since ${d}).`,
+    beforeCounted: (d: string) => `No data for this day: it’s before the first counted day (since ${d}).`,
     noCurve: 'No Linky curve for this day: the room’s half-hours are the curve’s.',
     retry: 'Retry'
   },
@@ -711,7 +712,7 @@ export const en: Messages = {
     curveShown: (d: string) => `Load curve, ${d}`,
     retry: 'Retry',
     failedPeriod: (period: string, error: string) => `${period}: ${error}`,
-    settings: 'Settings',
+    settings: 'Open Linky',
     renew: 'Renew the token',
     statusFailed: 'Linky status unavailable.',
     auth: 'MyElectricalData rejected the Linky token.',
@@ -757,12 +758,12 @@ export const en: Messages = {
     keyOffpeakVal: (slots: string) => `${slots} of the time`,
     keyName: (label: string, value: string) => `${label}, ${value}`,
     noTariff: 'Add your tariff to see costs.',
-    noTariffCta: 'Enter the tariff',
+    noTariffCta: 'Add your tariff',
     firstSync: 'First sync: your Linky history will arrive in a few minutes.',
     noData: (period: string, date: string) => `No data for ${period}: history starts on ${date}.`,
     goFirst: (date: string) => `Go to ${date}`,
     noLinkyTitle: 'Connect your Linky meter',
-    noLinkyBody: 'You’ll see the whole home’s consumption, its cost and the heating share. Meanwhile, here is the radiators’ energy.',
+    noLinkyBody: 'You’ll see the whole home’s consumption, its cost and the heating share. Meanwhile, here’s the radiators’ energy.',
     noLinkyCta: 'Connect Linky',
     // Chart, Courbe, period bar
     notSplit: 'Not split',
@@ -934,7 +935,7 @@ export const en: Messages = {
     historyMeta: (n: number) => `${int(n)} ${plural(n, { one: 'row', other: 'rows' })}`,
     prefill: (kva: string, slots: string) => `Prefilled from your Enedis contract (${kva}${NB}kVA, off-peak ${slots}). Add your prices including tax.`,
     option: 'Tariff option',
-    options: { base: 'Base', hchp: 'Peak/Off-peak', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
+    options: { base: 'Base', hchp: 'Off-peak / peak', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
     kva: 'Subscribed power',
     kvaValue: (k: number) => `${k}${NB}kVA`,
     validFrom: 'Valid from',
@@ -1000,7 +1001,7 @@ export const en: Messages = {
     never: 'Connected · waiting for the first sync.',
     ok: (day: string | null) => (day ? `Connected · data up to ${day}` : 'Connected'),
     quota: (day: string | null) =>
-      `Connected${day ? ` · data up to ${day}` : ''} · fetching history, the rest arrives tomorrow`,
+      `Connected${day ? ` · data up to ${day}` : ''} · fetching history, the rest tomorrow`,
     throttledAt: (day: string | null, time: string) =>
       `Connected${day ? ` · data up to ${day}` : ''} · Enedis is limiting requests, next try at ${time}`,
     throttledLater: (day: string | null) =>
@@ -1016,8 +1017,8 @@ export const en: Messages = {
     testing: 'Testing…',
     saveTest: 'Save and test',
     help: () => ({
-      before: 'The PDL is on your bill (14 digits). Get the token from',
-      after: 'after the Enedis consent.'
+      before: 'PDL: 14 digits, on your bill. Token: from',
+      after: 'after Enedis consent.'
     })
   },
   login: {
@@ -1058,12 +1059,12 @@ export const en: Messages = {
     wifiName: 'Box Wi-Fi',
     notReported: '— not reported by the box',
     syncTitle: 'Sync with Cozytouch',
-    lastFull: 'Last full read',
+    lastFull: 'Last sync',
     syncAt: (when: string) => `possible ${when}`,
     byCurrentPlacement: 'Rooms as the radiators are placed now.',
     title: 'Rooms and devices',
-    intro: 'Read from and written to your Cozytouch setup: what you change here also changes in the Cozytouch app.',
-    radiatorCount: (n: number) => (n === 1 ? '1 radiator' : `${n} radiators`),
+    intro: 'Your rooms as Cozytouch knows them: a change here also applies in the Cozytouch app.',
+    radiatorCount: (n: number) => `${int(n)} ${plural(n, { one: 'radiator', other: 'radiators' })}`,
     emptyRoom: 'Empty room',
     bridges: 'Cozytouch box and bridge',
     role: {
@@ -1082,8 +1083,8 @@ export const en: Messages = {
       heat_pump: 'Heat pump',
       heating: 'Heating'
     },
-    reachable: 'Reachable',
-    unreachable: 'Unreachable',
+    reachable: 'Online',
+    unreachable: 'Offline',
     reachUnknownLabel: 'Connection unknown',
     lastSignal: (ago: string) => `Last signal: ${ago}`,
     lastSignalNone: 'Last signal: —',
@@ -1103,17 +1104,17 @@ export const en: Messages = {
     deleteBody: 'The room is deleted in Cozytouch. “Undo”, right after, recreates it with the same name.',
     moveTo: 'Move to…',
     moveTitle: (name: string) => `Move ${name} to…`,
-    moveBody: 'Its six devices change room in Cozytouch, the heater last.',
+    moveBody: 'The radiator and its devices change room in Cozytouch, the heater last.',
     moveLegend: 'Destination room',
     move: 'Move',
     syncedAgo: (ago: string) => `Synced with Cozytouch ${ago}`,
     neverSynced: 'Not synced with Cozytouch yet',
-    budget: (used: number, limit: number) => `Full reads: ${used} of ${limit} in 24 hours`,
+    budget: (used: number, limit: number) => `Syncs: ${int(used)} of ${int(limit)} in 24${NB}h`,
     dailyAt: (t: string) => `Automatic sync every day at ${t}.`,
     sync: 'Sync',
     syncing: 'Syncing…',
-    syncHelp: 'Reads rooms and names again from Cozytouch. Kelvin does at most 3 in 24 hours, all included.',
-    spent: (when: string) => `The reads available over 24 hours are used (the last one is kept for a restart): next sync possible ${when}.`,
+    syncHelp: `Reads rooms and names again from Cozytouch. 3 at most per 24${NB}h, automatic ones included.`,
+    spent: (when: string) => `No sync left over 24${NB}h (the last one is kept for a restart): next one possible ${when}.`,
     stale: 'Rooms may have changed in the Cozytouch app: they will show after the next sync.',
     atTime: (t: string) => `at ${t}`,
     onDate: (d: string) => `on ${d}`,
@@ -1178,7 +1179,7 @@ export const en: Messages = {
     boost: (p: ApiParams) => `${p.name}: boost to ${p.temperature}${NB}°C`,
     away: (p: ApiParams) => `Away at ${p.temperature}${NB}°C`,
     all_off: () => 'Turn everything off',
-    all_program: () => 'Everything back on schedule',
+    all_program: () => 'Put everything back on schedule',
     boost_end: () => 'Boost ended',
     away_end: () => 'Away ended',
     setup_room_create: (p: ApiParams) => `New room “${p.label}”`,
@@ -1205,7 +1206,7 @@ export const en: Messages = {
   // The Tariff summary (UX batches 8–9).
   tariffSummary: {
     option: 'Option',
-    options: { base: 'Base', hchp: 'Peak / off-peak', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
+    options: { base: 'Base', hchp: 'Off-peak / peak', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
     subscription: 'Standing charge',
     perMonth: (amount: string) => `${amount}/month`,
     base: 'Price per kWh',
@@ -1259,11 +1260,11 @@ export const en: Messages = {
     session_unknown: () => 'That device is no longer signed in.',
     alert_unknown: () => 'Alert not found.',
     header_missing: () => 'Missing X-Kelvin header.',
-    bad_credentials: () => 'Wrong Cozytouch email or password.',
+    bad_credentials: () => 'Cozytouch didn’t accept this email or password.',
     wrong_account: () => 'This Cozytouch account isn’t the one for this home.',
     cozytouch_unreachable: () => 'Can’t reach Cozytouch. Try again in a moment.',
     cozytouch_unavailable: () => 'Can’t reach Cozytouch. Try again later.',
-    quotas_unavailable: () => 'Cozytouch request limits unavailable.',
+    quotas_unavailable: () => 'Cozytouch request limits unavailable. Try again later.',
     too_many_attempts: (p: ApiParams) => `Too many attempts. Try again in ${p.minutes}${NB}min.`,
     not_found: () => 'Not found.',
     method_not_allowed: () => 'Method not allowed.',
@@ -1272,10 +1273,10 @@ export const en: Messages = {
     room_unknown: () => 'Unknown room.',
     too_many_radiators: () => 'Too many radiators in the request.',
     nothing_to_change: () => 'Nothing to change.',
-    override_not_found: () => 'Boost or away period not found.',
+    override_not_found: () => 'Boost or away not found: it may have ended already.',
     no_radiator: () => 'No radiators.',
     radiator_unknown_id: () => 'Unknown radiator in the request.',
-    end_in_past: () => 'The end must be in the future.',
+    end_in_past: () => 'Choose an end time in the future.',
     unsupported_command: (p: ApiParams) => `This radiator doesn’t support “${p.command}”.`,
     temp_range: (p: ApiParams) => `${subject(p.kind)} must be between ${String(p.min).replace(/^-/, '−')} and ${String(p.max).replace(/^-/, '−')}${NB}°C.`,
     temp_step: (p: ApiParams) => `${subject(p.kind)} goes in steps of 0.5${NB}°C.`,
@@ -1320,7 +1321,7 @@ export const en: Messages = {
     linky_refused: () => 'MyElectricalData rejected this PDL or token.',
     linky_throttled: () => 'Enedis is limiting requests: try again later.',
     med_unreachable: () => 'Can’t reach MyElectricalData. Try again later.',
-    linky_status_auth: () => 'MyElectricalData rejected the token: renew it in Settings.',
+    linky_status_auth: () => 'MyElectricalData rejected the token: renew it in Home › Linky.',
     linky_status_quota: () => 'Today’s Linky quota is used up: resuming tomorrow.',
     linky_status_error: () => 'Linky sync failed.',
     linky_status_throttled: (p: ApiParams) => `Enedis is limiting requests: next try at ${p.at}.`,
@@ -1340,7 +1341,7 @@ export const en: Messages = {
     device_unknown: () => 'Unknown device.',
     setup_move_partial: (p: ApiParams) => `Partly moved (${p.done} of ${p.total}).`,
     rename_alone: () => 'Rename the radiator on its own, without other settings in the same request.',
-    setup_sync_spent: () => 'The full Cozytouch reads available over 24 hours are used (the last one is kept for a restart): try again later.',
+    setup_sync_spent: () => `No sync left over 24${NB}h (the last one is kept for a restart): try again later.`,
     device_label_invalid: () => 'A name must be 1 to 32 characters, with no invisible characters or reserved words.',
     send_failed: (p: ApiParams) => {
       const why = own(REASON, p.reason_code);
@@ -1348,14 +1349,14 @@ export const en: Messages = {
     },
     send_internal: () => 'Couldn’t send: internal error.',
     radiator_refused: () => 'The radiator rejected the command.',
-    no_confirmation: () => 'No confirmation from the radiator.',
+    no_confirmation: () => 'The radiator hasn’t confirmed the command.',
     // Plan 12
     server_unknown: () => 'Unknown server.',
     server_mismatch: (p: ApiParams) =>
       `This home is linked to the ${p.server} server. To change servers, start from a fresh install (see the README).`,
     data_other_server: (p: ApiParams) =>
       `This data folder belongs to a home linked to ${p.server}: use another KELVIN_DATA folder.`,
-    bad_credentials_server: (p: ApiParams) => `Wrong ${p.server} email or password.`,
+    bad_credentials_server: (p: ApiParams) => `${p.server} didn’t accept this email or password.`,
     read_only_device: () => 'Kelvin doesn’t control this device: it’s shown read-only.',
     level_unknown: (p: ApiParams) => `Unknown heating level: ${p.level}.`,
     dryer_action_unknown: (p: ApiParams) => `Unknown action: ${p.action}.`,

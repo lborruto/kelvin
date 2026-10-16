@@ -104,7 +104,7 @@ test('a full room cannot be deleted: its menu says why; plain names for the box 
   await page.keyboard.press('Escape');
   await expect(salon.getByRole('button', { name: ROOM('Salon') })).toBeFocused();
   // Each radiator says its model, power and state; its devices are one menu item away.
-  await expect(salon.getByText(/ · \d[\d\s]*\sW · (Joignable|Hors ligne)/).first()).toBeVisible();
+  await expect(salon.getByText(/ · \d[\d\s]*\sW · (En ligne|Hors ligne)/).first()).toBeVisible();
   await expect(salon.getByText(/Deux radiateurs portent le même nom/)).toBeVisible(); // the simulator's two « Radiateur »
   await act(page, salon, RADIATOR, 'Voir les appareils (6)');
   await expect(salon.getByText('Sonde de température').first()).toBeVisible();

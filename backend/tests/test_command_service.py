@@ -81,7 +81,7 @@ async def test_timeout_without_any_event(env):
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     clock.advance(CONFIRM_TIMEOUT)
     svc.tick()
-    assert p.status == "failed" and p.error == "Pas de confirmation du radiateur."
+    assert p.status == "failed" and p.error == "Le radiateur n’a pas confirmé la commande."
     assert p.error_code == "no_confirmation"
 
 

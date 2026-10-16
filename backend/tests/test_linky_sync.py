@@ -365,7 +365,7 @@ async def test_auth_error_stops_until_a_new_source(env):
     assert sync.status()["state"] == "auth"
     assert (
         sync.status()["message"]
-        == "MyElectricalData refuse le jeton : renouvelez-le dans Réglages."
+        == "MyElectricalData refuse le jeton : renouvelez-le dans Maison › Linky."
     )
     clock.advance(86400)
     fake.calls.clear()

@@ -12,6 +12,12 @@ type Entry = { params: ApiParams; fr: string };
 const ERRORS = codes.errors as Record<string, Entry>;
 const LABELS = codes.labels as Record<string, Entry>;
 const norm = (s: string) => s.replace(/[\u00a0\u202f]/g, ' ');
+const REWORDED: Record<string, string> = {
+  boost: 'Salon : chauffe temporaire à 21,5 °C',
+  boost_end: 'Fin de la chauffe temporaire',
+  all_program: 'Tout remettre en programme',
+  identify: 'Salon : clignotement'
+};
 const call = (group: object, key: string, p: ApiParams) =>
   (group as Record<string, ((p: ApiParams) => string) | undefined>)[key]?.(p);
 
@@ -30,7 +36,18 @@ describe('the backend catalogue', () => {
       if (code === 'send_failed') continue;
       expect(norm(call(fr.api, code, e.params)!), code).toBe(norm(e.fr));
     }
-    for (const [code, e] of Object.entries(LABELS)) expect(norm(call(fr.action, code, e.params)!), code).toBe(norm(e.fr));
+    for (const [code, e] of Object.entries(LABELS)) {
+      if (code in REWORDED) continue;
+      expect(norm(call(fr.action, code, e.params)!), code).toBe(norm(e.fr));
+    }
+  });
+  it('four labels are reworded on the web only, the backend text being the pinned Overkiz execution label', () => {
+    // labels.py's French is also the Overkiz execution label, pinned byte for byte by the Sauter golden
+    // fixture: the web says « chauffe temporaire » (never « forcé »/« forçage ») from label_code instead.
+    for (const [code, text] of Object.entries(REWORDED)) {
+      expect(LABELS[code], code).toBeDefined();
+      expect(norm(call(fr.action, code, LABELS[code].params)!), code).toBe(text);
+    }
   });
   it('send_failed reads from its reason_code, a generic text when there is none', () => {
     expect(norm(apiMessage('send_failed', { reason_code: 'network' }))).toBe('Envoi impossible : Cozytouch injoignable.');
@@ -59,21 +76,21 @@ describe('apiMessage', () => {
     applyLocale('en');
     expect(apiMessage('too_many_attempts', { minutes: 15 }, 'x')).toBe('Too many attempts. Try again in 15\u00a0min.');
     expect(apiMessage('program_too_many', { day: 'sunday' })).toBe('Sunday: 3 comfort periods at most.');
-    expect(apiMessage('network')).toBe('Can’t reach Kelvin.');
+    expect(apiMessage('network')).toBe('Can’t reach Kelvin. Check your connection.');
   });
   it('apiMessage falls back to detail, then to the generic message', () => {
     applyLocale('en');
     expect(apiMessage('a_code_from_a_newer_server', {}, 'Texte du serveur.')).toBe('Texte du serveur.');
     expect(apiMessage(null, {}, 'Texte du serveur.')).toBe('Texte du serveur.');
-    expect(apiMessage(null, undefined, '')).toBe('Something went wrong.');
+    expect(apiMessage(null, undefined, '')).toBe('Something went wrong. Try again.');
   });
   it('errorText reads any thrown value', () => {
     applyLocale('en');
-    expect(errorText(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.', 'bad_credentials'))).toBe(
-      'Wrong Cozytouch email or password.'
+    expect(errorText(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.', 'bad_credentials'))).toBe(
+      'Cozytouch didn’t accept this email or password.'
     );
-    expect(errorText(new ApiError(500, '', 'server'))).toBe('The Kelvin server hit an error.');
-    expect(errorText(new TypeError('boom'))).toBe('Something went wrong.');
+    expect(errorText(new ApiError(500, '', 'server'))).toBe('Kelvin hit an error. Try again in a moment.');
+    expect(errorText(new TypeError('boom'))).toBe('Something went wrong. Try again.');
   });
 });
 
@@ -88,7 +105,7 @@ describe('pending and status', () => {
     expect(pendingError(pending({ error_code: 'send_failed', error_params: {}, reason_code: 'quota' }))).toBe(
       'Couldn’t send: Cozytouch request limit reached.'
     );
-    expect(pendingError(pending({ error_code: LOST }))).toBe('Command not confirmed (connection lost).');
+    expect(pendingError(pending({ error_code: LOST }))).toBe('Connection lost: command not confirmed. Check the room.');
     expect(pendingError(pending({}))).toBe('Command failed.');
   });
   it('the Cozytouch status reads by its code; none when nothing failed', () => {
@@ -143,7 +160,7 @@ describe('English copy: one term per condition', () => {
     expect(statusError({ connected: false, last_ok_at: null, last_error: 'x', last_error_code: 'network' })).toBe(
       'Can’t reach Cozytouch.'
     );
-    expect(apiMessage('quotas_unavailable')).toBe('Cozytouch request limits unavailable.');
+    expect(apiMessage('quotas_unavailable')).toBe('Cozytouch request limits unavailable. Try again later.');
   });
   it('identify is “blink”, as on the button; subjects all take “The”', () => {
     applyLocale('en');

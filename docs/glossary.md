@@ -20,7 +20,7 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Hors-gel | Frost protection | |
 | Repos (level off) | Idle | The heater is not calling for heat. Not shown on rooms any more: only « En chauffe » / “Heating”, when true |
 | Consigne / Consigne active | Setpoint / Current setpoint | Controls. The card and panel caption « consigne 21,0 °C » is “target 21.0 °C” |
-| Chauffe temporaire | Boost | Replaces « Forcer temporairement » in the UI (the API stays `boost`): « Chauffer à 22 °C pendant 2 h » → “Heat to 22 °C for 2 h”, « Lancer » / « Arrêter » → “Start” / “Stop”, « Puis retour au programme vers 21:45. » → “Then back to the schedule at about 21:45.” |
+| Chauffe temporaire | Boost | Replaces « Forcer temporairement » and « forçage » in the UI (the API stays `boost`): « Chauffer à 22 °C pendant 2 h » → “Heat to 22 °C for 2 h”, « Lancer » / « Arrêter » → “Start” / “Stop”, « Puis retour au programme vers 21:45. » → “Then back to the schedule at about 21:45.”; another day goes before « vers » (owner): « Puis retour au programme demain vers 00:19. » → “Then back to the schedule tomorrow at about 00:19.” The pending label reads « Salon : chauffe temporaire à 22 °C » → “Salon: boost to 22 °C” (the backend's « forcé à » is the Overkiz execution label only) |
 | Absence | Away | The state. « Partir en absence » (sheet title) and its button « Partir » → “Go away”; « Absence en cours » → “Away mode on”; « Prolonger… » → “Extend…”; « Terminer maintenant » → “End now”; « Annuler l’absence » → “Cancel away”; sidebar « Absence · dim. 18:00 » → “Away · Sun 18:00” |
 | Rétablissement… | Restoring… | |
 | En ce moment (Maison) | Right now | The overview's live section; « Tout suit son réglage habituel. » → “Everything follows its usual settings.” (« Aucun forçage ni absence » left the UI) |
@@ -34,9 +34,8 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Tarif | Tariff | |
 | Registre 1 / Registre 2 (radiator meters) | Register 1 / Register 2 | T1/T2 are the radiator’s registers, not off-peak/peak |
 | Pointe (moyenne sur 30 min) | Max power (30-min average) | Never “Peak”, which is HP |
-| Talon (veille) | Base load | |
 | Reste (de la maison) | Rest (of the home) | The meter minus the radiators; compact « Reste » → “Rest” |
-| Consommation de fond | Background use | The floor under a day’s curve (“background use ≈ 1.2 kWh”); not « talon », which is the base load row |
+| Consommation de fond | Baseload | The home's always-on floor: the Puissance row (night minimum, 10 % of half-hours) and its energy (« consommation de fond ≈ 1,2 kWh » → “baseload ≈ 1.2 kWh”). « Talon (veille) » left the UI |
 | Couverture | Coverage | Radiator-days measured over radiator-days that existed |
 | Relevé (journalier) | (Daily) reading | A meter or Linky reading; « pas de relevé » → “no reading” |
 | Écart | Gap | Between two figures (“measurement gap”, “curve / reading gap”) |
@@ -60,7 +59,7 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Réglages | Settings | Left Maison in UX batch 8: the overview has « Affichage » → “Display” (theme, language, technical details); account and server are « Compte » → “Account” |
 | Sources de données | Data sources | Maison › Sources de données (Cozytouch, Linky, RTE EcoWatt, Tempo) |
 | Nouveau prix… | New price… | Tarif: opens the editor |
-| Tarif en vigueur | Current tariff | « Corriger le tarif en vigueur » → “Correct the current tariff”; « Heures creuses / pleines » (option) → “Peak / off-peak” |
+| Tarif en vigueur | Current tariff | « Corriger le tarif en vigueur » → “Correct the current tariff”; « Heures creuses / pleines » (option) → “Off-peak / peak” |
 | Afficher / Masquer (PDL) | Show / Hide | « Modifier la connexion » → “Change connection” |
 | Box Cozytouch / Pont radio (io-homecontrol) / Wi-Fi de la box | Cozytouch box / Radio bridge (io-homecontrol) / Box Wi-Fi | Pièces et appareils: plain names; Pod, IOStack, Wifi only in the raw details |
 | Voir les appareils (6) / Faire clignoter | Show devices (6) / Make it blink | Radiator « ⋯ » menu; « Actions pour … » → “Actions for …” |
@@ -78,7 +77,7 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Programme · Confort jusqu’à 23:00 | Schedule · Comfort until 23:00 | The room status sentence; « jusqu’à demain 06:30 » → “until tomorrow 06:30” |
 | Détection de fenêtre ouverte / de présence | Open-window detection / Presence detection | |
 | Veilleuse | Night light | |
-| Faire clignoter / identification | Blink | The button and the pending label (“Salon: blink”) |
+| Faire clignoter / clignotement | Blink | The button and the pending label (« Salon : clignotement » → “Salon: blink”); « identification » is the backend's execution label only |
 | Radiateur(s) | Radiator(s) | The upstream default name « Radiateur » is device data, never translated |
 | Détails / Historique / Aujourd’hui / Réglage | Details / History / Today / Controls | « Infos » is the radiator’s Details section (Infos / Details) |
 | Intensité (veilleuse) | Brightness | |
@@ -97,8 +96,9 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Jeton MyElectricalData | MyElectricalData token | |
 | PDL (point de livraison) | PDL (delivery point) | |
 | Relié / Non relié | Connected / Not connected | Linky |
-| Synchro | Sync | |
-| Injoignable / Connecté | Unreachable / Connected | A status word. In a sentence, « Cozytouch injoignable » / « Kelvin est injoignable » → “Can’t reach Cozytouch” / “Can’t reach Kelvin” (one phrasing everywhere) |
+| Synchro / Synchroniser / Synchronisations : 1 sur 3 en 24 h | Sync / Sync / Syncs: 1 of 3 in 24 h | A full read of the Cozytouch setup; « lecture complète » left the UI |
+| En ligne / Hors ligne (appareils) | Online / Offline | A radiator's or a box device's reachability (Pièces et appareils, the radiator's Infos); « Joignable » left the UI |
+| Injoignable / Connecté | Unreachable / Connected | Cozytouch itself only (sidebar, Sources). A status word. In a sentence, « Cozytouch injoignable » / « Kelvin est injoignable » → “Can’t reach Cozytouch” / “Can’t reach Kelvin” (one phrasing everywhere) |
 | Limite de requêtes Cozytouch atteinte | Cozytouch request limit reached | The quota condition, one phrasing everywhere (never “rate limit”) |
 | à l’instant / il y a 5 min | just now / 5 min ago | |
 | Aujourd’hui / demain / la veille | Today / tomorrow / the previous day | |
@@ -111,11 +111,11 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | French | English |
 |---|---|
 | Pointe | Max power (never “Peak”, which is HP) |
-| Talon (veille) | Base load |
+| Consommation de fond (was Talon) | Baseload |
 | Jour Tempo Bleu / Blanc / Rouge | Tempo Blue / White / Red day |
 | Option tarifaire | Tariff option |
 | Base | Base |
-| HC/HP (option) | Peak/Off-peak |
+| HC/HP (option) | Off-peak / peak | One English name for the option everywhere (form, summary, Énergie); the French form keeps the compact « HC/HP » in the option picker |
 | Applicable à partir du | Valid from |
 | Heures creuses différentes selon la saison | Off-peak hours differ by season |
 | Saison | Season |
@@ -133,7 +133,6 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Degré-jour (DJU) | Degree day (HDD) |
 | Appareils | Devices |
 | Pont Cozytouch | Cozytouch bridge |
-| Joignable / Injoignable | Reachable / Unreachable |
 | Sessions | Signed-in devices |
 | Pré-chauffage | Pre-heat |
 | Allure | Heating level | A pilot-wire heater's level (Confort, Éco, Hors-gel, Arrêt) |
@@ -164,6 +163,12 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | tout est mesuré | all measured | Qualité des données meta |
 
 ## Tone
+
+Errors say what happened, then what to do, in two short sentences or a colon: « Cozytouch injoignable.
+Réessayez dans un instant. » → “Can’t reach Cozytouch. Try again in a moment.”; « Connexion perdue :
+résultat inconnu. Vérifiez la pièce. » → “Connection lost: result unknown. Check the room.”
+Buttons and links are infinitives in French (« Renseigner le tarif », « Ouvrir Linky ») and plain
+imperatives in English (“Add your tariff”, “Open Linky”).
 
 French uses « vous » and imperatives (« Collez le jeton »). English uses plain imperatives (“Paste
 your token”) and contractions in sentences (“can’t”, “isn’t”), not in labels. Both use sentence case.

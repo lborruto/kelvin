@@ -16,7 +16,7 @@ describe('scanSource', () => {
   });
   it('finds literals nested in a template expression and accent-free words', () => {
     expect(ts("const t = `${a} — ${b ?? 'échec de la commande.'}`;")).toEqual(['échec de la commande.']);
-    expect(ts("const e = 'Erreur inattendue.';")).toEqual(['Erreur inattendue.']);
+    expect(ts("const e = 'Erreur inattendue. Réessayez.';")).toEqual(['Erreur inattendue. Réessayez.']);
     expect(ts("const l = { off: 'Repos', frost: 'Hors-gel' };")).toEqual(['Repos', 'Hors-gel']);
   });
   it('finds French in markup text and attributes, not in classes, ids or test ids', () => {
@@ -74,7 +74,7 @@ describe('scanSource limits (batch-1 review M2)', () => {
     expect(svelte('<p>Can&rsquo;t reach Kelvin&nbsp;—</p>')).toEqual([]);
   });
   it('English copy and data values are not French', () => {
-    expect(ts("const a = 'Can’t reach Kelvin.'; const b = 'the home’s radiators’ meters';")).toEqual([]);
+    expect(ts("const a = 'Can’t reach Kelvin. Check your connection.'; const b = 'the home’s radiators’ meters';")).toEqual([]);
     expect(ts("const a = 'No figure in the absence of a curve.';")).toEqual([]);
     expect(ts("if (mode === 'programme') x(); switch (k) { case 'programme': break; }")).toEqual([]);
     expect(ts("const k = ['hc', 'hp']; const c = 'hc_kwh';")).toEqual([]);

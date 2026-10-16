@@ -17,11 +17,11 @@ describe('PendingTag', () => {
   it('shows a failure with Réessayer', async () => {
     const onretry = vi.fn();
     render(PendingTag, {
-      pending: { ...base, status: 'failed', error: 'Pas de confirmation du radiateur.' },
+      pending: { ...base, status: 'failed', error: 'Le radiateur n’a pas confirmé la commande.' },
       onretry,
       ondismiss: vi.fn()
     });
-    expect(screen.getByText('Pas de confirmation du radiateur.')).toBeInTheDocument();
+    expect(screen.getByText('Le radiateur n’a pas confirmé la commande.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ignorer' }).querySelector('svg')).not.toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(onretry).toHaveBeenCalledWith('p1');
@@ -40,11 +40,11 @@ forEachLocale((l) => {
   });
   it('a failure shows its code’s text and the retry and dismiss controls', () => {
     render(PendingTag, {
-      pending: { ...base, status: 'failed', error: 'Pas de confirmation du radiateur.', error_code: 'no_confirmation' },
+      pending: { ...base, status: 'failed', error: 'Le radiateur n’a pas confirmé la commande.', error_code: 'no_confirmation' },
       onretry: vi.fn(),
       ondismiss: vi.fn()
     });
-    expect(screen.getByText(en ? 'No confirmation from the radiator.' : 'Pas de confirmation du radiateur.')).toBeInTheDocument();
+    expect(screen.getByText(en ? 'The radiator hasn’t confirmed the command.' : 'Le radiateur n’a pas confirmé la commande.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: en ? 'Retry' : 'Réessayer' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: en ? 'Dismiss' : 'Ignorer' })).toBeInTheDocument();
   });

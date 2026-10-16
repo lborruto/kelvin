@@ -279,7 +279,7 @@ async def test_linky_settings_errors_are_french(api, caplog):
     refused.fail["check"] = LinkyError("HTTP 500")
     r = await c.put("/api/settings/linky", json={"prm": PRM, "token": TOKEN})
     assert r.status_code == 503
-    assert r.json()["detail"] == "MyElectricalData injoignable, réessayez plus tard."
+    assert r.json()["detail"] == "MyElectricalData injoignable. Réessayez plus tard."
     rt.linky.sync.budget = rt.linky.sync.calls_today()
     r = await c.put("/api/settings/linky", json={"prm": PRM, "token": TOKEN})
     assert r.status_code == 429

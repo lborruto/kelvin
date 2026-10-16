@@ -61,7 +61,7 @@ describe('RoomFigures', () => {
     vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, interpolated: true, coverage: 0.5, priced: false, eur: null });
     render(RoomFigures, props);
     expect(await screen.findByText('est.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Renseignez le tarif' })).toHaveAttribute('href', '/home#tariff');
+    expect(screen.getByRole('link', { name: 'Renseigner le tarif' })).toHaveAttribute('href', '/home#tariff');
     expect(screen.getByText(/relevé sur 50/)).toBeInTheDocument();
   });
   it('days without a Tempo colour: the priced days\' € with the reason, as the radiator block', async () => {
@@ -95,7 +95,7 @@ describe('RoomFigures', () => {
     await rerender({ ...props, duty: 0.17 });
     expect(await screen.findByText('Part du temps en chauffe')).toBeInTheDocument();
     expect(screen.getByText(/^17\s%$/)).toBeInTheDocument();
-    expect(screen.getByText('équiv. pleine puissance')).toBeInTheDocument();
+    expect(screen.getByText('à pleine puissance')).toBeInTheDocument();
   });
   it('a failed load reads — as well', async () => {
     vi.mocked(api.roomEnergy).mockRejectedValue(new Error('x'));

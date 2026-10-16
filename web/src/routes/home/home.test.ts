@@ -150,7 +150,7 @@ describe('Maison overview', () => {
 
   it('quick actions: put everything back on schedule, with its progress blocking a re-send', async () => {
     vi.mocked(api.houseProgram).mockResolvedValueOnce({
-      pending: { id: 'h1', label: 'Tout en programme', radiator_ids: ['a'], status: 'pending', error: null, created_at: 1, expected: {} }
+      pending: { id: 'h1', label: 'Tout remettre en programme', radiator_ids: ['a'], status: 'pending', error: null, created_at: 1, expected: {} }
     } as never);
     render(Page);
     const btn = screen.getByRole('button', { name: 'Tout remettre en programme' });

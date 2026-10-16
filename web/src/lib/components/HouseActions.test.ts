@@ -33,7 +33,7 @@ it('names the confirmation dialog by its question and says what happens', () => 
   expect(document.getElementById(id)).toHaveTextContent('Tout éteindre ?');
   expect(document.getElementById(id)!.tagName).toBe('H2');
   expect(document.getElementById(dialog.getAttribute('aria-describedby')!)).toHaveTextContent(
-    'Les radiateurs passent à l’arrêt. Vous pourrez les remettre en programme depuis Maison.'
+    'Toutes les pièces passent à l’arrêt. Pour les rallumer : Maison › Tout remettre en programme.'
   );
 });
 
@@ -97,13 +97,13 @@ it('Tout éteindre shows Envoi… then Confirmé, and is disabled while it runs'
 });
 
 it('a failed house command shows its error where it was taken', async () => {
-  vi.mocked(api.houseProgram).mockResolvedValue({ pending: { ...pending('pending'), label: 'Tout en programme' } } as never);
+  vi.mocked(api.houseProgram).mockResolvedValue({ pending: { ...pending('pending'), label: 'Tout remettre en programme' } } as never);
   render(HouseActions, { program: true });
   await fireEvent.click(screen.getByRole('button', { name: 'Tout remettre en programme' }));
   await screen.findByText('Envoi…');
   expect(screen.getByRole('button', { name: 'Tout remettre en programme' })).toHaveAttribute('aria-disabled', 'true');
-  house.applyPending({ ...pending('failed', 'Pas de confirmation du radiateur.'), label: 'Tout en programme' } as never);
-  await waitFor(() => expect(screen.getByText('Pas de confirmation du radiateur.')).toBeInTheDocument());
+  house.applyPending({ ...pending('failed', 'Le radiateur n’a pas confirmé la commande.'), label: 'Tout remettre en programme' } as never);
+  await waitFor(() => expect(screen.getByText('Le radiateur n’a pas confirmé la commande.')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument();
 });
 
@@ -114,13 +114,13 @@ it('a double tap during the round trip sends one house command', async () => {
   const button = screen.getByRole('button', { name: 'Tout remettre en programme' });
   await fireEvent.click(button);
   await fireEvent.click(button);
-  resolve({ pending: { ...pending('pending'), label: 'Tout en programme' } });
+  resolve({ pending: { ...pending('pending'), label: 'Tout remettre en programme' } });
   await screen.findByText('Envoi…');
   expect(api.houseProgram).toHaveBeenCalledTimes(1);
 });
 
 it('keeps keyboard focus on « Tout remettre en programme » while its command runs', async () => {
-  vi.mocked(api.houseProgram).mockResolvedValue({ pending: { ...pending('pending'), label: 'Tout en programme' } } as never);
+  vi.mocked(api.houseProgram).mockResolvedValue({ pending: { ...pending('pending'), label: 'Tout remettre en programme' } } as never);
   render(HouseActions, { program: true });
   const button = screen.getByRole('button', { name: 'Tout remettre en programme' });
   button.focus();
@@ -141,7 +141,7 @@ it('in English: the actions, the dialog and the away link', () => {
   const dialog = document.querySelector('dialog')!;
   expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)).toHaveTextContent('Turn everything off?');
   expect(document.getElementById(dialog.getAttribute('aria-describedby')!)).toHaveTextContent(
-    'The radiators switch off. You can put them back on schedule from Home.'
+    'Every room switches off. To turn them back on: Home › Put everything back on schedule.'
   );
 });
 

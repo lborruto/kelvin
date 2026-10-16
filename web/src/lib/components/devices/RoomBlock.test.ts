@@ -14,7 +14,7 @@ describe('RoomBlock', () => {
     render(RoomBlock, { room: s.rooms[1], radiators: s.radiators, now: 0 });
     expect(screen.getByRole('heading', { name: 'Salon' })).toBeInTheDocument();
     expect(screen.getByText('1 radiateur')).toBeInTheDocument();
-    expect(screen.getByText(/^HEKLA P · 1\s500\sW · Joignable$/)).toBeInTheDocument();
+    expect(screen.getByText(/^HEKLA P · 1\s500\sW · En ligne$/)).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(1); // the radiator; its devices one menu item away
     await fireEvent.click(screen.getByRole('button', { name: 'Actions pour Radiateur (HEKLA P)' }));
     await fireEvent.click(screen.getByRole('menuitem', { name: 'Voir les appareils (6)' }));
@@ -65,7 +65,7 @@ describe('RoomBlock', () => {
     applyLocale('en');
     const s = setupFixture();
     render(RoomBlock, { room: s.rooms[1], radiators: s.radiators, now: 0 });
-    expect(screen.getByText(/^HEKLA P · 1,500\sW · Reachable$/)).toBeInTheDocument();
+    expect(screen.getByText(/^HEKLA P · 1,500\sW · Online$/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Actions for Radiateur (HEKLA P)' })).toBeInTheDocument();
   });
 

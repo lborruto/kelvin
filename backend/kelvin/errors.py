@@ -37,11 +37,11 @@ TEMPLATES: dict[str, str] = {
     "session_unknown": "Cet appareil n’est plus connecté.",
     "alert_unknown": "Alerte introuvable.",
     "header_missing": "En-tête X-Kelvin manquant.",
-    "bad_credentials": "Email ou mot de passe Cozytouch incorrect.",
+    "bad_credentials": "Cozytouch refuse cet email ou ce mot de passe.",
     "wrong_account": "Ce compte Cozytouch n’est pas celui de cette maison.",
-    "cozytouch_unreachable": "Cozytouch injoignable, réessayez dans un instant.",
-    "cozytouch_unavailable": "Cozytouch injoignable, réessayez plus tard.",
-    "quotas_unavailable": "Quotas indisponibles.",
+    "cozytouch_unreachable": "Cozytouch injoignable. Réessayez dans un instant.",
+    "cozytouch_unavailable": "Cozytouch injoignable. Réessayez plus tard.",
+    "quotas_unavailable": ("Limites de requêtes Cozytouch indisponibles. Réessayez plus tard."),
     "too_many_attempts": "Trop de tentatives. Réessayez dans {minutes} min.",
     "not_found": "Introuvable.",
     "method_not_allowed": "Méthode non autorisée.",
@@ -52,17 +52,19 @@ TEMPLATES: dict[str, str] = {
     "repartez d’une installation neuve (voir le README).",
     "data_other_server": "Ce dossier de données appartient à une maison reliée au serveur "
     "{server} : utilisez un autre dossier KELVIN_DATA.",
-    "bad_credentials_server": "Email ou mot de passe {server} incorrect.",
+    "bad_credentials_server": "{server} refuse cet email ou ce mot de passe.",
     # Rooms, radiators, overrides
     "radiator_unknown": "Radiateur inconnu.",
     "room_unknown": "Pièce inconnue.",
     "too_many_radiators": "Trop de radiateurs dans la demande.",
     "nothing_to_change": "Rien à modifier.",
-    "override_not_found": "Forçage ou absence introuvable.",
+    "override_not_found": (
+        "Chauffe temporaire ou absence introuvable : elle est peut-être déjà terminée."
+    ),
     "no_radiator": "Aucun radiateur.",
     # No id in params (a device id never goes into an error): the text says where instead.
     "radiator_unknown_id": "Radiateur inconnu dans la demande.",
-    "end_in_past": "La fin doit être dans le futur.",
+    "end_in_past": "Choisissez une fin dans le futur.",
     # Command validation
     "unsupported_command": "Ce radiateur ne prend pas en charge « {command} ».",
     "temp_range": "{subject} doit être comprise entre {min_fr} et {max_fr} °C.",
@@ -121,8 +123,8 @@ TEMPLATES: dict[str, str] = {
     "linky_quota": "Quota Linky du jour atteint : réessayez demain.",
     "linky_refused": "MyElectricalData refuse ce PDL ou ce jeton.",
     "linky_throttled": "Enedis limite les requêtes : réessayez plus tard.",
-    "med_unreachable": "MyElectricalData injoignable, réessayez plus tard.",
-    "linky_status_auth": "MyElectricalData refuse le jeton : renouvelez-le dans Réglages.",
+    "med_unreachable": "MyElectricalData injoignable. Réessayez plus tard.",
+    "linky_status_auth": ("MyElectricalData refuse le jeton : renouvelez-le dans Maison › Linky."),
     "linky_status_quota": "Quota Linky du jour atteint : reprise demain.",
     "linky_status_error": "Synchronisation Linky en échec.",
     "linky_status_throttled": "Enedis limite les requêtes : nouvel essai à {at}.",
@@ -157,7 +159,7 @@ TEMPLATES: dict[str, str] = {
     "setup_move_partial": "Déplacement partiel ({done} sur {total}).",
     "rename_alone": "Renommez le radiateur seul, sans autre réglage dans la même demande.",
     "setup_sync_spent": (
-        "Les lectures complètes de Cozytouch disponibles sur 24 h sont utilisées "
+        "Plus de synchronisation disponible sur 24 h "
         "(la dernière reste pour un redémarrage) : réessayez plus tard."
     ),
     "device_label_invalid": (
@@ -167,7 +169,7 @@ TEMPLATES: dict[str, str] = {
     "send_failed": "Envoi impossible : {reason}.",
     "send_internal": "Envoi impossible : erreur interne.",
     "radiator_refused": "Le radiateur a refusé la commande.",
-    "no_confirmation": "Pas de confirmation du radiateur.",
+    "no_confirmation": "Le radiateur n’a pas confirmé la commande.",
 }
 
 # Sample params, for the catalogue exported to the web and its tests.

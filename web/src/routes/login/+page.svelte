@@ -69,6 +69,8 @@
     if (busy) return;
     error = null;
     invalid = null;
+    // Never leave a password in clear behind a submit (nor hand a text field to a password manager).
+    revealed = false;
     if (!email.trim() || !password) {
       error = () => m.login.emptyFields;
       invalid = !email.trim() ? 'email' : 'password';
@@ -77,8 +79,6 @@
       return;
     }
     if (!ready) return; // held: the list names the server a first login claims
-    // Never leave a password in clear behind a submit (nor hand a text field to a password manager).
-    revealed = false;
     busy = true;
     try {
       // The server only on a first login with a list read: afterwards it is the home's.

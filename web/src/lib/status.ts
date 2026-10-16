@@ -14,7 +14,7 @@
  * A pending mode or setpoint (`expected`) wins over what the radiators report: the sentence shows
  * the request, dashed, until it is confirmed.
  */
-import type { Expected, Override, Radiator, Room, WeekProgram } from './api/types';
+import type { Day, Expected, Override, Radiator, Room, WeekProgram } from './api/types';
 import { capsOf } from './capabilities';
 import { fmtDayShort, fmtTemp, fmtTime } from './format';
 import { levelLabel, m, modeLabel } from './i18n';
@@ -57,6 +57,14 @@ export function whenText(atMs: number, now: number): string {
   if (days <= 0) return time;
   if (days === 1) return m.program.whenTomorrow(time);
   return m.program.whenOn(parisParts(atMs).weekday, time);
+}
+
+/** A future instant as a day word and a time, for sentences that put the day before « vers »
+ * (« Puis retour au programme demain vers 00:19 »): null today, 'tomorrow', else the weekday. */
+export function whenParts(atMs: number, now: number): { on: Day | 'tomorrow' | null; time: string } {
+  const time = fmtTime(atMs);
+  const days = Math.round((parisMidnight(atMs) - parisMidnight(now)) / 86_400_000);
+  return { on: days <= 0 ? null : days === 1 ? 'tomorrow' : parisParts(atMs).weekday, time };
 }
 
 export const isOffline = (rads: Radiator[]): boolean => rads.length > 0 && rads.every((r) => r.reachable === false);

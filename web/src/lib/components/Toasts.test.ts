@@ -16,11 +16,11 @@ describe('Toasts', () => {
     const polite = container.querySelector('[aria-live="polite"]')!;
     expect(assertive).toBeInTheDocument();
     expect(polite).toBeInTheDocument();
-    toasts.push('Erreur inattendue.');
+    toasts.push('Erreur inattendue. Réessayez.');
     toasts.push('Tarif enregistré.', 'info');
     flushSync();
     expect(container.querySelector('[aria-live="assertive"]')).toBe(assertive);
-    expect(assertive).toHaveTextContent('Erreur inattendue.');
+    expect(assertive).toHaveTextContent('Erreur inattendue. Réessayez.');
     expect(polite).toHaveTextContent('Tarif enregistré.');
   });
 });
@@ -33,7 +33,7 @@ it('a toast pushed in French reads English after the switch', () => {
   expect(region).toHaveTextContent('Kelvin est injoignable.');
   applyLocale('en');
   flushSync();
-  expect(region).toHaveTextContent('Can’t reach Kelvin.');
+  expect(region).toHaveTextContent('Can’t reach Kelvin. Check your connection.');
   expect(container.querySelector('button')).toHaveAccessibleName('Close');
 });
 

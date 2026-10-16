@@ -49,7 +49,7 @@ describe('+error', () => {
     expect(goto).not.toHaveBeenCalled();
     expect(screen.queryByText('Cette page n’existe pas')).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'Kelvin n’a pas pu afficher cette page' })).toBeInTheDocument();
-    expect(screen.getByText('Le serveur Kelvin a rencontré une erreur.')).toBeInTheDocument();
+    expect(screen.getByText('Kelvin a rencontré une erreur. Réessayez dans un instant.')).toBeInTheDocument();
     expect(document.title).toBe('Erreur · Kelvin');
     const details = screen.getByRole('button', { name: 'Détails' });
     expect(details).toHaveAttribute('aria-expanded', 'false');

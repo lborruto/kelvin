@@ -44,9 +44,9 @@ describe('SyncLine', () => {
     render(SyncLine, { sync: sync(), now });
     expect(screen.getByText(/^Synchronisé avec Cozytouch il y a 3\sh$/)).toBeInTheDocument();
     await fiche();
-    expect(screen.getByText('Dernière lecture complète')).toBeInTheDocument();
+    expect(screen.getByText('Dernière synchronisation')).toBeInTheDocument();
     // Testing Library collapses every \s (no-break spaces included) in the page text, not in the query.
-    expect(screen.getByText('Lectures complètes : 1 sur 3 en 24 h')).toBeInTheDocument();
+    expect(screen.getByText('Synchronisations : 1 sur 3 en 24 h')).toBeInTheDocument();
     expect(screen.getByText('Synchronisation automatique chaque jour à 04:30.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Synchroniser' })).toHaveAttribute('aria-disabled', 'false');
   });
@@ -83,7 +83,7 @@ describe('SyncLine', () => {
     expect(button).toHaveAttribute('aria-disabled', 'true');
     expect(button).toHaveAccessibleDescription('possible à 14:10');
     await fiche();
-    expect(screen.getByText(/prochaine synchronisation possible à 14:10/)).toBeInTheDocument();
+    expect(screen.getByText(/prochaine possible à 14:10/)).toBeInTheDocument();
     await fireEvent.click(button);
     expect(api.syncSetup).not.toHaveBeenCalled();
   });
@@ -96,7 +96,7 @@ describe('SyncLine', () => {
     render(SyncLine, { sync: sync(), now });
     await fireEvent.click(screen.getByRole('button', { name: 'Synchroniser' }));
     flushSync();
-    expect(toasts.items.at(-1)?.text()).toMatch(/lectures complètes de Cozytouch/);
+    expect(toasts.items.at(-1)?.text()).toMatch(/Plus de synchronisation disponible/);
     expect(api.setupDevices).toHaveBeenCalledOnce();
   });
 
@@ -117,6 +117,6 @@ describe('SyncLine', () => {
     render(SyncLine, { sync: sync(), now });
     expect(screen.getByRole('button', { name: 'Sync' })).toBeInTheDocument();
     await fiche();
-    expect(screen.getByText('Full reads: 1 of 3 in 24 hours')).toBeInTheDocument();
+    expect(screen.getByText('Syncs: 1 of 3 in 24 h')).toBeInTheDocument();
   });
 });

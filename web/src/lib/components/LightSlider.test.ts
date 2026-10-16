@@ -66,8 +66,8 @@ describe('LightSlider', () => {
     await fireEvent.keyDown(screen.getByRole('slider'), { key: 'Home' });
     await vi.advanceTimersByTimeAsync(600);
     await vi.waitFor(() => expect(container.querySelector('.edge.pending')).not.toBeNull());
-    house.applyPending(pending('failed', { error: 'Pas de confirmation du radiateur.', error_code: 'no_confirmation' }));
-    await vi.waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Pas de confirmation du radiateur.'));
+    house.applyPending(pending('failed', { error: 'Le radiateur n’a pas confirmé la commande.', error_code: 'no_confirmation' }));
+    await vi.waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Le radiateur n’a pas confirmé la commande.'));
   });
 
   it('a drag while paused snaps the thumb back: nothing moves, nothing is sent', async () => {

@@ -64,10 +64,10 @@ describe('Login', () => {
   });
 
   it('shows the server message and stays', async () => {
-    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.'));
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.'));
     render(Page);
     await fill('demo@kelvin.local', 'nope');
-    expect(await screen.findByRole('alert')).toHaveTextContent('Email ou mot de passe Cozytouch incorrect.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cozytouch refuse cet email ou ce mot de passe.');
     expect(goto).not.toHaveBeenCalled();
   });
 
@@ -89,7 +89,7 @@ describe('Login', () => {
   });
 
   it('a refused login keeps focus in the form (the password, selected), never on <body>', async () => {
-    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.'));
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.'));
     render(Page);
     await fill('demo@kelvin.local', 'nope');
     await screen.findByRole('alert');
@@ -244,7 +244,7 @@ describe('Login, Batch 11', () => {
   });
 
   it('the reveal button shows the password without renaming the field, and never across a submit', async () => {
-    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.', 'bad_credentials'));
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.', 'bad_credentials'));
     render(Page);
     const pw = screen.getByLabelText('Mot de passe') as HTMLInputElement;
     expect(pw).toHaveAttribute('type', 'password');
@@ -278,10 +278,10 @@ describe('Login, Batch 11', () => {
   });
 
   it('a refused login does not say which field was wrong', async () => {
-    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.', 'bad_credentials'));
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.', 'bad_credentials'));
     render(Page);
     await fill('demo@kelvin.local', 'nope');
-    expect(await screen.findByRole('alert')).toHaveTextContent('Email ou mot de passe Cozytouch incorrect.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cozytouch refuse cet email ou ce mot de passe.');
     expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByLabelText('Mot de passe')).toHaveAttribute('aria-invalid', 'true');
   });
@@ -311,7 +311,7 @@ describe('Login, Batch 11', () => {
 describe('Login in English', () => {
   it('reads in English and shows a refused login by its code', async () => {
     applyLocale('en');
-    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.', 'bad_credentials'));
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.', 'bad_credentials'));
     render(Page);
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
     expect(screen.getByText('Use the home’s Cozytouch account.')).toBeInTheDocument();
@@ -323,7 +323,7 @@ describe('Login in English', () => {
     await fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'a@b.fr' } });
     await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'x' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong Cozytouch email or password.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cozytouch didn’t accept this email or password.');
   });
   it('empty fields are refused in English', async () => {
     applyLocale('en');
@@ -335,7 +335,7 @@ describe('Login in English', () => {
 
 describe('the login language switch', () => {
   it('FR | EN switches the screen before login, and a backend error then reads in English', async () => {
-    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.', 'bad_credentials'));
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.', 'bad_credentials'));
     render(Page);
     const en = screen.getByRole('radio', { name: 'English' });
     expect(en).toHaveTextContent('EN');
@@ -345,6 +345,6 @@ describe('the login language switch', () => {
     await fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'a@b.fr' } });
     await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'x' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong Cozytouch email or password.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cozytouch didn’t accept this email or password.');
   });
 });

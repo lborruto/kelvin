@@ -37,7 +37,7 @@ test('the login screen switches FR | EN before signing in, at 320 px', async ({ 
   await page.getByLabel('Email').fill('demo@kelvin.local');
   await page.getByLabel('Password').fill('wrong');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('alert')).toHaveText('Wrong Cozytouch email or password.');
+  await expect(page.getByRole('alert')).toHaveText('Cozytouch didn’t accept this email or password.');
   // The choice is remembered on this device.
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
@@ -140,7 +140,7 @@ test.describe('key flows in English', () => {
     await expect(page.getByText('Chambre 2 is offline')).toBeVisible();
     await page.getByRole('radio', { name: 'Salon' }).click();
     await page.getByRole('button', { name: 'How to edit' }).click();
-    await expect(page.getByText(/drag a period to move it/)).toBeVisible();
+    await expect(page.getByText(/drag it to move it/)).toBeVisible();
     await page.getByRole('button', { name: /^Monday,/ }).click();
     await expect(page.getByRole('heading', { name: /^Monday/ })).toBeVisible();
     await page.getByRole('button', { name: 'Copy to…' }).click();

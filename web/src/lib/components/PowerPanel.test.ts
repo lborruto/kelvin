@@ -29,8 +29,8 @@ describe('PowerPanel', () => {
     expect(t).toContain('la pointe instantanée peut être plus élevée');
     expect(t).toContain('abonnement 12 kVA');
     expect(t).toContain('57 % de la puissance souscrite (moyenne 30 min)');
-    expect(t).toContain('kVA ≈ kW, facteur de puissance supposé 1');
-    expect(t).toContain('Talon (veille) 310 W');
+    expect(t).toContain('Hypothèse : 1 kVA ≈ 1 kW.');
+    expect(t).toContain('Consommation de fond 310 W');
     expect(t).toContain('minimum de nuit (00:00–06:00) : 280 W');
     expect(t).toContain('10 % des demi-heures sont sous 310 W');
     expect(t).toContain('consommation de fond ≈ 7,44 kWh (≈ 1,86 €)');
@@ -38,7 +38,7 @@ describe('PowerPanel', () => {
     // L0 is the peak against the subscription; the baseload and the method sit in « Détails » (closed, findable).
     const details = screen.getByRole('button', { name: /^Détails/ });
     expect(details).toHaveAttribute('aria-expanded', 'false');
-    expect(document.getElementById(details.getAttribute('aria-controls')!)).toHaveTextContent('Talon (veille)');
+    expect(document.getElementById(details.getAttribute('aria-controls')!)).toHaveTextContent('Consommation de fond');
   });
 
   it('an incomplete day reads « — » and says why', () => {
@@ -96,10 +96,10 @@ it('in English: max power and base load, never “Peak”; the week names its da
   expect(screen.getByRole('heading', { name: 'Power' })).toBeInTheDocument();
   const t = text(container);
   expect(t).toContain('Max power (30-min average) 6.84 kW 19:00–19:30');
-  expect(t).toContain('Base load 310 W');
+  expect(t).toContain('Baseload 310 W');
   expect(t).toContain('12 kVA subscribed power');
   expect(t).toContain('night minimum (00:00–06:00): 280 W');
-  expect(t).toContain('background use ≈ 7.44 kWh (≈ €1.86)');
+  expect(t).toContain('baseload ≈ 7.44 kWh (≈ €1.86)');
   expect(t).not.toMatch(/\bPeak\b/);
   const w = render(PowerPanel, { view: 'week', day: day(), week });
   expect(text(w.container)).toContain('Max power (30-min average) 7.20 kW Tuesday 13 October, 19:00–19:30');

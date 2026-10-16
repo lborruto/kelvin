@@ -14,7 +14,7 @@ describe('DeviceRow', () => {
     expect(screen.getByText('Chauffage')).toBeInTheDocument();
     expect(screen.getByText('Radiateur')).toBeInTheDocument();
     expect(screen.getByText(/AtlanticElectricalHeater/)).toHaveClass('mono');
-    expect(screen.getByText('Joignable')).toBeInTheDocument();
+    expect(screen.getByText('En ligne')).toBeInTheDocument();
     expect(screen.getByText(/Dernier signal/)).toHaveTextContent('il y a 3');
     expect(screen.getByText('Détails').closest('summary')).toHaveAccessibleName('Détails de Radiateur');
     expect(screen.getByText('core:VersionState')).toHaveClass('mono');
@@ -33,7 +33,7 @@ describe('DeviceRow', () => {
     const heater = setupFixture().radiators[0].devices[0];
     render(DeviceRow, { device: { ...heater, reachable: false }, now });
     expect(screen.getByText('Heater')).toBeInTheDocument();
-    expect(screen.getByText('Unreachable')).toBeInTheDocument();
+    expect(screen.getByText('Offline')).toBeInTheDocument();
   });
 
   it('shows a generic « IO (serial#n) » label as the role, never the serial', () => {

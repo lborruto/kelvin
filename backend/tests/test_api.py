@@ -305,11 +305,11 @@ async def test_overkiz_quotas_unreachable_is_a_french_503(ctx):
     rt.gateway.fail_quotas = QuotaError("QUOTA_EXCEEDED")
     r = await c.get("/api/overkiz/quotas")
     assert r.status_code == 503
-    assert r.json()["detail"] == "Cozytouch injoignable, réessayez plus tard."
+    assert r.json()["detail"] == "Cozytouch injoignable. Réessayez plus tard."
     rt.quotas = None
     r = await c.get("/api/overkiz/quotas")
     assert r.status_code == 503
-    assert r.json()["detail"] == "Quotas indisponibles."
+    assert r.json()["detail"] == "Limites de requêtes Cozytouch indisponibles. Réessayez plus tard."
 
 
 @pytest.mark.parametrize(
@@ -381,7 +381,8 @@ async def test_an_unexpected_quota_failure_is_a_french_503_not_a_500(ctx):
     rt.gateway.quotas = broken
     rt.quotas = type(rt.quotas)(broken)
     r = await c.get("/api/overkiz/quotas")
-    assert r.status_code == 503 and r.json()["detail"] == "Quotas indisponibles."
+    assert r.status_code == 503
+    assert r.json()["detail"] == "Limites de requêtes Cozytouch indisponibles. Réessayez plus tard."
 
 
 async def test_validation_errors_carry_invalid_request_and_the_field(ctx):

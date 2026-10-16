@@ -26,8 +26,8 @@ describe('HcHpPanel', () => {
     expect(t).toContain('Part en heures creuses 38,4 %');
     expect(t).toContain('vos heures creuses durent 33,3 % de la journée');
     expect(t).toContain('Prix moyen payé 0,2437 €/kWh');
-    expect(t).toContain('Chaque kWh passé d’HP en HC −0,0632 €/kWh');
-    expect(t).toContain('Si 10 % de vos HP (25,43 kWh) étaient en HC : −1,61 €, à consommation identique.');
+    expect(t).toContain('Gain par kWh déplacé en heures creuses −0,0632 €/kWh');
+    expect(t).toContain('Si 10 % de vos heures pleines (25,43 kWh) passaient en heures creuses : −1,61 €, à consommation égale.');
     expect(t).toContain('10 % × 254,30 kWh × 0,0632 €/kWh = 1,61 €');
     expect(t).toContain('Calcul sur vos prix et votre consommation, pas une économie garantie.');
     expect(t.match(/économi/g)).toHaveLength(1); // spec §9.1 rule 6
@@ -36,7 +36,7 @@ describe('HcHpPanel', () => {
     expect(slider).toHaveAttribute('aria-valuetext', '10\u00a0%');
     await fireEvent.input(slider, { target: { value: '30' } });
     t = text(container);
-    expect(t).toContain('Si 30 % de vos HP (76,29 kWh) étaient en HC : −4,82 €, à consommation identique.');
+    expect(t).toContain('Si 30 % de vos heures pleines (76,29 kWh) passaient en heures creuses : −4,82 €, à consommation égale.');
   });
 
   it('a tariff without HC slots reads « — » and says so', () => {
@@ -63,8 +63,8 @@ it('in English: off-peak share, prices with € first, the slider and its senten
   expect(t).toContain('Off-peak share 38.4%');
   expect(t).toContain('your off-peak hours cover 33.3% of the day');
   expect(t).toContain('Average price paid €0.2437/kWh');
-  expect(t).toContain('Each kWh moved from peak to off-peak −€0.0632/kWh');
-  expect(t).toContain('If 10% of your peak use (25.43 kWh) were off-peak: −€1.61, for the same consumption.');
+  expect(t).toContain('Saving per kWh moved to off-peak −€0.0632/kWh');
+  expect(t).toContain('If 10% of your peak use (25.43 kWh) moved to off-peak: −€1.61, for the same consumption.');
   expect(t).toContain('10% × 254.30 kWh × €0.0632/kWh = €1.61');
   expect(screen.getByRole('slider', { name: 'Share of your peak use moved to off-peak' })).toHaveAttribute('aria-valuetext', '10%');
 });

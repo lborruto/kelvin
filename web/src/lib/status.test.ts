@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Override, Radiator, Room } from './api/types';
 import { applyLocale } from './i18n';
-import { isOffline, roomReading, roomStatus, sharedProgram } from './status';
+import { m } from './i18n';
+import { isOffline, roomReading, roomStatus, sharedProgram, whenParts } from './status';
 
 const NB = ' ';
 // Tuesday 13 October 2026, 13:48 in Paris.
@@ -165,5 +166,21 @@ describe('roomReading and helpers', () => {
     const a = rad({ program: { monday: [{ start: '07:00', end: '08:00' }], tuesday: [] } });
     const b = rad({ id: 'b', program: { tuesday: [], monday: [{ end: '08:00', start: '07:00' }] } });
     expect(sharedProgram([a, b])).not.toBeNull();
+  });
+});
+
+describe('the end of a boost (owner ruling: the day comes before « vers »)', () => {
+  afterEach(() => applyLocale('fr'));
+  const at = (iso: string) => {
+    const w = whenParts(Date.parse(iso), now);
+    return m.boost.thenProgram(w.time, w.on);
+  };
+  it('today, tomorrow and a later day', () => {
+    expect(at('2026-10-13T14:00:00Z')).toBe('Puis retour au programme vers 16:00.');
+    expect(at('2026-10-13T22:19:00Z')).toBe('Puis retour au programme demain vers 00:19.');
+    expect(at('2026-10-15T06:00:00Z')).toBe('Puis retour au programme jeudi vers 08:00.');
+    applyLocale('en');
+    expect(at('2026-10-13T22:19:00Z')).toBe('Then back to the schedule tomorrow at about 00:19.');
+    expect(at('2026-10-15T06:00:00Z')).toBe('Then back to the schedule on Thursday at about 08:00.');
   });
 });

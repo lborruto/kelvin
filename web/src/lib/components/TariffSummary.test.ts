@@ -59,7 +59,7 @@ describe('TariffSummary', () => {
   it('in English: never HC/HP', () => {
     applyLocale('en');
     render(TariffSummary, { tariff: base('hchp', { hc: 0.2, hp: 0.27 }), today: TODAY });
-    expect(screen.getByText('Peak / off-peak')).toBeInTheDocument();
+    expect(screen.getByText('Off-peak / peak')).toBeInTheDocument();
     expect(screen.getByText('Off-peak')).toBeInTheDocument();
     expect(screen.getByText('Peak')).toBeInTheDocument();
     expect(screen.getByText(/^€15\.00\/month$/)).toBeInTheDocument();

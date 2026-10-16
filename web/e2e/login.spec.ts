@@ -11,7 +11,7 @@ test('a deep link asks for the login, then comes back; logout returns to the log
   await page.getByLabel('Email').fill('demo@kelvin.local');
   await page.getByLabel('Mot de passe', { exact: true }).fill('pas-le-bon');
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(page.getByRole('alert')).toHaveText('Email ou mot de passe Cozytouch incorrect.');
+  await expect(page.getByRole('alert')).toHaveText('Cozytouch refuse cet email ou ce mot de passe.');
   await page.getByLabel('Mot de passe', { exact: true }).fill('kelvin');
   await page.getByRole('button', { name: 'Se connecter' }).click();
   await expect(page).toHaveURL(/\/schedule$/);

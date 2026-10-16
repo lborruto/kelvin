@@ -83,7 +83,7 @@ describe('PiecesView before the house is known', () => {
   it('says « Pièce introuvable » only once the house is loaded', () => {
     media.desktop.matches = false;
     render(PiecesView, { roomId: 'nope' });
-    expect(screen.getByText('Pièce introuvable.')).toBeInTheDocument();
+    expect(screen.getByText(/^Pièce introuvable/)).toBeInTheDocument();
   });
 });
 

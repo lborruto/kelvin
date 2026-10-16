@@ -41,7 +41,7 @@ const radiator = {
 describe('RadiatorPanel', () => {
   it('shows facts and toggles features', async () => {
     render(RadiatorPanel, { radiator, showControls: false, expanded: true });
-    expect(screen.getByText('HEKLA P · 1500 W')).toBeInTheDocument();
+    expect(screen.getByText('HEKLA P · 1 500 W')).toBeInTheDocument();
     expect(screen.queryByText(/100\s%/)).toBeNull();
     expect(screen.getByText('RSSI 100')).toBeInTheDocument();
     expect(screen.getByText('Infos')).toBeInTheDocument();
@@ -114,14 +114,14 @@ describe('RadiatorPanel', () => {
 
   it('titles an unnamed radiator by model and power', () => {
     render(RadiatorPanel, { radiator: { ...radiator, model: 'HEKLA V', power_w: 2000 }, showControls: false, expanded: true });
-    expect(screen.getByRole('heading', { name: /^HEKLA V · 2000\u00a0W/ })).toBeInTheDocument();
-    expect(screen.getAllByText('HEKLA V · 2000 W')).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: /^HEKLA V · 2\u202f000\u00a0W/ })).toBeInTheDocument();
+    expect(screen.getAllByText('HEKLA V · 2 000 W')).toHaveLength(1);
   });
 
   it('titles a renamed radiator by its name, the facts below', () => {
     render(RadiatorPanel, { radiator: { ...radiator, name: 'Fenêtre' }, showControls: false, expanded: true });
     expect(screen.getByRole('heading', { name: /^Fenêtre/ })).toBeInTheDocument();
-    expect(screen.getByText('HEKLA P · 1500 W')).not.toHaveRole('heading');
+    expect(screen.getByText('HEKLA P · 1 500 W')).not.toHaveRole('heading');
   });
 
   it('Renommer is a labelled ghost button with its pencil, in the open row', () => {
@@ -136,7 +136,7 @@ describe('RadiatorPanel', () => {
     const { container } = render(RadiatorPanel, { radiator: { ...radiator, reachable: true }, showControls: false });
     const row = screen.getByRole('button', { expanded: false });
     expect(row.closest('h4')).not.toBeNull();
-    expect(row).toHaveTextContent(/Joignable/);
+    expect(row).toHaveTextContent(/En ligne/);
     expect(container.querySelector('.temp')!.getAttribute('style') ?? '').not.toMatch(/color/);
     expect(screen.queryByRole('button', { name: 'Faire clignoter' })).toBeNull();
     await fireEvent.click(row);

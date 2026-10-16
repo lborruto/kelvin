@@ -48,7 +48,7 @@ describe('Rooms and devices page', () => {
     expect(screen.getByRole('heading', { name: 'Box et pont Cozytouch' })).toBeInTheDocument();
     // Plain names: « Box Cozytouch », « Pont radio (io-homecontrol) »; the raw rows (role, label) in their region.
     const box = screen.getByRole('button', { name: /^Box Cozytouch/ });
-    expect(box).toHaveTextContent('Joignable');
+    expect(box).toHaveTextContent('En ligne');
     expect(screen.getByRole('button', { name: /^Pont radio \(io-homecontrol\)/ })).toHaveTextContent('— non signalé par la box');
     expect(document.getElementById(box.getAttribute('aria-controls')!)).toHaveAttribute('hidden', 'until-found');
     expect(screen.queryByText('IOStack')).not.toBeVisible();

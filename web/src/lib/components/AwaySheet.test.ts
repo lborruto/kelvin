@@ -173,7 +173,7 @@ describe('AwaySheet send', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Date précise…' }));
     await fireEvent.input(screen.getByLabelText('Date et heure du retour'), { target: { value: '2026-10-12T09:00' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Partir' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('La fin doit être dans le futur.');
+    expect(screen.getByRole('alert')).toHaveTextContent('Choisissez une fin dans le futur.');
     expect(api.houseAway).not.toHaveBeenCalled();
     expect(awaySheet.open).toBe(true);
   });

@@ -77,7 +77,7 @@ describe('RoomInspector in English', () => {
   it('a room that does not exist, once the house is known', () => {
     applyLocale('en');
     render(RoomInspector, { roomId: 'nope' });
-    expect(screen.getByText('Room not found.')).toBeInTheDocument();
+    expect(screen.getByText('Room not found: it may have been deleted.')).toBeInTheDocument();
   });
 });
 

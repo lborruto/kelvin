@@ -34,8 +34,8 @@ describe('command progress', () => {
     const store = new HouseStore(() => 0);
     store.watch('p1');
     store.applyPending(pending('sending') as never);
-    store.applyPending(pending('failed', { error: 'Pas de confirmation du radiateur.' }) as never);
-    expect(announcer.assertive).toBe('Salon : Manuel — Pas de confirmation du radiateur.');
+    store.applyPending(pending('failed', { error: 'Le radiateur n’a pas confirmé la commande.' }) as never);
+    expect(announcer.assertive).toBe('Salon : Manuel — Le radiateur n’a pas confirmé la commande.');
   });
 
   it('announces Envoi… even when the stream reported the command before the POST answered', () => {

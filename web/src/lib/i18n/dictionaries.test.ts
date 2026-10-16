@@ -88,13 +88,14 @@ export const ARGS: Record<string, unknown[]> = {
   'energyTariff.qualityRetro': [5],
   // Plan 12
   'login.leadServer': ['Flexom'],
-  'servers.locked': ['Sauter Cozytouch'],
   'roomCaps.partial': [2, 3],
   'devices.introExperimental': ['Flexom'],
   // UX foundation
   'nav.alerts': ['X', 2],
   'banner.kelvinDown': [3, '21:14'],
-  'prov.withMethod': ['A', 'B']
+  'prov.withMethod': ['A', 'B'],
+  // Batch 12: the day before « vers »
+  'boost.thenProgram': ['00:19', 'tomorrow']
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
@@ -226,6 +227,8 @@ const SCANNER_BLIND = new Set([
   'tariff.option', 'tariff.tempoEnd', 'tariff.season',
   // Login (Batch 11): « Changer » alone
   'login.change',
+  // Batch 12: « En ligne », « Ouvrir Linky »
+  'roomInfo.reachable', 'devices.reachable', 'energyPage.settings',
   // Plan 12: no accent and no listed French word
   'support.expected', 'pilot.label', 'dryer.boost',
   // Programme redesign: figures and short words (« 7 h 30 », « … et … », « Week-end », « Raccourcis »)
