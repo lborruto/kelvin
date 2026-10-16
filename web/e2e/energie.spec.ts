@@ -50,12 +50,19 @@ async function previousMonth(page: Page) {
   await expect(label).not.toHaveText(month);
   await settled(page);
 }
-/** Mois and Année show the Courbe as its summary row: open it (Jour and Semaine show it open). */
+/** Mois opens the Courbe in a sheet from its board widget (« par demi-heure › »); Jour and Semaine show it on the board. */
 async function openCurve(page: Page) {
-  const b = page.locator('#curve-title');
-  await expect(b).toBeVisible();
-  if ((await b.getAttribute('aria-expanded')) === 'false') await b.click();
+  if (!(await page.locator('#curve').isVisible())) await page.locator('.w-curve').getByRole('button', { name: /^par demi-heure, courbe du / }).click();
   await expect(page.locator('#curve').getByRole('slider', { name: SCRUB })).toBeVisible();
+  // The sheet has finished rising (phone) or scaling in (desktop): boxes measured now are final.
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getComputedTiming().endTime === Infinity));
+}
+/** The Courbe sheet (Mois) is modal: close it before using the page behind. */
+async function closeCurve(page: Page) {
+  if (await page.locator('dialog[open] #curve').count()) {
+    await page.keyboard.press('Escape');
+    await expect(page.locator('dialog[open] #curve')).toHaveCount(0);
+  }
 }
 /** One of the export menu's files: the header menu (desktop « Exporter », phone « ⋯ »). */
 async function exportItem(page: Page, name: string | RegExp): Promise<Locator> {
@@ -106,6 +113,7 @@ test.describe('Énergie', () => {
     expect(heights.filter((h) => h > 0).length).toBeGreaterThan(0);
     await openCurve(page);
     await expect(page.getByRole('img', { name: /^Consommation par demi-heure le / })).toBeVisible();
+    await closeCurve(page);
     await page.getByRole('radio', { name: 'Mois' }).focus();
     await page.keyboard.press('ArrowRight');
     await expect(page.getByRole('img', { name: 'Consommation de la maison par mois' })).toBeVisible();
@@ -176,7 +184,8 @@ test.describe('Énergie', () => {
     await expect(bar).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.locator('#curve-title')).toHaveText(new RegExp(`^\\s*Courbe du ${title.replace(/^\p{L}+ /u, '')}`, 'i'));
-    await expect(page.locator('#curve-title')).toHaveAttribute('aria-expanded', 'true');
+    // Mois: the Courbe opens in its sheet over the board.
+    await expect(page.locator('dialog[open] #curve')).toBeVisible();
     await expect(page.locator('div.visually-hidden[role="status"][aria-live="polite"]')).toContainText(/^Courbe du /);
   });
 
@@ -295,13 +304,15 @@ test.describe('Énergie', () => {
     for (const l of days) if (l.split(';')[3] === '') expect(l.split(';')[12]).toBe('');
 
     await openCurve(page);
-    const day = (await page.locator('#curve-title .dtitle').textContent())!.replace(/^Courbe du /, '');
+    const day = (await page.locator('#curve-title').textContent())!.trim().replace(/^Courbe du /, '');
+    const points = Number(await page.locator('#curve').getByRole('slider', { name: SCRUB }).getAttribute('aria-valuemax')) + 1;
+    await closeCurve(page);
     const curve = await csvRows(page, await exportItem(page, /^Exporter la courbe du /));
     expect(curve.name).toMatch(/^courbe_\d{4}-\d{2}-\d{2}\.csv$/);
     expect(curve.rows[0]).toBe(CURVE_HEADER);
     const n = curve.rows.length - 1;
     expect([46, 48, 50]).toContain(n);
-    await expect(page.locator('#curve').getByRole('slider', { name: SCRUB })).toHaveAttribute('aria-valuemax', String(n - 1));
+    expect(points).toBe(n);
     for (const r of curve.rows.slice(1)) {
       const c = r.split(';');
       expect(c).toHaveLength(10);
@@ -338,6 +349,7 @@ test.describe('Énergie', () => {
     await keys.nth(2).focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('#curve-title')).toHaveText(/^\s*Courbe du 3 /);
+    await closeCurve(page);
     await page.getByRole('radio', { name: 'Jour', exact: true }).click();
     await settled(page);
     const one = await csvRows(page, await exportItem(page, 'Exporter la période (CSV)'));
@@ -395,6 +407,7 @@ test.describe('Énergie', () => {
     await action.click();
     await expect(page.locator('#curve-title')).toHaveText(new RegExp(`^\\s*Courbe du ${d} `));
     await expect(sheet).toBeVisible(); // the pin stays while its day's Courbe opens
+    await closeCurve(page);
     await tapBar();
     await expect(sheet).toBeHidden();
   });
@@ -448,6 +461,7 @@ test.describe('Énergie', () => {
       const [d] = label.replace(/^Voir la courbe du /, '').split('/'); // « 3/10 »
       await expect(page.locator('#curve-title')).toHaveText(new RegExp(`^\\s*Courbe du ${d} `));
       expect(await overflow(page)).toBeLessThanOrEqual(0);
+      await closeCurve(page);
     }
   });
 
@@ -463,9 +477,14 @@ test.describe('Énergie', () => {
       const kwh = await panel.locator('.rooms > li .kwh .fig').evaluateAll((els) => els.map((e) => Number(e.textContent!.replace(/[^\d,]/g, '').replace(',', '.'))));
       expect(kwh.length, `rooms in ${view}`).toBeGreaterThan(0);
       expect([...kwh].sort((a, b) => b - a), `ranked in ${view}`).toEqual(kwh);
-      // Température et chauffe sits inside the panel in Jour and Semaine only.
-      await expect(panel.getByRole('heading', { name: 'Température et chauffe' })).toHaveCount(view === 'Jour' || view === 'Semaine' ? 1 : 0);
+      // Température et chauffe is its own widget in Jour and Semaine only.
+      await expect(page.getByRole('heading', { name: 'Température et chauffe' })).toHaveCount(view === 'Jour' || view === 'Semaine' ? 1 : 0);
+      // The full section is collapsed until « Tout voir › »; the board's widget is its summary.
+      await expect(panel).toBeHidden();
+      await expect(page.locator('.w-where')).toBeVisible();
     }
+    await page.locator('.w-where').getByRole('link', { name: 'Tout voir' }).click();
+    await expect(panel).toBeVisible();
     const toggle = panel.locator('.rooms button.name').first();
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -506,6 +525,68 @@ test.describe('Énergie', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const analysis = page.locator('.analysis');
     for (const b of await analysis.locator('.dbtn').all()) await expect(b).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+test.describe('Énergie Tableau board', () => {
+  test.skip(({ isMobile }) => isMobile, 'explicit widths');
+
+  test('1440: Mois puts the bars beside the Résumé, then the split, the Courbe’s day and the rooms in one row; Jour leads with the Courbe', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/energy');
+    await settled(page);
+    const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
+    const bars = await box('.bars-w');
+    const hero = await box('.hero');
+    expect(Math.abs(bars.y - hero.y), 'bars and Résumé on one row').toBeLessThan(2);
+    expect(hero.x).toBeGreaterThan(bars.x + bars.width);
+    const row = [await box('#offpeak'), await box('.w-curve'), await box('.w-where')];
+    expect(new Set(row.map((b) => Math.round(b.y))).size, 'one row of three').toBe(1);
+    // One Courbe and one Où part on the page: the full ones open from the widgets.
+    await expect(page.locator('#curve')).toHaveCount(0);
+    await expect(page.locator('#energy-where')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Exporter (CSV)' })).toHaveCount(0);
+    // The Chauffage key figure opens the rooms and lands on them, again after « Replier la liste ».
+    const where = page.locator('#energy-where');
+    for (let i = 0; i < 2; i++) {
+      await page.evaluate(() => scrollTo(0, 0));
+      await page.locator('.hero .keys a[href="#energy-where"]').click();
+      await expect(where).toBeVisible();
+      await expect(where).toBeInViewport();
+      await page.getByRole('button', { name: 'Replier la liste' }).click();
+      await expect(where).toBeHidden();
+    }
+    await page.evaluate(() => scrollTo(0, 0));
+    // « par demi-heure › » opens the full Courbe in a sheet.
+    await page.locator('.w-curve').getByRole('button', { name: /^par demi-heure, courbe du / }).click();
+    await expect(page.locator('dialog[open] #curve')).toBeVisible();
+    await closeCurve(page);
+    await expect(page.locator('.w-curve').getByRole('button', { name: /^par demi-heure, courbe du / })).toBeFocused();
+    await page.getByRole('radio', { name: 'Jour', exact: true }).click();
+    await settled(page);
+    const curve = await box('#curve');
+    const dayHero = await box('.hero');
+    expect(Math.abs(curve.y - dayHero.y), 'Courbe and Résumé on one row').toBeLessThan(2);
+    expect(dayHero.x).toBeGreaterThan(curve.x + curve.width);
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test('390: the Résumé comes first, then the evidence; the summary widgets open the full Courbe and rooms', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/energy');
+    await settled(page);
+    const hero = (await page.locator('.hero').boundingBox())!;
+    const bars = (await page.locator('.bars-w').boundingBox())!;
+    expect(hero.y).toBeLessThan(bars.y);
+    await expect(page.locator('.w-where')).toBeVisible();
+    await expect(page.locator('.w-curve')).toBeVisible();
+    await page.locator('.w-curve').getByRole('button', { name: /^par demi-heure, courbe du / }).click();
+    await expect(page.locator('dialog[open] #curve')).toBeVisible();
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+    await closeCurve(page);
+    await page.locator('.w-where').getByRole('link', { name: 'Tout voir' }).click();
+    await expect(page.locator('#energy-where')).toBeInViewport();
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
   });
 });
 
@@ -643,7 +724,7 @@ test.describe('Énergie Résumé and context (UX batch 6)', () => {
     await expect(bar).not.toHaveClass(/shown/);
   });
 
-  test('the hero Fiche, the export menu and the ghost button: open at 320 px without sideways scroll', async ({ page }) => {
+  test('the hero Fiche and the export menu: open at 320 px without sideways scroll; the menu downloads', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 800 });
     await page.goto('/energy');
     await settled(page);
@@ -657,15 +738,10 @@ test.describe('Énergie Résumé and context (UX batch 6)', () => {
     const item = await exportItem(page, 'Exporter la période (CSV)');
     await expect(item).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(0);
-    await page.keyboard.press('Escape');
-    // The same files at the end of the page.
-    const ghost = page.getByRole('button', { name: 'Exporter (CSV)' });
-    await ghost.scrollIntoViewIfNeeded();
-    const [dl] = await Promise.all([page.waitForEvent('download'), (async () => {
-      await ghost.click();
-      await page.getByRole('menuitem', { name: 'Exporter la période (CSV)' }).click();
-    })()]);
+    const [dl] = await Promise.all([page.waitForEvent('download'), item.click()]);
     expect(dl.suggestedFilename()).toMatch(/^energie_.*_day\.csv$/);
+    // One export button: the header's (no second one at the end of the page).
+    await expect(page.getByRole('button', { name: 'Exporter (CSV)' })).toHaveCount(0);
   });
 
   test('desktop: the hero figure by keyboard: Enter opens the Fiche with its Source and Nature, Esc gives focus back', async ({ page }) => {

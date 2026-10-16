@@ -1,11 +1,12 @@
 <script lang="ts">
   import type { HcLens, TariffOption, TempoLens } from '$lib/api/types';
-  import { fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
-  import { SERIES, seriesBackground } from '$lib/energy';
+  import { fmtEurExact, fmtKwhExact, fmtKwhParts, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
+  import { SERIES } from '$lib/energy';
   import { m } from '$lib/i18n';
   import { ROUTES, ENERGY_ANCHORS } from '$lib/paths';
   import { shiftValue } from '$lib/power';
   import Disclosure from './Disclosure.svelte';
+  import Swatch from './Swatch.svelte';
   import TempoRows from './TempoRows.svelte';
 
   interface Props {
@@ -15,11 +16,17 @@
     hpKwh: number | null;
     option?: TariffOption | null;
     tempo?: TempoLens | null;
+    /** The period's kWh and its HC kWh: the ring's words, matched to the total (Tableau board). */
+    kwh?: number | null;
+    hcKwh?: number | null;
     class?: string;
   }
-  let { lens, tariff, hpKwh, option = null, tempo = null, class: cls = '' }: Props = $props();
+  let { lens, tariff, hpKwh, option = null, tempo = null, kwh = null, hcKwh = null, class: cls = '' }: Props = $props();
+  let words = $derived(kwh != null && hcKwh != null && hpKwh != null ? fmtKwhParts(kwh, [hcKwh, hpKwh]).parts : null);
   const uid = $props.id();
   let pct = $state(10);
+  /** The ring's circumference (r = 44). */
+  const C = 2 * Math.PI * 44;
   let value = $derived(lens && lens.delta_price != null && hpKwh != null ? shiftValue(pct / 100, hpKwh, lens.delta_price) : null);
 </script>
 
@@ -36,10 +43,23 @@
       <strong class="num big">{fmtPct1(lens?.hc_share)}</strong>{#if lens?.hc_share != null && lens.slot_share != null}{' '}<span class="muted">{m.energyUi.hcLine(fmtPct1(lens.slot_share))}</span>{/if}
     </p>
     {#if lens?.hc_share != null}
-      <!-- The split as a meter: heures creuses (light blue, hatched) then heures pleines (dark blue). -->
-      <div class="split" aria-hidden="true">
-        <span class="hc" style:flex-basis="{Math.min(1, Math.max(0, lens.hc_share)) * 100}%" style:background={seriesBackground('hc')}></span>
-        <span class="hp" style:background={SERIES.hp}></span>
+      {@const f = Math.min(1, Math.max(0, lens.hc_share))}
+      <!-- The split as a ring (Tableau « Heures creuses / pleines »): heures pleines (dark blue) all round, heures creuses
+           (light blue, hatched) from 12 o'clock. Decorative: the sentence above and the hidden line say it. -->
+      <div class="ring">
+      <svg class="donut" viewBox="0 0 116 116" width="116" height="116" aria-hidden="true">
+        <circle cx="58" cy="58" r="44" fill="none" stroke={SERIES.hp} stroke-width="18" />
+        {#if f > 0}
+          <circle cx="58" cy="58" r="44" fill="none" stroke={SERIES.hc} stroke-width="18" stroke-dasharray="{Math.max(0, C * f - (f < 1 ? 2 : 0))} {C}" transform="rotate(-90 58 58)" />
+          <circle cx="58" cy="58" r="44" fill="none" stroke="url(#hc-hatch)" stroke-width="18" stroke-dasharray="{Math.max(0, C * f - (f < 1 ? 2 : 0))} {C}" transform="rotate(-90 58 58)" />
+        {/if}
+      </svg>
+      {#if words}
+        <p class="rw num" aria-hidden="true">
+          <span><Swatch series="hc" />{m.energyUi.hcPart(words[0])}</span>
+          <span><Swatch series="hp" />{m.energyUi.hpPart(words[1])}</span>
+        </p>
+      {/if}
       </div>
       <p class="visually-hidden">{m.hcHp.share} {fmtPct1(lens.hc_share)}, {m.hcHp.slots(fmtPct1(lens.slot_share))}</p>
     {:else}
@@ -90,23 +110,27 @@
     margin-top: 8px;
     border-top: 1px solid var(--line);
   }
-  .split {
+  .ring {
     display: flex;
-    gap: 1px;
-    height: 6px;
-    margin-top: 8px;
-    border-radius: 3px;
-    overflow: hidden;
-    background: var(--in);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 18px;
+    margin-top: 10px;
   }
-  .split span {
-    min-width: 0;
-  }
-  .split .hc {
+  .donut {
+    display: block;
     flex: none;
   }
-  .split .hp {
-    flex: 1 1 auto;
+  .rw {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    font-size: 13.5px;
+  }
+  .rw span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
   }
   .figs div {
     display: flex;

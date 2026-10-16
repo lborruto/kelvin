@@ -300,6 +300,17 @@ export function fmtW(v: number | null | undefined): string {
   return Math.abs(w) < 1000 ? `${signed(whole(), w)}${NB}W` : `${signed(two(), v / 1000)}${NB}kW`;
 }
 
+/** The decimals `fmtEurHero` shows for a figure: 2 below 1 000 €, else 0. */
+export function eurDigits(v: number): 0 | 2 {
+  return Math.abs(Math.round(v * 100) / 100) < 1000 ? 2 : 0;
+}
+
+/** Euros at given decimals (a hero figure's parts, matched to it): « 92,39 € », « 1 412 € ». */
+export function fmtEurAt(v: number | null | undefined, digits: 0 | 2): string {
+  if (bad(v)) return '—';
+  return euro(signed(digits === 2 ? two() : whole(), v));
+}
+
 /** Hero and sentence euros: 2 decimals below 1 000 €, then whole euros (« 98,40 € », “€98.40”, “€1,234”). */
 export function fmtEurHero(v: number | null | undefined): string {
   if (bad(v)) return '—';

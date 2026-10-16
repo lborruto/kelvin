@@ -4,9 +4,11 @@
   import type { LinkyStatus } from '$lib/api/types';
   import AlertCallout from '$lib/components/AlertCallout.svelte';
   import ComparePanel from '$lib/components/ComparePanel.svelte';
+  import CurveMini from '$lib/components/CurveMini.svelte';
   import CurvePanel from '$lib/components/CurvePanel.svelte';
   import EnergyBars from '$lib/components/EnergyBars.svelte';
   import EnergyHero from '$lib/components/EnergyHero.svelte';
+  import EnergyMonths from '$lib/components/EnergyMonths.svelte';
   import EnergyWhere from '$lib/components/EnergyWhere.svelte';
   import type { FicheRow } from '$lib/components/FicheBody.svelte';
   import GridChips from '$lib/components/GridChips.svelte';
@@ -21,16 +23,21 @@
   import QualityPanel from '$lib/components/QualityPanel.svelte';
   import RoomDayPanel from '$lib/components/RoomDayPanel.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
+  import Sheet from '$lib/components/Sheet.svelte';
   import SourceLine from '$lib/components/SourceLine.svelte';
   import Swatch from '$lib/components/Swatch.svelte';
-  import { addDays, bucketLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
+  import TempoRows from '$lib/components/TempoRows.svelte';
+  import WhereTop from '$lib/components/WhereTop.svelte';
+  import type { TempoColour, TempoCounts } from '$lib/api/types';
+  import { addDays, bucketLabel, spanLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
   import { exportActions } from '$lib/export';
   import { freshness } from '$lib/freshness';
-  import { fmtDateLong, fmtDay, fmtTime, monthYear } from '$lib/format';
+  import { fmtDateLong, fmtDay, fmtEurHero, fmtKwhHero, fmtTime, monthName, monthYear } from '$lib/format';
   import { apiMessage, m } from '$lib/i18n';
   import { inspectBucket } from '$lib/inspector';
+  import { desktop } from '$lib/media.svelte';
   import { reducedMotion } from '$lib/motion';
-  import { ANCHORS, ROUTES } from '$lib/paths';
+  import { ANCHORS, ENERGY_ANCHORS, ROUTES } from '$lib/paths';
   import { provenance, when } from '$lib/provenance';
   import { alerts } from '$lib/stores/alerts.svelte';
   import { auth } from '$lib/stores/auth.svelte';
@@ -47,6 +54,8 @@
   let selectedBar = $state<number | null>(null);
   /** Mois and Année: the Courbe is collapsed to its summary line until opened (or a bar drills into it). */
   let curveOpen = $state(false);
+  /** « Où part l’énergie », the full per-room section: collapsed (findable) until « Tout voir › » or a link opens it. */
+  let whereOpen = $state(false);
   let navEl = $state<HTMLElement>();
   // The clock the source line and its Fiche read (« il y a 3 min »), ticking once a minute.
   let now = $state(Date.now());
@@ -104,6 +113,7 @@
     if (v === curveView) return;
     curveView = v;
     curveOpen = false;
+    whereOpen = false;
   });
   let chart = $derived(loaded?.chart ?? null);
   // The report renders with the Linky line as soon as both answers are in, so nothing above it
@@ -169,14 +179,56 @@
   // l'énergie », under the rooms, sharing the Courbe's scrubber. It holds its place (a skeleton) until the house is
   // known, so nothing below moves.
   let roomDay = $derived(!!loaded && loaded.main.linky && (loaded.view === 'day' || loaded.view === 'week'));
-  // Analyse: Puissance (Jour, Semaine), Heures creuses, Comparaisons, Projection; four cards go two by two, three abreast.
-  let cards = $derived(!loaded || !loaded.main.linky ? 0 : loaded.view === 'day' || loaded.view === 'week' ? 4 : 3);
   // Puissance in Jour reads the period's own day, never another day still on screen.
   let powerDay = $derived(loaded && (loaded.view !== 'day' || data.day?.date === loaded.period.from) ? data.day : null);
   // A period running into today counts its radiators up to yesterday.
   let running = $derived(!!loaded && loaded.period.to > today.iso);
   // The radiator figures and room stats count elapsed days only, up to yesterday (not up to the last Linky day).
   let elapsed = $derived(loaded ? dataSpan(loaded.period, addDays(today.iso, -1)) : null);
+
+  // ---- Tableau board (spec §4 Énergie): which widgets sit where. Presentation only: every figure below is one the
+  // components already show (the report's, through $lib/format and $lib/inspector). ----
+  /** Jour and Semaine lead with the Courbe; Mois and Année with the bars. */
+  let dayish = $derived(!!loaded && (loaded.view === 'day' || loaded.view === 'week'));
+  /** The six Tempo rows replace the HC/HP card only when the price row in force is Tempo (`tempo_lens` is null else). */
+  let tempoLens = $derived(main?.option === 'tempo' ? (main.tempo_lens ?? null) : null);
+  const colourOf = (t: TempoCounts): TempoColour | null => (t.red > 0 ? 'red' : t.white > 0 ? 'white' : t.blue > 0 ? 'blue' : null);
+  // A dot under each day bar, Tempo in force only; a day whose colour is unknown gets the unknown (dashed) dot.
+  let tempoDots = $derived(
+    main?.option === 'tempo' && chart?.linky && group === 'day' ? bars.map((b) => (b.tempo ? colourOf(b.tempo) : undefined)) : null
+  );
+  // Année, the year holding the last day: the running month drawn dashed to its full-month projection (an estimate,
+  // said in the note under the chart).
+  let ghost = $derived.by(() => {
+    const pm = main?.projection?.month;
+    if (!loaded || loaded.view !== 'year' || !data.latest || !pm || group !== 'month') return null;
+    const index = bars.findIndex((b) => b.key === pm.key);
+    return index >= 0 ? { index, value: pm.kwh, key: pm.key, label: m.projection.approx(pm.eur != null ? fmtEurHero(pm.eur) : fmtKwhHero(pm.kwh)) } : null;
+  });
+  /** The house chart's title: the kWh of the period beside it in Mois and Année; Jour's bars are the 7 days to the day. */
+  let barsTitle = $derived(
+    loaded?.view === 'day' && chart?.linky ? m.energyBoard.sevenDays(fmtDay(loaded.period.from)) : chart?.linky ? m.energyPage.houseTitle : m.energyPage.radTitle
+  );
+  let barsAside = $derived(loaded && !dayish && main ? (chart?.linky ? fmtKwhHero(main.period.kwh) : fmtKwhHero(main.period.radiators?.kwh)) : null);
+  let barsHeight = $derived(dayish ? 140 : desktop.matches ? 300 : 160);
+  let whereAside = $derived(elapsed ? spanLabel(elapsed) || m.roomsEnergy.day(fmtDateLong(elapsed.from)) : null);
+  /** Mois: the Courbe opens in a sheet over the board (« par demi-heure › », a day bar's drill). */
+  let curveTrigger = $state<HTMLElement | null>(null);
+  function openCurve(e?: Event) {
+    curveTrigger = (e?.currentTarget as HTMLElement | null) ?? null;
+    curveOpen = true;
+  }
+  function openWhere() {
+    whereOpen = true;
+  }
+  /** A key figure's link: its section opens first (the rooms; the Courbe's sheet in Mois). */
+  function reveal(id: string) {
+    if (id === ENERGY_ANCHORS.where) whereOpen = true;
+    else if (id === ANCHORS.curve && loaded?.view === 'month') curveOpen = true;
+  }
+
+  // Analyse: Comparaisons and Projection (and Heures creuses / pleines when the Tempo rows took its place in the board).
+  let cards = $derived(!loaded || !loaded.main.linky ? 0 : tempoLens ? 3 : 2);
 
   /** Runs a navigation and, when it changes the view or the period, says the new period once (all four ways in:
    * the views, ‹ ›, « Dernier jour », a bar drill). A failure is said by the error line (role alert). */
@@ -195,9 +247,10 @@
     const opensCurve = group === 'day' && loaded.view !== 'day';
     navigate(() => data.drill(b.key));
     if (opensCurve) {
+      curveTrigger = document.activeElement as HTMLElement | null;
       curveOpen = true;
       announcer.say(m.energyPage.curveShown(fmtDateLong(b.key)));
-      document.getElementById(ANCHORS.curve)?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+      if (loaded.view !== 'month') document.getElementById(ANCHORS.curve)?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
     }
   }
   function drillLabel(i: number): string | null {
@@ -259,20 +312,13 @@
 
 <svelte:head><title>{m.page.title(m.nav.energy)}</title></svelte:head>
 
+<!-- Header (spec §4 Énergie): « Énergie », the views, ‹ period ›, Exporter on one row from 1280 px, two rows (title and
+     Exporter, then the views and the period) from 1024 px; on a phone the title and its « ⋯ », the views, the period. -->
 <div class="top">
   <div class="title"><PageHeader title={m.nav.energy} /></div>
   <div class="views">
     <Segmented options={VIEWS.map((v) => ({ value: v, label: m.energy.views[v] }))} value={data.view} label={m.energyPage.views} onchange={(v) => navigate(() => data.setView(v))} />
   </div>
-  <div class="export">
-    {#if canExport}
-      <span class="desk"><Menu label={m.energyUi.export} text={m.energyUi.export} icon="download" items={exportItems} footer={m.energyUi.exportFormat} /></span>
-      <span class="phone"><Menu label={m.energyUi.export} items={exportItems} footer={m.energyUi.exportFormat} /></span>
-    {/if}
-  </div>
-</div>
-
-<div class="context">
   <div class="nav-wrap" bind:this={navEl}>
     {#if data.period}
       <PeriodNav
@@ -286,12 +332,20 @@
       <div class="skeleton nav-sk" aria-hidden="true"></div>
     {/if}
   </div>
-  <div class="signals">
-    {#if ready && linkyLine}
-      <SourceLine source="Linky" text={linkyLine.text} state={linkyLine.state} title={m.energyUi.linkyTitle} rows={linkyLine.rows} provenance={linkyLine.prov} />
+  <div class="export">
+    {#if canExport}
+      <span class="desk"><Menu label={m.energyUi.export} text={m.energyUi.export} icon="download" items={exportItems} footer={m.energyUi.exportFormat} /></span>
+      <span class="phone"><Menu label={m.energyUi.export} items={exportItems} footer={m.energyUi.exportFormat} /></span>
     {/if}
-    {#if ready}<GridChips />{/if}
   </div>
+</div>
+
+<!-- Context row: the Linky source line, the Tempo chips (Tempo only) and the EcoWatt chip. -->
+<div class="context">
+  {#if ready && linkyLine}
+    <SourceLine source="Linky" text={linkyLine.text} state={linkyLine.state} title={m.energyUi.linkyTitle} rows={linkyLine.rows} provenance={linkyLine.prov} />
+  {/if}
+  {#if ready}<GridChips />{/if}
 </div>
 {#if data.period}
   <PeriodBar title={periodTitle(data.view, data.period)} view={m.energy.views[data.view]} canPrev={data.canPrev} canNext={data.canNext} onstep={step} anchor={navEl} />
@@ -303,51 +357,11 @@
 {/if}
 {#if ready}{#each alerts.of(['price_change', 'consent_expiring', 'linky_stalled', 'hc_changed']) as a (a.id)}<AlertCallout alert={a} />{/each}{/if}
 
-{#if !ready}
-  {#if !data.error}
-    <!-- First load: panels in their final shape (Résumé, chart, Courbe, a long panel). -->
-    <div class="cq"><div class="panels" aria-hidden="true">
-      <div class="skeleton panel-sk wide hero-sk"></div>
-      {#each [262, 236, 300] as h, i (i)}<div class="skeleton panel-sk wide" style:height="{h}px"></div>{/each}
-    </div></div>
-  {/if}
-{:else if loaded && main && chart}
-<div class="cq">
-{#if linky?.state === 'off'}
-  <!-- No Linky: an invitation, then the radiators alone (direction-2 §2 States). -->
-  <section class="invite" aria-labelledby="invite-title">
-    <span class="glyph" aria-hidden="true"><Icon name="energy" size={18} /></span>
-    <div>
-      <h2 id="invite-title">{m.energyUi.noLinkyTitle}</h2>
-      <p>{m.energyUi.noLinkyBody}</p>
-      <a class="btn" href="{ROUTES.linky}">{m.energyUi.noLinkyCta}</a>
-    </div>
-  </section>
-{/if}
-<!-- Another view has other panels (Puissance, Température et chauffe, a collapsed Courbe): the panels are drawn anew
-     for it, so the view's report replaces the previous view's content instead of moving it (no layout shift when a
-     slow report lands). Within a view the same panels stay, dimmed while a new period loads. -->
-{#key loaded.view}
-<!-- Dimmed while a new period loads, and while a failed one leaves the previous period shown. -->
-<div class="panels" class:busy aria-busy={data.loading}>
-  <EnergyHero report={main} view={loaded.view} last={data.last} latest={data.latest} linkyState={linky?.state ?? null}
-    syncAt={linky?.last_ok_at != null ? linky.last_ok_at * 1000 : null} first={data.first} ongofirst={toFirst} />
-
-  <section class="panel wide">
-    {#if chart.linky}
-      <h2>{m.energyPage.houseTitle}</h2>
-      <EnergyBars
-        {groups}
-        {colors}
-        {names}
-        {overlay}
-        {details}
-        unit="kWh"
-        label={m.energyPage.houseChart(unitWord)}
-        bind:selected={selectedBar}
-        ondrill={drill}
-        {drillLabel}
-        onswipe={step} />
+{#snippet barsPanel()}
+  <section class="panel bars-w" class:span2={!dayish} aria-labelledby="bars-title">
+    <div class="whead">
+      <div class="wtitle"><h2 id="bars-title">{barsTitle}</h2>{#if barsAside}<span class="aside num">{' · '}{barsAside}</span>{/if}</div>
+      {#if chart?.linky}
       <ul class="legend">
         {#if anySplit}
           <li><Swatch series="hc" />{m.energyPage.hc}</li>
@@ -357,10 +371,29 @@
           <li><Swatch series="home" />{homeName}</li>
         {/if}
         <li><Swatch series="radiators" line />{m.energyPage.radiators}</li>
+        {#if tempoDots}<li>{m.energyBoard.tempoTitle}</li>{/if}
       </ul>
+      {/if}
+    </div>
+    {#if chart?.linky}
+      <EnergyBars
+        {groups}
+        {colors}
+        {names}
+        {overlay}
+        {details}
+        unit="kWh"
+        label={m.energyPage.houseChart(unitWord)}
+        height={barsHeight}
+        tempo={tempoDots}
+        ghost={ghost ? { index: ghost.index, value: ghost.value } : null}
+        bind:selected={selectedBar}
+        ondrill={drill}
+        {drillLabel}
+        onswipe={step} />
+      {#if ghost}<p class="muted small">{m.energyBoard.yearGhost(monthName(`${ghost.key}-01`), ghost.label)}</p>{/if}
       {#if trimmed > 0 && chart.linky_since}<p class="muted small">{m.energyPage.linkySince(fmtDateLong(chart.linky_since))}</p>{/if}
     {:else}
-      <h2>{m.energyPage.radTitle}</h2>
       <EnergyBars
         {groups}
         colors={{ rad: SERIES.radiators }}
@@ -368,14 +401,55 @@
         {details}
         unit="kWh"
         label={m.energyPage.radChart(unitWord)}
+        height={barsHeight}
         bind:selected={selectedBar}
         ondrill={drill}
         {drillLabel}
         onswipe={step} />
     {/if}
   </section>
+{/snippet}
 
-  {#if main.linky && data.dayIso}
+{#snippet tempoPanel()}
+  {#if tempoLens}
+    <section class="panel tempo-w" aria-labelledby="tempo-title">
+      <h3 id="tempo-title">{m.energyBoard.tempoTitle}</h3>
+      <TempoRows lens={tempoLens} />
+      <p class="muted small">{m.energyBoard.tempoNote}</p>
+    </section>
+  {/if}
+{/snippet}
+
+{#if !ready}
+  {#if !data.error}
+    <!-- First load: the board in its final shape (bars and Résumé, then a row of three, then a long panel). -->
+    <div class="cq"><div class="panels sk-board" aria-hidden="true">
+      <div class="skeleton panel-sk span2" style:height="330px"></div>
+      <div class="skeleton panel-sk hero-sk"></div>
+      {#each [236, 236, 236] as h, i (i)}<div class="skeleton panel-sk" style:height="{h}px"></div>{/each}
+    </div></div>
+  {/if}
+{:else if loaded && main && chart}
+<div class="cq">
+{#if linky?.state === 'off'}
+  <!-- No Linky: an invitation, then the radiators alone (spec §4 « Sans Linky »). -->
+  <section class="invite" aria-labelledby="invite-title">
+    <span class="glyph" aria-hidden="true"><Icon name="energy" size={24} /></span>
+    <div class="itext">
+      <h2 id="invite-title">{m.energyUi.noLinkyTitle}</h2>
+      <p>{m.energyUi.noLinkyBody}</p>
+    </div>
+    <a class="btn btn-primary" href="{ROUTES.linky}">{m.energyUi.noLinkyCta}</a>
+  </section>
+{/if}
+<!-- Another view has other widgets: the board is drawn anew for it, so the view's report replaces the previous view's
+     content instead of moving it (no layout shift when a slow report lands). Within a view the same widgets stay,
+     dimmed while a new period loads. -->
+{#key loaded.view}
+<div class="panels" class:dayish class:year={loaded.view === 'year'} class:busy aria-busy={data.loading}>
+  {#if !dayish}{@render barsPanel()}{/if}
+
+  {#if dayish && main.linky && data.dayIso}
     <CurvePanel
       dayIso={data.dayIso}
       day={data.day}
@@ -389,45 +463,78 @@
       curveSince={main.quality.curve_since}
       quota={linky?.state === 'quota'}
       bar={dayBar}
-      collapsible={loaded.view === 'month' || loaded.view === 'year'}
-      bind:open={curveOpen}
+      chartHeight={desktop.matches ? 320 : 170}
       bind:index={scrub} />
   {/if}
-  <EnergyWhere
-    heating={main.heating}
-    radiators={main.period.radiators}
-    restKwh={main.period.rest_kwh}
-    {running}
-    linky={main.linky}
-    rows={main.by_radiator}
-    span={elapsed ?? loaded.period}
-    tariff={main.tariff}
-    split={main.option !== 'base'}
-    onroom={(id) => roomDay && data.setRoom(id)}
-    class="wide">
-    {#if roomDay && data.dayIso}
-      <RoomDayPanel
-        day={data.day}
-        dayIso={data.dayIso}
-        room={data.room}
-        onroom={(id) => data.setRoom(id)}
-        error={data.dayError?.() ?? null}
-        onretry={() => data.retryDay()}
-        heading="h3"
-        bind:index={scrub}
-        class="inner" />
+
+  <EnergyHero report={main} view={loaded.view} last={data.last} latest={data.latest} linkyState={linky?.state ?? null}
+    syncAt={linky?.last_ok_at != null ? linky.last_ok_at * 1000 : null} first={data.first} ongofirst={toFirst} onreveal={reveal} />
+
+  {#if dayish}{@render barsPanel()}{/if}
+
+  {#if main.linky}
+    <!-- Row 2: Jour and Semaine: Puissance, the split, the rooms; Mois: the split, the Courbe's day, the rooms; Année:
+         the months, then the split. -->
+    {#if loaded.view === 'year'}
+      <EnergyMonths class="span2" keys={bars.map((b) => b.key)} {details} last={data.last} onopen={drill} />
     {/if}
-  </EnergyWhere>
+    {#if dayish}
+      <PowerPanel view={loaded.view} day={powerDay} week={main.period.curve} failed={!!data.dayError} />
+    {/if}
+    {#if tempoLens}{@render tempoPanel()}{:else}
+      <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} kwh={main.period.kwh} hcKwh={main.period.hc_kwh} option={main.option} tempo={null} />
+    {/if}
+    {#if loaded.view === 'month' && data.dayIso}
+      <CurveMini dayIso={data.dayIso} day={data.day} split={main.tariff} bar={dayBar} onopen={openCurve} />
+    {/if}
+    <WhereTop heating={main.heating} linky={main.linky} rows={main.by_radiator} span={elapsed ?? loaded.period}
+      tariff={main.tariff} aside={whereAside} onmore={openWhere} />
+  {/if}
+
+  {#if roomDay && data.dayIso}
+    <!-- Température et chauffe (Jour, Semaine): its own widget under the board, sharing the Courbe's scrubber. -->
+    <RoomDayPanel
+      day={data.day}
+      dayIso={data.dayIso}
+      room={data.room}
+      onroom={(id) => data.setRoom(id)}
+      error={data.dayError?.() ?? null}
+      onretry={() => data.retryDay()}
+      heading="h2"
+      bind:index={scrub}
+      class="inner wide" />
+  {/if}
+  {#if !main.linky}
+    <!-- Without Linky the rooms are the evidence: the full section, open. -->
+    <EnergyWhere heating={main.heating} radiators={main.period.radiators} restKwh={main.period.rest_kwh} {running} linky={false}
+      rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} split={main.option !== 'base'} class="wide" />
+  {:else}
+    <!-- The full per-room table (footnotes, rooms that open, lifetime counters): collapsed and findable until « Tout voir › »
+         or a link to #energy-where (fragment navigation reveals it) opens it; the board's widget is its summary. -->
+    <div class="where-wrap" hidden={whereOpen ? undefined : 'until-found'} onbeforematch={openWhere}>
+      <EnergyWhere
+        heating={main.heating}
+        radiators={main.period.radiators}
+        restKwh={main.period.rest_kwh}
+        {running}
+        linky={main.linky}
+        rows={main.by_radiator}
+        span={elapsed ?? loaded.period}
+        tariff={main.tariff}
+        split={main.option !== 'base'}
+        onroom={(id) => roomDay && data.setRoom(id)} />
+      {#if whereOpen}<button type="button" class="btn btn-ghost btn-sm fold" onclick={() => (whereOpen = false)}>{m.energyBoard.whereClose}</button>{/if}
+    </div>
+  {/if}
 
   {#if main.linky}
     <!-- Analyse: summary cards, their detail one « Détails » away. -->
     <section class="analysis wide" aria-labelledby="analysis-title">
       <h2 id="analysis-title" class="label">{m.energyUi.analysis}</h2>
       <div class="cards n{cards}">
-        {#if loaded.view === 'day' || loaded.view === 'week'}
-          <PowerPanel view={loaded.view} day={powerDay} week={main.period.curve} failed={!!data.dayError} />
+        {#if tempoLens}
+          <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} kwh={main.period.kwh} hcKwh={main.period.hc_kwh} option={main.option} tempo={null} />
         {/if}
-        <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} option={main.option} tempo={main.tempo_lens} />
         <ComparePanel comparison={main.comparison} view={loaded.view} tariff={main.tariff} />
         <ProjectionPanel projection={main.projection} last={main.last_day} today={today.iso} />
       </div>
@@ -439,22 +546,37 @@
     <QualityPanel buckets={periodBars} group={chart.group} quality={main.period.quality} class="wide" />
   {/if}
 </div>
-{#if exportItems.length}
-  <!-- Discoverability: the same menu at the end of the story (direction-2 §2 phone). -->
-  <div class="end"><Menu label={m.energyUi.export} text={m.energyUi.exportMore} icon="download" items={exportItems} footer={m.energyUi.exportFormat} /></div>
+{#if loaded.view === 'month' && main.linky && data.dayIso}
+  <!-- Mois: the full Courbe (scrubber, readout, notes) in a sheet over the board, opened by « par demi-heure › » or a day bar. -->
+  <Sheet open={curveOpen} title={m.curvePanel.heading(fmtDateLong(data.dayIso))} hideTitle tone="modal" width={920} trigger={curveTrigger}
+    onclose={() => (curveOpen = false)} class="curve-sheet">
+    <CurvePanel
+      dayIso={data.dayIso}
+      day={data.day}
+      error={data.dayError?.() ?? null}
+      view={loaded.view}
+      split={main.tariff}
+      canPrev={data.canPrevDay}
+      canNext={data.canNextDay}
+      onstep={(d) => data.stepDay(d)}
+      onretry={() => data.retryDay()}
+      curveSince={main.quality.curve_since}
+      quota={linky?.state === 'quota'}
+      bar={dayBar}
+      chartHeight={desktop.matches ? 260 : 170}
+      bind:index={scrub} />
+  </Sheet>
 {/if}
 {/key}
 </div>
 {/if}
 
 <style>
-  /* Header: « Énergie », the views, « Exporter » on one row from 1024 px; on a phone the views take their own row
-     under the title and its « ⋯ ». */
+  /* Header (spec §4 Énergie): phone: title + « ⋯ », the views, the period; one row from 1024 px. */
   .top {
-    max-width: 1180px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: 'title export' 'views views';
+    grid-template-areas: 'title export' 'views views' 'nav nav';
     align-items: center;
     gap: 8px 12px;
   }
@@ -464,6 +586,11 @@
   }
   .title :global(.page-header) {
     margin: 0;
+  }
+  .title :global(h1) {
+    font-size: var(--fs-title);
+    font-weight: 700;
+    letter-spacing: -0.025em;
   }
   .views {
     grid-area: views;
@@ -478,6 +605,13 @@
     min-width: 0;
     padding-inline: 4px;
   }
+  .nav-wrap {
+    grid-area: nav;
+    min-width: 0;
+  }
+  .nav-wrap :global(.nav) {
+    margin-top: 0;
+  }
   .export {
     grid-area: export;
     display: flex;
@@ -489,17 +623,26 @@
     display: none;
   }
   @media (min-width: 1024px) {
+    /* Two rows while the content column is narrow (title and « Exporter », then the views and the period)… */
     .top {
-      grid-template-columns: minmax(0, 1fr) auto auto;
-      grid-template-areas: 'title views export';
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas: 'title export' 'views nav';
+      gap: 8px 16px;
+    }
+    /* « Exporter » arrives with the report: its place is held so nothing beside it moves. */
+    .export {
+      min-width: 128px;
     }
     .views :global(.seg) {
       display: inline-flex;
-      width: auto;
+      width: 340px;
     }
     .views :global(.seg button) {
-      flex: none;
-      padding-inline: 14px;
+      flex: 1 1 0;
+    }
+    .nav-wrap :global(.label) {
+      flex: 0 1 auto;
+      min-width: 10.5rem;
     }
     .desk {
       display: contents;
@@ -508,50 +651,28 @@
       display: none;
     }
   }
-  /* Context row: the navigator, then the Linky source line and the grid chips; one row from 1024 px. */
-  .context {
-    max-width: 1180px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 20px;
-    margin-top: 10px;
-  }
-  .nav-wrap {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-  .nav-wrap :global(.nav) {
-    margin-top: 0;
-  }
-  .signals {
-    flex: 1 1 100%;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px 16px;
-    min-width: 0;
-    min-height: 24px;
-  }
-  .signals :global(.source-line) {
-    max-width: 100%;
-  }
-  @media (min-width: 1024px) {
-    .nav-wrap {
-      flex: 0 1 auto;
-    }
-    .nav-wrap :global(.label) {
-      flex: 0 1 auto;
-      min-width: 9rem;
-    }
-    .signals {
-      flex: 1 1 320px;
-      justify-content: flex-end;
+  /* …one row once it has room for all four. */
+  @media (min-width: 1280px) {
+    .top {
+      grid-template-columns: minmax(0, 1fr) auto auto auto;
+      grid-template-areas: 'title views nav export';
     }
   }
   .nav-sk {
     height: 44px;
-    max-width: 1180px;
+    border-radius: var(--r-pill);
+  }
+  /* Context row: Linky, Tempo (Tempo only), EcoWatt, as pills on one wrapping row. */
+  .context {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    min-height: 24px;
+    margin-top: 12px;
+  }
+  .context :global(.source-line) {
+    max-width: 100%;
   }
   .callout {
     font-size: 13px;
@@ -576,44 +697,58 @@
   .error .btn {
     color: var(--tx);
   }
+  /* « Reliez votre compteur Linky »: the glyph disc, the words, the primary; stacked on a phone. */
   .invite {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 14px;
-    padding: 14px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px 18px;
+    margin-bottom: var(--gap-w);
+    padding: 18px;
     background: var(--s1);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
+    border-radius: var(--r-widget);
   }
   .invite .glyph {
     display: grid;
-    flex: none;
     place-items: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
     background: var(--s2);
-    color: var(--mu);
+    color: var(--tx);
   }
   .invite h2 {
-    margin: 4px 0 4px;
-    font-size: 15px;
+    margin: 0 0 4px;
+    font-size: 17px;
     font-weight: 600;
   }
   .invite p {
-    margin: 0 0 12px;
-    font-size: 13px;
+    margin: 0;
+    font-size: 14px;
     color: var(--mu);
   }
-  /* The grid answers to its own width (the sidebar takes 232 px of a 1024 px screen); every section is full width. */
+  .invite .btn {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  @container (min-width: 640px) {
+    .invite {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      padding: 20px 22px;
+    }
+    .invite .btn {
+      grid-column: auto;
+    }
+  }
+  /* The board answers to its own width (the sidebar takes 220 px). One column, then from 900 px of content the
+     Tableau grid: two flexible columns and the 330 px Résumé column. */
   .cq {
     container-type: inline-size;
-    max-width: 1180px;
-    margin-top: 14px;
+    margin-top: 16px;
   }
   .panels {
     display: grid;
-    gap: 14px;
+    gap: var(--gap-w);
     grid-template-columns: minmax(0, 1fr);
   }
   .panels > :global(*) {
@@ -624,54 +759,115 @@
   .panels.busy > :global(*) {
     opacity: 0.55;
   }
+  /* Every board cell is a Tableau widget: --s1, radius 22, flat. */
   .panels > :global(.panel) {
-    padding: 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
+    padding: 16px 18px;
+    border-radius: var(--r-widget);
     background: var(--s1);
   }
-  /* Every panel's heading is a section label (DESIGN.md Typography). */
   .panels > :global(.panel) :global(h2) {
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    color: var(--tx);
+    margin: 0 0 10px;
+  }
+  /* Small widgets: the label is 12.5/600 muted (spec §1 « Widget label »). */
+  .panels > :global(.panel) > :global(h3) {
+    font-size: var(--fs-label);
+    font-weight: 600;
     color: var(--mu);
     margin: 0 0 8px;
   }
-  .panel-sk {
-    border: 1px solid var(--line);
+  /* The Résumé first on a phone (the answer, then the evidence), its skeleton too. */
+  .panels > :global(.hero),
+  .panels > .hero-sk {
+    order: -1;
   }
-  /* Analyse: a section label over summary cards; one column, two from 640 px of content, three abreast (three
-     cards) from 900 px. */
+  .whead {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 4px 14px;
+    margin-bottom: 10px;
+  }
+  .wtitle {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .panels > .bars-w .wtitle h2 {
+    display: inline;
+    margin: 0;
+  }
+  .aside {
+    font-weight: 600;
+  }
+  .panel-sk {
+    border-radius: var(--r-widget);
+  }
+  .hero-sk {
+    height: 330px;
+  }
+  @container (min-width: 900px) {
+    .panels {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 330px;
+      gap: 16px;
+    }
+    .panels > :global(.hero),
+    .panels > .hero-sk {
+      order: 0;
+    }
+    .panels > :global(.span2) {
+      grid-column: span 2;
+    }
+    .panels > :global(.wide),
+    .panels > .where-wrap,
+    .panels > :global(.analysis) {
+      grid-column: 1 / -1;
+    }
+    /* Année: the months span two rows, the split and the rooms beside them. */
+    .panels.year > :global(.months) {
+      grid-row: span 2;
+    }
+    .where-wrap[hidden] {
+      margin-top: -16px;
+    }
+    .panels > :global(.panel) {
+      padding: 18px 20px;
+    }
+    /* Jour, Semaine: the Courbe spans two columns and two rows, the Résumé and the 7 bars beside it. */
+    .panels.dayish > :global(#curve) {
+      grid-column: span 2;
+      grid-row: span 2;
+      align-self: stretch;
+    }
+  }
+  /* Analyse: a label over summary cards; two (or three) abreast from 640 px of content. */
   .analysis {
     container-type: inline-size;
   }
   .analysis .label {
-    margin: 4px 0 8px;
-    font-size: 12px;
+    margin: 6px 0 8px;
+    font-size: 13px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     color: var(--mu);
   }
   .cards {
     display: grid;
-    gap: 14px;
+    gap: var(--gap-w);
     grid-template-columns: minmax(0, 1fr);
   }
   .cards > :global(.panel) {
     min-width: 0;
-    padding: 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
+    padding: 16px 18px;
+    border-radius: var(--r-widget);
     background: var(--s1);
   }
   .cards > :global(.panel) :global(h3) {
-    font-size: 12px;
+    font-size: var(--fs-label);
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     color: var(--mu);
     margin: 0 0 8px;
   }
@@ -695,15 +891,6 @@
   .cq :global([id]) {
     scroll-margin-top: 60px;
   }
-  /* The Résumé's first-load shape: its figure, range, bar and sentence (and the key figures beside or under it). */
-  .hero-sk {
-    height: 250px;
-  }
-  @container (min-width: 640px) {
-    .hero-sk {
-      height: 190px;
-    }
-  }
   .small {
     font-size: 12px;
     margin: 6px 0 0;
@@ -712,10 +899,11 @@
     list-style: none;
     display: flex;
     flex-wrap: wrap;
-    gap: 14px;
+    gap: 6px 14px;
     padding: 0;
-    margin: 10px 0 0;
+    margin: 0;
     font-size: 12px;
+    font-weight: 500;
     color: var(--mu);
   }
   .legend li {
@@ -723,9 +911,34 @@
     align-items: center;
     gap: 6px;
   }
-  .end {
-    display: flex;
-    justify-content: center;
-    margin-top: 14px;
+  /* Collapsed, the section takes no room and no gap. */
+  .where-wrap {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+  .where-wrap[hidden] {
+    margin-top: calc(-1 * var(--gap-w));
+  }
+  .where-wrap > :global(.panel) {
+    padding: 18px 20px;
+    border-radius: var(--r-widget);
+    background: var(--s1);
+  }
+  .where-wrap :global(.panel h2) {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--tx);
+  }
+  .fold {
+    justify-self: center;
+  }
+  :global(.curve-sheet) :global(#curve) {
+    padding: 4px 4px 8px;
+  }
+  :global(.curve-sheet) :global(#curve h2) {
+    margin: 0;
+    font-size: var(--fs-area);
+    font-weight: 600;
   }
 </style>

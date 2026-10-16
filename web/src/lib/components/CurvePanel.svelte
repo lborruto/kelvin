@@ -1,6 +1,5 @@
 <script lang="ts">
   import CurveChart from './CurveChart.svelte';
-  import Disclosure from './Disclosure.svelte';
   import Icon from './Icon.svelte';
   import type { EnergyDay } from '$lib/api/types';
   import { halfHoursIn, type View } from '$lib/energy';
@@ -28,13 +27,12 @@
     index?: number | null;
     /** The day's bar inspection (Jour, Semaine, Mois): the idle readout reads the bar's own figures. */
     bar?: Inspection | null;
-    /** Mois and Année: the panel is its summary line, the curve one « Voir la courbe » away (`detail`). */
-    collapsible?: boolean;
-    open?: boolean;
+    /** The chart's height in px (default 140). */
+    chartHeight?: number;
   }
   let {
     dayIso, day, error, view, split, canPrev, canNext, onstep, onretry, curveSince, quota, index = $bindable(null), bar = null,
-    collapsible = false, open = $bindable(false)
+    chartHeight = 140
   }: Props = $props();
 
   // Never another day's bars under this heading.
@@ -54,15 +52,6 @@
   let idle = $derived(
     shown && shown.points > 0
       ? readDay(shown, bar, { intervals: shown.intervals, samples: shown.room?.samples ?? null, room: roomLabel, tariff: split })
-      : null
-  );
-  // The collapsed panel's line: « 29,07 kWh · 8,17 € · pointe 5,53 kW à 06:30 ».
-  let summary = $derived(
-    idle
-      ? ['energy', 'cost', 'power']
-          .map((k) => idle.rows.find((r) => r.key === k)?.value)
-          .filter((v): v is string => !!v && v !== '—')
-          .join(' · ')
       : null
   );
   // M7: the curve as measured, against the daily reading that is billed.
@@ -97,7 +86,7 @@
 {/snippet}
 
 {#snippet body()}
-  <div class="body">
+  <div class="body" style:--chart-h="{chartHeight}px">
     {#if error}
       <p class="error" role="status">{error} <button type="button" class="btn btn-sm" onclick={onretry}>{m.curvePanel.retry}</button></p>
     {:else if shown}
@@ -112,6 +101,7 @@
           room={roomLabel}
           label={m.curvePanel.chart(fmtDateLong(shown.date))}
           {idle}
+          height={chartHeight}
           bind:index />
         {#if !shown.complete}<p class="muted note">{m.curvePanel.incomplete(shown.points, halfHoursIn(shown.date))}</p>{/if}
         {#if reconcile}<p class="muted note num">{reconcile}</p>{/if}
@@ -126,19 +116,12 @@
   </div>
 {/snippet}
 
-<section class="panel wide" class:collapsible id={ANCHORS.curve} aria-labelledby="{ANCHORS.curve}-title">
-  {#if collapsible}
-    <Disclosure title={m.curvePanel.heading(fmtDateLong(dayIso))} meta={summary} heading="h2" buttonId="{ANCHORS.curve}-title" detail bind:open>
-      <div class="inner-head">{@render nav()}</div>
-      {@render body()}
-    </Disclosure>
-  {:else}
-    <div class="head">
-      <h2 id="{ANCHORS.curve}-title">{m.curvePanel.heading(fmtDateLong(dayIso))}</h2>
-      {@render nav()}
-    </div>
-    {@render body()}
-  {/if}
+<section class="panel wide" id={ANCHORS.curve} aria-labelledby="{ANCHORS.curve}-title">
+  <div class="head">
+    <h2 id="{ANCHORS.curve}-title">{m.curvePanel.heading(fmtDateLong(dayIso))}</h2>
+    {@render nav()}
+  </div>
+  {@render body()}
 </section>
 
 <style>
@@ -152,33 +135,6 @@
     display: flex;
     gap: 4px;
   }
-  .inner-head {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 4px;
-  }
-  /* Collapsed (Mois, Année): the panel is its one summary row; the section label keeps its type. */
-  section.panel.collapsible :global(h2.dhead) {
-    margin: -10px 0;
-  }
-  section.panel.collapsible :global(.disclosure.open h2.dhead) {
-    margin-bottom: 0;
-  }
-  /* The summary takes the next line when the row is too narrow for both. */
-  .collapsible :global(.dhead .dbtn) {
-    flex-wrap: wrap;
-    padding-block: 6px;
-  }
-  .collapsible :global(.dhead .meta) {
-    white-space: normal;
-    text-align: right;
-  }
-  .collapsible :global(.dhead .dtitle) {
-    text-transform: none;
-    letter-spacing: 0;
-    font-size: 13px;
-    color: var(--tx);
-  }
   .edged {
     border-color: var(--line);
   }
@@ -188,10 +144,10 @@
   }
   /* The body keeps the chart's height while a day loads, so the panels below never move. */
   .body {
-    min-height: 236px;
+    min-height: calc(var(--chart-h, 140px) + 96px);
   }
   .curve-sk {
-    height: 216px;
+    height: calc(var(--chart-h, 140px) + 76px);
   }
   .note {
     font-size: 12px;

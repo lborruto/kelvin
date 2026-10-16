@@ -90,10 +90,11 @@ test('switching to Tempo: six prices prefilled with their source, then the day c
   await expect(strip(page)).toContainText(/Demain : (Bleu|Blanc|Rouge|couleur pas encore publiée \(vers 11:00\))/);
   await expect(strip(page).locator('.dot').first()).toBeVisible();
   await page.goto('/energy');
-  // The six colours live in the Heures creuses card's « Détails ».
-  await page.locator('#offpeak').getByRole('button', { name: /^Détails/ }).click();
-  await expect(page.getByText(/Jours rouges : \d+/)).toBeVisible();
-  await expect(page.getByRole('table', { name: 'Énergie par couleur Tempo' })).toBeVisible();
+  // Tempo in force: the six colours take the split's place on the board (« Jours Tempo »), dots under the day bars.
+  const tempo = page.getByRole('region', { name: 'Jours Tempo' });
+  await expect(tempo.getByText(/Jours rouges\s:\s\d+/)).toBeVisible();
+  await expect(tempo.getByRole('table', { name: 'Énergie par couleur Tempo' })).toBeVisible();
+  await expect(page.locator('.bars-w .dots .dot').first()).toBeVisible();
 });
 
 test('seasonal off-peak hours: a month left out is named and nothing is sent', async ({ page }) => {

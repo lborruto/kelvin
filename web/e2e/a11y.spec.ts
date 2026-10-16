@@ -45,6 +45,20 @@ test.describe('accessibility (axe)', () => {
       });
     }
 
+    test(`/energy Jour, Semaine and Année · no serious or critical axe violation`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/energy');
+      await settled(page);
+      for (const view of ['Jour', 'Semaine', 'Année']) {
+        await page.getByRole('radio', { name: view, exact: true }).click();
+        // The new view's report is in and the board is no longer dimmed (busy) before the scan.
+        await expect(page.locator('.panels')).toHaveAttribute('aria-busy', 'false');
+        await expect(page.locator('.panels.busy')).toHaveCount(0);
+        await settled(page);
+        expect(await violations(page), view).toEqual([]);
+      }
+    });
+
     test(`/login · no serious or critical axe violation`, async ({ browser }, info) => {
       const context = await browser.newContext({ ...info.project.use, storageState: { cookies: [], origins: [] } });
       const page = await context.newPage();

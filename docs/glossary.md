@@ -160,7 +160,7 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Non réparti | Not split | Énergie bars: a day with no off-peak/peak split beside split days (series-1) |
 | Journée | Whole day | The Courbe readout at rest (the day as a whole) |
 | Mois complet | Full month | Énergie key figure: the current month projected |
-| Exporter / Exporter (CSV) | Export / Export (CSV) | Énergie's export menu and its closing button |
+| Exporter | Export | Énergie's export menu |
 | Où part l’énergie | Where the energy goes | Énergie: heating share and rooms ranked by kWh |
 | Analyse / Détails | Analysis / Details | Énergie's summary cards and their L2 disclosure |
 | Compteur interne 1 / 2 du radiateur | Radiator’s internal meter 1 / 2 | The radiator's own registers (was « Registre 1 / 2 »; never HC/HP) |

@@ -785,7 +785,6 @@ export const fr = {
   energyUi: {
     // Header and export menu
     export: 'Exporter',
-    exportMore: 'Exporter (CSV)',
     exportFormat: `CSV${NB}: «${NB};${NB}» entre les colonnes, virgule décimale, dates ISO.`,
     waitHouse: 'Disponible une fois les pièces chargées',
     // Context row: the Linky source line and its Fiche
@@ -1355,6 +1354,23 @@ export const fr = {
     unknownKwh: (kwh: string) => `${kwh} sans couleur connue, non comptés en euros.`,
     qualityColours: (n: number) => `Jours sans couleur Tempo${NB}: ${n} (énergie comptée, euros non comptés)`,
     qualityRetro: (n: number) => `Jours avant les premières heures creuses${NB}: ${n} (premières heures creuses appliquées)`
+  },
+  energyBoard: {
+    // Énergie « Tableau » widgets (spec §4 Énergie)
+    eurParts: (energy: string, subscription: string) => `énergie ${energy} · abonnement ${subscription}`,
+    whereClose: 'Replier la liste',
+    whereMore: 'Tout voir',
+    whereShare: 'vient des radiateurs',
+    monthsTitle: 'Mois par mois',
+    monthUntil: (d: string) => `au ${d}`,
+    curveMore: 'par demi-heure',
+    curveMoreName: (d: string) => `par demi-heure, courbe du ${d}`,
+    curveNone: 'Pas de courbe pour ce jour.',
+    curveMiniLabel: (d: string) => `Aperçu de la courbe du ${d}`,
+    sevenDays: (d: string) => `Les 7 jours jusqu’au ${d}`,
+    tempoTitle: 'Jours Tempo',
+    tempoNote: 'Un jour Tempo va de 06:00 à 06:00.',
+    yearGhost: (month: string, v: string) => `${month} en pointillés${NB}: le mois complet estimé (${v}).`
   },
   api: {
     login_required: () => 'Connexion requise.',

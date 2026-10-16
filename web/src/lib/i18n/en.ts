@@ -751,7 +751,6 @@ export const en: Messages = {
   energyUi: {
     // Header and export menu
     export: 'Export',
-    exportMore: 'Export (CSV)',
     exportFormat: 'CSV: “,” between columns, decimal point, ISO dates; column names in French.',
     waitHouse: 'Available once the rooms have loaded',
     // Context row: the Linky source line and its Fiche
@@ -1310,6 +1309,22 @@ export const en: Messages = {
     unknownKwh: (kwh: string) => `${kwh} without a known colour, not counted in euros.`,
     qualityColours: (n: number) => `Days without a Tempo colour: ${n} (energy counted, euros not counted)`,
     qualityRetro: (n: number) => `Days before the first off-peak hours: ${n} (the first off-peak hours applied)`
+  },
+  energyBoard: {
+    eurParts: (energy: string, subscription: string) => `energy ${energy} · standing charge ${subscription}`,
+    whereClose: 'Collapse the list',
+    whereMore: 'See all',
+    whereShare: 'comes from the radiators',
+    monthsTitle: 'Month by month',
+    monthUntil: (d: string) => `to ${d}`,
+    curveMore: 'by half-hour',
+    curveMoreName: (d: string) => `by half-hour, load curve for ${d}`,
+    curveNone: 'No load curve for this day.',
+    curveMiniLabel: (d: string) => `Load curve preview, ${d}`,
+    sevenDays: (d: string) => `The 7 days to ${d}`,
+    tempoTitle: 'Tempo days',
+    tempoNote: 'A Tempo day runs from 06:00 to 06:00.',
+    yearGhost: (month: string, v: string) => `${month} dashed: the full month, estimated (${v}).`
   },
   api: {
     login_required: () => 'Please sign in.',
