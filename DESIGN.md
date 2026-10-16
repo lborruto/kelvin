@@ -9,7 +9,7 @@ colors:
   s3: "#35353b"
   in: "#08080a"
   line: "#26262b"
-  field: "#4a4a52"
+  field: "#76767e"
   side: "#111113"
   sheet: "#1c1c1f"
   modal: "#151518"
@@ -102,7 +102,7 @@ pending is dashed, confirmed is solid; 44 px hit areas; everything in French and
 | `--s3` | `#35353b` | stepper discs inside s2, the checked segment, hover on s2 |
 | `--in` | `#08080a` | programme well (empty day bar) |
 | `--line` | `#26262b` | hairlines, list separators |
-| `--field` | `#4a4a52` | field and well edges, grab bar, Éco swatch edge |
+| `--field` | `#76767e` | field and well edges, grab bar, Éco swatch edge; ≥ 3:1 on every surface (WCAG 1.4.11; owner ruling over the spec's `#4a4a52`) |
 | `--side` | `#111113` | sidebar, tab bar |
 | `--sheet` | `#1c1c1f` | phone bottom sheet |
 | `--modal` | `#151518` | desktop room sheet (Sheet `tone="modal"`) |
@@ -130,8 +130,8 @@ Legacy aliases kept for components the screen batches have not restyled: `--warm
   Tempo days). HC is always hatched.
 - **An offline room is never red.** Hors ligne is faint/muted everywhere.
 - **Contrast:** ink, muted and faint text pass 4.5:1 on every surface they sit on (faint never sits on s2/s3:
-  placeholders use muted); heat, cool, bad, ok pass as text on bg, s1 and s2. The field edge (`--field`) is a
-  spec value below 3:1: a field is recognised by its s2 fill, its label and the 2 px ink focus ring.
+  placeholders use muted); heat, cool, bad, ok pass as text on bg, s1 and s2. Control boundaries (`--field`) reach
+  3:1 on every surface (WCAG 1.4.11, `tokens.test.ts`). HC vs HP is 3:1 and HC is always hatched.
 
 ### Type
 

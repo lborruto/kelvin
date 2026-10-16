@@ -54,7 +54,7 @@ describe('spec colour values', () => {
       s3c: t['--s3c'], bleu: t['--tempo-bleu'], blanc: t['--tempo-blanc'], rouge: t['--tempo-rouge'], faMark: t['--fa-mark']
     }).toEqual({
       ground: '#050506', bg: '#0b0b0d', s1: '#1b1b1f', s2: '#2a2a2f', s3: '#35353b', in: '#08080a', line: '#26262b',
-      field: '#4a4a52', side: '#111113', sheet: '#1c1c1f', modal: '#151518', pop: '#232328', tx: '#f5f5f7',
+      field: '#76767e', side: '#111113', sheet: '#1c1c1f', modal: '#151518', pop: '#232328', tx: '#f5f5f7',
       mu: '#a1a1a8', heat: '#ff9346', cool: '#7ab8ff', hc: '#a9d3ff', hp: '#3f6fd4', bad: '#ff6961', ok: '#4cd28a',
       s3c: '#c9c9d1', bleu: '#4f7dff', blanc: '#f5f5f7', rouge: '#ff5a5a', faMark: '#6c6c74'
     });
@@ -77,6 +77,24 @@ describe('text contrast (axe: 4.5:1)', () => {
   it('the primary button: bg ink on tx; the heat glyph ink on heat', () => {
     expect(contrast(t['--bg'], t['--tx'])).toBeGreaterThanOrEqual(4.5);
     expect(contrast(t['--heat-ink'], t['--heat'])).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('control boundaries (WCAG 1.4.11)', () => {
+  it('--field reaches 3:1 against every ground a field, well or stepper can sit on', () => {
+    for (const s of ['--in', '--bg', '--s1', '--s2', '--side', '--sheet', '--modal', '--pop']) {
+      expect(contrast(t['--field'], t[s]), `field on ${s}`).toBeGreaterThanOrEqual(3);
+    }
+  });
+  it('the muted edge reaches 3:1 against the well and s2', () => {
+    expect(contrast(t['--mu'], t['--in'])).toBeGreaterThanOrEqual(3);
+    expect(contrast(t['--mu'], t['--s2'])).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('heat ramp stops', () => {
+  it('every stop passes AA (4.5:1) on bg, s1 and s2', () => {
+    for (const k of ['--cool', '--neutral', '--heat']) for (const s of ['--bg', '--s1', '--s2']) expect(contrast(t[k], t[s]), `${k} on ${s}`).toBeGreaterThanOrEqual(4.5);
   });
 });
 
@@ -123,7 +141,7 @@ describe('series', () => {
     for (const i of [1, 2, 4]) {
       const c = t[`--series-${i}`];
       expect([t['--heat'], t['--cool'], t['--hc'], t['--hp']]).not.toContain(c);
-      for (const s of ['--s1', '--bg']) expect(contrast(c, t[s]), `series-${i} on ${s}`).toBeGreaterThanOrEqual(3);
+      for (const s of ['--s1', '--s2', '--bg']) expect(contrast(c, t[s]), `series-${i} on ${s}`).toBeGreaterThanOrEqual(3);
     }
   });
 });

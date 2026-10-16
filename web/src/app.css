@@ -14,7 +14,9 @@
   --s3: #35353b;
   --in: #08080a;
   --line: #26262b;
-  --field: #4a4a52;
+  /* Field and well edges: ≥ 3:1 against every surface a control sits on (WCAG 1.4.11; the spec's #4a4a52
+     read 1.6–2.3:1, owner ruling 2026-10-16). */
+  --field: #76767e;
   --side: #111113;
   --sheet: #1c1c1f;
   --modal: #151518;
