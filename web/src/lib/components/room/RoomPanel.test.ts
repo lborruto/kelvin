@@ -1,9 +1,9 @@
 import { flushSync } from 'svelte';
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import { house } from '$lib/stores/house.svelte';
-import RoomInspector from './RoomInspector.svelte';
+import RoomPanel from './RoomPanel.svelte';
 import { applyLocale } from '$lib/i18n';
 import { alerts } from '$lib/stores/alerts.svelte';
 import { detail } from '$lib/stores/detail.svelte';
@@ -17,6 +17,7 @@ vi.mock('$lib/api/client', () => ({
     radiatorLight: vi.fn(), identify: vi.fn() },
   ApiError: class extends Error {}
 }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
 
 const base = {
@@ -39,18 +40,19 @@ beforeEach(() => {
   } as never);
 });
 
-describe('RoomInspector with disagreeing radiators', () => {
+describe('RoomPanel with disagreeing radiators', () => {
   it('shows the mean, a mixed note and a mixed-mode hint', () => {
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.getByText('Mixte — les radiateurs n’ont pas le même mode')).toBeInTheDocument();
     expect(screen.getAllByText('Mixte (moyenne)')).toHaveLength(1);
-    expect(screen.getByText(/^20,0/, { selector: '.row *' })).toBeInTheDocument();
+    // Mixed modes: no −/+ (no setpoint in force), the comfort the radiators disagree on reads as their mean.
+    expect(screen.getByRole('group', { name: 'Confort' })).toHaveTextContent('20,0');
   });
 });
 
-describe('RoomInspector history period', () => {
+describe('RoomPanel history period', () => {
   it('is a radiogroup that follows the shared radio keyboard model', async () => {
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     const group = screen.getByRole('radiogroup', { name: 'Période' });
     expect(group).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '24\u00a0h' })).toHaveAttribute('aria-checked', 'true');
@@ -59,32 +61,32 @@ describe('RoomInspector history period', () => {
   });
 });
 
-describe('RoomInspector in English', () => {
+describe('RoomPanel in English', () => {
   it('sections, notes, counts and the history ranges', () => {
     applyLocale('en');
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.getByText('Mixed — the radiators aren’t in the same mode')).toBeInTheDocument();
     expect(screen.getAllByText('Mixed (average)')).toHaveLength(1);
-    for (const h of ['Controls', /^Boost/, 'Today', 'Radiators · 2']) {
+    for (const h of [/^Boost/, 'Today', 'Schedule temperatures', 'Radiators · 2']) {
       expect(screen.getByRole('heading', { name: h, level: 3 })).toBeInTheDocument();
     }
-    expect(screen.getByText('Radiators in different modes')).toBeInTheDocument();
+    expect(screen.getAllByText('Radiators in different modes').length).toBeGreaterThan(0);
     expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(
       expect.arrayContaining(['24\u00a0h', '7\u00a0d', '30\u00a0d'])
     );
-    expect(screen.getByRole('button', { name: /^Boost/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(within(screen.getByRole('heading', { name: /^Boost/, level: 3 })).getByRole('button')).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('group', { name: 'Comfort' })).toBeInTheDocument();
   });
   it('a room that does not exist, once the house is known', () => {
     applyLocale('en');
-    render(RoomInspector, { roomId: 'nope' });
+    render(RoomPanel, { roomId: 'nope' });
     expect(screen.getByText('Room not found: it may have been deleted.')).toBeInTheDocument();
   });
 });
 
 describe('presence', () => {
   it('« Présence détectée » only when a radiator detects someone; never « Présence : — »', () => {
-    const { unmount } = render(RoomInspector, { roomId: 'salon' });
+    const { unmount } = render(RoomPanel, { roomId: 'salon' });
     expect(screen.getByText('Présence détectée')).toBeInTheDocument();
     unmount();
     house.applySnapshot({
@@ -95,19 +97,19 @@ describe('presence', () => {
       },
       pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
     } as never);
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.queryByText(/Présence/)).toBeNull();
   });
 });
 
-describe('RoomInspector alerts', () => {
+describe('RoomPanel alerts', () => {
   const al = (id: number, room: string) => ({
     id, kind: 'radiator_unreachable', severity: 'bad' as const, params: { radiator_id: 'a', room_id: room, since: null },
     first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false
   });
   it('the unreachable alert is not repeated in the room: the status and the offline notice say it', () => {
     alerts.list = [al(1, 'salon')];
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByText(/radiateur hors ligne/)).toBeNull();
     alerts.reset();
@@ -128,7 +130,7 @@ const snapshotOf = (radiators: object[], mode = 'manual') =>
     pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
   }) as never;
 
-describe('RoomInspector across kinds', () => {
+describe('RoomPanel across kinds', () => {
   it('shows only what some radiator supports, with the partial note', () => {
     const sauter = { ...a, mode: 'manual' as const };
     const dryer = { ...base, id: 'd', name: 'Sèche-serviettes', comfort: null, mode: 'manual' as const, support: 'expected',
@@ -136,7 +138,7 @@ describe('RoomInspector across kinds', () => {
     const zone = { ...base, id: 'z', name: 'Zone PAC', comfort: null, mode: 'other' as const, support: 'readonly',
       capabilities: caps({ read_only: true }) };
     house.applySnapshot(snapshotOf([sauter, dryer, zone]));
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeInTheDocument();
     expect(screen.getAllByText('S’applique à 2 radiateurs sur 3')).toHaveLength(2); // mode, setpoint (boost: in its closed disclosure)
     expect(screen.getAllByText('S’applique à 1 radiateur sur 3')).toHaveLength(2); // comfort, eco setback
@@ -147,7 +149,7 @@ describe('RoomInspector across kinds', () => {
     const pilot = { ...base, id: 'p', name: 'Bureau', comfort: null, mode: 'manual' as const, support: 'expected',
       capabilities: caps({ levels: ['comfort', 'eco', 'frostprotection', 'off'] }) };
     house.applySnapshot(snapshotOf([pilot]));
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.queryByRole('radiogroup', { name: 'Mode de la pièce' })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Chauffe temporaire/ })).toBeNull();
     expect(screen.queryByRole('group', { name: 'Consigne' })).toBeNull();
@@ -160,7 +162,7 @@ describe('RoomInspector across kinds', () => {
       capabilities: caps({ levels: ['comfort', 'eco', 'frostprotection', 'off'] }) };
     house.applySnapshot(snapshotOf([pilot]));
     house.connection = 'open';
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     await fireEvent.click(screen.getByRole('button', { name: 'Arrêt' }));
     expect(api.roomMode).toHaveBeenCalledWith('salon', 'off');
   });
@@ -169,7 +171,7 @@ describe('RoomInspector across kinds', () => {
     const dryer = { ...base, id: 'd', name: 'Sèche', comfort: null, mode: 'manual' as const, support: 'expected',
       capabilities: caps({ modes: ['off', 'manual', 'program'], manual: [7, 26], boost: true }) };
     house.applySnapshot(snapshotOf([dryer]));
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Arrêt' })).toBeNull();
   });
@@ -180,7 +182,7 @@ describe('RoomInspector across kinds', () => {
     const zone = { ...base, id: 'z', name: 'Zone PAC', comfort: null, mode: 'other' as const, support: 'readonly',
       capabilities: caps({ read_only: true }) };
     house.applySnapshot(snapshotOf([pilot, zone], 'mixed'));
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.queryByText(/Mixte — les radiateurs/)).toBeNull();
   });
 
@@ -188,7 +190,7 @@ describe('RoomInspector across kinds', () => {
     const zone = { ...base, id: 'z', name: 'Zone PAC', comfort: null, mode: 'other' as const, support: 'readonly',
       capabilities: caps({ read_only: true }) };
     house.applySnapshot(snapshotOf([zone], 'other'));
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.getByText('Kelvin ne pilote aucun appareil de cette pièce.')).toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: 'Mode de la pièce' })).toBeNull();
   });
@@ -214,15 +216,19 @@ describe('the room panel, in order', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it('header: name, status sentence, reading in ink and the target; then Réglage, Chauffe temporaire, Aujourd’hui, Énergie, Radiateurs', () => {
+  it('left: name, state and reading, the large setpoint in force (Éco now) with −/+ and the slider; right: modes, status, then the sections in order', () => {
     load(one());
-    const { container } = render(RoomInspector, { roomId: 'salon' });
+    const { container } = render(RoomPanel, { roomId: 'salon' });
+    expect(container.querySelector('.head')).toHaveTextContent('Programme · 19,5 °C');
+    expect(container.querySelector('.head .fig')!.getAttribute('style') ?? '').not.toMatch(/color/);
     expect(container.querySelector('.st')).toHaveTextContent('Programme · Éco jusqu’à 17:30');
-    expect(container.querySelector('.fig')).toHaveTextContent('19,5 °C');
-    expect(container.querySelector('.fig')!.getAttribute('style') ?? '').not.toMatch(/color/);
-    expect(screen.getByText('consigne 17,0 °C')).toBeInTheDocument();
+    const primary = screen.getByRole('group', { name: 'Consigne Éco' });
+    expect(primary.querySelector('output')).toHaveTextContent('17,0°');
+    expect(screen.getByText('Éco · actuellement 19,5 °C')).toBeInTheDocument();
+    expect(screen.getByRole('slider', { name: 'Consigne Éco' })).toHaveAttribute('aria-valuenow', '17');
+    expect(screen.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeInTheDocument();
     const heads = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent?.trim().replace(/\s+/g, ' '));
-    expect(heads.map((h) => h?.split(' ex.')[0])).toEqual(['Réglage', 'Chauffe temporaire', 'Aujourd’hui', 'Énergie aujourd’hui', 'Radiateurs · 1']);
+    expect(heads.map((h) => h?.split(' ex.')[0])).toEqual(['Chauffe temporaire', 'Aujourd’hui', 'Énergie aujourd’hui', 'Températures du programme', 'Radiateurs · 1']);
     expect(screen.getByRole('link', { name: 'Modifier les horaires' })).toHaveAttribute('href', '/schedule?room=salon');
   });
 
@@ -231,7 +237,7 @@ describe('the room panel, in order', () => {
       this.setAttribute('open', '');
     };
     load(one());
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     const fig = screen.getByRole('button', { name: /^19,5\s°C, détails$/ });
     await fireEvent.click(fig);
     const fiche = document.querySelector('.fiche, dialog[open]')!;
@@ -244,7 +250,7 @@ describe('the room panel, in order', () => {
   it('Éco is shown as a temperature with its lowering, and sent as the lowering', async () => {
     vi.useRealTimers();
     load(one());
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.getByText('3,0 °C sous le confort')).toBeInTheDocument();
     const eco = screen.getByRole('group', { name: 'Éco' });
     expect(eco).toHaveTextContent('17,0');
@@ -257,7 +263,7 @@ describe('the room panel, in order', () => {
 
   it('Chauffe temporaire: a closed disclosure, then a sentence with its consequence, and Lancer', async () => {
     load(one());
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     const disc = screen.getByRole('button', { name: /^Chauffe temporaire/ });
     expect(disc).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('button', { name: 'Lancer' })).toBeNull();
@@ -274,9 +280,12 @@ describe('the room panel, in order', () => {
   it('an active boost reads its temperature and end, with Arrêter', async () => {
     const boost = { id: 'o1', kind: 'boost', room_id: 'salon', radiator_ids: ['a'], temperature: 22, ends_at: Date.parse('2026-10-13T19:45:00Z') / 1000, restoring: false };
     load(one(), {}, [boost]);
-    const { container } = render(RoomInspector, { roomId: 'salon' });
+    const { container } = render(RoomPanel, { roomId: 'salon' });
     expect(container.querySelector('.st')).toHaveTextContent('Chauffe temporaire · 22,0 °C jusqu’à 21:45');
-    expect(screen.getByText('22,0 °C jusqu’à 21:45')).toBeInTheDocument();
+    expect(container.querySelector('.boostcard')).toHaveTextContent('Chauffe temporaire · 22,0 °C jusqu’à 21:45');
+    expect(container.querySelector('.boostcard')).toHaveTextContent('Puis retour au programme vers 21:45.');
+    // −/+ changes the boost temperature (resent with the same end).
+    expect(screen.getByRole('group', { name: 'Consigne Chauffe temp.' }).querySelector('output')).toHaveTextContent('22,0°');
     await fireEvent.click(screen.getByRole('button', { name: 'Arrêter' }));
     expect(api.cancelOverride).toHaveBeenCalledWith('o1');
   });
@@ -286,7 +295,7 @@ describe('the room panel, in order', () => {
     house.applyPending({
       id: 'c1', label: 'Salon : Confort', radiator_ids: ['a'], status: 'pending', error: null, created_at: 2, expected: { a: { comfort: 23 } }
     });
-    const { container } = render(RoomInspector, { roomId: 'salon' });
+    const { container } = render(RoomPanel, { roomId: 'salon' });
     expect(container.querySelector('.st svg.edge')).toHaveClass('pending');
     house.applyPending({
       id: 'c1', label: 'Salon : Confort', radiator_ids: ['a'], status: 'failed', error: 'x', created_at: 2, expected: { a: { comfort: 23 } }
@@ -296,29 +305,50 @@ describe('the room panel, in order', () => {
     expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument();
   });
 
-  it('desktop: a compact sticky bar (name and reading) for when the header scrolls away; none on the phone page', () => {
+  it('phone: the slider between −/+, the sections behind « Programme, températures, radiateurs »', async () => {
     load(one());
-    const a = render(RoomInspector, { roomId: 'salon' });
-    const mini = a.container.querySelector('.mini-wrap');
-    expect(mini).toHaveAttribute('aria-hidden', 'true');
-    expect(mini).toHaveTextContent('Salon');
-    expect(mini).toHaveTextContent('19,5 °C');
-    a.unmount();
-    const b = render(RoomInspector, { roomId: 'salon', level: 'h1' });
-    expect(b.container.querySelector('.mini-wrap')).toBeNull();
+    const { container } = render(RoomPanel, { roomId: 'salon', layout: 'sheet' });
+    expect(container.querySelector('.stepper.around .mid [role="slider"]')).not.toBeNull();
+    const more = screen.getByRole('button', { name: 'Programme, températures, radiateurs' });
+    expect(more).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('heading', { name: 'Radiateurs · 1' })).toBeNull();
+    await fireEvent.click(more);
+    expect(screen.getByRole('heading', { name: 'Radiateurs · 1' })).toBeInTheDocument();
+  });
+
+  it('« Lancer… » from the tableau opens the Chauffe temporaire form at once (phone: the sections too)', () => {
+    load(one());
+    render(RoomPanel, { roomId: 'salon', layout: 'sheet', boostFirst: true });
+    expect(screen.getByRole('button', { name: /^Chauffe temporaire/, expanded: true })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Lancer' })).toBeInTheDocument();
+  });
+
+  it('Arrêt: no setpoint, a dim slider, « Remettre en programme »', async () => {
+    load(one({ mode: 'off' }), { mode: 'off' });
+    const { container } = render(RoomPanel, { roomId: 'salon' });
+    expect(container.querySelector('.display.off')).toHaveTextContent('Arrêt');
+    expect(screen.queryByRole('group', { name: /^Consigne/ })).toBeNull();
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Pas de consigne à l’arrêt')).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: 'Remettre en programme' }));
+    expect(api.roomMode).toHaveBeenCalledWith('salon', 'program');
   });
 
   it('a window open is a notice to fix', () => {
     load(one({ window_open: true }), { window_open: true });
-    const { container } = render(RoomInspector, { roomId: 'salon' });
-    expect(container.querySelector('.callout.bad')).toHaveTextContent(/Fenêtre ouverte, signalée par le radiateur/);
+    const { container } = render(RoomPanel, { roomId: 'salon' });
+    expect(container.querySelector('.notice.bad')).toHaveTextContent(/Fenêtre ouverte, signalée par le radiateur/);
+    // No −/+ while the window is open (the setpoint is kept, paused): no heat colour either.
+    expect(screen.queryByRole('group', { name: /^Consigne/ })).toBeNull();
+    expect(screen.getByText('Éco · en pause · actuellement 19,5 °C')).toBeInTheDocument();
   });
 
   it('offline: no reading, a calm notice with the last reading and its time, controls paused with the last known mode', () => {
     const since = Date.parse('2026-10-13T10:32:00Z') / 1000; // 12:32
     load(one({ reachable: false, unreachable_since: since, temperature: 23.6, last_event_at: since - 60 }), { temperature: 23.6 });
-    const { container } = render(RoomInspector, { roomId: 'salon' });
-    expect(container.querySelector('.st')).toHaveTextContent('Hors ligne depuis 12:32');
+    const { container } = render(RoomPanel, { roomId: 'salon' });
+    expect(container.querySelector('.head')).toHaveTextContent('Hors ligne depuis 12:32');
+    expect(screen.getByText('Pas de température : le radiateur ne répond plus depuis 12:32.')).toBeInTheDocument();
     expect(container.querySelector('.fig')).toBeNull();
     expect(screen.queryByText(/consigne 17/)).toBeNull();
     const notice = screen.getByRole('status');
@@ -343,20 +373,20 @@ describe('the room panel, in order', () => {
       { t: since - 600_000, v: 20, s: null }, { t: since + 3_600_000, v: 25, s: null }
     ];
     load(one({ reachable: false, unreachable_since: since / 1000 }));
-    render(RoomInspector, { roomId: 'salon' });
-    expect(document.querySelector('.strip .visually-hidden')!.textContent).toMatch(/de 20,0.*à 20,0/);
+    render(RoomPanel, { roomId: 'salon' });
+    expect(document.querySelector('.visually-hidden')!.textContent).toMatch(/de 20,0.*à 20,0/);
     delete (history.data as Record<string, unknown>)[day];
   });
 
   it('offline with no time for the last reading: the line is left out', () => {
     load(one({ reachable: false, unreachable_since: null, last_event_at: null }));
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     expect(screen.getByRole('status')).not.toHaveTextContent('Dernière mesure');
   });
 
   it('the legend lists only what the chart draws, as real text', () => {
     load(one());
-    const { container } = render(RoomInspector, { roomId: 'salon' });
+    const { container } = render(RoomPanel, { roomId: 'salon' });
     const legend = container.querySelector('.legend')!;
     expect(legend).not.toHaveAttribute('aria-hidden');
     expect([...legend.querySelectorAll('.key')].map((k) => k.textContent)).toEqual(['Consigne', 'Confort']);
@@ -365,9 +395,9 @@ describe('the room panel, in order', () => {
   it('in English', () => {
     applyLocale('en');
     load(one());
-    const { container } = render(RoomInspector, { roomId: 'salon' });
+    const { container } = render(RoomPanel, { roomId: 'salon' });
     expect(container.querySelector('.st')).toHaveTextContent('Schedule · Eco until 17:30');
-    expect(screen.getByText('target 17.0 °C')).toBeInTheDocument();
+    expect(screen.getByText('Eco · now 19.5 °C')).toBeInTheDocument();
     expect(screen.getByText('3.0 °C below comfort')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Edit schedule' })).toBeInTheDocument();
   });
@@ -386,15 +416,15 @@ describe('« Détails techniques » on the room panel (direction-2 §1.3)', () =
     } as never);
   it('off (the household default): « En chauffe » alone, the signal one tap away', () => {
     heatingSnapshot();
-    render(RoomInspector, { roomId: 'salon' });
-    expect(screen.getByText('En chauffe')).toBeInTheDocument();
+    render(RoomPanel, { roomId: 'salon' });
+    expect(screen.getAllByText('En chauffe').length).toBeGreaterThan(0);
     expect(screen.queryByText(/^≈/)).toBeNull();
     expect(screen.queryByText(/RSSI/)).toBeNull();
   });
   it('on: ≈ W beside « En chauffe » with its Fiche, and the signal inline on each radiator row', async () => {
     detail.set(true);
     heatingSnapshot();
-    render(RoomInspector, { roomId: 'salon' });
+    render(RoomPanel, { roomId: 'salon' });
     // 80 % of 1 500 W + 50 % of 1 000 W = 1 700 W
     const fig = screen.getByRole('button', { name: /^≈\s1,70\skW, détails$/ });
     await fireEvent.click(fig);

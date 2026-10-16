@@ -43,13 +43,19 @@ forEachLocale((l) => {
   });
 });
 
-it('the rooms summary: heating rooms, then offline ones only when there are some', () => {
+it('the rooms summary: heating rooms (or everything off), then offline ones only when there are some', () => {
   const en = dictionary('en');
   const fr = dictionary('fr');
-  expect(en.rooms.summary(0, 0)).toBe('No room heating');
-  expect(en.rooms.summary(1, 2)).toBe('1 room heating · 2 offline');
-  expect(fr.rooms.summary(2, 0)).toBe('2 pièces en chauffe');
-  expect(fr.rooms.summary(0, 1)).toBe('Aucune pièce en chauffe · 1 hors ligne');
+  expect(en.maison.roomsSummary(0, 0, false)).toBe('none heating');
+  expect(en.maison.roomsSummary(1, 2, false)).toBe('1 heating · 2 offline');
+  expect(fr.maison.roomsSummary(2, 0, false)).toBe('2 en chauffe');
+  expect(fr.maison.roomsSummary(0, 1, true)).toBe('tout éteint · 1 hors ligne');
+});
+
+it('the bill’s day: « 1er » in French, an ordinal in English', () => {
+  expect(dictionary('fr').maison.billTitle('Octobre', 1)).toBe('Octobre, jusqu’au 1er');
+  expect(dictionary('en').maison.billTitle('October', 22)).toBe('October, to the 22nd');
+  expect(dictionary('en').roomSheet.month(13)).toBe('This month, to the 13th');
 });
 
 it('English counts agree with their noun (“0 of 1 day comparable”, “3 of 12 days”)', () => {

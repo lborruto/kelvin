@@ -6,6 +6,7 @@
   import { awaySheet } from '$lib/stores/away.svelte';
   import { house } from '$lib/stores/house.svelte';
   import Icon from './Icon.svelte';
+  import Menu from './Menu.svelte';
   import PendingTag from './PendingTag.svelte';
 
   interface Props {
@@ -19,8 +20,14 @@
     awayText?: string;
     /** Icon buttons with their names as labels (the phone Rooms header): one row whatever the font or language. */
     icons?: boolean;
+    /** Maison's header (Tableau §4): desktop 40 px buttons in the mockup's order (Partir…, Tout éteindre, Tout
+     * remettre en programme), « Tout éteindre » left out while everything is off (`allOff`). */
+    maison?: boolean;
+    /** Maison's phone header: the away icon and a « ⋯ » menu holding Tout éteindre / Tout remettre en programme. */
+    menu?: boolean;
+    allOff?: boolean;
   }
-  let { stacked = false, program = false, away = true, awayText, icons = false }: Props = $props();
+  let { stacked = false, program = false, away = true, awayText, icons = false, maison = false, menu = false, allOff: everythingOff = false }: Props = $props();
   // While an absence runs, the button says so in cool (« Absence · dim. 18:00 ») and opens it.
   let awayOn = $derived(house.away);
   let awayLabel = $derived(awayOn ? m.away.short(fmtWeekdayTime(awayOn.ends_at * 1000)) : (awayText ?? m.houseActions.away));
@@ -49,7 +56,20 @@
 
 <div class="wrap" class:stacked>
   <div class="actions" class:stacked>
-    {#if icons}
+    {#if menu}
+      {#if away}<button type="button" class="btn btn-icon edged" class:on={!!awayOn} aria-label={awayLabel} title={awayLabel}
+          onclick={openAway}><Icon name="away" size={18} />{#if awayOn}<span class="adot" aria-hidden="true"></span>{/if}</button>{/if}
+      <Menu label={m.maison.more} items={[
+        { label: m.houseActions.allOff, icon: 'power', onselect: ask, disabled: blocked ? (house.online ? m.away.busy : m.away.waiting) : null },
+        { label: m.houseActions.allProgram, icon: 'resume', onselect: () => !blocked && runHouse(() => api.houseProgram()),
+          disabled: blocked ? (house.online ? m.away.busy : m.away.waiting) : null }
+      ]} />
+    {:else if maison}
+      {#if away}<button type="button" class="btn" class:on={!!awayOn} onclick={openAway}><Icon name="away" size={16} />{awayLabel}</button>{/if}
+      {#if !everythingOff}<button type="button" class="btn" aria-disabled={blocked} onclick={ask}><Icon name="power" size={16} />{m.houseActions.allOff}</button>{/if}
+      <button type="button" class="btn" aria-disabled={blocked} onclick={() => !blocked && runHouse(() => api.houseProgram())}><Icon
+          name="resume" size={16} />{m.houseActions.allProgram}</button>
+    {:else if icons}
       <button type="button" class="btn btn-icon edged" aria-label={m.houseActions.allOff} title={m.houseActions.allOff} aria-disabled={blocked}
         onclick={ask}><Icon name="power" size={18} /></button>
       {#if away}<button type="button" class="btn btn-icon edged" class:on={!!awayOn} aria-label={awayLabel} title={awayLabel}
@@ -95,7 +115,8 @@
     flex-direction: column;
   }
   /* The icon form: round s2 buttons, like the mockups' phone header. */
-  .edged {
+  .edged,
+  .actions :global(.trigger.edged) {
     background: var(--s2);
     color: var(--tx);
   }

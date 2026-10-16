@@ -16,6 +16,8 @@ const DRYER_EN: Record<string, string> = { boost: 'towel boost', drying: 'drying
 const int = intFor('en');
 const plural = pluralFor('en');
 const list = listFor('en');
+/** « 1st », « 2nd », « 15th » (the bill's « to the 15th »). */
+const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
 
 const DAY: Record<Day, string> = {
   monday: 'Monday',
@@ -167,9 +169,6 @@ export const en: Messages = {
     lastError: 'Last error'
   },
   rooms: {
-    summary: (heating: number, offline: number) =>
-      `${heating ? `${int(heating)} ${plural(heating, { one: 'room', other: 'rooms' })} heating` : 'No room heating'}${offline ? ` · ${int(offline)} offline` : ''}`,
-    awayActive: 'Away mode on',
     offlineGroup: (n: number) => `Offline · ${int(n)}`
   },
   status: {
@@ -196,7 +195,6 @@ export const en: Messages = {
     title: 'Room',
     windowOpen: 'Window open',
     windowNotice: 'Window open, reported by the radiator: the room is losing its heat.',
-    todayLabel: (name: string) => `${name}, today’s temperature`,
     setpoint: 'Setpoint',
     comfort: 'Comfort',
     eco: 'Eco',
@@ -204,7 +202,6 @@ export const en: Messages = {
     mixedMean: 'Mixed (average)',
     mixedMode: 'Mixed — the radiators aren’t in the same mode',
     notFound: 'Room not found: it may have been deleted.',
-    controls: 'Controls',
     modeLabel: 'Room mode',
     editHours: 'Edit schedule',
     lastKnown: (s: string) => `Last known mode: ${s}.`,
@@ -1242,14 +1239,10 @@ export const en: Messages = {
     today: 'Today',
     tomorrow: 'Tomorrow',
     colour: { blue: 'Blue', white: 'White', red: 'Red' } as Record<'blue' | 'white' | 'red', string>,
-    tempoDay: (when: string, colour: string) => `${when}: ${colour}`,
-    tempoUnknown: (when: string) => `${when}: colour unknown`,
-    tempoPending: (at: string) => `Tomorrow: colour not published yet (around ${at})`,
     whenToday: 'today',
     whenTomorrow: 'tomorrow',
     ecowatt: (level: number, when: string, hours: string | null) =>
       `EcoWatt ${level >= 3 ? 'red' : 'orange'} ${when}${hours ? `, ${hours}` : ''}`,
-    source: (time: string) => `RTE via MyElectricalData · ${time}`
   },
   // The Tariff summary (UX batches 8–9).
   tariffSummary: {
@@ -1466,6 +1459,114 @@ export const en: Messages = {
     priceTitle: 'Price per kWh right now',
     period: 'Period',
     nextLabel: 'Next'
+  },
+  maison: {
+    dateLine: (date: string, time: string) => `${date} · ${time}`,
+    chips: 'Summary',
+    climate: 'Climate',
+    climateRange: (lo: string, hi: string) => `${lo}–${hi}`,
+    climateHeating: (range: string, n: number) => (n ? `${range} · ${int(n)} heating` : range),
+    climateAllOff: (range: string) => `${range} · everything off`,
+    grid: 'Grid',
+    gridEcowatt: (level: number, tomorrow: boolean) => `EcoWatt ${level >= 3 ? 'red' : 'orange'} ${tomorrow ? 'tomorrow' : 'today'}`,
+    gridTempo: (colour: string) => `Tempo ${colour} tomorrow`,
+    gridCalm: 'Nothing to report',
+    away: 'Away',
+    awayUntil: (t: string) => `until ${t}`,
+    roomsSummary: (heating: number, offline: number, allOff: boolean) =>
+      [allOff ? 'everything off' : heating ? `${int(heating)} heating` : 'none heating', offline ? `${int(offline)} offline` : null]
+        .filter(Boolean)
+        .join(' · '),
+    radiatorCount: (n: number) => `${int(n)} ${plural(n, { one: 'radiator', other: 'radiators' })}`,
+    energyHead: 'Energy and grid',
+    energyLink: 'Energy',
+    offNote: 'The room isn’t heating.',
+    offNoteShort: 'Not heating',
+    nextAt: (level: string, time: string) => `${level} → ${time}`,
+    arrowAt: (time: string) => `→ ${time}`,
+    arrowLevel: (level: string, time: string) => `→ ${level} ${time}`,
+    boostLaunch: 'Start…',
+    boostUntil: (t: string) => `until ${t}`,
+    paused: 'paused',
+    radiators: 'Radiators',
+    radiatorsHeating: (n: number) => `${int(n)} heating`,
+    radiatorsOff: (n: number) => `${int(n)} off`,
+    radiatorsIdle: 'none heating',
+    window: 'Window',
+    windowClosed: 'Closed',
+    windowOpen: 'Open',
+    allOff: 'Everything is off',
+    allOffOffline: (names: string[], n: number) =>
+      n === 1 ? `${names[0]} is offline: it may not have received it.` : `${list(names)} are offline: they may not have received it.`,
+    awayLine: (temp: string, t: string) => `${temp} until ${t}`,
+    awayEvery: 'every room',
+    awayEveryBut: (names: string[]) => `every room · ${list(names)} offline`,
+    awayRestoring: 'Restoring…',
+    awayEnd: 'End',
+    boostLine: (rooms: string, temp: string, t: string) => `${rooms} · ${temp} until ${t}`,
+    boostThen: 'then back to the previous setting',
+    boostStop: 'Stop',
+    boostStopLabel: (rooms: string) => `Stop the boost: ${rooms}`,
+    wholeHome: 'The whole home',
+    awayEndLabel: 'End away mode',
+    alerts: (n: number) => `Alerts · ${int(n)}`,
+    dismissAll: 'Dismiss all',
+    billTitle: (month: string, day: number) => `${month}, to the ${ordinal(day)}`,
+    billSub: 'standing charge included',
+    billEnd: (eur: string) => `≈${NB}${eur} by month end`,
+    billDays: (n: number, of: number) => `${int(n)} / ${int(of)} days`,
+    billPrev: (month: string, eur: string) => `${month}: ${eur}`,
+    billProgress: (n: number, of: number) => `Day ${int(n)} of ${int(of)} of the month`,
+    billEnergy: 'Energy',
+    billSubscription: 'Standing charge',
+    billKwh: 'Consumption',
+    billTotal: 'Total',
+    tomorrow: 'Tomorrow',
+    ecowatt: (level: number) => `EcoWatt ${level >= 3 ? 'red' : level >= 2 ? 'orange' : 'green'}`,
+    ecowattTense: (hours: string | null, level: number) =>
+      [hours, level >= 3 ? 'grid under heavy strain' : level >= 2 ? 'grid under strain' : 'no strain expected'].filter(Boolean).join(' · '),
+    ecowattUnknown: 'not published yet',
+    tempo: (colour: string) => `Tempo ${colour}`,
+    yesterday: 'Yesterday',
+    yesterdayEur: (eur: string) => `≈${NB}${eur}`,
+    yesterdayNone: 'No Linky reading for yesterday yet.',
+    yesterdayBars: (kwh: string) => `Yesterday’s use by half-hour, ${kwh}`,
+    todayProgram: 'Today’s schedule',
+    progLastKnown: 'last known',
+    progNone: 'no schedule',
+    dayBar: (name: string, slots: string) => `${name}: comfort ${slots}`,
+    dayBarEmpty: (name: string) => `${name}: no comfort period today`,
+    more: 'More actions for the home'
+  },
+  roomSheet: {
+    actions: (name: string) => `Actions for ${name}`,
+    setpoint: (level: string) => `Setpoint ${level}`,
+    caption: (level: string, temp: string) => `${level} · now ${temp}`,
+    captionPaused: (level: string, temp: string) => `${level} · paused · now ${temp}`,
+    now: (temp: string) => `now ${temp}`,
+    sliderNote: `−/+ by 0.5${NB}°C · you can also drag the slider`,
+    offNote: 'No setpoint while off',
+    noReading: (when: string, n: number) =>
+      n > 1 ? `No temperature: the radiators haven’t answered since ${when}.` : `No temperature: the radiator hasn’t answered since ${when}.`,
+    noReadingUnknown: 'No temperature: the radiator isn’t answering.',
+    measuredBy: (name: string) => `measured by ${name}`,
+    readOnlyTitle: 'Kelvin doesn’t control this device: it’s shown read-only.',
+    readOnlyExperimental: 'Experimental server: Kelvin shows heating only and sends nothing to this device.',
+    devices: 'Devices in the room',
+    device: 'Device',
+    level: 'Heating level (from Cozytouch)',
+    readSetpoint: 'Setpoint read',
+    measured: 'Measured temperature',
+    thenLevel: (level: string, temp: string) => `then ${level} ${temp}`,
+    backToProgram: 'Back to the schedule',
+    boostRunning: (temp: string, until: string) => `${temp} until ${until}`,
+    programTemps: 'Schedule temperatures',
+    programLastKnown: 'Schedule, last known',
+    month: (day: number) => `This month, to the ${ordinal(day)}`,
+    monthTitle: 'Room energy this month',
+    more: 'Schedule, temperatures, radiators',
+    energyLink: 'Room energy',
+    devicesLink: 'Rooms and devices'
   },
   servers: {
     label: 'Server',

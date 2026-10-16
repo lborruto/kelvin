@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { fmtTemp } from '$lib/format';
   import { m } from '$lib/i18n';
   import { Settle } from '$lib/settle.svelte';
@@ -27,10 +28,14 @@
     size?: 'md' | 'sm' | 'lg';
     /** Stretch to the container's width (tiles, widgets). */
     block?: boolean;
+    /** `lg` only (the room sheet): a line under the value (« Confort · actuellement 19,6 °C »), outside the output. */
+    below?: Snippet;
+    /** `lg` only (the phone room sheet): drawn between the − and + discs, the value and `below` above them (the slider). */
+    between?: Snippet;
   }
   let {
     value, min, max, step = 0.5, label, pending = false, disabled = false,
-    debounceMs = 600, format = (v) => fmtTemp(v), announce = true, onchange, caption, size = 'md', block = false
+    debounceMs = 600, format = (v) => fmtTemp(v), announce = true, onchange, caption, size = 'md', block = false, below, between
   }: Props = $props();
 
   const FALLBACK_MS = 10_000;
@@ -145,13 +150,16 @@
   }
 </script>
 
-<div class="stepper {size}" class:pending class:block class:inert={disabled} role="group" aria-label={label}>
-  <button type="button" class="hit" aria-label={m.stepper.decrease(label)} aria-disabled={atMin}
+<div class="stepper {size}" class:pending class:block class:inert={disabled} class:around={!!between} class:with-below={!!below} role="group"
+  aria-label={label}>
+  <button type="button" class="hit dec" aria-label={m.stepper.decrease(label)} aria-disabled={atMin}
     onpointerdown={(e) => startHold(e, -1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
     onkeydown={(e) => key(e, -1)}><Icon name="minus" size={size === 'lg' ? 24 : size === 'sm' ? 15 : 17} /></button>
   <output class="num">{#if caption}<small aria-hidden="true">{caption}</small>{/if}<span class="val">{format(shown)}<PendingEdge {pending}
         confirmed={settle.confirmed} /></span></output>
-  <button type="button" class="hit" aria-label={m.stepper.increase(label)} aria-disabled={atMax}
+  {#if below}<div class="below">{@render below()}</div>{/if}
+  {#if between}<div class="mid">{@render between()}</div>{/if}
+  <button type="button" class="hit inc" aria-label={m.stepper.increase(label)} aria-disabled={atMax}
     onpointerdown={(e) => startHold(e, 1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
     onkeydown={(e) => key(e, 1)}><Icon name="plus" size={size === 'lg' ? 24 : size === 'sm' ? 15 : 17} /></button>
 </div>
@@ -182,6 +190,43 @@
     padding: 0;
     gap: 12px;
     background: transparent;
+  }
+  /* The room sheet's layouts: the line under the value; on the phone the value and its line on top, the
+     slider between the discs. */
+  .stepper.lg.with-below {
+    grid-template-areas: 'dec out inc' 'below below below';
+    row-gap: 6px;
+  }
+  .stepper.lg.around {
+    grid-template-columns: var(--b) minmax(0, 1fr) var(--b);
+    grid-template-areas: 'out out out' 'below below below' 'dec mid inc';
+    row-gap: 6px;
+  }
+  .lg .dec {
+    grid-area: dec;
+  }
+  .lg .inc {
+    grid-area: inc;
+  }
+  .lg output {
+    grid-area: out;
+  }
+  .below {
+    grid-area: below;
+    min-width: 0;
+    text-align: center;
+  }
+  .mid {
+    grid-area: mid;
+    display: grid;
+    justify-items: center;
+    min-width: 0;
+    margin-top: 12px;
+  }
+  /* A phone tile at 320 px leaves ~115 px: the value column may shrink below 64 px (« 19,5° » needs ~40). */
+  .stepper.sm.block {
+    grid-template-columns: var(--b) minmax(0, 1fr) var(--b);
+    gap: 4px;
   }
   .stepper.block {
     display: grid;
