@@ -111,7 +111,6 @@ export const en: Messages = {
   houseActions: {
     allOff: 'Turn everything off',
     allProgram: 'Put everything back on schedule',
-    away: 'Away…',
     confirmTitle: 'Turn everything off?',
     confirmBody: 'Every room switches off. To turn them back on: Home › Put everything back on schedule.'
   },

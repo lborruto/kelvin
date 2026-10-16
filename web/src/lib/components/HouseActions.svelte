@@ -14,9 +14,9 @@
     stacked?: boolean;
     /** Also offer "Tout remettre en programme" (Maison). */
     program?: boolean;
-    /** The « Absence… » button: it opens the Absence sheet where the user is. */
+    /** The « Partir… » button (glossary): it opens the Absence sheet where the user is. */
     away?: boolean;
-    /** The away button's idle text (Maison: « Partir en absence… »). */
+    /** The away button's idle text (default « Partir… », `m.nav.away`, as in the sidebar). */
     awayText?: string;
     /** Icon buttons with their names as labels (the phone Rooms header): one row whatever the font or language. */
     icons?: boolean;
@@ -30,9 +30,9 @@
   let { stacked = false, program = false, away = true, awayText, icons = false, maison = false, menu = false, allOff: everythingOff = false }: Props = $props();
   // While an absence runs, the button says so in cool (« Absence · dim. 18:00 ») and opens it.
   let awayOn = $derived(house.away);
-  let awayLabel = $derived(awayOn ? m.away.short(fmtWeekdayTime(awayOn.ends_at * 1000)) : (awayText ?? m.houseActions.away));
+  let awayLabel = $derived(awayOn ? m.away.short(fmtWeekdayTime(awayOn.ends_at * 1000)) : (awayText ?? m.nav.away));
   const openAway = (e: MouseEvent) => awaySheet.show(e.currentTarget as HTMLElement);
-  // Mounted several times at once (sidebar, phone header, Maison): ids must be unique.
+  // Mounted twice on Maison (desktop header, phone menu row): ids must be unique.
   const uid = $props.id();
 
   let dialog = $state<HTMLDialogElement>();

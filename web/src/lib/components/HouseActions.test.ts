@@ -50,16 +50,16 @@ it('is disabled while Kelvin is disconnected', () => {
   expect(screen.getByRole('button', { name: 'Tout remettre en programme' })).toHaveAttribute('aria-disabled', 'true');
 });
 
-it('« Absence… » opens the Absence sheet where the user is (focus returns to it); away: false hides it', async () => {
+it('« Partir… » opens the Absence sheet where the user is (focus returns to it); away: false hides it', async () => {
   const a = render(HouseActions);
-  const btn = screen.getByRole('button', { name: 'Absence…' });
+  const btn = screen.getByRole('button', { name: 'Partir…' });
   await fireEvent.click(btn);
   expect(awaySheet.open).toBe(true);
   expect(awaySheet.trigger).toBe(btn);
   awaySheet.close();
   a.unmount();
   render(HouseActions, { away: false });
-  expect(screen.queryByRole('button', { name: 'Absence…' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Partir…' })).toBeNull();
 });
 
 it('while an absence runs, the button says its end in cool, and a dot marks the icon form', () => {
@@ -137,7 +137,7 @@ it('in English: the actions, the dialog and the away link', () => {
   render(HouseActions, { program: true });
   expect(screen.getByRole('button', { name: 'Turn everything off' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Put everything back on schedule' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Away…' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Go away…' })).toBeInTheDocument();
   const dialog = document.querySelector('dialog')!;
   expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)).toHaveTextContent('Turn everything off?');
   expect(document.getElementById(dialog.getAttribute('aria-describedby')!)).toHaveTextContent(
@@ -149,7 +149,7 @@ it('the icon form (phone Rooms header) keeps the names as labels and still asks 
   render(HouseActions, { icons: true });
   const off = screen.getByRole('button', { name: 'Tout éteindre' });
   expect(off).not.toHaveTextContent('Tout éteindre');
-  expect(screen.getByRole('button', { name: 'Absence…' })).not.toHaveTextContent('Absence…');
+  expect(screen.getByRole('button', { name: 'Partir…' })).not.toHaveTextContent('Partir…');
   await fireEvent.click(off);
   expect(document.querySelector('dialog')!.open).toBe(true);
 });
@@ -168,7 +168,7 @@ it('Maison (desktop): Partir…, Tout éteindre, Tout remettre en programme, in 
 
 it('Maison (phone): the away icon and a « ⋯ » menu holding the two house commands', async () => {
   render(HouseActions, { menu: true });
-  expect(screen.getByRole('button', { name: 'Absence…' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Partir…' })).toBeInTheDocument();
   const more = screen.getByRole('button', { name: 'Plus d’actions pour la maison' });
   expect(more).toHaveAttribute('aria-haspopup', 'menu');
   expect(screen.queryByRole('button', { name: 'Tout éteindre' })).toBeNull();

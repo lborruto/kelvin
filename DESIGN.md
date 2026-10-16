@@ -155,8 +155,7 @@ Geist Variable (Fontsource, latin subset preloaded), weights 400–700, **tabula
 
 ### Spacing, radii, elevation
 
-- **Spacing:** 4 px base (`--sp-1…8`); widget gap `--gap-w` 10 phone / 16 desktop; widget padding 14–18
-  (`--pad-w`); page padding 28 × 32 desktop (`--page-pad-y/x`); phone gutter 16 (`--gutter`); sidebar 220
+- **Spacing:** 4 px base (written in px); widget gap `--gap-w` 10 phone / 16 desktop; widget padding 14–18; page padding 28 × 32 desktop (`--page-pad-y/x`); phone gutter 16 (`--gutter`); sidebar 220
   (`--side-w`); tab bar 64 + safe area (`--tabbar-h`).
 - **Radii:** `--r-pill` 99 (buttons, pills, steppers, chips), `--r-sheet` 28 (sheets, desktop room modal),
   `--r-widget` 22, `--r-tile` 20, `--r-pop` 18 (dialogs), `--r-group` 16 (grouped lists, notices, the Fiche),
@@ -173,14 +172,12 @@ every Svelte transition, `|global` inside a parent's `{#if}`).
 | Token | Value | Use |
 |---|---|---|
 | `--t-press` | 100 ms | button press scale (0.97) |
-| `--t-value` | 120 ms | stepper value cross-fade |
 | `--t-state` | 160 ms | colour/state changes |
 | `--t-modal` | 180 ms | desktop modal fades + scales from 0.98 |
 | `--t-sheet-in` / `--t-sheet-out` | 280 / 200 ms, `--ease-sheet` `cubic-bezier(.2,.8,.2,1)` | phone sheet rises / falls |
 | `--t-enter` / `--t-exit` | 220 / 150 ms | arrivals, banners (grid row), disclosures |
 | `--t-morph` | 250 ms | the dashed → solid signature |
 | `--t-data` | 360 ms | bars and meters |
-| `--t-dip` | 400 ms | a tile reading dips and returns on a new measurement (`flash`) |
 | `--t-snap` | 60 ms | the slider snaps to 0,5 °C on release |
 
 Skeleton shimmer 1.4 s × 7, then stops. Reduced motion: nothing travels or scales; meaning stays as opacity.
@@ -297,7 +294,7 @@ grab bar; rises 280 ms, falls 200 ms; dragging follows the finger and dismisses 
 flick; `tall` = full height from 56 px. Desktop: centred modal (`width`, default 460) on `--pop` (or `--modal`
 with `tone="modal"`), radius 28, fade + scale from 0.98 in 180 ms. `header`, `footer` snippets; `noClose` for an
 action sheet. `ChoiceSheet` (same API as before) wraps it; the phone `Menu` is an action sheet with « Annuler ».
-The « Tout éteindre » dialog and the setup dialogs use `--pop`, radius 18, the pop shadow and the scrim.
+The « Tout éteindre » dialog and the setup dialogs (`devices/SetupDialog`: MoveDialog, DeleteRoomDialog) use `--pop`, radius 18, the pop shadow and the scrim; they stay centred on a phone too (the kit `Sheet` is the bottom sheet).
 A floating card portalled out of its place (`$lib/portal`: a Fiche, a Menu popover) goes to the end of the open
 modal dialog it was opened from (the room sheet), never behind it on `<body>`.
 
@@ -386,7 +383,7 @@ Esc, backdrop, drag) goes back to `/` and gives focus back to the tile. `RoomPan
   running, the heat-edged card « Chauffe temporaire · 22,0 °C jusqu’à 20:42 », its consequence, Arrêter);
   « Remettre en programme » (primary) when off; « Aujourd’hui » with the 24 h · 7 j · 30 j segments (the
   ThermalStrip chart, the day bar, the legend, then RoomFigures); « Températures du programme » (Confort and Éco
-  rows with their −/+, « Modifier les horaires › »); « Radiateurs · n » (RadiatorPanel rows); « Ce mois-ci,
+  rows with their −/+, « Modifier les horaires › »); « Radiateurs · n » (RadiatorPanel rows; with two or more radiators each row keeps its own ModeSwitch, the room's modes being the ModeCircles above); « Ce mois-ci,
   jusqu’au 15 · 141,2 kWh · ≈ 34,81 € » (`/api/rooms/{id}/energy?days=` the day of the month).
 - **Phone:** ⋯ · name and state · ×; the notices (and the running boost card); the large figure with its caption;
   −/+ flanking the slider (`Stepper` `between`); the mode circles (56 px); the status; the day bar with ticks and
@@ -607,7 +604,7 @@ A figure with more precision or provenance than it shows is a `<button class="fi
 
 ### Freshness and SourceLine
 **Freshness** (`Freshness.svelte`, states from `$lib/freshness.ts`): an 8 px circle, 1.25 px stroke, beside a source's name, `aria-hidden` and always paired with words. Solid muted ring = fresh (within the source's cadence); **dashed** muted ring = waiting or late (first sync, quota, next read pending, stale: the pending signature); solid bad dot = failed (only what is already red: token refused, sync error, Cozytouch down); nothing when there is nothing to say. Cadences: Cozytouch 15 min; Linky (daily and curve) the day before, due by 12:00 the next day; RTE EcoWatt 6 h; Tempo 24 h, and tomorrow's colour due after 11:00.
-**SourceLine** (`SourceLine.svelte`): one 12 px muted line `[mark] Source · state`, ellipsised (never reflows), in bad text only when failed; with a Fiche its words are a Fig opening the source's times, quotas and next read. The sidebar's status footer is the Cozytouch SourceLine (`CozytouchStatus`), dashed while Kelvin's own stream is not open. Later: Énergie context row, Maison cards, Sources, radiator rows. Login is exempt.
+**SourceLine** (`SourceLine.svelte`): one 12 px muted line `[mark] Source · state`, ellipsised (never reflows), in bad text only when failed; with a Fiche its words are a Fig opening the source's times, quotas and next read. The sidebar's status footer is the Cozytouch SourceLine (`CozytouchStatus`), dashed while Kelvin's own stream is not open. Later: Énergie context row, Réglages cards, Sources, radiator rows. Login is exempt.
 
 ### Disclosure
 `Disclosure.svelte`: a 44 px button row (13 px 600 ink, a chevron turning 90° over 220 ms, an optional right-aligned 12 px muted meta « 3 lignes ») toggling a region that is `hidden="until-found"` when closed (find-in-page reaches it; `beforematch` opens it), sliding by its grid row 0fr → 1fr over `dur(T.enter)`; reduced motion: instant. Under a heading (`heading="h2"`) the heading holds the button and the button takes the heading's type (Qualité des données keeps its section label). `detail` opens it at first render when « Afficher les détails techniques » is on. The `inline` variant is a dotted 13 px muted text button with the help glyph inside a sentence line; its region takes the next line (Programme « Comment modifier ? »). Replaces every ad-hoc toggle (QualityPanel, Programme help, the error page's « Détails »).
@@ -777,7 +774,7 @@ The exact values behind a mark: the chart placement of the **Fiche** (below), dr
 - **Motion:** the card fades in over `dur(T.state)` (160 ms) and the sheet slides open over `dur(T.enter)` (220 ms), both `|global` transitions: the host mounts the inspector inside its own `{#if}`, and a local transition would not play there. Under reduced motion `dur()` is 0: it appears and leaves at once.
 
 #### Linky status wording
-One status, three places (Énergie's source line and callout, the Maison card and the Linky page), from `$lib/linky.ts`. On Énergie progress is the source line's words and dashed ring, never a callout. Progress is neutral and offers no link, because there is nothing to fix: never synced (« première synchronisation en attente »), quota (« historique en cours, la suite demain ») and throttled (« Enedis limite les requêtes, nouvel essai à 14:30 ») read as plain or muted text. Only `auth` (« MyElectricalData refuse le jeton Linky. » with « Renouveler le jeton ») and `error` (with « Ouvrir Linky ») use the bad colour and an alert role. Not connected at all is a neutral invitation (« Reliez votre compteur Linky », « Relier le Linky »). In the panel the good state reads « Relié · données jusqu’au 13/10 · synchro il y a 5 min ».
+One status, three places (Énergie's source line and callout, the Réglages Linky card and the Linky page), from `$lib/linky.ts`. On Énergie progress is the source line's words and dashed ring, never a callout. Progress is neutral and offers no link, because there is nothing to fix: never synced (« première synchronisation en attente »), quota (« historique en cours, la suite demain ») and throttled (« Enedis limite les requêtes, nouvel essai à 14:30 ») read as plain or muted text. Only `auth` (« MyElectricalData refuse le jeton Linky. » with « Renouveler le jeton ») and `error` (with « Ouvrir Linky ») use the bad colour and an alert role. Not connected at all is a neutral invitation (« Reliez votre compteur Linky », « Relier le Linky »). In the panel the good state reads « Relié · données jusqu’au 13/10 · synchro il y a 5 min ».
 
 #### Form fields
 A field is a label wrapping its control: a 12 px muted caption, 4 px, then a 36 px well (`--ctl-h`; in, field-line edge, 8 px, 0 × 10 px padding; owner ruling: fields were « gros ») set in 15 px body with tabular figures, 16 px below 1024 px so iOS never zooms on focus (`--fs-field`). The base style is global in `app.css`; components add only layout. Selects share the input's exact geometry. Placeholders are muted (never the browser grey) and never carry the only instruction: a hint is a 12 px muted caption under the field, linked with `aria-describedby` (Linky: « Enregistré », then « Laissez vide pour garder le jeton. »). An invalid field is `aria-invalid`, edged in bad, linked to its error and focused. Units live in the caption, never in the field: « Abonnement (€/mois) », « Prix heures creuses (€/kWh) ». Decimal fields accept a comma or a point. **Width is intrinsic**, never a stretched column for a short value: time fields `--w-time` (6.5 rem), dates `--w-date` (10 rem), prices `.w-price` (7.5 rem), kVA `.w-kva` (8 rem), text fields `.w-text` (`min(100 %, 22 rem)`), the PDL 14 digits; groups wrap (`flex-wrap`, 12 px × 16 px gaps) instead of grid columns. The caption wraps the field, so the tap area is caption plus field. A repeated group (Heures creuses slots) sits in a hairline-topped fieldset whose legend is a section label, with each slot on one line « [22:00] → [06:00] [Retirer] » (the captions « Début / Fin de la plage n » stay as the fields' hidden names) and a ghost « Ajouter une plage ». Errors follow in 13 px bad (alert), success in 13 px ok (status), then one primary button, left-aligned.

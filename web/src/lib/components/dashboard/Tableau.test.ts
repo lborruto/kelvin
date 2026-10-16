@@ -152,7 +152,7 @@ describe('Maison on the phone', () => {
     render(Tableau);
     await settle();
     expect(screen.getAllByRole('button', { name: 'Plus d’actions pour la maison' })).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: 'Absence…' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Partir…' }).length).toBeGreaterThan(0);
   });
 
   it('everything off: « Arrêt » with no −/+, the banner offers the way back', async () => {

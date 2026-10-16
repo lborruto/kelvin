@@ -74,7 +74,7 @@
     return r.width ? ((clientX - r.left) / r.width) * 1440 : 0;
   };
   const pct = (min: number) => `${(min / 1440) * 100}%`;
-  // A block's times are written inside it when they fit (DESIGN ProgramDay).
+  // A block's times are written inside it when they fit (DESIGN « DayBar »).
   const fits = (s: Seg) => (editable || (times && !ghost)) && ((s.end - s.start) / 1440) * width >= 76;
 
   function down(e: PointerEvent, i: number, kind: 'move' | 'start' | 'end') {

@@ -132,7 +132,7 @@
       <h1 class="t-page">{m.nav.rooms}</h1>
       <p class="date">{m.maison.dateLine(fmtWeekdayDate(now), fmtTime(now))}</p>
     </div>
-    <div class="desk-actions"><HouseActions maison allOff={ready && c.allOff} awayText={m.nav.away} /></div>
+    <div class="desk-actions"><HouseActions maison allOff={ready && c.allOff} /></div>
   </header>
 
   {#if !ready}

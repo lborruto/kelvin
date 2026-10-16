@@ -116,7 +116,6 @@ export const fr = {
   houseActions: {
     allOff: 'Tout éteindre',
     allProgram: 'Tout remettre en programme',
-    away: 'Absence…',
     confirmTitle: `Tout éteindre${NB}?`,
     confirmBody: `Toutes les pièces passent à l’arrêt. Pour les rallumer${NB}: Maison › Tout remettre en programme.`
   },

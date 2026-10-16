@@ -111,7 +111,7 @@ async function openTariffEditor(page: import('@playwright/test').Page) {
 
 test('absence can be started from Maison and ended from its « Absence » row on Maison', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /^(Partir…|Absence…)$/ }).filter({ visible: true }).first().click();
+  await page.getByRole('button', { name: 'Partir…' }).filter({ visible: true }).first().click();
   const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
   await expect(sheet.getByText(/^Les \d+ pièces passeront à 12,0\s°C jusqu’à/)).toBeVisible();
   await sheet.getByRole('button', { name: 'Partir' }).click();
@@ -127,7 +127,7 @@ test('absence can be started from Maison and ended from its « Absence » row on
 test('absence from Maison in two taps (desktop sidebar, phone header), ended from the sheet', async ({ page, isMobile }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
-  const opener = isMobile ? page.locator('.phone-actions').getByRole('button', { name: 'Absence…' }) : page.locator('.sidebar').getByRole('button', { name: 'Partir…' });
+  const opener = isMobile ? page.locator('.phone-actions').getByRole('button', { name: 'Partir…' }) : page.locator('.sidebar').getByRole('button', { name: 'Partir…' });
   await opener.click();
   const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
   await expect(sheet.getByRole('button', { pressed: true })).toBeFocused();

@@ -73,7 +73,6 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Afficher / Masquer (PDL) | Show / Hide | « Modifier la connexion » → “Change connection” |
 | Box Cozytouch / Pont radio (io-homecontrol) / Wi-Fi de la box | Cozytouch box / Radio bridge (io-homecontrol) / Box Wi-Fi | Pièces et appareils: plain names; Pod, IOStack, Wifi only in the raw details |
 | Voir les appareils (6) / Faire clignoter | Show devices (6) / Make it blink | Radiator « ⋯ » menu; « Actions pour … » → “Actions for …” |
-| Thème : Système / Sombre / Clair | Theme: System / Dark / Light | |
 | Langue | Language | Options never translated: « Français », “English” |
 | Compte | Account | |
 | Se connecter / Connexion / Se déconnecter / Se reconnecter | Sign in / Sign in / Sign out / Sign in again | Never “log in” |
@@ -98,7 +97,7 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Accès MCP | MCP access | Réglages › Compte; « Créer un jeton » → “Create a token”, « Révoquer » → “Revoke”. MCP, Claude Code and Claude Desktop are never translated |
 | Jeton MCP | MCP token | Shown once at creation |
 | Assistant IA | AI assistant | |
-| Appareils connectés | Signed-in devices | Home › Settings; « Déconnecter » → “Sign out”, « Déconnecter les autres appareils » → “Sign out other devices” |
+| Appareils connectés | Signed-in devices | Réglages › Compte (Settings › Account); « Déconnecter » → “Sign out”, « Déconnecter les autres appareils » → “Sign out other devices” |
 | Copier vers… / Jours de semaine / Week-end / Tous les jours | Copy to… / Weekdays / Weekend / Every day | Programme day editor; « Copier sur 4 jours » → “Copy to 4 days” |
 | Aussi pour… / Envoyer aussi à | Also for… / Also send to | Programme send bar |
 | Maintenant : Confort · 23:00 → Éco | Now: Comfort · 23:00 → Eco | Programme plan line |

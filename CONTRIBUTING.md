@@ -88,6 +88,6 @@ change a device command or learn a new one, work only on your own installation:
 
 ## Design
 
-UI changes follow `DESIGN.md` (Précision: hairlines, radius ≤ 10 px, Onest with tabular
-figures, no shadows), keep 44 px touch targets and WCAG AA in both themes, and honour
+UI changes follow `DESIGN.md` (« Tableau »: one dark theme, rounded surfaces stepping up from the ground,
+Geist with tabular figures, screens built from the kit), keep 44 px touch targets and WCAG AA, and honour
 `prefers-reduced-motion`.

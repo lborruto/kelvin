@@ -1,4 +1,4 @@
-<!-- The Tableau dialog (« Tout éteindre » sets the look): --pop, 18 px radius, the pop shadow, at most 340 px;
+<!-- The setup dialog (Pièces et appareils: MoveDialog, DeleteRoomDialog; not the kit Sheet), in the Tableau dialog look (« Tout éteindre » sets the look): --pop, 18 px radius, the pop shadow, at most 340 px;
      fades and settles from 8 px below in 200 ms, leaves in 150 ms; the scrim is black at 60 %. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';

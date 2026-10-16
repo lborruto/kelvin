@@ -47,12 +47,10 @@
   --tempo-rouge: #ff5a5a;
   /* Heat ramp stops for the strip's temperature line ($lib/heat.ts): cool → neutral → heat */
   --neutral: #c8ccd6;
-  /* Énergie series kept by meaning ($lib/energy.ts SERIES): radiators are --s3c; the rest stay out of
-     the heat and tariff hues. */
+  /* Énergie series kept by meaning ($lib/energy.ts SERIES): radiators are --s3c; « Non réparti » stays out
+     of the heat and tariff hues. */
   --series-1: #b48cf2;
-  --series-2: #2fc4b2;
-  --series-3: #c9c9d1;
-  --series-4: #e87bb5;
+  --series-3: var(--s3c);
   /* Legacy names still read by components the screen batches restyle (do not use in new code). */
   --warm: var(--heat);
   --field-line: var(--field);
@@ -75,20 +73,11 @@
   /* The legacy panel radius (old components): a grouped surface. */
   --radius: var(--r-group);
 
-  /* Spacing: a 4 px base. */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 20px;
-  --sp-6: 24px;
-  --sp-7: 28px;
-  --sp-8: 32px;
+  /* Spacing (a 4 px base, written as px in components). */
   --gutter: 16px;
   --page-pad-y: 28px;
   --page-pad-x: 32px;
   --gap-w: 10px;
-  --pad-w: 16px;
   --side-w: 220px;
   --tabbar-h: 64px;
 
@@ -113,7 +102,6 @@
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-sheet: cubic-bezier(0.2, 0.8, 0.2, 1);
   --t-press: 100ms;
-  --t-value: 120ms;
   --t-state: 160ms;
   --t-modal: 180ms;
   --t-exit: 150ms;
@@ -122,7 +110,6 @@
   --t-morph: 250ms;
   --t-sheet-in: 280ms;
   --t-data: 360ms;
-  --t-dip: 400ms;
   --t-snap: 60ms;
 
   /* The off-peak hatch (45°, ground at 40 %, 1 px every 4 px) laid over an --hc fill. */
@@ -145,7 +132,6 @@
   --w-price: 7.5rem;
   --w-date: 10rem;
   --w-kva: 8rem;
-  --w-temp: 148px;
   --w-text: min(100%, 22rem);
 }
 

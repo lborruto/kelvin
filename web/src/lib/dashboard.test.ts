@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { GridView, Override, Radiator, WeekProgram } from './api/types';
 import { applyLocale } from './i18n';
 import {
-  climate, climateText, ecowattTomorrow, gridNext, gridNextText, isAllOff, monthSpan, nextLevelText, radiatorsText, segsText,
-  shortName, tileLine, todaySegs, type RoomFacts
+  climate, climateText, ecowattTomorrow, gridNext, gridNextText, monthSpan, nextLevelText, radiatorsText, segsText,
+  tileLine, todaySegs, type RoomFacts
 } from './dashboard';
 import type { RoomStatus } from './status';
 
@@ -29,10 +29,10 @@ describe('climate (the Climat chip)', () => {
   });
   it('« tout éteint » when every room Kelvin drives and that answers is off', () => {
     const rooms = [facts({ off: true, reading: 19.4 }), facts({ off: true, reading: 19 }), facts({ offline: true }), facts({ controllable: false, reading: 19.2 })];
-    expect(isAllOff(rooms)).toBe(true);
+    expect(climate(rooms).allOff).toBe(true);
     expect(climateText(climate(rooms))).toBe('19,0–19,4° · tout éteint');
-    expect(isAllOff([facts({ off: true }), facts()])).toBe(false);
-    expect(isAllOff([facts({ offline: true, off: true })])).toBe(false);
+    expect(climate([facts({ off: true }), facts()]).allOff).toBe(false);
+    expect(climate([facts({ offline: true, off: true })]).allOff).toBe(false);
   });
   it('no reading is « — », never 0; one reading is one figure', () => {
     expect(climateText(climate([facts({ reading: null })]))).toBe('—');
@@ -78,7 +78,7 @@ describe('the Radiateurs tile', () => {
     const rads = [rad({ name: 'Salon baie', temperature: 19.7, working_rate: 40 }), rad({ id: 'b', name: 'Salon entrée', temperature: 19.5, working_rate: 10 })];
     expect(radiatorsText(rads, 'Salon', false)).toBe('2 en chauffe · baie 19,7° · entrée 19,5°');
     expect(radiatorsText(rads, 'Salon', true)).toBe('2 à l’arrêt');
-    expect(shortName('Salon', 'Salon')).toBe('Salon');
+    expect(radiatorsText([rad({ name: 'Salon', temperature: 19.7 })], 'Salon', false)).toContain('Salon 19,7°');
   });
 });
 

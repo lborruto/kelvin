@@ -33,7 +33,7 @@ export interface Climate {
 }
 
 /** Every room Kelvin drives and that answers is off (at least one): the « Tout est éteint » state. */
-export function isAllOff(rooms: RoomFacts[]): boolean {
+function isAllOff(rooms: RoomFacts[]): boolean {
   const driven = rooms.filter((r) => r.controllable && !r.offline);
   return driven.length > 0 && driven.every((r) => r.off);
 }
@@ -92,7 +92,7 @@ export function nextLevelText(program: WeekProgram | null, now: number): string 
 }
 
 /** A radiator's name without the room's name in front (« Salon baie » in Salon → « baie »). */
-export function shortName(name: string, room: string): string {
+function shortName(name: string, room: string): string {
   const n = name.trim();
   return n.toLowerCase().startsWith(`${room.toLowerCase()} `) && n.length > room.length + 1 ? n.slice(room.length + 1) : n;
 }

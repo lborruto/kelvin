@@ -105,7 +105,7 @@ describe('tariff blues (decision 3: Tempo colours only when Tempo)', () => {
     expect(contrast(t['--hc'], t['--hp'])).toBeGreaterThanOrEqual(3);
   });
   it('never reuse the cool, Tempo or heat colours', () => {
-    const others = ['--cool', '--tempo-bleu', '--heat', '--series-1', '--series-2', '--series-4'].map((k) => t[k]);
+    const others = ['--cool', '--tempo-bleu', '--heat', '--series-1'].map((k) => t[k]);
     expect(others).not.toContain(t['--hc']);
     expect(others).not.toContain(t['--hp']);
   });
@@ -137,8 +137,8 @@ describe('Tempo day tokens', () => {
 
 describe('series', () => {
   it('radiators are the radiator-only grey; no series is heat or a tariff blue', () => {
-    expect(t['--series-3']).toBe(t['--s3c']);
-    for (const i of [1, 2, 4]) {
+    expect(t['--series-3']).toBe('var(--s3c)');
+    for (const i of [1]) {
       const c = t[`--series-${i}`];
       expect([t['--heat'], t['--cool'], t['--hc'], t['--hp']]).not.toContain(c);
       for (const s of ['--s1', '--s2', '--bg']) expect(contrast(c, t[s]), `series-${i} on ${s}`).toBeGreaterThanOrEqual(3);
@@ -159,8 +159,8 @@ describe('scale', () => {
     expect([t['--w-time'], t['--w-price'], t['--w-date'], t['--w-kva']]).toEqual(['6.5rem', '7.5rem', '10rem', '8rem']);
   });
   it('motion has the spec durations', () => {
-    expect([t['--t-sheet-in'], t['--t-sheet-out'], t['--t-modal'], t['--t-value'], t['--t-dip'], t['--t-snap'], t['--ease-sheet']]).toEqual(
-      ['280ms', '200ms', '180ms', '120ms', '400ms', '60ms', 'cubic-bezier(0.2, 0.8, 0.2, 1)']
+    expect([t['--t-sheet-in'], t['--t-sheet-out'], t['--t-modal'], t['--t-snap'], t['--ease-sheet']]).toEqual(
+      ['280ms', '200ms', '180ms', '60ms', 'cubic-bezier(0.2, 0.8, 0.2, 1)']
     );
   });
   it('fields, buttons and the hit utility use the scale', () => {
