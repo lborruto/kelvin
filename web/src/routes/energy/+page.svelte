@@ -796,13 +796,24 @@
   .panels > .hero-sk {
     order: -1;
   }
+  /* The bars' header answers to the widget's width, never to its text: the legend sits under the title below
+     700 px of widget and beside it from there, so the web font arriving never re-wraps it (CLS « fonts late »). */
+  .bars-w {
+    container-type: inline-size;
+  }
   .whead {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: baseline;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 4px 14px;
     margin-bottom: 10px;
+  }
+  @container (min-width: 700px) {
+    .whead {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: baseline;
+    }
   }
   .wtitle {
     font-size: 15px;

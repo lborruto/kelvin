@@ -1,6 +1,28 @@
 @import '@fontsource-variable/geist';
 @import '@fontsource/jetbrains-mono/400.css';
 
+/* Until Geist arrives, text is set in a local Arial-metric face (Arial on macOS and Windows, Liberation Sans or
+   Arimo on Linux) scaled to Geist's metrics, so the swap reflows nothing (CLS « fonts late »). Computed from
+   Geist (upm 1000, ascent 1005, descent 295, line gap 0) and Arial (average advance of French UI text):
+   size-adjust = Geist / Arial width; the overrides are Geist's ascent and descent over that size. */
+@font-face {
+  font-family: 'Geist Fallback';
+  src: local('Arial'), local('ArialMT'), local('Liberation Sans'), local('LiberationSans'), local('Arimo');
+  size-adjust: 103.23%;
+  ascent-override: 97.35%;
+  descent-override: 28.58%;
+  line-gap-override: 0%;
+}
+/* A Linux without Liberation Sans falls back to DejaVu Sans (wider): its own overrides, same method. */
+@font-face {
+  font-family: 'Geist Fallback DejaVu';
+  src: local('DejaVu Sans'), local('DejaVuSans');
+  size-adjust: 91.43%;
+  ascent-override: 109.93%;
+  descent-override: 32.27%;
+  line-gap-override: 0%;
+}
+
 /* Kelvin « Tableau » (the Tableau spec, §1): one dark theme, no light theme and no
    colour-scheme media query. Surfaces step up bg → s1 → s2 → s3; popovers, menus, the Fiche and dialogs
    use --pop with the one shadow. DESIGN.md « Tokens » lists every role. */
@@ -82,7 +104,7 @@
   --tabbar-h: 64px;
 
   /* Type (Geist, tabular figures everywhere) */
-  --font: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font: 'Geist Variable', 'Geist Fallback', 'Geist Fallback DejaVu', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
   --fs-display: 56px;
   --fs-hero: 32px;

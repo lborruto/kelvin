@@ -139,6 +139,10 @@ Legacy aliases kept for components the screen batches have not restyled: `--warm
 
 Geist Variable (Fontsource, latin subset preloaded), weights 400–700, **tabular figures on `body`**
 (`font-feature-settings: 'tnum'`); JetBrains Mono 400 only for dense numeric columns and the version string.
+Until Geist arrives the text is set in a metric-matched local fallback (`app.css`: « Geist Fallback », Arial or
+Liberation Sans, then « Geist Fallback DejaVu », each with `size-adjust` and ascent/descent overrides computed from
+Geist's metrics), so the swap reflows nothing; a header whose two parts could wrap answers to its container's
+width, never to its text (Énergie's bars header).
 
 | Role | Size / weight | Class / token |
 |---|---|---|
