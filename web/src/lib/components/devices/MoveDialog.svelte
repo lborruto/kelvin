@@ -2,7 +2,7 @@
   import type { SetupRadiator, SetupRoom } from '$lib/api/types';
   import { m } from '$lib/i18n';
   import { radiatorName, roomName } from '$lib/setup';
-  import Sheet from './Sheet.svelte';
+  import SetupDialog from './SetupDialog.svelte';
 
   interface Props {
     radiator: SetupRadiator;
@@ -45,7 +45,7 @@
 
 {#if button}<button type="button" class="btn btn-sm" aria-disabled={paused} onclick={open}>{m.devices.moveTo}</button>{/if}
 
-<Sheet bind:dialog title={m.devices.moveTitle(radiatorName(radiator))} description={m.devices.moveBody}>
+<SetupDialog bind:dialog title={m.devices.moveTitle(radiatorName(radiator))} description={m.devices.moveBody}>
   <fieldset>
     <legend class="visually-hidden">{m.devices.moveLegend}</legend>
     {#each targets as r (r.id)}
@@ -56,7 +56,7 @@
     <button type="button" class="btn" onclick={() => dialog?.close()}>{m.common.cancel}</button>
     <button type="button" class="btn btn-primary" aria-disabled={!choice || closing} onclick={move}>{m.devices.move}</button>
   </div>
-</Sheet>
+</SetupDialog>
 
 <style>
   fieldset {

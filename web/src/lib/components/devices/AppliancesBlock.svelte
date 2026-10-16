@@ -1,8 +1,11 @@
+<!-- The other devices in Pièces et appareils (Plan 12; Tableau mockups 5): a grouped list under its label, each
+     read-only and never hidden. -->
 <script lang="ts">
   import type { SetupDevice } from '$lib/api/types';
   import { m } from '$lib/i18n';
   import { deviceLabel } from '$lib/setup';
   import BridgeRow from './BridgeRow.svelte';
+  import GroupedList from '../GroupedList.svelte';
 
   /** Plan 12: every device that is neither a radiator's nor a bridge — water heaters, heat
    *  pumps, devices that do not heat — listed read-only, never hidden. */
@@ -10,39 +13,22 @@
 </script>
 
 {#if devices.length}
-  <section class="panel" aria-labelledby="appliances-title">
-    <h2 id="appliances-title">{m.devices.appliances}</h2>
-    <p class="note">{m.devices.appliancesNote}</p>
-    <ul class="list">
+  <section aria-labelledby="appliances-title">
+    <GroupedList label={m.devices.appliances} id="appliances-title" level="h2" tag="ul">
       {#each devices as d (d.id)}<BridgeRow device={d} {now} name={deviceLabel(d)} lead={m.devices.role[d.role]} />{/each}
-    </ul>
+    </GroupedList>
+    <p class="note">{m.devices.appliancesNote}</p>
   </section>
 {/if}
 
 <style>
-  .panel {
-    padding: 14px 14px 4px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--s1);
+  section {
     min-width: 0;
   }
-  h2 {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--mu);
-    margin: 0 0 6px;
+  section > :global(.grph) {
+    margin-top: 6px;
   }
   .note {
-    font-size: 12px;
-    color: var(--mu);
-    margin: 0 0 8px;
-  }
-  .list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    margin: 6px 16px 0;
   }
 </style>

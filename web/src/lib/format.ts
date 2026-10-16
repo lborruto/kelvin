@@ -65,6 +65,13 @@ export function fmtTemp(v: number | null | undefined, unit = true): string {
   return unit ? `${s}${NB}°C` : s;
 }
 
+/** A reading as the Tableau tiles and the sidebar show it: « 19,6° » (one decimal, the degree sign, no
+ * « C »), « — » when unknown. The exact value with its unit stays in the Fiche and the accessible names. */
+export function fmtTempShort(v: number | null | undefined): string {
+  if (bad(v)) return '—';
+  return `${signed(one(), v)}°`;
+}
+
 /** A whole-degree axis tick, no unit: "20", "−5" (the true minus below 0 °C). */
 export function fmtTempTick(v: number): string {
   return signed(whole(), v);
@@ -125,6 +132,12 @@ export function fmtPrice(v: number | null | undefined): string {
   if (bad(v)) return '—';
   const s = signed(four(), v);
   return english() ? `${euro(s)}/kWh` : `${s}${NB}€/kWh`;
+}
+
+/** A price per kWh as the « Maintenant » card writes it, the unit in its caption: « 0,2700 € », “€0.2700”. */
+export function fmtKwhPrice(v: number | null | undefined): string {
+  if (bad(v)) return '—';
+  return euro(signed(four(), v));
 }
 
 /** A bare figure for a column whose header carries the unit: "0,2068", "16,20" (en "0.2068", "16.20"). */
@@ -287,6 +300,17 @@ export function fmtW(v: number | null | undefined): string {
   return Math.abs(w) < 1000 ? `${signed(whole(), w)}${NB}W` : `${signed(two(), v / 1000)}${NB}kW`;
 }
 
+/** The decimals `fmtEurHero` shows for a figure: 2 below 1 000 €, else 0. */
+export function eurDigits(v: number): 0 | 2 {
+  return Math.abs(Math.round(v * 100) / 100) < 1000 ? 2 : 0;
+}
+
+/** Euros at given decimals (a hero figure's parts, matched to it): « 92,39 € », « 1 412 € ». */
+export function fmtEurAt(v: number | null | undefined, digits: 0 | 2): string {
+  if (bad(v)) return '—';
+  return euro(signed(digits === 2 ? two() : whole(), v));
+}
+
 /** Hero and sentence euros: 2 decimals below 1 000 €, then whole euros (« 98,40 € », “€98.40”, “€1,234”). */
 export function fmtEurHero(v: number | null | undefined): string {
   if (bad(v)) return '—';
@@ -343,4 +367,34 @@ export function fmtSignedPrice(v: number | null | undefined): string {
 export function fmtHours(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
   return unit ? `${signed(one(), v)}${NB}h` : signed(one(), v);
+}
+
+// Maison's date line (Tableau §4): « vendredi 16 octobre », “Friday 16 October”, Paris day.
+const weekdayLong = new Map<Locale, Intl.DateTimeFormat>();
+export function fmtWeekdayDate(ms: number): string {
+  const l = locale.current;
+  let x = weekdayLong.get(l);
+  if (!x) {
+    x = new Intl.DateTimeFormat(INTL[l], { timeZone: ZONE, weekday: 'long', day: 'numeric', month: 'long' });
+    weekdayLong.set(l, x);
+  }
+  return x.format(new Date(ms)).replace(',', '');
+}
+
+// A month's name alone, in the language's own case inside a sentence: « septembre », “September” (a YYYY-MM… iso).
+const monthOnly = new Map<Locale, Intl.DateTimeFormat>();
+export function monthWord(iso: string): string {
+  const l = locale.current;
+  let x = monthOnly.get(l);
+  if (!x) {
+    x = new Intl.DateTimeFormat(INTL[l], { timeZone: 'UTC', month: 'long' });
+    monthOnly.set(l, x);
+  }
+  return x.format(new Date(`${iso.slice(0, 7)}-15T12:00:00Z`));
+}
+
+/** The month's name as a title: « Octobre », “October”. */
+export function monthTitle(iso: string): string {
+  const s = monthWord(iso);
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

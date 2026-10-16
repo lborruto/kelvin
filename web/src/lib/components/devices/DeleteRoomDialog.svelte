@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SetupRoom } from '$lib/api/types';
   import { apiMessage, m } from '$lib/i18n';
-  import Sheet from './Sheet.svelte';
+  import SetupDialog from './SetupDialog.svelte';
 
   interface Props {
     room: SetupRoom;
@@ -56,12 +56,12 @@
   <span class="why" id="{uid}-why" aria-live="polite">{reason ?? ''}</span>
 {/if}
 
-<Sheet bind:dialog title={m.devices.deleteTitle(room.name)} description={m.devices.deleteBody}>
+<SetupDialog bind:dialog title={m.devices.deleteTitle(room.name)} description={m.devices.deleteBody}>
   <div class="row">
     <button type="button" class="btn" bind:this={cancel} onclick={() => dialog?.close()}>{m.common.cancel}</button>
     <button type="button" class="btn btn-danger" aria-disabled={closing} onclick={confirmDelete}>{m.devices.deleteRoom}</button>
   </div>
-</Sheet>
+</SetupDialog>
 
 <style>
   .why:empty {

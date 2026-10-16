@@ -6,11 +6,12 @@
 <script lang="ts">
   import type { EnergyReport, LinkyState } from '$lib/api/types';
   import { dataSpan, periodTitle, previousName, spanLabel, type Span, type View } from '$lib/energy';
-  import { fmtChangeShare, fmtDateLong, fmtDay, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct, fmtPct1 } from '$lib/format';
+  import { fmtChangeShare, fmtDateLong, fmtDay, eurDigits, fmtEurAt, fmtEurExact, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct, fmtPct1, matchParts } from '$lib/format';
   import { m } from '$lib/i18n';
   import { inspectBucket } from '$lib/inspector';
   import { ENERGY_ANCHORS, ROUTES } from '$lib/paths';
   import { provenance } from '$lib/provenance';
+  import { goToSection } from '$lib/sections';
   import { today } from '$lib/today.svelte';
   import Fig from './Fig.svelte';
   import Icon from './Icon.svelte';
@@ -31,8 +32,10 @@
     /** The first day with data: a period before it offers to go there. */
     first?: string | null;
     ongofirst?: () => void;
+    /** A key figure's section is revealed (opened) before the page goes to it. */
+    onreveal?: (id: string) => void;
   }
-  let { report, view, last, latest = false, linkyState = null, syncAt = null, first = null, ongofirst }: Props = $props();
+  let { report, view, last, latest = false, linkyState = null, syncAt = null, first = null, ongofirst, onreveal }: Props = $props();
 
   let p = $derived(report.period);
   // € when a tariff priced the period, else Linky kWh, else (no Linky) radiator kWh.
@@ -48,6 +51,14 @@
     if (kind === 'rad') return m.energyUi.radRange(range || fmtDateLong(p.from));
     const kwh = kind === 'eur' && parts ? parts.total : null;
     return [range, kwh].filter(Boolean).join(' · ');
+  });
+  // « énergie 92,11 € · abonnement 6,29 € »: the two lines of the cost, matched to the total shown (L1).
+  let eurParts = $derived.by(() => {
+    if (kind !== 'eur' || p.energy_eur == null || p.subscription_eur == null) return null;
+    // At the figure's own decimals: cents below 1 000 €, whole euros above (as `fmtEurHero` shows the total).
+    const digits = eurDigits(p.eur as number);
+    const [energy, subscription] = matchParts(p.eur, [p.energy_eur, p.subscription_eur], digits).parts;
+    return m.energyBoard.eurParts(fmtEurAt(energy, digits), fmtEurAt(subscription, digits));
   });
   let prev = $derived(report.comparison.previous);
   // M3: a change only when Plan 5 found enough comparable days; it compares consumption and says so.
@@ -131,7 +142,7 @@
   });
 </script>
 
-<section class="panel hero wide" aria-labelledby="period-label">
+<section class="panel hero" aria-labelledby="period-label">
  <div class="grid" class:keyed>
   <div class="answer">
     {#if beforeHistory && first}
@@ -147,6 +158,11 @@
         <p class="muted line">{linkyState === 'never' ? m.energyUi.firstSync : m.hero.noData}</p>
       {:else}
         {#if rangeLine}<p class="range num">{rangeLine}</p>{/if}
+        {#if eurParts}<p class="parts num">{eurParts}</p>{/if}
+        {#if kind === 'rad' && p.radiators?.eur != null}
+          <!-- Without Linky: the radiators' € from your tariff, energy only (no bill, no subscription). -->
+          <p class="parts num">{m.projection.approx(fmtEurExact(p.radiators.eur))}<span class="tag">{' '}{m.fiche.est}</span>{' · '}{m.energyUi.energyOnly}</p>
+        {/if}
         {#if report.linky && parts}
           <SplitBar share={hcShare}
             hc={split ? parts.parts[0] : null} hp={split ? parts.parts[1] : null} />
@@ -166,7 +182,7 @@
       {#each slots as k, i (i)}
         {#if !k}<li class="none" aria-hidden="true"></li>{:else}
         <li>
-          <a href="#{k.id}" aria-label={m.energyUi.keyName(k.label, k.sub ? `${k.value} ${k.sub}` : k.value)}>
+          <a href="#{k.id}" onclick={(e) => goToSection(e, k.id, onreveal)} aria-label={m.energyUi.keyName(k.label, k.sub ? `${k.value} ${k.sub}` : k.value)}>
             <span class="klabel">{k.label}</span>
             <span class="kval"><span class="num v">{k.value}</span>{#if k.sub}<span class="ksub">{k.sub}</span>{/if}</span>
             <span class="chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>
@@ -211,9 +227,9 @@
     }
   }
   .big {
-    font-size: 40px;
+    font-size: var(--fs-hero);
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
     line-height: 1.1;
   }
   .tag {
@@ -224,6 +240,11 @@
     margin: 4px 0 0;
     font-size: 13px;
     color: var(--tx);
+  }
+  .parts {
+    margin: 2px 0 12px;
+    font-size: 13px;
+    color: var(--mu);
   }
   .line,
   .delta {
@@ -257,12 +278,14 @@
   .go {
     margin-top: 10px;
   }
-  /* Key figures: a list under a hairline on a narrow hero, a column beside the answer from 640 px. */
+  /* Key figures (Tableau « Résumé »): a grouped list on --s2 under the answer, rows 52 px with a chevron; beside the
+     answer (hairline-free, same list) when the Résumé is wide (from 640 px of its own width). */
   .keys {
     list-style: none;
     margin: 0;
-    padding: 0;
-    border-top: 1px solid var(--line);
+    padding: 0 14px;
+    border-radius: var(--r-group);
+    background: var(--s2);
     min-height: calc(3 * 52px + 2px);
   }
   .keys li {
@@ -294,7 +317,7 @@
     justify-items: end;
   }
   .v {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
   }
   .ksub {
@@ -319,13 +342,10 @@
   }
   @container (min-width: 640px) {
     .grid.keyed {
-      grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+      grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
       gap: 24px;
     }
     .keys {
-      border-top: 0;
-      border-left: 1px solid var(--line);
-      padding-left: 18px;
       align-self: start;
     }
   }

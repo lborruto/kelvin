@@ -1,4 +1,4 @@
-import { flushSync } from 'svelte';
+import { createRawSnippet, flushSync } from 'svelte';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Stepper from './Stepper.svelte';
@@ -228,4 +228,21 @@ it('in English: the buttons and the announcement', async () => {
   render(Stepper, { value: 20, min: 7, max: 28, label: 'Setpoint', onchange: vi.fn() });
   expect(screen.getByRole('button', { name: 'Decrease Setpoint' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Increase Setpoint' })).toBeInTheDocument();
+});
+
+describe('Stepper lg in the room sheet', () => {
+  const line = (text: string, cls: string) => createRawSnippet(() => ({ render: () => `<span class="${cls}">${text}</span>` }));
+  it('`below` sits under the figure, outside the live output; `between` puts the slider between the discs', () => {
+    const { container } = render(Stepper, {
+      value: 20, min: 7, max: 28, label: 'Consigne Confort', size: 'lg', onchange: () => {},
+      below: line('Confort · actuellement 19,6 °C', 'cap'), between: line('slider', 'sl')
+    });
+    expect(container.querySelector('output')).not.toHaveTextContent('actuellement');
+    expect(container.querySelector('.stepper.around .below .cap')).toHaveTextContent('Confort · actuellement 19,6 °C');
+    expect(container.querySelector('.stepper.around .mid .sl')).toBeInTheDocument();
+  });
+  it('without them, nothing changes', () => {
+    const { container } = render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', size: 'lg', onchange: () => {} });
+    expect(container.querySelector('.below, .mid, .around')).toBeNull();
+  });
 });

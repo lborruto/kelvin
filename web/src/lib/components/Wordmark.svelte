@@ -1,56 +1,37 @@
-<!-- The Kelvin mark (direction-2 §6): the thermal strip in miniature, as in the PWA icon (static/icon.svg):
-     a heat-ramp sparkline and an ink now-marker, 20 × 12, beside « Kelvin ». Identity, not data.
-     `size="lg"` is Login's mark (direction-2 §5): the same drawing at 48 × 20 beside an 18 px « Kelvin ». -->
+<!-- The Kelvin mark (Tableau mockups): an ink disc with « K » beside « Kelvin » (18/700). Identity, not data.
+     `size="lg"` is Login's mark: the same at 32 px. The letter is decorative; the word names it. -->
 <script lang="ts">
   let { size = 'sm' }: { size?: 'sm' | 'lg' } = $props();
-  const uid = $props.id();
 </script>
 
-<span class="wordmark {size}">
-  {#if size === 'lg'}
-    <svg width="48" height="20" viewBox="0 0 48 20" aria-hidden="true">
-      <defs>
-        <linearGradient id="{uid}-k" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stop-color="var(--cool)" />
-          <stop offset="0.5" stop-color="var(--neutral)" />
-          <stop offset="1" stop-color="var(--warm)" />
-        </linearGradient>
-      </defs>
-      <polyline points="2,16.6 10.5,16.1 17.5,14.4 23.5,11.6 29,8.3 35,6.2 41.5,5.3 46,5.2" fill="none"
-        stroke="url(#{uid}-k)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-      <line x1="29" y1="1.2" x2="29" y2="18.8" stroke="var(--tx)" stroke-width="1.2" stroke-linecap="round" />
-    </svg>
-  {:else}
-    <svg width="20" height="12" viewBox="0 0 20 12" aria-hidden="true">
-      <defs>
-        <linearGradient id="{uid}-k" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stop-color="var(--cool)" />
-          <stop offset="0.5" stop-color="var(--neutral)" />
-          <stop offset="1" stop-color="var(--warm)" />
-        </linearGradient>
-      </defs>
-      <polyline points="1,10 4.5,9.6 7.5,8.4 10,6.6 12.3,4.6 15,3.2 18,2.6 19,2.5" fill="none" stroke="url(#{uid}-k)"
-        stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-      <line x1="12.3" y1="0.8" x2="12.3" y2="11.2" stroke="var(--tx)" stroke-width="0.9" stroke-linecap="round" />
-    </svg>
-  {/if}
-  <span>Kelvin</span>
-</span>
+<span class="wordmark {size}"><i aria-hidden="true">K</i><span>Kelvin</span></span>
 
 <style>
   .wordmark {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-  }
-  .lg {
     gap: 10px;
     font-size: 18px;
-    line-height: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
   }
-  svg {
+  i {
+    display: grid;
+    place-items: center;
     flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--tx);
+    color: var(--bg);
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 700;
+  }
+  .lg i {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
   }
 </style>

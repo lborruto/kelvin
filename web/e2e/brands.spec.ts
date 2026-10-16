@@ -1,4 +1,18 @@
 import { expect, test } from '@playwright/test';
+
+/** The room sheet's first radiator row; on a phone the radiators sit behind « Programme, températures, radiateurs ». */
+function radiatorRow(page: import('@playwright/test').Page) {
+  const sheet = page.getByRole('dialog');
+  const more = sheet.getByRole('button', { name: 'Programme, températures, radiateurs' });
+  const row = sheet.locator('.rad button.row').first();
+  return {
+    async click() {
+      await expect(more.or(row)).toBeVisible();
+      if ((await more.count()) && (await more.getAttribute('aria-expanded')) === 'false') await more.click();
+      await row.click();
+    }
+  };
+}
 import { measureCls } from './cls';
 
 // One fresh Kelvin (its own KELVIN_DATA) claimed with « Atlantic Cozytouch »: the simulator serves
@@ -63,7 +77,7 @@ test('the first login chooses the server', async ({ page }) => {
   await page.getByLabel('Email').fill('demo@kelvin.local');
   await page.getByLabel('Mot de passe').fill('kelvin');
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
   await page.context().storageState({ path: 'e2e/.auth/brands.json' });
 });
 
@@ -72,7 +86,7 @@ test.describe('on the Atlantic house', () => {
 
   test('a pilot-wire heater changes level, confirmed by the device', async ({ page }) => {
     await page.goto('/rooms/p-bureau');
-    await page.locator('.rad button.row').first().click();
+    await radiatorRow(page).click();
     const levels = page.getByRole('radiogroup', { name: 'Allure' });
     await expect(levels.getByRole('radio')).toHaveText(['Confort', 'Éco', 'Hors-gel', 'Arrêt']);
     await expect(page.getByRole('radiogroup', { name: 'Mode de la pièce' })).toHaveCount(0);
@@ -83,8 +97,8 @@ test.describe('on the Atlantic house', () => {
 
   test('a pilot-wire room offers Arrêt and shows no setpoint; its name is a Cozytouch label', async ({ page }) => {
     await page.goto('/rooms/p-bureau');
-    await expect(page.getByRole('button', { name: 'Arrêt' })).toBeVisible();
-    await page.locator('.rad button.row').first().click();
+    await expect(page.getByRole('dialog').getByRole('button', { name: 'Arrêt' })).toBeVisible();
+    await radiatorRow(page).click();
     await expect(page.getByText('Consigne active')).toHaveCount(0);
     // Plan 8b: the rename is a setup label write, offered on the Cozytouch servers whatever the kind.
     await expect(page.getByRole('button', { name: 'Renommer' }).first()).toBeVisible();
@@ -92,12 +106,12 @@ test.describe('on the Atlantic house', () => {
 
   test('a towel dryer starts drying, and the room has no comfort setting', async ({ page }) => {
     await page.goto('/rooms/p-sdb');
-    await page.locator('.rad button.row').first().click();
+    await radiatorRow(page).click();
     const dryer = page.getByRole('radiogroup', { name: 'Sèche-serviettes' });
     await dryer.getByRole('radio', { name: 'Séchage' }).click();
     await expect(dryer.getByRole('radio', { name: 'Séchage' })).toHaveAttribute('aria-checked', 'true');
     await expect(dryer).toHaveAttribute('aria-busy', 'false', { timeout: 20_000 });
-    await expect(page.getByText('Confort', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('dialog').getByText('Confort', { exact: true })).toHaveCount(0);
   });
 
   test('the water heater is listed read-only', async ({ page }) => {

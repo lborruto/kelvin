@@ -117,7 +117,7 @@
       "params": {}
     },
     "linky_status_auth": {
-      "fr": "MyElectricalData refuse le jeton : renouvelez-le dans Maison › Linky.",
+      "fr": "MyElectricalData refuse le jeton : renouvelez-le dans Réglages › Linky.",
       "params": {}
     },
     "linky_status_error": {

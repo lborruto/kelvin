@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Radiator, WeekProgram } from './api/types';
 import {
+  drawSlot,
   addSlot,
   baseOf,
   changedDays,
@@ -248,5 +249,27 @@ describe('Programme page helpers', () => {
     expect(shiftDay('monday', -1)).toBe('sunday');
     expect(shiftDay('sunday', 1)).toBe('monday');
     expect(shiftDay('wednesday', 1)).toBe('thursday');
+  });
+});
+
+describe('drawSlot (the agenda draws a period)', () => {
+  const day = [{ start: 390, end: 480 }, { start: 1020, end: 1380 }];
+  it('down: from the origin, an hour at least, snapped', () => {
+    expect(drawSlot(day, 721, 730)).toEqual([day[0], { start: 720, end: 780 }, day[1]]);
+    expect(drawSlot(day, 720, 868)).toEqual([day[0], { start: 720, end: 870 }, day[1]]);
+  });
+  it('up: from the pointer to the origin, an hour at least', () => {
+    expect(drawSlot(day, 720, 700)).toEqual([day[0], { start: 705, end: 765 }, day[1]]);
+    expect(drawSlot(day, 720, 557)).toEqual([day[0], { start: 555, end: 720 }, day[1]]);
+  });
+  it('stays in its gap and never ends after 23:45', () => {
+    expect(drawSlot(day, 720, 0)).toEqual([day[0], { start: 480, end: 720 }, day[1]]);
+    expect(drawSlot(day, 720, 1439)).toEqual([day[0], { start: 720, end: 1020 }, day[1]]);
+    expect(drawSlot([], 1400, 1439)).toEqual([{ start: 1395, end: 1425 }]);
+  });
+  it('refuses a full day, an origin inside a period, a gap under 15 min', () => {
+    expect(drawSlot([...day, { start: 600, end: 660 }].sort((a, b) => a.start - b.start), 900, 960)).toBeNull();
+    expect(drawSlot(day, 400, 600)).toBeNull();
+    expect(drawSlot([{ start: 0, end: 600 }, { start: 610, end: 700 }], 602, 650)).toBeNull();
   });
 });

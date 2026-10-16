@@ -115,14 +115,13 @@ function cell(container: HTMLElement, caption: string, row: string, column: stri
   return tr.children[col]?.textContent ?? '';
 }
 
-/** Mois and Année show the Courbe collapsed to its summary row: open it (Jour and Semaine show it open). */
+/** Mois opens the Courbe in a sheet from its board widget (« par demi-heure › »); Jour and Semaine show it on the board. */
 async function openCurve() {
-  const b = await waitFor(() => {
-    const x = document.querySelector<HTMLButtonElement>('#curve-title');
-    if (!x) throw new Error('no Courbe yet');
-    return x;
+  if (document.getElementById('curve')) return;
+  await fireEvent.click(await screen.findByRole('button', { name: /^par demi-heure, courbe du / }));
+  await waitFor(() => {
+    if (!document.getElementById('curve')) throw new Error('no Courbe yet');
   });
-  if (b.getAttribute('aria-expanded') === 'false') await fireEvent.click(b);
 }
 /** A Fiche row's value by its label (the desktop card is portalled to <body>). */
 const ficheRow = (card: Element, label: string) =>
@@ -135,6 +134,13 @@ const linkyOk: LinkyStatus = {
 };
 
 beforeEach(() => {
+  // The Courbe sheet is a modal <dialog> (jsdom has no showModal).
+  HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  };
   vi.clearAllMocks();
   announcer.clear();
   vi.mocked(api.linkyStatus).mockResolvedValue(linkyOk);
@@ -345,9 +351,10 @@ describe('Énergie', () => {
     const bar = screen.getByRole('button', { name: /^11 octobre, 10,00 kilowattheures, 3,00 euros$/ });
     await fireEvent.keyDown(bar, { key: 'Enter' });
     await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-11', 'salon'));
-    // Mois: the drill opens the collapsed Courbe on that day.
-    expect(await screen.findByRole('heading', { name: /^Courbe du 11 octobre 2026/ })).toBeInTheDocument();
-    expect(document.getElementById('curve-title')).toHaveAttribute('aria-expanded', 'true');
+    // Mois: the drill opens the Courbe sheet on that day.
+    await waitFor(() => expect(document.getElementById('curve')).not.toBeNull());
+    expect(await within(document.getElementById('curve')!).findByRole('heading', { name: /^Courbe du 11 octobre 2026/ })).toBeInTheDocument();
+    expect(document.getElementById('curve')!.closest('dialog')).toHaveAttribute('open');
     expect(announcer.polite).toBe('Courbe du 11 octobre 2026');
   });
 
@@ -368,7 +375,7 @@ describe('Énergie', () => {
   it('the Courbe gives the daily-scaled HC/HP and the curve against the daily reading (M7)', async () => {
     const { container } = render(Page);
     await openCurve();
-    expect(await screen.findByRole('heading', { name: /^Courbe du 12 octobre 2026/ })).toBeInTheDocument();
+    expect(await within(document.getElementById('curve')!).findByRole('heading', { name: /^Courbe du 12 octobre 2026/ })).toBeInTheDocument();
     expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
     const notes = [...container.querySelectorAll('#curve .note')].map((n) => n.textContent);
     expect(notes).toContain('Courbe 21,60\u00a0kWh · relevé journalier 22,03\u00a0kWh (écart 2,0\u00a0%)');
@@ -411,6 +418,7 @@ describe('Énergie', () => {
   it('explains an empty or incomplete curve', async () => {
     vi.mocked(api.energyDay).mockImplementation(async (d: string) => energyDay(d, { complete: false, points: 41, available: [] }));
     const { unmount } = render(Page);
+    await openCurve();
     expect(await screen.findByText('Courbe incomplète (41/48 demi-heures)')).toBeInTheDocument();
     unmount();
     vi.mocked(api.energyDay).mockImplementation(async (d: string) => energyDay(d, { complete: false, points: 0, intervals: [], available: [] }));
@@ -418,6 +426,9 @@ describe('Énergie', () => {
     r.quality = { ...r.quality, curve_since: '2026-10-20' };
     vi.mocked(api.energyReport).mockResolvedValue(r);
     render(Page);
+    // The board's widget says there is no curve; its sheet says why.
+    expect(await screen.findByText('Pas de courbe pour ce jour.')).toBeInTheDocument();
+    await openCurve();
     expect(await screen.findByText('Pas de courbe pour ce jour : antérieure à l’historique de courbe (depuis le 20 octobre 2026).')).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
   });
@@ -425,6 +436,7 @@ describe('Énergie', () => {
   it('a day with no curve and no known cause still says why', async () => {
     vi.mocked(api.energyDay).mockImplementation(async (d: string) => energyDay(d, { complete: false, points: 0, intervals: [], available: [] }));
     render(Page);
+    await openCurve();
     expect(await screen.findByText('Pas de courbe pour ce jour : pas de données Linky pour ce jour.')).toBeInTheDocument();
   });
 
@@ -437,6 +449,7 @@ describe('Énergie', () => {
       })
     );
     render(Page);
+    await openCurve();
     expect(await screen.findByText('Pas de courbe pour ce jour : antérieure au premier jour compté (depuis le 13 octobre 2026).')).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
   });
@@ -502,30 +515,29 @@ describe('Énergie', () => {
     expect(legend).not.toHaveTextContent('Heures pleines');
   });
 
-  it('Mois: the Courbe is its summary row (the day’s kWh, € and peak), opened by a click', async () => {
+  it('Mois: the Courbe widget reads the day’s kWh, € and peak; « par demi-heure › » opens the full Courbe in a sheet', async () => {
     const { container } = render(Page);
-    const b = await waitFor(() => {
-      const x = document.querySelector<HTMLButtonElement>('#curve-title');
-      if (!x?.querySelector('.meta')) throw new Error('no summary yet');
+    const line = await waitFor(() => {
+      const x = container.querySelector('.w-curve .line');
+      if (!x || x.textContent === '—') throw new Error('no line yet');
       return x;
     });
-    expect(b).toHaveAttribute('aria-expanded', 'false');
-    expect(b.closest('h2')).not.toBeNull();
     // The day bar's own figures: 10,00 kWh and 3,00 € for the 12th; the peak from the curve.
-    expect(b.querySelector('.meta')).toHaveTextContent(`10,00 kWh · 3,00 € · pointe 6,84 kW à ${fmtTime(parisDayStart('2026-10-12') + 19 * 3600_000)}`);
-    expect(container.querySelector('#curve .region')).toHaveAttribute('hidden', 'until-found');
-    await fireEvent.click(b);
-    expect(b).toHaveAttribute('aria-expanded', 'true');
+    expect(line).toHaveTextContent(`10,00 kWh · 3,00 € · pointe 6,84 kW à ${fmtTime(parisDayStart('2026-10-12') + 19 * 3600_000)}`);
+    // No second Courbe on the page until it is asked for.
+    expect(document.getElementById('curve')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: /^par demi-heure, courbe du / }));
     expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
+    expect(document.getElementById('curve')!.closest('dialog')).toHaveAttribute('open');
   });
 
-  it('the Courbe starts collapsed in each view that collapses it, even after it was opened in another', async () => {
+  it('the Courbe sheet does not follow to another view; Année has no Courbe, its months drill into Mois', async () => {
     render(Page);
     await openCurve();
-    expect(document.getElementById('curve-title')).toHaveAttribute('aria-expanded', 'true');
     await fireEvent.click(screen.getByRole('radio', { name: 'Année' }));
     await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: '2026' })).toBeInTheDocument());
-    await waitFor(() => expect(document.getElementById('curve-title')).toHaveAttribute('aria-expanded', 'false'));
+    await waitFor(() => expect(document.getElementById('curve')).toBeNull());
+    expect(screen.queryByRole('button', { name: /^par demi-heure, courbe du / })).toBeNull();
   });
 
   it('the Courbe readout at rest is the whole day, the bar’s figures, under « Journée »; scrubbing shows the half-hour', async () => {
@@ -555,7 +567,7 @@ describe('Énergie', () => {
     vi.mocked(api.energyReport).mockResolvedValue(report({ buckets: days }));
     const { container } = render(Page);
     await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
-    const legend = [...container.querySelectorAll('.panels > section:nth-child(2) > ul.legend li')].map((l) => l.textContent);
+    const legend = [...container.querySelectorAll('.bars-w ul.legend li')].map((l) => l.textContent);
     expect(legend).toEqual(['Heures creuses', 'Heures pleines', 'Non réparti', 'Radiateurs']);
     expect(cell(container, 'Consommation de la maison par jour', '4/10', 'Maison')).toMatch(/^10/);
   });
@@ -563,7 +575,7 @@ describe('Énergie', () => {
   it('the legend names only what is drawn: no « Non réparti » for days still to come', async () => {
     const { container } = render(Page);
     await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
-    expect([...container.querySelectorAll('.panels > section:nth-child(2) > ul.legend li')].map((l) => l.textContent)).toEqual(['Heures creuses', 'Heures pleines', 'Radiateurs']);
+    expect([...container.querySelectorAll('.bars-w ul.legend li')].map((l) => l.textContent)).toEqual(['Heures creuses', 'Heures pleines', 'Radiateurs']);
   });
 
   it('a failed curve says so, and Réessayer reads it again', async () => {
@@ -663,7 +675,8 @@ describe('Énergie', () => {
     let resolve!: (r: EnergyReport) => void;
     vi.mocked(api.energyReport).mockReturnValue(new Promise((r) => (resolve = r)));
     const { container } = render(Page);
-    expect(container.querySelectorAll('.panel-sk')).toHaveLength(4);
+    // The board's shape: bars and Résumé, then a row of three.
+    expect(container.querySelectorAll('.panel-sk')).toHaveLength(5);
     expect(screen.queryByText('Chargement…')).toBeNull();
     expect(container.querySelector('.hero-sk')).not.toBeNull();
     expect(screen.queryByRole('heading', { name: 'Consommation de la maison' })).toBeNull();
@@ -750,7 +763,8 @@ describe('Énergie', () => {
     expect(screen.queryByRole('heading', { name: 'Compteurs des radiateurs' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Exporter' })).toBeNull();
     expect(screen.getAllByRole('button', { name: 'Exporter' }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Exporter (CSV)' })).toHaveAttribute('aria-haspopup', 'menu');
+    // One way to export: the header menu (no second button at the end of the page).
+    expect(screen.queryByRole('button', { name: 'Exporter (CSV)' })).toBeNull();
   });
 
   it('shows the report as soon as it arrives, even before the live stream; house parts wait in their own slots', async () => {
@@ -758,27 +772,129 @@ describe('Énergie', () => {
     const { container } = render(Page);
     expect(await screen.findByRole('img', { name: 'Consommation de la maison par jour' })).toBeInTheDocument();
     expect(container.querySelector('.hero .big')).toHaveTextContent('€');
-    expect(screen.getByRole('heading', { name: 'Où part l’énergie' }).closest('section')).toHaveAttribute('aria-busy', 'true');
+    expect(document.getElementById('energy-where')).toHaveAttribute('aria-busy', 'true');
+    // The board's Où part widget waits too.
+    expect(container.querySelector('.w-where')).toHaveAttribute('aria-busy', 'true');
   });
 
-  it('Mois shows Heures creuses / pleines and Chauffage; Jour and Semaine add Puissance', async () => {
+  it('the board: Mois puts the split, the Courbe’s day and the rooms beside each other; Jour and Semaine add Puissance', async () => {
     vi.mocked(api.energyReport).mockResolvedValue(report({ hc_lens: { hc_share: 0.384, slot_share: 0.3333, avg_price: 0.2437, delta_price: 0.0632 } }));
-    render(Page);
-    // Order: Résumé, Consommation, Courbe, Où part l'énergie, Analyse (its cards' labels are h3), Qualité.
+    const { container } = render(Page);
+    // Order: bars, Résumé, the row of three (labels are h3), Analyse, Qualité; the full Où part is collapsed (not a section
+    // of the board until « Tout voir »), the Courbe a sheet.
     const analysis = (await screen.findByRole('heading', { level: 2, name: 'Analyse' })).closest('section')!;
-    const cards = () => [...analysis.querySelectorAll('.cards > section h3')].map((h) => h.textContent);
-    expect(cards()).toEqual(['Heures creuses / pleines', 'Comparaisons', 'Projection']);
-    const order = () =>
-      [...document.querySelectorAll('.panels > section')].map((x) => x.querySelector('h2')?.textContent?.trim().split(/\s{2,}|\n/)[0] ?? x.className);
-    expect(order().slice(2)).toEqual([expect.stringMatching(/^Courbe du/), 'Où part l’énergie', 'Analyse', expect.stringMatching(/^Qualité des données/)]);
+    const cards = (a: Element) => [...a.querySelectorAll('.cards > section h3')].map((h) => h.textContent);
+    expect(cards(analysis)).toEqual(['Comparaisons', 'Projection']);
+    expect(analysis.querySelector('.cards')).toHaveClass('n2');
+    const cell = (x: Element) => x.querySelector('h2, h3')?.textContent?.trim();
+    const order = () => [...container.querySelectorAll('.panels > section')].map((x) => (x.classList.contains('hero') ? 'Résumé' : cell(x)?.split(/\s{2,}|\n/)[0]));
+    expect(order()).toEqual([
+      expect.stringMatching(/^Consommation de la maison/), 'Résumé', 'Heures creuses / pleines', 'Courbe du 12 octobre 2026', 'Où part l’énergie',
+      'Analyse', expect.stringMatching(/^Qualité des données/)
+    ]);
+    expect(document.querySelectorAll('#curve')).toHaveLength(0);
+    // « Tout voir › » opens the full section (collapsed and findable until then) and lands on it.
+    const wrap = container.querySelector('.where-wrap')!;
+    expect(wrap).toHaveAttribute('hidden', 'until-found');
+    const more = within(container.querySelector('.w-where')!).getByRole('link', { name: 'Tout voir' });
+    expect(more).toHaveAttribute('href', '#energy-where');
+    await fireEvent.click(more);
+    expect(wrap).not.toHaveAttribute('hidden');
+    await fireEvent.click(within(wrap as HTMLElement).getByRole('button', { name: 'Replier la liste' }));
+    expect(wrap).toHaveAttribute('hidden', 'until-found');
+    // The Chauffage key figure opens it each time, even after « Replier » (never the browser's same-hash jump).
+    expect(wrap).toHaveAttribute('hidden', 'until-found');
+    const heating = screen.getByRole('link', { name: /^Chauffage,/ });
+    await fireEvent.click(heating);
+    expect(wrap).not.toHaveAttribute('hidden');
+    await fireEvent.click(within(wrap as HTMLElement).getByRole('button', { name: 'Replier la liste' }));
+    await fireEvent.click(heating);
+    expect(wrap).not.toHaveAttribute('hidden');
+    await fireEvent.click(within(wrap as HTMLElement).getByRole('button', { name: 'Replier la liste' }));
+    // A find-in-page reveals it too.
+    wrap.dispatchEvent(new Event('beforematch'));
+    await tick();
+    expect(wrap).not.toHaveAttribute('hidden');
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
     await screen.findByRole('heading', { level: 2, name: 'Lundi 12 octobre 2026' });
+    // Jour: the Courbe leads, the Résumé and the 7 days beside it, then Puissance, the split and the rooms.
+    expect(order().slice(0, 7)).toEqual([
+      expect.stringMatching(/^Courbe du 12 octobre/), 'Résumé', 'Les 7 jours jusqu’au 12/10', 'Puissance', 'Heures creuses / pleines', 'Où part l’énergie',
+      'Température et chauffe'
+    ]);
     const day = screen.getByRole('heading', { level: 2, name: 'Analyse' }).closest('section')!;
-    expect([...day.querySelectorAll('.cards > section h3')].map((h) => h.textContent)).toEqual(['Puissance', 'Heures creuses / pleines', 'Comparaisons', 'Projection']);
-    expect(day.querySelector('.cards')).toHaveClass('n4');
+    expect(cards(day)).toEqual(['Comparaisons', 'Projection']);
     // Every card's detail is closed by default.
-    for (const b of day.querySelectorAll('.cards .dbtn')) expect(b).toHaveAttribute('aria-expanded', 'false');
+    for (const b of container.querySelectorAll('.panels .dbtn')) if (!b.closest('#curve, #quality')) expect(b).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('arriving at #energy-where (the room sheet’s « Énergie de la pièce ») opens the rooms once the report is drawn', async () => {
+    history.replaceState(null, '', '/energy#energy-where');
+    try {
+      const { container } = render(Page);
+      await screen.findByRole('heading', { level: 2, name: 'Analyse' });
+      await tick();
+      expect(container.querySelector('.where-wrap')).not.toHaveAttribute('hidden');
+    } finally {
+      history.replaceState(null, '', '/energy');
+    }
+  });
+
+  it('Tempo in force: the six Tempo rows take the split’s place (adding up to the energy €), dots under the day bars', async () => {
+    const tempo_lens = {
+      rows: [
+        { key: 'blue_hc', kwh: 50, eur: 6.62 }, { key: 'blue_hp', kwh: 260, eur: 41.91 }, { key: 'white_hc', kwh: 10, eur: 1.5 },
+        { key: 'white_hp', kwh: 30, eur: 5.61 }, { key: 'red_hc', kwh: 0, eur: 0 }, { key: 'red_hp', kwh: 0, eur: 0 }
+      ],
+      days: { blue: 10, white: 1, red: 0, unknown: 1 },
+      unknown_kwh: null
+    };
+    const days = october().map((b, i) => (i < 12 ? { ...b, tempo: i === 3 ? { blue: 0, white: 1, red: 0, unknown: 0 } : i === 5 ? { blue: 0, white: 0, red: 0, unknown: 1 } : { blue: 1, white: 0, red: 0, unknown: 0 } } : b));
+    vi.mocked(api.energyReport).mockResolvedValue(report({ option: 'tempo', tempo_lens, buckets: days }));
+    const { container } = render(Page);
+    const card = (await screen.findByRole('heading', { name: 'Jours Tempo' })).closest('section')!;
+    expect(card.querySelectorAll('tbody tr')).toHaveLength(6);
+    expect(card).toHaveTextContent('Un jour Tempo va de 06:00 à 06:00.');
+    // The split card moves to Analyse.
+    const analysis = screen.getByRole('heading', { level: 2, name: 'Analyse' }).closest('section')!;
+    expect([...analysis.querySelectorAll('.cards > section h3')].map((h) => h.textContent)).toEqual(['Heures creuses / pleines', 'Comparaisons', 'Projection']);
+    const dots = [...container.querySelectorAll('.bars-w .dots .dot')].map((d) => d.className.replace(/\s*svelte-\S+/g, '').trim());
+    expect(dots).toHaveLength(12);
+    expect(dots[3]).toBe('dot white');
+    expect(dots[5]).toBe('dot unknown');
+    expect(dots[0]).toBe('dot blue');
+  });
+
+  it('HC/HP or Base: no Tempo card and no dots, even when buckets carry colours from an old Tempo row', async () => {
+    const days = october().map((b, i) => (i < 12 ? { ...b, tempo: { blue: 1, white: 0, red: 0, unknown: 0 } } : b));
+    vi.mocked(api.energyReport).mockResolvedValue(report({ option: 'hchp', buckets: days }));
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
+    expect(screen.queryByRole('heading', { name: 'Jours Tempo' })).toBeNull();
+    expect(container.querySelector('.bars-w .dots')).toBeNull();
+  });
+
+  it('Année: the month by month table reads each bar’s own kWh and €, the running month says to which day; a row opens it', async () => {
+    const months = Array.from({ length: 12 }, (_, i) => ({
+      key: `2026-${String(i + 1).padStart(2, '0')}`,
+      ...summary(i > 9 ? { ...NONE, radiators: null, radiators_kwh: null, subscription_eur: null } : { kwh: 100 + i, eur: 30.5 + i, energy_eur: 25 + i, subscription_eur: 5.5 })
+    }));
+    vi.mocked(api.energyReport).mockResolvedValue(report({ group: 'month', buckets: months }));
+    render(Page);
+    await fireEvent.click(await screen.findByRole('radio', { name: 'Année' }));
+    const table = (await screen.findByRole('heading', { name: 'Mois par mois' })).closest('section')!;
+    const rows = [...table.querySelectorAll('li')];
+    expect(rows).toHaveLength(12);
+    expect(rows[0]).toHaveTextContent(/^Janvier 2026\s*100,00\skWh\s*30,50\s€$/);
+    expect(rows[9]).toHaveTextContent('Octobre 2026 au 12/10');
+    expect(rows[11]).toHaveTextContent(/^Décembre 2026\s*—$/);
+    // The running month dashed to its projection, said under the chart.
+    expect(screen.getByText(/^Octobre 2026 en pointillés\s:\sle mois complet estimé \(≈\s120,50\s€\)\.$/)).toBeInTheDocument();
+    expect(document.querySelectorAll('.bars-w rect.ghost')).toHaveLength(1);
+    await fireEvent.click(within(rows[2]).getByRole('button'));
+    await screen.findByRole('heading', { level: 2, name: 'Mars 2026' });
+  });
+
   it('Jour shows Température et chauffe under the Courbe for a room, and another room re-reads the day', async () => {
     house.applySnapshot({
       house: {
@@ -796,9 +912,10 @@ describe('Énergie', () => {
     expect(screen.queryByRole('heading', { name: 'Température et chauffe' })).toBeNull();
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
     const h = await screen.findByRole('heading', { name: 'Température et chauffe' });
-    // Inside « Où part l'énergie », under the rooms (an h3 there), sharing the Courbe's scrubber.
-    expect(h.tagName).toBe('H3');
-    expect(h.closest('#energy-where')).not.toBeNull();
+    // Its own widget on the board, under the row of three, sharing the Courbe's scrubber.
+    expect(h.tagName).toBe('H2');
+    expect(h.closest('#energy-where')).toBeNull();
+    expect(h.closest('.panels > section')).not.toBeNull();
     // The first room in the Pièces order.
     await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'salon'));
     // The half-hour scrubbed on one chart is the other's.
@@ -885,8 +1002,8 @@ describe('Énergie', () => {
       // The total row is the hero's period: 412,6 kWh, 98,40 €.
       expect(rows[32].split(';').slice(0, 4).join(';')).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;412,640');
       expect(rows[32].split(';')[12]).toBe('98,40');
-      // The same menu closes the page (the ghost « Exporter (CSV) »).
-      await fireEvent.click(screen.getByRole('button', { name: 'Exporter (CSV)' }));
+      // The same header menu gives the Courbe's day.
+      await fireEvent.click(trigger);
       await fireEvent.click((await screen.findAllByRole('menuitem', { name: 'Exporter la courbe du 12/10 (CSV)' }))[0]);
       expect(vi.mocked(download).mock.calls[1][0].name).toBe('courbe_2026-10-12.csv');
     } finally {
@@ -913,7 +1030,7 @@ describe('Energy in English', () => {
     expect(screen.getByText('−4% consumption compared with September 2026, over 12 comparable days')).toBeInTheDocument();
     expect(container.querySelector('.context .source-line')).toHaveTextContent('Linky · data up to 12/10');
     expect(screen.getByRole('img', { name: 'Home consumption by day' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Export (CSV)' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Export' }).length).toBeGreaterThan(0);
   });
   it('a failed report shows the code’s English text, a code-less failure the page’s own message', async () => {
     applyLocale('en');

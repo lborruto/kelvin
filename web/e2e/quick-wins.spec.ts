@@ -11,7 +11,10 @@ async function confirmed(page: Page) {
 
 test('night-light brightness: pending, then confirmed by the radiator', async ({ page }) => {
   await page.goto('/rooms/p-ch1');
-  // Each radiator is a disclosure row in the room panel: open it.
+  // Each radiator is a disclosure row in the room sheet (on a phone, behind « Programme, températures, radiateurs »): open it.
+  const more = page.getByRole('button', { name: 'Programme, températures, radiateurs' });
+  await expect(more.or(page.locator('.rad button.row').first())).toBeVisible();
+  if (await more.count()) await more.click();
   await page.locator('.rad button.row').first().click();
   const light = page.getByRole('switch', { name: 'Veilleuse' }).first();
   if ((await light.getAttribute('aria-checked')) !== 'true') {
@@ -56,17 +59,26 @@ test('schedule: a change made elsewhere is never overwritten silently', async ({
   await other.close();
 });
 
-test('schedule: Chambre 1 shows its locked days read-only', async ({ page }) => {
+test('schedule: Chambre 1 shows its locked days read-only', async ({ page, isMobile }) => {
   await page.goto('/schedule');
   await page.getByRole('radio', { name: 'Chambre 1' }).click();
-  // The week says why, on the locked day's own line.
+  // The agenda hatches them and says why: in the day's name, in its column (desktop) or the notes under it (phone).
   const sunday = page.locator('[data-day="sunday"]');
-  await expect(sunday.getByText(/Fin à minuit\s:\smodifiez ce jour/)).toBeVisible();
-  await expect(sunday.getByText('20:00–24:00')).toBeVisible();
-  await expect(page.locator('[data-day="saturday"]').getByText(/Plage non reconnue/)).toBeVisible();
+  await expect(sunday.getByRole('button')).toHaveAccessibleName(/^Dimanche, 20:00–24:00, .*Fin à minuit\s:\smodifiez ce jour/);
+  await expect(page.getByRole('button', { name: /^Samedi, Plage non reconnue/ })).toBeVisible();
+  if (isMobile) {
+    await expect(page.locator('[data-lock="sunday"]')).toContainText(/Fin à minuit\s:\smodifiez ce jour/);
+    await expect(page.locator('[data-lock="saturday"]')).toContainText('Plage non reconnue');
+  } else {
+    await expect(sunday.locator('.why')).toHaveText('fin à minuit');
+    await expect(sunday.getByText('20:00–24:00')).toBeVisible();
+    await expect(page.locator('[data-day="saturday"] .why')).toHaveText('non reconnu');
+  }
   // Opened, the day is shown but never editable.
-  await sunday.click();
+  await sunday.getByRole('button').click();
   await expect(page.getByRole('heading', { name: /^Dimanche/ })).toBeVisible();
+  await expect(page.getByText(/^Fin à minuit\s:\smodifiez ce jour/)).toBeVisible();
+  await expect(page.getByText('Ce jour reste tel que le radiateur l’a.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ajouter une plage le Dimanche' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Copier vers…' })).toHaveCount(0);
 });
@@ -110,7 +122,7 @@ async function signInElsewhere(browser: import('@playwright/test').Browser) {
   await p.getByLabel('Email').fill('demo@kelvin.local');
   await p.getByLabel('Mot de passe').fill('kelvin');
   await p.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(p.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  await expect(p.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
   return { ctx, p };
 }
 
@@ -143,13 +155,14 @@ test('an offline room: a calm notice in its panel, the alert in Home (neutral), 
   test.skip(isMobile, 'dismissal is shared state: one project runs it');
   const sinceText = await pinSameDay(page);
   await page.goto('/rooms/p-ch2');
-  await expect(page.getByText(sinceText).first()).toBeVisible(); // the status sentence
-  const notice = page.getByRole('status').filter({ hasText: 'Radiateur hors tension ou hors de portée' });
+  const sheet = page.getByRole('dialog', { name: 'Chambre 2' });
+  await expect(sheet.getByText(sinceText).first()).toBeVisible(); // the state under the name
+  const notice = sheet.getByRole('status').filter({ hasText: 'Radiateur hors tension ou hors de portée' });
   await expect(notice).toContainText('Les commandes reprendront quand il sera rallumé.');
   // Not repeated as an alert in the room, and never red.
-  await expect(page.getByText(/Chambre 2\s:\sradiateur hors ligne/)).toHaveCount(0);
-  await expect(page.locator('.inspector .bad')).toHaveCount(0);
-  await expect(page.locator('.inspector header .temp')).toHaveCount(0); // no reading for an offline room
+  await expect(sheet.getByText(/Chambre 2\s:\sradiateur hors ligne/)).toHaveCount(0);
+  await expect(sheet.locator('.bad')).toHaveCount(0);
+  await expect(sheet.locator('.head .fig')).toHaveCount(0); // no reading for an offline room
   await page.goto('/home#alerts');
   const list = page.locator('#alerts');
   const callout = list.getByText(/Chambre 2\s:\sradiateur hors ligne/);

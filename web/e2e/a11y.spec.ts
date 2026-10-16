@@ -2,13 +2,19 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { settled } from './cls';
 
-// axe-core on every route, both themes (direction-2 §10): no serious or critical violation. Runs in both
+// axe-core on every route (one dark theme, Tableau): no serious or critical violation. Runs in both
 // projects (phone and desktop), so the tab bar and the sidebar, the phone sheets and the desktop panels
 // are all checked. The 404 and the login screen are routes too.
 const ROUTES = [
   '/',
   '/rooms/p-salon',
+  // The room sheet's offline state (calm notice, ghost day, paused modes).
+  '/rooms/p-ch2',
   '/schedule',
+  // Programme (Tableau): a day view with three periods' worth of rows, a locked day, an offline room
+  '/schedule?room=p-salon&day=monday',
+  '/schedule?room=p-ch1&day=saturday',
+  '/schedule?room=p-ch2',
   '/energy',
   '/home',
   '/home/tariff',
@@ -18,7 +24,6 @@ const ROUTES = [
   '/home/devices',
   '/no-such-page'
 ];
-const THEMES = ['dark', 'light'] as const;
 
 async function violations(page: Page) {
   // Scan a still page: a sheet fading in or a button turning enabled is mid-colour for a moment
@@ -32,35 +37,69 @@ async function violations(page: Page) {
 
 test.describe('accessibility (axe)', () => {
   test.use({ serviceWorkers: 'block' });
-  for (const theme of THEMES) {
+  {
     for (const route of ROUTES) {
-      test(`${route} · ${theme} · no serious or critical axe violation`, async ({ page }) => {
-        await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+      test(`${route} · no serious or critical axe violation`, async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto(route);
         await settled(page);
         expect(await violations(page)).toEqual([]);
       });
     }
 
-    test(`/login · ${theme} · no serious or critical axe violation`, async ({ browser }, info) => {
+    test(`/energy Jour, Semaine and Année · no serious or critical axe violation`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/energy');
+      await settled(page);
+      for (const view of ['Jour', 'Semaine', 'Année']) {
+        await page.getByRole('radio', { name: view, exact: true }).click();
+        // The new view's report is in and the board is no longer dimmed (busy) before the scan.
+        await expect(page.locator('.panels')).toHaveAttribute('aria-busy', 'false');
+        await expect(page.locator('.panels.busy')).toHaveCount(0);
+        await settled(page);
+        expect(await violations(page), view).toEqual([]);
+      }
+    });
+
+    test(`/login · no serious or critical axe violation`, async ({ browser }, info) => {
       const context = await browser.newContext({ ...info.project.use, storageState: { cookies: [], origins: [] } });
       const page = await context.newPage();
-      await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto('/login');
       await settled(page);
       expect(await violations(page)).toEqual([]);
       await context.close();
     });
 
-    test(`the Absence sheet and technical details · ${theme} · no serious or critical axe violation`, async ({ page }) => {
+    test(`/schedule with the copy sheet open · no serious or critical axe violation`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/schedule?room=p-salon&day=monday');
+      await settled(page);
+      await page.getByRole('button', { name: 'Copier vers…' }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Jours de semaine' }).click();
+      expect(await violations(page)).toEqual([]);
+    });
+
+    test(`the Absence sheet and technical details · no serious or critical axe violation`, async ({ page }) => {
       await page.addInitScript(() => localStorage.setItem('kelvin-detail', 'on'));
-      await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto('/home');
       await settled(page);
       expect(await violations(page)).toEqual([]);
-      await page.getByRole('button', { name: /^Partir en absence/ }).click();
+      // The old #away anchor opens the Absence sheet over Maison (the sidebar and Maison's header open it too).
+      await page.goto('/home#away');
       await expect(page.getByRole('dialog', { name: 'Partir en absence' })).toBeVisible();
       expect(await violations(page)).toEqual([]);
     });
   }
+});
+
+// Dark only (Tableau): a browser that prefers light still gets the one dark theme.
+test('a light-preferring browser still gets the dark theme', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/home');
+  await settled(page);
+  const [bg, ground] = await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.documentElement).backgroundColor]);
+  expect(bg).toBe('rgb(11, 11, 13)');
+  expect(ground).toBe('rgb(5, 5, 6)');
 });

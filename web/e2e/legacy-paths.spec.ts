@@ -51,10 +51,11 @@ test('logged out, a French deep link keeps its anchor through the login', async 
   }
 });
 
-test('Maison’s old anchors reach their new place; #away opens the Absence sheet', async ({ page }) => {
+test('Maison’s old anchors reach their new place; #away opens the Absence sheet over the Maison tableau', async ({ page }) => {
   await page.goto('/maison#absence'); // legacy-path-test
   await expect(page.getByRole('dialog', { name: 'Partir en absence' })).toBeVisible();
-  await expect(page).toHaveURL(/\/home$/);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1, includeHidden: true })).toBeAttached();
   await page.goto('/home#sessions');
   await expect(page).toHaveURL(/\/home\/account#sessions$/);
   await expect(page.locator('#sessions')).toBeVisible();

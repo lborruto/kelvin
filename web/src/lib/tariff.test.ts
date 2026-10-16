@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Tariff } from '$lib/api/types';
-import { ALL_MONTHS, buildDocument, hourBlocks, inForce, monthsProblem, slotsText, tariffDiff, withSchedule } from './tariff';
+import { ALL_MONTHS, buildDocument, inForce, monthsProblem, priceProblem, slotsText, tariffDiff, withSchedule } from './tariff';
 
 const NIGHT = [{ start: '22:00', end: '06:00' }];
 const current: Tariff = {
@@ -20,18 +20,6 @@ const draft = (over = {}) => ({
   schedule: { valid_from: '2026-10-14', variants: [{ months: ALL_MONTHS, slots: NIGHT }] },
   tempoHours: { hc_start: '22:00', hc_end: '06:00' },
   ...over
-});
-
-describe('hourBlocks (HoursBar)', () => {
-  it('splits a slot past midnight, keeps a day slot whole', () => {
-    expect(hourBlocks([{ start: '22:00', end: '06:00' }])).toEqual([
-      { left: (1320 / 1440) * 100, width: (120 / 1440) * 100 },
-      { left: 0, width: 25 }
-    ]);
-    expect(hourBlocks([{ start: '12:00', end: '14:00' }])).toEqual([{ left: 50, width: (120 / 1440) * 100 }]);
-    expect(hourBlocks([{ start: '00:00', end: '00:00' }])).toEqual([{ left: 0, width: 100 }]);
-    expect(slotsText([{ start: '22:00', end: '06:00' }, { start: '12:00', end: '14:00' }])).toBe('22:00–06:00, 12:00–14:00');
-  });
 });
 
 describe('tariff document', () => {
@@ -80,5 +68,14 @@ describe('tariffDiff (the summary rows a save changed)', () => {
     const hours = { ...t, hc_schedules: [{ valid_from: '2025-01-15', variants: [{ months: ALL_MONTHS, slots: [{ start: '23:00', end: '07:00' }] }] }] };
     expect([...tariffDiff(t, hours, '2026-10-15')]).toEqual(['hours']);
     expect(tariffDiff(null, t, '2026-10-15').has('option')).toBe(true);
+  });
+});
+
+describe('priceProblem (flagged before saving)', () => {
+  it('accepts a price per kWh with up to 4 decimals, in either notation; empty is left to the save', () => {
+    for (const ok of ['0,2780', '0.27', '0,2', '1', ' 0,1296 ', '']) expect(priceProblem(ok), ok).toBe(false);
+  });
+  it('flags text, more than 4 decimals, zero and an implausible price', () => {
+    for (const bad of ['abc', '0,27801', '0', '0,0000', '12', '0,2,7']) expect(priceProblem(bad), bad).toBe(true);
   });
 });

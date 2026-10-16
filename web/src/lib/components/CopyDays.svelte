@@ -1,6 +1,7 @@
-<!-- « Copier vers… »: copies the day being edited onto other days of the draft (nothing is sent).
-     Shortcuts pick weekdays, the weekend or every day; the source day and locked days are never
-     offered. -->
+<!-- « Copier vers… »: copies the day being edited onto other days of the draft (nothing is sent). Shortcuts
+     pick weekdays, the weekend or every day; the source day is shown dashed and cannot be picked; locked days
+     are never offered (a line says which and why). Desktop: a 400 px dialog; phone: a bottom sheet with the
+     large « Copier sur N jours ». `variant="row"`: the trigger is a grouped-list row (the phone day view). -->
 <script lang="ts">
   import { DAYS, type Day, type DayLock } from '$lib/api/types';
   import { m } from '$lib/i18n';
@@ -12,14 +13,16 @@
     source: Day;
     locks?: Partial<Record<Day, DayLock>>;
     disabled?: boolean;
+    variant?: 'button' | 'row';
     oncopy: (days: Day[]) => void;
   }
-  let { source, locks = {}, disabled = false, oncopy }: Props = $props();
+  let { source, locks = {}, disabled = false, variant = 'button', oncopy }: Props = $props();
   const PRESETS: Preset[] = ['weekdays', 'weekend', 'every'];
   let open = $state(false);
   let chosen = $state<Day[]>([]);
   let trigger = $state<HTMLButtonElement>();
   let shown = $derived(DAYS.filter((d) => !locks[d]));
+  let lockedOut = $derived(DAYS.filter((d) => locks[d] && d !== source));
   const same = (a: Day[], b: Day[]) => a.length === b.length && a.every((d) => b.includes(d));
 
   function show() {
@@ -34,15 +37,21 @@
   }
 </script>
 
-<button type="button" class="btn btn-sm" bind:this={trigger} aria-haspopup="dialog" aria-disabled={disabled} onclick={show}>
-  <Icon name="copy" size={16} />{m.program.copyTo}
-</button>
+{#if variant === 'row'}
+  <button type="button" class="row" bind:this={trigger} aria-haspopup="dialog" aria-disabled={disabled} onclick={show}>
+    <Icon name="copy" size={18} /><span class="x">{m.program.copyTo}</span><Icon name="chevron" size={16} />
+  </button>
+{:else}
+  <button type="button" class="btn btn-sm" bind:this={trigger} aria-haspopup="dialog" aria-disabled={disabled} onclick={show}>
+    <Icon name="copy" size={15} />{m.program.copyTo}
+  </button>
+{/if}
 
 <ChoiceSheet title={m.program.copyTitle(source)} {open} {trigger} onclose={() => (open = false)}>
   <div class="presets" role="group" aria-label={m.program.presetsLabel}>
     {#each PRESETS as p (p)}
       {@const days = presetDays(p, source, locks)}
-      <button type="button" class="chip hit" aria-pressed={days.length > 0 && same(chosen, days)} onclick={() => (chosen = days)}>
+      <button type="button" class="dchip hit" aria-pressed={days.length > 0 && same(chosen, days)} onclick={() => (chosen = days)}>
         {m.program.presets[p]}
       </button>
     {/each}
@@ -51,99 +60,131 @@
     <legend class="visually-hidden">{m.program.copyDays}</legend>
     {#each shown as d (d)}
       {#if d === source}
-        <span class="chip off" aria-hidden="true"><span class="box"></span>{m.daysShort[d]}</span>
+        <span class="dchip src" aria-hidden="true">{m.daysAbbr[d]}</span>
       {:else}
-        <label class="chip hit"><input class="visually-hidden" type="checkbox" value={d} aria-label={m.days[d]} bind:group={chosen} /><span
-            class="box" aria-hidden="true"><Icon name="check" size={12} /></span><span aria-hidden="true">{m.daysShort[d]}</span></label>
+        <label class="dchip hit"><input class="visually-hidden" type="checkbox" value={d} aria-label={m.days[d]} bind:group={chosen} /><span
+            aria-hidden="true">{m.daysAbbr[d]}</span><span class="tick" aria-hidden="true"><Icon name="check" size={14} /></span></label>
       {/if}
     {/each}
   </fieldset>
+  {#if lockedOut.length}
+    <p class="note locked"><Icon name="lock" size={13} />{m.program.lockedNotOffered(m.program.list(lockedOut.map((d) => m.days[d])), lockedOut.length)}</p>
+  {/if}
   <button type="button" class="btn btn-primary btn-lg go" aria-disabled={!chosen.length} onclick={apply}>{m.program.copyN(chosen.length)}</button>
-  <p class="note">{m.program.copyNote}</p>
+  <p class="note end">{m.program.copyNote}</p>
 </ChoiceSheet>
 
 <style>
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--tx);
+    font: inherit;
+    font-size: 15px;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .row[aria-disabled='true'] {
+    color: var(--fa);
+    cursor: default;
+  }
+  .row .x {
+    flex: 1;
+    min-width: 0;
+  }
+  .row :global(svg:last-child) {
+    color: var(--mu);
+  }
   .presets {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
   }
   .days {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
-    margin: 0 0 14px;
+    margin: 0;
     padding: 0;
     border: 0;
     min-width: 0;
   }
-  .chip {
+  /* Day and shortcut chips (Tableau « CopySheet »): 40 px pills on s2; picked ones are ink on bg with a ✓
+     (not colour alone); the source day is dashed and faint, never a choice. */
+  .dchip {
+    --ctl-h: 40px;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    min-height: var(--ctl-h);
-    padding: 0 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: none;
-    color: var(--mu);
-    font-size: 13px;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--s2);
+    color: var(--tx);
+    font: inherit;
+    font-size: 14px;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
     user-select: none;
     touch-action: manipulation;
     transition:
       background-color var(--t-state) ease,
-      border-color var(--t-state) ease,
       color var(--t-state) ease;
   }
-  .presets .chip {
-    padding: 0 12px;
-  }
   @media (hover: hover) {
-    .chip:not(.off):hover {
-      color: var(--tx);
-      border-color: var(--fa);
+    .dchip:not(.src, [aria-pressed='true'], :has(:checked)):hover {
+      background: var(--s3);
     }
   }
-  .chip[aria-pressed='true'],
-  .chip:has(:checked) {
-    background: var(--s2);
-    border-color: var(--mu);
-    color: var(--tx);
+  .dchip[aria-pressed='true'],
+  .dchip:has(:checked) {
+    background: var(--tx);
+    color: var(--bg);
   }
-  .chip:has(:focus-visible) {
+  .dchip:has(:focus-visible) {
     outline: 2px solid var(--tx);
     outline-offset: 2px;
   }
-  .chip.off {
-    color: var(--fa);
-    border-style: dashed;
+  .tick {
+    display: none;
+  }
+  .dchip:has(:checked) .tick {
+    display: inline-grid;
+  }
+  .dchip.src {
+    background: none;
+    border: 1.5px dashed var(--field);
+    color: var(--mu);
+    font-weight: 500;
     cursor: default;
   }
-  .box {
-    display: inline-grid;
-    place-items: center;
-    flex: none;
-    width: 16px;
-    height: 16px;
-    border: 1.5px solid var(--field-line);
-    border-radius: 4px;
-    color: transparent;
+  .note {
+    margin: 0;
+    font-size: 12.5px;
   }
-  .chip:has(:checked) .box {
-    background: var(--tx);
-    border-color: var(--tx);
-    color: var(--bg);
+  .locked {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
   }
   .go {
     width: 100%;
+    margin-top: 16px;
   }
-  .note {
-    margin: 8px 0 0;
-    font-size: 12px;
-    color: var(--mu);
+  .end {
+    margin-top: 10px;
     text-align: center;
   }
 </style>

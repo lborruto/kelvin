@@ -3,8 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)" />
+    <!-- One dark theme (Tableau): the browser chrome is the ground (--ground in app.css; theme.test.ts). -->
+    <meta name="theme-color" content="#050506" />
+    <meta name="color-scheme" content="dark" />
     <link rel="icon" href="%sveltekit.assets%/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
     <title>Kelvin</title>
@@ -57,14 +58,7 @@
     <script>
       (function () {
         try {
-          const t = localStorage.getItem('kelvin-theme');
-          if (t === 'light' || t === 'dark') {
-            document.documentElement.dataset.theme = t;
-            // Same rule as applyThemeColor ($lib/stores/theme.ts), before the app loads.
-            const c = t === 'light' ? '#f5f6f8' : '#0f1115';
-            for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = c;
-          }
-          // « Détails techniques » ($lib/stores/detail.svelte.ts): set before first paint, like the theme.
+          // « Détails techniques » ($lib/stores/detail.svelte.ts): set before first paint.
           if (localStorage.getItem('kelvin-detail') === 'on') document.documentElement.dataset.detail = 'on';
         } catch {}
       })();
@@ -72,27 +66,17 @@
     <style>
       /* First paint before the app loads (removed by the root layout): the page ground, the
          wordmark and three card-sized blocks. A fixed overlay, so its removal moves nothing. */
-      #kv-shell { position: fixed; inset: 0; z-index: 100; background: #0f1115; color: #e8eaf0;
+      #kv-shell { position: fixed; inset: 0; z-index: 100; background: #0b0b0d; color: #f5f5f7;
         font: 700 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 20px 16px; }
-      #kv-shell i { display: block; height: 132px; margin-top: 10px; border-radius: 10px; background: #171a21; }
-      #kv-shell b { display: block; height: 22px; width: 7em; margin: 18px 0 14px; border-radius: 6px; background: #171a21; }
-      @media (prefers-color-scheme: light) {
-        :root:not([data-theme='dark']) #kv-shell { background: #f5f6f8; color: #14171f; }
-        :root:not([data-theme='dark']) #kv-shell :is(i, b) { background: #ffffff; }
-      }
-      :root[data-theme='light'] #kv-shell { background: #f5f6f8; color: #14171f; }
-      :root[data-theme='light'] #kv-shell :is(i, b) { background: #ffffff; }
-      @media (min-width: 1024px) { #kv-shell { padding: 20px 28px 0 260px; } #kv-shell i { max-width: 640px; } }
+      #kv-shell i { display: block; height: 150px; margin-top: 10px; border-radius: 20px; background: #1b1b1f; }
+      #kv-shell b { display: block; height: 22px; width: 7em; margin: 18px 0 14px; border-radius: 6px; background: #1b1b1f; }
+      @media (min-width: 1024px) { #kv-shell { padding: 28px 32px 0 252px; } #kv-shell i { max-width: 640px; } }
       /* Offline first load (direction-2 §7): if the app has not started after 8 s, say why, in the page's
          language (the strings mirror m.page.unreachable and m.common.retry; app-shell.test.ts checks). */
       #kv-shell .off { display: none; margin: 18px 0 0; max-width: 420px; font-weight: 400; font-size: 13px; }
       #kv-shell.late .off { display: block; }
-      #kv-shell .off button { margin-top: 12px; min-height: 36px; padding: 0 14px; border: 1px solid #262a33;
-        border-radius: 8px; background: #1d212a; color: inherit; font: 600 13px system-ui, sans-serif; cursor: pointer; }
-      :root[data-theme='light'] #kv-shell .off button { background: #eef0f3; border-color: #dfe2e8; }
-      @media (prefers-color-scheme: light) {
-        :root:not([data-theme='dark']) #kv-shell .off button { background: #eef0f3; border-color: #dfe2e8; }
-      }
+      #kv-shell .off button { margin-top: 12px; min-height: 40px; padding: 0 15px; border: 0;
+        border-radius: 99px; background: #2a2a2f; color: inherit; font: 500 14px system-ui, sans-serif; cursor: pointer; }
       html:not([lang='en']) #kv-shell [lang='en'], html[lang='en'] #kv-shell [lang='fr'] { display: none; }
     </style>
     %sveltekit.head%

@@ -99,18 +99,23 @@ export const fr = {
     announce: (label: string, value: string) => `${label}${NB}: ${value}`
   },
   nav: {
-    rooms: 'Pièces',
+    // Tableau (decision 1): « Maison » is the dashboard at `/`, « Réglages » is `/home`. URLs unchanged.
+    rooms: 'Maison',
     schedule: 'Programme',
     energy: 'Énergie',
-    home: 'Maison',
+    home: 'Réglages',
     label: 'Navigation principale',
+    roomsHead: 'Pièces',
+    roomsLabel: 'Pièces de la maison',
+    away: 'Partir…',
+    roomRow: (name: string, temp: string | null, heating: boolean, offline: boolean) =>
+      [name, offline ? 'hors ligne' : temp, heating ? 'en chauffe' : null].filter(Boolean).join(', '),
     skip: 'Aller au contenu',
     alerts: (name: string, n: number) => `${name}, ${int(n)} ${plural(n, { one: 'alerte', other: 'alertes' })}`
   },
   houseActions: {
     allOff: 'Tout éteindre',
     allProgram: 'Tout remettre en programme',
-    away: 'Absence…',
     confirmTitle: `Tout éteindre${NB}?`,
     confirmBody: `Toutes les pièces passent à l’arrêt. Pour les rallumer${NB}: Maison › Tout remettre en programme.`
   },
@@ -120,7 +125,7 @@ export const fr = {
     notFoundBody: 'L’adresse est peut-être ancienne ou incomplète.',
     errorTitle: 'Erreur',
     load: 'Kelvin n’a pas pu afficher cette page',
-    goRooms: 'Aller aux pièces',
+    goRooms: 'Aller au tableau Maison',
     unreachable: 'Kelvin n’est pas joignable. Vérifiez la connexion à la maison (Wi-Fi ou VPN).',
     details: 'Détails',
     code: 'Code',
@@ -172,9 +177,6 @@ export const fr = {
     lastError: 'Dernière erreur'
   },
   rooms: {
-    summary: (heating: number, offline: number) =>
-      `${heating ? `${int(heating)} ${plural(heating, { one: 'pièce', other: 'pièces' })} en chauffe` : 'Aucune pièce en chauffe'}${offline ? ` · ${int(offline)} hors ligne` : ''}`,
-    awayActive: 'Absence en cours',
     offlineGroup: (n: number) => `Hors ligne · ${int(n)}`,
   },
   status: {
@@ -201,7 +203,6 @@ export const fr = {
     title: 'Pièce',
     windowOpen: 'Fenêtre ouverte',
     windowNotice: `Fenêtre ouverte, signalée par le radiateur${NB}: la pièce perd sa chaleur.`,
-    todayLabel: (name: string) => `${name}, température d’aujourd’hui`,
     setpoint: 'Consigne',
     comfort: 'Confort',
     eco: 'Éco',
@@ -209,7 +210,6 @@ export const fr = {
     mixedMean: 'Mixte (moyenne)',
     mixedMode: 'Mixte — les radiateurs n’ont pas le même mode',
     notFound: `Pièce introuvable${NB}: elle a peut-être été supprimée.`,
-    controls: 'Réglage',
     modeLabel: 'Mode de la pièce',
     editHours: 'Modifier les horaires',
     lastKnown: (s: string) => `Dernier mode connu${NB}: ${s}.`,
@@ -269,7 +269,9 @@ export const fr = {
     saturday: 'Samedi',
     sunday: 'Dimanche'
   },
-  daysShort: { monday: 'Lun', tuesday: 'Mar', wednesday: 'Mer', thursday: 'Jeu', friday: 'Ven', saturday: 'Sam', sunday: 'Dim' },
+  /** Programme calendar headers and copy chips (« lun. »), and the phone calendar's letters (« L »). */
+  daysAbbr: { monday: 'lun.', tuesday: 'mar.', wednesday: 'mer.', thursday: 'jeu.', friday: 'ven.', saturday: 'sam.', sunday: 'dim.' },
+  daysLetter: { monday: 'L', tuesday: 'M', wednesday: 'M', thursday: 'J', friday: 'V', saturday: 'S', sunday: 'D' },
   program: {
     lockedMidnight: `Fin à minuit${NB}: modifiez ce jour dans l’app Cozytouch`,
     lockedUnrecognised: `Plage non reconnue${NB}: modifiez ce jour dans l’app Cozytouch`,
@@ -312,7 +314,7 @@ export const fr = {
     whenTomorrow: (time: string) => `demain ${time}`,
     whenOn: (day: Day, time: string) => `${DAY_LOWER[day]} ${time}`,
     notRunning: (mode: string) => `La pièce est en mode ${mode}${NB}: ce programme s’applique en mode Programme.`,
-    ecoRest: 'Hors des plages confort, la pièce est en éco.',
+    ecoRest: 'Hors des plages Confort, la pièce est en Éco.',
     howTo: `Comment modifier${NB}?`,
     howToBody: `Choisissez un jour. Touchez sa barre pour ajouter une plage (3 au plus), glissez-la pour la déplacer, tirez ses bords pour l’ajuster, ou saisissez les heures. Clavier${NB}: flèches ±${NB}15${NB}min, Suppr retire la plage. Rien n’est envoyé avant «${NB}Envoyer${NB}».`,
     week: 'Semaine',
@@ -344,7 +346,22 @@ export const fr = {
     changeBefore: (segs: string) => `(avant${NB}: ${segs})`,
     staleHint: 'Modifiez, puis renvoyez.',
     undo: 'Annuler',
-    send: 'Envoyer'
+    send: 'Envoyer',
+    slotsHead: (n: number) => `Plages Confort · ${int(n)} sur 3`,
+    stepNote: `pas de 15${NB}min`,
+    dragHint: `Glissez une plage ou ses bords · pas de 15${NB}min`,
+    bubbleStart: (t: string) => `début ${t}`,
+    bubbleEnd: (t: string) => `fin ${t}`,
+    lockedTag: 'verrouillé',
+    lockedShort: { midnight: 'fin à minuit', unrecognised: 'non reconnu' },
+    lockedKeepTitle: 'Ce jour reste tel que le radiateur l’a.',
+    lockedKeepBody: 'Kelvin le renvoie à l’identique à chaque envoi. Aucune copie n’arrive sur ce jour.',
+    tapDay: 'Touchez un jour pour l’éditer.',
+    dayReason: (day: string, reason: string) => `${day} · ${reason}`,
+    lockedNotOffered: (days: string, n: number) =>
+      n > 1 ? `${days} sont verrouillés${NB}: ils ne sont pas proposés.` : `${days} est verrouillé${NB}: il n’est pas proposé.`,
+    sendStopped: 'Envoi arrêté',
+    roomTemps: 'Températures de la pièce'
   },
   strip: {
     windowRun: (a: string, b: string) => `Fenêtre ouverte (signalée par le radiateur) ${a}–${b}`,
@@ -761,7 +778,6 @@ export const fr = {
   energyUi: {
     // Header and export menu
     export: 'Exporter',
-    exportMore: 'Exporter (CSV)',
     exportFormat: `CSV${NB}: «${NB};${NB}» entre les colonnes, virgule décimale, dates ISO.`,
     waitHouse: 'Disponible une fois les pièces chargées',
     // Context row: the Linky source line and its Fiche
@@ -844,7 +860,6 @@ export const fr = {
   // Partir en absence (UX batch 8): the Absence sheet, opened where the user is.
   away: {
     title: 'Partir en absence',
-    open: 'Partir en absence…',
     activeTitle: 'Absence en cours',
     lead: 'Toutes les pièces baissent, puis reprennent leur réglage.',
     until: 'Jusqu’à',
@@ -856,6 +871,7 @@ export const fr = {
     temperature: 'Température',
     tempLabel: 'Température d’absence',
     frost: `hors-gel à partir de 7${NB}°C`,
+    during: 'pendant l’absence',
     consequence: (n: number, temp: string, t: string) =>
       n === 1
         ? `La pièce passera à ${temp} jusqu’à ${t}, puis reprendra son réglage.`
@@ -882,19 +898,7 @@ export const fr = {
     allGood: 'Tout va bien',
     stateAlerts: (n: number) => `${int(n)} ${plural(n, { one: 'alerte', other: 'alertes' })}`,
     stateAway: (t: string) => `Absence jusqu’à ${t}`,
-    now: 'En ce moment',
-    nothing: 'Tout suit son réglage habituel.',
-    kind: { boost: 'Chauffe temporaire', away: 'Absence' },
-    tempUntil: (temp: string, t: string) => `${temp} jusqu’à ${t}`,
-    everyRoom: 'toutes les pièces',
-    everyRoomBut: (names: string[]) => `toutes les pièces · ${list(names)} hors ligne`,
-    thenBack: 'puis retour au réglage d’avant',
     restoring: 'Rétablissement en cours…',
-    wholeHome: 'Toute la maison',
-    end: 'Terminer',
-    stop: 'Arrêter',
-    endAwayLabel: 'Terminer l’absence',
-    stopLabel: (rooms: string) => `Arrêter la chauffe temporaire${NB}: ${rooms}`,
     cardDevices: (rooms: number, radiators: number) =>
       `${int(rooms)} ${plural(rooms, { one: 'pièce', other: 'pièces' })} · ${int(radiators)} ${plural(radiators, { one: 'radiateur', other: 'radiateurs' })}`,
     cardDevicesOff: (k: number) => `${int(k)} hors ligne`,
@@ -902,12 +906,14 @@ export const fr = {
     cardTariff: (option: string, kva: string, sub: string) => `${option} · ${kva} · ${sub}/mois`,
     cardTariffNone: 'Pas encore de tarif',
     cardTariffSet: 'Renseignez-le pour voir vos coûts en euros.',
-    cardTempo: 'Prix Bleu, Blanc et Rouge',
+    cardTempoHours: (slots: string) => `Heures creuses Tempo${NB}: ${slots} · le jour va de 06:00 à 06:00`,
     cardLinkyOff: 'Non relié · reliez-le pour la consommation de la maison',
     cardLinkyWhat: 'Consommation de la maison et courbe à la demi-heure',
     cardSourcesOk: 'Tout est à jour',
     cardSourcesLate: (n: number) => `${int(n)} ${plural(n, { one: 'source en retard', other: 'sources en retard' })}`,
     cardSessions: (n: number) => `${int(n)} ${plural(n, { one: 'appareil connecté', other: 'appareils connectés' })}`,
+    cardMcp: (n: number) => `${int(n)} ${plural(n, { one: 'jeton MCP', other: 'jetons MCP' })}`,
+    darkOnly: 'Kelvin est en thème sombre.',
     unavailable: 'Indisponible pour le moment',
     display: 'Affichage',
     tariffLoadFailed: 'Impossible de charger le tarif.',
@@ -964,6 +970,7 @@ export const fr = {
     empty: 'Aucun jeton.',
     nameLabel: 'Nom du jeton',
     defaultName: 'Claude',
+    namePlaceholder: `Nom du jeton${NB}: Claude`,
     create: 'Créer un jeton',
     hint: (h: string) => `…${h}`,
     created: (when: string) => `créé le ${when}`,
@@ -975,7 +982,7 @@ export const fr = {
     confirmTitle: (name: string) => `Révoquer «${NB}${name}${NB}»${NB}?`,
     confirmBody: 'L’assistant qui l’utilise perd l’accès aussitôt.',
     revokedToast: 'Jeton révoqué.',
-    secretTitle: 'Votre jeton MCP',
+    secretTitle: (name: string) => `Jeton «${NB}${name}${NB}» créé`,
     secretOnce: `Copiez-le maintenant${NB}: il ne sera plus affiché.`,
     copy: 'Copier',
     copied: 'Copié',
@@ -998,8 +1005,6 @@ export const fr = {
     signOut: 'Se déconnecter',
     connected: 'Connecté',
     unreachable: 'Injoignable',
-    theme: 'Thème',
-    themes: { system: 'Système', dark: 'Sombre', light: 'Clair' },
     language: 'Langue'
   },
   tariff: {
@@ -1012,6 +1017,8 @@ export const fr = {
     fix: 'Corriger le tarif en vigueur',
     fixNote: (date: string) => `Corrige les coûts passés depuis le ${date}.`,
     historyMeta: (n: number) => `${int(n)} ${plural(n, { one: 'ligne', other: 'lignes' })}`,
+    draft: 'brouillon',
+    sinceDate: (date: string) => `Depuis le ${date}`,
     prefill: (kva: string, slots: string) => `Prérempli d’après votre contrat Enedis (${kva}${NB}kVA, heures creuses ${slots}). Ajoutez vos prix TTC.`,
     option: 'Option tarifaire',
     options: { base: 'Base', hchp: 'HC/HP', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
@@ -1051,15 +1058,13 @@ export const fr = {
     monthsMissing: (months: string) => `Chaque mois doit avoir ses heures creuses${NB}: ${months}.`,
     monthsOverlap: (months: string) => `Un mois ne peut appartenir qu’à une seule saison${NB}: ${months}.`,
     amountsInvalid: 'Saisissez des montants valides (ex. 0,2068).',
+    priceInvalid: `Indiquez le prix en €/kWh, avec 4${NB}décimales au plus, ex. 0,2780.`,
     slotsNone: 'Indiquez au moins une plage d’heures creuses.',
     dateMissing: 'Choisissez une date.',
     saved: 'Tarif enregistré.',
     save: 'Enregistrer le tarif',
     saving: 'Enregistrement…',
     history: 'Historique des prix',
-    since: 'Depuis',
-    colOption: 'Option',
-    colRates: 'Prix (€/kWh)',
     schedules: 'Heures creuses successives',
     scheduleLine: (since: string, text: string) => `Depuis le ${since}${NB}: ${text}`,
     allYear: 'toute l’année'
@@ -1086,6 +1091,7 @@ export const fr = {
     throttledLater: (day: string | null) =>
       `Relié${day ? ` · données jusqu’au ${day}` : ''} · Enedis limite les requêtes, nouvel essai plus tard`,
     sync: (ago: string) => `synchro ${ago}`,
+    dayAfter: 'Les données Linky arrivent le lendemain (J+1), en général avant midi.',
     simulator: `Simulateur${NB}: Linky de démonstration.`,
     consent: (date: string) => `Consentement Enedis valable jusqu’au ${date}`,
     calls: (n: number, budget: number) =>
@@ -1276,14 +1282,10 @@ export const fr = {
     today: 'Aujourd’hui',
     tomorrow: 'Demain',
     colour: { blue: 'Bleu', white: 'Blanc', red: 'Rouge' } as Record<'blue' | 'white' | 'red', string>,
-    tempoDay: (when: string, colour: string) => `${when}${NB}: ${colour}`,
-    tempoUnknown: (when: string) => `${when}${NB}: couleur inconnue`,
-    tempoPending: (at: string) => `Demain${NB}: couleur pas encore publiée (vers ${at})`,
     whenToday: 'aujourd’hui',
     whenTomorrow: 'demain',
     ecowatt: (level: number, when: string, hours: string | null) =>
       `EcoWatt ${level >= 3 ? 'rouge' : 'orange'} ${when}${hours ? `, ${hours}` : ''}`,
-    source: (time: string) => `RTE via MyElectricalData · ${time}`
   },
   // The Tarif summary (UX batches 8–9): « Tarif en vigueur », the off-peak hours bar.
   tariffSummary: {
@@ -1340,6 +1342,23 @@ export const fr = {
     unknownKwh: (kwh: string) => `${kwh} sans couleur connue, non comptés en euros.`,
     qualityColours: (n: number) => `Jours sans couleur Tempo${NB}: ${n} (énergie comptée, euros non comptés)`,
     qualityRetro: (n: number) => `Jours avant les premières heures creuses${NB}: ${n} (premières heures creuses appliquées)`
+  },
+  energyBoard: {
+    // Énergie « Tableau » widgets (spec §4 Énergie)
+    eurParts: (energy: string, subscription: string) => `énergie ${energy} · abonnement ${subscription}`,
+    whereClose: 'Replier la liste',
+    whereMore: 'Tout voir',
+    whereShare: 'vient des radiateurs',
+    monthsTitle: 'Mois par mois',
+    monthUntil: (d: string) => `au ${d}`,
+    curveMore: 'par demi-heure',
+    curveMoreName: (d: string) => `par demi-heure, courbe du ${d}`,
+    curveNone: 'Pas de courbe pour ce jour.',
+    curveMiniLabel: (d: string) => `Aperçu de la courbe du ${d}`,
+    sevenDays: (d: string) => `Les 7 jours jusqu’au ${d}`,
+    tempoTitle: 'Jours Tempo',
+    tempoNote: 'Un jour Tempo va de 06:00 à 06:00.',
+    yearGhost: (month: string, v: string) => `${month} en pointillés${NB}: le mois complet estimé (${v}).`
   },
   api: {
     login_required: () => 'Connexion requise.',
@@ -1414,7 +1433,7 @@ export const fr = {
     linky_refused: () => 'MyElectricalData refuse ce PDL ou ce jeton.',
     linky_throttled: () => `Enedis limite les requêtes${NB}: réessayez plus tard.`,
     med_unreachable: () => 'MyElectricalData injoignable. Réessayez plus tard.',
-    linky_status_auth: () => `MyElectricalData refuse le jeton${NB}: renouvelez-le dans Maison › Linky.`,
+    linky_status_auth: () => `MyElectricalData refuse le jeton${NB}: renouvelez-le dans Réglages › Linky.`,
     linky_status_quota: () => `Quota Linky du jour atteint${NB}: reprise demain.`,
     linky_status_error: () => 'Synchronisation Linky en échec.',
     linky_status_throttled: (p: ApiParams) => `Enedis limite les requêtes${NB}: nouvel essai à ${p.at}.`,
@@ -1487,6 +1506,143 @@ export const fr = {
     readOnly: 'Kelvin ne pilote aucun appareil de cette pièce.'
   },
   // Plan 12
+  // Tableau kit (spec §3): the shared components' own words; screens pass theirs.
+  kit: {
+    boostShort: 'Chauffe temp.'
+  },
+  // « Maintenant » (spec §3, decision 3): the tariff period in force now. Tempo words only when Tempo.
+  now: {
+    title: 'Maintenant',
+    hchp: (kva: string) => `heures creuses / pleines · ${kva}`,
+    tempoDay: (colour: string) => `Jour Tempo ${colour}`,
+    hc: 'Heures creuses',
+    hp: 'Heures pleines',
+    then: (time: string, nextHc: boolean, price: string) => `jusqu’à ${time}, puis ${nextHc ? 'creuses' : 'pleines'} à ${price}`,
+    thenUnknown: (time: string, nextHc: boolean) => `jusqu’à ${time}, puis ${nextHc ? 'heures creuses' : 'heures pleines'}`,
+    perKwh: 'par kWh',
+    base: (price: string) => `Prix unique ${price}`,
+    none: `Aucun tarif renseigné${NB}: les prix du moment apparaîtront ici.`,
+    setTariff: 'Renseigner le tarif',
+    tomorrow: 'Demain',
+    tomorrowPrices: (hp: string, hc: string) => `pleines ${hp} · creuses ${hc}`,
+    colourUnknown: 'couleur du jour Tempo pas encore connue',
+    band: (hc: string) => `Heures creuses ${hc}`,
+    priceTitle: 'Prix du kWh en ce moment',
+    period: 'Période',
+    nextLabel: 'Ensuite'
+  },
+  // Maison, the dashboard at « / » (Tableau spec §4): its chips, widgets and tiles. A chip label and its value are separate keys.
+  maison: {
+    dateLine: (date: string, time: string) => `${date} · ${time}`,
+    chips: 'Résumés',
+    climate: 'Climat',
+    climateRange: (lo: string, hi: string) => `${lo}–${hi}`,
+    climateHeating: (range: string, n: number) => (n ? `${range} · ${int(n)} en chauffe` : range),
+    climateAllOff: (range: string) => `${range} · tout éteint`,
+    grid: 'Réseau',
+    gridEcowatt: (level: number, tomorrow: boolean) => `EcoWatt ${level >= 3 ? 'rouge' : 'orange'} ${tomorrow ? 'demain' : 'aujourd’hui'}`,
+    gridEcowattHours: (level: number, hours: string) => `EcoWatt ${level >= 3 ? 'rouge' : 'orange'} aujourd’hui · ${hours}`,
+    tempoPending: (at: string | null) => (at ? `couleur pas encore publiée (vers ${at})` : 'couleur pas encore publiée'),
+    gridTempo: (colour: string) => `Tempo ${colour} demain`,
+    gridCalm: 'Rien à signaler',
+    away: 'Absence',
+    awayUntil: (t: string) => `jusqu’à ${t}`,
+    roomsSummary: (heating: number, offline: number, allOff: boolean) =>
+      [allOff ? 'tout éteint' : heating ? `${int(heating)} en chauffe` : 'aucune en chauffe', offline ? `${int(offline)} hors ligne` : null]
+        .filter(Boolean)
+        .join(' · '),
+    radiatorCount: (n: number) => `${int(n)} ${plural(n, { one: 'radiateur', other: 'radiateurs' })}`,
+    energyHead: 'Énergie et réseau',
+    energyLink: 'Énergie',
+    offNote: 'La pièce ne chauffe pas.',
+    offNoteShort: 'Ne chauffe pas',
+    nextAt: (level: string, time: string) => `${level} → ${time}`,
+    arrowAt: (time: string) => `→ ${time}`,
+    arrowLevel: (level: string, time: string) => `→ ${level} ${time}`,
+    boostLaunch: 'Lancer…',
+    boostUntil: (t: string) => `jusqu’à ${t}`,
+    paused: 'en pause',
+    radiators: 'Radiateurs',
+    radiatorsHeating: (n: number) => `${int(n)} en chauffe`,
+    radiatorsOff: (n: number) => `${int(n)} à l’arrêt`,
+    radiatorsIdle: 'aucun en chauffe',
+    window: 'Fenêtre',
+    windowClosed: 'Fermée',
+    windowOpen: 'Ouverte',
+    allOff: 'Tout est éteint',
+    allOffOffline: (names: string[], n: number) =>
+      n === 1 ? `${names[0]} est hors ligne${NB}: elle ne l’a peut-être pas reçu.` : `${list(names)} sont hors ligne${NB}: elles ne l’ont peut-être pas reçu.`,
+    awayLine: (temp: string, t: string) => `${temp} jusqu’à ${t}`,
+    awayEvery: 'toutes les pièces',
+    awayEveryBut: (names: string[]) => `toutes les pièces · ${list(names)} hors ligne`,
+    awayRestoring: 'Rétablissement en cours…',
+    awayEnd: 'Terminer',
+    boostLine: (rooms: string, temp: string, t: string) => `${rooms} · ${temp} jusqu’à ${t}`,
+    boostThen: 'puis retour au réglage d’avant',
+    boostStop: 'Arrêter',
+    boostStopLabel: (rooms: string) => `Arrêter la chauffe temporaire${NB}: ${rooms}`,
+    wholeHome: 'Toute la maison',
+    awayEndLabel: 'Terminer l’absence',
+    alerts: (n: number) => `Alertes · ${int(n)}`,
+    dismissAll: 'Masquer tout',
+    billTitle: (month: string, day: number) => `${month}, jusqu’au ${day === 1 ? '1er' : int(day)}`,
+    billSub: 'abonnement inclus',
+    billEnd: (eur: string) => `≈${NB}${eur} fin du mois`,
+    billDays: (n: number, of: number) => `${int(n)} / ${int(of)} jours`,
+    billPrev: (month: string, eur: string) => `${month}${NB}: ${eur}`,
+    billProgress: (n: number, of: number) => `Jour ${int(n)} sur ${int(of)} du mois`,
+    billEnergy: 'Énergie',
+    billSubscription: 'Abonnement',
+    billKwh: 'Consommation',
+    billTotal: 'Total',
+    tomorrow: 'Demain',
+    ecowatt: (level: number) => `EcoWatt ${level >= 3 ? 'rouge' : level >= 2 ? 'orange' : 'vert'}`,
+    ecowattTense: (hours: string | null, level: number) =>
+      [hours, level >= 3 ? 'réseau très tendu' : level >= 2 ? 'réseau tendu' : 'pas de tension prévue'].filter(Boolean).join(' · '),
+    ecowattUnknown: 'pas encore publié',
+    tempo: (colour: string) => `Tempo ${colour}`,
+    yesterday: 'Hier',
+    yesterdayEur: (eur: string) => `≈${NB}${eur}`,
+    yesterdayNone: 'Pas encore de relevé Linky pour hier.',
+    yesterdayBars: (kwh: string) => `Consommation d’hier par demi-heure, ${kwh}`,
+    todayProgram: 'Programme d’aujourd’hui',
+    progLastKnown: 'dernier connu',
+    progNone: 'pas de programme',
+    dayBar: (name: string, slots: string) => `${name}${NB}: confort ${slots}`,
+    dayBarEmpty: (name: string) => `${name}${NB}: pas de plage confort aujourd’hui`,
+    more: 'Plus d’actions pour la maison'
+  },
+  // The room sheet (Tableau spec §4 « Room sheet »), over the tableau.
+  roomSheet: {
+    actions: (name: string) => `Actions pour ${name}`,
+    setpoint: (level: string) => `Consigne ${level}`,
+    caption: (level: string, temp: string) => `${level} · actuellement ${temp}`,
+    captionPaused: (level: string, temp: string) => `${level} · en pause · actuellement ${temp}`,
+    now: (temp: string) => `actuellement ${temp}`,
+    sliderNote: `−/+ par 0,5${NB}°C · on peut aussi glisser le curseur`,
+    offNote: 'Pas de consigne à l’arrêt',
+    noReading: (when: string, n: number) =>
+      n > 1 ? `Pas de température${NB}: les radiateurs ne répondent plus depuis ${when}.` : `Pas de température${NB}: le radiateur ne répond plus depuis ${when}.`,
+    noReadingUnknown: `Pas de température${NB}: le radiateur ne répond plus.`,
+    measuredBy: (name: string) => `mesurée par ${name}`,
+    readOnlyTitle: `Kelvin ne pilote pas cet appareil${NB}: il est affiché en lecture seule.`,
+    readOnlyExperimental: `Serveur expérimental${NB}: Kelvin n’affiche que le chauffage et n’envoie rien à cet appareil.`,
+    devices: 'Appareils de la pièce',
+    device: 'Appareil',
+    level: 'Allure (selon Cozytouch)',
+    readSetpoint: 'Consigne lue',
+    measured: 'Température mesurée',
+    thenLevel: (level: string, temp: string) => `puis ${level} ${temp}`,
+    backToProgram: 'Remettre en programme',
+    boostRunning: (temp: string, until: string) => `${temp} jusqu’à ${until}`,
+    programTemps: 'Températures du programme',
+    programLastKnown: 'Programme, dernier connu',
+    month: (day: number) => `Ce mois-ci, jusqu’au ${day === 1 ? '1er' : int(day)}`,
+    monthTitle: 'Énergie de la pièce ce mois-ci',
+    more: 'Programme, températures, radiateurs',
+    energyLink: 'Énergie de la pièce',
+    devicesLink: 'Pièces et appareils'
+  },
   servers: {
     label: 'Serveur',
     cozytouch: 'Cozytouch',

@@ -46,7 +46,7 @@ RUN groupadd --system --gid 10001 kelvin \
 COPY --from=backend /app/.venv /app/.venv
 COPY --from=web /web/build /app/web
 COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/licenses/kelvin/
-COPY --from=web /web/node_modules/@fontsource-variable/onest/LICENSE /usr/share/licenses/kelvin/fonts/Onest-OFL-1.1.txt
+COPY --from=web /web/node_modules/@fontsource-variable/geist/LICENSE /usr/share/licenses/kelvin/fonts/Geist-OFL-1.1.txt
 COPY --from=web /web/node_modules/@fontsource/jetbrains-mono/LICENSE /usr/share/licenses/kelvin/fonts/JetBrainsMono-OFL-1.1.txt
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \

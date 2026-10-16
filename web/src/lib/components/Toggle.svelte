@@ -29,7 +29,7 @@
   <span class="track" aria-hidden="true">
     <span class="knob"></span>
     {#if pending || settle.confirmed}
-      <span class="ring" class:settled={settle.confirmed}><PendingEdge shape="rect" rx={12.5} {pending} confirmed={settle.confirmed} /></span>
+      <span class="ring" class:settled={settle.confirmed}><PendingEdge shape="rect" rx={16} {pending} confirmed={settle.confirmed} /></span>
     {/if}
   </span>
 </button>
@@ -49,11 +49,12 @@
     text-align: left;
     touch-action: manipulation;
   }
+  /* Tableau: a 46 × 28 track; off is s3 with a muted knob, on is ink with a ground knob. Never blue. */
   .track {
-    width: 38px;
-    height: 22px;
-    border-radius: 11px;
-    background: var(--fa);
+    width: 46px;
+    height: 28px;
+    border-radius: 14px;
+    background: var(--s3);
     position: relative;
     transition: background-color var(--t-state) ease;
     flex: none;
@@ -62,18 +63,21 @@
     position: absolute;
     top: 3px;
     left: 3px;
-    width: 16px;
-    height: 16px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
-    background: var(--bg);
-    transition: transform var(--t-state) var(--ease-out);
+    background: var(--mu);
+    transition:
+      transform var(--t-state) var(--ease-out),
+      background-color var(--t-state) ease;
   }
   /* Heat colours only mean heat: "on" is the foreground, not blue. */
   [aria-checked='true'] .track {
     background: var(--tx);
   }
   [aria-checked='true'] .knob {
-    transform: translateX(16px);
+    transform: translateX(18px);
+    background: var(--bg);
   }
   /* The pending outline sits 2 px around the track (a 42 × 26 box): the shared dashed → solid mark. */
   .ring {

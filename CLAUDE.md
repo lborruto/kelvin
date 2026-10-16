@@ -9,8 +9,9 @@ depends on.
 ## Where truth lives
 
 - `PRODUCT.md`: who it is for and the product principles.
-- `DESIGN.md`: the design system as built (tokens, components, copy rules in French and
-  English). It is the design reference; UI work follows it.
+- `DESIGN.md`: the design system as built (the « Tableau » tokens, shell, kit components, copy rules
+  in French and English). It is the design reference; UI work follows it. Every kit component in its
+  states: `/kit` under `npm run dev` (development only: a production build answers 404 and ships no gallery).
 - `docs/glossary.md`: the French ↔ English terms every English string follows; a new term goes
   there first. `docs/i18n-catalogue.md` is the design snapshot behind the dictionaries.
 - `docs/overkiz-notes.md`: Overkiz behaviour verified on real radiators (its « UNVERIFIED » section
@@ -152,7 +153,9 @@ depends on.
   message read at module scope; a line that must keep a French literal (an upstream device
   default, a data value) is marked `// i18n-ignore: <why>`. Its blind spots are short forms
   that read as English or code (« Prog. », « Lun », « S42 », « 7 j »): `SCANNER_BLIND` in
-  `dictionaries.test.ts` lists them, so review those by eye. The CSV export keeps French headers
+  `dictionaries.test.ts` lists them, so review those by eye. `ARGS`, `SAME`, `SCANNER_BLIND` and the scan's
+  `DYNAMIC` parents name only messages that exist (and a `DYNAMIC` parent one that is read): tests fail on a
+  stale entry, so removing a message removes its bookkeeping too. The CSV export keeps French headers
   and file names in both languages. The PWA manifest is static and stays French. Code, logs and
   docs are English.
 - **API errors:** raise a `UserError` code (`backend/kelvin/errors.py`, labels in
@@ -168,7 +171,7 @@ depends on.
   `/home/tariff`, `/home/linky`, `/home/sources`, `/home/account`; anchors `#away`, `#tariff`, `#linky`,
   `#quality`, `#curve`, `#alerts`, `#sessions`, `#mcp`) and come from `web/src/lib/paths.ts`. Maison's old
   section anchors land on their sub-page (`homeAnchor`: `/home#tariff` → `/home/tariff`, `#sessions` →
-  `/home/account#sessions`, `#mcp` → `/home/account#mcp`, `#away` opens the Absence sheet). Old
+  `/home/account#sessions`, `#mcp` → `/home/account#mcp`, `#away` → `/` with the Absence sheet open over Maison). Old
   French paths are redirected only by its legacy table and the marked block in `app.html` (a test
   keeps them equal; `scripts/check-paths.mjs` fails on a French path anywhere else).
 - **API header:** mutating API routes require the header `X-Kelvin: 1`.
@@ -243,10 +246,30 @@ depends on.
   (e2e checks both). Buttons use the global `.btn-*` classes. Svelte 5 transitions on an element
   that a parent mounts inside its own `{#if}` (ChartInspector) need `|global`, or they never play.
   `--tempo-*` tokens are used only by `TempoDot` (DESIGN « Tempo day chip »); `--hc` / `--hp` (Tariff
-  blues, HC always hatched) only through `SERIES` / `Swatch` on Énergie and the tariff, never a round
-  dot. Controls are painted at `--ctl-h` (36 px) with a 44 px hit area (`.hit` / the `.btn` `::before`)
-  and sized by the `--w-*` widths, never stretched.
-  Every route stays free of serious and critical axe violations in both themes (`e2e/a11y.spec.ts`,
+  blues, HC always hatched) only through `SERIES` / `Swatch` / `seriesBackground` on Énergie, the tariff and the
+  « Maintenant » card (`TariffBand`), never a round dot; under Tempo, Réglages' Tarif card shows the TempoDots and
+  the Tempo hours, not the HC/HP band. Buttons are ink/s2 pills (`.btn` 40 px, `.btn-sm` 34, `.btn-lg` 52; the primary is ink, never
+  orange); fields and segments are painted at `--ctl-h` (36 px); every control keeps a 44 px hit area (`.hit` /
+  the `.btn` `::before`); short values are sized by the `--w-*` widths, never stretched.
+  **Tableau (owner decisions 2026-10-16):** one dark theme (no light theme, no « Thème », no
+  `prefers-color-scheme` path); « Maison » is the dashboard at `/` and « Réglages » is `/home` (URLs unchanged);
+  orange (`--heat`) only for heating, comfort blocks and a running chauffe temporaire; Tempo colours only when
+  the price row in force is Tempo; −/+ is the primary setpoint control and in Programme changes the level running
+  now (`$lib/setpoint` `primarySetpoint`). Maison is `lib/components/dashboard/` (words in `$lib/dashboard`, energy
+  answers in `$lib/stores/dashboardEnergy`); `/rooms/[id]` opens the room sheet (`lib/components/room/`) over it, so
+  the tableau stays mounted, and a floating card (Fiche, Menu) opened inside an open modal is portalled into it.
+  **Nav:** sidebar Maison · Programme · Énergie, the « Pièces » rows, « Partir… », Réglages; phone tab bar Maison ·
+  Programme · Énergie · Réglages (`$lib/nav`, labels `m.nav.*`); on `/rooms/[id]` the room's sidebar row is
+  current (not Maison) and the tab bar keeps Maison. The house actions (Partir…, Tout éteindre, Tout remettre en
+  programme) live on Maison (and « Partir… » in the sidebar), never on Réglages. **Kit:** screens are built from
+  the kit in DESIGN « Kit components » (Stepper, RoomTile, IconTile, SummaryChip, Widget, Sheet, GroupedList /
+  ListRow (every grouped list; rows richer than a ListRow stay the caller's `.li`), Notice, Segmented `track` | `chips`, DayBar, MiniBars / MiniSpark, TariffBand, Skeleton); a screen that
+  needs more extends a kit component additively (optional props, defaults keep the old behaviour) and never forks
+  a copy (one `DayBar`: read-only on Maison and the room sheet, editable in Programme's day editor). Réglages
+  sub-pages start with `settings/SettingsHeader`. Énergie sections reached by a hash (`#energy-where`,
+  `#offpeak`, `#projection`, `#curve`) open themselves, from an in-page link (`$lib/sections` `goToSection`) and
+  on arrival from another screen.
+  Every route stays free of serious and critical axe violations (`e2e/a11y.spec.ts`,
   `@axe-core/playwright`); a new route joins it, `e2e/cls.spec.ts` and `e2e/screens.spec.ts`.
 - **Copy** (DESIGN « Copy (French and English) »): short and plain, household words before device words
   (Overkiz terms only in a Fiche or Détails), one term per concept from `docs/glossary.md` (glossary first),

@@ -14,7 +14,17 @@ export const ARGS: Record<string, unknown[]> = {
   'energyUi.linkyCallsValue': [2, 10],
   'away.offline': [['Chambre 2'], 1],
   'devices.syncAt': ['14:10'],
-  'home.everyRoomBut': [['Chambre 2']],
+  'maison.allOffOffline': [['Chambre 2'], 1],
+  'maison.climateHeating': ['19,1–19,6°', 1],
+  'maison.roomsSummary': [1, 1, false],
+  'maison.ecowatt': [1],
+  'maison.billDays': [16, 31],
+  'maison.billProgress': [16, 31],
+  'maison.ecowattTense': ['18:00–20:00', 2],
+  'roomSheet.noReading': ['04:07', 1],
+  'maison.awayEveryBut': [['Chambre 2']],
+  'maison.billTitle': ['Octobre', 15],
+  'roomSheet.month': [15],
   'home.cardDevices': [2, 3],
   'devices.done': ['Salon'],
   'devices.lastSignal': ['12:10'],
@@ -49,7 +59,6 @@ export const ARGS: Record<string, unknown[]> = {
   'linky.throttledLater': ['12/10'],
   'linky.calls': [3, 10],
   'strip.summary': [['a', 'b']],
-  'rooms.summary': [1, 2],
   'status.someOffline': [1, 2],
   'radiator.facts': ['HEKLA P', 1500],
   'program.whenOn': ['monday', '06:15'],
@@ -70,12 +79,9 @@ export const ARGS: Record<string, unknown[]> = {
   'compare.zero': ['day'],
   'power.floorDay': ['K', 'E'],
   'projection.base': ['V', '12/10'],
-  'grid.tempoPending': ['11:00'],
   'grid.ecowatt': [3, 'B', null],
-  'grid.source': ['11:20'],
   'sources.ok': ['07:15'],
   'sources.error': ['08:15'],
-  'sources.next': ['17:15'],
   'sources.med': [6, 10, 2],
   'energyTariff.days': [{ blue: 3, white: 1, red: 0, unknown: 1 }],
   'energyTariff.daysLine': ['x'],
@@ -99,18 +105,23 @@ export const ARGS: Record<string, unknown[]> = {
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
 export const SAME = new Set<string>([
+  // Programme (Tableau batch): « S » is Saturday (and Sunday) in both languages
+  'daysLetter.saturday', 'program.dayReason',
+  // Maison (Tableau): a date and a time, a range, arrows to a time, « Total », « Tempo Bleu », « ≈ 3,40 € »
+  'maison.dateLine', 'maison.climateRange', 'maison.nextAt', 'maison.arrowAt', 'maison.arrowLevel', 'maison.billTotal', 'maison.tempo',
+  'maison.yesterdayEur',
   // Batch 13: « ≈ 1,70 kW » and « Total » read the same in both languages
   'room.livePower', 'room.livePowerTotal',
   'energyUi.keyName', 'energyUi.barView', 'energyUi.roomKwhName',
   'account.email', 'devices.syncAt', 'tariffSummary.option', 'tariffSummary.options.base', 'tariffSummary.options.tempo', 'tariffSummary.unit',
   'devices.watts', 'devices.detail.version', 'devices.detail.rssi', 'devices.role.wifi',
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
-  'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
+  'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
   'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.est',
   'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est',
-  'tariff.kvaValue', 'tariff.options.base', 'tariff.options.tempo', 'tariff.rateShort.base', 'tariff.colOption',
+  'tariff.kvaValue', 'tariff.options.base', 'tariff.options.tempo', 'tariff.rateShort.base',
   'energyTariff.colKwh', 'energyTariff.colEur', 'energyTariff.withColour',
-  'sources.title', 'sources.tempo', 'sources.ecowatt', 'grid.source',
+  'sources.title',
   // Plan 12: a product name
   'servers.cozytouch', 'dryer.normal',
   // UX foundation: source names (products), « Code », « Source », « est. »
@@ -218,14 +229,24 @@ describe('English messages take the same parameters as French', () => {
 /** French the strict scanner cannot tell from English or code, so a hard-coded copy of it would
  * slip through: short forms that are English words or names, a bare figure. Kept small on purpose. */
 const SCANNER_BLIND = new Set([
+  // Réglages (Tableau settings batch): « 2 jetons MCP », « brouillon »
+  'home.cardMcp',
+  'tariff.draft',
+  // Programme (Tableau batch): day abbreviations and letters
+  'daysAbbr.monday', 'daysAbbr.tuesday', 'daysAbbr.wednesday', 'daysAbbr.thursday', 'daysAbbr.friday', 'daysAbbr.saturday',
+  'daysAbbr.sunday', 'daysLetter.monday', 'daysLetter.tuesday', 'daysLetter.wednesday', 'daysLetter.thursday',
+  'daysLetter.friday', 'daysLetter.sunday', 'program.bubbleEnd', 'program.lockedShort.unrecognised',
+  // Maison and the room sheet (Tableau): short French words and figures the scanner reads as neutral.
+  'maison.climate', 'maison.boostLaunch', 'maison.paused', 'maison.awayEnd', 'maison.alerts', 'maison.ecowatt', 'maison.progLastKnown',
+  'roomSheet.caption', 'roomSheet.captionPaused', 'roomSheet.now',
   'energyUi.ecowatt', 'energyUi.analysis', 'energyUi.qualityMeta',
   // Maison (UX batch 8): short French words the scanner reads as neutral.
   'tariff.historyMeta', 'linky.show', 'linky.hide',
-  'away.extendGo', 'away.extend', 'away.endNow', 'home.stateAlerts', 'home.now', 'home.end', 'home.cardSourcesLate', 'home.display',
+  'away.extendGo', 'away.extend', 'away.endNow', 'home.stateAlerts', 'home.cardSourcesLate', 'home.display',
   'devices.detail.voltage', 'devices.detail.wifi', 'devices.role.box',
-  'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
-  'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',
-  'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
+  'modeSwitch.programShort', 'range.week', 'range.month',
+  'energy.weekShort',
+  'inspector.rates', 'inspector.rateLabels.base',
   'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title',
   'tariff.option', 'tariff.tempoEnd', 'tariff.season',
   // Login (Batch 11): « Changer » alone
@@ -241,7 +262,9 @@ const SCANNER_BLIND = new Set([
   // Pièces redesign: short words in the boost sentence (« pendant », « Lancer », « ex. 22 °C pendant 2 h »)
   'boost.during', 'boost.start', 'boost.meta',
   // UX foundation: short labels (« Adresse », « Nature », « Calcul Kelvin », « Moyenne », « Période »)
-  'page.route', 'prov.nature', 'prov.kelvin', 'nav.alerts'
+  'page.route', 'prov.nature', 'prov.kelvin', 'nav.alerts',
+  // Tableau: « Maintenant », « par kWh », « Ensuite »
+  'now.title', 'now.perKwh', 'now.nextLabel'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {
@@ -255,5 +278,13 @@ describe('the strict scanner against the real copy (Task 17)', () => {
   });
   it('the blind list holds only messages the scanner really misses', () => {
     expect(FR.filter(([p, t]) => SCANNER_BLIND.has(p) && isFrench(t)).map(([p]) => p)).toEqual([]);
+  });
+});
+
+describe('the bookkeeping lists name real messages', () => {
+  it('every key in ARGS, SAME and SCANNER_BLIND is a message', () => {
+    const keys = new Set(leaves(fr).map(([p]) => p));
+    const stale = [...Object.keys(ARGS), ...SAME, ...SCANNER_BLIND].filter((k) => !keys.has(k));
+    expect(stale).toEqual([]);
   });
 });

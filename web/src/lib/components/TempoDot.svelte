@@ -17,18 +17,18 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    border: 1px dashed var(--fa);
+    border: 1px dashed var(--fa-mark);
   }
   .blue {
-    background: var(--tempo-blue);
+    background: var(--tempo-bleu);
     border: 0;
   }
   .white {
-    background: var(--tempo-white);
-    border: 1px solid var(--field-line);
+    background: var(--tempo-blanc);
+    border: 1px solid var(--field);
   }
   .red {
-    background: var(--tempo-red);
+    background: var(--tempo-rouge);
     border: 0;
   }
 </style>

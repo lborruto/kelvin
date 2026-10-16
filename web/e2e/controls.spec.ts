@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-// Compact control scale (owner ruling, direction-2 §1.6): every field, select, segment, stepper and
-// button is painted at 36 px, while its hit area stays 44 px; the one large primary (.btn-lg) is 44 px.
+// The Tableau control scale (spec §1, DESIGN « Buttons »): pill buttons 40 px (.btn-sm 34, .btn-lg 52), round
+// icon buttons 36 (.btn-icon-lg 40), fields 36, segments 32, steppers 44 (sm 38, lg 56); every hit area 44 px.
 
 async function settled(page: Page) {
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
@@ -17,8 +17,17 @@ async function heights(page: Page) {
       'select',
       '.seg button',
       '.stepper',
-      '.btn:not(.btn-lg)'
+      '.btn'
     ].join(',');
+    const want = (el: Element) => {
+      const c = el.classList;
+      if (el.matches('.stepper')) return c.contains('lg') ? 56 : c.contains('sm') ? 38 : 44;
+      // Segmented (the kit) is 32; ModeSwitch keeps its 36 px well until the room sheet batch.
+      if (el.matches('.seg button')) return el.closest('[data-kit="segmented"]') ? 32 : 36;
+      if (!c.contains('btn')) return 36;
+      if (c.contains('btn-icon')) return c.contains('btn-icon-lg') ? 40 : 36;
+      return c.contains('btn-lg') ? 52 : c.contains('btn-sm') ? 34 : 40;
+    };
     return [...document.querySelectorAll<HTMLElement>(sel)]
       .filter((el) => {
         const r = el.getBoundingClientRect();
@@ -26,7 +35,8 @@ async function heights(page: Page) {
       })
       .map((el) => ({
         what: `${el.tagName.toLowerCase()}.${[...el.classList].join('.')} « ${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 30)} »`,
-        h: Math.round(el.getBoundingClientRect().height * 10) / 10
+        h: Math.round(el.getBoundingClientRect().height * 10) / 10,
+        want: want(el)
       }));
   });
 }
@@ -49,13 +59,13 @@ test.describe('compact controls', () => {
 
   for (const width of [390, 1440]) {
     for (const path of ['/', '/schedule?day=monday', '/home', '/energy']) {
-      test(`${path} at ${width} px: every control is painted at 36 px`, async ({ page }) => {
+      test(`${path} at ${width} px: every control is painted at its Tableau size`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await page.goto(path);
         await settled(page);
         const all = await heights(page);
         expect(all.length, 'controls found').toBeGreaterThan(0);
-        const off = all.filter((c) => c.h !== 36);
+        const off = all.filter((c) => Math.abs(c.h - c.want) > 0.6);
         expect(off, JSON.stringify(off)).toEqual([]);
       });
     }
@@ -82,7 +92,7 @@ test.describe('compact controls', () => {
     expect(await hitsAround(remove)).toEqual({ above: true, below: true });
   });
 
-  test('time fields are as wide as their value; the phone « Envoyer » is the large primary', async ({ page }) => {
+  test('time fields are as wide as their value; the phone « Envoyer » is the SendBar’s ink pill', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/schedule?day=monday');
     await settled(page);
@@ -98,6 +108,8 @@ test.describe('compact controls', () => {
     await page.locator('button.add').first().evaluate((el: HTMLButtonElement) => el.click());
     const send = page.getByRole('button', { name: 'Envoyer' });
     await expect(send).toBeVisible();
-    expect((await send.boundingBox())!.height).toBeCloseTo(44, 1); // subpixel layout at the phone DPR
+    // The Tableau SendBar: Annuler and Envoyer are a pair of .btn-sm pills (34 px, 44 px hit), the primary in ink.
+    expect((await send.boundingBox())!.height).toBeCloseTo(34, 0);
+    expect(await hitsAround(send)).toEqual({ above: true, below: true });
   });
 });

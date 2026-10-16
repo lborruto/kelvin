@@ -10,6 +10,6 @@ setup('log in with the simulator account', async ({ page }) => {
   await page.getByLabel('Email').fill('demo@kelvin.local');
   await page.getByLabel('Mot de passe').fill('kelvin');
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
   await page.context().storageState({ path: AUTH_STATE });
 });

@@ -1,6 +1,6 @@
 <script lang="ts">
   import '../app.css';
-  import onestLatin from '@fontsource-variable/onest/files/onest-latin-wght-normal.woff2?url';
+  import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
   import { pwaInfo } from 'virtual:pwa-info';
   import { afterNavigate, goto, onNavigate } from '$app/navigation';
   import { navigating, page } from '$app/state';
@@ -127,7 +127,7 @@
 </script>
 
 <svelte:head>
-  <link rel="preload" as="font" type="font/woff2" href={onestLatin} crossorigin="anonymous" />
+  <link rel="preload" as="font" type="font/woff2" href={geistLatin} crossorigin="anonymous" />
   {@html manifestLink}
 </svelte:head>
 
@@ -166,9 +166,10 @@
   .tabs {
     view-transition-name: tabbar;
   }
+  /* Phone: the 16 px gutter, clear of the tab bar. Desktop: 28 × 32 (spec §1). */
   main {
-    padding: 16px 16px calc(88px + env(safe-area-inset-bottom));
-    max-width: 1280px;
+    padding: 12px var(--gutter) calc(var(--tabbar-h) + 28px + env(safe-area-inset-bottom));
+    max-width: 1480px;
     min-width: 0;
   }
   main:focus {
@@ -183,7 +184,7 @@
     align-items: center;
     min-height: 44px;
     padding: 0 14px;
-    border-radius: var(--radius);
+    border-radius: var(--r-pill);
     background: var(--tx);
     color: var(--bg);
     font-weight: 600;
@@ -227,7 +228,7 @@
   }
   @media (min-width: 1024px) {
     .app {
-      grid-template-columns: 232px minmax(0, 1fr);
+      grid-template-columns: var(--side-w) minmax(0, 1fr);
     }
     .side {
       display: block;
@@ -236,10 +237,10 @@
       display: none;
     }
     main {
-      padding: 24px 28px;
+      padding: var(--page-pad-y) var(--page-pad-x);
     }
     .progress {
-      left: 232px;
+      left: var(--side-w);
     }
   }
 </style>

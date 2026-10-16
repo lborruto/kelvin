@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-// Plan 13: create a token in Maison › Compte, use it on /mcp, revoke it (French, the suite's locale).
+// Plan 13: create a token in Réglages › Compte, use it on /mcp, revoke it (French, the suite's locale).
 test.describe.configure({ mode: 'serial' });
 
 const INIT = {
@@ -20,7 +20,7 @@ test('MCP token: shown once, works on /mcp, revoked at once', async ({ page, pla
   await panel.getByLabel('Nom du jeton').fill(name);
   await panel.getByRole('button', { name: 'Créer un jeton' }).click();
 
-  const dialog = page.getByRole('dialog', { name: 'Votre jeton MCP' });
+  const dialog = page.getByRole('dialog', { name: /^Jeton «.+» créé$/ });
   await expect(dialog).toBeVisible();
   const secret = (await dialog.locator('code').innerText()).trim();
   expect(secret).toMatch(/^kmcp_[A-Za-z0-9_-]{43}$/);

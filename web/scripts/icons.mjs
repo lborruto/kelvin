@@ -10,7 +10,7 @@ async function render(size, file, pad = 0) {
   const inner = size - pad * 2;
   await page.setViewportSize({ width: size, height: size });
   await page.setContent(
-    `<html><body style="margin:0;background:#0F1115;display:grid;place-items:center;width:${size}px;height:${size}px">` +
+    `<html><body style="margin:0;background:#050506;display:grid;place-items:center;width:${size}px;height:${size}px">` +
       svg.replace('<svg ', `<svg width="${inner}" height="${inner}" `) +
       '</body></html>'
   );

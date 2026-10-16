@@ -2,29 +2,16 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+// The Tableau tokens (the Tableau spec, §1): one dark theme. DESIGN.md « Tokens ».
 const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8');
 
 function body(start: string): string {
   const i = css.indexOf(start);
   expect(i).toBeGreaterThan(-1);
-  const open = css.indexOf('{', i + start.length);
+  const open = css.indexOf('{', i);
   const end = css.indexOf('}', open);
-  return css
-    .slice(open + 1, end)
-    .split(';')
-    .map((d) => d.trim())
-    .filter(Boolean)
-    .join(';');
+  return css.slice(open + 1, end);
 }
-
-describe('light theme tokens', () => {
-  it('manual and prefers-color-scheme light blocks are identical', () => {
-    const manual = body(":root[data-theme='light']");
-    const media = body(":root:not([data-theme='dark'])");
-    expect(media).toBe(manual);
-  });
-});
-
 function tokens(start: string): Record<string, string> {
   return Object.fromEntries(
     body(start)
@@ -32,7 +19,10 @@ function tokens(start: string): Record<string, string> {
       .split(';')
       .map((d) => d.trim())
       .filter((d) => d.startsWith('--'))
-      .map((d) => d.split(':').map((s) => s.trim()) as [string, string])
+      .map((d) => {
+        const i = d.indexOf(':');
+        return [d.slice(0, i).trim(), d.slice(i + 1).trim()] as [string, string];
+      })
   );
 }
 function lum(hex: string): number {
@@ -45,66 +35,90 @@ function contrast(a: string, b: string): number {
   return (x + 0.05) / (y + 0.05);
 }
 
-describe('heat ramp tokens', () => {
-  const dark = tokens(':root');
-  const light = tokens(":root[data-theme='light']");
-  it('the dark neutral stop is bright enough not to read as disabled', () => {
-    expect(dark['--neutral']).toBe('#c8ccd6');
-  });
-  it('every light heat stop passes AA (4.5:1) on cards and the page', () => {
-    for (const k of ['--cool', '--neutral', '--warm']) {
-      expect(contrast(light[k], light['--s1']), k).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(light[k], light['--bg']), k).toBeGreaterThanOrEqual(4.5);
-    }
-  });
-  it('every dark heat stop passes AA on both surfaces', () => {
-    for (const k of ['--cool', '--neutral', '--warm']) {
-      expect(contrast(dark[k], dark['--s1']), k).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(dark[k], dark['--s2']), k).toBeGreaterThanOrEqual(4.5);
-    }
+const t = tokens('\n:root {');
+
+describe('one dark theme', () => {
+  it('has no light block and no prefers-color-scheme path', () => {
+    expect(css).not.toMatch(/data-theme|prefers-color-scheme/);
+    expect(t['color-scheme' as never]).toBeUndefined();
+    expect(body('\n:root {')).toContain('color-scheme: dark');
   });
 });
 
-describe('series tokens', () => {
-  it('define four non-heat series colours per theme, each ≥3:1 against the surfaces', () => {
-    for (const [t, theme] of [[tokens(':root'), 'dark'], [tokens(":root[data-theme='light']"), 'light']] as const) {
-      for (let i = 1; i <= 4; i++) {
-        const c = t[`--series-${i}`];
-        expect(c, `${theme} --series-${i}`).toMatch(/^#[0-9a-f]{6}$/);
-        expect([t['--cool'], t['--neutral'], t['--warm']]).not.toContain(c);
-        for (const s of ['--s1', '--s2', '--bg']) expect(contrast(c, t[s]), `${theme} ${i} on ${s}`).toBeGreaterThanOrEqual(3);
-      }
-    }
+describe('spec colour values', () => {
+  it('take the Tableau values', () => {
+    expect({
+      ground: t['--ground'], bg: t['--bg'], s1: t['--s1'], s2: t['--s2'], s3: t['--s3'], in: t['--in'], line: t['--line'],
+      field: t['--field'], side: t['--side'], sheet: t['--sheet'], modal: t['--modal'], pop: t['--pop'], tx: t['--tx'],
+      mu: t['--mu'], heat: t['--heat'], cool: t['--cool'], hc: t['--hc'], hp: t['--hp'], bad: t['--bad'], ok: t['--ok'],
+      s3c: t['--s3c'], bleu: t['--tempo-bleu'], blanc: t['--tempo-blanc'], rouge: t['--tempo-rouge'], faMark: t['--fa-mark']
+    }).toEqual({
+      ground: '#050506', bg: '#0b0b0d', s1: '#1b1b1f', s2: '#2a2a2f', s3: '#35353b', in: '#08080a', line: '#26262b',
+      field: '#76767e', side: '#111113', sheet: '#1c1c1f', modal: '#151518', pop: '#232328', tx: '#f5f5f7',
+      mu: '#a1a1a8', heat: '#ff9346', cool: '#7ab8ff', hc: '#a9d3ff', hp: '#3f6fd4', bad: '#ff6961', ok: '#4cd28a',
+      s3c: '#c9c9d1', bleu: '#4f7dff', blanc: '#f5f5f7', rouge: '#ff5a5a', faMark: '#6c6c74'
+    });
   });
 });
 
-describe('field boundary token', () => {
-  it('--field-line reaches 3:1 against every ground a field can sit on, in both themes (WCAG 1.4.11)', () => {
-    for (const [t, theme] of [[tokens(':root'), 'dark'], [tokens(":root[data-theme='light']"), 'light']] as const) {
-      expect(t['--field-line'], theme).toMatch(/^#[0-9a-f]{6}$/);
-      for (const s of ['--in', '--s1', '--s2', '--bg']) {
-        expect(contrast(t['--field-line'], t[s]), `${theme} field-line on ${s}`).toBeGreaterThanOrEqual(3);
-      }
-    }
+describe('text contrast (axe: 4.5:1)', () => {
+  const grounds = ['--bg', '--s1', '--side', '--sheet', '--modal', '--pop'];
+  it('ink and muted read on every surface, s2 and s3 included', () => {
+    for (const k of ['--tx', '--mu']) for (const s of [...grounds, '--s2', '--s3']) expect(contrast(t[k], t[s]), `${k} on ${s}`).toBeGreaterThanOrEqual(4.5);
   });
-  it('the selected segment border (muted) reaches 3:1 against the well', () => {
-    for (const t of [tokens(':root'), tokens(":root[data-theme='light']")]) {
-      expect(contrast(t['--mu'], t['--in'])).toBeGreaterThanOrEqual(3);
-      expect(contrast(t['--mu'], t['--s2'])).toBeGreaterThanOrEqual(3);
-    }
+  it('faint text reads on every surface but the s2/s3 controls (it never sits there)', () => {
+    for (const s of grounds) expect(contrast(t['--fa'], t[s]), `--fa on ${s}`).toBeGreaterThanOrEqual(4.5);
+    // The spec's faint is kept for non-text marks only: it would fail as text.
+    expect(contrast(t['--fa-mark'], t['--s1'])).toBeLessThan(4.5);
+  });
+  it('heat, cool, bad and ok read as text on bg, s1 and s2', () => {
+    for (const k of ['--heat', '--cool', '--bad', '--ok']) for (const s of ['--bg', '--s1', '--s2']) expect(contrast(t[k], t[s]), `${k} on ${s}`).toBeGreaterThanOrEqual(4.5);
+  });
+  it('the primary button: bg ink on tx; the heat glyph ink on heat', () => {
+    expect(contrast(t['--bg'], t['--tx'])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(t['--heat-ink'], t['--heat'])).toBeGreaterThanOrEqual(4.5);
   });
 });
 
-describe('Tempo day tokens (ruling 2)', () => {
-  it('blue and red reach 3:1 on every surface and stay off the heat and state hues; white is a colour', () => {
-    for (const [t, theme] of [[tokens(':root'), 'dark'], [tokens(":root[data-theme='light']"), 'light']] as const) {
-      for (const k of ['--tempo-blue', '--tempo-red']) {
-        expect(t[k], `${theme} ${k}`).toMatch(/^#[0-9a-f]{6}$/);
-        expect([t['--cool'], t['--warm'], t['--bad']]).not.toContain(t[k]);
-        for (const s of ['--s1', '--s2', '--bg']) expect(contrast(t[k], t[s]), `${theme} ${k} on ${s}`).toBeGreaterThanOrEqual(3);
-      }
-      expect(t['--tempo-white'], `${theme} --tempo-white`).toMatch(/^#[0-9a-f]{6}$/);
+describe('control boundaries (WCAG 1.4.11)', () => {
+  it('--field reaches 3:1 against every ground a field, well or stepper can sit on', () => {
+    for (const s of ['--in', '--bg', '--s1', '--s2', '--side', '--sheet', '--modal', '--pop']) {
+      expect(contrast(t['--field'], t[s]), `field on ${s}`).toBeGreaterThanOrEqual(3);
     }
+  });
+  it('the muted edge reaches 3:1 against the well and s2', () => {
+    expect(contrast(t['--mu'], t['--in'])).toBeGreaterThanOrEqual(3);
+    expect(contrast(t['--mu'], t['--s2'])).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('heat ramp stops', () => {
+  it('every stop passes AA (4.5:1) on bg, s1 and s2', () => {
+    for (const k of ['--cool', '--neutral', '--heat']) for (const s of ['--bg', '--s1', '--s2']) expect(contrast(t[k], t[s]), `${k} on ${s}`).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('tariff blues (decision 3: Tempo colours only when Tempo)', () => {
+  it('each reads ≥ 3:1 against the page and widgets; HC is the lighter, ≥ 3:1 from HP', () => {
+    for (const k of ['--hc', '--hp']) for (const s of ['--bg', '--s1', '--s2']) expect(contrast(t[k], t[s]), `${k} on ${s}`).toBeGreaterThanOrEqual(3);
+    expect(lum(t['--hc'])).toBeGreaterThan(lum(t['--hp']));
+    expect(contrast(t['--hc'], t['--hp'])).toBeGreaterThanOrEqual(3);
+  });
+  it('never reuse the cool, Tempo or heat colours', () => {
+    const others = ['--cool', '--tempo-bleu', '--heat', '--series-1'].map((k) => t[k]);
+    expect(others).not.toContain(t['--hc']);
+    expect(others).not.toContain(t['--hp']);
+  });
+  it('the hatch is the ground at 40 %, 1 px every 4 px at 45°', () => {
+    expect(t['--hc-hatch']).toBe(
+      'repeating-linear-gradient(45deg, color-mix(in srgb, var(--bg) 40%, transparent) 0 1px, transparent 1px 4px)'
+    );
+  });
+});
+
+describe('Tempo day tokens', () => {
+  it('blue and red reach 3:1 on the widgets', () => {
+    for (const k of ['--tempo-bleu', '--tempo-rouge']) for (const s of ['--bg', '--s1', '--s2']) expect(contrast(t[k], t[s]), `${k} on ${s}`).toBeGreaterThanOrEqual(3);
   });
   it('are used only by the Tempo day chip', () => {
     const files: string[] = [];
@@ -121,66 +135,47 @@ describe('Tempo day tokens (ruling 2)', () => {
   });
 });
 
-describe('tariff blues (owner ruling: heures creuses light blue, heures pleines dark blue)', () => {
-  const themes = [
-    ['dark', tokens(':root')],
-    ['light', tokens(":root[data-theme='light']")]
-  ] as const;
-  it('take the direction-2 §1.5 values in both themes', () => {
-    expect([themes[0][1]['--hc'], themes[0][1]['--hp']]).toEqual(['#a6d8ff', '#3567d6']);
-    expect([themes[1][1]['--hc'], themes[1][1]['--hp']]).toEqual(['#2b8ad4', '#0a2a6e']);
-  });
-  it('each reads ≥ 3:1 against the page and the panels', () => {
-    for (const [name, t] of themes) {
-      for (const k of ['--hc', '--hp']) {
-        for (const s of ['--bg', '--s1', '--s2']) expect(contrast(t[k], t[s]), `${name} ${k} on ${s}`).toBeGreaterThanOrEqual(3);
-      }
+describe('series', () => {
+  it('radiators are the radiator-only grey; no series is heat or a tariff blue', () => {
+    expect(t['--series-3']).toBe('var(--s3c)');
+    for (const i of [1]) {
+      const c = t[`--series-${i}`];
+      expect([t['--heat'], t['--cool'], t['--hc'], t['--hp']]).not.toContain(c);
+      for (const s of ['--s1', '--s2', '--bg']) expect(contrast(c, t[s]), `series-${i} on ${s}`).toBeGreaterThanOrEqual(3);
     }
-  });
-  it('HC is always the lighter blue, ≥ 3.4:1 from HP, so the pair reads by luminance (and in greyscale)', () => {
-    for (const [name, t] of themes) {
-      expect(lum(t['--hc']), name).toBeGreaterThan(lum(t['--hp']));
-      expect(contrast(t['--hc'], t['--hp']), name).toBeGreaterThanOrEqual(3.4);
-    }
-  });
-  it('never reuse the cool, Tempo or series colours', () => {
-    for (const [name, t] of themes) {
-      const others = ['--cool', '--tempo-blue', '--series-1', '--series-2', '--series-3', '--series-4'].map((k) => t[k]);
-      expect(others, name).not.toContain(t['--hc']);
-      expect(others, name).not.toContain(t['--hp']);
-    }
-  });
-  it('cool and the Tempo blue keep their values', () => {
-    expect([themes[0][1]['--cool'], themes[0][1]['--tempo-blue']]).toEqual(['#4c9bf5', '#6c8cff']);
-    expect([themes[1][1]['--cool'], themes[1][1]['--tempo-blue']]).toEqual(['#1f6fd1', '#3355cc']);
-  });
-  it('the hatch is the ground at 35 %, 1 px every 4 px at 45°', () => {
-    expect(tokens(':root')['--hc-hatch']).toBe(
-      'repeating-linear-gradient(45deg, color-mix(in srgb, var(--bg) 35%, transparent) 0 1px, transparent 1px 4px)'
-    );
   });
 });
 
-describe('compact control scale (owner ruling: « les champs sont GROS »)', () => {
-  const t = tokens(':root');
-  it('paints controls at 36 px and keeps a 44 px hit area; one large size for the primary action', () => {
-    expect([t['--ctl-h'], t['--ctl-h-lg'], t['--ctl-hit']]).toEqual(['36px', '44px', '44px']);
-    expect([t['--ctl-radius'], t['--ctl-pad-x'], t['--ctl-gap']]).toEqual(['8px', '10px', '12px']);
+describe('scale', () => {
+  it('radii follow the spec', () => {
+    expect([t['--r-pill'], t['--r-sheet'], t['--r-widget'], t['--r-tile'], t['--r-pop'], t['--r-group'], t['--r-menu'], t['--r-input'], t['--r-seg'], t['--r-chip']]).toEqual(
+      ['99px', '28px', '22px', '20px', '18px', '16px', '14px', '12px', '10px', '6px']
+    );
+  });
+  it('buttons are 40 / 34 / 52; fields and segments 36 with a 44 px hit area', () => {
+    expect([t['--btn-h'], t['--btn-h-sm'], t['--btn-h-lg'], t['--ctl-h'], t['--ctl-hit']]).toEqual(['40px', '34px', '52px', '36px', '44px']);
   });
   it('sizes short values intrinsically', () => {
-    expect([t['--w-time'], t['--w-price'], t['--w-date'], t['--w-kva'], t['--w-temp']]).toEqual(['6.5rem', '7.5rem', '10rem', '8rem', '136px']);
+    expect([t['--w-time'], t['--w-price'], t['--w-date'], t['--w-kva']]).toEqual(['6.5rem', '7.5rem', '10rem', '8rem']);
+  });
+  it('motion has the spec durations', () => {
+    expect([t['--t-sheet-in'], t['--t-sheet-out'], t['--t-modal'], t['--t-snap'], t['--ease-sheet']]).toEqual(
+      ['280ms', '200ms', '180ms', '60ms', 'cubic-bezier(0.2, 0.8, 0.2, 1)']
+    );
   });
   it('fields, buttons and the hit utility use the scale', () => {
-    /** The declarations of the first rule whose selector line is exactly `sel`. */
     const rule = (sel: string) => {
       const i = css.indexOf(`\n${sel} {`);
       expect(i, sel).toBeGreaterThan(-1);
       return css.slice(css.indexOf('{', i) + 1, css.indexOf('}', i));
     };
-    expect(rule("select")).toContain('min-height: var(--ctl-h);');
-    expect(rule('.btn')).toContain('min-height: var(--ctl-h);');
-    expect(rule('.btn-lg')).toContain('min-height: var(--ctl-h-lg);');
+    expect(rule("input:not([type='checkbox'], [type='radio'], [type='range']),\nselect,\ntextarea")).toContain('min-height: var(--ctl-h);');
+    expect(rule('.btn')).toContain('min-height: var(--btn-h);');
+    expect(rule('.btn-lg')).toContain('min-height: var(--btn-h-lg);');
     expect(rule('.hit::before')).toContain('inset: var(--hit-y, calc((var(--ctl-h) - var(--ctl-hit)) / 2)) var(--hit-x, 0px);');
-    expect(rule('.w-time')).toContain('width: var(--w-time);');
+  });
+  it('the body is Geist with tabular figures', () => {
+    expect(t['--font']).toMatch(/^'Geist Variable'/);
+    expect(body('\nbody {')).toContain("font-feature-settings: 'tnum' 1;");
   });
 });

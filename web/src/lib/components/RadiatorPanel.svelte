@@ -108,6 +108,8 @@
 <section class="rad">
   <h4 class="row-h">
     <button type="button" class="row" aria-expanded={open} aria-controls="{uid}-body" onclick={() => (open = !open)}>
+      <span class="glyph" class:heat={!offline && (radiator.working_rate ?? 0) > 0} aria-hidden="true"><Icon name={offline ? 'plug-off' : 'rad'}
+          size={18} /></span>
       <span class="who"><span class="title">{title}</span>{#if sub}<span class="sub muted">{sub}</span>{/if}</span>
       <SupportChip support={radiator.support} />
       <span class="temp num" class:muted={offline}>{offline ? '—' : fmtTemp(radiator.temperature)}</span>
@@ -214,6 +216,14 @@
     text-align: left;
     cursor: pointer;
     touch-action: manipulation;
+  }
+  .glyph {
+    display: grid;
+    flex: none;
+    color: var(--mu);
+  }
+  .glyph.heat {
+    color: var(--heat);
   }
   .who {
     flex: 1;

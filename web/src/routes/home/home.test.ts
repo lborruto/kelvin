@@ -38,6 +38,10 @@ vi.mock('$lib/api/client', () => ({
     settings: vi.fn().mockResolvedValue({ tariff: null, prefill: null }),
     status: vi.fn().mockResolvedValue({ sources: null }),
     linkyStatus: vi.fn(),
+    mcpTokens: vi.fn().mockResolvedValue({ enabled: true, endpoint_path: '/mcp', tokens: [
+      { id: 't1', name: 'Claude', hint: '7f3a', scope: 'read', created: 1, last_used: null, revoked_at: null },
+      { id: 't2', name: 'Bureau', hint: 'c21b', scope: 'read', created: 1, last_used: null, revoked_at: 2 }
+    ] }),
     me: vi.fn().mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true })
   },
   ApiError: class extends Error {}
@@ -45,7 +49,7 @@ vi.mock('$lib/api/client', () => ({
 
 let navigated: ((nav: { to: { url: URL } | null }) => void) | null = null;
 vi.mock('$app/navigation', () => ({
-  goto: vi.fn(),
+  goto: vi.fn().mockResolvedValue(undefined),
   replaceState: vi.fn((url: string) => history.replaceState(null, '', url)),
   afterNavigate: (cb: (nav: { to: { url: URL } | null }) => void) => {
     navigated = cb;
@@ -89,13 +93,23 @@ afterEach(() => {
   auth.server = null;
 });
 
-describe('Maison overview', () => {
-  it('reads in order: header, En ce moment, the section cards, Affichage, the version', async () => {
+describe('Réglages overview', () => {
+  it('reads in order: header, the section cards, Affichage, the version', async () => {
     const { container } = render(Page);
-    expect(screen.getByRole('heading', { level: 1, name: 'Maison' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Réglages' })).toBeInTheDocument();
     const order = [...container.querySelectorAll('h2, h3')].filter((h) => !h.closest('dialog')).map((h) => h.textContent?.trim());
-    expect(order).toEqual([m.home.now, m.devices.title, m.tariff.title, 'Linky', m.sources.title, m.account.title, m.home.display]);
+    expect(order).toEqual([m.devices.title, m.tariff.title, 'Linky', m.sources.title, m.account.title, m.home.display]);
     expect(screen.getByText(/^Kelvin \d/)).toBeInTheDocument();
+  });
+
+  it('what happens now and the house actions live on Maison, not here', () => {
+    snapshot([{ id: 'o2', kind: 'away', room_id: null, radiator_ids: ['a', 'b'], temperature: 12, ends_at: 2e9, restoring: false }]);
+    render(Page);
+    expect(screen.queryByRole('button', { name: 'Tout éteindre' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Tout remettre en programme' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Partir/ })).toBeNull();
+    // The absence still shows in the state line.
+    expect(screen.getByText(/^Absence jusqu’à/)).toBeInTheDocument();
   });
 
   it('says « Tout va bien » when nothing needs attention, and the alerts and the absence otherwise', async () => {
@@ -126,67 +140,6 @@ describe('Maison overview', () => {
     expect(screen.getByText('Impossible de charger les alertes.')).toBeInTheDocument();
   });
 
-  it('En ce moment: a temporary heating with « Arrêter », an absence with « Terminer »', async () => {
-    snapshot([
-      { id: 'o1', kind: 'boost', room_id: 'p-salon', radiator_ids: ['a'], temperature: 22, ends_at: 2e9, restoring: false },
-      { id: 'o2', kind: 'away', room_id: null, radiator_ids: ['a', 'b'], temperature: 12, ends_at: 2e9, restoring: false }
-    ]);
-    render(Page);
-    expect(screen.getByText('Chauffe temporaire')).toBeInTheDocument();
-    expect(screen.getByText(/toutes les pièces · Chambre 2 hors ligne/)).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole('button', { name: /^Arrêter la chauffe temporaire\s: Salon$/ }));
-    expect(api.cancelOverride).toHaveBeenCalledWith('o1');
-    await fireEvent.click(screen.getByRole('button', { name: 'Terminer l’absence' }));
-    expect(api.cancelOverride).toHaveBeenCalledWith('o2');
-    expect(screen.getByText(/^Absence jusqu’à/)).toBeInTheDocument(); // the state line
-  });
-
-  it('a boost on an offline room pauses « Arrêter », as in the room panel; « Terminer » the absence stays', async () => {
-    snapshot([
-      { id: 'o3', kind: 'boost', room_id: 'p-ch2', radiator_ids: ['b'], temperature: 22, ends_at: 2e9, restoring: false },
-      { id: 'o2', kind: 'away', room_id: null, radiator_ids: ['a', 'b'], temperature: 12, ends_at: 2e9, restoring: false }
-    ]);
-    render(Page);
-    const stop = screen.getByRole('button', { name: /^Arrêter la chauffe temporaire\s: Chambre 2$/ });
-    expect(stop).toHaveAttribute('aria-disabled', 'true');
-    await fireEvent.click(stop);
-    expect(api.cancelOverride).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Terminer l’absence' })).toHaveAttribute('aria-disabled', 'false');
-  });
-
-  it('says « Tout suit son réglage habituel. » when nothing is forced', () => {
-    snapshot([]);
-    render(Page);
-    expect(screen.getByText('Tout suit son réglage habituel.')).toBeInTheDocument();
-    expect(screen.queryByText('Aucun forçage ni absence.')).toBeNull();
-  });
-
-  it('quick actions: put everything back on schedule, with its progress blocking a re-send', async () => {
-    vi.mocked(api.houseProgram).mockResolvedValueOnce({
-      pending: { id: 'h1', label: 'Tout remettre en programme', radiator_ids: ['a'], status: 'pending', error: null, created_at: 1, expected: {} }
-    } as never);
-    render(Page);
-    const btn = screen.getByRole('button', { name: 'Tout remettre en programme' });
-    await fireEvent.click(btn);
-    expect(api.houseProgram).toHaveBeenCalled();
-    expect(await screen.findByText('Envoi…')).toBeInTheDocument();
-    expect(btn).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('button', { name: 'Tout éteindre' })).toHaveAttribute('aria-disabled', 'true');
-  });
-
-  it('phone: « Partir en absence… » is a quick action that opens the sheet; desktop: in the header', async () => {
-    const { unmount } = render(Page);
-    await fireEvent.click(screen.getByRole('button', { name: 'Partir en absence…' }));
-    expect(awaySheet.open).toBe(true);
-    awaySheet.close();
-    unmount();
-    desktop.matches = true;
-    render(Page);
-    const header = document.querySelector('.page-header')!;
-    await fireEvent.click(within(header as HTMLElement).getByRole('button', { name: 'Partir en absence…' }));
-    expect(awaySheet.open).toBe(true);
-  });
-
   it('cards: a link each, named by their title and summary', async () => {
     vi.mocked(api.settings).mockResolvedValueOnce({ tariff: TARIFF, prefill: null } as never);
     render(Page);
@@ -202,7 +155,21 @@ describe('Maison overview', () => {
     );
     expect(await screen.findByRole('link', { name: 'Sources de données, Tout est à jour' })).toHaveAttribute('href', '/home/sources');
     expect(screen.getByRole('link', { name: 'Compte, demo@kelvin.local' })).toHaveAttribute('href', '/home/account');
-    expect(await screen.findByText('Sauter Cozytouch · 2 appareils connectés')).toBeInTheDocument();
+    // Only the active tokens are counted; never a secret.
+    expect(await screen.findByText('Sauter Cozytouch · 2 appareils connectés · 1 jeton MCP')).toBeInTheDocument();
+  });
+
+  it('Tarif card under Tempo: the Tempo colours and hours, never the HC/HP blue band', async () => {
+    const tempo = { ...TARIFF, prices: [{ valid_from: '2025-01-15', option: 'tempo', subscription_eur_month: 15, rates: {
+      blue_hc: 0.13, blue_hp: 0.16, white_hc: 0.15, white_hp: 0.18, red_hc: 0.16, red_hp: 0.7 } }] };
+    vi.mocked(api.settings).mockResolvedValueOnce({ tariff: tempo, prefill: null } as never);
+    const { container } = render(Page);
+    await screen.findByRole('link', { name: /^Tarif, Tempo · 9\skVA/ });
+    const card = container.querySelector('a[href="/home/tariff"]')!.closest('article')!;
+    expect(within(card as HTMLElement).getByText(/^Heures creuses Tempo\s: 22:00–06:00/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText('Rouge')).toBeInTheDocument();
+    expect(card.querySelectorAll('.dot')).toHaveLength(3);
+    expect(within(card as HTMLElement).queryByRole('img', { name: /^Heures creuses/ })).toBeNull();
   });
 
   it('a tariff never set says so; a failed load says « Indisponible » in its card', async () => {
@@ -224,18 +191,14 @@ describe('Maison overview', () => {
     house.reset();
     alerts.reset();
     const { container } = render(Page);
-    expect(container.querySelectorAll('.now-sk')).toHaveLength(1);
     expect(container.querySelectorAll('.card-sk')).toHaveLength(6);
-    expect(screen.queryByText('Tout suit son réglage habituel.')).toBeNull();
     expect(screen.queryByText('Tout va bien')).toBeNull();
   });
 
-  it('Affichage: the theme radio keyboard model, and the « détails techniques » preference', async () => {
+  it('Affichage: no theme choice (dark only), and the « détails techniques » preference', async () => {
     render(Page);
-    const group = screen.getByRole('radiogroup', { name: 'Thème' });
-    const checked = group.querySelector('[aria-checked="true"]') as HTMLElement;
-    await fireEvent.keyDown(checked, { key: 'End' });
-    expect(screen.getByRole('radio', { name: 'Clair' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByRole('radiogroup', { name: 'Thème' })).toBeNull();
+    expect(screen.getByText(/Kelvin est en thème sombre\./)).toBeInTheDocument();
     const toggle = screen.getByRole('switch', { name: 'Afficher les détails techniques' });
     const before = detail.on;
     await fireEvent.click(toggle);
@@ -258,11 +221,11 @@ describe('old Maison anchors', () => {
       unmount();
     }
   });
-  it('#away opens the Absence sheet on the overview; #alerts stays', () => {
+  it('#away goes to Maison (/) and opens the Absence sheet over it; #alerts stays', async () => {
     history.replaceState(null, '', '/home#away');
     render(Page);
-    expect(awaySheet.open).toBe(true);
-    expect(location.hash).toBe('');
+    expect(goto).toHaveBeenCalledWith('/', { replaceState: true });
+    await vi.waitFor(() => expect(awaySheet.open).toBe(true));
     awaySheet.close();
     vi.mocked(goto).mockClear();
     navigated?.({ to: { url: new URL('http://x/home#alerts') } });
@@ -276,19 +239,15 @@ describe('Home in English', () => {
     snapshot([{ id: 'o1', kind: 'boost', room_id: 'p-salon', radiator_ids: ['a'], temperature: 22, ends_at: 2e9, restoring: false }]);
     render(Page);
     const h1 = screen.getByRole('heading', { level: 1 });
-    expect(document.title).toBe('Maison · Kelvin');
+    expect(document.title).toBe('Réglages · Kelvin');
     const group = screen.getByRole('radiogroup', { name: 'Langue' });
     const fr = within(group).getByRole('radio', { name: 'Français' });
     expect(fr).toHaveAttribute('lang', 'fr');
     await fireEvent.click(within(group).getByRole('radio', { name: 'English' }));
     expect(screen.getByRole('heading', { level: 1 })).toBe(h1);
-    expect(h1).toHaveTextContent('Home');
-    expect(document.title).toBe('Home · Kelvin');
-    expect(screen.getByRole('heading', { name: 'Right now' })).toBeInTheDocument();
-    expect(screen.getByText('Boost')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Stop boost: Salon' })).toBeInTheDocument();
-    expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument();
-    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(expect.arrayContaining(['System', 'Dark', 'Light']));
+    expect(h1).toHaveTextContent('Settings');
+    expect(document.title).toBe('Settings · Kelvin');
+    expect(screen.queryByRole('radiogroup', { name: 'Theme' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Display' })).toBeInTheDocument();
     expect(screen.getByText('All good')).toBeInTheDocument();
     expect(localStorage.getItem('kelvin-locale')).toBe('en');

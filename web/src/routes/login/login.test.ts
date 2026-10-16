@@ -210,7 +210,7 @@ describe('Login server', () => {
 describe('Login, Batch 11', () => {
   it('shows the mark and one server line, the choice closed behind « Changer »', async () => {
     const { container } = render(Page);
-    expect(container.querySelector('.wordmark.lg svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(container.querySelector('.wordmark.lg i')).toHaveAttribute('aria-hidden', 'true');
     // Before the list: a skeleton holds the line, no « Changer » yet.
     expect(container.querySelector('.server .skeleton')).not.toBeNull();
     const change = await screen.findByRole('button', { name: 'Changer' });

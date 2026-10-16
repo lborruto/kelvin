@@ -1,123 +1,169 @@
-@import '@fontsource-variable/onest';
+@import '@fontsource-variable/geist';
 @import '@fontsource/jetbrains-mono/400.css';
 
+/* Until Geist arrives, text is set in a local Arial-metric face (Arial on macOS and Windows, Liberation Sans or
+   Arimo on Linux) scaled to Geist's metrics, so the swap reflows nothing (CLS « fonts late »). Computed from
+   Geist (upm 1000, ascent 1005, descent 295, line gap 0) and Arial (average advance of French UI text):
+   size-adjust = Geist / Arial width; the overrides are Geist's ascent and descent over that size. */
+@font-face {
+  font-family: 'Geist Fallback';
+  src: local('Arial'), local('ArialMT'), local('Liberation Sans'), local('LiberationSans'), local('Arimo');
+  size-adjust: 103.23%;
+  ascent-override: 97.35%;
+  descent-override: 28.58%;
+  line-gap-override: 0%;
+}
+/* A Linux without Liberation Sans falls back to DejaVu Sans (wider): its own overrides, same method. */
+@font-face {
+  font-family: 'Geist Fallback DejaVu';
+  src: local('DejaVu Sans'), local('DejaVuSans');
+  size-adjust: 91.43%;
+  ascent-override: 109.93%;
+  descent-override: 32.27%;
+  line-gap-override: 0%;
+}
+
+/* Kelvin « Tableau » (the Tableau spec, §1): one dark theme, no light theme and no
+   colour-scheme media query. Surfaces step up bg → s1 → s2 → s3; popovers, menus, the Fiche and dialogs
+   use --pop with the one shadow. DESIGN.md « Tokens » lists every role. */
 :root {
   color-scheme: dark;
-  --bg: #0f1115;
-  --s1: #171a21;
-  --s2: #1d212a;
-  --in: #13161c;
-  --line: #262a33;
-  /* the boundary of a field, stepper or day bar: >= 3:1 against in, s1, s2 and bg (WCAG 1.4.11) */
-  --field-line: #666d7c;
-  --tx: #e8eaf0;
-  --mu: #9aa1ae;
-  --fa: #8a91a0;
-  --cool: #4c9bf5;
+  /* Surfaces */
+  --ground: #050506;
+  --bg: #0b0b0d;
+  --s1: #1b1b1f;
+  --s2: #2a2a2f;
+  --s3: #35353b;
+  --in: #08080a;
+  --line: #26262b;
+  /* Field and well edges: ≥ 3:1 against every surface a control sits on (WCAG 1.4.11; the spec's #4a4a52
+     read 1.6–2.3:1, owner ruling 2026-10-16). */
+  --field: #76767e;
+  --side: #111113;
+  --sheet: #1c1c1f;
+  --modal: #151518;
+  --pop: #232328;
+  /* Ink */
+  --tx: #f5f5f7;
+  --mu: #a1a1a8;
+  /* Faint text. The spec's #6c6c74 reads 3.3:1 on s1 (axe fails it as text), so text takes the nearest
+     AA value (5.0:1 on s1, 5.7:1 on bg) and the spec value stays for non-text marks (--fa-mark). */
+  --fa: #8a8a92;
+  --fa-mark: #6c6c74;
+  /* Meaning colours: heat only for a heating radiator, comfort blocks and a running chauffe temporaire */
+  --heat: #ff9346;
+  /* Ink on a heat fill (a heating tile's glyph, text on a comfort block) */
+  --heat-ink: #231200;
+  --cool: #7ab8ff;
+  --hc: #a9d3ff;
+  --hp: #3f6fd4;
+  --bad: #ff6961;
+  --bad-tint: rgba(255, 105, 97, 0.12);
+  --bad-edge: rgba(255, 105, 97, 0.35);
+  --ok: #4cd28a;
+  /* Radiator-only series (Où part, the no-Linky bars) */
+  --s3c: #c9c9d1;
+  /* Tempo day chip only (TempoDot) */
+  --tempo-bleu: #4f7dff;
+  --tempo-blanc: #f5f5f7;
+  --tempo-rouge: #ff5a5a;
+  /* Heat ramp stops for the strip's temperature line ($lib/heat.ts): cool → neutral → heat */
   --neutral: #c8ccd6;
-  --warm: #f2793f;
-  --ok: #3dd68c;
-  --bad: #ff6b6b;
-  /* chart series: never heat colours (no orange, no blue) */
+  /* Énergie series kept by meaning ($lib/energy.ts SERIES): radiators are --s3c; « Non réparti » stays out
+     of the heat and tariff hues. */
   --series-1: #b48cf2;
-  --series-2: #2fc4b2;
-  --series-3: #e5c14b;
-  --series-4: #e87bb5;
-  /* Tempo day chip only (ruling 2): the days are named after colours; text carries the meaning. */
-  --tempo-blue: #6c8cff;
-  --tempo-white: #e8eaf0;
-  --tempo-red: #ff5c7a;
-  /* Tariff blues (owner ruling, DESIGN « Tariff blues »): heures creuses light, heures pleines dark; HC
-     always carries the hatch (--hc-hatch / SVG #hc-hatch), so the pair never rests on colour alone. */
-  --hc: #a6d8ff;
-  --hp: #3567d6;
-  --radius: 10px;
-  /* motion: one curve, exits about 30 % faster than entrances */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --t-press: 100ms;
-  --t-state: 160ms;
-  --t-enter: 220ms;
-  --t-exit: 150ms;
-  --t-morph: 250ms;
-  --t-data: 360ms;
+  --series-3: var(--s3c);
+  /* Legacy names still read by components the screen batches restyle (do not use in new code). */
+  --warm: var(--heat);
+  --field-line: var(--field);
+
+  /* Elevation: flat surfaces; one shadow for what floats; one scrim behind sheets and dialogs. */
+  --shadow-pop: 0 18px 40px rgba(0, 0, 0, 0.6);
+  --scrim: rgba(0, 0, 0, 0.6);
+
+  /* Radii (spec §1) */
+  --r-pill: 99px;
+  --r-sheet: 28px;
+  --r-widget: 22px;
+  --r-tile: 20px;
+  --r-pop: 18px;
+  --r-group: 16px;
+  --r-menu: 14px;
+  --r-input: 12px;
+  --r-seg: 10px;
+  --r-chip: 6px;
+  /* The legacy panel radius (old components): a grouped surface. */
+  --radius: var(--r-group);
+
+  /* Spacing (a 4 px base, written as px in components). */
+  --gutter: 16px;
+  --page-pad-y: 28px;
+  --page-pad-x: 32px;
+  --gap-w: 10px;
+  --side-w: 220px;
+  --tabbar-h: 64px;
+
+  /* Type (Geist, tabular figures everywhere) */
+  --font: 'Geist Variable', 'Geist Fallback', 'Geist Fallback DejaVu', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --fs-display: 56px;
+  --fs-hero: 32px;
+  --fs-title: 32px;
+  --fs-reading: 26px;
+  --fs-area: 18px;
+  --fs-body: 15px;
+  --fs-sub: 13px;
+  --fs-label: 12.5px;
+  --fs-note: 12.5px;
+  --fs-axis: 11px;
   /* iOS zooms into any field under 16 px: phones get 16, desktop the 15 px body */
   --fs-field: 15px;
-  --font: 'Onest Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, monospace;
-  /* The off-peak hatch (45°, ground at 35 %, 1 px every 4 px) laid over an --hc fill. */
-  --hc-hatch: repeating-linear-gradient(45deg, color-mix(in srgb, var(--bg) 35%, transparent) 0 1px, transparent 1px 4px);
-  /* Compact control scale (owner ruling, DESIGN « Control sizes »): 36 px painted, 44 px hit area. */
+
+  /* Motion: one curve, exits about 30 % faster than entrances; the sheet has its own curve. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-sheet: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t-press: 100ms;
+  --t-state: 160ms;
+  --t-modal: 180ms;
+  --t-exit: 150ms;
+  --t-sheet-out: 200ms;
+  --t-enter: 220ms;
+  --t-morph: 250ms;
+  --t-sheet-in: 280ms;
+  --t-data: 360ms;
+  --t-snap: 60ms;
+
+  /* The off-peak hatch (45°, ground at 40 %, 1 px every 4 px) laid over an --hc fill. */
+  --hc-hatch: repeating-linear-gradient(45deg, color-mix(in srgb, var(--bg) 40%, transparent) 0 1px, transparent 1px 4px);
+
+  /* Control scale: buttons are pills (40 painted, 34 small, 52 large); fields and segments 36 with a
+     44 px hit area (.hit / the .btn ::before). */
+  --btn-h: 40px;
+  --btn-h-sm: 34px;
+  --btn-h-lg: 52px;
   --ctl-h: 36px;
   --ctl-h-lg: 44px;
   --ctl-hit: 44px;
-  --ctl-pad-x: 10px;
+  --ctl-pad-x: 12px;
   --ctl-pad-x-btn: 12px;
-  --ctl-radius: 8px;
+  --ctl-radius: var(--r-input);
   --ctl-gap: 12px;
   /* Intrinsic widths: a short value never gets a stretched field. */
   --w-time: 6.5rem;
   --w-price: 7.5rem;
   --w-date: 10rem;
   --w-kva: 8rem;
-  --w-temp: 136px;
   --w-text: min(100%, 22rem);
 }
 
-:root[data-theme='light'] {
-  color-scheme: light;
-  --bg: #f5f6f8;
-  --s1: #ffffff;
-  --s2: #eef0f3;
-  --in: #ffffff;
-  --line: #dfe2e8;
-  --field-line: #838a97;
-  --tx: #14171f;
-  --mu: #555d6b;
-  --fa: #5f6775;
-  --cool: #1f6fd1;
-  --neutral: #5d6573;
-  --warm: #b84a16;
-  --ok: #0f7a47;
-  --bad: #c62828;
-  --series-1: #7b4fd0;
-  --series-2: #0f8577;
-  --series-3: #8f6d00;
-  --series-4: #b8327a;
-  --tempo-blue: #3355cc;
-  --tempo-white: #ffffff;
-  --tempo-red: #c2185b;
-  --hc: #2b8ad4;
-  --hp: #0a2a6e;
-}
-
-/* keep in sync with :root[data-theme='light'] above */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    color-scheme: light;
-    --bg: #f5f6f8;
-    --s1: #ffffff;
-    --s2: #eef0f3;
-    --in: #ffffff;
-    --line: #dfe2e8;
-    --field-line: #838a97;
-    --tx: #14171f;
-    --mu: #555d6b;
-    --fa: #5f6775;
-    --cool: #1f6fd1;
-    --neutral: #5d6573;
-    --warm: #b84a16;
-    --ok: #0f7a47;
-    --bad: #c62828;
-    --series-1: #7b4fd0;
-    --series-2: #0f8577;
-    --series-3: #8f6d00;
-    --series-4: #b8327a;
-    --tempo-blue: #3355cc;
-    --tempo-white: #ffffff;
-    --tempo-red: #c2185b;
-    --hc: #2b8ad4;
-    --hp: #0a2a6e;
+@media (min-width: 1024px) {
+  :root {
+    --fs-display: 64px;
+    --fs-hero: 40px;
+    --fs-title: 30px;
+    --fs-reading: 32px;
+    --gap-w: 16px;
   }
 }
 
@@ -126,14 +172,21 @@
 *::after {
   box-sizing: border-box;
 }
-html,
+html {
+  background: var(--ground);
+  /* The rem the --w-* widths are written in. */
+  font-size: 15px;
+}
 body {
   margin: 0;
   background: var(--bg);
   color: var(--tx);
   font-family: var(--font);
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.45;
+  /* Tabular figures everywhere: live values never shift the layout. */
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }
 /* Browser surfaces carry the palette too: scrollbars, selection, caret. Selection is ink, never heat. */
@@ -163,28 +216,36 @@ textarea {
   caret-color: var(--tx);
 }
 ::placeholder {
+  /* On the s2 field --fa would read under 4.5:1: placeholders take --mu. */
   color: var(--mu);
   opacity: 1;
 }
 ::-webkit-calendar-picker-indicator {
   opacity: 0.6;
   cursor: pointer;
+  filter: invert(1);
 }
-/* Form fields (DESIGN Form fields): a 36 px well (--ctl-h) with a 3:1 boundary, as wide as its value
-   type (time, date) or its width class; text fields stay fluid up to --w-text. Components only add layout.
-   The caption wraps the field (a <label>), so the tap area is the caption plus the field. */
+/* Form fields: an s2 well (12 px radius) edged by --field, as wide as its value type (time, date) or its
+   width class; text fields stay fluid up to --w-text. Focus draws the 2 px ink ring. Components only add
+   layout. The caption wraps the field (a <label>), so the tap area is the caption plus the field. */
 input:not([type='checkbox'], [type='radio'], [type='range']),
-select {
+select,
+textarea {
   min-height: var(--ctl-h);
   min-width: 0;
   max-width: 100%;
   padding: 0 var(--ctl-pad-x);
-  background: var(--in);
-  border: 1px solid var(--field-line);
+  background: var(--s2);
+  border: 1px solid var(--field);
   border-radius: var(--ctl-radius);
   color: var(--tx);
   font-size: var(--fs-field);
   font-variant-numeric: tabular-nums;
+}
+input[aria-invalid='true'],
+select[aria-invalid='true'] {
+  border-color: var(--bad);
+  box-shadow: 0 0 0 0.5px var(--bad);
 }
 input[type='time'],
 .w-time {
@@ -240,6 +301,18 @@ h1[tabindex='-1']:focus {
 .muted {
   color: var(--mu);
 }
+.faint {
+  color: var(--fa);
+}
+.heat {
+  color: var(--heat);
+}
+.cool {
+  color: var(--cool);
+}
+.bad-text {
+  color: var(--bad);
+}
 /* Wrap tables in a div with this class: a table cannot be shorter or narrower than its rows. */
 .visually-hidden {
   position: absolute;
@@ -253,100 +326,252 @@ h1[tabindex='-1']:focus {
   white-space: nowrap;
 }
 
-/* Buttons (DESIGN Buttons): one system, every state. Disabled keeps its fill and reads faint.
-   Painted at --ctl-h (36 px); the ::before keeps a 44 px hit area. .btn-lg is the one primary action of a
-   page or sheet on phone (44 px painted). */
+/* ---- Type roles (spec §1 « Type ») ---- */
+/* Page title: 32 phone / 30 desktop, 700. */
+.t-page {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+/* The big figures: display (room sheet setpoint), hero (Énergie €), reading (tile temperature). */
+.t-display,
+.t-hero,
+.t-reading {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.t-display {
+  font-size: var(--fs-display);
+}
+.t-hero {
+  font-size: var(--fs-hero);
+}
+.t-reading {
+  font-size: var(--fs-reading);
+}
+/* Section header above a group of widgets (« Pièces », « Énergie et réseau »), with a muted aside. */
+.areah {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 4px 10px;
+  min-width: 0;
+}
+.areah > :first-child {
+  margin: 0;
+  font-size: var(--fs-area);
+  font-weight: 600;
+}
+.areah > :not(:first-child) {
+  color: var(--mu);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Grouped-list label: 13 px uppercase muted, above a .grp. */
+.grph {
+  margin: 18px 16px 6px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mu);
+}
+.note {
+  font-size: var(--fs-note);
+  color: var(--fa);
+}
+
+/* ---- Grouped list (spec « GroupedList »): an s1 surface, 16 px radius, rows ≥ 52 px split by hairlines. ---- */
+.grp {
+  margin: 0;
+  padding: 0 16px;
+  list-style: none;
+  background: var(--s1);
+  border-radius: var(--r-group);
+}
+.grp > .li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  border-top: 1px solid var(--line);
+}
+.grp > .li:first-child {
+  border-top: 0;
+}
+
+/* ---- Notice (spec « Notice »): neutral (offline, read-only, locked) or bad (window, conflict). ---- */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--r-group);
+  background: color-mix(in srgb, var(--s2) 60%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.notice.bad {
+  background: var(--bad-tint);
+  box-shadow: inset 0 0 0 1px var(--bad-edge);
+}
+
+/* ---- Small chips: the support chip and the « est. » kind. ---- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-chip);
+  color: var(--mu);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.chip.solid {
+  background: var(--s2);
+  border-color: var(--s2);
+}
+
+/* A context pill (Énergie's context row, a source state): 30 px, s1, 13 px. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: var(--r-pill);
+  background: var(--s1);
+  font-size: 13px;
+  white-space: nowrap;
+}
+/* The summary chips' row: wraps on desktop; on a phone it scrolls sideways inside the page, edge to edge
+   (the page itself never scrolls sideways). */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+@media (max-width: 1023px) {
+  .chip-row {
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin: 0 calc(-1 * var(--gutter));
+    padding: 0 var(--gutter);
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-padding-inline: var(--gutter);
+  }
+}
+
+/* ---- Buttons (spec §3, decision 2): one system. Pills on --s2; the primary is ink, never orange. ----
+   Painted at --btn-h (40), .btn-sm 34, .btn-lg 52; the ::before keeps a 44 px hit area. */
 .btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: var(--ctl-h);
-  padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--ctl-radius);
+  gap: 8px;
+  min-height: var(--btn-h);
+  padding: 0 15px;
+  border: 0;
+  border-radius: var(--r-pill);
   background: var(--s2);
   color: var(--tx);
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
   touch-action: manipulation;
   transition:
     background-color var(--t-state) ease,
-    border-color var(--t-state) ease,
+    box-shadow var(--t-state) ease,
     color var(--t-state) ease,
+    opacity var(--t-state) ease,
     transform var(--t-press) ease;
 }
 .btn::before {
   content: '';
   position: absolute;
-  inset: calc((var(--ctl-h) - var(--ctl-hit)) / 2 - 1px) -1px;
+  inset: min(0px, calc((var(--btn-h) - var(--ctl-hit)) / 2)) 0;
+}
+.btn-sm {
+  min-height: var(--btn-h-sm);
+  padding: 0 var(--ctl-pad-x-btn);
+  font-size: 13.5px;
+}
+.btn-sm::before {
+  inset: calc((var(--btn-h-sm) - var(--ctl-hit)) / 2) 0;
 }
 .btn-lg {
-  min-height: var(--ctl-h-lg);
-  padding: 0 16px;
+  min-height: var(--btn-h-lg);
+  padding: 0 20px;
+  font-size: 16px;
+  font-weight: 600;
 }
 .btn-lg::before {
-  inset: -1px;
+  inset: 0;
+}
+.btn-block {
+  display: flex;
+  width: 100%;
 }
 .btn-primary {
   background: var(--tx);
-  border-color: var(--tx);
   color: var(--bg);
+  font-weight: 600;
 }
 .btn-ghost {
-  padding: 0 var(--ctl-pad-x-btn);
   background: transparent;
-  font-size: 13px;
-  font-weight: 500;
-}
-/* A square icon button: 36 px painted, 44 × 44 hit area. */
-.btn-icon {
-  width: var(--ctl-h);
-  padding: 0;
-  border-color: transparent;
-  background: transparent;
-  color: var(--mu);
-}
-.btn-icon::before {
-  inset: calc((var(--ctl-h) - var(--ctl-hit)) / 2 - 1px);
-}
-.btn-sm {
-  padding: 0 var(--ctl-pad-x-btn);
-  font-size: 13px;
+  box-shadow: inset 0 0 0 1px var(--field);
 }
 .btn-danger {
-  background: color-mix(in srgb, var(--bad) 25%, var(--s2));
+  color: var(--bad);
+}
+/* A round icon button: 36 px painted (40 with .btn-icon-lg), 44 × 44 hit area, the name in aria-label. */
+.btn-icon {
+  width: var(--ctl-h);
+  min-height: var(--ctl-h);
+  padding: 0;
+  color: var(--tx);
+}
+.btn-icon::before {
+  inset: calc((var(--ctl-h) - var(--ctl-hit)) / 2);
+}
+.btn-icon.btn-icon-lg {
+  width: var(--btn-h);
+  min-height: var(--btn-h);
+}
+.btn-icon.btn-icon-lg::before {
+  inset: -2px;
 }
 @media (hover: hover) {
   .btn:not(:disabled, [aria-disabled='true']):hover {
-    border-color: var(--fa);
+    background: var(--s3);
   }
   .btn-primary:not(:disabled, [aria-disabled='true']):hover {
-    border-color: var(--tx);
     background: color-mix(in srgb, var(--tx) 88%, var(--bg));
   }
-  .btn-ghost:not(:disabled, [aria-disabled='true']):hover,
-  .btn-icon:not(:disabled, [aria-disabled='true']):hover {
+  .btn-ghost:not(:disabled, [aria-disabled='true']):hover {
     background: var(--s2);
-    color: var(--tx);
-  }
-  .btn-icon:not(:disabled, [aria-disabled='true']):hover {
-    border-color: transparent;
   }
 }
 .btn:not(:disabled, [aria-disabled='true']):active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
+/* Inert (aria-disabled, focus kept): the whole button dims, as in the mockups. */
 .btn:is(:disabled, [aria-disabled='true']) {
-  color: var(--fa);
+  opacity: 0.4;
   cursor: default;
-}
-.btn-primary:is(:disabled, [aria-disabled='true']) {
-  background: var(--s2);
-  border-color: var(--line);
 }
 
 /* An exact-value trigger (DESIGN « Fig »): a figure that opens its Fiche. No box, the text's own style, a
@@ -383,8 +608,9 @@ h1[tabindex='-1']:focus {
   text-decoration-color: var(--tx);
 }
 
-/* Skeleton: the shape of what is coming, at its final height. The shimmer is compositor-only and
-   stops after about 10 s; a skeleton inside a panel sits one tone up (.inset). */
+/* Skeleton (spec « Skeleton »): the shape of what is coming, at its final height, never a value or
+   « Chargement… ». s1 by default, s2 inside a surface (.inset); a shape class gives the final radius. The
+   shimmer is compositor-only, 1.4 s × 7, then stops; reduced motion shows a static block. */
 .skeleton {
   position: relative;
   overflow: hidden;
@@ -393,14 +619,26 @@ h1[tabindex='-1']:focus {
 }
 .skeleton.inset {
   --sk-base: var(--s2);
-  --sk-hi: color-mix(in srgb, var(--s2) 55%, var(--line));
-  border-radius: 6px;
+  border-radius: var(--r-chip);
+}
+.skeleton.sk-pill {
+  border-radius: var(--r-pill);
+}
+.skeleton.sk-widget {
+  border-radius: var(--r-widget);
+}
+.skeleton.sk-tile {
+  border-radius: var(--r-tile);
+}
+.skeleton.sk-line {
+  --sk-base: var(--s2);
+  border-radius: var(--r-chip);
 }
 .skeleton::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, var(--sk-hi, var(--s2)), transparent);
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.035) 50%, transparent 70%);
   transform: translateX(-100%);
   animation: kv-shimmer 1.4s ease-in-out 7;
 }
@@ -470,10 +708,10 @@ h1[tabindex='-1']:focus {
     --fs-field: 16px;
   }
   html {
-    scroll-padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom));
   }
   html:has(.sendbar) {
-    scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(var(--tabbar-h) + 84px + env(safe-area-inset-bottom));
   }
 }
 html:has(.banner-on) {
@@ -489,4 +727,10 @@ html:has(.banner-on) {
   .btn:not(:disabled, [aria-disabled='true']):active {
     transform: none;
   }
+}
+
+/* Scrollbars inside surfaces (sheets, menus): thin and quiet. */
+.scroll-quiet {
+  scrollbar-width: thin;
+  scrollbar-color: var(--s3) transparent;
 }

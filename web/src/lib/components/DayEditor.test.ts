@@ -24,9 +24,12 @@ const props = (over = {}) => ({
 
 describe('DayEditor', () => {
   it('heads with the day, today and edited, and steps to the previous and next day', async () => {
-    const p = props({ day: 'thursday', edited: true });
-    render(DayEditor, p);
-    expect(screen.getByRole('heading', { level: 2, name: 'Jeudi aujourd’hui · modifié' })).toBeInTheDocument();
+    const p = props({ day: 'thursday', edited: true, room: 'Chambre 1' });
+    const { container } = render(DayEditor, p);
+    expect(screen.getByRole('heading', { level: 2, name: 'Jeudi' })).toBeInTheDocument();
+    // The line under the day: the room, today, « ● modifié ».
+    expect([...container.querySelectorAll('.sub > span')].map((x) => x.textContent)).toEqual(['Chambre 1', 'aujourd’hui', 'modifié']);
+    expect(container.querySelector('.sub .ed i')).not.toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Jour précédent' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Jour suivant' }));
     expect(p.onprev).toHaveBeenCalledOnce();
@@ -41,6 +44,8 @@ describe('DayEditor', () => {
     expect(screen.getByText('Plage 1')).toBeInTheDocument();
     expect(screen.getByText(/^Confort 6\sh\s45$/)).toBeInTheDocument();
     expect(screen.getByText(/éco le reste du temps/)).toBeInTheDocument();
+    expect(screen.getByText('Plages Confort · 2 sur 3')).toBeInTheDocument();
+    expect(document.querySelector('.actions + .note')).toHaveTextContent(/^3 plages au maximum · pas de 15\smin$/);
   });
 
   it('adds, edits and removes through the list', async () => {
@@ -106,19 +111,39 @@ describe('DayEditor', () => {
     expect(screen.queryByLabelText(/plage 1, début/)).toBeNull();
     expect(screen.queryByRole('button', { name: /Ajouter une plage/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Copier vers…' })).toBeNull();
+    // What Kelvin does with it.
+    expect(screen.getByText('Ce jour reste tel que le radiateur l’a.')).toBeInTheDocument();
+    expect(screen.getByText(/Aucune copie n’arrive sur ce jour\./)).toBeInTheDocument();
   });
 
-  it('on a phone: the day is the page title, slots are numbered, the scale is every 6 h', () => {
-    const { container } = render(DayEditor, props({ compact: true }));
-    expect(screen.getByRole('heading', { level: 1, name: /^Lundi/ })).toBeInTheDocument();
+  it('on a phone: the day is the page title, slots are numbered, the scale is every 6 h, actions are list rows', async () => {
+    const p = props({ compact: true, room: 'Salon' });
+    const { container } = render(DayEditor, p);
+    expect(screen.getByRole('heading', { level: 1, name: 'Lundi' })).toBeInTheDocument();
     expect(screen.queryByText('Plage 1')).toBeNull();
     expect(container.querySelectorAll('.hours span')).toHaveLength(5);
+    expect(screen.getByText(/^Glissez une plage ou ses bords · pas de 15\smin$/)).toBeInTheDocument();
+    expect(container.querySelector('.acts .row.add')).toHaveAccessibleName('Ajouter une plage le Lundi');
+    expect(container.querySelector('.acts .row[aria-haspopup="dialog"]')).toHaveTextContent('Copier vers…');
+    expect(screen.getByRole('button', { name: 'Jour précédent' })).toBeInTheDocument();
+  });
+
+  it('on a phone, full: the add row says why; a locked day says « verrouillé »', () => {
+    const full = [{ start: 0, end: 60 }, { start: 100, end: 200 }, { start: 300, end: 400 }];
+    const { unmount } = render(DayEditor, props({ compact: true, segs: full }));
+    expect(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' })).toHaveAccessibleDescription('3 plages au maximum');
+    unmount();
+    const { container } = render(DayEditor, props({ compact: true, day: 'saturday', segs: [], locked: 'unrecognised' }));
+    expect(container.querySelector('.sub')).toHaveTextContent('verrouillé');
+    expect(screen.queryByText(/Glissez/)).toBeNull();
   });
 
   it('in English', () => {
     applyLocale('en');
     render(DayEditor, props({ day: 'thursday', edited: true }));
-    expect(screen.getByRole('heading', { name: 'Thursday today · edited' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Thursday' })).toBeInTheDocument();
+    expect(screen.getByText('edited')).toBeInTheDocument();
+    expect(screen.getByText('Comfort periods · 2 of 3')).toBeInTheDocument();
     expect(screen.getByLabelText('Thursday, period 1, start')).toHaveValue('06:15');
     expect(screen.getByRole('button', { name: 'Add a period on Thursday' })).toHaveTextContent('Add a period');
     expect(screen.getByRole('button', { name: 'Remove period 1 from Thursday' })).toBeInTheDocument();

@@ -1,4 +1,4 @@
-<!-- Maison › Sources de données (direction-2 §3, DESIGN « Sources »): one 64 px row per source (Cozytouch,
+<!-- Réglages › Sources de données (Tableau §4, DESIGN « Sources »): one 64 px grouped-list row per source (Cozytouch,
      Linky, RTE EcoWatt, Tempo under a Tempo price): the Freshness mark, the name (14/600) and its state sentence
      (13 muted) on the left, the last time on the right. Each row opens its exact rows (L2: last success, error,
      next read, calls); « Détails techniques » opens them all. Replaces SourcesPanel and the Cozytouch row of the
@@ -60,6 +60,7 @@
   .row {
     display: grid;
     grid-template-columns: 8px minmax(0, 1fr) auto 16px;
+    border-radius: 8px;
     align-items: center;
     gap: 12px;
     width: 100%;
@@ -81,7 +82,7 @@
     min-width: 0;
   }
   .name {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
   }
   .text {
@@ -93,12 +94,12 @@
     color: var(--bad);
   }
   .at {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--mu);
   }
   .chev {
     display: inline-flex;
-    color: var(--fa);
+    color: var(--mu);
     transition: transform var(--slide) var(--ease-out);
   }
   .chev.open {
