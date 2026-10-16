@@ -75,7 +75,9 @@
       <span class="s" class:pending aria-hidden="true"><span class="lead {tone}">{lead}</span>{#if rest}<span class="sep">{' · '}</span>{rest}{/if}</span>
     </div>
     {#if chip}<span class="chip solid above">{chip}</span>{/if}
-    {#if control}<div class="ctl above">{@render control()}</div>
+    <!-- Only a normal room takes −/+: off, absence and read-only never render a control, even if one is passed
+         (a command that cannot work is absent). Offline renders neither control nor note. -->
+    {#if control && variant === 'normal'}<div class="ctl above">{@render control()}</div>
     {:else if note}<p class="note-line">{note}</p>{/if}
     {#if tag}<div class="above">{@render tag()}</div>{/if}
     {#if spark}<div class="spark">{@render spark()}</div>{/if}

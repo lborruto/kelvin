@@ -22,6 +22,8 @@ export interface PrimarySetpoint {
   pending: boolean;
   /** For `boost`: the end (epoch s) the resend keeps. */
   endsAt?: number;
+  /** For `eco`: the comfort (of the controllable radiators) the lowering is taken from. */
+  comfort?: number;
 }
 
 /** The stepper caption: « Manuel », « Confort », « Éco », « Chauffe temp. ». Read at render time (i18n). */
@@ -29,7 +31,15 @@ export function primaryLabel(kind: PrimaryKind): string {
   return kind === 'manual' ? m.mode.manual : kind === 'comfort' ? m.level.comfort : kind === 'eco' ? m.level.eco : m.kit.boostShort;
 }
 
-export function primarySetpoint(status: RoomStatus, rads: Radiator[], override: Override | undefined, expected: Expected): PrimarySetpoint | null {
+/** `inFlight`: a command for this room is on its way (`house.pendingFor(room.radiator_ids)` sending or pending).
+ * Overrides carry no expected value, so a boost resend is dashed while it travels. */
+export function primarySetpoint(
+  status: RoomStatus,
+  rads: Radiator[],
+  override: Override | undefined,
+  expected: Expected,
+  inFlight = false
+): PrimarySetpoint | null {
   const controllable = rads.filter((r) => !isReadOnly(r) && r.reachable !== false);
   if (!controllable.length) return null;
   switch (status.kind) {
@@ -51,25 +61,34 @@ export function primarySetpoint(status: RoomStatus, rads: Radiator[], override: 
       const delta = expected.eco_delta ?? agg(controllable.map((r) => r.eco_delta)).value;
       if (!range || comfort == null) return null;
       // The radiators take the lowering below comfort: the shown range is comfort minus the lowering's range.
-      return { kind: 'eco', value: delta == null ? null : comfort - delta, min: comfort - range[1], max: comfort - range[0], pending: expected.eco_delta !== undefined };
+      return {
+        kind: 'eco', value: delta == null ? null : comfort - delta, min: comfort - range[1], max: comfort - range[0],
+        pending: expected.eco_delta !== undefined, comfort
+      };
     }
     case 'boost': {
       if (!override || override.kind !== 'boost' || override.restoring || !controllable.some((r) => capsOf(r).boost)) return null;
       const range = roomRange(controllable, 'manual') ?? [7, 28];
-      return { kind: 'boost', value: override.temperature, min: range[0], max: range[1], pending: false, endsAt: override.ends_at };
+      return { kind: 'boost', value: override.temperature, min: range[0], max: range[1], pending: inFlight, endsAt: override.ends_at };
     }
     default:
       return null;
   }
 }
 
-/** Send one −/+ result (after the Stepper's 600 ms debounce). `eco` is sent as the lowering; `boost` again
- * with the minutes left to its end (at least one). */
-export function sendPrimary(roomId: string, p: PrimarySetpoint, v: number, comfort: number | null, now: number): Promise<CommandResult> {
+/** Send one −/+ result (after the Stepper's 600 ms debounce), clamped to the setpoint's bounds. `eco` is sent as
+ * the lowering below `p.comfort` (the `comfort` argument is kept for compatibility and ignored when `p` carries
+ * one); with no comfort known nothing is sent. `boost` is sent again with the minutes left to its end. */
+export function sendPrimary(roomId: string, p: PrimarySetpoint, value: number, comfort: number | null, now: number): Promise<CommandResult> {
+  const v = Math.min(p.max, Math.max(p.min, value));
   if (p.kind === 'boost') {
     const left = Math.max(1, Math.round(((p.endsAt ?? now / 1000) * 1000 - now) / 60_000));
     return api.roomBoost(roomId, v, left);
   }
-  if (p.kind === 'eco') return api.roomSetpoint(roomId, 'eco', Math.round(((comfort ?? v) - v) * 2) / 2);
+  if (p.kind === 'eco') {
+    const base = p.comfort ?? comfort;
+    if (base == null) return Promise.resolve({ pending: null });
+    return api.roomSetpoint(roomId, 'eco', Math.round((base - v) * 2) / 2);
+  }
   return api.roomSetpoint(roomId, p.kind, v);
 }

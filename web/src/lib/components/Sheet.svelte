@@ -64,6 +64,14 @@
     returnTo = null;
   }
 
+  /** Only a tap on the real backdrop closes: the point must lie outside the dialog's box (a tap in a tall
+   * sheet's blank area also targets the dialog itself, and must not close it). */
+  function onBackdrop(e: MouseEvent, d: HTMLDialogElement | undefined) {
+    if (!d || e.target !== d) return false;
+    const r = d.getBoundingClientRect();
+    return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  }
+
   const isSheet = () => variant === 'sheet' || (variant === 'auto' && !matchMedia('(min-width: 1024px)').matches);
 
   function down(e: PointerEvent) {
@@ -91,7 +99,7 @@
 
 <dialog bind:this={dialog} class="ksheet v-{variant} tone-{tone} {cls}" class:tall class:dragging aria-labelledby="{uid}-title"
   style:--w="{width}px" style:--drag="{drag}px" onclose={closed} oncancel={() => (drag = 0)}
-  onclick={(e) => e.target === dialog && dialog?.close?.()}>
+  onclick={(e) => onBackdrop(e, dialog) && dialog?.close?.()}>
   <!-- Only the backdrop closes: a tap anywhere in the sheet (its padding too) lands on .body. -->
   {#if open}<div class="body">
     <div class="grab-zone" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} aria-hidden="true">
@@ -165,6 +173,7 @@
   .body {
     display: flex;
     flex-direction: column;
+    height: 100%;
     max-height: inherit;
     padding: 22px 24px 24px;
   }
@@ -190,6 +199,7 @@
     overflow-wrap: anywhere;
   }
   .content {
+    flex: 1;
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;

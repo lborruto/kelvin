@@ -52,6 +52,17 @@ describe('Sheet', () => {
     expect(document.activeElement).toBe(trigger);
     trigger.remove();
   });
+  it('closes only on the real backdrop: a tap inside a tall sheet’s blank area keeps it open', async () => {
+    const onclose = vi.fn();
+    render(Sheet, { open: true, title: 'Salon', tall: true, onclose, children: text('x') });
+    const dialog = screen.getByRole('dialog', { name: 'Salon' });
+    dialog.getBoundingClientRect = () => ({ left: 0, right: 390, top: 56, bottom: 844, width: 390, height: 788, x: 0, y: 56, toJSON: () => ({}) }) as DOMRect;
+    await fireEvent.click(dialog, { clientX: 200, clientY: 700 });
+    expect(dialog).toHaveAttribute('open');
+    expect(onclose).not.toHaveBeenCalled();
+    await fireEvent.click(dialog, { clientX: 200, clientY: 20 });
+    expect(onclose).toHaveBeenCalled();
+  });
   it('an action sheet: no ×, a footer', () => {
     render(Sheet, { open: true, title: 'Actions', noClose: true, onclose: () => {}, children: text('x'), footer: text('Annuler') });
     const dialog = screen.getByRole('dialog', { name: 'Actions' });
@@ -103,6 +114,14 @@ describe('RoomTile', () => {
     expect(container.querySelector('.t')).toHaveTextContent('19,6°');
     expect(container.querySelector('.ti')).toHaveClass('heat');
     expect(container.querySelector('.ctl')).toHaveClass('above');
+  });
+  it('off, absence and read-only never render a control, even if one is passed; offline neither', () => {
+    for (const variant of ['off', 'absence', 'readonly', 'offline'] as const) {
+      const { container, unmount } = render(RoomTile, { ...base, variant, control: text('−/+') });
+      expect(container.querySelector('.ctl'), variant).toBeNull();
+      expect(container.textContent, variant).not.toContain('−/+');
+      unmount();
+    }
   });
   it('off: no control, the note; absence: cool, no heat', () => {
     const { container } = render(RoomTile, { ...base, variant: 'off', heating: true, note: 'Ne chauffe pas' });
