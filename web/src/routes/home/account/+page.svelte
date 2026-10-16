@@ -1,9 +1,10 @@
 <!-- Maison › Compte (direction-2 §3, UX batch 9): the home's Cozytouch account (email, server, the connection's
      SourceLine), the signed-in devices (#sessions), then « Se déconnecter » last, on its own.
-     The future « Accès MCP » panel takes its place after « Appareils connectés », before « Se déconnecter ». -->
+     « Accès MCP » (#mcp, Plan 13) follows « Appareils connectés », before « Se déconnecter ». -->
 <script lang="ts">
   import { goto } from '$app/navigation';
   import CozytouchStatus from '$lib/components/CozytouchStatus.svelte';
+  import McpPanel from '$lib/components/McpPanel.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import SessionsPanel from '$lib/components/SessionsPanel.svelte';
   import SupportChip from '$lib/components/SupportChip.svelte';
@@ -21,6 +22,9 @@
 
   // « Se déconnecter » follows the signed-in devices: it appears with their list, never pushed by it.
   let sessionsReady = $state(false);
+  // « Accès MCP » appears once the devices are known and « Se déconnecter » once its tokens are: each part
+  // arrives below what is already placed, so nothing on screen moves.
+  let mcpReady = $state(false);
   let loggingOut = $state(false);
   async function logout() {
     if (loggingOut) return;
@@ -71,6 +75,13 @@
   </section>
 
   {#if sessionsReady}
+    <section id={ANCHORS.mcp} class="panel" aria-labelledby="account-mcp">
+      <h2 id="account-mcp" class="sl">{m.mcp.title}</h2>
+      <McpPanel bind:ready={mcpReady} />
+    </section>
+  {/if}
+
+  {#if sessionsReady && mcpReady}
     <div class="out">
       <button type="button" class="btn" aria-disabled={loggingOut} onclick={logout}>{m.settings.signOut}</button>
     </div>

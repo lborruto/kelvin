@@ -17,7 +17,7 @@ export const ROUTES = {
 } as const;
 
 /** Section anchors: Home (away, tariff, linky, alerts, sessions) and Energy (quality, curve). */
-export const ANCHORS = { away: 'away', tariff: 'tariff', linky: 'linky', quality: 'quality', curve: 'curve', alerts: 'alerts', sessions: 'sessions' } as const;
+export const ANCHORS = { away: 'away', tariff: 'tariff', linky: 'linky', quality: 'quality', curve: 'curve', alerts: 'alerts', sessions: 'sessions', mcp: 'mcp' } as const;
 /** Énergie's section anchors (the Résumé's key figures link to them). */
 export const ENERGY_ANCHORS = { where: 'energy-where', offpeak: 'offpeak', projection: 'projection' } as const; // i18n-ignore: anchor ids (URL fragments), not copy
 
@@ -27,6 +27,7 @@ export const HOME_ANCHORS: Record<string, string | 'away'> = {
   [ANCHORS.tariff]: ROUTES.tariff,
   [ANCHORS.linky]: ROUTES.linky,
   [ANCHORS.sessions]: `${ROUTES.account}#${ANCHORS.sessions}`,
+  [ANCHORS.mcp]: `${ROUTES.account}#${ANCHORS.mcp}`,
   [ANCHORS.away]: 'away'
 };
 

@@ -14,6 +14,10 @@ vi.mock('$lib/api/client', () => ({
     sessions: vi.fn().mockResolvedValue([]),
     revokeSession: vi.fn(),
     revokeOtherSessions: vi.fn(),
+    mcpTokens: vi.fn().mockResolvedValue({ enabled: true, endpoint_path: '/mcp', tokens: [] }),
+    mcpAudit: vi.fn().mockResolvedValue([]),
+    createMcpToken: vi.fn(),
+    revokeMcpToken: vi.fn(),
     logout: vi.fn().mockResolvedValue({ email: null, logged_in: false })
   },
   ApiError: class extends Error {}
@@ -48,11 +52,15 @@ describe('Maison › Compte', () => {
     expect(screen.getByText('Fixé à la première connexion.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Cozytouch · / })).toBeInTheDocument(); // the SourceLine (its Fiche)
     expect(document.getElementById('sessions')).toBeInTheDocument();
-    // « Se déconnecter » comes last, after the signed-in devices (the future « Accès MCP » panel goes between),
-    // and only once their list is known, so the list's height never pushes it (CLS).
+    // « Accès MCP » follows the signed-in devices once their list is known, and « Se déconnecter » comes last
+    // once the tokens are known, so no list's height ever pushes what is below it (CLS).
     expect(screen.queryByRole('button', { name: 'Se déconnecter' })).toBeNull();
+    expect(document.getElementById('mcp')).toBeNull();
     const out = await screen.findByRole('button', { name: 'Se déconnecter' });
-    expect(document.getElementById('sessions')!.compareDocumentPosition(out) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const mcp = document.getElementById('mcp')!;
+    expect(screen.getByRole('heading', { level: 2, name: 'Accès MCP' })).toBeInTheDocument();
+    expect(document.getElementById('sessions')!.compareDocumentPosition(mcp) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(mcp.compareDocumentPosition(out) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('logs out to the login screen and empties the stores', async () => {
