@@ -23,7 +23,7 @@ describe('primarySetpoint (what −/+ changes)', () => {
   });
   it('Programme in comfort → comfort; in eco → the absolute eco, range in eco terms (decision 4)', () => {
     expect(primarySetpoint(st('comfort'), [rad()], undefined, {})).toMatchObject({ kind: 'comfort', value: 20, min: 12, max: 28 });
-    expect(primarySetpoint(st('eco'), [rad()], undefined, {})).toMatchObject({ kind: 'eco', value: 17, min: 14, max: 19 });
+    expect(primarySetpoint(st('eco'), [rad()], undefined, {})).toMatchObject({ kind: 'eco', value: 17, min: 14, max: 19, comfort: 20 });
   });
   it('a pending request shows its value, dashed', () => {
     expect(primarySetpoint(st('comfort'), [rad()], undefined, { comfort: 20.5 })).toMatchObject({ value: 20.5, pending: true });
@@ -32,6 +32,14 @@ describe('primarySetpoint (what −/+ changes)', () => {
   it('Chauffe temporaire → the boost temperature, keeping its end', () => {
     expect(primarySetpoint(st('boost'), [rad()], boost, {})).toMatchObject({ kind: 'boost', value: 22, endsAt: 1_000_000 });
     expect(primarySetpoint(st('boost'), [rad()], { ...boost, restoring: true }, {})).toBeNull();
+  });
+  it('a boost resend on its way is dashed like any setpoint', () => {
+    expect(primarySetpoint(st('boost'), [rad()], boost, {}, true)).toMatchObject({ kind: 'boost', pending: true });
+    expect(primarySetpoint(st('boost'), [rad()], boost, {})).toMatchObject({ pending: false });
+  });
+  it('eco takes the comfort of the radiators it can reach, not of an offline one', () => {
+    const off = rad({ id: 'b', comfort: 23, reachable: false } as never);
+    expect(primarySetpoint(st('eco'), [rad(), off], undefined, {})).toMatchObject({ comfort: 20, value: 17 });
   });
   it('no stepper: Arrêt, window open, away, offline, read-only, a mode Kelvin cannot set', () => {
     for (const k of ['off', 'window', 'away', 'offline', 'mixed', 'other', 'none'] as const) expect(primarySetpoint(st(k), [rad()], undefined, {}), k).toBeNull();
@@ -45,11 +53,22 @@ describe('primarySetpoint (what −/+ changes)', () => {
 
 describe('sendPrimary', () => {
   it('eco is sent as the lowering below comfort; boost again with the minutes left; the rest as is', async () => {
-    await sendPrimary('salon', { kind: 'eco', value: 17, min: 14, max: 19, pending: false }, 17.5, 20, 0);
+    await sendPrimary('salon', { kind: 'eco', value: 17, min: 14, max: 19, pending: false, comfort: 20 }, 17.5, null, 0);
     expect(api.roomSetpoint).toHaveBeenLastCalledWith('salon', 'eco', 2.5);
     await sendPrimary('salon', { kind: 'comfort', value: 20, min: 12, max: 28, pending: false }, 20.5, 20, 0);
     expect(api.roomSetpoint).toHaveBeenLastCalledWith('salon', 'comfort', 20.5);
     await sendPrimary('salon', { kind: 'boost', value: 22, min: 7, max: 28, pending: false, endsAt: 7200 }, 22.5, null, 0);
     expect(api.roomBoost).toHaveBeenLastCalledWith('salon', 22.5, 120);
+  });
+  it('eco never sends a lowering out of range or from an unknown comfort; the carried comfort wins', async () => {
+    api.roomSetpoint.mockClear();
+    const eco = { kind: 'eco' as const, value: 17, min: 14, max: 19, pending: false, comfort: 20 };
+    await sendPrimary('salon', eco, 25, 0, 0); // above max and a bogus aggregate comfort
+    expect(api.roomSetpoint).toHaveBeenLastCalledWith('salon', 'eco', 1);
+    await sendPrimary('salon', eco, 3, null, 0);
+    expect(api.roomSetpoint).toHaveBeenLastCalledWith('salon', 'eco', 6);
+    api.roomSetpoint.mockClear();
+    await expect(sendPrimary('salon', { ...eco, comfort: undefined }, 17, null, 0)).resolves.toEqual({ pending: null });
+    expect(api.roomSetpoint).not.toHaveBeenCalled();
   });
 });

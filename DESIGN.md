@@ -227,17 +227,18 @@ value, `Settle` dashed → solid). Look: an s2 pill (4 px inset) with two s3 dis
 disc is `aria-disabled` (35 %). `disabled` = inert: the pill dims to 40 %. `block` stretches it (tiles).
 
 ### What −/+ changes (`$lib/setpoint`)
-`primarySetpoint(status, rads, override, expected)` → `{ kind, value, min, max, pending, endsAt? } | null`:
+`primarySetpoint(status, rads, override, expected, inFlight?)` → `{ kind, value, min, max, pending, endsAt?, comfort? } | null`:
 Manuel → `manual`; Programme → `comfort` or `eco` (the level running now; eco shown absolute, sent as the
 lowering); Chauffe temporaire → `boost` (sent again with the minutes left); Arrêt, window open, away, offline,
 read-only, restoring, other modes → `null` (no stepper: a command that cannot work is absent).
-`primaryLabel(kind)` gives the caption; `sendPrimary(roomId, p, v, comfort, now)` sends one result.
+`primaryLabel(kind)` gives the caption; `sendPrimary(roomId, p, v, comfort, now)` sends one result, clamped to the
+bounds; eco uses the comfort carried in `p` (never an aggregate or a missing one); a boost resend in flight is dashed.
 
 ### RoomTile
 `RoomTile.svelte`, `layout="tile"` (phone, 2 columns: 36 px glyph disc + 26 px reading, the name, one status line,
 the compact stepper) or `layout="widget"` (desktop column: 40 px disc, name, 32 px reading, status, stepper,
 `MiniSpark`). The body is one link to the room sheet (stretched); the control and tags sit above it and act in
-place. The disc is heat only while heating. Variants: `off` (no stepper; a note), `absence` (cool glyph, no
+place. The disc is heat only while heating. Variants (a control renders only for `normal`): `off` (no stepper; a note), `absence` (cool glyph, no
 stepper), `readonly` (a chip, no control), `offline` (transparent, hairline, plug, faint, « Hors ligne depuis … ·
 hint », full width, never red, no temperature). `pending` dashes the status line; `dipKey` makes the reading dip.
 
