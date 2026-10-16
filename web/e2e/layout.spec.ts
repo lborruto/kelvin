@@ -476,7 +476,8 @@ test.describe('Énergie layout matrix', () => {
           await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'), null, { timeout: 15_000 });
           expect(await overflow(page), `/energy ${view} at ${width} px (${locale})`).toBeLessThanOrEqual(0);
         }
-        // Every disclosure open (the Courbe, the rooms, Analyse « Détails », Qualité).
+        // The full rooms section (« Tout voir › »), then every disclosure open (the rooms, Analyse « Détails », Qualité).
+        await page.locator('.w-where a').click();
         await page.evaluate(() => document.querySelectorAll<HTMLButtonElement>('main button[aria-expanded="false"][aria-controls]').forEach((b) => b.click()));
         await page.waitForTimeout(400);
         expect(await overflow(page), `/energy disclosures open at ${width} px (${locale})`).toBeLessThanOrEqual(0);

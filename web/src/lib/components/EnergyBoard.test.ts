@@ -106,7 +106,7 @@ describe('CurveMini', () => {
     const bar = ins([{ key: 'home', label: 'Maison', value: '22,03 kWh' }, { key: 'cost', label: 'Coût estimé', value: '6,10 €' }]);
     const { container } = render(CurveMini, { dayIso: '2026-10-12', day, split: true, bar, onopen });
     expect(screen.getByRole('heading', { name: 'Courbe du 12 octobre 2026' })).toBeInTheDocument();
-    expect(container.querySelector('.line')).toHaveTextContent(/^22,03\skWh · 6,10\s€$/);
+    expect(container.querySelector('.line')).toHaveTextContent(/^22,03\skWh · 6,10\s€ · pointe 800\sW à \d\d:\d\d$/);
     expect(container.querySelectorAll('.seg.hc')).toHaveLength(2);
     expect(screen.getByRole('img', { name: 'Aperçu de la courbe du 12 octobre 2026' })).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'par demi-heure' }));

@@ -23,6 +23,7 @@
   import QualityPanel from '$lib/components/QualityPanel.svelte';
   import RoomDayPanel from '$lib/components/RoomDayPanel.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
+  import Sheet from '$lib/components/Sheet.svelte';
   import SourceLine from '$lib/components/SourceLine.svelte';
   import Swatch from '$lib/components/Swatch.svelte';
   import TempoRows from '$lib/components/TempoRows.svelte';
@@ -53,6 +54,8 @@
   let selectedBar = $state<number | null>(null);
   /** Mois and Année: the Courbe is collapsed to its summary line until opened (or a bar drills into it). */
   let curveOpen = $state(false);
+  /** « Où part l’énergie », the full per-room section: collapsed (findable) until « Tout voir › » or a link opens it. */
+  let whereOpen = $state(false);
   let navEl = $state<HTMLElement>();
   // The clock the source line and its Fiche read (« il y a 3 min »), ticking once a minute.
   let now = $state(Date.now());
@@ -110,6 +113,7 @@
     if (v === curveView) return;
     curveView = v;
     curveOpen = false;
+    whereOpen = false;
   });
   let chart = $derived(loaded?.chart ?? null);
   // The report renders with the Linky line as soon as both answers are in, so nothing above it
@@ -212,9 +216,14 @@
     const last = addDays(s.to, -1);
     return last === s.from ? fmtDateLong(s.from) : m.energy.span(fmtDay(s.from), fmtDay(last));
   }
-  function openCurve() {
+  /** Mois: the Courbe opens in a sheet over the board (« par demi-heure › », a day bar's drill). */
+  let curveTrigger = $state<HTMLElement | null>(null);
+  function openCurve(e?: Event) {
+    curveTrigger = (e?.currentTarget as HTMLElement | null) ?? null;
     curveOpen = true;
-    document.getElementById(ANCHORS.curve)?.scrollIntoView?.({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
+  }
+  function openWhere() {
+    whereOpen = true;
   }
 
   // Analyse: Comparaisons and Projection (and Heures creuses / pleines when the Tempo rows took its place in the board).
@@ -237,9 +246,10 @@
     const opensCurve = group === 'day' && loaded.view !== 'day';
     navigate(() => data.drill(b.key));
     if (opensCurve) {
+      curveTrigger = document.activeElement as HTMLElement | null;
       curveOpen = true;
       announcer.say(m.energyPage.curveShown(fmtDateLong(b.key)));
-      document.getElementById(ANCHORS.curve)?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+      if (loaded.view !== 'month') document.getElementById(ANCHORS.curve)?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
     }
   }
   function drillLabel(i: number): string | null {
@@ -435,7 +445,7 @@
      content instead of moving it (no layout shift when a slow report lands). Within a view the same widgets stay,
      dimmed while a new period loads. -->
 {#key loaded.view}
-<div class="panels" class:dayish class:busy aria-busy={data.loading}>
+<div class="panels" class:dayish class:year={loaded.view === 'year'} class:busy aria-busy={data.loading}>
   {#if !dayish}{@render barsPanel()}{/if}
 
   {#if dayish && main.linky && data.dayIso}
@@ -474,57 +484,47 @@
       <HcHpPanel lens={main.hc_lens} tariff={main.tariff} hpKwh={main.period.hp_kwh} kwh={main.period.kwh} hcKwh={main.period.hc_kwh} option={main.option} tempo={null} />
     {/if}
     {#if loaded.view === 'month' && data.dayIso}
-      <CurveMini class="wide-only" dayIso={data.dayIso} day={data.day} split={main.tariff} bar={dayBar} onopen={openCurve} />
+      <CurveMini dayIso={data.dayIso} day={data.day} split={main.tariff} bar={dayBar} onopen={openCurve} />
     {/if}
-    {#if loaded.view !== 'year'}
-      <WhereTop class="wide-only" heating={main.heating} linky={main.linky} rows={main.by_radiator} span={elapsed ?? loaded.period}
-        tariff={main.tariff} aside={whereAside} />
-    {/if}
+    <WhereTop heating={main.heating} linky={main.linky} rows={main.by_radiator} span={elapsed ?? loaded.period}
+      tariff={main.tariff} aside={whereAside} onmore={openWhere} />
   {/if}
 
-  {#if !dayish && main.linky && data.dayIso}
-    <CurvePanel
-      dayIso={data.dayIso}
+  {#if roomDay && data.dayIso}
+    <!-- Température et chauffe (Jour, Semaine): its own widget under the board, sharing the Courbe's scrubber. -->
+    <RoomDayPanel
       day={data.day}
+      dayIso={data.dayIso}
+      room={data.room}
+      onroom={(id) => data.setRoom(id)}
       error={data.dayError?.() ?? null}
-      view={loaded.view}
-      split={main.tariff}
-      canPrev={data.canPrevDay}
-      canNext={data.canNextDay}
-      onstep={(d) => data.stepDay(d)}
       onretry={() => data.retryDay()}
-      curveSince={main.quality.curve_since}
-      quota={linky?.state === 'quota'}
-      bar={dayBar}
-      collapsible
-      bind:open={curveOpen}
-      bind:index={scrub} />
+      heading="h2"
+      bind:index={scrub}
+      class="inner wide" />
   {/if}
-  <EnergyWhere
-    heating={main.heating}
-    radiators={main.period.radiators}
-    restKwh={main.period.rest_kwh}
-    {running}
-    linky={main.linky}
-    rows={main.by_radiator}
-    span={elapsed ?? loaded.period}
-    tariff={main.tariff}
-    split={main.option !== 'base'}
-    onroom={(id) => roomDay && data.setRoom(id)}
-    class="wide">
-    {#if roomDay && data.dayIso}
-      <RoomDayPanel
-        day={data.day}
-        dayIso={data.dayIso}
-        room={data.room}
-        onroom={(id) => data.setRoom(id)}
-        error={data.dayError?.() ?? null}
-        onretry={() => data.retryDay()}
-        heading="h3"
-        bind:index={scrub}
-        class="inner" />
-    {/if}
-  </EnergyWhere>
+  {#if !main.linky}
+    <!-- Without Linky the rooms are the evidence: the full section, open. -->
+    <EnergyWhere heating={main.heating} radiators={main.period.radiators} restKwh={main.period.rest_kwh} {running} linky={false}
+      rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} split={main.option !== 'base'} class="wide" />
+  {:else}
+    <!-- The full per-room table (footnotes, rooms that open, lifetime counters): collapsed and findable until « Tout voir › »
+         or a link to #energy-where (fragment navigation reveals it) opens it; the board's widget is its summary. -->
+    <div class="where-wrap" hidden={whereOpen ? undefined : 'until-found'} onbeforematch={openWhere}>
+      <EnergyWhere
+        heating={main.heating}
+        radiators={main.period.radiators}
+        restKwh={main.period.rest_kwh}
+        {running}
+        linky={main.linky}
+        rows={main.by_radiator}
+        span={elapsed ?? loaded.period}
+        tariff={main.tariff}
+        split={main.option !== 'base'}
+        onroom={(id) => roomDay && data.setRoom(id)} />
+      {#if whereOpen}<button type="button" class="btn btn-ghost btn-sm fold" onclick={() => (whereOpen = false)}>{m.energyBoard.whereClose}</button>{/if}
+    </div>
+  {/if}
 
   {#if main.linky}
     <!-- Analyse: summary cards, their detail one « Détails » away. -->
@@ -545,9 +545,26 @@
     <QualityPanel buckets={periodBars} group={chart.group} quality={main.period.quality} class="wide" />
   {/if}
 </div>
-{#if exportItems.length}
-  <!-- Discoverability: the same menu at the end of the story. -->
-  <div class="end"><Menu label={m.energyUi.export} text={m.energyUi.exportMore} icon="download" items={exportItems} footer={m.energyUi.exportFormat} /></div>
+{#if loaded.view === 'month' && main.linky && data.dayIso}
+  <!-- Mois: the full Courbe (scrubber, readout, notes) in a sheet over the board, opened by « par demi-heure › » or a day bar. -->
+  <Sheet open={curveOpen} title={m.curvePanel.heading(fmtDateLong(data.dayIso))} hideTitle tone="modal" width={920} trigger={curveTrigger}
+    onclose={() => (curveOpen = false)} class="curve-sheet">
+    <CurvePanel
+      dayIso={data.dayIso}
+      day={data.day}
+      error={data.dayError?.() ?? null}
+      view={loaded.view}
+      split={main.tariff}
+      canPrev={data.canPrevDay}
+      canNext={data.canNextDay}
+      onstep={(d) => data.stepDay(d)}
+      onretry={() => data.retryDay()}
+      curveSince={main.quality.curve_since}
+      quota={linky?.state === 'quota'}
+      bar={dayBar}
+      chartHeight={desktop.matches ? 260 : 170}
+      bind:index={scrub} />
+  </Sheet>
 {/if}
 {/key}
 </div>
@@ -790,9 +807,6 @@
   .hero-sk {
     height: 330px;
   }
-  .panels > :global(.wide-only) {
-    display: none;
-  }
   @container (min-width: 900px) {
     .panels {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 330px;
@@ -806,11 +820,16 @@
       grid-column: span 2;
     }
     .panels > :global(.wide),
+    .panels > .where-wrap,
     .panels > :global(.analysis) {
       grid-column: 1 / -1;
     }
-    .panels > :global(.wide-only) {
-      display: block;
+    /* Année: the months span two rows, the split and the rooms beside them. */
+    .panels.year > :global(.months) {
+      grid-row: span 2;
+    }
+    .where-wrap[hidden] {
+      margin-top: -16px;
     }
     .panels > :global(.panel) {
       padding: 18px 20px;
@@ -891,9 +910,34 @@
     align-items: center;
     gap: 6px;
   }
-  .end {
-    display: flex;
-    justify-content: center;
-    margin-top: 16px;
+  /* Collapsed, the section takes no room and no gap. */
+  .where-wrap {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+  .where-wrap[hidden] {
+    margin-top: calc(-1 * var(--gap-w));
+  }
+  .where-wrap > :global(.panel) {
+    padding: 18px 20px;
+    border-radius: var(--r-widget);
+    background: var(--s1);
+  }
+  .where-wrap :global(.panel h2) {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--tx);
+  }
+  .fold {
+    justify-self: center;
+  }
+  :global(.curve-sheet) :global(#curve) {
+    padding: 4px 4px 8px;
+  }
+  :global(.curve-sheet) :global(#curve h2) {
+    margin: 0;
+    font-size: var(--fs-area);
+    font-weight: 600;
   }
 </style>

@@ -767,7 +767,6 @@ export const fr = {
   energyUi: {
     // Header and export menu
     export: 'Exporter',
-    exportMore: 'Exporter (CSV)',
     exportFormat: `CSV${NB}: «${NB};${NB}» entre les colonnes, virgule décimale, dates ISO.`,
     waitHouse: 'Disponible une fois les pièces chargées',
     // Context row: the Linky source line and its Fiche
@@ -1348,6 +1347,7 @@ export const fr = {
   energyBoard: {
     // Énergie « Tableau » widgets (spec §4 Énergie)
     eurParts: (energy: string, subscription: string) => `énergie ${energy} · abonnement ${subscription}`,
+    whereClose: 'Replier la liste',
     whereMore: 'Tout voir',
     whereShare: 'vient des radiateurs',
     monthsTitle: 'Mois par mois',

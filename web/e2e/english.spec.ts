@@ -102,6 +102,7 @@ test.describe('key flows in English', () => {
     await expect(page.getByRole('button', { name: /^€[\d,.]+, estimate, details$/ })).toBeVisible();
     // Month (the default view) draws day bars.
     await expect(page.getByRole('img', { name: 'Home consumption by day' })).toBeVisible();
+    await page.locator('.w-curve').getByRole('button', { name: 'by half-hour' }).click();
     await expect(page.locator('#curve').getByRole('heading', { name: /^Load curve, / })).toBeVisible();
   });
 

@@ -4,6 +4,7 @@
      rows the full section shows (same shares, same matched kWh), never recomputed here. Partial rows carry the
      same « partiel » mark, explained in the full section. -->
 <script lang="ts">
+  import { flushSync } from 'svelte';
   import type { ByRadiator, Heating } from '$lib/api/types';
   import { SERIES, type Span } from '$lib/energy';
   import { fmtEurExact, fmtKwhExact, fmtPct } from '$lib/format';
@@ -22,9 +23,13 @@
     top?: number;
     /** The muted words right of the title (« octobre, jusqu’au 15 », « le 15 »). */
     aside?: string | null;
+    /** « Tout voir › » opens the full section (collapsed until then); the link still lands on it. */
+    onmore?: () => void;
     class?: string;
   }
-  let { heating, linky, rows, span, tariff, top = 3, aside = null, class: cls = '' }: Props = $props();
+  let { heating, linky, rows, span, tariff, top = 3, aside = null, onmore, class: cls = '' }: Props = $props();
+  // The section is revealed before the browser follows the link, so it lands on it.
+  const more = () => onmore && flushSync(onmore);
   const uid = $props.id();
 
   let value = $derived(heating.inconsistent ? null : heating.value);
@@ -40,7 +45,7 @@
 <section class="panel w-where {cls}" aria-labelledby="{uid}-t" aria-busy={!house.loaded}>
   <div class="head">
     <h3 id="{uid}-t">{m.energyUi.where}</h3>
-    <a class="more" href="#{ENERGY_ANCHORS.where}">{m.energyBoard.whereMore}</a>
+    <a class="more" href="#{ENERGY_ANCHORS.where}" onclick={more}>{m.energyBoard.whereMore}</a>
   </div>
   {#if aside}<p class="aside num">{aside}</p>{/if}
   {#if linky}

@@ -1,7 +1,7 @@
 <!-- Mois's « Courbe du 15 octobre » widget (spec §4 Énergie, row 2): the Courbe's day as mini bars, one per
      half-hour (heures creuses hatched at the base, as the Courbe cuts them by each half-hour's off-peak share), and
      the day's figures from the same idle readout as the Courbe (`readDay`: the bar's own kWh, €, peak). « par
-     demi-heure › » opens the full Courbe below (scrubber, readout, notes). A day without a curve says why there. -->
+     demi-heure › » opens the full Courbe in a sheet (scrubber, readout, notes). A day without a curve says why there. -->
 <script lang="ts">
   import type { EnergyDay } from '$lib/api/types';
   import { fmtDateLong } from '$lib/format';
@@ -33,7 +33,7 @@
   let idle = $derived(shown && shown.points > 0 ? readDay(shown, bar, { intervals: shown.intervals, samples: null, room: null, tariff: split }) : null);
   let line = $derived(
     idle
-      ? ['energy', 'cost']
+      ? ['energy', 'cost', 'power']
           .map((k) => idle.rows.find((r) => r.key === k)?.value)
           .filter((v): v is string => !!v && v !== '—')
           .join(' · ')

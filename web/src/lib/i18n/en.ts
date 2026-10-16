@@ -735,7 +735,6 @@ export const en: Messages = {
   energyUi: {
     // Header and export menu
     export: 'Export',
-    exportMore: 'Export (CSV)',
     exportFormat: 'CSV: “,” between columns, decimal point, ISO dates; column names in French.',
     waitHouse: 'Available once the rooms have loaded',
     // Context row: the Linky source line and its Fiche
@@ -1304,6 +1303,7 @@ export const en: Messages = {
   },
   energyBoard: {
     eurParts: (energy: string, subscription: string) => `energy ${energy} · standing charge ${subscription}`,
+    whereClose: 'Collapse the list',
     whereMore: 'See all',
     whereShare: 'comes from the radiators',
     monthsTitle: 'Month by month',
