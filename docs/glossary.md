@@ -60,6 +60,8 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Réglages | Settings | Left Maison in UX batch 8: the overview has « Affichage » → “Display” (theme, language, technical details); account and server are « Compte » → “Account” |
 | Sources de données | Data sources | Maison › Sources de données (Cozytouch, Linky, RTE EcoWatt, Tempo) |
 | Nouveau prix… | New price… | Tarif: opens the editor |
+| Tarif en vigueur | Current tariff | « Corriger le tarif en vigueur » → “Correct the current tariff”; « Heures creuses / pleines » (option) → “Peak / off-peak” |
+| Afficher / Masquer (PDL) | Show / Hide | « Modifier la connexion » → “Change connection” |
 | Thème : Système / Sombre / Clair | Theme: System / Dark / Light | |
 | Langue | Language | Options never translated: « Français », “English” |
 | Compte | Account | |

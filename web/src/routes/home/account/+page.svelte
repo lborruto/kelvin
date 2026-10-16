@@ -1,11 +1,12 @@
-<!-- Maison › Compte (UX batch 8: account, server, Cozytouch connection and signed-in devices moved from the
-     Maison page). The future « Accès MCP » panel goes after « Appareils connectés », before « Se déconnecter ». -->
+<!-- Maison › Compte (direction-2 §3, UX batch 9): the home's Cozytouch account (email, server, the connection's
+     SourceLine), the signed-in devices (#sessions), then « Se déconnecter » last, on its own.
+     The future « Accès MCP » panel takes its place after « Appareils connectés », before « Se déconnecter ». -->
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import CozytouchStatus from '$lib/components/CozytouchStatus.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import SessionsPanel from '$lib/components/SessionsPanel.svelte';
   import SupportChip from '$lib/components/SupportChip.svelte';
-  import { fmtAgo } from '$lib/format';
   import { m, statusError } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
   import { auth } from '$lib/stores/auth.svelte';
@@ -36,38 +37,61 @@
 
 <svelte:head><title>{m.page.title(m.account.title)}</title></svelte:head>
 
-<PageHeader title={m.account.title} back={{ href: ROUTES.home, label: m.nav.home }} />
-<section class="panel">
-  <dl>
-    <div class="item"><dt>{m.account.email}</dt><dd>{auth.email ?? '—'}</dd></div>
-    <div class="item"><dt>{m.settings.server}</dt><dd>{auth.server?.name ?? '—'}{#if auth.server?.tier === 'experimental'} <SupportChip support="experimental" />{/if}</dd></div>
-    <div class="item">
-      <dt>Cozytouch</dt>
-      <dd>
-        <span>{house.status.connected ? m.settings.connected : m.settings.unreachable}</span>
-        {#if house.status.last_ok_at}<span class="muted"> · {m.settings.lastSync(fmtAgo(house.status.last_ok_at * 1000, now))}</span>{/if}
-        {#if house.status.last_error}<div class="muted small" title={house.status.last_error}>{statusError(house.status)}</div>{/if}
-      </dd>
-    </div>
-  </dl>
-</section>
-<section id={ANCHORS.sessions} class="panel">
-  <h2>{m.sessions.title}</h2>
-  <SessionsPanel />
-</section>
-<button type="button" class="btn" aria-disabled={loggingOut} onclick={logout}>{m.settings.signOut}</button>
+<div class="vt">
+  <PageHeader title={m.account.title} back={{ href: ROUTES.home, label: m.nav.home }} />
+</div>
+
+<div class="page">
+  <section class="panel" aria-labelledby="account-cozy">
+    <h2 id="account-cozy" class="sl">{m.account.cozytouch}</h2>
+    <dl>
+      <div class="r"><dt>{m.account.email}</dt><dd class="email">{auth.email ?? '—'}</dd></div>
+      <div class="r">
+        <dt>{m.settings.server}</dt>
+        <dd>
+          <span class="srv">{auth.server?.name ?? '—'}{#if auth.server?.tier === 'experimental'} <SupportChip support="experimental" />{/if}</span>
+          <span class="note">{m.account.serverNote}</span>
+        </dd>
+      </div>
+      <div class="r">
+        <dt>{m.account.connection}</dt>
+        <dd>
+          <CozytouchStatus {now} />
+          {#if house.status.last_error}<span class="note" title={house.status.last_error}>{statusError(house.status)}</span>{/if}
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section id={ANCHORS.sessions} class="panel" aria-labelledby="account-sessions">
+    <h2 id="account-sessions" class="sl">{m.sessions.title}</h2>
+    <SessionsPanel />
+  </section>
+
+  <div class="out">
+    <button type="button" class="btn" aria-disabled={loggingOut} onclick={logout}>{m.settings.signOut}</button>
+  </div>
+</div>
 
 <style>
+  .vt :global(h1) {
+    view-transition-name: home-account;
+  }
+  .page {
+    display: grid;
+    gap: 14px;
+    max-width: 720px;
+    min-width: 0;
+  }
   .panel {
     padding: 14px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--s1);
-    max-width: 720px;
-    margin-bottom: 14px;
+    min-width: 0;
   }
-  h2 {
-    margin: 0 0 8px;
+  .sl {
+    margin: 0 0 4px;
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -75,27 +99,48 @@
     color: var(--mu);
   }
   dl {
-    display: grid;
-    gap: 6px;
     margin: 0;
     font-size: 13px;
   }
-  .item {
+  .r {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
     align-items: center;
-    gap: 4px 14px;
+    gap: 4px 16px;
     min-height: 44px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .r:last-child {
+    border-bottom: 0;
   }
   dt {
     color: var(--mu);
   }
   dd {
+    display: grid;
+    justify-items: end;
+    gap: 2px;
     margin: 0;
     min-width: 0;
+    text-align: right;
+  }
+  .email,
+  .srv {
+    font-weight: 600;
     overflow-wrap: anywhere;
   }
-  .small {
+  .note {
     font-size: 12px;
+    color: var(--mu);
+  }
+  @media (max-width: 479px) {
+    .r {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    dd {
+      justify-items: start;
+      text-align: left;
+    }
   }
 </style>

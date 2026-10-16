@@ -31,6 +31,46 @@ beforeEach(() => {
 });
 afterEach(() => applyLocale('fr'));
 
+describe('TariffForm editor (Maison › Tarif)', () => {
+  it('the date comes first and takes focus; « Nouveau prix » starts today', async () => {
+    render(TariffForm, { settings, onsaved: vi.fn(), autofocus: true });
+    const date = field('Applicable à partir du');
+    const all = [...document.querySelectorAll('input, select, [role="radiogroup"]')];
+    expect(all[0]).toBe(date);
+    expect(document.activeElement).toBe(date);
+    expect(date.value).not.toBe('2025-01-15');
+    expect(date).not.toHaveAttribute('readonly');
+  });
+  it('« Corriger » locks the date to the row in force and says what it corrects', async () => {
+    const onsaved = vi.fn();
+    render(TariffForm, { settings, onsaved, mode: 'fix' });
+    const date = field('Applicable à partir du');
+    expect(date.value).toBe('2025-01-15');
+    expect(date).toHaveAttribute('readonly');
+    expect(date).toHaveAccessibleDescription('Corrige les coûts passés depuis le 15 janvier 2025.');
+    await fireEvent.input(field('Prix heures creuses (€/kWh)'), { target: { value: '0,2' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
+    const doc = vi.mocked(api.putTariffDoc).mock.calls[0][0];
+    expect(doc.prices).toHaveLength(1); // the row is replaced, not added
+    expect(doc.prices[0]).toMatchObject({ valid_from: '2025-01-15', rates: { hc: 0.2, hp: 0.27 } });
+    expect(doc.hc_schedules.map((x) => x.valid_from)).toEqual(['2025-01-15']);
+  });
+  it('« Annuler » closes without saving; no « Annuler » without a callback', async () => {
+    const oncancel = vi.fn();
+    const a = render(TariffForm, { settings, onsaved: vi.fn(), oncancel });
+    await fireEvent.click(screen.getByRole('button', { name: 'Annuler' }));
+    expect(oncancel).toHaveBeenCalled();
+    expect(api.putTariffDoc).not.toHaveBeenCalled();
+    a.unmount();
+    render(TariffForm, { settings, onsaved: vi.fn() });
+    expect(screen.queryByRole('button', { name: 'Annuler' })).toBeNull();
+  });
+  it('no longer carries the price history (the page holds it in a Disclosure)', () => {
+    render(TariffForm, { settings, onsaved: vi.fn() });
+    expect(screen.queryByRole('table', { name: 'Historique des prix' })).toBeNull();
+  });
+});
+
 describe('TariffForm v2', () => {
   it('a migrated HC/HP tariff opens on HC/HP with the prices in force', () => {
     render(TariffForm, { settings, onsaved: vi.fn() });

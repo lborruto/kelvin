@@ -93,10 +93,11 @@ test('Chauffe temporaire: a sentence, then the room says it until « Arrêter »
   await expect(status).not.toContainText('Chauffe temporaire', { timeout: 20_000 });
 });
 
-/** Batch 9 opens the editor with « Nouveau prix… »; batch 8 shows the form at once. */
+/** Maison › Tarif shows the tariff in force; « Nouveau prix… » opens the editor (no tariff yet: the editor is the page). */
 async function openTariffEditor(page: import('@playwright/test').Page) {
   const fresh = page.getByRole('button', { name: 'Nouveau prix…' });
-  if (await fresh.isVisible().catch(() => false)) await fresh.click();
+  await expect(fresh.or(page.getByRole('button', { name: 'Enregistrer le tarif' }))).toBeVisible();
+  if (await fresh.isVisible()) await fresh.click();
 }
 
 test('absence can be started from Maison and ended from En ce moment', async ({ page }) => {
@@ -254,12 +255,25 @@ test('Tarif saves a tariff and Linky shows the simulated Linky', async ({ page }
   await tarif.getByLabel('Prix heures creuses (€/kWh)').fill('0,2068');
   await tarif.getByRole('button', { name: 'Enregistrer le tarif' }).click();
   await expect(tarif.getByText('Tarif enregistré.')).toBeVisible();
-  // A table on desktop, one two-column list per price on phone: whichever is shown has the price.
+  // The summary reads it; the history is one disclosure away (a table on desktop, a list on phone).
+  await expect(tarif.getByText(/^0,2068\s€\/kWh$/)).toBeVisible();
+  await tarif.getByRole('button', { name: /^Historique des prix/ }).click();
   await expect(tarif.locator('[aria-label="Historique des prix"]:visible')).toContainText('0,2068');
   await page.goto('/home/linky');
   const linky = page.locator('main');
   await expect(linky).toContainText('Simulateur');
   await expect(linky).toContainText(/Relié · données jusqu’au \d{1,2}\/\d{1,2}/);
+});
+
+test('Linky: the PDL is masked until « Afficher », the form one disclosure away', async ({ page }) => {
+  await page.goto('/home/linky');
+  const pdl = page.getByText(/^•••• •••• ••\d\d \d\d$/);
+  await expect(pdl).toBeVisible();
+  expect(await page.content()).not.toMatch(/\b\d{14}\b/);
+  await page.getByRole('button', { name: 'Afficher le PDL' }).click();
+  await expect(page.getByText(/^\d{14}$/)).toBeVisible();
+  await page.getByRole('button', { name: 'Modifier la connexion' }).click();
+  await expect(page.getByRole('button', { name: 'Enregistrer et tester' })).toBeVisible();
 });
 
 test('the manifest has a stable id; theme-color and the version follow the app', async ({ page, request }) => {

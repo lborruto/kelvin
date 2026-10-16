@@ -97,7 +97,7 @@ export const ARGS: Record<string, unknown[]> = {
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
 export const SAME = new Set<string>([
-  'account.email',
+  'account.email', 'tariffSummary.option', 'tariffSummary.options.base', 'tariffSummary.options.tempo', 'tariffSummary.unit',
   'devices.watts', 'devices.detail.version', 'devices.detail.rssi', 'devices.role.wifi',
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
@@ -212,6 +212,7 @@ describe('English messages take the same parameters as French', () => {
  * slip through: short forms that are English words or names, a bare figure. Kept small on purpose. */
 const SCANNER_BLIND = new Set([
   // Maison (UX batch 8): short French words the scanner reads as neutral.
+  'tariff.historyMeta', 'linky.show', 'linky.hide',
   'away.extendGo', 'away.extend', 'away.endNow', 'home.stateAlerts', 'home.now', 'home.end', 'home.cardSourcesLate', 'home.display',
   'devices.detail.voltage', 'devices.detail.wifi', 'devices.role.box',
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',

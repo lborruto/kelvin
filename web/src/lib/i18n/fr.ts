@@ -854,6 +854,9 @@ export const fr = {
   // Maison › Compte (UX batch 8).
   account: {
     title: 'Compte',
+    cozytouch: 'Compte Cozytouch',
+    connection: 'Connexion',
+    serverNote: `Choisi à la première connexion${NB}; pour en changer, repartez d’une installation neuve.`,
     email: 'Email'
   },
   alerts: {
@@ -896,13 +899,20 @@ export const fr = {
     signOut: 'Se déconnecter',
     connected: 'Connecté',
     unreachable: 'Injoignable',
-    lastSync: (ago: string) => `dernière synchro ${ago}`,
     theme: 'Thème',
     themes: { system: 'Système', dark: 'Sombre', light: 'Clair' },
     language: 'Langue'
   },
   tariff: {
     title: 'Tarif',
+    inForce: 'Tarif en vigueur',
+    sinceLine: (option: string, date: string) => `Option ${option} depuis le ${date}`,
+    none: `Pas encore de tarif${NB}: renseignez-le pour voir vos coûts en euros.`,
+    newPrice: 'Nouveau prix…',
+    newTitle: 'Nouveau prix',
+    fix: 'Corriger le tarif en vigueur',
+    fixNote: (date: string) => `Corrige les coûts passés depuis le ${date}.`,
+    historyMeta: (n: number) => `${int(n)} ${plural(n, { one: 'ligne', other: 'lignes' })}`,
     prefill: (kva: string, slots: string) => `Prérempli d’après votre contrat Enedis (${kva}${NB}kVA, heures creuses ${slots}). Ajoutez vos prix TTC.`,
     option: 'Option tarifaire',
     options: { base: 'Base', hchp: 'HC/HP', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
@@ -957,6 +967,17 @@ export const fr = {
   },
   linky: {
     off: 'Non relié.',
+    connection: 'Connexion',
+    show: 'Afficher',
+    hide: 'Masquer',
+    pdlObject: 'le PDL',
+    tokenNone: 'Non enregistré',
+    callsTitle: 'Appels MyElectricalData',
+    callsToday: 'Aujourd’hui',
+    callsLimit: 'Limite par jour',
+    callsReset: 'Le compte repart de zéro à minuit (heure de Paris).',
+    consentRow: 'Consentement Enedis jusqu’au',
+    modify: 'Modifier la connexion',
     never: 'Relié · première synchronisation en attente.',
     ok: (day: string | null) => (day ? `Relié · données jusqu’au ${day}` : 'Relié'),
     quota: (day: string | null) =>
@@ -997,9 +1018,9 @@ export const fr = {
     title: 'Pièces et appareils',
     intro: `Lu et écrit dans votre installation Cozytouch${NB}: ce que vous changez ici change aussi dans l’application Cozytouch.`,
     radiatorCount: (n: number) => (n === 1 ? '1 radiateur' : `${n} radiateurs`),
-    deviceCount: (n: number) => (n === 1 ? '1 appareil' : `${n} appareils`),
     emptyRoom: 'Pièce vide',
     bridges: 'Pont et box Cozytouch',
+    deviceCount: (n: number) => (n === 1 ? '1 appareil' : `${n} appareils`),
     role: {
       heater: 'Chauffage',
       temperature: 'Sonde de température',
@@ -1139,6 +1160,16 @@ export const fr = {
   },
   // The Tarif summary (UX batches 8–9): « Tarif en vigueur », the off-peak hours bar.
   tariffSummary: {
+    option: 'Option',
+    options: { base: 'Base', hchp: 'Heures creuses / pleines', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
+    subscription: 'Abonnement',
+    perMonth: (amount: string) => `${amount}/mois`,
+    base: 'Prix du kWh',
+    hc: 'Heures creuses',
+    hp: 'Heures pleines',
+    tempoTable: 'Prix Tempo (€/kWh)',
+    colour: 'Couleur du jour',
+    unit: '€/kWh',
     hoursLabel: (slots: string) => `Heures creuses${NB}: ${slots}`
   },
   sources: {
@@ -1151,13 +1182,10 @@ export const fr = {
     nextRead: 'Prochain relevé',
     noNext: 'pas encore planifié',
     calls: 'Appels MyElectricalData',
-    tempo: 'Tempo (RTE)',
-    ecowatt: 'EcoWatt (RTE)',
     ok: (time: string) => `à jour, relevé à ${time}`,
     never: 'pas encore interrogé',
     error: (time: string) => `indisponible depuis ${time}`,
     quota: 'quota du jour atteint, reprise demain',
-    next: (time: string) => `prochain relevé ${time}`,
     med: (calls: number, budget: number, grid: number) =>
       `Appels MyElectricalData aujourd’hui${NB}: ${calls} sur ${budget} (dont ${grid} pour Tempo et EcoWatt)`,
     via: 'Tempo et EcoWatt viennent de MyElectricalData, sans jeton ni PDL.',

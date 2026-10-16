@@ -42,10 +42,11 @@ test.afterAll(async ({ request }) => {
   }
 });
 
-/** Batch 9 opens the editor with « Nouveau prix… »; batch 8 shows the form at once. */
+/** Maison › Tarif shows the tariff in force; « Nouveau prix… » opens the editor (no tariff yet: the editor is the page). */
 async function openTariffEditor(page: Page) {
   const fresh = page.getByRole('button', { name: 'Nouveau prix…' });
-  if (await fresh.isVisible().catch(() => false)) await fresh.click();
+  await expect(fresh.or(page.getByRole('button', { name: 'Enregistrer le tarif' }))).toBeVisible();
+  if (await fresh.isVisible()) await fresh.click();
 }
 
 test('an HC/HP home sees EcoWatt and no Tempo colour', async ({ page }) => {

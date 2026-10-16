@@ -824,6 +824,9 @@ export const en: Messages = {
   // Home › Account (UX batch 8).
   account: {
     title: 'Account',
+    cozytouch: 'Cozytouch account',
+    connection: 'Connection',
+    serverNote: 'Chosen at the first sign-in; to change it, start again from a fresh install.',
     email: 'Email'
   },
   alerts: {
@@ -866,13 +869,20 @@ export const en: Messages = {
     signOut: 'Sign out',
     connected: 'Connected',
     unreachable: 'Unreachable',
-    lastSync: (ago: string) => `last sync ${ago}`,
     theme: 'Theme',
     themes: { system: 'System', dark: 'Dark', light: 'Light' },
     language: 'Language'
   },
   tariff: {
     title: 'Tariff',
+    inForce: 'Current tariff',
+    sinceLine: (option: string, date: string) => `${option} since ${date}`,
+    none: 'No tariff yet: add it to see your costs in euros.',
+    newPrice: 'New price…',
+    newTitle: 'New price',
+    fix: 'Correct the current tariff',
+    fixNote: (date: string) => `Corrects past costs since ${date}.`,
+    historyMeta: (n: number) => `${int(n)} ${plural(n, { one: 'row', other: 'rows' })}`,
     prefill: (kva: string, slots: string) => `Prefilled from your Enedis contract (${kva}${NB}kVA, off-peak ${slots}). Add your prices including tax.`,
     option: 'Tariff option',
     options: { base: 'Base', hchp: 'Peak/Off-peak', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
@@ -927,6 +937,17 @@ export const en: Messages = {
   },
   linky: {
     off: 'Not connected.',
+    connection: 'Connection',
+    show: 'Show',
+    hide: 'Hide',
+    pdlObject: 'the PDL',
+    tokenNone: 'Not saved',
+    callsTitle: 'MyElectricalData calls',
+    callsToday: 'Today',
+    callsLimit: 'Daily limit',
+    callsReset: 'The count starts again at midnight (Paris time).',
+    consentRow: 'Enedis consent until',
+    modify: 'Change connection',
     never: 'Connected · waiting for the first sync.',
     ok: (day: string | null) => (day ? `Connected · data up to ${day}` : 'Connected'),
     quota: (day: string | null) =>
@@ -966,9 +987,9 @@ export const en: Messages = {
     title: 'Rooms and devices',
     intro: 'Read from and written to your Cozytouch setup: what you change here also changes in the Cozytouch app.',
     radiatorCount: (n: number) => (n === 1 ? '1 radiator' : `${n} radiators`),
-    deviceCount: (n: number) => (n === 1 ? '1 device' : `${n} devices`),
     emptyRoom: 'Empty room',
     bridges: 'Cozytouch bridge and box',
+    deviceCount: (n: number) => (n === 1 ? '1 device' : `${n} devices`),
     role: {
       heater: 'Heater',
       temperature: 'Temperature sensor',
@@ -1107,6 +1128,16 @@ export const en: Messages = {
   },
   // The Tariff summary (UX batches 8–9).
   tariffSummary: {
+    option: 'Option',
+    options: { base: 'Base', hchp: 'Peak / off-peak', tempo: 'Tempo' } as Record<'base' | 'hchp' | 'tempo', string>,
+    subscription: 'Standing charge',
+    perMonth: (amount: string) => `${amount}/month`,
+    base: 'Price per kWh',
+    hc: 'Off-peak',
+    hp: 'Peak',
+    tempoTable: 'Tempo prices (€/kWh)',
+    colour: 'Day colour',
+    unit: '€/kWh',
     hoursLabel: (slots: string) => `Off-peak hours: ${slots}`
   },
   sources: {
@@ -1119,13 +1150,10 @@ export const en: Messages = {
     nextRead: 'Next read',
     noNext: 'not planned yet',
     calls: 'MyElectricalData calls',
-    tempo: 'Tempo (RTE)',
-    ecowatt: 'EcoWatt (RTE)',
     ok: (time: string) => `up to date, read at ${time}`,
     never: 'not asked yet',
     error: (time: string) => `unavailable since ${time}`,
     quota: 'today’s quota used up, back tomorrow',
-    next: (time: string) => `next read ${time}`,
     med: (calls: number, budget: number, grid: number) =>
       `MyElectricalData calls today: ${calls} of ${budget} (${grid} for Tempo and EcoWatt)`,
     via: 'Tempo and EcoWatt come from MyElectricalData, with no token and no PDL.',

@@ -43,10 +43,14 @@ describe('Maison › Compte', () => {
     render(Page);
     expect(screen.getByRole('heading', { level: 1, name: 'Compte' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Maison' })).toHaveAttribute('href', '/home');
-    expect(screen.getByText('demo@kelvin.local')).toBeInTheDocument();
+    expect(screen.getAllByText('demo@kelvin.local').length).toBeGreaterThan(0);
     expect(screen.getByText('Sauter Cozytouch')).toBeInTheDocument();
-    expect(screen.getByText('Connecté')).toBeInTheDocument();
+    expect(screen.getByText(/repartez d’une installation neuve/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cozytouch · / })).toBeInTheDocument(); // the SourceLine (its Fiche)
     expect(document.getElementById('sessions')).toBeInTheDocument();
+    // « Se déconnecter » comes last, after the signed-in devices (the future « Accès MCP » panel goes between).
+    const out = screen.getByRole('button', { name: 'Se déconnecter' });
+    expect(document.getElementById('sessions')!.compareDocumentPosition(out) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('logs out to the login screen and empties the stores', async () => {
@@ -69,13 +73,21 @@ describe('Maison › Compte', () => {
     expect(screen.getByRole('button', { name: 'Se déconnecter' })).toHaveAttribute('aria-disabled', 'false');
   });
 
+  it('an experimental server carries its support chip', () => {
+    auth.server = { id: 'x', name: 'Hitachi Hi Kumo', tier: 'experimental', default: false };
+    render(Page);
+    expect(screen.getByText('Hitachi Hi Kumo')).toBeInTheDocument();
+    expect(screen.getByText(/Expérimental/)).toBeInTheDocument();
+  });
+
   it('in English, with the Cozytouch error by code', () => {
     applyLocale('en');
     house.status = { connected: false, last_ok_at: null, last_error: 'QUOTA_EXCEEDED', last_error_code: 'quota' };
+    house.connection = 'open';
     render(Page);
     expect(screen.getByRole('heading', { level: 1, name: 'Account' })).toBeInTheDocument();
     expect(screen.getByText('Cozytouch request limit reached.')).toHaveAttribute('title', 'QUOTA_EXCEEDED');
-    expect(screen.getByText('Unreachable')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Unreachable/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Tariff } from '$lib/api/types';
-import { ALL_MONTHS, buildDocument, hourBlocks, inForce, monthsProblem, slotsText, withSchedule } from './tariff';
+import { ALL_MONTHS, buildDocument, hourBlocks, inForce, monthsProblem, slotsText, tariffDiff, withSchedule } from './tariff';
 
 const NIGHT = [{ start: '22:00', end: '06:00' }];
 const current: Tariff = {
@@ -63,5 +63,22 @@ describe('tariff document', () => {
     expect(monthsProblem([{ months: [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12] }])).toEqual({ kind: 'missing', months: [4] });
     expect(monthsProblem([{ months: [11, 12, 1, 2, 3] }, { months: [1, 4, 5, 6, 7, 8, 9, 10] }])).toEqual({ kind: 'overlap', months: [1] });
     expect(monthsProblem([{ months: ALL_MONTHS }])).toBeNull();
+  });
+});
+
+describe('tariffDiff (the summary rows a save changed)', () => {
+  const t: Tariff = {
+    option: 'hchp', kva: 9, hc_slots: NIGHT,
+    hc_schedules: [{ valid_from: '2025-01-15', variants: [{ months: ALL_MONTHS, slots: NIGHT }] }],
+    tempo_hours: { hc_start: '22:00', hc_end: '06:00', day_start: '06:00' },
+    prices: [{ valid_from: '2025-01-15', option: 'hchp', subscription_eur_month: 15, rates: { hc: 0.2, hp: 0.27 } }]
+  };
+  it('names only what moved', () => {
+    const next = { ...t, prices: [...t.prices, { valid_from: '2026-10-01', option: 'hchp' as const, subscription_eur_month: 15, rates: { hc: 0.21, hp: 0.27 } }] };
+    expect([...tariffDiff(t, next, '2026-10-15')]).toEqual(['hc']);
+    expect([...tariffDiff(t, { ...t, kva: 12 }, '2026-10-15')]).toEqual(['kva']);
+    const hours = { ...t, hc_schedules: [{ valid_from: '2025-01-15', variants: [{ months: ALL_MONTHS, slots: [{ start: '23:00', end: '07:00' }] }] }] };
+    expect([...tariffDiff(t, hours, '2026-10-15')]).toEqual(['hours']);
+    expect(tariffDiff(null, t, '2026-10-15').has('option')).toBe(true);
   });
 });

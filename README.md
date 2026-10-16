@@ -185,10 +185,11 @@ reconnectez-vous » in French); log in once with the new one.
 
 1. Create a MyElectricalData account and give it access to your meter's data (Enedis consent).
    It gives you a token; your PDL is the 14-digit number on your contract or meter.
-2. In Kelvin, open **Home › Linky** (**Maison › Linky** in French), enter the PDL and
-   the token, and the tariff: the option (Base, HC/HP or Tempo), the prices from their date, and
-   for HC/HP the off-peak hours (they may differ by season). Existing HC/HP settings are carried
-   over as they are.
+2. In Kelvin, open **Home › Linky** (**Maison › Linky** in French) and enter the PDL and the
+   token (the PDL stays masked on that page until you press « Afficher »). Then **Home › Tariff**
+   shows the tariff in force; « Nouveau prix… » adds one from a date (the option, Base, HC/HP or
+   Tempo, the prices, and for HC/HP the off-peak hours, which may differ by season) and « Corriger
+   le tarif en vigueur » fixes the row in force. Existing HC/HP settings are carried over as they are.
 3. Kelvin syncs at 08:00 and 14:00 (Europe/Paris), backfills a year of daily data and 30 days
    of 30-minute curve, and never spends more than 10 of MyElectricalData's 50 daily calls
    (4 a day at most for the grid signals; the simulator allows 14). Every MyElectricalData call
