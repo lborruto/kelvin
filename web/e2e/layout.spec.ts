@@ -193,7 +193,7 @@ test.describe('layout with alerts', () => {
     });
   });
 
-  for (const path of ['/energy', '/home']) {
+  for (const path of ['/', '/energy', '/home']) {
     for (const width of [320, 390, 1440]) {
       test(`${path} with alerts at ${width} px has no layout shift (CLS < 0.05)`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
@@ -209,10 +209,10 @@ test.describe('layout with alerts', () => {
   }
 });
 
-// The Rooms page: cards, the offline group and the header keep their place while the data and the
-// fonts arrive, in both languages, whether the web font loads, loads late (wider than the fallback
-// for a moment) or never loads (CI).
-test.describe('Rooms without layout shift', () => {
+// Maison: tiles, the offline room and the header keep their place while the data and the fonts arrive, in
+// both languages, whether the web font loads, loads late (wider than the fallback for a moment) or never
+// loads (CI). Everything below the header arrives in one frame (house, alerts, the energy answers).
+test.describe('Maison without layout shift', () => {
   test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
   for (const lang of ['fr', 'en'])
     for (const fonts of ['web fonts', 'late web fonts', 'fallback fonts only'])
@@ -234,44 +234,43 @@ test.describe('Rooms without layout shift', () => {
           await page.goto('/');
           await settled(page);
           await page.waitForTimeout(900);
-          await expect(page.locator('article.card.off')).toHaveCount(1);
+          await expect(page.locator('article.rt.offline')).toHaveCount(1);
           expect(await shifts(page), `/ at ${width} px (${lang}, ${fonts})`).toBeLessThan(0.05);
           expect(await overflow(page), `/ at ${width} px (${lang})`).toBeLessThanOrEqual(0);
           await page.unroute('**/api/**');
         }
       });
 
-  test('desktop room panel: scrolled, a compact bar names the room; nothing shifts', async ({ page }) => {
+  test('desktop room sheet: scrolled to its end, the large setpoint stays in view; nothing shifts', async ({ page }) => {
     await countShifts(page);
     await page.setViewportSize({ width: 1280, height: 700 });
     await page.goto('/rooms/p-salon');
     await settled(page);
-    const mini = page.locator('.detail .mini');
-    await expect(mini).toBeHidden();
-    await page.locator('.detail').evaluate((el) => el.scrollTo(0, el.scrollHeight));
-    await expect(mini).toBeVisible();
-    await expect(mini).toContainText('Salon');
-    await page.locator('.detail').evaluate((el) => el.scrollTo(0, 0));
-    await expect(mini).toBeHidden();
+    const sheet = page.getByRole('dialog', { name: 'Salon' });
+    const figure = sheet.locator('.primary output');
+    await expect(figure).toBeInViewport();
+    await sheet.locator('.content').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    await expect(sheet.getByRole('heading', { name: /^Radiateurs · / })).toBeInViewport();
+    await expect(figure).toBeInViewport();
     expect(await shifts(page), '/rooms/p-salon scrolled').toBeLessThan(0.05);
   });
 
-  test('/ cards have one height per width whatever their state', async ({ page }) => {
+  test('/ room tiles have one height per width whatever their state', async ({ page }) => {
     for (const width of [320, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/');
       await settled(page);
-      const heights = await page.locator('article.card:not(.off)').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
-      expect(new Set(heights).size, `online cards at ${width} px: ${heights}`).toBe(1);
+      const heights = await page.locator('article.rt:not(.offline)').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+      expect(new Set(heights).size, `online tiles at ${width} px: ${heights}`).toBe(1);
     }
   });
 });
 
-// The grid strip on Rooms (Plan 9) arrives with the stream's snapshot: its room is held from the
-// first paint, so the cards never move when it lands — under the HC/HP demo (an EcoWatt line) and
-// under Tempo (the colour pair as well, two lines on a phone), fonts loaded, blocked or late, fr and en.
-// The phone header's actions stay on one row whatever the font (HouseActions `icons`: fixed 44 px icon buttons).
-test.describe('layout of / with the grid strip', () => {
+// Maison's grid signals (the Réseau chip, Maintenant, Demain) arrive with the stream's snapshot and the
+// tariff: the tableau is drawn once they are in, so nothing moves when they land — under the HC/HP demo
+// (an EcoWatt signal) and under Tempo (the day's colour as well), fonts loaded, blocked or late, fr and en.
+// The phone header's actions stay on one row whatever the font (HouseActions `menu`: fixed 44 px icon buttons).
+test.describe('layout of / with the grid signals', () => {
   test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
   test.describe.configure({ mode: 'serial' });
   const H = { 'X-Kelvin': '1' };
@@ -296,6 +295,8 @@ test.describe('layout of / with the grid strip', () => {
 
   for (const tariff of ['hchp', 'tempo'] as const) {
     test(`/ under ${tariff} loads without layout shift at 320, 390 and 1440 px (CLS < 0.05)`, async ({ page, request }) => {
+      // 18 cold loads, each waiting for the house, the alerts and Maison's energy answers (the month report).
+      test.setTimeout(240_000);
       if (tariff === 'tempo' && original) {
         const older = original.prices.filter((p) => p.valid_from < daysAgo(30));
         const row = { valid_from: daysAgo(30), option: 'tempo', subscription_eur_month: 15, rates: TEMPO };
@@ -324,8 +325,8 @@ test.describe('layout of / with the grid strip', () => {
             });
             await page.goto('/');
             await settled(page);
-            await expect(page.locator('section.strip')).toBeVisible();
-            if (tariff === 'tempo') await expect(page.locator('section.strip .tempo')).toBeVisible();
+            await expect(page.locator('.chips')).toBeVisible();
+            if (tariff === 'tempo') await expect(page.locator('main .dot').first()).toBeAttached(); // the TempoDot of « Maintenant »
             await page.waitForTimeout(800);
             expect.soft(await shifts(page), `/ (${tariff}, ${lang}, fonts ${fonts}) at ${width} px`).toBeLessThan(0.05);
           }

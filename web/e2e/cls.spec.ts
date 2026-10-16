@@ -9,6 +9,8 @@ const ROUTES = ['/', '/schedule', '/energy', '/home'];
 ROUTES.push('/home/tariff', '/home/linky', '/home/sources', '/home/account', '/home/devices');
 // UX batch 13: the phone room page and the 404 (/login has its own matrix in login.spec.ts).
 ROUTES.push('/rooms/p-salon', '/no-such-page');
+// Tableau: the room sheet of an offline room (notice, ghost day) over the tableau.
+ROUTES.push('/rooms/p-ch2');
 
 test.describe('CLS matrix', () => {
   test.skip(({ isMobile }) => isMobile, 'explicit widths');

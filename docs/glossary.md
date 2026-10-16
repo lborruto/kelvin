@@ -56,6 +56,15 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Depuis l’installation | Since installation | |
 | Maison (nav, page) | Home | The tableau (dashboard) at `/` since Tableau (decision 1). « Aller au tableau Maison » → “Go to Home” |
 | Partir… | Go away… | The sidebar and Maison button that opens the Absence sheet |
+| Climat / Réseau / Résumés (Maison) | Climate / Grid / Summary | The Maison summary chips; « 19,1–19,6° · 1 en chauffe » → “19.1–19.6° · 1 heating”, « Rien à signaler » → “Nothing to report” |
+| Tout est éteint | Everything is off | Maison banner after Tout éteindre; the rooms summary « tout éteint » → “everything off” |
+| Énergie et réseau | Energy and grid | Maison's energy column |
+| Programme d’aujourd’hui | Today’s schedule | Maison widget: one day bar per room; « en pause » → “paused”, « dernier connu » → “last known” |
+| Demain / Hier (Maison) | Tomorrow / Yesterday | Energy-column widgets; « Octobre, jusqu’au 15 » → “October, to the 15th”, « fin du mois » → “by month end” |
+| Températures du programme | Schedule temperatures | Room sheet group (Confort, Éco, Modifier les horaires) |
+| Programme, températures, radiateurs | Schedule, temperatures, radiators | The phone room sheet's row that unfolds the rest |
+| Remettre en programme | Back to the schedule | Room sheet, when the room is off |
+| actuellement 19,6 °C | now 19.6 °C | The room sheet's caption under the setpoint (« Confort · actuellement … ») |
 | Toute la maison | Whole home | |
 | Réglages | Settings | The page at `/home` and its sub-pages since Tableau (was « Maison »); breadcrumbs « Réglages › Linky » → “Settings › Linky”. Its « Affichage » → “Display” (language, technical details; no theme: dark only); account and server are « Compte » → “Account” |
 | Sources de données | Data sources | Réglages › Sources de données (Cozytouch, Linky, RTE EcoWatt, Tempo) |

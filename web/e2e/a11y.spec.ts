@@ -8,6 +8,8 @@ import { settled } from './cls';
 const ROUTES = [
   '/',
   '/rooms/p-salon',
+  // The room sheet's offline state (calm notice, ghost day, paused modes).
+  '/rooms/p-ch2',
   '/schedule',
   '/energy',
   '/home',

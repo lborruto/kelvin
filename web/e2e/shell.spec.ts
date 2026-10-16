@@ -25,14 +25,14 @@ test('an unknown address: the 404 page with the ways out', async ({ page }) => {
 });
 
 test('data on demand: the room reading opens its Fiche (card on desktop, sheet on phone); Esc gives focus back', async ({ page, isMobile }) => {
-  await page.goto(isMobile ? '/rooms/p-salon' : '/');
+  await page.goto('/rooms/p-salon');
   await settled(page);
-  const fig = page.locator('header .temp .fig').first();
+  const fig = page.getByRole('dialog', { name: 'Salon' }).locator('.head .fig').first();
   await expect(fig).toBeVisible();
   await expect(fig).toHaveAccessibleName(/°C, détails$/);
   if (isMobile) {
     await fig.tap();
-    const sheet = page.getByRole('dialog');
+    const sheet = page.getByRole('dialog', { name: /^Température/ });
     await expect(sheet).toBeVisible();
     await expect(sheet).toContainText('Cozytouch');
     expect(await overflow(page)).toBeLessThanOrEqual(0);
@@ -72,8 +72,8 @@ test('no sideways scroll at 320 px with a Fiche open', async ({ page, isMobile }
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto('/rooms/p-salon');
   await settled(page);
-  await page.locator('header .temp .fig').first().click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('dialog', { name: 'Salon' }).locator('.head .fig').first().click();
+  await expect(page.getByRole('dialog', { name: /^Température/ })).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
 
@@ -96,6 +96,10 @@ test('the Tableau shell: rooms in the sidebar, Partir… opens the Absence sheet
   await expect(page).toHaveURL(/\/rooms\//);
   await expect(rooms.first()).toHaveAttribute('aria-current', 'page');
   await expect(side.getByRole('link', { name: 'Maison' })).not.toHaveAttribute('aria-current');
+  // The room opens as a sheet over the tableau: close it before using the sidebar.
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(/\/$/);
   await side.getByRole('button', { name: 'Partir…' }).click();
   await expect(page.getByRole('dialog', { name: 'Partir en absence' })).toBeVisible();
   await page.keyboard.press('Escape');

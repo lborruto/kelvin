@@ -170,8 +170,8 @@ supported. `KELVIN_MCP=false` removes the endpoint.
 
 | Screen | Path | What it answers |
 |---|---|---|
-| Maison / Home | `/` | The house at a glance (the « Tableau » dashboard, being rebuilt): each room with its reading and target, today's strip; offline rooms grouped at the end. Desktop opens the room panel beside the list |
-| Room | `/rooms/<id>` | The room panel on a phone: state, Réglage (mode, Confort / Éco), Chauffe temporaire, today's chart, energy, each radiator |
+| Maison / Home | `/` | The « Tableau » dashboard: summary chips (climate, the month's €, grid signals, away), alerts, each room with its reading, state and −/+ for the setpoint in force, the month, the tariff right now, tomorrow and yesterday, today's schedule; offline rooms calm and last |
+| Room | `/rooms/<id>` | The room sheet over the dashboard: the large setpoint with −/+ and a slider, the modes, Chauffe temporaire, today's chart and energy, the schedule's temperatures, each radiator, this month's kWh and € |
 | Programme / Schedule | `/schedule` | The week as a picture and one day edited at a time; nothing is sent before « Envoyer » |
 | Énergie / Energy | `/energy` | The period's cost and kWh first, then the bars, the half-hour curve, where the energy goes, analysis and data quality |
 | Réglages / Settings | `/home` | What is happening now, alerts, one card per section, display preferences |

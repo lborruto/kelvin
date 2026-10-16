@@ -224,7 +224,10 @@ handler, focus kept) and dims to 40 %; never native `disabled` on a focusable co
 value, `Settle` dashed → solid). Look: an s2 pill (4 px inset) with two s3 discs (36 px; `size="sm"` 32 px;
 `size="lg"` 56 px s2 discs flanking a display figure) around the value, an optional `caption` above it
 (« Confort », « Manuel »). Pending: the value's underline dashed until the radiator reports it. At a bound the
-disc is `aria-disabled` (35 %). `disabled` = inert: the pill dims to 40 %. `block` stretches it (tiles).
+disc is `aria-disabled` (35 %). `disabled` = inert: the pill dims to 40 %. `block` stretches it (tiles; a `sm`
+block lets its value column shrink so a 320 px phone tile never overflows). `lg` takes two snippets for the room
+sheet: `below` (the caption under the figure, outside the live `output`) and `between` (the phone layout: the
+figure and its caption on top, the slider between the two discs).
 
 ### What −/+ changes (`$lib/setpoint`)
 `primarySetpoint(status, rads, override, expected, inFlight?)` → `{ kind, value, min, max, pending, endsAt?, comfort? } | null`:
@@ -285,6 +288,8 @@ flick; `tall` = full height from 56 px. Desktop: centred modal (`width`, default
 with `tone="modal"`), radius 28, fade + scale from 0.98 in 180 ms. `header`, `footer` snippets; `noClose` for an
 action sheet. `ChoiceSheet` (same API as before) wraps it; the phone `Menu` is an action sheet with « Annuler ».
 The « Tout éteindre » dialog and the setup dialogs use `--pop`, radius 18, the pop shadow and the scrim.
+A floating card portalled out of its place (`$lib/portal`: a Fiche, a Menu popover) goes to the end of the open
+modal dialog it was opened from (the room sheet), never behind it on `<body>`.
 
 ### Lists, notices, small pieces
 - **GroupedList / ListRow** (`.grph` + `.grp` + `.li`): s1, radius 16, rows ≥ 52 px (64 with a second line)
@@ -300,6 +305,80 @@ The « Tout éteindre » dialog and the setup dialogs use `--pop`, radius 18, th
 - **Skeleton:** `Skeleton.svelte` / `.skeleton` with a shape (`widget` 22, `tile` 20, `pill`, `line` 6, `block`
   16) at the final size; `inset` inside a surface. Never a value or « Chargement… »; content that arrives in parts
   is rendered together.
+
+## Screens
+
+### Maison (`/`, `lib/components/dashboard/`)
+The fixed tableau (spec §4). `Tableau.svelte` draws it; the room sheet opens over it (`/rooms/[id]`), so the
+tableau stays mounted (links keep scroll and focus: `data-sveltekit-noscroll`, `-keepfocus`).
+- **Header:** h1 « Maison » (`.t-page`) and « vendredi 16 octobre · 18:42 » (`fmtWeekdayDate`, Paris). Desktop:
+  `HouseActions maison` (40 px pills in the mockup's order: Partir…, Tout éteindre, Tout remettre en programme;
+  « Tout éteindre » absent while everything is off). Phone: `HouseActions menu` on a row above the title (the away
+  icon, a ⋯ action sheet with the two house commands).
+- **Summary chips** (`.chip-row`, a group « Résumés »): Climat (range of the rooms that answer · « n en chauffe »
+  or « tout éteint »; the range only on the phone), the month's € (kWh without a tariff; absent without Linky),
+  Réseau (the next signal: EcoWatt orange/red today or tomorrow, else tomorrow's Tempo colour when Tempo is in
+  force, else « Rien à signaler »), Absence (« Partir… » opens the sheet; while one runs, « jusqu’à dim. 18:00 »
+  in cool).
+- **Notices** (stacked, 14 px apart): `AlertsWidget` (« Alertes · n », « Masquer tout », a glyph per kind, the
+  words and link from `alertText`, × per row; an offline radiator is never red), `AllOffBanner` (« Tout est
+  éteint », the offline rooms named calmly, primary « Tout remettre en programme »; no time: Kelvin does not know
+  when the house went off), `NowWidget` (« En ce moment », moved here from Réglages: « Absence · 12,0 °C jusqu’à dim. 18:00 », the rooms, « Terminer »; each chauffe temporaire with its rooms and end, « Arrêter »).
+- **Desktop board:** room columns (2 × 254, rows of two; Cozytouch order), the offline column (200, « Hors ligne ·
+  n », the RoomTile `offline` widget), « Énergie et réseau » (the rest, ≥ 320: BillWidget and MaintenantCard span
+  2, then Demain and Hier), « Programme d’aujourd’hui » under the rooms. Below 1100 px of content the energy
+  column goes under the rooms. A room column (`MaisonColumn`): its name and radiator count, `MaisonRoom` (RoomTile
+  `widget` with −/+ and today's MiniSpark), the IconTiles Chauffe temp. (« Lancer… » opens the sheet with the
+  form unfolded, `?boost=1`; its end in heat while one runs) and Programme (« → Éco 23:00 » or « en pause »), then
+  Fenêtre (one radiator that reports windows: Fermée / Ouverte) or Radiateurs (« 2 en chauffe · baie 19,7° ·
+  entrée 19,5° », heat disc while one heats). A tile a room cannot use is absent.
+- **Phone:** chips scrolling edge to edge, the notices, « Pièces » + « 1 en chauffe · 1 hors ligne », RoomTiles in
+  two columns (offline full width, last), « Énergie » (MaintenantCard, then the month and Demain side by side),
+  « Programme d’aujourd’hui » as a grouped list.
+- **Tiles' words** (`$lib/dashboard` `tileLine`): desktop « En chauffe · Confort jusqu’à 23:00 » / « Confort
+  jusqu’à 23:30 »; phone « En chauffe · → 23:00 » / « Confort → 23:30 »; absence cool with its temperature and
+  « jusqu’à … » as the note; Arrêt « La pièce ne chauffe pas. » (phone « Ne chauffe pas »); a boost warm with its
+  end. The −/+ is `primarySetpoint` (decision 4), « 20,0° » on the phone tile, « 20,0 °C » in the widget.
+- **BillWidget:** « Octobre, jusqu’au 15 » (the last Linky day), « abonnement inclus », the € (a Fig: energy,
+  subscription, total, kWh), « ≈ 194,80 € fin du mois est. » (the report's projection), a 10 px ink bar for the days
+  gone, « 16 / 31 jours » and last month. **Demain:** tomorrow's EcoWatt (« EcoWatt orange », « 18:00–20:00 ·
+  réseau tendu »; « pas encore publié ») and, only under Tempo, « Tempo Blanc ». **Hier:** kWh (a Fig), the 48
+  half-hour MiniBars (off-peak hatched under peak), « ≈ 10,22 € »; « Pas encore de relevé Linky pour hier. ».
+  Data: `$lib/stores/dashboardEnergy` (`/api/settings`, `/api/energy` month and day, `/api/energy/day`).
+- **Programme d’aujourd’hui:** one `DayBar` per room with a programme (the `--in` well, comfort blocks in heat,
+  the hours inside a wide block on desktop, the ink now marker; dimmed « en pause » outside Programme or during an
+  absence; an offline room's last known day, faint, « dernier connu »), « → Éco 23:00 » beside it.
+- **Loading:** the skeleton of this layout (chips, columns, energy column, programme) until the house, the alerts
+  (when there are some) and the energy answers are in; then everything in one frame.
+
+### Room sheet (`/rooms/[id]`, `lib/components/room/`)
+`RoomSheet` is a `Sheet` (`tone="modal"`, 920 px, ≤ 820 px tall; phone: full height from 56 px); closing it (×,
+Esc, backdrop, drag) goes back to `/` and gives focus back to the tile. `RoomPanel` is its content:
+- **Desktop left** (320 px, sticky): × and ⋯ (Modifier les horaires, Énergie de la pièce, Pièces et appareils);
+  the name; its state (« En chauffe » in heat, « Fenêtre ouverte » in bad, else the mode) · the reading (a Fig);
+  the large figure flanked by 56 px −/+ (`Stepper lg`, « Consigne Confort »), « Confort · actuellement 19,6 °C »;
+  the VSlider (140 × 320, 10–26 °C, the measured heat line) and « −/+ par 0,5 °C · on peut aussi glisser le
+  curseur ».
+- **Desktop right:** the notices (offline, read-only, window), `ModeCircles` (60 px discs: Arrêt / Manuel /
+  Programme in a radiogroup with the manual-activation keyboard model, the dashed edge while pending; « Chauffe
+  temp. » a separate button that unfolds the form, a heat disc while one runs), the status sentence (dashed until
+  confirmed; « puis Éco 17,0 °C » after a comfort period), the PendingTag; Chauffe temporaire (a grouped
+  disclosure row « ex. 21,0 °C pendant 2 h » → « Chauffer à [−/+] pendant [durée] », the consequence, Lancer; or,
+  running, the heat-edged card « Chauffe temporaire · 22,0 °C jusqu’à 20:42 », its consequence, Arrêter);
+  « Remettre en programme » (primary) when off; « Aujourd’hui » with the 24 h · 7 j · 30 j segments (the
+  ThermalStrip chart, the day bar, the legend, then RoomFigures); « Températures du programme » (Confort and Éco
+  rows with their −/+, « Modifier les horaires › »); « Radiateurs · n » (RadiatorPanel rows); « Ce mois-ci,
+  jusqu’au 15 · 141,2 kWh · ≈ 34,81 € » (`/api/rooms/{id}/energy?days=` the day of the month).
+- **Phone:** ⋯ · name and state · ×; the notices (and the running boost card); the large figure with its caption;
+  −/+ flanking the slider (`Stepper` `between`); the mode circles (56 px); the status; the day bar with ticks and
+  the now marker; then « Programme, températures, radiateurs » (`aria-expanded`) unfolds the rest below.
+- **States:** Arrêt (« Arrêt » in muted at display size, « actuellement 19,1 °C », a dim slider, « Pas de consigne
+  à l’arrêt », Remettre en programme); window open (the bad notice; no −/+, the kept setpoint dimmed with
+  « Confort · en pause · actuellement … »; never a heat colour); offline (calm notice with the last reading and
+  its time, a plug glyph and « Pas de température : le radiateur ne répond plus depuis 04:07. », dim modes, « Dernier
+  mode connu … », the ghost « Programme, dernier connu » day, the radiators, the chart stopped when they went
+  offline); read-only (the reading measured by the device, « Expérimental » on an experimental server and
+  « Lecture seule » chips, the notice, « Appareils de la pièce » facts, today's chart; no control at all).
 
 ## Rules that still hold (carried over)
 
@@ -414,7 +493,7 @@ Stacked bottom-centre: s2, hairline (red-tinted for errors), 10 px, 13 px, a clo
 
 ### Focus and announcements
 - The focus ring is a 2 px ink outline at 2 px offset on every control; a chip whose native box is hidden shows it via `:has(:focus-visible)`.
-- Focus is never dropped to `<body>`: any button that can become inert while it may hold focus (paused commands, a running command, bounds, busy forms) uses `aria-disabled` with a guarded handler instead of `disabled`, desktop room cards keep focus across navigation (`data-sveltekit-keepfocus`, one shared PiecesView for "/" and "/rooms/[id]"), and after any other navigation the new page's h1 takes focus. A skip link « Aller au contenu » comes first.
+- Focus is never dropped to `<body>`: any button that can become inert while it may hold focus (paused commands, a running command, bounds, busy forms) uses `aria-disabled` with a guarded handler instead of `disabled`, a room opens as a sheet over the tableau (the tableau stays mounted, focus returns to the tile on close), and after any other navigation the new page's h1 takes focus. A skip link « Aller au contenu » comes first.
 - Phones keep focused elements clear of the tab bar with `scroll-padding-bottom`.
 - One app-level pair of live regions (`$lib/stores/announcer.svelte.ts`) carries announcements: command progress for commands sent from this browser (« … — envoi… », « … — confirmé », the failure assertively) and committed stepper values. Regions inserted with their text are not relied on.
 
@@ -490,11 +569,11 @@ Until each lands, its current components keep the behaviour described below (wri
 already follows the tokens above. Each screen batch replaces the entries it rebuilds.
 
 #### Thermal Strip (signature)
-The room's day on one line: an SVG sparkline of the measured temperature (2 px, round caps, stroked with the heat-ramp gradient so its colour at any height is the heat at that temperature) drawn only up to now, over the planned setpoint (1 px muted 3/3 dashed step, the legend's « Consigne »; at 70 % on cards). In programme mode the comfort periods appear as warm bands at 16 %. A 1 px ink **now-marker** (70 %) crosses the full height. The y-domain always includes 15–23 °C plus every known value, padded by 0.5 °C. A visually hidden sentence (range, latest reading, plan, pending request) describes it for screen readers. 32 px on room cards; 120 px in the room panel's chart. Window and presence runs (`events`) are drawn only in the panel chart, which has a legend; cards never draw marks without a key. (Programme no longer shows it: its « Aujourd’hui » preview read as a flat line and was removed.)
+The room's day on one line: an SVG sparkline of the measured temperature (2 px, round caps, stroked with the heat-ramp gradient so its colour at any height is the heat at that temperature) drawn only up to now, over the planned setpoint (1 px muted 3/3 dashed step, the legend's « Consigne »; at 70 % on cards). In programme mode the comfort periods appear as warm bands at 16 %. A 1 px ink **now-marker** (70 %) crosses the full height. The y-domain always includes 15–23 °C plus every known value, padded by 0.5 °C. A visually hidden sentence (range, latest reading, plan, pending request) describes it for screen readers. 96 px in the room sheet's « Aujourd’hui » chart, with window and presence runs (`events`) and its legend. Maison's tiles use the kit MiniSpark instead. (Programme no longer shows it: its « Aujourd’hui » preview read as a flat line and was removed.)
 - **Axis** (`axis`, on the room panel's day view): 00 · 06 · 12 · 18 · 24 in micro faint, with the current Paris time at the now-marker in ink 600. A fixed tick within 9 % of the marker is dropped so labels never collide.
 - **Pending path:** a requested manual target draws a dashed ink line (1.25 px, 4/3 dash) from now to the end of the day; a pending comfort setpoint redraws the rest of today's programme dashed, clipped to after now, with eco shifted by the same amount.
 - **Confirmation:** when the pending value disappears and the radiator now reports exactly that value, the path is held 250 ms and its dash closes to solid. If the reported value differs, it simply disappears. The same rule (`$lib/settle.svelte.ts`) drives every control below.
-- Reused on room cards and the inspector. Énergie's Température et chauffe draws a room's day with the same heat-ramp line and muted setpoint, at its own scale.
+- Énergie's Température et chauffe draws a room's day with the same heat-ramp line and muted setpoint, at its own scale.
 
 #### ModeSwitch
 A three-way radiogroup (Arrêt / Manuel / Programme, "Prog." when compact) in a 40 px well (8 px radius, 1 px inset, 2 px gap). Segments are 36 px tall (6 px radius, concentric) with a 44 px hit area (`.hit`), 13 px 600 muted (ink on hover); the current segment is s2 with ink text and a muted edge (3:1 against the well). That edge is the signature mark (PendingEdge, an SVG rect): dashed while the mode is requested, closing solid when the radiator reports it. While pending the group is `aria-busy` and the segment is named « Manuel (en attente) ». Keyboard is **manual activation**, because a mode is a device command: roving tabindex (the current mode is the tab stop), arrows only move focus (wrapping), and Enter/Space sends. Choosing the current mode again sends nothing. Transitions 160 ms ease.
@@ -508,27 +587,8 @@ How far Kelvin vouches for a device (Plan 12): 11 px / 600, `--mu` text, 1 px `-
 #### PendingTag
 Inline 12 px status after a command: "Envoi…" (muted, with an 8 px dashed spinning dot), "Confirmé" (ok, its check drawing itself in 250 ms), or the error in bad with a ghost "Réessayer" and a 44 px dismiss button. States cross-fade in one cell (160 ms in, 150–200 ms out). The tag is visual: screen readers hear the progress from the app announcer (below).
 
-#### RoomCard
-s1 card, hairline, 10 px, 12 × 14 px padding; the whole card is one link (the name's link stretched over it, `aria-label` one sentence: « Salon, 21,4 °C, Programme · Confort jusqu’à 23:00, consigne 21,0 °C, En chauffe »). Grid: name (15/600) with « ● En chauffe » (12 px warm, 6 px warm dot, only while a radiator that answers has a working rate above 0 and the room is not off) and, when some radiators are offline, a muted plug-off glyph and « 1 radiateur sur 2 hors ligne »; the reading (26/600 **ink**, tabular, the mean of the radiators that answer) on the right. Second row: the status sentence (13 px, from `roomStatus()` in `$lib/status.ts`: its lead in its tone — ink, muted for Arrêt/Hors ligne/mixed, warm « Chauffe temporaire », cool « Absence », bad « Fenêtre ouverte » with the window glyph — then « · » and the rest in ink) and « consigne 21,0 °C » (13 px muted, hidden when Off, window open or unknown). A pending request shows the **requested** sentence underlined with the shared dashed mark, closing solid when the radiators report it; the PendingTag takes the target's place while a command is on its way, confirmed or failed (its buttons sit above the link). The status cross-fades (160 ms) when it changes; the reading dips and returns (400 ms). Then the 32 px strip. Heights are fixed whatever the state: the status reserves one 20 px line on a wide card, two below 420 px of list width (a container query), so a new sentence never moves the list (≈ 116 px, ≈ 136 px). Desktop keeps focus and scroll across the navigation, `aria-current="page"` for the room in the inspector (border muted). Hover firms the edge, press deepens the tone. Loading: three skeletons at those heights.
-- **Offline card** (every radiator `reachable === false`): compact (≈ 64 px), name at 80 % ink, « Hors ligne depuis 14:32 » (« depuis le 2 oct. » another day, « Hors ligne » when unknown) · « Radiateur hors tension ou hors de portée » (on its own line below 420 px) in muted, a 20 px plug-off glyph. No temperature, no strip, no target, never red; a command still in flight (or failed) keeps its PendingTag under the sentence.
-- **Room list:** Cozytouch order, except offline rooms, which move to the end under a section label « Hors ligne · 2 » with a hairline to its right. The page summary reads « 1 pièce en chauffe · 2 hors ligne » (« Aucune pièce en chauffe »; the offline part only when there are some), « · Absence en cours » when relevant; one line, ellipsised, so the header never reflows. On a phone the house actions are two 44 px bordered icon buttons (power, away; their names as labels) on the title row: one row in any language or font.
-
-#### RoomInspector (room panel)
-The desktop right column (s1 panel, 16 px padding, `clamp(320px, 38 %, 440px)`, internal scroll) and the phone room page; its content cross-fades (160 ms) on a room change. Sections in order, each opening with a hairline and a section label:
-1. **Header:** name (h2 at 20 px in the column; h1 at 22 px on the phone page), the status sentence (14 px, `roomStatus()`, dashed while a request is pending) and a 12 px line with « ● En chauffe », « Présence détectée » (only when true: never « Présence : — ») and the partial-offline count; on the right the reading (32/600 ink; it arrives from the tapped card in a view transition) over « consigne 21,0 °C ». **Offline** (every radiator unreachable): no reading; the **OfflineNotice** instead (s2 at 60 % over s1, hairline, plug-off glyph, `role="status"`, never red): « Radiateur hors tension ou hors de portée » (14/600), « Les commandes reprendront quand il sera rallumé. » (muted) and « Dernière mesure : 23,6 °C à 14:31 » (the last history point before the radiators went offline, else their last report with its time; left out when the time is unknown).
-2. **Notices:** an open window (bad tint, window glyph, « Fenêtre ouverte, signalée par le radiateur : la pièce perd sa chaleur. »), the PendingTag (Envoi… / Confirmé / failure with Réessayer).
-3. **Réglage:** ModeSwitch (or « Arrêt » for pilot-wire rooms); Manuel → « Consigne » stepper; in every mode but Arrêt the « Confort » stepper and the « Éco » stepper, which shows the **absolute** eco (comfort − lowering) with the caption « 3,0 °C sous le confort » and still sends the lowering; in Programme a ghost « Modifier les horaires › » to `/schedule?room=…`. Partial-capability and mixed notes as before. Offline: the controls are `aria-disabled` and a muted « Dernier mode connu : Programme · confort 20,0 °C, éco 17,0 °C. ».
-4. **Chauffe temporaire** (rooms with boost, not offline): a 44 px disclosure row (`aria-expanded`, chevron, muted « ex. 21,0 °C pendant 2 h »), sliding open over 220 ms: « Chauffer à [stepper] pendant [1 h · 2 h · 4 h · 8 h] », then the consequence (« Puis retour au programme vers 21:45. », « Puis retour au mode manuel, 19,0 °C. ») and the primary « Lancer ». Active: « 22,0 °C jusqu’à 21:45 » and « Arrêter ».
-5. **Aujourd’hui / Historique** (the title follows the range): Segmented 24 h · 7 j · 30 j over a 120 px strip with a 28 px scale gutter (top and bottom whole degrees, 11 px faint), the hour axis on 24 h, window and presence runs, a muted « Mesures depuis 14:05 » inside the chart when recording began over an hour into the range; offline, the curve stops when the radiators went offline. Then the legend as real text, listing only what is drawn: Température (ramp line), Consigne (dashed muted), Confort (warm wash), Fenêtre ouverte (hatch), Présence (neutral fill), « relevé toutes les 5 min » when runs show.
-6. **Énergie aujourd’hui / sur 7 j / sur 30 j** (RoomFigures): a two-column grid of Consommation, Coût (énergie), Heures de chauffe (« à pleine puissance ») and, on the 24 h range only, « Part du temps en chauffe ». The 24 h range is **today since midnight** for every figure: kWh, € and hours from `/rooms/{id}/energy?days=1`, the share from `/rooms/duty?since=<midnight>`, so one block never mixes two windows. Heating hours are unknown (« — ») while the meters have no reading, with one line saying so (« Consommation et heures de chauffe : pas encore de relevé de compteur aujourd’hui. »), never a measured-looking « 0,0 h »; every value unknown → one sentence (« Pas encore assez de relevés depuis minuit. »).
-7. **Radiateurs · n:** one RadiatorPanel disclosure row per radiator.
-In the desktop column, once the header scrolls out, a compact bar (s1, bottom hairline, name 15/700 and the reading 17/600, or the muted status when offline) fades in at the panel's top: a zero-height sticky layer, so nothing moves. The status sentence's dashed mark (card and panel) is settled on the requested values, not on the sentence's text: a comfort change that reads the same closes solid only when the radiators report it, and a failure never plays the morph.
-Before the house is known it shows its skeleton (title bar and three section blocks), never « Pièce introuvable ».
-
-A room control appears when at least one radiator takes it, with « S’applique à n radiateurs sur N » (12 px, muted) when it reaches only some of them; a room Kelvin drives nothing in says so in one muted line (« Kelvin ne pilote aucun appareil de cette pièce. »). A room of pilot-wire heaters only gets a secondary « Arrêt » instead of the mode switch.
-
 #### RadiatorPanel
-One per radiator in the room panel, separated by hairlines, as a disclosure: the row (an h4 holding a 52 px button, `aria-expanded`) shows the name (14/600; the model and power when it has no name of its own), a 12 px muted line (power when named, « En ligne » or « Hors ligne depuis 14:32 », never red; with « Détails techniques » also the raw « RSSI n » and « dernier signal il y a 3 min » inline), the reading in ink (« — » muted when offline) and a turning chevron. Open (slide 220 ms): the facts list, the **Infos** section (modèle, puissance, niveau de signal as the raw « RSSI n » with its scale marked unverified, connexion, dernier signal, each « — » when unknown), the level or dryer switch, the mode switch and setpoint when the room has several radiators, the toggles (fenêtre ouverte, présence, veilleuse and its slider), and ghost « Renommer » (pencil) and « Faire clignoter » buttons. An offline radiator's commands are `aria-disabled` (its slider hidden) under « Les commandes reprendront quand il sera rallumé. ».
+One per radiator in the room sheet's « Radiateurs · n » group, separated by hairlines, as a disclosure: the row (an h4 holding a 52 px button, `aria-expanded`) shows a radiator glyph (heat while it draws power, plug-off when offline), the name (14/600; the model and power when it has no name of its own), a 12 px muted line (power when named, « En ligne » or « Hors ligne depuis 14:32 », never red; with « Détails techniques » also the raw « RSSI n » and « dernier signal il y a 3 min » inline), the reading in ink (« — » muted when offline) and a turning chevron. Open (slide 220 ms): the facts list, the **Infos** section (modèle, puissance, niveau de signal as the raw « RSSI n » with its scale marked unverified, connexion, dernier signal, each « — » when unknown), the level or dryer switch, the mode switch and setpoint when the room has several radiators, the toggles (fenêtre ouverte, présence, veilleuse and its slider), and ghost « Renommer » (pencil) and « Faire clignoter » buttons. An offline radiator's commands are `aria-disabled` (its slider hidden) under « Les commandes reprendront quand il sera rallumé. ».
 
 #### Programme page (week + one day)
 The week is a picture, the day is the form. Under the h1 and the room picker:
@@ -618,9 +678,6 @@ One status, three places (Énergie's source line and callout, the Maison card an
 
 #### Form fields
 A field is a label wrapping its control: a 12 px muted caption, 4 px, then a 36 px well (`--ctl-h`; in, field-line edge, 8 px, 0 × 10 px padding; owner ruling: fields were « gros ») set in 15 px body with tabular figures, 16 px below 1024 px so iOS never zooms on focus (`--fs-field`). The base style is global in `app.css`; components add only layout. Selects share the input's exact geometry. Placeholders are muted (never the browser grey) and never carry the only instruction: a hint is a 12 px muted caption under the field, linked with `aria-describedby` (Linky: « Enregistré », then « Laissez vide pour garder le jeton. »). An invalid field is `aria-invalid`, edged in bad, linked to its error and focused. Units live in the caption, never in the field: « Abonnement (€/mois) », « Prix heures creuses (€/kWh) ». Decimal fields accept a comma or a point. **Width is intrinsic**, never a stretched column for a short value: time fields `--w-time` (6.5 rem), dates `--w-date` (10 rem), prices `.w-price` (7.5 rem), kVA `.w-kva` (8 rem), text fields `.w-text` (`min(100 %, 22 rem)`), the PDL 14 digits; groups wrap (`flex-wrap`, 12 px × 16 px gaps) instead of grid columns. The caption wraps the field, so the tap area is caption plus field. A repeated group (Heures creuses slots) sits in a hairline-topped fieldset whose legend is a section label, with each slot on one line « [22:00] → [06:00] [Retirer] » (the captions « Début / Fin de la plage n » stay as the fields' hidden names) and a ghost « Ajouter une plage ». Errors follow in 13 px bad (alert), success in 13 px ok (status), then one primary button, left-aligned.
-
-#### Grid strip
-One 13 px line under the page header on Rooms (Énergie uses the GridChips of its context row, see Énergie), wrapping on a phone: the Tempo pair « Aujourd’hui : ● Bleu · Demain : ● Rouge » (only while the price row in force is Tempo; « Demain : couleur pas encore publiée (vers 11:00) » before publication, « couleur inconnue » when a day has none), then « EcoWatt orange demain, 18:00–20:00 » with the alert glyph (muted; red in State Red; the hours dated by their own timestamps), then the muted source « RTE via MyElectricalData · 11:20 ». Nothing when there is nothing to say (EcoWatt green, no Tempo). It arrives with the snapshot and is updated by the SSE `grid` event. Its height is known only then, so no skeleton can hold it: on Rooms the skeleton columns are replaced as a whole by the loaded ones, strip included, in one frame; on Energy it waits for the report. Either way it never shifts the page (`layout.spec.ts` measures `/` under HC/HP and Tempo).
 
 #### Sources
 Maison › Sources de données (`/home/sources`, `SourcesList`, built by `$lib/sources.ts`): one panel, one 64 px row per source — Cozytouch, Linky, RTE EcoWatt, and Tempo only while a Tempo price is in force — each a button: the Freshness mark, the name (14/600) over its state sentence (13 muted; « Connecté · dernier relevé il y a 1 min », « à jour, relevé à 11:20 », « indisponible depuis 08:15 » in bad text, « quota du jour atteint, reprise demain », « pas encore interrogé »), the last time right (tabular; « dim. 18:00 » another day) and a chevron. A row opens its exact rows (FicheBody: last successful read, failing since, next read, the Linky calls) in a region `hidden="until-found"`; « Détails techniques » opens them all. The panel ends with the muted MyElectricalData calls line and its source note. The state line counts the late ones (« Tout est à jour » | « 1 source en retard »), as the Maison card does.

@@ -76,12 +76,14 @@ test.describe('key flows in English', () => {
     await expect(page.getByText('Confirmed').first()).toBeVisible();
   }
 
-  test('<html lang> is English, and the Home page reads in English', async ({ page }) => {
+  test('<html lang> is English, and the Home page reads in English', async ({ page, isMobile }) => {
     await page.goto('/');
     expect(await page.evaluate(() => document.documentElement.lang)).toBe('en');
     await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();
-    await expect(page.getByText(/^(No room|\d+ rooms?) heating · 1 offline/)).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Offline · 1' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Summary' })).toContainText('Climate');
+    // Phone: the rooms' summary line; desktop: the offline rooms' column.
+    if (isMobile) await expect(page.getByText(/^(none|\d+) heating · 1 offline$/)).toBeVisible();
+    else await expect(page.getByRole('heading', { name: 'Offline · 1' })).toBeVisible();
     await expect(page).toHaveTitle('Home · Kelvin');
   });
 
