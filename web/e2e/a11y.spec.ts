@@ -57,7 +57,8 @@ test.describe('accessibility (axe)', () => {
       await page.goto('/home');
       await settled(page);
       expect(await violations(page)).toEqual([]);
-      await page.getByRole('button', { name: /^Partir en absence/ }).click();
+      // The old #away anchor opens the Absence sheet over Réglages (the sidebar and Maison open it too).
+      await page.goto('/home#away');
       await expect(page.getByRole('dialog', { name: 'Partir en absence' })).toBeVisible();
       expect(await violations(page)).toEqual([]);
     });

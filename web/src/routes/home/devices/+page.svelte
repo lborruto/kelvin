@@ -1,3 +1,10 @@
+<!-- Réglages › Pièces et appareils (Tableau §4, mockups 5): the lead and the SyncLine with « Synchroniser »,
+     « Nouvelle pièce », one grouped list per Cozytouch room with its « ⋯ » (Renommer la pièce, Supprimer la pièce
+     with its reason) and its radiators, each with its « ⋯ » (Renommer, Déplacer vers…, Faire clignoter, Voir les
+     appareils); then « Box et pont Cozytouch » and the other devices. On a phone the menus are action sheets. On
+     an experimental server there is no action and the page says « lecture seule sur ce serveur ». Writes go only
+     through the existing setup routes; actions follow the capabilities. The page renders once the setup and the
+     home's server (/auth/me) are both known (skeleton until then; error + retry when one fails). -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api } from '$lib/api/client';
@@ -14,12 +21,11 @@
   import AppliancesBlock from '$lib/components/devices/AppliancesBlock.svelte';
   import { canEditSetup, capsOf, isReadOnly } from '$lib/capabilities';
   import { run } from '$lib/actions';
-  import PageHeader from '$lib/components/PageHeader.svelte';
+  import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
   import BridgeRow from '$lib/components/devices/BridgeRow.svelte';
   import type { MenuItem } from '$lib/components/Menu.svelte';
   import { m } from '$lib/i18n';
   import { desktop } from '$lib/media.svelte';
-  import { ROUTES } from '$lib/paths';
   import { radiatorName } from '$lib/setup';
   import { installUndo, runSetup } from '$lib/setupActions';
   import { auth } from '$lib/stores/auth.svelte';
@@ -161,16 +167,14 @@
 
 <svelte:head><title>{m.page.title(m.devices.title)}</title></svelte:head>
 
-<div class="vt">
-  <PageHeader title={m.devices.title} back={{ href: ROUTES.home, label: m.nav.home }}>
-    {#snippet actions()}
-      {#if setup && editable && desktop.matches}
-        <button type="button" class="btn" aria-expanded={creating} onclick={() => (creating = !creating)}><Icon name="plus" size={16} />{m.devices.newRoom}</button>
-      {/if}
-    {/snippet}
-  </PageHeader>
-</div>
 <div class="page">
+<SettingsHeader back bare title={m.devices.title} vt="home-devices">
+  {#snippet actions()}
+    {#if setup && editable && desktop.matches}
+      <button type="button" class="btn" aria-expanded={creating} onclick={() => (creating = !creating)}><Icon name="plus" size={16} />{m.devices.newRoom}</button>
+    {/if}
+  {/snippet}
+</SettingsHeader>
 {#if !setup}
   <p class="intro">{m.devices.intro}</p>
   {#if unavailable}
@@ -185,7 +189,7 @@
   <p class="intro">{auth.server && !editable ? m.devices.introExperimental(auth.server.name) : m.devices.intro}</p>
   {#if auth.server && !editable}<p class="ro">{m.home.readOnlyServer}</p>{/if}
   {#if editable && !desktop.matches}
-    <button type="button" class="btn new-phone" aria-expanded={creating} onclick={() => (creating = !creating)}><Icon name="plus" size={16} />{m.devices.newRoom}</button>
+    <button type="button" class="btn btn-lg new-phone" aria-expanded={creating} onclick={() => (creating = !creating)}><Icon name="plus" size={16} />{m.devices.newRoom}</button>
   {/if}
   {#if editable && (creating || createPending)}<div class="new">
     {#if creating}
@@ -212,10 +216,10 @@
       {/snippet}
     </RoomBlock>
   {/each}
-  <section class="panel" aria-labelledby="bridges-title">
-    <h2 id="bridges-title">{m.devices.bridges}</h2>
-    <ul class="bridges">
-      {#each setup.bridges as d (d.id)}<BridgeRow device={d} {now} />{/each}
+  <section aria-labelledby="bridges-title">
+    <h2 id="bridges-title" class="grph">{m.devices.bridges}</h2>
+    <ul class="grp bridges">
+      {#each setup.bridges as d (d.id)}<BridgeRow device={d} {now} icon={d.role === 'box' ? 'box' : d.role === 'bridge' ? 'sync' : null} />{/each}
     </ul>
   </section>
   <AppliancesBlock devices={setup.appliances ?? []} {now} />
@@ -242,18 +246,14 @@
 {/snippet}
 
 <style>
-  /* The header (and its action) ends where the content column does. */
-  .vt {
-    max-width: 720px;
-  }
-  .vt :global(h1) {
-    view-transition-name: home-devices;
-  }
   .page {
     display: grid;
     gap: 14px;
-    max-width: 720px;
+    max-width: 760px;
     min-width: 0;
+  }
+  .page > :global(.sh) {
+    margin-bottom: 0;
   }
   .stack {
     display: grid;
@@ -267,40 +267,25 @@
   }
   .new-phone {
     width: 100%;
-    justify-content: center;
   }
   .tag {
     padding-bottom: 8px;
   }
   .intro {
-    font-size: 13px;
-    color: var(--mu);
     margin: -10px 0 0;
+    font-size: 13.5px;
+    color: var(--mu);
   }
   .ro {
     margin: -8px 0 0;
-    font-size: 12px;
+    font-size: var(--fs-note);
     color: var(--mu);
   }
-  .block {
-    border-radius: var(--radius);
-  }
-  .panel {
-    padding: 14px 14px 4px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--s1);
-    min-width: 0;
-  }
-  h2 {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0 0 6px;
+  .grph {
+    margin-top: 4px;
   }
   .bridges {
     margin: 0;
-    padding: 0;
-    list-style: none;
   }
   .error {
     font-size: 13px;

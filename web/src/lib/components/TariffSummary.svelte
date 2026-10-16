@@ -1,14 +1,15 @@
-<!-- « Tarif en vigueur » (direction-2 §3 « /home/tariff », DESIGN « TariffSummary »): the tariff read as a fact,
+<!-- « Tarif en vigueur » (Tableau §4 « Tarif », DESIGN « TariffSummary »): the tariff read as a fact,
      without one input on screen. Label / value rows (13 px muted label, tabular value): option, subscribed
      power, subscription, the prices (Base: one; HC/HP: two with their swatches; Tempo: a 3 × 2 grid, the
-     TempoDot for the colour and the swatch for the hour), then the off-peak hours on a HoursBar with the times
-     written beside it (one bar per season). Rows whose value just changed pulse once (`changed`). -->
+     TempoDot for the colour and the swatch for the hour), then the off-peak hours on the tariff band (TariffBand) with
+     the times written beside it (one band per season). Rows whose value just changed pulse once (`changed`). -->
 <script lang="ts">
   import type { HcVariant, Tariff, TempoColour } from '$lib/api/types';
   import { fmtAmount, fmtEurExact, fmtPrice } from '$lib/format';
   import { locale, m } from '$lib/i18n';
   import { inForce, slotsText } from '$lib/tariff';
-  import HoursBar from './HoursBar.svelte';
+  import { dayBlocks } from '$lib/maintenant';
+  import TariffBand from './TariffBand.svelte';
   import Swatch from './Swatch.svelte';
   import TempoDot from './TempoDot.svelte';
 
@@ -44,8 +45,8 @@
     {#if row.option === 'base'}
       <div class="r" class:pulse={changed.has('base')}><dt>{m.tariffSummary.base}</dt><dd class="num">{fmtPrice(row.rates.base)}</dd></div>
     {:else if row.option === 'hchp'}
-      <div class="r" class:pulse={changed.has('hc')}><dt><Swatch series="hc" size={8} />{m.tariffSummary.hc}</dt><dd class="num">{fmtPrice(row.rates.hc)}</dd></div>
-      <div class="r" class:pulse={changed.has('hp')}><dt><Swatch series="hp" size={8} />{m.tariffSummary.hp}</dt><dd class="num">{fmtPrice(row.rates.hp)}</dd></div>
+      <div class="r" class:pulse={changed.has('hc')}><dt><Swatch series="hc" size={10} />{m.tariffSummary.hc}</dt><dd class="num">{fmtPrice(row.rates.hc)}</dd></div>
+      <div class="r" class:pulse={changed.has('hp')}><dt><Swatch series="hp" size={10} />{m.tariffSummary.hp}</dt><dd class="num">{fmtPrice(row.rates.hp)}</dd></div>
     {:else}
       <div class="tempo" class:pulse={COLOURS.some((c) => changed.has(`${c}_hc`) || changed.has(`${c}_hp`))}>
         <dt class="visually-hidden">{m.tariffSummary.tempoTable}</dt>
@@ -53,8 +54,8 @@
         <table aria-label={m.tariffSummary.tempoTable}>
           <thead>
             <tr><th scope="col"><span class="visually-hidden">{m.tariffSummary.colour}</span></th>
-              <th scope="col"><Swatch series="hc" size={8} />{m.tariffSummary.hc}</th>
-              <th scope="col"><Swatch series="hp" size={8} />{m.tariffSummary.hp}</th></tr>
+              <th scope="col"><Swatch series="hc" size={10} />{m.tariffSummary.hc}</th>
+              <th scope="col"><Swatch series="hp" size={10} />{m.tariffSummary.hp}</th></tr>
           </thead>
           <tbody>
             {#each COLOURS as c (c)}
@@ -71,7 +72,7 @@
       <div class="hours" class:pulse={changed.has('hours')}>
         <dt>{m.tariff.hc}{#if s.label}<span class="season"> · {s.label}</span>{/if}</dt>
         <dd class="num">{slotsText(s.slots)}</dd>
-        <dd class="bar"><HoursBar slots={s.slots} label={m.tariffSummary.hoursLabel(slotsText(s.slots))} /></dd>
+        <dd class="bar"><TariffBand blocks={dayBlocks(s.slots)} label={m.tariffSummary.hoursLabel(slotsText(s.slots))} height={14} /></dd>
       </div>
     {/each}
   </dl>
@@ -81,7 +82,7 @@
   .sum {
     display: grid;
     margin: 0;
-    font-size: 13px;
+    font-size: 14px;
   }
   .r {
     display: flex;
@@ -90,11 +91,12 @@
     gap: 4px 16px;
     flex-wrap: wrap;
     min-height: 40px;
+    padding: 4px 0;
   }
   .r,
   .tempo,
   .hours {
-    border-bottom: 1px solid var(--line);
+    border-top: 1px solid var(--line);
   }
   dt {
     display: inline-flex;
@@ -115,7 +117,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 0 16px;
-    padding-bottom: 10px;
+    padding-bottom: 4px;
   }
   .hours dt,
   .hours > dd.num {
@@ -126,6 +128,11 @@
   }
   .hours dt {
     justify-content: flex-start;
+    color: var(--mu);
+  }
+  .hours > dd.num {
+    font-weight: 500;
+    color: var(--mu);
   }
   .bar {
     grid-column: 1 / -1;
@@ -135,9 +142,6 @@
   .tempo dd {
     text-align: left;
     font-weight: 400;
-  }
-  .hours:last-child {
-    border-bottom: 0;
   }
   .tempo {
     padding: 8px 0 10px;

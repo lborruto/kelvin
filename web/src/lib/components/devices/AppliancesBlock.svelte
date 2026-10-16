@@ -1,3 +1,5 @@
+<!-- The other devices in Pièces et appareils (Plan 12; Tableau mockups 5): a grouped list under its label, each
+     read-only and never hidden. -->
 <script lang="ts">
   import type { SetupDevice } from '$lib/api/types';
   import { m } from '$lib/i18n';
@@ -10,39 +12,23 @@
 </script>
 
 {#if devices.length}
-  <section class="panel" aria-labelledby="appliances-title">
-    <h2 id="appliances-title">{m.devices.appliances}</h2>
-    <p class="note">{m.devices.appliancesNote}</p>
-    <ul class="list">
+  <section aria-labelledby="appliances-title">
+    <h2 id="appliances-title" class="grph">{m.devices.appliances}</h2>
+    <ul class="grp list">
       {#each devices as d (d.id)}<BridgeRow device={d} {now} name={deviceLabel(d)} lead={m.devices.role[d.role]} />{/each}
     </ul>
+    <p class="note">{m.devices.appliancesNote}</p>
   </section>
 {/if}
 
 <style>
-  .panel {
-    padding: 14px 14px 4px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--s1);
+  section {
     min-width: 0;
   }
-  h2 {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--mu);
-    margin: 0 0 6px;
+  .grph {
+    margin-top: 6px;
   }
   .note {
-    font-size: 12px;
-    color: var(--mu);
-    margin: 0 0 8px;
-  }
-  .list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    margin: 6px 16px 0;
   }
 </style>

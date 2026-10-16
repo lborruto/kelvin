@@ -28,7 +28,7 @@ describe('AppliancesBlock', () => {
     expect(screen.getAllByText('Lecture seule').length).toBeGreaterThanOrEqual(2);
     // Read-only: the rows only open their raw details, no action.
     expect(screen.getAllByRole('button').every((b) => b.hasAttribute('aria-expanded'))).toBe(true);
-    expect(screen.getByRole('button', { name: /^Chauffe-eau/ })).toHaveTextContent('Chauffe-eau · En ligne');
+    expect(screen.getByRole('button', { name: /^Chauffe-eau/ })).toHaveTextContent(/^Chauffe-eau.*Chauffe-eau\s*En ligne$/);
   });
 
   it('renders nothing without appliances', () => {

@@ -4,7 +4,7 @@
   import type { SettingsView, Slot, TariffOption } from '$lib/api/types';
   import { fmtDateLong, fmtDay, parisTodayIso, parseDecimal } from '$lib/format';
   import { errorText, locale, m } from '$lib/i18n';
-  import { ALL_MONTHS, DEFAULT_TEMPO_HOURS, OPTIONS, RATE_KEYS, buildDocument, inForce, monthsProblem, withSchedule } from '$lib/tariff';
+  import { ALL_MONTHS, DEFAULT_TEMPO_HOURS, OPTIONS, RATE_KEYS, buildDocument, inForce, monthsProblem, priceProblem, withSchedule } from '$lib/tariff';
   import HcScheduleEditor from './HcScheduleEditor.svelte';
   import PriceFields from './PriceFields.svelte';
   import Segmented from './Segmented.svelte';
@@ -80,7 +80,7 @@
     const out: Record<string, number> = {};
     for (const k of RATE_KEYS[option]) {
       const v = parseDecimal(rates[k] ?? '');
-      if (v === null) return null;
+      if (v === null || priceProblem(rates[k] ?? '')) return null;
       out[k] = v;
     }
     return out;
@@ -252,8 +252,8 @@
   .field {
     display: grid;
     justify-items: start;
-    gap: 4px;
-    font-size: 12px;
+    gap: 6px;
+    font-size: 13px;
     color: var(--mu);
   }
   fieldset {
@@ -265,11 +265,9 @@
     gap: 10px;
   }
   legend {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--mu);
+    color: var(--tx);
     padding: 0;
     margin-bottom: 8px;
   }

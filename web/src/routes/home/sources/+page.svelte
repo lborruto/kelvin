@@ -1,12 +1,12 @@
-<!-- Maison › Sources de données (direction-2 §3, UX batch 9): every source Kelvin reads, its freshness, and
-     its exact times one row-tap away (SourcesList). The day's MyElectricalData calls close the panel. -->
+<!-- Réglages › Sources de données (Tableau §4, mockups 5 « Sources »): every source Kelvin reads as a grouped
+     row with its freshness ring, its state sentence and its last time; a row opens its exact times (SourcesList).
+     The day's MyElectricalData calls close the page as a note. -->
 <script lang="ts">
   import { api } from '$lib/api/client';
   import type { LinkyStatus, Sources } from '$lib/api/types';
-  import PageHeader from '$lib/components/PageHeader.svelte';
   import SourcesList from '$lib/components/SourcesList.svelte';
+  import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
   import { m } from '$lib/i18n';
-  import { ROUTES } from '$lib/paths';
   import { lateCount, sourceRows } from '$lib/sources';
   import { house } from '$lib/stores/house.svelte';
 
@@ -27,75 +27,38 @@
 
 <svelte:head><title>{m.page.title(m.sources.title)}</title></svelte:head>
 
-<div class="vt">
-  <PageHeader title={m.sources.title} back={{ href: ROUTES.home, label: m.nav.home }}>
-    {#snippet stateLine()}
-      {#if ready}<p class="state">{late ? m.home.cardSourcesLate(late) : m.home.cardSourcesOk}</p>
-      {:else}<p class="state"><span class="skeleton line-sk" aria-hidden="true"></span></p>{/if}
-    {/snippet}
-  </PageHeader>
-</div>
-
 <div class="page">
+  <SettingsHeader back title={m.sources.title} vt="home-sources" state={ready ? (late ? m.home.cardSourcesLate(late) : m.home.cardSourcesOk) : null} />
+
   {#if ready}
-    <section class="panel" aria-label={m.sources.title}>
+    <section class="grp" aria-label={m.sources.title}>
       <SourcesList {rows} {now} />
-      {#if grid}
-        <p class="foot">{m.sources.med(grid.med.calls_today, grid.med.budget, grid.med.grid_calls_today)}</p>
-        <p class="foot">{m.sources.via}</p>
-      {:else}
-        <p class="foot">{m.sources.loadFailed}</p>
-      {/if}
     </section>
+    {#if grid}
+      <p class="note">{m.sources.med(grid.med.calls_today, grid.med.budget, grid.med.grid_calls_today)}</p>
+      <p class="note">{m.sources.via}</p>
+    {:else}
+      <p class="note">{m.sources.loadFailed}</p>
+    {/if}
   {:else}
-    <div class="skeleton block" style:height="300px" aria-hidden="true"></div>
+    <div class="skeleton" style:height="200px" aria-hidden="true"></div>
   {/if}
 </div>
 
 <style>
-  /* The header (and its action) ends where the content column does. */
-  .vt {
-    max-width: 720px;
-  }
-  .vt :global(h1) {
-    view-transition-name: home-sources;
-  }
   .page {
     display: grid;
-    gap: 14px;
+    gap: 10px;
     max-width: 720px;
     min-width: 0;
   }
-  .state {
-    margin: 0;
-    height: 19px;
-    font-size: 13px;
-    line-height: 19px;
-    color: var(--mu);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .page > :global(.sh) {
+    margin-bottom: 10px;
   }
-  .line-sk {
-    display: inline-block;
-    width: 10rem;
-    height: 13px;
-    border-radius: 4px;
-    vertical-align: -2px;
+  .note {
+    margin: -6px 16px 0;
   }
-  .block {
-    border-radius: var(--radius);
-  }
-  .panel {
-    padding: 0 14px 12px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--s1);
-    min-width: 0;
-  }
-  .foot {
-    margin: 6px 0 0;
-    font-size: 12px;
-    color: var(--mu);
+  .grp + .note {
+    margin-top: 0;
   }
 </style>

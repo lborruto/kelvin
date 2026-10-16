@@ -1,4 +1,5 @@
 import type { HcSchedule, Slot, Tariff, TariffDoc, TariffOption, TariffRow } from '$lib/api/types';
+import { parseDecimal } from '$lib/format';
 
 export const OPTIONS: TariffOption[] = ['base', 'hchp', 'tempo'];
 export const RATE_KEYS: Record<TariffOption, string[]> = {
@@ -90,29 +91,6 @@ export function withSchedule(current: Tariff, s: HcSchedule): TariffDoc {
   };
 }
 
-const minuteOf = (t: string) => {
-  const [h, mi] = t.split(':').map(Number);
-  return h * 60 + mi;
-};
-
-/** Off-peak slots as blocks of a 24 h bar, in % of the day (HoursBar): a slot past midnight is split in two. */
-export function hourBlocks(slots: Slot[]): { left: number; width: number }[] {
-  const out: { left: number; width: number }[] = [];
-  const add = (a: number, b: number) => {
-    if (b > a) out.push({ left: (a / 1440) * 100, width: ((b - a) / 1440) * 100 });
-  };
-  for (const s of slots) {
-    const a = minuteOf(s.start);
-    const b = minuteOf(s.end);
-    if (b > a) add(a, b);
-    else {
-      add(a, 1440);
-      add(0, b);
-    }
-  }
-  return out;
-}
-
 /** « 22:00–06:00, 12:00–14:00 » */
 export const slotsText = (slots: Slot[]): string => slots.map((x) => `${x.start}–${x.end}`).join(', ');
 
@@ -133,4 +111,16 @@ export function tariffDiff(before: Tariff | null, after: Tariff, today: string):
   };
   if (hours(before) !== hours(after)) out.add('hours');
   return out;
+}
+
+/** A typed price per kWh that cannot be right, flagged before saving (Tableau « Tarif »): not a number, more
+ * than 4 decimals, zero, or above 5 €/kWh. Empty is not flagged here (the save says what is missing). */
+export function priceProblem(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  const v = parseDecimal(t);
+  if (v === null) return true;
+  const decimals = (t.replace(/[\s  ]/g, '').split(/[.,]/).pop() ?? '').length;
+  const hasDecimals = /[.,]/.test(t);
+  return (hasDecimals && decimals > 4) || v <= 0 || v > 5;
 }

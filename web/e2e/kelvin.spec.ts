@@ -109,19 +109,21 @@ async function openTariffEditor(page: import('@playwright/test').Page) {
   if (await fresh.isVisible()) await fresh.click();
 }
 
-test('absence can be started from Maison and ended from En ce moment', async ({ page }) => {
-  await page.goto('/home');
-  await page.getByRole('button', { name: 'Partir en absence…' }).first().click();
+test('absence from the old #away anchor: started, said in the Réglages state line, ended from the sheet', async ({ page }) => {
+  await page.goto('/home#away');
   const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
   await expect(sheet.getByText(/^Les \d+ pièces passeront à 12,0\s°C jusqu’à/)).toBeVisible();
   await sheet.getByRole('button', { name: 'Partir' }).click();
   await expect(sheet).toBeHidden();
   await expect(page.getByText(/^Absence jusqu’à .*\.$/).first()).toBeVisible(); // the toast
-  const end = page.getByRole('button', { name: 'Terminer l’absence' });
-  await expect(end).toBeVisible({ timeout: 20_000 });
-  await end.click();
-  // Default timeout on purpose: the override must leave as soon as its restore settles.
-  await expect(end).toBeHidden();
+  // The state line says it once the override arrives.
+  await expect(page.locator('main .sh').getByText(/Absence jusqu’à/)).toBeVisible({ timeout: 20_000 });
+  await page.goto('/home#away');
+  const running = page.getByRole('dialog', { name: 'Absence en cours' });
+  await running.getByRole('button', { name: 'Terminer maintenant' }).click();
+  await expect(running).toBeHidden();
+  // Default-ish timeout on purpose: the override must leave as soon as its restore settles.
+  await expect(page.locator('main .sh').getByText(/Absence jusqu’à/)).toBeHidden({ timeout: 20_000 });
 });
 
 test('absence from Maison in two taps (desktop sidebar, phone header), ended from the sheet', async ({ page, isMobile }) => {
@@ -267,10 +269,9 @@ test('Tarif saves a tariff and Linky shows the simulated Linky', async ({ page }
   await tarif.getByLabel('Prix heures creuses (€/kWh)').fill('0,2068');
   await tarif.getByRole('button', { name: 'Enregistrer le tarif' }).click();
   await expect(tarif.getByText('Tarif enregistré.')).toBeVisible();
-  // The summary reads it; the history is one disclosure away (a table on desktop, a list on phone).
+  // The summary reads it; the price history is read in place, beside it.
   await expect(tarif.getByText(/^0,2068\s€\/kWh$/)).toBeVisible();
-  await tarif.getByRole('button', { name: /^Historique des prix/ }).click();
-  await expect(tarif.locator('[aria-label="Historique des prix"]:visible')).toContainText('0,2068');
+  await expect(tarif.getByRole('list', { name: 'Historique des prix' })).toContainText('0,2068');
   await page.goto('/home/linky');
   const linky = page.locator('main');
   await expect(linky).toContainText('Simulateur');

@@ -1,5 +1,5 @@
-<!-- A radiator in Pièces et appareils (direction-2 §4, UX batch 10): a 56 px row, the name (14/600) over
-     « HEKLA P · 1 500 W · Joignable » (« Hors ligne depuis 14:32 » muted), its actions in one « ⋯ » Menu
+<!-- A radiator in Pièces et appareils (Tableau §4, mockups 5): a 56 px row, the radiator glyph (a plug when
+     offline, faint), the name (14/600) over « HEKLA P · 1 500 W · Joignable » (« Hors ligne depuis 14:32 » muted), its actions in one « ⋯ » Menu
      (`items`, built by the page: Renommer, Déplacer vers…, Faire clignoter when capable, Voir les appareils).
      « Voir les appareils » opens the sub-device list (DeviceRow, raw states in its own details) below the row.
      A setup write in flight draws the shared dashed edge; the rename form (`children`) sits under the row. -->
@@ -12,6 +12,7 @@
   import Menu, { type MenuItem } from '../Menu.svelte';
   import PendingEdge from '../PendingEdge.svelte';
   import SupportChip from '../SupportChip.svelte';
+  import Icon from '../Icon.svelte';
   import DeviceRow from './DeviceRow.svelte';
 
   interface Props {
@@ -62,6 +63,7 @@
 <li class="radiator">
   <div class="top">
     <PendingEdge pending={pending?.status === 'sending' || pending?.status === 'pending'} confirmed={pending?.status === 'confirmed'} />
+    <span class="glyph" class:off={reachable === false} aria-hidden="true"><Icon name={reachable === false ? 'plug-off' : 'rad'} size={18} /></span>
     <div class="who">
       <span class="name">{name} <SupportChip support={radiator.support} /></span>
       {#if line}<span class="line" class:off={reachable === false}>{line}</span>{/if}
@@ -87,13 +89,21 @@
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    gap: 12px;
     min-height: 56px;
     padding: 6px 0;
   }
+  .glyph {
+    display: grid;
+    flex: none;
+    color: var(--mu);
+  }
+  .glyph.off {
+    color: var(--fa);
+  }
   .who {
     display: grid;
+    flex: 1;
     gap: 1px;
     min-width: 0;
   }
@@ -103,7 +113,7 @@
     overflow-wrap: anywhere;
   }
   .line {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--mu);
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;

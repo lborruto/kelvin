@@ -8,7 +8,9 @@
     | 'flame' | 'trash' | 'arrow-right' | 'list' | 'sync'
     // Tableau (spec §2–3): the nav, the tiles and the summary chips
     | 'home' | 'cal' | 'chart' | 'gear' | 'bolt' | 'rad' | 'resume' | 'euro' | 'tag' | 'clock' | 'user' | 'globe'
-    | 'box' | 'key' | 'shield' | 'chevron-down' | 'grid';
+    | 'box' | 'key' | 'shield' | 'chevron-down' | 'grid'
+    // Réglages (Tableau settings batch)
+    | 'meter';
 </script>
 
 <script lang="ts">
@@ -73,7 +75,9 @@
     key: 'M14 4a6 6 0 1 1-3.9 10.6L4 20.7V17h3v-3h3l.1-.1A6 6 0 0 1 14 4zM16 8h.01',
     shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
     'chevron-down': 'M6 9l6 6 6-6',
-    grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'
+    grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    // The Linky meter: a box with its display and a line (Réglages overview).
+    meter: 'M6 3h12v18H6zM9 6.5h6v4H9zM9 14.5h6M9 17.5h3'
   };
 </script>
 

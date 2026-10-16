@@ -1,3 +1,9 @@
+<!-- Connexion (Tableau §4 « Login », mockups 7): outside the shell, one 360 px column: the mark, « Connexion », the
+     lead, « Serveur : Sauter Cozytouch · Changer » (the choice only before a home is claimed; afterwards the
+     locked line), Email, Mot de passe with the eye button (aria-pressed; reset to hidden on every submit; only
+     the input's type changes, for password managers), the error in two parts, Se connecter, the forgotten-password
+     note, FR | EN. The security behaviour is unchanged: server list before any send, throttle answers shown as
+     errors, the server sent only on a first login. -->
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -167,14 +173,14 @@
           aria-describedby={error && invalid !== 'email' ? 'login-error' : undefined} />
         <!-- A toggle: its name stays « Afficher le mot de passe », aria-pressed says whether it is shown. -->
         <!-- Named by its own (hidden) text, not aria-label: a lookup of the field by « Mot de passe » finds the field alone. -->
-        <button type="button" class="btn btn-icon reveal" aria-pressed={revealed} aria-controls="login-password"
+        <button type="button" class="reveal" aria-pressed={revealed} aria-controls="login-password"
           onclick={() => (revealed = !revealed)}>
           <Icon name={revealed ? 'eye-off' : 'eye'} size={18} />
           <span class="visually-hidden">{m.login.show}</span>
         </button>
       </div>
     </div>
-    {#if error}<p class="error" id="login-error" role="alert">{error()}</p>{/if}
+    {#if error}<p class="error" id="login-error" role="alert"><Icon name="alert" size={16} /><span>{error()}</span></p>{/if}
     <!-- aria-disabled while busy: the focused button keeps focus through the round trip. -->
     <button type="submit" class="btn btn-primary btn-lg" aria-disabled={busy || !ready}>{busy ? m.login.busy : m.login.submit}</button>
 
@@ -210,22 +216,26 @@
   }
   .brand {
     display: flex;
-    margin-bottom: 6px;
+    margin-bottom: 14px;
   }
   .head {
     display: grid;
     gap: 6px;
   }
   h1 {
-    font-size: 22px;
-    line-height: 28px;
-    letter-spacing: -0.01em;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 36px;
+    letter-spacing: -0.025em;
     margin: 0;
   }
   .lead {
-    font-size: 13px;
-    line-height: 18px;
+    font-size: 14px;
+    line-height: 20px;
     margin: 0;
+  }
+  .head {
+    gap: 4px;
   }
   .note {
     font-size: 13px;
@@ -246,7 +256,7 @@
     min-width: 0;
     height: 20px;
     margin: 0;
-    font-size: 13px;
+    font-size: 13.5px;
     line-height: 20px;
     white-space: nowrap;
   }
@@ -309,26 +319,46 @@
   }
   .field {
     display: grid;
-    gap: 4px;
-    font-size: 12px;
+    gap: 6px;
+    font-size: 13px;
     color: var(--mu);
+  }
+  .field input {
+    min-height: var(--ctl-h-lg);
+    padding: 0 14px;
   }
   .pw {
     position: relative;
     display: grid;
   }
   .pw input {
-    padding-right: calc(var(--ctl-h) + 2px);
+    padding-right: 48px;
   }
   /* The browser's own reveal (Edge) would sit beside ours. */
   .pw input::-ms-reveal {
     display: none;
   }
+  /* The eye: a 34 px s3 disc inside the field's right end, a 44 px hit area. */
   .reveal {
     position: absolute;
-    top: 0;
-    right: 0;
-    border-radius: 0 var(--ctl-radius) var(--ctl-radius) 0;
+    top: 5px;
+    right: 5px;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--s3);
+    color: var(--mu);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .reveal::before {
+    content: '';
+    position: absolute;
+    inset: -5px;
   }
   .reveal[aria-pressed='true'] {
     color: var(--tx);
@@ -338,8 +368,17 @@
   }
   .error {
     color: var(--bad);
-    font-size: 13px;
+    font-size: 13.5px;
     margin: 0;
+  }
+  p.error {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  p.error :global(svg) {
+    flex: none;
+    margin-top: 1px;
   }
   .fine {
     display: grid;
@@ -355,6 +394,6 @@
   .lang {
     display: flex;
     justify-content: center;
-    margin-top: 8px;
+    margin-top: 10px;
   }
 </style>
