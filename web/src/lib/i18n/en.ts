@@ -259,7 +259,6 @@ export const en: Messages = {
     saturday: 'Saturday',
     sunday: 'Sunday'
   },
-  daysShort: { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' },
   daysAbbr: { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' },
   daysLetter: { monday: 'M', tuesday: 'T', wednesday: 'W', thursday: 'T', friday: 'F', saturday: 'S', sunday: 'S' },
   program: {
@@ -865,7 +864,6 @@ export const en: Messages = {
     allGood: 'All good',
     stateAlerts: (n: number) => `${int(n)} ${plural(n, { one: 'alert', other: 'alerts' })}`,
     stateAway: (t: string) => `Away until ${t}`,
-    kind: { boost: 'Boost', away: 'Away' },
     restoring: 'Restoring…',
     cardDevices: (rooms: number, radiators: number) =>
       `${int(rooms)} ${plural(rooms, { one: 'room', other: 'rooms' })} · ${int(radiators)} ${plural(radiators, { one: 'radiator', other: 'radiators' })}`,

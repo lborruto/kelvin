@@ -147,7 +147,6 @@ export const DYNAMIC = [
   'level',
   'nav',
   'days',
-  'daysShort',
   // Programme (Tableau batch): the agenda's headers and copy chips read by day key
   'daysAbbr',
   'daysLetter',
@@ -167,7 +166,6 @@ export const DYNAMIC = [
   'tariff.options',
   'tariff.rate',
   'tariff.rateShort',
-  'home.kind',
   // UX foundation: read by index (m.prov.natures[nature])
   'prov.natures'
 ];
@@ -188,6 +186,13 @@ describe('the web source (strict)', () => {
   it('reads every dictionary key somewhere', () => {
     const corpus = files.filter((f) => !/lib\/i18n\/(fr|en)\.ts$/.test(f)).map((f) => readFileSync(f, 'utf8')).join('\n');
     expect(unusedKeys(flattenKeys(fr), corpus, DYNAMIC)).toEqual([]);
+  });
+  it('every dynamic parent exists and is read somewhere', () => {
+    const corpus = files.filter((f) => !/lib\/i18n\/(fr|en)\.ts$/.test(f)).map((f) => readFileSync(f, 'utf8')).join('\n');
+    const keys = flattenKeys(fr);
+    const missing = DYNAMIC.filter((d) => !keys.some((k: string) => k === d || k.startsWith(`${d}.`)));
+    const unread = DYNAMIC.filter((d) => !corpus.includes(`m.${d}`));
+    expect({ missing, unread }).toEqual({ missing: [], unread: [] });
   });
   it('never resolves a message at module scope', () => {
     // Same targets as the CLI: the dictionaries and the i18n core are the place messages are defined.

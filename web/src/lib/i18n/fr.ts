@@ -270,7 +270,6 @@ export const fr = {
     saturday: 'Samedi',
     sunday: 'Dimanche'
   },
-  daysShort: { monday: 'Lun', tuesday: 'Mar', wednesday: 'Mer', thursday: 'Jeu', friday: 'Ven', saturday: 'Sam', sunday: 'Dim' },
   /** Programme calendar headers and copy chips (« lun. »), and the phone calendar's letters (« L »). */
   daysAbbr: { monday: 'lun.', tuesday: 'mar.', wednesday: 'mer.', thursday: 'jeu.', friday: 'ven.', saturday: 'sam.', sunday: 'dim.' },
   daysLetter: { monday: 'L', tuesday: 'M', wednesday: 'M', thursday: 'J', friday: 'V', saturday: 'S', sunday: 'D' },
@@ -900,7 +899,6 @@ export const fr = {
     allGood: 'Tout va bien',
     stateAlerts: (n: number) => `${int(n)} ${plural(n, { one: 'alerte', other: 'alertes' })}`,
     stateAway: (t: string) => `Absence jusqu’à ${t}`,
-    kind: { boost: 'Chauffe temporaire', away: 'Absence' },
     restoring: 'Rétablissement en cours…',
     cardDevices: (rooms: number, radiators: number) =>
       `${int(rooms)} ${plural(rooms, { one: 'pièce', other: 'pièces' })} · ${int(radiators)} ${plural(radiators, { one: 'radiateur', other: 'radiateurs' })}`,

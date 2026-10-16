@@ -16,14 +16,12 @@
     icon?: IconName;
     /** `home-<section>`: the title travels into the sub-page h1 (view transition). */
     vt?: string;
-    /** A mark before the summary (a Freshness ring). */
-    mark?: Snippet;
     /** Further lines of the card form (hidden in the list form). */
     children?: Snippet;
     /** The SourceLine (or the tariff band) at the bottom of the card form. */
     foot?: Snippet;
   }
-  let { href, title, summary, icon, vt, mark, children, foot }: Props = $props();
+  let { href, title, summary, icon, vt, children, foot }: Props = $props();
 </script>
 
 <article class="hcard">
@@ -35,7 +33,7 @@
   {#if summary === null}
     <p class="sum"><span class="skeleton sk-line" aria-hidden="true"></span></p>
   {:else}
-    <p class="sum">{#if mark}<span class="mark">{@render mark()}</span>{/if}<span class="txt">{summary}</span></p>
+    <p class="sum"><span class="txt">{summary}</span></p>
     {#if children}<div class="more">{@render children()}</div>{/if}
     {#if foot}<div class="foot">{@render foot()}</div>{/if}
   {/if}
@@ -127,10 +125,6 @@
     width: 12rem;
     max-width: 100%;
     height: 13px;
-  }
-  .mark {
-    display: inline-flex;
-    flex: none;
   }
   .txt {
     min-width: 0;
