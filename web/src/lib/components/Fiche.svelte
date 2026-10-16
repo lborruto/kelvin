@@ -8,17 +8,22 @@
   const GAP = 8;
   const EDGE = 8;
 
-  /** Where the card goes: right of the trigger, else left of it, else clamped; top aligned, kept on screen. */
-  export function fichePlace(
-    anchor: { left: number; right: number; top: number; bottom: number },
-    card: { width: number; height: number },
-    view: { width: number; height: number }
-  ): { left: number; top: number } {
-    let left = anchor.right + GAP;
-    if (left + card.width > view.width - EDGE) left = anchor.left - GAP - card.width;
-    if (left < EDGE) left = Math.max(EDGE, Math.min(view.width - EDGE - card.width, anchor.left));
-    const top = Math.max(EDGE, Math.min(anchor.top - 6, view.height - EDGE - card.height));
-    return { left, top };
+  type Box = { left: number; right: number; top: number; bottom: number };
+  /** Where the card goes, in order: right of the trigger (top aligned), below it (right-aligned to it),
+   * above it, left of it; when none fits, below and clamped in the viewport. */
+  export function fichePlace(anchor: Box, card: { width: number; height: number }, view: { width: number; height: number }): { left: number; top: number } {
+    const clampX = (x: number) => Math.max(EDGE, Math.min(view.width - EDGE - card.width, x));
+    const clampY = (y: number) => Math.max(EDGE, Math.min(view.height - EDGE - card.height, y));
+    const right = anchor.right + GAP;
+    if (right + card.width <= view.width - EDGE) return { left: right, top: clampY(anchor.top - 6) };
+    const under = clampX(anchor.right - card.width);
+    const below = anchor.bottom + GAP;
+    if (below + card.height <= view.height - EDGE) return { left: under, top: below };
+    const above = anchor.top - GAP - card.height;
+    if (above >= EDGE) return { left: under, top: above };
+    const left = anchor.left - GAP - card.width;
+    if (left >= EDGE) return { left, top: clampY(anchor.top - 6) };
+    return { left: under, top: clampY(below) };
   }
 </script>
 
@@ -61,7 +66,6 @@
   }: Props = $props();
 
   let card = $state<HTMLDivElement>();
-  let closeBtn = $state<HTMLButtonElement>();
   let pos = $state({ left: -9999, top: 0 });
   let mode = $derived<'card' | 'sheet'>(desktop.matches ? 'card' : 'sheet');
 
@@ -73,6 +77,8 @@
 
   $effect(() => {
     if (!open || mode !== 'card' || !card) return;
+    // Placed again whenever the content (and so the card's height) changes.
+    void [title, rows, empty, notes, provenance, action, pinned];
     place();
     const on = () => place();
     addEventListener('scroll', on, true);
@@ -84,7 +90,8 @@
   });
 
   $effect(() => {
-    if (open && pinned && focusOnOpen && mode === 'card') void tick().then(() => closeBtn?.focus());
+    // Opened from the keyboard: focus goes to the card itself (a dialog to read), Esc brings it back.
+    if (open && pinned && focusOnOpen && mode === 'card') void tick().then(() => card?.focus());
   });
 
   // A pinned card closes on a press anywhere else (not on its trigger, which toggles it itself).
@@ -108,7 +115,7 @@
   /** Keyboard focus leaving the card closes it (focus is never stranded on a hidden card). */
   function onfocusout(e: FocusEvent) {
     const to = e.relatedTarget as Node | null;
-    if (to && !card?.contains(to) && !anchor?.contains(to)) onclose();
+    if (!to || (!card?.contains(to) && !anchor?.contains(to))) onclose();
   }
 </script>
 
@@ -134,7 +141,7 @@
       onpointerleave={() => onleave?.()}
       transition:fade|global={{ duration: dur(T.state) }}>
       {#if pinned}
-        <button bind:this={closeBtn} type="button" class="btn btn-icon x" aria-label={m.fiche.close}
+        <button type="button" class="btn btn-icon x" aria-label={m.fiche.close}
           onclick={() => { anchor?.focus(); onclose(); }}><Icon name="x" size={16} /></button>
       {/if}
       <FicheBody {title} titleId="{id}-title" {rows} {empty} {notes} {provenance} {action} />

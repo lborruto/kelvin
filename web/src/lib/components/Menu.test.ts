@@ -55,6 +55,26 @@ describe('Menu (desktop popover)', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
+  it('Tab closes the menu and gives focus back to the trigger, so Tab moves on from there', async () => {
+    render(Menu, { label: 'Actions pour Salon', items });
+    const trigger = screen.getByRole('button', { name: 'Actions pour Salon' });
+    await fireEvent.click(trigger);
+    await fireEvent.keyDown(screen.getAllByRole('menuitem')[0], { key: 'Tab' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('the default name follows the language', async () => {
+    const { applyLocale } = await import('$lib/i18n');
+    const { flushSync } = await import('svelte');
+    render(Menu, { items });
+    expect(screen.getByRole('button', { name: 'Plus d’actions' })).toBeInTheDocument();
+    applyLocale('en');
+    flushSync();
+    expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+    applyLocale('fr');
+  });
+
   it('a disabled item stays focusable, says why, and does nothing', async () => {
     render(Menu, { label: 'Actions pour Salon', items });
     await fireEvent.click(screen.getByRole('button', { name: 'Actions pour Salon' }));

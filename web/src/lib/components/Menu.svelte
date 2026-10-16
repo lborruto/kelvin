@@ -42,8 +42,10 @@
     footer?: string | null;
     class?: string;
   }
-  let { label = m.menu.more, items, text = null, icon = text ? undefined : 'more', footer = null, class: cls = '' }: Props = $props();
+  let { label, items, text = null, icon = text ? undefined : 'more', footer = null, class: cls = '' }: Props = $props();
   const uid = $props.id();
+  // The fallback name follows a language switch.
+  let name = $derived(label ?? m.menu.more);
 
   let open = $state(false);
   let trigger = $state<HTMLButtonElement>();
@@ -105,7 +107,11 @@
       e.preventDefault();
       e.stopPropagation();
       return hide();
-    } else if (e.key === 'Tab' && mode === 'popover') return hide(false);
+    } else if (e.key === 'Tab' && mode === 'popover') {
+      // Menu-button pattern: focus back on the trigger, then the browser's own Tab moves on from there
+      // (the popover is portalled to <body>, so Tab from inside it would leave the page).
+      return hide();
+    }
     if (next < 0) return;
     e.preventDefault();
     all[next]?.focus();
@@ -148,7 +154,7 @@
   id="{uid}-trigger"
   type="button"
   class="btn {text ? 'btn-ghost' : 'btn-icon edged'} trigger {cls}"
-  aria-label={text ? undefined : label}
+  aria-label={text ? undefined : name}
   aria-haspopup="menu"
   aria-expanded={open}
   aria-controls={open ? `${uid}-menu` : undefined}
@@ -165,7 +171,7 @@
     </div>
   {/if}
 {:else}
-  <ChoiceSheet title={label} {open} {trigger} onclose={() => (open = false)}>
+  <ChoiceSheet title={name} {open} {trigger} onclose={() => (open = false)}>
     <div id="{uid}-menu" class="in-sheet">{@render menu()}</div>
   </ChoiceSheet>
 {/if}

@@ -10,9 +10,9 @@
      Cozytouch unreachable and a refused password stay bad. Every message says how old the data is. -->
 <script lang="ts">
   import type { Status } from '$lib/api/types';
-  import { fmtTime } from '$lib/format';
   import { m } from '$lib/i18n';
   import { ROUTES } from '$lib/paths';
+  import { stamp } from '$lib/provenance';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -30,8 +30,9 @@
   }
   let { connection, status, now, offline = false, lostAt = null, dataAt = null, onretry = () => location.reload() }: Props = $props();
   let rejected = $derived(connection === 'open' && !!status.auth_rejected);
-  let time = $derived(dataAt != null ? fmtTime(dataAt) : null);
-  let lost = $derived(connection === 'reconnecting' && lostAt != null ? now - lostAt : 0);
+  let time = $derived(dataAt != null ? stamp(dataAt, now) : null);
+  // Any state but open counts once the stream was lost: a retry ('connecting') never resets the stages.
+  let lost = $derived(connection !== 'open' && lostAt != null ? now - lostAt : 0);
   let state = $derived.by((): { tone: 'neutral' | 'bad'; text: string; icon: 'wifi-off' | 'alert'; retry?: boolean } | null => {
     if (offline) return { tone: 'neutral', text: m.banner.offline(time), icon: 'wifi-off' };
     if (lost >= DOWN_MS) return { tone: 'bad', text: m.banner.kelvinDown(Math.floor(lost / 60_000), time), icon: 'alert', retry: true };
@@ -40,7 +41,7 @@
       return { tone: 'neutral', text: m.banner.reconnecting(time), icon: 'wifi-off' };
     if (rejected) return { tone: 'bad', text: m.banner.passwordChanged, icon: 'alert' };
     if (connection === 'open' && !status.connected) {
-      const text = status.last_ok_at ? m.banner.unreachableAt(fmtTime(status.last_ok_at * 1000)) : m.banner.unreachable;
+      const text = status.last_ok_at ? m.banner.unreachableAt(stamp(status.last_ok_at * 1000, now)) : m.banner.unreachable;
       return { tone: 'bad', text, icon: 'alert' };
     }
     return null;

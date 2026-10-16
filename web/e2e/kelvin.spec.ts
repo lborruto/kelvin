@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { dayShortFr, offlineSince, pinSameDay } from './offline';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -12,6 +13,7 @@ async function confirmed(page: Page) {
 const roomMode = (page: Page) => page.getByRole('radiogroup', { name: 'Mode de la pièce' });
 
 test('rooms load with temperatures and thermal strips', async ({ page, isMobile }) => {
+  const sinceText = await pinSameDay(page);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
   // Every card is a link to its room (the inspector on desktop, the room page on a phone).
@@ -23,12 +25,19 @@ test('rooms load with temperatures and thermal strips', async ({ page, isMobile 
   await expect(page.getByRole('heading', { name: 'Hors ligne · 1' })).toBeVisible();
   const offline = page.locator('article.card.off');
   await expect(offline).toHaveCount(1);
-  await expect(offline).toContainText(/Hors ligne depuis \d\d:\d\d/);
+  await expect(offline).toContainText(sinceText);
   await expect(offline).not.toContainText('°C');
   await expect(offline.locator('svg[role="img"]')).toHaveCount(0);
   expect(await page.locator('article.card .name').allTextContents()).toEqual(['Chambre 1', 'Salon', 'Chambre 2']);
   void isMobile;
 });
+test('an outage that began another day says its date (« depuis le 15 oct. »)', async ({ page }) => {
+  const since = await offlineSince(page);
+  await page.clock.setFixedTime(since + 24 * 3_600_000); // the next day, whatever the hour
+  await page.goto('/');
+  await expect(page.locator('article.card.off')).toContainText(`Hors ligne depuis le ${dayShortFr(since)}`);
+});
+
 
 test('a mode change shows pending then confirmed', async ({ page }) => {
   await page.goto('/rooms/p-ch1');
@@ -180,8 +189,10 @@ test('the toast live regions are rendered (not display: none) before any toast',
 test('"/" opens a default room in the inspector on desktop; a phone taps a card to its room page', async ({ page, isMobile }) => {
   await page.goto('/');
   if (isMobile) {
-    // No expansion in place: the card is a link, the room page starts with the controls.
-    await expect(page.locator('[aria-expanded]')).toHaveCount(0);
+    // No expansion in place: the card is a link, the room page starts with the controls. (Scoped to the
+    // cards: the grid strip's SourceLine, shown on the days the simulator's EcoWatt has a signal, is a Fig.)
+    await expect(page.locator('article.card')).toHaveCount(3);
+    await expect(page.locator('article.card [aria-expanded]')).toHaveCount(0);
     await page.getByRole('link', { name: /^Salon,/ }).click();
     await expect(page).toHaveURL(/\/rooms\/p-salon$/);
     await expect(page.getByRole('heading', { name: 'Salon', level: 1 })).toBeVisible();

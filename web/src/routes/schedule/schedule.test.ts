@@ -311,20 +311,27 @@ describe('/schedule: what the page says', () => {
   });
 
   it('« Copier vers… » copies the day onto the chosen days of the draft only; the copies pulse and are announced', async () => {
-    const say = vi.spyOn(announcer, 'say');
-    const { container } = render(Page);
-    await editMonday();
-    await fireEvent.click(screen.getByRole('button', { name: 'Copier vers…' }));
-    expect(screen.getByRole('dialog', { name: 'Copier lundi vers…' })).toBeInTheDocument();
-    expect(screen.queryByRole('checkbox', { name: 'Lundi' })).toBeNull(); // the source day
-    await fireEvent.click(screen.getByRole('button', { name: 'Jours de semaine' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Copier sur 4 jours' }));
-    expect(sendBar()).toHaveTextContent('5 jours modifiés');
-    expect(row('Vendredi')).toHaveAccessibleName(/^Vendredi, (aujourd’hui, )?07:00–09:00, 2\sh confort, modifié$/); // « aujourd’hui » on a Friday
-    expect(container.querySelector<HTMLElement>('[data-day="friday"] .bar')!.style.animationName).toMatch(/^kv-pulse/);
-    expect(container.querySelector<HTMLElement>('[data-day="saturday"] .bar')!.style.animationName).toBe('none');
-    expect(say).toHaveBeenCalledWith(expect.stringMatching(/^Copié sur 4 jours\./));
-    expect(api.roomProgram).not.toHaveBeenCalled();
+    // A Thursday: Friday's row is not « aujourd’hui » (its name would then carry the today tag).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-15T10:00:00Z')); // Thursday 12:00 in Paris
+    try {
+      const say = vi.spyOn(announcer, 'say');
+      const { container } = render(Page);
+      await editMonday();
+      await fireEvent.click(screen.getByRole('button', { name: 'Copier vers…' }));
+      expect(screen.getByRole('dialog', { name: 'Copier lundi vers…' })).toBeInTheDocument();
+      expect(screen.queryByRole('checkbox', { name: 'Lundi' })).toBeNull(); // the source day
+      await fireEvent.click(screen.getByRole('button', { name: 'Jours de semaine' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Copier sur 4 jours' }));
+      expect(sendBar()).toHaveTextContent('5 jours modifiés');
+      expect(row('Vendredi')).toHaveAccessibleName(/^Vendredi, 07:00–09:00, 2\sh confort, modifié$/);
+      expect(container.querySelector<HTMLElement>('[data-day="friday"] .bar')!.style.animationName).toMatch(/^kv-pulse/);
+      expect(container.querySelector<HTMLElement>('[data-day="saturday"] .bar')!.style.animationName).toBe('none');
+      expect(say).toHaveBeenCalledWith(expect.stringMatching(/^Copié sur 4 jours\./));
+      expect(api.roomProgram).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('a locked day can be viewed in the editor but never edited, and copies skip it', async () => {

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { pinSameDay } from './offline';
 
 // Plan 8 flows on the simulator (French, the default suite's locale).
 test.describe.configure({ mode: 'serial' });
@@ -140,8 +141,9 @@ test('sessions: sign out another device; it is asked to log in again', async ({ 
 
 test('an offline room: a calm notice in its panel, the alert in Home (neutral), which can be dismissed', async ({ page, isMobile }) => {
   test.skip(isMobile, 'dismissal is shared state: one project runs it');
+  const sinceText = await pinSameDay(page);
   await page.goto('/rooms/p-ch2');
-  await expect(page.getByText(/Hors ligne depuis \d\d:\d\d/).first()).toBeVisible(); // the status sentence
+  await expect(page.getByText(sinceText).first()).toBeVisible(); // the status sentence
   const notice = page.getByRole('status').filter({ hasText: 'Radiateur hors tension ou hors de portée' });
   await expect(notice).toContainText('Les commandes reprendront quand il sera rallumé.');
   // Not repeated as an alert in the room, and never red.
