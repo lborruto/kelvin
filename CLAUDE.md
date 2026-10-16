@@ -9,8 +9,10 @@ depends on.
 ## Where truth lives
 
 - `PRODUCT.md`: who it is for and the product principles.
-- `DESIGN.md`: the design system as built (tokens, components, copy rules in French and
-  English). It is the design reference; UI work follows it.
+- `DESIGN.md`: the design system as built (the « Tableau » tokens, shell, kit components, copy rules
+  in French and English). It is the design reference; UI work follows it. The kit's props and examples
+  for screen work: `.superpowers/sdd/tableau/kit-api.md`; every component in its states: `/kit` under
+  `npm run dev` (development only: a production build answers 404 and ships no gallery).
 - `docs/glossary.md`: the French ↔ English terms every English string follows; a new term goes
   there first. `docs/i18n-catalogue.md` is the design snapshot behind the dictionaries.
 - `docs/overkiz-notes.md`: Overkiz behaviour verified on real radiators (its « UNVERIFIED » section
@@ -243,10 +245,16 @@ depends on.
   (e2e checks both). Buttons use the global `.btn-*` classes. Svelte 5 transitions on an element
   that a parent mounts inside its own `{#if}` (ChartInspector) need `|global`, or they never play.
   `--tempo-*` tokens are used only by `TempoDot` (DESIGN « Tempo day chip »); `--hc` / `--hp` (Tariff
-  blues, HC always hatched) only through `SERIES` / `Swatch` on Énergie and the tariff, never a round
-  dot. Controls are painted at `--ctl-h` (36 px) with a 44 px hit area (`.hit` / the `.btn` `::before`)
-  and sized by the `--w-*` widths, never stretched.
-  Every route stays free of serious and critical axe violations in both themes (`e2e/a11y.spec.ts`,
+  blues, HC always hatched) only through `SERIES` / `Swatch` / `seriesBackground` on Énergie, the tariff and the
+  « Maintenant » card (`TariffBand`), never a round dot. Buttons are ink/s2 pills (`.btn` 40 px, `.btn-sm` 34, `.btn-lg` 52; the primary is ink, never
+  orange); fields and segments are painted at `--ctl-h` (36 px); every control keeps a 44 px hit area (`.hit` /
+  the `.btn` `::before`); short values are sized by the `--w-*` widths, never stretched.
+  **Tableau (owner decisions 2026-10-16):** one dark theme (no light theme, no « Thème », no
+  `prefers-color-scheme` path); « Maison » is the dashboard at `/` and « Réglages » is `/home` (URLs unchanged);
+  orange (`--heat`) only for heating, comfort blocks and a running chauffe temporaire; Tempo colours only when
+  the price row in force is Tempo; −/+ is the primary setpoint control and in Programme changes the level running
+  now (`$lib/setpoint` `primarySetpoint`).
+  Every route stays free of serious and critical axe violations (`e2e/a11y.spec.ts`,
   `@axe-core/playwright`); a new route joins it, `e2e/cls.spec.ts` and `e2e/screens.spec.ts`.
 - **Copy** (DESIGN « Copy (French and English) »): short and plain, household words before device words
   (Overkiz terms only in a Fiche or Détails), one term per concept from `docs/glossary.md` (glossary first),

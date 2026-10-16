@@ -29,7 +29,7 @@
   }
 </script>
 
-<div class="seg" class:block role="radiogroup" aria-label={label}>
+<div class="seg" data-kit="segmented" class:block role="radiogroup" aria-label={label}>
   {#each options as o, i (o.value)}
     <button
       bind:this={buttons[i]}
@@ -56,8 +56,6 @@
     padding: 2px;
     border-radius: var(--r-seg);
     background: var(--s2);
-    overflow-x: auto;
-    scrollbar-width: none;
   }
   .seg.block {
     display: flex;

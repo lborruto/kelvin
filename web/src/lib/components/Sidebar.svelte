@@ -180,6 +180,11 @@
   .room.off {
     color: var(--fa);
   }
+  /* Faint reads under 4.5:1 on s2: the current row's reading is muted. */
+  .nav[aria-current='page'] .t,
+  .room.off[aria-current='page'] {
+    color: var(--mu);
+  }
   .foot {
     display: grid;
     gap: 2px;

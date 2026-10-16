@@ -76,3 +76,29 @@ test('no sideways scroll at 320 px with a Fiche open', async ({ page, isMobile }
   await expect(page.getByRole('dialog')).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
+
+// Tableau §2: the sidebar (Maison, Programme, Énergie, PIÈCES with readings, Partir…, Réglages) and the tab bar.
+test('the Tableau shell: rooms in the sidebar, Partir… opens the Absence sheet; four tabs on a phone', async ({ page, isMobile }) => {
+  await page.goto('/');
+  await settled(page);
+  if (isMobile) {
+    const tabs = page.locator('.tabbar').getByRole('link');
+    await expect(tabs).toHaveText(['Maison', 'Programme', 'Énergie', 'Réglages']);
+    await expect(tabs.first()).toHaveAttribute('aria-current', 'page');
+    return;
+  }
+  const side = page.locator('.sidebar');
+  const rooms = side.getByRole('group', { name: 'Pièces' }).getByRole('link');
+  await expect(rooms.first()).toHaveAccessibleName(/°C/);
+  // Offline rooms come last, without a temperature.
+  await expect(rooms.last()).toHaveAccessibleName(/hors ligne$/);
+  await rooms.first().click();
+  await expect(page).toHaveURL(/\/rooms\//);
+  await expect(rooms.first()).toHaveAttribute('aria-current', 'page');
+  await expect(side.getByRole('link', { name: 'Maison' })).not.toHaveAttribute('aria-current');
+  await side.getByRole('button', { name: 'Partir…' }).click();
+  await expect(page.getByRole('dialog', { name: 'Partir en absence' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(side.getByRole('button', { name: 'Partir…' })).toBeFocused();
+  await expect(side.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/home');
+});

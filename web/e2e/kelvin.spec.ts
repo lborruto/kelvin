@@ -159,7 +159,8 @@ test('desktop shows the sidebar and the inspector with every radiator', async ({
 test('desktop: choosing a room card keeps keyboard focus on it and marks it current', async ({ page, isMobile }) => {
   test.skip(isMobile, 'desktop layout only');
   await page.goto('/');
-  const card = page.getByRole('link', { name: /^Salon/ });
+  // The room card in the page (the sidebar has its own « Salon » row).
+  const card = page.getByRole('main').getByRole('link', { name: /^Salon/ });
   await card.focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/rooms\/p-salon$/);

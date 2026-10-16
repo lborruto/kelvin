@@ -164,6 +164,8 @@
 }
 html {
   background: var(--ground);
+  /* The rem the --w-* widths are written in. */
+  font-size: 15px;
 }
 body {
   margin: 0;
