@@ -35,7 +35,7 @@
   import { roomActivity, roomEnergy, roomsDuty } from '$lib/stores/roomdata.svelte';
   import { addParisDays, parisMidnight, parisMinuteOfDay, parisParts } from '$lib/time';
   import { parisTodayIso } from '$lib/format';
-  import DayBar from '../dashboard/DayBar.svelte';
+  import DayBar from '../DayBar.svelte';
   import Fig from '../Fig.svelte';
   import Icon from '../Icon.svelte';
   import Menu from '../Menu.svelte';

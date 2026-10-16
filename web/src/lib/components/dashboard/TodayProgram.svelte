@@ -11,7 +11,7 @@
   import { house } from '$lib/stores/house.svelte';
   import { parisMinuteOfDay } from '$lib/time';
   import { capsOf } from '$lib/capabilities';
-  import DayBar from './DayBar.svelte';
+  import DayBar from '../DayBar.svelte';
   import Icon from '../Icon.svelte';
 
   interface Props {
@@ -67,7 +67,7 @@
         {#each rows as r (r.room.id)}
           <div class="drow">
             <span class="n" class:faint={r.offline}>{r.name}</span>
-            <DayBar segs={r.segs} label={r.label} ghost={r.ghost} now={r.offline ? null : minute} times />
+            <DayBar segs={r.segs} label={r.label} ghost={r.ghost} now={r.offline ? null : minute} times height={22} />
             <span class="note">{r.note}</span>
           </div>
         {/each}

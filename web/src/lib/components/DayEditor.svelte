@@ -13,7 +13,7 @@
   import CopyDays from './CopyDays.svelte';
   import Icon from './Icon.svelte';
   import Notice from './Notice.svelte';
-  import ProgramDay from './ProgramDay.svelte';
+  import DayBar from './DayBar.svelte';
 
   interface Props {
     day: Day;
@@ -101,7 +101,7 @@
   {@render below?.()}
 
   <div class="barwrap">
-    <ProgramDay {day} {segs} nowMinute={day === today ? nowMinute : null} {pending} {locked} step={6} height={compact ? 44 : 40} {onchange} />
+    <DayBar {day} {segs} now={day === today ? nowMinute : null} {pending} {locked} step={6} height={compact ? 44 : 40} {onchange} />
   </div>
 
   {#if locked}

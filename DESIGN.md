@@ -268,6 +268,14 @@ light blue, HP solid dark blue, a 3 px ink now marker with the time above, 00–
 « Heures creuses 22:00–06:00 »); Tempo: « Demain ● Blanc · pleines … · creuses … ». Base: « Prix unique … »
 with no band. No tariff: one line and « Renseigner le tarif ».
 
+### DayBar (`DayBar.svelte`, the one day bar)
+A day of programme on one line, the same component everywhere: the `--in` well with its field edge (radius 10 at
+40 px, less on a shorter bar), gridlines every 3 h, comfort periods as heat blocks at 80 % (decision 2; Éco is the
+empty well), the 2 px ink now marker. **Read-only** (Maison's « Programme d’aujourd’hui » 18–22 px, the room sheet
+14–26 px): one `role="img"` named by `label` (« Salon : confort 17:00–23:00 »); `ghost` dims the blocks to 38 %
+(programme paused, offline « dernier connu »), `times` writes a wide block's hours inside it in heat ink, `ticks`
+adds 00 · 06 · 12 · 18 · 24. **Editable** (`day` + `onchange`, Programme's DayEditor, 40 / 44 px): see « Programme ».
+
 ### Charts in tiles
 - **MiniBars:** one bar per value; HC hatched base + HP above with `parts`, else one series (`home`, or
   `radiators` grey); a missing value is a 3 px stub, never a zero bar; `estimate` dashes the last bar's expected
@@ -406,7 +414,7 @@ The week as an agenda, the day as a form; nothing is sent before « Envoyer ».
   pour l’éditer. » and each locked day's reason (`data-lock`). An offline room's agenda is read-only (no buttons, sentences
   as hidden text) beside a neutral Notice (plug-off).
 - **DayEditor** (desktop: s1 widget beside the agenda, `1fr | clamp(340px, 32 %, 410px)`, sticky): round s2 « ‹ › » around the
-  day (h2 20/700), then a reserved 13 px line « Chambre 1 · aujourd’hui · ● modifié ». The ProgramDay bar (40 px; 44 on a phone;
+  day (h2 20/700), then a reserved 13 px line « Chambre 1 · aujourd’hui · ● modifié ». The editable DayBar (40 px; 44 on a phone;
   --in well, field edge, 10 px; heat 80 % blocks with times in heat ink; the block being adjusted keeps two 5 × 18 ink handles
   and an ink edge; a drag shows the time bubble above, leaning inwards near the ends; labels 00 · 06 · 12 · 18 · 24, gridlines
   every 3 h). « PLAGES CONFORT · N SUR 3 » over a grouped list of rows « ■ Plage 1 [06:00] › [07:30] (×) » (36 px s2 time pills,
