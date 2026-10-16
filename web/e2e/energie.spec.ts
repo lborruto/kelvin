@@ -66,8 +66,12 @@ async function exportItem(page: Page, name: string | RegExp): Promise<Locator> {
 }
 /** The hero Fiche's row values (desktop card or phone sheet), read then closed. */
 async function heroRows(page: Page): Promise<Record<string, string>> {
-  await page.locator('.hero .fig').first().click();
-  const box = page.locator('.fiche, dialog[open]').filter({ visible: true }).first();
+  // The hero's own Fiche (by its aria-controls): a hover Fiche elsewhere (the pointer left on the source line) is not it.
+  await page.mouse.move(0, 0);
+  const fig = page.locator('.hero .fig').first();
+  await fig.click();
+  const id = await fig.getAttribute('aria-controls');
+  const box = id ? page.locator(`[id="${id}"]`) : page.locator('dialog[open]').filter({ visible: true }).first();
   await expect(box.locator('.row').first()).toBeVisible();
   const rows = await box.locator('.row').evaluateAll((els) =>
     Object.fromEntries(els.map((e) => [e.querySelector('dt')!.textContent!, e.querySelector('dd')!.firstChild?.textContent ?? '']))
@@ -483,8 +487,23 @@ test.describe('Énergie', () => {
     await page.goto('/energy');
     await settled(page);
     expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(1800);
-    await page.getByRole('link', { name: /^Chauffage, / }).click();
-    await expect(page.locator('#energy-where')).toBeInViewport();
+    // Each key figure lands its section's heading fully below the condensed period bar (nested cards included).
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
+      for (const link of await page.locator('.hero .keys a').all()) {
+        const id = (await link.getAttribute('href'))!.slice(1);
+        await page.evaluate(() => scrollTo(0, 0));
+        await link.click();
+        const bar = page.getByTestId('period-bar');
+        await expect(bar).toHaveClass(/shown/);
+        await page.waitForTimeout(400);
+        const heading = page.locator(`[id="${id}"]`).locator('h2, h3').first();
+        const h = (await heading.boundingBox())!;
+        const b = (await bar.boundingBox())!;
+        expect(h.y, `#${id} heading below the bar at ${width} px`).toBeGreaterThanOrEqual(b.y + b.height);
+      }
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
     const analysis = page.locator('.analysis');
     for (const b of await analysis.locator('.dbtn').all()) await expect(b).toHaveAttribute('aria-expanded', 'false');
   });

@@ -97,6 +97,14 @@
 
   let loaded = $derived(data.data);
   let main = $derived(loaded?.main ?? null);
+  // Another view: Mois and Année start with the Courbe collapsed (a drill opens it again).
+  let curveView: View | null = null;
+  $effect.pre(() => {
+    const v = loaded?.view ?? null;
+    if (v === curveView) return;
+    curveView = v;
+    curveOpen = false;
+  });
   let chart = $derived(loaded?.chart ?? null);
   // The report renders with the Linky line as soon as both answers are in, so nothing above it
   // moves (no CLS). It never waits on the live stream.
@@ -683,8 +691,8 @@
       grid-column: auto;
     }
   }
-  /* A key figure's link lands its section clear of the condensed period bar. */
-  .panels > :global([id]) {
+  /* A key figure's link lands its section clear of the condensed period bar (nested cards included). */
+  .cq :global([id]) {
     scroll-margin-top: 60px;
   }
   /* The Résumé's first-load shape: its figure, range, bar and sentence (and the key figures beside or under it). */

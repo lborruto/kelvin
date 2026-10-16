@@ -519,6 +519,15 @@ describe('Énergie', () => {
     expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
   });
 
+  it('the Courbe starts collapsed in each view that collapses it, even after it was opened in another', async () => {
+    render(Page);
+    await openCurve();
+    expect(document.getElementById('curve-title')).toHaveAttribute('aria-expanded', 'true');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Année' }));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: '2026' })).toBeInTheDocument());
+    await waitFor(() => expect(document.getElementById('curve-title')).toHaveAttribute('aria-expanded', 'false'));
+  });
+
   it('the Courbe readout at rest is the whole day, the bar’s figures, under « Journée »; scrubbing shows the half-hour', async () => {
     const { container } = render(Page);
     await fireEvent.click(await screen.findByRole('radio', { name: 'Jour' }));

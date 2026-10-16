@@ -6,7 +6,7 @@
      under the rooms (`children`), and opening a room selects it there. Figures are `roomEnergy`'s, unchanged. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { ByRadiator, Heating, RadiatorSum } from '$lib/api/types';
+  import type { ByRadiator, Heating, Radiator, RadiatorSum } from '$lib/api/types';
   import { SERIES, spanLabel, type Span } from '$lib/energy';
   import { fmtDateLong, fmtEurExact, fmtHours, fmtKwh, fmtKwhExact, fmtPct, fmtPct1, fmtTemp } from '$lib/format';
   import { m } from '$lib/i18n';
@@ -65,6 +65,21 @@
   let anyEst = $derived(list.some((r) => r.est || r.radiators.some((x) => x.est)));
   let heatingMark = $derived(linky && radiators?.coverage != null && radiators.coverage < 1 ? (SUP[marks.size] ?? '*') : null);
 
+  // Every house radiator's lifetime counter is reachable (as the old « Compteurs » table): those the period does not
+  // count sit in their current room's row (unplaced ones in « Sans pièce », or a line of their own after the list).
+  let extras = $derived.by(() => {
+    const counted = new Set(rows.map((r) => r.radiator_id));
+    const roomIds = new Set(house.rooms.map((r) => r.id));
+    const out = new Map<string, Radiator[]>();
+    for (const x of Object.values(house.radiators)) {
+      if (counted.has(x.id) || !x.energy_wh) continue;
+      const id = x.room_id && roomIds.has(x.room_id) ? x.room_id : NO_ROOM;
+      out.set(id, [...(out.get(id) ?? []), x]);
+    }
+    return out;
+  });
+  let unplaced = $derived(list.some((r) => r.id === NO_ROOM) ? [] : (extras.get(NO_ROOM) ?? []));
+
   let open = $state<Record<string, boolean>>({});
   function toggle(id: string) {
     open[id] = !open[id];
@@ -86,6 +101,31 @@
     return house.radiators[id]?.energy_wh ?? null;
   }
 </script>
+
+{#snippet lifeFig(name: string, life: { total: number; t1: number | null; t2: number | null })}
+  <p class="life">
+    <Fig value={m.energyUi.lifetime(fmtKwh(life.total / 1000))} title={m.energyUi.lifetimeTitle(name)}
+      rows={[
+        { label: m.energyUi.lifetimeTotal, value: fmtKwh(life.total / 1000) },
+        { label: m.energyUi.register1, value: fmtKwh(life.t1 != null ? life.t1 / 1000 : null), sub: true },
+        { label: m.energyUi.register2, value: fmtKwh(life.t2 != null ? life.t2 / 1000 : null), sub: true }
+      ]}
+      notes={[m.energyUi.registersNote]}
+      provenance={provenance('radiator-meter', { name })} />
+  </p>
+{/snippet}
+
+{#snippet others(list: Radiator[])}
+  <!-- House radiators the period does not count (no reading in it): their lifetime counters all the same. -->
+  <ul class="rads">
+    {#each list as x (x.id)}
+      <li>
+        <div class="rhead"><span class="rname">{x.name}{#if x.model}<span class="model">{x.model}</span>{/if}</span><span class="num">—</span></div>
+        {@render lifeFig(x.name, x.energy_wh!)}
+      </li>
+    {/each}
+  </ul>
+{/snippet}
 
 {#snippet facts(f: Figures)}
   <dl class="facts">
@@ -123,7 +163,7 @@
       {/if}
       <p class="muted cost num">
         {#if !radiators}{m.heatingPanel.noCost}
-        {:else if radiators.eur == null}{m.heatingPanel.noTariff}
+        {:else if radiators.eur == null}{m.heatingPanel.noTariff}{#if heatingMark}{' · '}{m.energyUi.partialShort}<sup>{heatingMark}</sup>{/if}
         {:else}{m.energyUi.heatingCost}{' '}<Fig
             value={m.projection.approx(fmtEurExact(radiators.eur))}
             label={m.energyUi.heatingCostName(fmtEurExact(radiators.eur))}
@@ -188,22 +228,12 @@
                     </div>
                     {#if x.partial}<p class="why">{x.partial}</p>{/if}
                     {#if x.statsWhy}<p class="why">{m.roomsEnergy.statsWhy(x.statsWhy)}</p>{/if}
-                    {#if life}
-                      <p class="life">
-                        <Fig value={m.energyUi.lifetime(fmtKwh(life.total / 1000))} title={m.energyUi.lifetimeTitle(x.name)}
-                          rows={[
-                            { label: m.energyUi.lifetimeTotal, value: fmtKwh(life.total / 1000) },
-                            { label: m.energyUi.register1, value: fmtKwh(life.t1 != null ? life.t1 / 1000 : null), sub: true },
-                            { label: m.energyUi.register2, value: fmtKwh(life.t2 != null ? life.t2 / 1000 : null), sub: true }
-                          ]}
-                          notes={[m.energyUi.registersNote]}
-                          provenance={provenance('radiator-meter', { name: x.name })} />
-                      </p>
-                    {/if}
+                    {#if life}{@render lifeFig(x.name, life)}{/if}
                   </li>
                 {/each}
               </ul>
             {/if}
+            {#if extras.get(r.id)?.length}{@render others(extras.get(r.id)!)}{/if}
             <p class="why">{m.roomsEnergy.hoursNote}</p>
           </div>
         </li>
@@ -220,6 +250,7 @@
         {#if anyEst}<li>{m.roomsEnergy.estNote}</li>{/if}
       </ul>
     {/if}
+    {#if unplaced.length}<div class="unplaced"><p class="why">{m.roomEnergy.noRoom}</p>{@render others(unplaced)}</div>{/if}
     <p class="foot placement">{m.devices.byCurrentPlacement}</p>
   {/if}
 
@@ -451,6 +482,9 @@
   }
   .foot li + li {
     margin-top: 2px;
+  }
+  .unplaced {
+    margin-top: 10px;
   }
   .placement {
     margin-top: 6px;

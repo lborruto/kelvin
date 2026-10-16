@@ -82,6 +82,30 @@ describe('EnergyWhere: the heating share', () => {
     expect(text(running.container)).toContain('Radiateurs mesurés sur 75,0 % des jours (jusqu’à hier) : somme partielle.');
   });
 
+  it('without a tariff a partial sum still carries its mark beside the cost line, never an orphan footnote', () => {
+    const { container } = render(EnergyWhere, base({ tariff: false, radiators: { ...rad, eur: null, coverage: 0.75 }, rows: [row('a', 'salon')] }));
+    expect(container.querySelector('.cost')).toHaveTextContent('Coût du chauffage — (pas de tarif renseigné) · partiel¹');
+    expect(container.querySelector('.foot')).toHaveTextContent('¹ Radiateurs mesurés sur 75,0 % des jours');
+  });
+
+  it('every house radiator keeps its lifetime counter, also those the period does not count', async () => {
+    snapshot(
+      [{ id: 'salon', name: 'Salon', radiator_ids: ['a', 'b'] }],
+      [
+        { id: 'a', room_id: 'salon', name: 'Fenêtre', model: 'HEKLA P', energy_wh: { total: 2_400_000, t1: 1_000_000, t2: 1_400_000 } },
+        { id: 'b', room_id: 'salon', name: 'Porte', model: 'IPALA H', energy_wh: { total: 900_000, t1: null, t2: 900_000 } },
+        { id: 'z', room_id: 'gone', name: 'Garage', model: null, energy_wh: { total: 50_000, t1: 20_000, t2: 30_000 } }
+      ]
+    );
+    const { container } = render(EnergyWhere, base({ rows: [row('a', 'salon')] }));
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.rooms button.name')!);
+    // Porte has no figure in the period: it still lists its counter, its kWh « — ».
+    expect(screen.getByRole('button', { name: /^depuis l’installation 900\skWh, détails$/ })).toBeInTheDocument();
+    // Garage's room is gone and no « Sans pièce » row exists: its counter sits after the list.
+    expect(container.querySelector('.unplaced')).toHaveTextContent('Sans pièce');
+    expect(screen.getByRole('button', { name: /^depuis l’installation 50(,0)?\skWh, détails$/ })).toBeInTheDocument();
+  });
+
   it('a running period says its radiators count up to yesterday; without a tariff the cost says why', () => {
     const { container, unmount } = render(EnergyWhere, base({ running: true, rows: [row('a', 'salon')] }));
     expect(text(container)).toContain('Période en cours : radiateurs comptés jusqu’à hier.');
