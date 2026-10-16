@@ -91,8 +91,8 @@ test('switching to Tempo: six prices prefilled with their source, then the day c
   await expect(strip(page).locator('.dot').first()).toBeVisible();
   await page.goto('/energy');
   // Tempo in force: the six colours take the split's place on the board (« Jours Tempo »), dots under the day bars.
-  const tempo = page.locator('section', { has: page.getByRole('heading', { name: 'Jours Tempo' }) });
-  await expect(tempo.getByText(/Jours rouges : \d+/)).toBeVisible();
+  const tempo = page.getByRole('region', { name: 'Jours Tempo' });
+  await expect(tempo.getByText(/Jours rouges\s:\s\d+/)).toBeVisible();
   await expect(tempo.getByRole('table', { name: 'Énergie par couleur Tempo' })).toBeVisible();
   await expect(page.locator('.bars-w .dots .dot').first()).toBeVisible();
 });

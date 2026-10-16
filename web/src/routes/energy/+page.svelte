@@ -605,10 +605,15 @@
     display: none;
   }
   @media (min-width: 1024px) {
+    /* Two rows while the content column is narrow (title and « Exporter », then the views and the period)… */
     .top {
-      grid-template-columns: minmax(0, 1fr) auto auto auto;
-      grid-template-areas: 'title views nav export';
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas: 'title export' 'views nav';
       gap: 8px 16px;
+    }
+    /* « Exporter » arrives with the report: its place is held so nothing beside it moves. */
+    .export {
+      min-width: 128px;
     }
     .views :global(.seg) {
       display: inline-flex;
@@ -626,6 +631,13 @@
     }
     .phone {
       display: none;
+    }
+  }
+  /* …one row once it has room for all four. */
+  @media (min-width: 1280px) {
+    .top {
+      grid-template-columns: minmax(0, 1fr) auto auto auto;
+      grid-template-areas: 'title views nav export';
     }
   }
   .nav-sk {
@@ -748,8 +760,9 @@
     color: var(--mu);
     margin: 0 0 8px;
   }
-  /* The Résumé first on a phone (the answer, then the evidence). */
-  .panels > :global(.hero) {
+  /* The Résumé first on a phone (the answer, then the evidence), its skeleton too. */
+  .panels > :global(.hero),
+  .panels > .hero-sk {
     order: -1;
   }
   .whead {
@@ -785,7 +798,8 @@
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 330px;
       gap: 16px;
     }
-    .panels > :global(.hero) {
+    .panels > :global(.hero),
+    .panels > .hero-sk {
       order: 0;
     }
     .panels > :global(.span2) {

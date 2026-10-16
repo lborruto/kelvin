@@ -47,6 +47,9 @@ test.describe('accessibility (axe)', () => {
       await settled(page);
       for (const view of ['Jour', 'Semaine', 'Année']) {
         await page.getByRole('radio', { name: view, exact: true }).click();
+        // The new view's report is in and the board is no longer dimmed (busy) before the scan.
+        await expect(page.locator('.panels')).toHaveAttribute('aria-busy', 'false');
+        await expect(page.locator('.panels.busy')).toHaveCount(0);
         await settled(page);
         expect(await violations(page), view).toEqual([]);
       }

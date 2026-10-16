@@ -102,7 +102,7 @@ test.describe('key flows in English', () => {
     await expect(page.getByRole('button', { name: /^€[\d,.]+, estimate, details$/ })).toBeVisible();
     // Month (the default view) draws day bars.
     await expect(page.getByRole('img', { name: 'Home consumption by day' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /^Load curve, / })).toBeVisible();
+    await expect(page.locator('#curve').getByRole('heading', { name: /^Load curve, / })).toBeVisible();
   });
 
   test('Energy: the CSV follows the UI language, its headers stay French (Decision 30)', async ({ page }) => {
