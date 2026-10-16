@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-// Plan 13: create a token in Maison › Compte, use it on /mcp, revoke it (French, the suite's locale).
+// Plan 13: create a token in Réglages › Compte, use it on /mcp, revoke it (French, the suite's locale).
 test.describe.configure({ mode: 'serial' });
 
 const INIT = {

@@ -61,7 +61,7 @@ test('Home › Settings: Language switches without a reload and is remembered', 
   expect(await page.evaluate(() => (window as unknown as { __kv: number }).__kv)).toBe(marker); // no reload
   expect(await page.evaluate(() => document.documentElement.lang)).toBe('fr');
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Réglages', level: 1 })).toBeVisible();
 });
 
 // The key flows in English (Plan 7, Task 18), from a stored choice on every navigation.
@@ -76,13 +76,13 @@ test.describe('key flows in English', () => {
     await expect(page.getByText('Confirmed').first()).toBeVisible();
   }
 
-  test('<html lang> is English, and the Rooms page reads in English', async ({ page }) => {
+  test('<html lang> is English, and the Home page reads in English', async ({ page }) => {
     await page.goto('/');
     expect(await page.evaluate(() => document.documentElement.lang)).toBe('en');
-    await expect(page.getByRole('heading', { name: 'Rooms', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();
     await expect(page.getByText(/^(No room|\d+ rooms?) heating · 1 offline/)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Offline · 1' })).toBeVisible();
-    await expect(page).toHaveTitle('Rooms · Kelvin');
+    await expect(page).toHaveTitle('Home · Kelvin');
   });
 
   test('a mode change shows Sending… then Confirmed', async ({ page }) => {

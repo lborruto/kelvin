@@ -13,7 +13,7 @@ The rows below supersede the matching rows further down (a snapshot, not edited 
 - Errors say what happened, then what to do: `error.*`, `pending.lost/unknownResult/unknownToast`, and the
   backend codes `bad_credentials`, `bad_credentials_server`, `cozytouch_unreachable`, `cozytouch_unavailable`,
   `quotas_unavailable`, `override_not_found`, `end_in_past`, `med_unreachable`, `linky_status_auth`
-  (« renouvelez-le dans Maison › Linky », “renew it in Home › Linky”; « Réglages » left the UI),
+  (« renouvelez-le dans Réglages › Linky », “renew it in Settings › Linky”; Tableau renamed `/home` « Réglages »),
   `setup_sync_spent`, `no_confirmation` (changed in `errors.py` and `fr.ts` together; `codes.test.ts` pins them).
 - Pending labels: `labels.py` French is the Overkiz execution label, pinned byte for byte by the Sauter golden
   fixture, so it never changes. The web rewords four from `label_code` (`codes.test.ts` « REWORDED »):

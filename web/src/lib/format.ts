@@ -65,6 +65,13 @@ export function fmtTemp(v: number | null | undefined, unit = true): string {
   return unit ? `${s}${NB}°C` : s;
 }
 
+/** A reading as the Tableau tiles and the sidebar show it: « 19,6° » (one decimal, the degree sign, no
+ * « C »), « — » when unknown. The exact value with its unit stays in the Fiche and the accessible names. */
+export function fmtTempShort(v: number | null | undefined): string {
+  if (bad(v)) return '—';
+  return `${signed(one(), v)}°`;
+}
+
 /** A whole-degree axis tick, no unit: "20", "−5" (the true minus below 0 °C). */
 export function fmtTempTick(v: number): string {
   return signed(whole(), v);

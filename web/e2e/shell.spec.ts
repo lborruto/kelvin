@@ -20,7 +20,7 @@ test('an unknown address: the 404 page with the ways out', async ({ page }) => {
   await page.goto('/nowhere');
   await expect(page.getByRole('heading', { level: 1, name: 'Cette page n’existe pas' })).toBeVisible();
   await expect(page.getByText('L’adresse est peut-être ancienne ou incomplète.')).toBeVisible();
-  await page.getByRole('link', { name: 'Aller aux pièces' }).click();
+  await page.getByRole('link', { name: 'Aller au tableau Maison' }).click();
   await expect(page).toHaveURL(/\/$/);
 });
 

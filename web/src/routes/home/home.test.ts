@@ -92,7 +92,7 @@ afterEach(() => {
 describe('Maison overview', () => {
   it('reads in order: header, En ce moment, the section cards, Affichage, the version', async () => {
     const { container } = render(Page);
-    expect(screen.getByRole('heading', { level: 1, name: 'Maison' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Réglages' })).toBeInTheDocument();
     const order = [...container.querySelectorAll('h2, h3')].filter((h) => !h.closest('dialog')).map((h) => h.textContent?.trim());
     expect(order).toEqual([m.home.now, m.devices.title, m.tariff.title, 'Linky', m.sources.title, m.account.title, m.home.display]);
     expect(screen.getByText(/^Kelvin \d/)).toBeInTheDocument();
@@ -273,14 +273,14 @@ describe('Home in English', () => {
     snapshot([{ id: 'o1', kind: 'boost', room_id: 'p-salon', radiator_ids: ['a'], temperature: 22, ends_at: 2e9, restoring: false }]);
     render(Page);
     const h1 = screen.getByRole('heading', { level: 1 });
-    expect(document.title).toBe('Maison · Kelvin');
+    expect(document.title).toBe('Réglages · Kelvin');
     const group = screen.getByRole('radiogroup', { name: 'Langue' });
     const fr = within(group).getByRole('radio', { name: 'Français' });
     expect(fr).toHaveAttribute('lang', 'fr');
     await fireEvent.click(within(group).getByRole('radio', { name: 'English' }));
     expect(screen.getByRole('heading', { level: 1 })).toBe(h1);
-    expect(h1).toHaveTextContent('Home');
-    expect(document.title).toBe('Home · Kelvin');
+    expect(h1).toHaveTextContent('Settings');
+    expect(document.title).toBe('Settings · Kelvin');
     expect(screen.getByRole('heading', { name: 'Right now' })).toBeInTheDocument();
     expect(screen.getByText('Boost')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Stop boost: Salon' })).toBeInTheDocument();

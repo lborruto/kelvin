@@ -63,7 +63,7 @@ test('the first login chooses the server', async ({ page }) => {
   await page.getByLabel('Email').fill('demo@kelvin.local');
   await page.getByLabel('Mot de passe').fill('kelvin');
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
   await page.context().storageState({ path: 'e2e/.auth/brands.json' });
 });
 

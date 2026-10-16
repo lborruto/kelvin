@@ -33,10 +33,10 @@ describe('+error', () => {
     expect(goto).not.toHaveBeenCalled();
     expect(screen.getByRole('heading', { level: 1, name: 'Cette page n’existe pas' })).toBeInTheDocument();
     expect(screen.getByText('L’adresse est peut-être ancienne ou incomplète.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Aller aux pièces' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Aller aux pièces' })).toHaveClass('btn-primary');
+    expect(screen.getByRole('link', { name: 'Aller au tableau Maison' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Aller au tableau Maison' })).toHaveClass('btn-primary');
     expect(screen.getByRole('link', { name: 'Énergie' })).toHaveAttribute('href', '/energy');
-    expect(screen.getByRole('link', { name: 'Maison' })).toHaveAttribute('href', '/home');
+    expect(screen.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/home');
     expect(screen.queryByRole('button', { name: 'Détails' })).toBeNull();
     expect(document.title).toBe('Cette page n’existe pas · Kelvin');
   });
@@ -72,6 +72,6 @@ it('the 404 reads in English', async () => {
   render(ErrorPage);
   expect(screen.getByRole('heading', { level: 1, name: 'This page doesn’t exist' })).toBeInTheDocument();
   expect(document.title).toBe('This page doesn’t exist · Kelvin');
-  expect(screen.getByRole('link', { name: 'Go to rooms' })).toHaveAttribute('href', '/');
+  expect(screen.getByRole('link', { name: 'Go to Home' })).toHaveAttribute('href', '/');
   applyLocale('fr');
 });

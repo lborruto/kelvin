@@ -46,7 +46,7 @@ describe('Maison › Compte', () => {
   it('the account, its server, the Cozytouch status and the signed-in devices (#sessions)', async () => {
     render(Page);
     expect(screen.getByRole('heading', { level: 1, name: 'Compte' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Maison' })).toHaveAttribute('href', '/home');
+    expect(screen.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/home');
     expect(screen.getAllByText('demo@kelvin.local').length).toBeGreaterThan(0);
     expect(screen.getByText('Sauter Cozytouch')).toBeInTheDocument();
     expect(screen.getByText('Fixé à la première connexion.')).toBeInTheDocument();

@@ -25,7 +25,7 @@
 {#if showList}
   <!-- Fixed block sizes (a 44 px title row, one summary line): the header never reflows when a font arrives. -->
   <header class="top">
-    <h1>{m.nav.rooms}</h1>
+    <h1 class="t-page">{m.nav.rooms}</h1>
     {#if house.loaded}
       {@const summary = `${m.rooms.summary(house.heatingCount, house.offlineCount)}${house.away ? ` · ${m.rooms.awayActive}` : ''}`}
       <p class="muted sum" title={summary}>{summary}</p>
@@ -33,6 +33,8 @@
       <p class="sub-sk"><span class="skeleton" aria-hidden="true"></span></p>
     {/if}
     <div class="phone-only"><HouseActions icons /></div>
+    <!-- Desktop: the house actions sit on the title row (Tableau §4 header), no longer in the sidebar. -->
+    <div class="desk-only"><HouseActions program /></div>
   </header>
   {#if house.loaded}<GridStrip />{/if}
 {:else}
@@ -60,14 +62,15 @@
   }
   h1 {
     grid-area: title;
-    font-size: 22px;
-    line-height: 32px;
-    margin: 0;
-    letter-spacing: -0.01em;
+    line-height: 44px;
   }
-  .phone-only {
+  .phone-only,
+  .desk-only {
     grid-area: actions;
-    height: 44px;
+    min-height: 44px;
+  }
+  .desk-only {
+    display: none;
   }
   p {
     grid-area: sum;
@@ -112,6 +115,9 @@
     .phone-only {
       display: none;
     }
+    .desk-only {
+      display: block;
+    }
     .cols {
       /* The list takes what the inspector leaves: no page scroll from 1024 px up. */
       grid-template-columns: minmax(0, 1fr) clamp(320px, 38%, 440px);
@@ -121,8 +127,7 @@
       position: sticky;
       top: 24px;
       padding: 16px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--r-widget);
       background: var(--s1);
       max-height: calc(100dvh - 48px);
       overflow: auto;

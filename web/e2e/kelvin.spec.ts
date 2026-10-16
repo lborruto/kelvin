@@ -15,7 +15,7 @@ const roomMode = (page: Page) => page.getByRole('radiogroup', { name: 'Mode de l
 test('rooms load with temperatures and thermal strips', async ({ page, isMobile }) => {
   const sinceText = await pinSameDay(page);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
   // Every card is a link to its room (the inspector on desktop, the room page on a phone).
   for (const name of ['Chambre 1', 'Salon', 'Chambre 2']) {
     await expect(page.getByRole('link', { name: new RegExp(`^${name},`) }).first()).toBeVisible();
@@ -102,7 +102,7 @@ test('Chauffe temporaire: a sentence, then the room says it until « Arrêter »
   await expect(status).not.toContainText('Chauffe temporaire', { timeout: 20_000 });
 });
 
-/** Maison › Tarif shows the tariff in force; « Nouveau prix… » opens the editor (no tariff yet: the editor is the page). */
+/** Réglages › Tarif shows the tariff in force; « Nouveau prix… » opens the editor (no tariff yet: the editor is the page). */
 async function openTariffEditor(page: import('@playwright/test').Page) {
   const fresh = page.getByRole('button', { name: 'Nouveau prix…' });
   await expect(fresh.or(page.getByRole('button', { name: 'Enregistrer le tarif' }))).toBeVisible();
@@ -124,10 +124,10 @@ test('absence can be started from Maison and ended from En ce moment', async ({ 
   await expect(end).toBeHidden();
 });
 
-test('absence from Pièces in two taps (desktop sidebar, phone header), ended from the sheet', async ({ page, isMobile }) => {
+test('absence from Maison in two taps (desktop sidebar, phone header), ended from the sheet', async ({ page, isMobile }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Pièces', level: 1 })).toBeVisible();
-  const opener = isMobile ? page.locator('.top').getByRole('button', { name: 'Absence…' }) : page.locator('.sidebar').getByRole('button', { name: 'Absence…' });
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
+  const opener = isMobile ? page.locator('.top').getByRole('button', { name: 'Absence…' }) : page.locator('.sidebar').getByRole('button', { name: 'Partir…' });
   await opener.click();
   const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
   await expect(sheet.getByRole('button', { pressed: true })).toBeFocused();
@@ -178,7 +178,7 @@ test('phone room page: the room is the h1, and moving to another tab focuses its
 
 test('the toast live regions are rendered (not display: none) before any toast', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
   const displays = await page
     .locator('.toasts [aria-live]')
     .evaluateAll((els) => els.map((e) => getComputedStyle(e).display));
@@ -209,7 +209,7 @@ test('"/" opens a default room in the inspector on desktop; a phone taps a card 
 test('backend unreachable at load shows the shell and a banner', async ({ page }) => {
   await page.route('**/api/**', (route) => route.abort());
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Reconnexion à Kelvin…' })).toBeVisible();
 });
 
@@ -222,7 +222,7 @@ test('offline after install still opens the app shell', async ({ page, context, 
   await page.reload();
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
   // A deep link is served the precached SPA fallback too.
   await page.goto('/schedule');
   await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeVisible();

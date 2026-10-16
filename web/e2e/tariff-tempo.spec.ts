@@ -42,7 +42,7 @@ test.afterAll(async ({ request }) => {
   }
 });
 
-/** Maison › Tarif shows the tariff in force; « Nouveau prix… » opens the editor (no tariff yet: the editor is the page). */
+/** Réglages › Tarif shows the tariff in force; « Nouveau prix… » opens the editor (no tariff yet: the editor is the page). */
 async function openTariffEditor(page: Page) {
   const fresh = page.getByRole('button', { name: 'Nouveau prix…' });
   await expect(fresh.or(page.getByRole('button', { name: 'Enregistrer le tarif' }))).toBeVisible();

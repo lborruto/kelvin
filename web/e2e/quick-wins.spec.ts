@@ -110,7 +110,7 @@ async function signInElsewhere(browser: import('@playwright/test').Browser) {
   await p.getByLabel('Email').fill('demo@kelvin.local');
   await p.getByLabel('Mot de passe').fill('kelvin');
   await p.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(p.getByRole('heading', { name: 'Pièces' })).toBeVisible();
+  await expect(p.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
   return { ctx, p };
 }
 

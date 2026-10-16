@@ -93,11 +93,16 @@ export const en: Messages = {
     announce: (label: string, value: string) => `${label}: ${value}`
   },
   nav: {
-    rooms: 'Rooms',
+    rooms: 'Home',
     schedule: 'Schedule',
     energy: 'Energy',
-    home: 'Home',
+    home: 'Settings',
     label: 'Main navigation',
+    roomsHead: 'Rooms',
+    roomsLabel: 'Rooms in the home',
+    away: 'Go away…',
+    roomRow: (name: string, temp: string | null, heating: boolean, offline: boolean) =>
+      [name, offline ? 'offline' : temp, heating ? 'heating' : null].filter(Boolean).join(', '),
     skip: 'Skip to content',
     alerts: (name: string, n: number) => `${name}, ${int(n)} ${plural(n, { one: 'alert', other: 'alerts' })}`
   },
@@ -114,7 +119,7 @@ export const en: Messages = {
     notFoundBody: 'The address may be old or incomplete.',
     errorTitle: 'Error',
     load: 'Kelvin couldn’t show this page',
-    goRooms: 'Go to rooms',
+    goRooms: 'Go to Home',
     unreachable: 'Kelvin can’t be reached. Check your connection to home (Wi-Fi or VPN).',
     details: 'Details',
     code: 'Code',
@@ -1368,7 +1373,7 @@ export const en: Messages = {
     linky_refused: () => 'MyElectricalData rejected this PDL or token.',
     linky_throttled: () => 'Enedis is limiting requests: try again later.',
     med_unreachable: () => 'Can’t reach MyElectricalData. Try again later.',
-    linky_status_auth: () => 'MyElectricalData rejected the token: renew it in Home › Linky.',
+    linky_status_auth: () => 'MyElectricalData rejected the token: renew it in Settings › Linky.',
     linky_status_quota: () => 'Today’s Linky quota is used up: resuming tomorrow.',
     linky_status_error: () => 'Linky sync failed.',
     linky_status_throttled: (p: ApiParams) => `Enedis is limiting requests: next try at ${p.at}.`,

@@ -29,7 +29,7 @@ describe('LinkyPanel', () => {
 
   it('shows the sync problem in words', () => {
     render(LinkyPanel, {
-      status: { ...base, state: 'auth', message: 'MyElectricalData refuse le jeton : renouvelez-le dans Maison › Linky.' },
+      status: { ...base, state: 'auth', message: 'MyElectricalData refuse le jeton : renouvelez-le dans Réglages › Linky.' },
       onsaved: vi.fn()
     });
     expect(screen.getByRole('alert')).toHaveTextContent('MyElectricalData refuse le jeton');
@@ -114,9 +114,9 @@ describe('LinkyPanel in English', () => {
   it('a rejected token reads in English whatever the server sent', () => {
     applyLocale('en');
     render(LinkyPanel, {
-      status: { ...base, state: 'auth', message: 'MyElectricalData refuse le jeton : renouvelez-le dans Maison › Linky.' },
+      status: { ...base, state: 'auth', message: 'MyElectricalData refuse le jeton : renouvelez-le dans Réglages › Linky.' },
       onsaved: vi.fn()
     });
-    expect(screen.getByRole('alert')).toHaveTextContent('MyElectricalData rejected the token: renew it in Home › Linky.');
+    expect(screen.getByRole('alert')).toHaveTextContent('MyElectricalData rejected the token: renew it in Settings › Linky.');
   });
 });

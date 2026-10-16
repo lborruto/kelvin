@@ -5,22 +5,28 @@
     | 'arrow-left' | 'edit' | 'chevron-left' | 'lock' | 'copy' | 'help' | 'plug-off' | 'more' | 'wifi-off' | 'info'
     | 'eye' | 'eye-off' | 'download'
     // Maison (UX batches 8–10)
-    | 'flame' | 'trash' | 'arrow-right' | 'list' | 'sync';
+    | 'flame' | 'trash' | 'arrow-right' | 'list' | 'sync'
+    // Tableau (spec §2–3): the nav, the tiles and the summary chips
+    | 'home' | 'cal' | 'chart' | 'gear' | 'bolt' | 'rad' | 'resume' | 'euro' | 'tag' | 'clock' | 'user' | 'globe'
+    | 'box' | 'key' | 'shield' | 'chevron-down' | 'grid';
 </script>
 
 <script lang="ts">
   interface Props {
     name: IconName;
     size?: number;
+    /** Stroke width (1.75 by default; the ⋯ glyph reads better at 3). */
+    stroke?: number;
   }
-  let { name, size = 18 }: Props = $props();
+  let { name, size = 18, stroke = 1.75 }: Props = $props();
   const paths: Record<IconName, string> = {
     rooms: 'M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
     program: 'M4 6h16M4 12h10M4 18h7M17 15v6M14 18h6',
     energy: 'M13 3 5 13h6l-1 8 8-10h-6z',
     house: 'M4 20V9l8-5 8 5v11M9 20v-6h6v6',
     power: 'M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0',
-    away: 'M2 16l20-6-3-3-7 3-5-4-2 1 4 5-5 2z M3 20h18',
+    // A suitcase: « Partir… », Absence (the Tableau mockups).
+    away: 'M4 8h16v11H4zM9 8V5h6v3M4 13h16',
     window: 'M4 4h16v16H4zM12 4v16M4 12h16',
     presence: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
     light: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z',
@@ -49,11 +55,29 @@
     trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
     'arrow-right': 'M5 12h14M13 6l6 6-6 6',
     list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
-    sync: 'M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4'
+    sync: 'M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4',
+    // Tableau (spec §2–3)
+    home: 'M4 11l8-7 8 7v9h-5v-6H9v6H4z',
+    cal: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
+    chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+    gear: 'M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1',
+    bolt: 'M13 2L5 14h6l-1 8 8-12h-6z',
+    rad: 'M6 5v14M10 5v14M14 5v14M18 5v14M4 19h16M4 5h16',
+    resume: 'M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4 4v4h4',
+    euro: 'M17 6.5A7 7 0 1 0 17 17.5M4 10h9M4 14h9',
+    tag: 'M3 12V4h8l10 10-8 8zM7.5 7.5h.01',
+    clock: 'M12 4a8 8 0 1 1 0 16a8 8 0 1 1 0-16M12 8v4l3 2',
+    user: 'M12 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM4 20c1.5-4 4.5-5 8-5s6.5 1 8 5',
+    globe: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
+    box: 'M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8',
+    key: 'M14 4a6 6 0 1 1-3.9 10.6L4 20.7V17h3v-3h3l.1-.1A6 6 0 0 1 14 4zM16 8h.01',
+    shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
+    'chevron-down': 'M6 9l6 6 6-6',
+    grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'
   };
 </script>
 
-<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={stroke}
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <path d={paths[name]} />
 </svg>

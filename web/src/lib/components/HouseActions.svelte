@@ -94,10 +94,9 @@
   .stacked {
     flex-direction: column;
   }
-  /* The icon form keeps the bordered look of the labelled buttons. */
+  /* The icon form: round s2 buttons, like the mockups' phone header. */
   .edged {
-    border-color: var(--line);
-    background: var(--s1);
+    background: var(--s2);
     color: var(--tx);
   }
   .stacked > * {
@@ -122,11 +121,12 @@
   }
   /* Enter: fade and settle from 8 px below; exit faster, the backdrop fading with it. */
   dialog {
-    background: var(--s1);
+    background: var(--pop);
     color: var(--tx);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 20px;
+    border: 0;
+    border-radius: var(--r-pop);
+    box-shadow: var(--shadow-pop);
+    padding: 22px;
     width: min(340px, calc(100vw - 32px));
     opacity: 0;
     transform: translateY(8px) scale(0.98);
@@ -156,7 +156,7 @@
       display var(--t-exit) allow-discrete;
   }
   dialog[open]::backdrop {
-    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    background: var(--scrim);
   }
   @starting-style {
     dialog[open]::backdrop {
@@ -165,7 +165,7 @@
   }
   h2 {
     margin: 0 0 6px;
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 600;
   }
   dialog p {

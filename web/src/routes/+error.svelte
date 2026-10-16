@@ -1,6 +1,7 @@
-<!-- 404 and load errors (direction-2 §7): centred in main (≤ 420 px), the help glyph in a 40 px circle, the
-     h1, one muted sentence, the way out; a load error adds « Réessayer » and a « Détails » Disclosure (L2:
-     code, time, address; never a stack trace or an id). -->
+<!-- 404 and load errors (Tableau §4 « 404 »): centred in main (≤ 420 px), the help glyph in a 56 px s1 disc,
+     the h1, one muted sentence, then the ways out: the primary « Aller au tableau Maison » (large), then Énergie
+     and Réglages. A load error offers « Réessayer » first and a « Détails » Disclosure (L2: code, time, address;
+     never a stack trace or an id). -->
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -31,17 +32,16 @@
 
 {#if !(notFound && target)}
   <section class="err" aria-labelledby="err-title">
-    <span class="glyph" aria-hidden="true"><Icon name={notFound ? 'help' : 'alert'} size={20} /></span>
+    <span class="glyph" aria-hidden="true"><Icon name={notFound ? 'help' : 'alert'} size={24} /></span>
     <h1 id="err-title">{notFound ? m.page.notFound : m.page.load}</h1>
     <p class="lead">{notFound ? m.page.notFoundBody : cause}</p>
     <div class="actions">
       {#if notFound}
-        <a class="btn btn-primary" href={ROUTES.rooms}>{m.page.goRooms}</a>
-        <a class="btn" href={ROUTES.energy}>{m.nav.energy}</a>
-        <a class="btn" href={ROUTES.home}>{m.nav.home}</a>
+        <a class="btn btn-primary btn-lg btn-block" href={ROUTES.rooms}>{m.page.goRooms}</a>
+        <span class="more"><a class="btn" href={ROUTES.energy}>{m.nav.energy}</a><a class="btn" href={ROUTES.home}>{m.nav.home}</a></span>
       {:else}
-        <button type="button" class="btn btn-primary" onclick={retry}>{m.common.retry}</button>
-        <a class="btn" href={ROUTES.rooms}>{m.page.goRooms}</a>
+        <button type="button" class="btn btn-primary btn-lg btn-block" onclick={retry}>{m.common.retry}</button>
+        <span class="more"><a class="btn" href={ROUTES.rooms}>{m.page.goRooms}</a></span>
       {/if}
     </div>
     {#if !notFound}
@@ -59,41 +59,49 @@
 <style>
   .err {
     display: grid;
-    justify-items: start;
-    gap: 10px;
+    justify-items: center;
+    gap: 6px;
     max-width: 420px;
-    margin: 32px auto 0;
+    margin: clamp(32px, 22vh, 200px) auto 0;
+    text-align: center;
   }
   .glyph {
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
-    border: 1px solid var(--line);
+    width: 56px;
+    height: 56px;
+    margin-bottom: 12px;
     border-radius: 50%;
     background: var(--s1);
-    color: var(--mu);
+    color: var(--tx);
   }
   h1 {
-    margin: 6px 0 0;
-    font-size: 22px;
+    margin: 0;
+    font-size: 26px;
     font-weight: 700;
-    letter-spacing: -0.01em;
-    line-height: 1.25;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
   }
   .lead {
-    margin: 0;
-    font-size: 13px;
+    margin: 0 0 16px;
     color: var(--mu);
   }
   .actions {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+  .more {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 8px;
-    margin-top: 6px;
   }
   .err :global(.disclosure) {
     width: 100%;
+    margin-top: 12px;
+    text-align: left;
   }
   .facts {
     display: grid;

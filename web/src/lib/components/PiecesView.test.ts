@@ -41,7 +41,7 @@ describe('PiecesView on desktop', () => {
   it('"/" shows the list and the inspector of the given room, with no placeholder', () => {
     media.desktop.matches = true;
     const { container } = render(PiecesView, { roomId: 'salon', home: true });
-    expect(screen.getByRole('heading', { name: 'Pièces', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Maison', level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Salon', level: 2 })).toBeInTheDocument();
     expect(container.querySelector('.hint')).toBeNull();
   });
@@ -49,8 +49,8 @@ describe('PiecesView on desktop', () => {
   it('a room page keeps the same header block as "/"', () => {
     media.desktop.matches = true;
     render(PiecesView, { roomId: 'salon' });
-    expect(screen.getByRole('heading', { name: 'Pièces', level: 1 })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Pièces' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Maison', level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Maison' })).toBeNull();
   });
 });
 
@@ -61,8 +61,8 @@ describe('PiecesView on the phone', () => {
     expect(screen.queryByRole('heading', { name: 'Salon', level: 2 })).toBeNull();
     home.unmount();
     render(PiecesView, { roomId: 'salon' });
-    expect(screen.getByRole('link', { name: 'Pièces' })).toHaveAttribute('href', '/');
-    expect(screen.queryByRole('heading', { name: 'Pièces', level: 1 })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Maison' })).toHaveAttribute('href', '/');
+    expect(screen.queryByRole('heading', { name: 'Maison', level: 1 })).toBeNull();
     // The room is the phone page's title.
     expect(screen.getByRole('heading', { name: 'Salon', level: 1 })).toBeInTheDocument();
   });
@@ -113,11 +113,11 @@ describe('PiecesView in English', () => {
     applyLocale('en');
     media.desktop.matches = true;
     const a = render(PiecesView, { roomId: 'salon', home: true });
-    expect(screen.getByRole('heading', { name: 'Rooms', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Home', level: 1 })).toBeInTheDocument();
     expect(screen.getByText('No room heating')).toBeInTheDocument();
     a.unmount();
     media.desktop.matches = false;
     render(PiecesView, { roomId: 'salon' });
-    expect(screen.getByRole('link', { name: 'Rooms' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/');
   });
 });

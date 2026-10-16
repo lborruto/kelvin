@@ -1,6 +1,10 @@
+<!-- The phone tab bar (Tableau spec §2): Maison · Programme · Énergie · Réglages on --side, 24 px glyphs over
+     11 px labels, the current tab in ink (and heavier: not colour alone). The alert dot sits on Maison's glyph,
+     only for a must-fix alert; the count is in the name. Rooms are reached from the Maison tiles. -->
 <script lang="ts">
   import { page } from '$app/state';
   import { m } from '$lib/i18n';
+  import { ALERT_KEY, NAV_ICON } from '$lib/nav';
   import { navAlerts } from '$lib/navAlerts';
   import { isActive, NAV } from '$lib/paths';
   import { alerts } from '$lib/stores/alerts.svelte';
@@ -11,10 +15,10 @@
 
 <nav class="tabbar" aria-label={m.nav.label}>
   {#each NAV as t (t.href)}
-    {@const flag = t.key === 'home' && dot.count > 0}
+    {@const flag = t.key === ALERT_KEY && dot.count > 0}
     <a href={t.href} aria-current={isActive(page.url.pathname, t.href) ? 'page' : undefined}
-      aria-label={flag ? m.nav.alerts(m.nav[t.key], dot.count) : undefined}><span class="ic"><Icon name={t.icon} size={20} />{#if flag}<span
-            class="dot" class:bad={dot.bad} aria-hidden="true"></span>{/if}</span><span>{m.nav[t.key]}</span></a>
+      aria-label={flag ? m.nav.alerts(m.nav[t.key], dot.count) : undefined}><span class="ic"><Icon name={NAV_ICON[t.key]} size={24} />{#if flag && dot.bad}<span
+            class="dot" aria-hidden="true"></span>{/if}</span><span class="lb">{m.nav[t.key]}</span></a>
   {/each}
 </nav>
 
@@ -22,26 +26,20 @@
   .tabbar {
     position: fixed;
     inset: auto 0 0 0;
+    z-index: 20;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    padding-bottom: env(safe-area-inset-bottom);
-    background: color-mix(in srgb, var(--bg) 92%, transparent);
-    backdrop-filter: blur(12px);
+    padding: 6px 4px env(safe-area-inset-bottom);
+    background: var(--side);
     border-top: 1px solid var(--line);
-    z-index: 20;
-  }
-  @media (prefers-reduced-transparency: reduce) {
-    .tabbar {
-      background: var(--bg);
-      backdrop-filter: none;
-    }
   }
   a {
     position: relative;
     display: grid;
     justify-items: center;
-    gap: 2px;
-    padding: 8px 0 6px;
+    align-content: center;
+    gap: 3px;
+    min-width: 0;
     min-height: 56px;
     color: var(--fa);
     text-decoration: none;
@@ -50,40 +48,32 @@
     touch-action: manipulation;
     transition: color var(--t-state) ease;
   }
-  /* The current tab: ink, heavier, and a short ink bar on top (not colour alone). */
   a[aria-current='page'] {
     color: var(--tx);
     font-weight: 600;
   }
-  a[aria-current='page']::before {
-    content: '';
-    position: absolute;
-    top: -1px;
-    left: calc(50% - 10px);
-    width: 20px;
-    height: 2px;
-    border-radius: 0 0 2px 2px;
-    background: var(--tx);
-  }
   a:active {
     color: var(--tx);
   }
-  /* The alert dot at the icon's top-right: absolutely placed, so the item never changes size. */
+  .lb {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* The alert dot at the glyph's top-right, ringed in the bar's colour: the item never changes size. */
   .ic {
     position: relative;
     display: grid;
   }
   .dot {
     position: absolute;
-    top: -1px;
-    right: -3px;
-    width: 6px;
-    height: 6px;
+    top: 0;
+    right: -4px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: var(--mu);
-    outline: 1.5px solid var(--bg);
-  }
-  .dot.bad {
     background: var(--bad);
+    box-shadow: 0 0 0 2px var(--side);
   }
 </style>

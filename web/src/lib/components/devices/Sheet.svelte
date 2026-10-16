@@ -1,5 +1,5 @@
-<!-- The DESIGN dialog (« Tout éteindre » sets the look): s1, hairline, 20 px, at most 340 px; fades
-     and settles from 8 px below in 200 ms, leaves in 150 ms; the scrim is bg at 72 %. -->
+<!-- The Tableau dialog (« Tout éteindre » sets the look): --pop, 18 px radius, the pop shadow, at most 340 px;
+     fades and settles from 8 px below in 200 ms, leaves in 150 ms; the scrim is black at 60 %. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
@@ -21,11 +21,12 @@
 
 <style>
   dialog {
-    background: var(--s1);
+    background: var(--pop);
     color: var(--tx);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 20px;
+    border: 0;
+    border-radius: var(--r-pop);
+    box-shadow: var(--shadow-pop);
+    padding: 22px;
     width: min(340px, calc(100vw - 32px));
     opacity: 0;
     transform: translateY(8px) scale(0.98);
@@ -55,7 +56,7 @@
       display var(--t-exit) allow-discrete;
   }
   dialog[open]::backdrop {
-    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    background: var(--scrim);
   }
   @starting-style {
     dialog[open]::backdrop {

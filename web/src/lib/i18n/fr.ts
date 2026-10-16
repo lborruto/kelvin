@@ -99,11 +99,17 @@ export const fr = {
     announce: (label: string, value: string) => `${label}${NB}: ${value}`
   },
   nav: {
-    rooms: 'Pièces',
+    // Tableau (decision 1): « Maison » is the dashboard at `/`, « Réglages » is `/home`. URLs unchanged.
+    rooms: 'Maison',
     schedule: 'Programme',
     energy: 'Énergie',
-    home: 'Maison',
+    home: 'Réglages',
     label: 'Navigation principale',
+    roomsHead: 'Pièces',
+    roomsLabel: 'Pièces de la maison',
+    away: 'Partir…',
+    roomRow: (name: string, temp: string | null, heating: boolean, offline: boolean) =>
+      [name, offline ? 'hors ligne' : temp, heating ? 'en chauffe' : null].filter(Boolean).join(', '),
     skip: 'Aller au contenu',
     alerts: (name: string, n: number) => `${name}, ${int(n)} ${plural(n, { one: 'alerte', other: 'alertes' })}`
   },
@@ -120,7 +126,7 @@ export const fr = {
     notFoundBody: 'L’adresse est peut-être ancienne ou incomplète.',
     errorTitle: 'Erreur',
     load: 'Kelvin n’a pas pu afficher cette page',
-    goRooms: 'Aller aux pièces',
+    goRooms: 'Aller au tableau Maison',
     unreachable: 'Kelvin n’est pas joignable. Vérifiez la connexion à la maison (Wi-Fi ou VPN).',
     details: 'Détails',
     code: 'Code',
@@ -1412,7 +1418,7 @@ export const fr = {
     linky_refused: () => 'MyElectricalData refuse ce PDL ou ce jeton.',
     linky_throttled: () => `Enedis limite les requêtes${NB}: réessayez plus tard.`,
     med_unreachable: () => 'MyElectricalData injoignable. Réessayez plus tard.',
-    linky_status_auth: () => `MyElectricalData refuse le jeton${NB}: renouvelez-le dans Maison › Linky.`,
+    linky_status_auth: () => `MyElectricalData refuse le jeton${NB}: renouvelez-le dans Réglages › Linky.`,
     linky_status_quota: () => `Quota Linky du jour atteint${NB}: reprise demain.`,
     linky_status_error: () => 'Synchronisation Linky en échec.',
     linky_status_throttled: (p: ApiParams) => `Enedis limite les requêtes${NB}: nouvel essai à ${p.at}.`,

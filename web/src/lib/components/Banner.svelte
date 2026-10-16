@@ -79,17 +79,18 @@
     min-height: 0;
     overflow: hidden;
   }
+  /* Tableau « Banner »: a 44 px strip; neutral is s2 with a muted glyph (nothing to fix, only to know); bad
+     is a dark red ground with light-red text and a bad hairline. */
   .banner {
     display: flex;
     align-items: center;
-    gap: 8px;
-    min-height: 40px;
-    padding: 10px 16px;
-    background: var(--s1);
+    gap: 10px;
+    min-height: 44px;
+    padding: 8px var(--gutter);
+    background: var(--s2);
     border-bottom: 1px solid var(--line);
-    font-size: 13px;
+    font-size: 13.5px;
   }
-  /* Neutral (offline, reconnecting): s2, a hairline, a muted glyph. Nothing to fix, only to know. */
   .banner.neutral {
     background: var(--s2);
   }
@@ -97,7 +98,9 @@
     color: var(--mu);
   }
   .banner.bad {
-    background: color-mix(in srgb, var(--bad) 14%, var(--s1));
+    background: #2a1716;
+    border-color: var(--bad-edge);
+    color: #ffd5d2;
   }
   .ic {
     display: grid;
@@ -106,21 +109,22 @@
   a {
     margin-left: auto;
     min-height: 44px;
-    margin-block: -10px;
+    margin-block: -8px;
     display: inline-flex;
     align-items: center;
-    color: var(--tx);
+    color: inherit;
     font-weight: 600;
     text-decoration: underline;
     text-underline-offset: 3px;
   }
   .retry {
-    margin: -6px 0 -6px auto;
-    background: var(--s1);
+    margin: -4px 0 -4px auto;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--tx);
   }
   @media (min-width: 1024px) {
     .banner {
-      padding: 10px 28px;
+      padding: 0 var(--page-pad-x);
     }
   }
   @media (prefers-reduced-motion: reduce) {

@@ -8,7 +8,7 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 
 | French (UI) | English | Notes |
 |---|---|---|
-| Pièces / Pièce | Rooms / Room | Nav, page title |
+| Pièces / Pièce | Rooms / Room | The sidebar's « PIÈCES » section and the Maison tableau's « Pièces » area (no longer a nav item or a page title since Tableau) |
 | Sans pièce | No room | Énergie, unassigned radiators |
 | Programme (nav, page, mode) | Schedule | “Programme” is British for TV programmes; heating apps say schedule. Compact « Prog. » → “Sched.” |
 | Arrêt (mode and status) | Off | « Arrêté » left the UI: the status sentence says « Arrêt » |
@@ -54,10 +54,11 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Courbe du … | Load curve, … | “Half-hourly use on 13 October 2026” for its label |
 | Compteurs des radiateurs | Radiator meters | |
 | Depuis l’installation | Since installation | |
-| Maison (nav, page) | Home | Page at `/home` |
+| Maison (nav, page) | Home | The tableau (dashboard) at `/` since Tableau (decision 1). « Aller au tableau Maison » → “Go to Home” |
+| Partir… | Go away… | The sidebar and Maison button that opens the Absence sheet |
 | Toute la maison | Whole home | |
-| Réglages | Settings | Left Maison in UX batch 8: the overview has « Affichage » → “Display” (theme, language, technical details); account and server are « Compte » → “Account” |
-| Sources de données | Data sources | Maison › Sources de données (Cozytouch, Linky, RTE EcoWatt, Tempo) |
+| Réglages | Settings | The page at `/home` and its sub-pages since Tableau (was « Maison »); breadcrumbs « Réglages › Linky » → “Settings › Linky”. Its « Affichage » → “Display” (language, technical details; no theme: dark only); account and server are « Compte » → “Account” |
+| Sources de données | Data sources | Réglages › Sources de données (Cozytouch, Linky, RTE EcoWatt, Tempo) |
 | Nouveau prix… | New price… | Tarif: opens the editor |
 | Tarif en vigueur | Current tariff | « Corriger le tarif en vigueur » → “Correct the current tariff”; « Heures creuses / pleines » (option) → “Off-peak / peak” |
 | Afficher / Masquer (PDL) | Show / Hide | « Modifier la connexion » → “Change connection” |
@@ -85,7 +86,7 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Dernière mesure : 23,6 °C à 14:31 | Last reading: 23.6 °C at 14:31 | An offline room's panel only |
 | Modifier les horaires | Edit schedule | Room panel → Programme |
 | Masquer (une alerte) | Dismiss | |
-| Accès MCP | MCP access | Maison › Compte; « Créer un jeton » → “Create a token”, « Révoquer » → “Revoke”. MCP, Claude Code and Claude Desktop are never translated |
+| Accès MCP | MCP access | Réglages › Compte; « Créer un jeton » → “Create a token”, « Révoquer » → “Revoke”. MCP, Claude Code and Claude Desktop are never translated |
 | Jeton MCP | MCP token | Shown once at creation |
 | Assistant IA | AI assistant | |
 | Appareils connectés | Signed-in devices | Home › Settings; « Déconnecter » → “Sign out”, « Déconnecter les autres appareils » → “Sign out other devices” |
