@@ -27,7 +27,9 @@ three rooms, four radiators, a week of history, a synthetic Linky and a demo tar
 
 ## Checks
 
-Run both before opening a pull request; CI runs the same, plus the image smoke test.
+Run both before opening a pull request. CI runs the same: workflow lint, backend, web, the
+Playwright suite in 4 shards, and the Docker image (build, smoke test, then the e2e suite against
+the container in 3 shards); all must be green.
 
     cd backend && uv run pytest -q && uv run ruff check . && uv run ruff format --check .
     cd web && npx vitest run && npm run check && npx playwright test

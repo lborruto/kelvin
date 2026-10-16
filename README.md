@@ -352,6 +352,7 @@ Kelvin keeps both in `account.json` (0600) in its data volume.
 | `KELVIN_HOST`, `KELVIN_PORT` | `0.0.0.0`, `8080` | Bind address (outside Docker: `127.0.0.1`, `8000`) |
 | `KELVIN_ALLOWED_HOSTS` | — | Comma-separated Host allowlist; `localhost` always passes |
 | `KELVIN_TRUSTED_PROXIES` | — | **Only behind a trusted reverse proxy:** its exact addresses |
+| `KELVIN_MCP` | `true` | `false` removes the read-only MCP endpoint at `/mcp` (see [AI assistants](#ai-assistants-mcp)) |
 | `KELVIN_FAKE` | `0` | `1` runs the simulator |
 | `KELVIN_FAKE_HOUSE` | — | Simulator only: `sauter`, `atlantic`, `thermor` or `experimental` shows another invented house (pilot-wire heaters, towel dryers, a water heater, a heat pump…); empty, the house follows the server chosen at login |
 | `KELVIN_DEBUG` | `0` | `1` serves the API docs at `/docs` |
