@@ -117,14 +117,8 @@ It cannot change anything: no tool sends a command to a radiator or changes a se
 apply its proposals in Kelvin. Every figure comes with its unit and says whether it is measured,
 computed from your tariff or estimated.
 
-1. Create a token. It is shown once: copy it. The Home › MCP access panel is coming with the web
-   part of this feature; until then, create one from a browser signed in to Kelvin (developer
-   console, on Kelvin's page):
-   ```js
-   fetch('/api/mcp/tokens', {method: 'POST', headers: {'X-Kelvin': '1',
-     'Content-Type': 'application/json'}, body: JSON.stringify({name: 'Claude'})})
-     .then((r) => r.json()).then((b) => console.log(b.secret));
-   ```
+1. In Kelvin, open **Home › Account › MCP access** and create a token. It is shown once, with the
+   Claude Code and Claude Desktop settings ready to copy: copy them now.
 2. Add Kelvin to your client, with Kelvin's address as your browser reaches it (LAN or VPN):
 
    Claude Code:
@@ -156,7 +150,7 @@ Tools: `get_overview`, `get_room`, `get_programmes`, `get_temperature_history`, 
 
 Security: a token reads everything in Kelvin except secrets (never the PDL, your email, a
 token or a device id). It is stored hashed, limited to 60 calls a minute, and revoked at once
-(`DELETE /api/mcp/tokens/{id}`; the panel will do it and list the last calls). Use HTTPS (your
+from the same panel (the token's “⋯” menu), which also lists the recent calls. Use HTTPS (your
 reverse proxy): on plain HTTP the token crosses the network in clear. Behind a reverse proxy,
 set `KELVIN_TRUSTED_PROXIES` to it, or every client looks like the proxy and ten wrong tokens from
 any device lock your assistant out for 15 minutes; set `KELVIN_ALLOWED_HOSTS` to the names you
@@ -397,7 +391,7 @@ Sauter are « expected to work » or « experimental » and untested on real har
 UI is in French and English (French by default; switch in Home › Display, or on the sign-in
 screen). The Linky bill estimate supports the Base, HC/HP and Tempo options; Tempo and EcoWatt
 are shown on Rooms and Energy and raise alerts. AI assistants can read Kelvin's data through a
-read-only MCP endpoint (Plan 13; the web panel for its tokens comes next).
+read-only MCP endpoint (Plan 13), with its tokens in Home › Account.
 
 ## Licence
 
