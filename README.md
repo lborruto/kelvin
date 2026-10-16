@@ -16,10 +16,13 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
 - **Truthful commands.** A change counts as done only when the radiator reports the new state.
   Pending, confirmed and failed are shown as such, including Overkiz's misleading
   `OVERRIDEMODE_ERROR` on commands that did apply.
-- **Settings overview:** Réglages (Settings, `/home`) shows what is happening now (away, boosts) with its
-  actions, the alerts when there are some, and one card per section (Rooms and devices, Tariff, Linky, Data
-  sources, Account) that summarises it and opens its own page; language and technical details are set in
-  place (one dark theme).
+- **One dark « Tableau »:** Maison (Home, `/`) is the house at a glance: summary chips, what is happening
+  now (away, boosts) with the house actions, the alerts, one tile per room with its −/+, the energy and the
+  tariff of the moment, tomorrow's grid signals and today's schedule. Four places in the sidebar and the phone
+  tab bar: Maison · Programme · Énergie · Réglages.
+- **Settings overview:** Réglages (Settings, `/home`) shows the alerts when there are some and one card per
+  section (Rooms and devices, Tariff, Linky, Data sources, Account) that summarises it and opens its own page;
+  language and technical details are set in place (one dark theme). The house actions live on Maison.
 - **Rooms and devices managed from Kelvin** (Settings › Rooms and devices): create, rename and delete
   rooms, move a radiator to another room, rename a radiator. Kelvin writes to your Cozytouch
   setup, so the Cozytouch app shows the same thing. Each radiator reads as its model, power and
@@ -34,16 +37,16 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   as long as Kelvin's setup-read budget allows it (3 full reads in 24 h). The last read of the 24 h
   is always kept for a restart, so « Synchroniser » can say « not now » with the time it is
   possible again.
-- **Rooms at a glance:** one line of state per room (« Programme · Confort jusqu’à 23:00 », « Chauffe
-  temporaire · 22 °C jusqu’à 21:45 », « Hors ligne depuis 14:32 »), the reading and its target in
-  words, and today's curve; rooms whose radiators are switched off move to the end, calm and
-  without a stale temperature. A room opens its panel: state, controls, boost written as a sentence
-  (« Chauffer à 22 °C pendant 2 h », and what happens after), today's chart with a legend, energy
-  and each radiator.
+- **Rooms at a glance:** one tile per room on Maison with its reading, its state in words (« En chauffe ·
+  Confort jusqu’à 23:00 », « Chauffe temporaire jusqu’à 21:45 ») and −/+ for the setpoint in force; offline
+  rooms move to the end, calm and without a stale temperature. A room opens its sheet over Maison: the large
+  setpoint with −/+ and a slider, the modes, boost written as a sentence (« Chauffer à 22 °C pendant 2 h »,
+  and what happens after), today's chart with a legend, the schedule's temperatures, energy and each
+  radiator.
 - **Control:** off, manual, schedule; setpoint; the weekly schedule (the radiators' own three
-  comfort periods a day): the week as a read-only picture with the times written out, the comfort
-  and eco temperatures and what happens next, and one day edited at a time (drag or type the
-  periods, « Copier vers… » weekdays, the weekend or every day; nothing is sent before « Envoyer »;
+  comfort periods a day): the week as an agenda (on a desktop its comfort blocks can be
+  dragged and resized in 15-minute steps), the comfort and eco temperatures and what happens next, and one
+  day edited at a time (drag or type the periods, « Copier vers… » weekdays, the weekend or every day; nothing is sent before « Envoyer »;
   an offline room's schedule is shown read-only); boost a room for a few hours (« Chauffe temporaire »); away for the whole house from wherever you are (« Partir en absence » with
   « Demain 18:00 » / « Dimanche 18:00 » presets and the consequence written before sending). Boost and away
   restore what was there before. The night light's brightness (1–100 %). The programme editor
@@ -86,7 +89,7 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   never 0; estimates say so. The bill estimate follows the tariff option, Base, HC/HP (dated and
   seasonal off-peak hours) or Tempo, with an exact price history even across a change of option.
   Under Tempo a day without a known colour keeps its kWh but not its €, and says so.
-- **Grid signals:** a one-line strip on Rooms and Energy. With a Tempo price row in force,
+- **Grid signals:** on Maison (summary chip, « Demain ») and Energy. With a Tempo price row in force,
   today's and tomorrow's Tempo colours (a Tempo day runs 06:00 → 06:00); for every household,
   EcoWatt orange and red days (RTE's grid-strain signal). Settings › Data sources shows when each
   source was last read. Nothing acts on the radiators by itself.
@@ -172,14 +175,15 @@ supported. `KELVIN_MCP=false` removes the endpoint.
 |---|---|---|
 | Maison / Home | `/` | The « Tableau » dashboard: summary chips (climate, the month's €, grid signals, away), alerts, each room with its reading, state and −/+ for the setpoint in force, the month, the tariff right now, tomorrow and yesterday, today's schedule; offline rooms calm and last |
 | Room | `/rooms/<id>` | The room sheet over the dashboard: the large setpoint with −/+ and a slider, the modes, Chauffe temporaire, today's chart and energy, the schedule's temperatures, each radiator, this month's kWh and € |
-| Programme / Schedule | `/schedule` | The week as a picture and one day edited at a time; nothing is sent before « Envoyer » |
+| Programme / Schedule | `/schedule` | The week as an agenda (drag on a desktop) beside the day being edited, copy to other days, locked days kept; nothing is sent before « Envoyer » |
 | Énergie / Energy | `/energy` | A board: the period's cost and kWh beside the bars (the half-hour curve first in Day and Week), the off-peak split or the Tempo days, where the energy goes, then the full sections, analysis and data quality |
-| Réglages / Settings | `/home` | What is happening now, alerts, one card per section, display preferences |
+| Réglages / Settings | `/home` | Alerts while there are some, one card per section, language and « Détails techniques » (no house actions: they are on Maison) |
 | Pièces et appareils | `/home/devices` | Rooms, radiators and box devices as Cozytouch holds them, with their actions and the sync line |
-| Tarif / Tariff | `/home/tariff` | The tariff in force as a summary, « Nouveau prix… », the price history |
+| Tarif / Tariff | `/home/tariff` | The tariff in force as a summary, the price history read in place, « Nouveau prix… » with inline validation |
 | Linky | `/home/linky` | The connection, the MyElectricalData calls, « Modifier la connexion » |
 | Sources de données | `/home/sources` | When Cozytouch, Linky, RTE EcoWatt (and Tempo) were last read |
-| Compte / Account | `/home/account` | The home's account, its server, signed-in devices |
+| Compte / Account | `/home/account` | The home's account, its server, signed-in devices, MCP access tokens |
+| Absence / Away | any « Partir… » (`/home#away` too) | A sheet over the current page: until when, the temperature, what happens to each room |
 | Connexion / Sign in | `/login` | The home's Cozytouch account, the server in one line |
 
 `cd web && SCREENS=1 SCREENS_DIR=../docs/screenshots npx playwright test screens.spec.ts` renders them
@@ -398,7 +402,7 @@ Sauter are « expected to work » or « experimental » and untested on real har
 [Compatibility](#compatibility)); messages that name Cozytouch keep that word on every server. The
 UI is in French and English (French by default; switch in Settings › Display, or on the sign-in
 screen). The Linky bill estimate supports the Base, HC/HP and Tempo options; Tempo and EcoWatt
-are shown on Rooms and Energy and raise alerts. AI assistants can read Kelvin's data through a
+are shown on Maison and Energy and raise alerts. AI assistants can read Kelvin's data through a
 read-only MCP endpoint (Plan 13), with its tokens in Settings › Account.
 
 ## Licence
