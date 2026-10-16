@@ -35,6 +35,10 @@ TEMPLATES: dict[str, str] = {
     "login_required": "Connexion requise.",
     "session_is_current": "Utilisez « Se déconnecter » pour cet appareil.",
     "session_unknown": "Cet appareil n’est plus connecté.",
+    "mcp_token_name_invalid": "Nom de jeton invalide (1 à {max} caractères).",
+    "mcp_token_limit": "{max} jetons MCP au plus : révoquez-en un d’abord.",
+    "mcp_token_unknown": "Ce jeton MCP n’existe plus.",
+    "mcp_disabled": "L’accès MCP est désactivé sur ce serveur (KELVIN_MCP).",
     "alert_unknown": "Alerte introuvable.",
     "header_missing": "En-tête X-Kelvin manquant.",
     "bad_credentials": "Cozytouch refuse cet email ou ce mot de passe.",
@@ -174,6 +178,8 @@ TEMPLATES: dict[str, str] = {
 
 # Sample params, for the catalogue exported to the web and its tests.
 SAMPLES: dict[str, dict[str, Any]] = {
+    "mcp_token_name_invalid": {"max": 40},
+    "mcp_token_limit": {"max": 10},
     "too_many_attempts": {"minutes": 15},
     "unsupported_command": {"command": "setName"},
     "temp_range": {"kind": "comfort", "min": 12.0, "max": 28.0},

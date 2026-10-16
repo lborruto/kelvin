@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     kelvin_fake_house: Literal["", "sauter", "atlantic", "thermor", "experimental"] = ""
     kelvin_web: Path | None = None
     kelvin_debug: bool = False  # serves /docs, /redoc and /openapi.json
+    kelvin_mcp: bool = True  # the read-only MCP endpoint at /mcp (Plan 13); no token, no access
     kelvin_host: str = "127.0.0.1"  # `python -m kelvin`; the Docker image sets 0.0.0.0
     kelvin_port: int = 8000  # the Docker image sets 8080
     # Only behind a trusted reverse proxy: its addresses or networks, comma-separated. Empty

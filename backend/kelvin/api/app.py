@@ -18,6 +18,7 @@ from kelvin.api.routes import router
 from kelvin.api.web import mount_web
 from kelvin.config import Settings, split_list
 from kelvin.errors import UserError, invalid_request_detail
+from kelvin.mcp.server import build_server, mount_mcp
 from kelvin.overkiz.gateway import Gateway
 
 
@@ -42,6 +43,8 @@ def create_app(
     """`wall`: the runtime's wall clock (tests pin it so the simulator's history does not
     depend on the hour they run at)."""
     settings = settings or Settings()
+    # Plan 13: the read-only MCP server; tools read app.state.ctx at call time.
+    mcp_server = build_server(lambda: app.state.ctx) if settings.kelvin_mcp else None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -49,7 +52,11 @@ def create_app(
         app.state.ctx = ctx
         try:
             await boot(ctx)
-            yield
+            if mcp_server is None:
+                yield
+            else:
+                async with mcp_server.session_manager.run():
+                    yield
         finally:
             await ctx.close()
 
@@ -61,6 +68,7 @@ def create_app(
         redoc_url="/redoc" if docs else None,
         openapi_url="/openapi.json" if docs else None,
     )
+    app.state.mcp = mcp_server
 
     @app.exception_handler(LoginRequired)
     async def login_required(request: Request, exc: LoginRequired) -> JSONResponse:
@@ -105,6 +113,8 @@ def create_app(
 
     app.include_router(public, prefix="/api")
     app.include_router(router, prefix="/api")
+    if mcp_server is not None:
+        mount_mcp(app, mcp_server)  # before the SPA catch-all
     mount_web(app, settings.kelvin_web)
     # SecurityHeaders wraps the whole stack (KelvinApp), so a 400 for a wrong Host and an
     # unhandled 500 carry the security headers too.

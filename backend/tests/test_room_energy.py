@@ -131,7 +131,8 @@ def test_room_energy_is_the_sum_of_its_radiators(rows):
     if not known:
         assert out["kwh"] is None
     else:
-        assert out["kwh"] == pytest.approx(sum(known) / 1000, abs=5e-4)  # kWh keep 3 decimals
+        # kWh keep 3 decimals: half a unit off, plus float noise at the exact half (0.0095)
+        assert out["kwh"] == pytest.approx(sum(known) / 1000, abs=5e-4 + 1e-9)
 
 
 def test_a_day_reads_its_par_piece_share_not_a_room_only_rounding():

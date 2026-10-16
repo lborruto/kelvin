@@ -85,6 +85,9 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Dernière mesure : 23,6 °C à 14:31 | Last reading: 23.6 °C at 14:31 | An offline room's panel only |
 | Modifier les horaires | Edit schedule | Room panel → Programme |
 | Masquer (une alerte) | Dismiss | |
+| Accès MCP | MCP access | Maison › Compte; « Créer un jeton » → “Create a token”, « Révoquer » → “Revoke”. MCP, Claude Code and Claude Desktop are never translated |
+| Jeton MCP | MCP token | Shown once at creation |
+| Assistant IA | AI assistant | |
 | Appareils connectés | Signed-in devices | Home › Settings; « Déconnecter » → “Sign out”, « Déconnecter les autres appareils » → “Sign out other devices” |
 | Copier vers… / Jours de semaine / Week-end / Tous les jours | Copy to… / Weekdays / Weekend / Every day | Programme day editor; « Copier sur 4 jours » → “Copy to 4 days” |
 | Aussi pour… / Envoyer aussi à | Also for… / Also send to | Programme send bar |

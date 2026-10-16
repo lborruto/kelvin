@@ -616,6 +616,38 @@ export interface SessionInfo {
   current: boolean;
 }
 
+/** Plan 13: a read-only MCP token. The secret is never listed: only `hint`, its last 4 characters. */
+export interface McpToken {
+  id: string;
+  name: string;
+  hint: string;
+  scope: 'read';
+  created: number;
+  last_used: number | null;
+  revoked_at: number | null;
+}
+export interface McpTokenList {
+  enabled: boolean;
+  endpoint_path: string;
+  tokens: McpToken[];
+}
+export interface McpCreated {
+  token: McpToken;
+  /** Shown once, in the creation answer only. */
+  secret: string;
+}
+export interface McpAuditRow {
+  at: number;
+  token_name: string | null;
+  kind: 'tool' | 'resource' | 'prompt' | 'auth';
+  name: string;
+  outcome: 'ok' | 'error' | 'denied' | 'rate_limited';
+  error_code: string | null;
+  duration_ms: number;
+  /** How many attempts the row stands for: refusals are one counted row a minute. */
+  count: number;
+}
+
 export type Severity = 'info' | 'warn' | 'bad';
 export type AlertKind =
   | 'price_change'

@@ -114,7 +114,9 @@ export const SAME = new Set<string>([
   // Plan 12: a product name
   'servers.cozytouch', 'dryer.normal',
   // UX foundation: source names (products), « Code », « Source », « est. »
-  'page.code', 'prov.source', 'prov.linky', 'prov.rte', 'prov.tempo', 'prov.cozytouch', 'prov.withMethod', 'fiche.est'
+  'page.code', 'prov.source', 'prov.linky', 'prov.rte', 'prov.tempo', 'prov.cozytouch', 'prov.withMethod', 'fiche.est',
+  // Plan 13: product names and a token's last four characters
+  'mcp.defaultName', 'mcp.claudeCode', 'mcp.hint'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {

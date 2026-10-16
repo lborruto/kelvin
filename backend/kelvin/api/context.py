@@ -25,6 +25,9 @@ from kelvin.api.runtime import (
 from kelvin.auth.sessions import SessionStore
 from kelvin.auth.throttle import LoginThrottle
 from kelvin.config import Settings
+from kelvin.mcp.audit import McpAudit
+from kelvin.mcp.limits import McpLimits
+from kelvin.mcp.tokens import McpTokenStore
 from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import BadCredentialsError, GatewayError
 from kelvin.overkiz.gateway import Gateway
@@ -51,6 +54,9 @@ class AppContext:
     make_gateway: Callable[[str, str, str], Awaitable[Gateway]]  # username, password, server
     # One budget of full setup reads for the whole process: boot, retries, logins and the pump.
     setup_reads: SetupReadGuard
+    mcp_tokens: McpTokenStore
+    mcp_audit: McpAudit
+    mcp_limits: McpLimits
     start_tasks: bool = True
     account: Account | None = None
     rt: Runtime | None = None
@@ -94,7 +100,10 @@ class AppContext:
                 rt, self.rt = self.rt, None
                 await stop_runtime(rt)
         finally:
-            self.db.close()
+            try:
+                self.mcp_audit.flush()  # the open refusal windows' counts (Plan 13)
+            finally:
+                self.db.close()
 
 
 def open_context(
@@ -133,6 +142,9 @@ def open_context(
         throttle=LoginThrottle(),
         make_gateway=factory,
         setup_reads=setup_reads,
+        mcp_tokens=McpTokenStore(db, wall=wall),
+        mcp_audit=McpAudit(db, wall=wall),
+        mcp_limits=McpLimits(),
         start_tasks=start_tasks,
         wall=wall,
     )

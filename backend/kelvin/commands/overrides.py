@@ -119,6 +119,11 @@ class OverrideManager:
         self._reap()
         return [o.view() for o in sorted(self._items.values(), key=lambda o: o.ends_at)]
 
+    def peek(self) -> list[dict[str, Any]]:
+        """The overrides as `active()` lists them, without settling finished restores: for
+        readers that must never write (the MCP tools, Plan 13)."""
+        return [o.view() for o in sorted(self._items.values(), key=lambda o: o.ends_at)]
+
     def _save(self, o: Override) -> None:
         self.db.execute(
             "INSERT OR REPLACE INTO overrides (id, payload) VALUES (?, ?)",

@@ -136,7 +136,30 @@ def _v3_command_log_codes(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE command_log ADD COLUMN {col} TEXT")
 
 
-MIGRATIONS = {1: _v1_energy_counters, 2: _v2_session_ids, 3: _v3_command_log_codes}
+def _v4_mcp_tables(conn: sqlite3.Connection) -> None:
+    """v4 (Plan 13): MCP tokens (only a SHA-256 of each secret) and the MCP audit log.
+    Idempotent: CREATE … IF NOT EXISTS."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mcp_tokens ("
+        " id TEXT PRIMARY KEY, name TEXT NOT NULL, hash TEXT NOT NULL UNIQUE,"
+        " hint TEXT NOT NULL, scope TEXT NOT NULL, created REAL NOT NULL,"
+        " last_used REAL, revoked_at REAL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mcp_audit ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL, token_id TEXT,"
+        " kind TEXT NOT NULL, name TEXT NOT NULL, args TEXT NOT NULL, outcome TEXT NOT NULL,"
+        " error_code TEXT, duration_ms INTEGER NOT NULL)"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS mcp_audit_ts ON mcp_audit(ts)")
+
+
+MIGRATIONS = {
+    1: _v1_energy_counters,
+    2: _v2_session_ids,
+    3: _v3_command_log_codes,
+    4: _v4_mcp_tables,
+}
 SCHEMA_VERSION = max(MIGRATIONS)  # a new migration is the new version
 
 
