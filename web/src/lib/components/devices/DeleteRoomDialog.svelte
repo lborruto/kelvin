@@ -8,8 +8,10 @@
     busy?: boolean;
     /** May return the write's promise: the trigger waits for it. */
     ondelete: () => unknown;
+    /** Its own trigger button; false when a Menu opens it (`open()`). */
+    button?: boolean;
   }
-  let { room, busy = false, ondelete }: Props = $props();
+  let { room, busy = false, ondelete, button = true }: Props = $props();
   const uid = $props.id();
   let dialog = $state<HTMLDialogElement>();
   let cancel = $state<HTMLButtonElement>();
@@ -30,6 +32,11 @@
     cancel?.focus(); // the safe choice
   }
 
+  /** Opened from the room's « ⋯ » menu (the menu already says why a protected or full room cannot go). */
+  export function open(): void {
+    ask();
+  }
+
   function confirmDelete(): void {
     if (closing) return;
     closing = true;
@@ -42,10 +49,12 @@
   }
 </script>
 
-<button type="button" class="btn btn-sm btn-ghost" aria-disabled={paused} aria-describedby={reason ? `${uid}-why` : undefined} onclick={ask}>
-  {m.devices.deleteRoom}
-</button>
-<span class="why" id="{uid}-why" aria-live="polite">{reason ?? ''}</span>
+{#if button}
+  <button type="button" class="btn btn-sm btn-ghost" aria-disabled={paused} aria-describedby={reason ? `${uid}-why` : undefined} onclick={ask}>
+    {m.devices.deleteRoom}
+  </button>
+  <span class="why" id="{uid}-why" aria-live="polite">{reason ?? ''}</span>
+{/if}
 
 <Sheet bind:dialog title={m.devices.deleteTitle(room.name)} description={m.devices.deleteBody}>
   <div class="row">

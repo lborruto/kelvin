@@ -62,6 +62,8 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Nouveau prix… | New price… | Tarif: opens the editor |
 | Tarif en vigueur | Current tariff | « Corriger le tarif en vigueur » → “Correct the current tariff”; « Heures creuses / pleines » (option) → “Peak / off-peak” |
 | Afficher / Masquer (PDL) | Show / Hide | « Modifier la connexion » → “Change connection” |
+| Box Cozytouch / Pont radio (io-homecontrol) / Wi-Fi de la box | Cozytouch box / Radio bridge (io-homecontrol) / Box Wi-Fi | Pièces et appareils: plain names; Pod, IOStack, Wifi only in the raw details |
+| Voir les appareils (6) / Faire clignoter | Show devices (6) / Make it blink | Radiator « ⋯ » menu; « Actions pour … » → “Actions for …” |
 | Thème : Système / Sombre / Clair | Theme: System / Dark / Light | |
 | Langue | Language | Options never translated: « Français », “English” |
 | Compte | Account | |

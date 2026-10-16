@@ -12,6 +12,7 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
  * a list, an object. A task that adds such a message adds its line here. */
 export const ARGS: Record<string, unknown[]> = {
   'away.offline': [['Chambre 2'], 1],
+  'devices.syncAt': ['14:10'],
   'home.everyRoomBut': [['Chambre 2']],
   'home.cardDevices': [2, 3],
   'devices.done': ['Salon'],
@@ -97,7 +98,7 @@ export const ARGS: Record<string, unknown[]> = {
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
 export const SAME = new Set<string>([
-  'account.email', 'tariffSummary.option', 'tariffSummary.options.base', 'tariffSummary.options.tempo', 'tariffSummary.unit',
+  'account.email', 'devices.syncAt', 'tariffSummary.option', 'tariffSummary.options.base', 'tariffSummary.options.tempo', 'tariffSummary.unit',
   'devices.watts', 'devices.detail.version', 'devices.detail.rssi', 'devices.role.wifi',
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',

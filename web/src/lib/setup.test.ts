@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { SetupDevice, SyncStatus } from '$lib/api/types';
 import { applyLocale } from '$lib/i18n';
-import { detailRows, deviceLabel, labelProblem, roomName, syncInfo, whenText } from './setup';
+import { bridgeName, detailRows, deviceLabel, labelProblem, radiatorFacts, roomName, sameNamed, syncInfo, whenText } from './setup';
 
 const NB = ' ';
 afterEach(() => applyLocale('fr'));
@@ -101,5 +101,27 @@ describe('deviceLabel (ruling: never a serial-like id on screen)', () => {
     expect(deviceLabel(d('Chambre 2'))).toBe('Chambre 2');
     applyLocale('en');
     expect(deviceLabel(d('IO (8370011#2)'))).toBe('Temperature sensor');
+  });
+});
+
+describe('Pièces et appareils helpers (UX batch 10)', () => {
+  it('bridgeName: household words, never Pod / IOStack / Wifi', async () => {
+    const { device } = await import('$lib/components/devices/fixture');
+    expect(bridgeName(device('bridge-1', 'box'))).toBe('Box Cozytouch');
+    expect(bridgeName(device('bridge-2', 'bridge'))).toBe('Pont radio (io-homecontrol)');
+    expect(bridgeName(device('bridge-3', 'wifi'))).toBe('Wi-Fi de la box');
+  });
+  it('radiatorFacts: the house first, else the heater’s details', async () => {
+    const { setupFixture } = await import('$lib/components/devices/fixture');
+    const r = setupFixture().radiators[0];
+    expect(radiatorFacts(r)).toEqual({ model: 'HEKLA P', power: 1500 });
+    expect(radiatorFacts(r, { model: 'IPALA', power_w: 1000 } as never)).toEqual({ model: 'IPALA', power: 1000 });
+  });
+  it('sameNamed: radiators whose shown names collide, case-insensitive', async () => {
+    const { setupFixture } = await import('$lib/components/devices/fixture');
+    const r = setupFixture().radiators[0];
+    const twin = { ...r, id: 'r2', name: 'radiateur' };
+    expect(sameNamed([r, twin]).map((x) => x.id)).toEqual(['r1', 'r2']);
+    expect(sameNamed([r, { ...r, id: 'r3', name: 'Salon 2' }])).toEqual([]);
   });
 });

@@ -22,7 +22,8 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   in place.
 - **Rooms and devices managed from Kelvin** (Home › Rooms and devices): create, rename and delete
   rooms, move a radiator to another room, rename a radiator. Kelvin writes to your Cozytouch
-  setup, so the Cozytouch app shows the same thing. Every device is listed with its room,
+  setup, so the Cozytouch app shows the same thing. Each radiator reads as its model, power and
+  state (« HEKLA P · 1 500 W · Joignable ») with its actions in one « ⋯ » menu. Every device is listed with its room,
   connectivity, last signal and read-only details (model, power, version, signal…). A change is
   shown as done only when Cozytouch reports it; if Cozytouch accepted it but has not confirmed it
   after a minute, it reads « non confirmé » (not failed) and its room name stays reserved until the

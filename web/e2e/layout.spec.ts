@@ -459,3 +459,20 @@ test.describe('layout with the Absence sheet open', () => {
         }
       });
 });
+
+// Pièces et appareils (UX batch 10): a « ⋯ » menu open (a sheet on a phone, a popover on desktop) never widens the page.
+test.describe('layout of /home/devices with a menu open', () => {
+  test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
+  for (const lang of ['fr', 'en'])
+    test(`${lang}: never scrolls sideways from 320 to 1440 px`, async ({ page }) => {
+      await page.addInitScript((l) => localStorage.setItem('kelvin-locale', l), lang);
+      for (const width of WIDTHS) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto('/home/devices');
+        await settled(page);
+        await page.getByRole('button', { name: /^(Actions pour|Actions for) .+\(/ }).first().click();
+        await expect(page.getByRole('menuitem').first()).toBeVisible();
+        expect(await overflow(page), `/home/devices menu (${lang}) at ${width} px`).toBeLessThanOrEqual(0);
+      }
+    });
+});
