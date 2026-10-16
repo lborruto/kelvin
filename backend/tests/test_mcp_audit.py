@@ -200,3 +200,55 @@ def test_a_restart_flushes_the_open_window(tmp_path):
     again = Database(tmp_path / "k.db")
     assert [r["count"] for r in _args(again)] == [7]
     again.close()
+
+
+def test_refusals_alone_are_pruned_past_the_cap(audit, monkeypatch):
+    """Re-review: with no accepted call at all, refusals still run the hourly prune."""
+    a, db = audit
+    monkeypatch.setattr(audit_mod, "MAX_ROWS", 100)
+    monkeypatch.setattr(audit_mod, "KEEP_PER_TOKEN", 10)
+    for _ in range(3 * 60 + 1):  # a new window every minute for 3 hours, one throttled token
+        a.refusal(
+            token_id="t1",
+            name="rate_limit",
+            outcome="rate_limited",
+            error_code="rate_limited",
+            source="10.0.0.2",
+        )
+        a.wall.advance(60)
+    assert db.query("SELECT COUNT(*) AS n FROM mcp_audit")[0]["n"] <= 100 + 60
+
+
+def test_a_table_over_the_cap_is_pruned_at_startup(tmp_path, monkeypatch):
+    monkeypatch.setattr(audit_mod, "MAX_ROWS", 50)
+    monkeypatch.setattr(audit_mod, "KEEP_PER_TOKEN", 10)
+    db = Database(tmp_path / "k.db")
+    db.executemany(
+        "INSERT INTO mcp_audit (ts, token_id, kind, name, args, outcome, error_code, duration_ms)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [(2_000_000.0, "t", "tool", "x", "{}", "ok", None, 0)] * 80,
+    )
+    McpAudit(db, wall=ManualClock(2_000_000.0))
+    assert db.query("SELECT COUNT(*) AS n FROM mcp_audit")[0]["n"] == 50
+    db.close()
+
+
+def test_an_expired_window_is_written_by_the_next_refusal(audit):
+    a, db = audit
+    for _ in range(4):
+        a.refusal(
+            token_id=None,
+            name="authenticate",
+            outcome="denied",
+            error_code="invalid_token",
+            source="10.0.0.9",
+        )
+    a.wall.advance(61)
+    a.refusal(
+        token_id="t9",
+        name="rate_limit",
+        outcome="rate_limited",
+        error_code="rate_limited",
+        source="10.0.0.9",
+    )  # another key: still flushes
+    assert _args(db)[0]["count"] == 4

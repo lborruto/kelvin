@@ -15,7 +15,7 @@ from kelvin.recorder.db import Database
 KEEP_S = 90 * 86400
 MAX_ROWS = 20_000
 AGG_WINDOW_S = 60  # refusals: one counted row per (token or unknown, reason) and minute
-MAX_SOURCES = 10_000  # distinct client keys remembered per window (beyond: counted as one more)
+MAX_SOURCES = 10_000  # distinct client keys counted per window; `sources` stops at this cap
 KEEP_PER_TOKEN = 200  # the cap never takes a token (or the refused authentications) below this
 PRUNE_BATCH = 5000
 PRUNE_EVERY_S = 3600
@@ -85,6 +85,7 @@ class McpAudit:
         self.wall = wall
         self._pruned_at: float | None = None
         self._windows: dict[tuple[str | None, str], _Window] = {}
+        self._maybe_prune()  # once at startup: a table left over the cap is trimmed at once
 
     def record(
         self,
@@ -112,6 +113,10 @@ class McpAudit:
                 int(duration_ms),
             ),
         )
+        self._maybe_prune()
+
+    def _maybe_prune(self) -> None:
+        """At most once an hour, whatever writes: accepted calls or refusals alone."""
         now = self.wall()
         if self._pruned_at is None or now - self._pruned_at >= PRUNE_EVERY_S:
             self._pruned_at = now
@@ -130,6 +135,7 @@ class McpAudit:
         review): one row per (token or unknown, reason) and AGG_WINDOW_S, written at the first
         refusal, its `args` holding count, first and last seen and distinct sources. Every refusal
         is counted; however many arrive, a window is one row."""
+        self._flush_closed()  # an expired window is written as soon as anything arrives
         now = self.wall()
         key = (token_id, error_code)
         w = self._windows.get(key)
@@ -150,6 +156,7 @@ class McpAudit:
         )
         opened.row_id = rows[0]["id"]
         self._windows[key] = opened
+        self._maybe_prune()
 
     def _write(self, w: _Window) -> None:
         if w.dirty:
