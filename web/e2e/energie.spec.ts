@@ -54,6 +54,8 @@ async function previousMonth(page: Page) {
 async function openCurve(page: Page) {
   if (!(await page.locator('#curve').isVisible())) await page.locator('.w-curve').getByRole('button', { name: 'par demi-heure' }).click();
   await expect(page.locator('#curve').getByRole('slider', { name: SCRUB })).toBeVisible();
+  // The sheet has finished rising (phone) or scaling in (desktop): boxes measured now are final.
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getComputedTiming().endTime === Infinity));
 }
 /** The Courbe sheet (Mois) is modal: close it before using the page behind. */
 async function closeCurve(page: Page) {
@@ -111,6 +113,7 @@ test.describe('Énergie', () => {
     expect(heights.filter((h) => h > 0).length).toBeGreaterThan(0);
     await openCurve(page);
     await expect(page.getByRole('img', { name: /^Consommation par demi-heure le / })).toBeVisible();
+    await closeCurve(page);
     await page.getByRole('radio', { name: 'Mois' }).focus();
     await page.keyboard.press('ArrowRight');
     await expect(page.getByRole('img', { name: 'Consommation de la maison par mois' })).toBeVisible();
