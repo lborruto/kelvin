@@ -8,8 +8,10 @@
   interface Props {
     status: LinkyStatus;
     onsaved: (s: LinkyStatus) => void;
+    /** The state lines above the form (false on the Linky page, which shows them as its Connexion panel). */
+    meta?: boolean;
   }
-  let { status, onsaved }: Props = $props();
+  let { status, onsaved, meta = true }: Props = $props();
 
   let prm = $state(untrack(() => status.prm ?? ''));
   let token = $state('');
@@ -69,23 +71,25 @@
 
 <div class="linky">
   <!-- The state and its facts read as one block. -->
-  <div class="meta">
+  {#if meta}<div class="meta">
     {#if line}<p class="state">{line}{#if status.state === 'ok' && status.last_ok_at}<span class="muted">&nbsp;· {m.linky.sync(fmtAgo(status.last_ok_at * 1000, now))}</span>{/if}</p>{/if}
     {#if problem}<p class="error" role="alert">{problem}</p>{/if}
     {#if status.simulator}<p class="muted small">{m.linky.simulator}</p>{/if}
     {#if status.consent_expires}<p class="muted small">{m.linky.consent(fmtDateLong(status.consent_expires))}</p>{/if}
     {#if status.configured}<p class="muted small">{m.linky.calls(status.calls_today, status.budget)}</p>{/if}
-  </div>
+  </div>{/if}
 
   <form onsubmit={save} novalidate>
+    <div class="fields">
     <label class="field">
       <span>{m.linky.pdl}</span>
-      <input inputmode="numeric" autocomplete="off" maxlength="14" bind:value={prm} />
+      <input class="pdl" inputmode="numeric" autocomplete="off" maxlength="14" bind:value={prm} />
     </label>
     <div class="tok">
     <label class="field">
       <span>{m.linky.token}</span>
       <input
+        class="w-text"
         type="password"
         autocomplete="new-password"
         placeholder={status.token_set ? m.linky.tokenPlaceholder : ''}
@@ -93,6 +97,7 @@
         bind:value={token} />
     </label>
     {#if status.token_set}<span class="hint" id="{uid}-keep">{m.linky.keepToken}</span>{/if}
+    </div>
     </div>
     {#if error}<p class="error" role="alert">{error()}</p>{/if}
     <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? m.linky.testing : m.linky.saveTest}</button>
@@ -116,16 +121,26 @@
   .small {
     font-size: 12px;
   }
+  /* Intrinsic widths in a wrapping group (DESIGN Form fields): the PDL is 14 digits wide, the token a
+     text field (--w-text); the primary button closes the form on its own line, left-aligned. */
   form {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    align-items: start;
-    gap: 12px;
+    justify-items: start;
+    gap: var(--ctl-gap);
   }
-  /* The primary button closes the form on its own line, left-aligned (DESIGN Form fields). */
-  form .btn-primary {
-    grid-column: 1 / -1;
-    justify-self: start;
+  .fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--ctl-gap) 16px;
+    width: 100%;
+  }
+  .pdl {
+    width: min(100%, calc(14ch + 2 * var(--ctl-pad-x) + 8px));
+  }
+  .tok {
+    flex: 1 1 14rem;
+    max-width: 22rem;
   }
   .field {
     display: grid;
@@ -144,13 +159,15 @@
     display: grid;
     gap: 4px;
   }
+  .tok .w-text {
+    width: 100%;
+  }
   .hint {
     font-size: 12px;
     color: var(--mu);
   }
   .error {
     color: var(--bad);
-    grid-column: 1 / -1;
   }
   a {
     color: var(--tx);

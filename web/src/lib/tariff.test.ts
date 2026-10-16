@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Tariff } from '$lib/api/types';
-import { ALL_MONTHS, buildDocument, inForce, monthsProblem, withSchedule } from './tariff';
+import { ALL_MONTHS, buildDocument, hourBlocks, inForce, monthsProblem, slotsText, tariffDiff, withSchedule } from './tariff';
 
 const NIGHT = [{ start: '22:00', end: '06:00' }];
 const current: Tariff = {
@@ -20,6 +20,18 @@ const draft = (over = {}) => ({
   schedule: { valid_from: '2026-10-14', variants: [{ months: ALL_MONTHS, slots: NIGHT }] },
   tempoHours: { hc_start: '22:00', hc_end: '06:00' },
   ...over
+});
+
+describe('hourBlocks (HoursBar)', () => {
+  it('splits a slot past midnight, keeps a day slot whole', () => {
+    expect(hourBlocks([{ start: '22:00', end: '06:00' }])).toEqual([
+      { left: (1320 / 1440) * 100, width: (120 / 1440) * 100 },
+      { left: 0, width: 25 }
+    ]);
+    expect(hourBlocks([{ start: '12:00', end: '14:00' }])).toEqual([{ left: 50, width: (120 / 1440) * 100 }]);
+    expect(hourBlocks([{ start: '00:00', end: '00:00' }])).toEqual([{ left: 0, width: 100 }]);
+    expect(slotsText([{ start: '22:00', end: '06:00' }, { start: '12:00', end: '14:00' }])).toBe('22:00–06:00, 12:00–14:00');
+  });
 });
 
 describe('tariff document', () => {
@@ -51,5 +63,22 @@ describe('tariff document', () => {
     expect(monthsProblem([{ months: [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12] }])).toEqual({ kind: 'missing', months: [4] });
     expect(monthsProblem([{ months: [11, 12, 1, 2, 3] }, { months: [1, 4, 5, 6, 7, 8, 9, 10] }])).toEqual({ kind: 'overlap', months: [1] });
     expect(monthsProblem([{ months: ALL_MONTHS }])).toBeNull();
+  });
+});
+
+describe('tariffDiff (the summary rows a save changed)', () => {
+  const t: Tariff = {
+    option: 'hchp', kva: 9, hc_slots: NIGHT,
+    hc_schedules: [{ valid_from: '2025-01-15', variants: [{ months: ALL_MONTHS, slots: NIGHT }] }],
+    tempo_hours: { hc_start: '22:00', hc_end: '06:00', day_start: '06:00' },
+    prices: [{ valid_from: '2025-01-15', option: 'hchp', subscription_eur_month: 15, rates: { hc: 0.2, hp: 0.27 } }]
+  };
+  it('names only what moved', () => {
+    const next = { ...t, prices: [...t.prices, { valid_from: '2026-10-01', option: 'hchp' as const, subscription_eur_month: 15, rates: { hc: 0.21, hp: 0.27 } }] };
+    expect([...tariffDiff(t, next, '2026-10-15')]).toEqual(['hc']);
+    expect([...tariffDiff(t, { ...t, kva: 12 }, '2026-10-15')]).toEqual(['kva']);
+    const hours = { ...t, hc_schedules: [{ valid_from: '2025-01-15', variants: [{ months: ALL_MONTHS, slots: [{ start: '23:00', end: '07:00' }] }] }] };
+    expect([...tariffDiff(t, hours, '2026-10-15')]).toEqual(['hours']);
+    expect(tariffDiff(null, t, '2026-10-15').has('option')).toBe(true);
   });
 });

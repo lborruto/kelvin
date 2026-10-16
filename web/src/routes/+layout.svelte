@@ -6,13 +6,16 @@
   import { navigating, page } from '$app/state';
   import { setLoginRequiredHandler } from '$lib/api/client';
   import { loginHref } from '$lib/auth';
+  import AwaySheet from '$lib/components/AwaySheet.svelte';
   import Banner from '$lib/components/Banner.svelte';
+  import ChartDefs from '$lib/components/ChartDefs.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
   import { initLocale, m } from '$lib/i18n';
   import { reducedMotion } from '$lib/motion';
   import { ROUTES } from '$lib/paths';
+  import { alerts } from '$lib/stores/alerts.svelte';
   import { announcer } from '$lib/stores/announcer.svelte';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
@@ -23,6 +26,27 @@
 
   let { children } = $props();
   let now = $state(Date.now());
+  /** The browser's own word on the network: the banner turns neutral « Hors connexion » at once. */
+  let offline = $state(typeof navigator !== 'undefined' && navigator.onLine === false);
+  $effect(() => {
+    const on = () => (offline = navigator.onLine === false);
+    addEventListener('online', on);
+    addEventListener('offline', on);
+    return () => {
+      removeEventListener('online', on);
+      removeEventListener('offline', on);
+    };
+  });
+  // The nav's alert dot reads the list on every page, not only where the alerts are shown.
+  $effect(() => {
+    if (!bare) alerts.ensure();
+  });
+  // The banner's stages (60 s quiet, 3 min bad) need a finer clock while the stream is down.
+  $effect(() => {
+    if (bare) return;
+    const t = setInterval(() => (now = Date.now()), house.connection === 'open' && !offline ? 30_000 : 5_000);
+    return () => clearInterval(t);
+  });
   let manifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
   /** The login screen stands alone: no shell, no stream. */
   let bare = $derived(page.url.pathname === ROUTES.login);
@@ -62,11 +86,9 @@
           })
       });
     });
-    const t = setInterval(() => (now = Date.now()), 30_000);
     return () => {
       cancelled = true;
       stop?.();
-      clearInterval(t);
     };
   });
 
@@ -115,13 +137,17 @@
   <a class="skip" href="#content">{m.nav.skip}</a>
   {#if loadingRoute}<div class="progress" aria-hidden="true"></div>{/if}
   <div class="app">
-    <div class="side"><Sidebar /></div>
+    <div class="side"><Sidebar {now} /></div>
     <div class="main">
-      <Banner connection={house.connection} status={house.status} {now} />
+      <Banner connection={house.connection} status={house.status} {now} {offline} lostAt={house.lostAt} dataAt={house.dataAt} />
       <main id="content" tabindex="-1">{@render children()}</main>
     </div>
   </div>
   <div class="tabs"><TabBar /></div>
+  <!-- The Absence sheet (UX batch 8): one instance, opened from wherever the user is. -->
+  <AwaySheet />
+  <!-- The charts' shared SVG defs (hatches): every route but Login draws a chart or a swatch. -->
+  <ChartDefs />
 {/if}
 <Toasts />
 <div class="visually-hidden" role="status" aria-live="polite">{announcer.polite}</div>

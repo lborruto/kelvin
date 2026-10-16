@@ -89,3 +89,48 @@ export function withSchedule(current: Tariff, s: HcSchedule): TariffDoc {
     tempo_hours: { hc_start: current.tempo_hours.hc_start, hc_end: current.tempo_hours.hc_end }
   };
 }
+
+const minuteOf = (t: string) => {
+  const [h, mi] = t.split(':').map(Number);
+  return h * 60 + mi;
+};
+
+/** Off-peak slots as blocks of a 24 h bar, in % of the day (HoursBar): a slot past midnight is split in two. */
+export function hourBlocks(slots: Slot[]): { left: number; width: number }[] {
+  const out: { left: number; width: number }[] = [];
+  const add = (a: number, b: number) => {
+    if (b > a) out.push({ left: (a / 1440) * 100, width: ((b - a) / 1440) * 100 });
+  };
+  for (const s of slots) {
+    const a = minuteOf(s.start);
+    const b = minuteOf(s.end);
+    if (b > a) add(a, b);
+    else {
+      add(a, 1440);
+      add(0, b);
+    }
+  }
+  return out;
+}
+
+/** « 22:00–06:00, 12:00–14:00 » */
+export const slotsText = (slots: Slot[]): string => slots.map((x) => `${x.start}–${x.end}`).join(', ');
+
+/** The summary rows a save changed (TariffSummary pulses them): option, kva, sub, each rate, hours. */
+export function tariffDiff(before: Tariff | null, after: Tariff, today: string): Set<string> {
+  const out = new Set<string>();
+  const a = before ? inForce(before.prices, today) : null;
+  const b = inForce(after.prices, today);
+  if (!b) return out;
+  if (a?.option !== b.option) out.add('option');
+  if (before?.kva !== after.kva) out.add('kva');
+  if (a?.subscription_eur_month !== b.subscription_eur_month) out.add('sub');
+  for (const k of RATE_KEYS[b.option]) if (a?.rates[k] !== b.rates[k]) out.add(k);
+  const hours = (t: Tariff | null) => {
+    if (!t) return '';
+    const s = inForce(t.hc_schedules, today);
+    return `${s ? s.variants.map((v) => `${v.months.join()}:${slotsText(v.slots)}`).join(';') : ''}|${t.tempo_hours.hc_start}-${t.tempo_hours.hc_end}`;
+  };
+  if (hours(before) !== hours(after)) out.add('hours');
+  return out;
+}

@@ -9,6 +9,11 @@ const options = [
 ];
 
 describe('Segmented', () => {
+  it('compact scale: every segment carries the 44 px hit area (.hit)', () => {
+    render(Segmented, { options, value: 'month', label: 'Période', onchange: vi.fn() });
+    for (const r of screen.getAllByRole('radio')) expect(r).toHaveClass('hit');
+  });
+
   it('is a radiogroup with one tab stop on the checked option', () => {
     render(Segmented, { options, value: 'month', label: 'Période', onchange: vi.fn() });
     expect(screen.getByRole('radiogroup', { name: 'Période' })).toBeInTheDocument();
@@ -56,4 +61,19 @@ it('an option can carry its own lang and accessible name', () => {
   const en = screen.getByRole('radio', { name: 'English' });
   expect(en).toHaveAttribute('lang', 'en');
   expect(en).toHaveTextContent('EN');
+});
+
+it('an option can carry a muted hint that is part of its name (Programme: « hors ligne »)', () => {
+  render(Segmented, {
+    options: [
+      { value: 'a', label: 'Salon' },
+      { value: 'b', label: 'Chambre 2', hint: 'hors ligne' }
+    ],
+    value: 'a',
+    label: 'Pièce',
+    onchange: () => {}
+  });
+  const b = screen.getByRole('radio', { name: 'Chambre 2 hors ligne' });
+  expect(b.querySelector('em')).toHaveTextContent('hors ligne');
+  expect(screen.getByRole('radio', { name: 'Salon' }).querySelector('em')).toBeNull();
 });

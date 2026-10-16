@@ -37,7 +37,7 @@ test('the login screen switches FR | EN before signing in, at 320 px', async ({ 
   await page.getByLabel('Email').fill('demo@kelvin.local');
   await page.getByLabel('Password').fill('wrong');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('alert')).toHaveText('Wrong Cozytouch email or password.');
+  await expect(page.getByRole('alert')).toHaveText('Cozytouch didn’t accept this email or password.');
   // The choice is remembered on this device.
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
@@ -52,12 +52,12 @@ test('Home › Settings: Language switches without a reload and is remembered', 
     }
   });
   await page.goto('/home');
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Display' })).toBeVisible();
   const group = page.getByRole('radiogroup', { name: 'Language' });
   await expect(group.getByRole('radio', { name: 'English' })).toHaveAttribute('aria-checked', 'true');
   const marker = await page.evaluate(() => ((window as unknown as { __kv: number }).__kv = Date.now()));
   await group.getByRole('radio', { name: 'Français' }).click();
-  await expect(page.getByRole('heading', { name: 'Réglages' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Affichage' })).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __kv: number }).__kv)).toBe(marker); // no reload
   expect(await page.evaluate(() => document.documentElement.lang)).toBe('fr');
   await page.reload();
@@ -80,7 +80,8 @@ test.describe('key flows in English', () => {
     await page.goto('/');
     expect(await page.evaluate(() => document.documentElement.lang)).toBe('en');
     await expect(page.getByRole('heading', { name: 'Rooms', level: 1 })).toBeVisible();
-    await expect(page.getByText(/^\d+ rooms · (\d+|none) heating/)).toBeVisible();
+    await expect(page.getByText(/^(No room|\d+ rooms?) heating · 1 offline/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Offline · 1' })).toBeVisible();
     await expect(page).toHaveTitle('Rooms · Kelvin');
   });
 
@@ -97,7 +98,8 @@ test.describe('key flows in English', () => {
     await page.goto('/energy');
     await expect(page.getByRole('heading', { name: 'Energy', level: 1 })).toBeVisible();
     await expect(page.locator('.hero .big')).toHaveText(/^€[\d,]+(\.\d{2})?/);
-    await expect(page.locator('.hero .tag')).toHaveText('estimate');
+    await expect(page.locator('.hero .tag')).toHaveText('est.');
+    await expect(page.getByRole('button', { name: /^€[\d,.]+, estimate, details$/ })).toBeVisible();
     // Month (the default view) draws day bars.
     await expect(page.getByRole('img', { name: 'Home consumption by day' })).toBeVisible();
     await expect(page.getByRole('heading', { name: /^Load curve, / })).toBeVisible();
@@ -114,7 +116,10 @@ test.describe('key flows in English', () => {
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
     const [dl] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Export the period (CSV)' }).click()
+      (async () => {
+        await page.locator('.export button[aria-haspopup="menu"]').filter({ visible: true }).first().click();
+        await page.getByRole('menuitem', { name: 'Export the period (CSV)' }).click();
+      })()
     ]);
     expect(dl.suggestedFilename()).toMatch(/^energie_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}_day\.csv$/);
     const rows = readFileSync((await dl.path())!, 'utf8').slice(1).split('\r\n');
@@ -126,9 +131,30 @@ test.describe('key flows in English', () => {
     expect(total.split(',')[3]).toMatch(/^\d+\.\d{3}$/); // maison_kwh: a decimal point, 3 decimals
   });
 
+  test('Schedule: the week, one day editor, copy and the offline room read in English', async ({ page }) => {
+    await page.goto('/schedule');
+    await expect(page.getByRole('heading', { name: 'Schedule', level: 1 })).toBeVisible();
+    await expect(page.getByText('Outside comfort periods, the room is on eco.')).toBeVisible();
+    await expect(page.getByText(/^Now: (Comfort|Eco)/)).toBeVisible();
+    await page.getByRole('radio', { name: 'Chambre 2 offline' }).click();
+    await expect(page.getByText('Chambre 2 is offline')).toBeVisible();
+    await page.getByRole('radio', { name: 'Salon' }).click();
+    await page.getByRole('button', { name: 'How to edit' }).click();
+    await expect(page.getByText(/drag it to move it/)).toBeVisible();
+    await page.getByRole('button', { name: /^Monday,/ }).click();
+    await expect(page.getByRole('heading', { name: /^Monday/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Copy to…' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Copy Monday to…' });
+    await sheet.getByRole('button', { name: 'Weekdays' }).click();
+    await expect(sheet.getByRole('button', { name: 'Copy to 4 days' })).toBeVisible();
+    await expect(sheet.getByText('Nothing is sent until you press Send.')).toBeVisible();
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByRole('button', { name: 'Copy to…' })).toBeFocused();
+  });
+
   test('a French bookmark lands on the English page, in English', async ({ page }) => {
     await page.goto('/maison#tarif'); // legacy-path-test
-    await expect(page).toHaveURL(/\/home#tariff$/);
-    await expect(page.locator('#tariff h2')).toHaveText('Tariff');
+    await expect(page).toHaveURL(/\/home\/tariff$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tariff');
   });
 });

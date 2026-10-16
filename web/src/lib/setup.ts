@@ -1,5 +1,5 @@
 /** Rooms and devices (spec §6): label checks that mirror the backend, detail rows, sync status. */
-import type { SetupDevice, SyncStatus } from '$lib/api/types';
+import type { Radiator, SetupDevice, SetupRadiator, SyncStatus } from '$lib/api/types';
 import { fmtDateTime, fmtTime, parisTodayIso } from '$lib/format';
 import { locale, m } from '$lib/i18n';
 
@@ -133,4 +133,38 @@ export function deviceLabel(d: SetupDevice): string {
 export function radiatorName(r: { name: string }): string {
   const name = r.name.trim();
   return !name || GENERIC_LABEL.test(name) || SERIAL_LIKE.test(name) ? m.devices.radiator : name;
+}
+
+/** A radiator as the room panel titles it: its own name, else (the device default « Radiateur » or its
+ * model says nothing) the model and power, « HEKLA P · 1500 W ». */
+export function radiatorTitle(r: { name: string; model?: string | null; power_w: number | null }): string {
+  const renamed = !!r.name.trim() && r.name !== 'Radiateur' && r.name !== r.model; // i18n-ignore: upstream device default
+  return renamed ? r.name : m.radiator.facts(r.model ?? m.radiator.default, r.power_w);
+}
+
+/** A bridge in household words (direction-2 §4): « Box Cozytouch », « Pont radio (io-homecontrol) »,
+ * « Wi-Fi de la box »; the raw label stays in its details. */
+export function bridgeName(d: SetupDevice): string {
+  if (d.role === 'box') return m.devices.role.box;
+  if (d.role === 'bridge') return m.devices.bridgeName;
+  if (d.role === 'wifi') return m.devices.wifiName;
+  return deviceLabel(d);
+}
+
+/** Model and power of a radiator: from the house (live) or its heater's details (the setup tree). */
+export function radiatorFacts(r: SetupRadiator, live?: Radiator | null): { model: string | null; power: number | null } {
+  const heater = r.devices.find((d) => d.role === 'heater');
+  const model = live?.model ?? (typeof heater?.details['io:ModelState'] === 'string' ? (heater.details['io:ModelState'] as string) : null);
+  const p = live?.power_w ?? heater?.details['io:PowerState'];
+  return { model: model || null, power: typeof p === 'number' ? p : null };
+}
+
+/** Radiators of one room whose shown names collide (the duplicate-name hint). */
+export function sameNamed(radiators: SetupRadiator[]): SetupRadiator[] {
+  const seen = new Map<string, SetupRadiator[]>();
+  for (const r of radiators) {
+    const key = radiatorName(r).toLowerCase();
+    seen.set(key, [...(seen.get(key) ?? []), r]);
+  }
+  return [...seen.values()].filter((g) => g.length > 1).flat();
 }

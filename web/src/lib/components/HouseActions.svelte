@@ -1,8 +1,9 @@
 <script lang="ts">
   import { retry, runHouse } from '$lib/actions';
   import { api } from '$lib/api/client';
+  import { fmtWeekdayTime } from '$lib/format';
   import { m } from '$lib/i18n';
-  import { ANCHORS, ROUTES } from '$lib/paths';
+  import { awaySheet } from '$lib/stores/away.svelte';
   import { house } from '$lib/stores/house.svelte';
   import Icon from './Icon.svelte';
   import PendingTag from './PendingTag.svelte';
@@ -12,13 +13,18 @@
     stacked?: boolean;
     /** Also offer "Tout remettre en programme" (Maison). */
     program?: boolean;
-    /** The « Absence… » link (not on Maison, where the Absence panel is the page itself). */
+    /** The « Absence… » button: it opens the Absence sheet where the user is. */
     away?: boolean;
-    /** One row whatever the font (the Rooms header on a phone): a label that does not fit ends in « … »
-        instead of wrapping the row, so a late web font or a wider fallback never moves the page (CLS). */
-    oneLine?: boolean;
+    /** The away button's idle text (Maison: « Partir en absence… »). */
+    awayText?: string;
+    /** Icon buttons with their names as labels (the phone Rooms header): one row whatever the font or language. */
+    icons?: boolean;
   }
-  let { stacked = false, program = false, away = true, oneLine = false }: Props = $props();
+  let { stacked = false, program = false, away = true, awayText, icons = false }: Props = $props();
+  // While an absence runs, the button says so in cool (« Absence · dim. 18:00 ») and opens it.
+  let awayOn = $derived(house.away);
+  let awayLabel = $derived(awayOn ? m.away.short(fmtWeekdayTime(awayOn.ends_at * 1000)) : (awayText ?? m.houseActions.away));
+  const openAway = (e: MouseEvent) => awaySheet.show(e.currentTarget as HTMLElement);
   // Mounted several times at once (sidebar, phone header, Maison): ids must be unique.
   const uid = $props.id();
 
@@ -42,12 +48,20 @@
 </script>
 
 <div class="wrap" class:stacked>
-  <div class="actions" class:stacked class:one={oneLine}>
-    <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={ask}><Icon name="power" size={16} /><span class="lbl">{m.houseActions.allOff}</span></button>
+  <div class="actions" class:stacked>
+    {#if icons}
+      <button type="button" class="btn btn-icon edged" aria-label={m.houseActions.allOff} title={m.houseActions.allOff} aria-disabled={blocked}
+        onclick={ask}><Icon name="power" size={18} /></button>
+      {#if away}<button type="button" class="btn btn-icon edged" class:on={!!awayOn} aria-label={awayLabel} title={awayLabel}
+          onclick={openAway}><Icon name="away" size={18} />{#if awayOn}<span class="adot" aria-hidden="true"></span>{/if}</button>{/if}
+    {:else}
+    {#if away}<button type="button" class="btn btn-sm" class:on={!!awayOn} onclick={openAway}><Icon name="away" size={16} />{awayLabel}</button>{/if}
     {#if program}
-      <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={() => !blocked && runHouse(() => api.houseProgram())}><span class="lbl">{m.houseActions.allProgram}</span></button>
+      <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={() => !blocked && runHouse(() => api.houseProgram())}><Icon
+          name="program" size={16} />{m.houseActions.allProgram}</button>
     {/if}
-    {#if away}<a class="btn btn-sm" href="{ROUTES.home}#{ANCHORS.away}"><Icon name="away" size={16} /><span class="lbl">{m.houseActions.away}</span></a>{/if}
+    <button type="button" class="btn btn-sm" aria-disabled={blocked} onclick={ask}><Icon name="power" size={16} />{m.houseActions.allOff}</button>
+    {/if}
   </div>
   <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
 </div>
@@ -80,23 +94,31 @@
   .stacked {
     flex-direction: column;
   }
-  .one {
-    flex-wrap: nowrap;
-    min-width: 0;
-    max-width: 100%;
-  }
-  .one > :global(.btn) {
-    flex: 0 1 auto;
-    min-width: 0;
-  }
-  .one .lbl {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  /* The icon form keeps the bordered look of the labelled buttons. */
+  .edged {
+    border-color: var(--line);
+    background: var(--s1);
+    color: var(--tx);
   }
   .stacked > * {
     width: 100%;
     justify-content: flex-start;
+  }
+  /* An absence running: the away button reads its end in cool (the only cool outside room surfaces). */
+  .on {
+    color: var(--cool);
+  }
+  .btn-icon.on {
+    position: relative;
+  }
+  .adot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--cool);
   }
   /* Enter: fade and settle from 8 px below; exit faster, the backdrop fading with it. */
   dialog {

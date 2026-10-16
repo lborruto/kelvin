@@ -2,7 +2,7 @@ import type { Alert, EcowattRun, Pending } from '$lib/api/types';
 import { fmtDay, fmtTime } from '$lib/format';
 import { hoursText } from '$lib/grid';
 import { locale, m, pendingError, pendingLabel } from '$lib/i18n';
-import { ANCHORS, ROUTES } from '$lib/paths';
+import { ROUTES } from '$lib/paths';
 import { roomName } from '$lib/setup';
 import { house } from '$lib/stores/house.svelte';
 
@@ -40,7 +40,7 @@ export function alertText(a: Alert): AlertText | null {
     case 'price_change':
       return {
         text: m.alerts.priceChange(fmtDayMonth(str(p.date))),
-        link: { href: `${ROUTES.home}#${ANCHORS.tariff}`, label: m.alerts.addPrices }
+        link: { href: ROUTES.tariff, label: m.alerts.addPrices }
       };
     case 'consent_expiring': {
       const when = fmtDayMonth(str(p.date));
@@ -66,7 +66,7 @@ export function alertText(a: Alert): AlertText | null {
     case 'linky_stalled':
       return {
         text: m.alerts.linkyStalled(fmtDay(str(p.last_day)), num(p.days) ?? 0),
-        link: { href: `${ROUTES.home}#${ANCHORS.linky}`, label: 'Linky' }
+        link: { href: ROUTES.linky, label: 'Linky' }
       };
     case 'tempo_red_tomorrow':
       return { text: m.alerts.tempoRedTomorrow(fmtDayMonth(str(p.date))), link: null };
@@ -78,7 +78,7 @@ export function alertText(a: Alert): AlertText | null {
       const slots = (Array.isArray(p.slots) ? p.slots : []) as { start: string; end: string }[];
       return {
         text: m.alerts.hcChanged(slots.map((s) => `${s.start}–${s.end}`).join(', ')),
-        link: { href: `${ROUTES.home}#${ANCHORS.tariff}`, label: m.alerts.hcAdd }
+        link: { href: ROUTES.tariff, label: m.alerts.hcAdd }
       };
     }
     default:

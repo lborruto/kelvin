@@ -11,6 +11,11 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
 /** Sample arguments for messages whose parameters are not (number, string, string, …): a day key,
  * a list, an object. A task that adds such a message adds its line here. */
 export const ARGS: Record<string, unknown[]> = {
+  'energyUi.linkyCallsValue': [2, 10],
+  'away.offline': [['Chambre 2'], 1],
+  'devices.syncAt': ['14:10'],
+  'home.everyRoomBut': [['Chambre 2']],
+  'home.cardDevices': [2, 3],
   'devices.done': ['Salon'],
   'devices.lastSignal': ['12:10'],
   'devices.detailsOf': ['Hekla'],
@@ -44,8 +49,13 @@ export const ARGS: Record<string, unknown[]> = {
   'linky.throttledLater': ['12/10'],
   'linky.calls': [3, 10],
   'strip.summary': [['a', 'b']],
+  'rooms.summary': [1, 2],
+  'status.someOffline': [1, 2],
   'radiator.facts': ['HEKLA P', 1500],
-  'program.nextOn': ['monday', '06:15', 'B'],
+  'program.whenOn': ['monday', '06:15'],
+  'program.copyTitle': ['thursday'],
+  'program.list': [['06:30–08:00', '12:00–14:00', '17:00–23:00']],
+  'program.duration': [7, 30],
   'inspector.radMeasured': [1, 2],
   'inspector.rates': [[['a', '1'], ['b', '2']]],
   'roomEnergy.roomFrom': [1, 2, '7/10'],
@@ -77,23 +87,34 @@ export const ARGS: Record<string, unknown[]> = {
   'energyTariff.qualityRetro': [5],
   // Plan 12
   'login.leadServer': ['Flexom'],
-  'servers.locked': ['Sauter Cozytouch'],
   'roomCaps.partial': [2, 3],
-  'devices.introExperimental': ['Flexom']
+  'devices.introExperimental': ['Flexom'],
+  // UX foundation
+  'nav.alerts': ['X', 2],
+  'banner.kelvinDown': [3, '21:14'],
+  'prov.withMethod': ['A', 'B'],
+  // Batch 12: the day before « vers »
+  'boost.thenProgram': ['00:19', 'tomorrow']
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
 export const SAME = new Set<string>([
+  // Batch 13: « ≈ 1,70 kW » and « Total » read the same in both languages
+  'room.livePower', 'room.livePowerTotal',
+  'energyUi.keyName', 'energyUi.barView', 'energyUi.roomKwhName',
+  'account.email', 'devices.syncAt', 'tariffSummary.option', 'tariffSummary.options.base', 'tariffSummary.options.tempo', 'tariffSummary.unit',
   'devices.watts', 'devices.detail.version', 'devices.detail.rssi', 'devices.role.wifi',
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
-  'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
+  'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.est',
   'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est',
   'tariff.kvaValue', 'tariff.options.base', 'tariff.options.tempo', 'tariff.rateShort.base', 'tariff.colOption',
   'energyTariff.colKwh', 'energyTariff.colEur', 'energyTariff.withColour',
   'sources.title', 'sources.tempo', 'sources.ecowatt', 'grid.source',
   // Plan 12: a product name
-  'servers.cozytouch', 'dryer.normal'
+  'servers.cozytouch', 'dryer.normal',
+  // UX foundation: source names (products), « Code », « Source », « est. »
+  'page.code', 'prov.source', 'prov.linky', 'prov.rte', 'prov.tempo', 'prov.cozytouch', 'prov.withMethod', 'fiche.est'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
@@ -195,14 +216,30 @@ describe('English messages take the same parameters as French', () => {
 /** French the strict scanner cannot tell from English or code, so a hard-coded copy of it would
  * slip through: short forms that are English words or names, a bare figure. Kept small on purpose. */
 const SCANNER_BLIND = new Set([
+  'energyUi.ecowatt', 'energyUi.analysis', 'energyUi.qualityMeta',
+  // Maison (UX batch 8): short French words the scanner reads as neutral.
+  'tariff.historyMeta', 'linky.show', 'linky.hide',
+  'away.extendGo', 'away.extend', 'away.endNow', 'home.stateAlerts', 'home.now', 'home.end', 'home.cardSourcesLate', 'home.display',
   'devices.detail.voltage', 'devices.detail.wifi', 'devices.role.box',
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
   'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',
   'inspector.rates', 'inspector.rateLabels.base', 'roomsEnergy.share',
   'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title',
   'tariff.option', 'tariff.tempoEnd', 'tariff.season',
+  // Login (Batch 11): « Changer » alone
+  'login.change',
+  // Batch 12: « En ligne », « Ouvrir Linky »
+  'roomInfo.reachable', 'devices.reachable', 'energyPage.settings',
+  // Batch 13: « 80 % de 1 500 W », « dernier signal il y a 3 min »
+  'room.livePowerRow', 'roomInfo.lastSignalInline',
   // Plan 12: no accent and no listed French word
-  'support.expected', 'pilot.label', 'dryer.boost'
+  'support.expected', 'pilot.label', 'dryer.boost',
+  // Programme redesign: figures and short words (« 7 h 30 », « … et … », « Week-end », « Raccourcis »)
+  'program.duration', 'program.list', 'program.presets.weekend', 'program.presetsLabel',
+  // Pièces redesign: short words in the boost sentence (« pendant », « Lancer », « ex. 22 °C pendant 2 h »)
+  'boost.during', 'boost.start', 'boost.meta',
+  // UX foundation: short labels (« Adresse », « Nature », « Calcul Kelvin », « Moyenne », « Période »)
+  'page.route', 'prov.nature', 'prov.kelvin', 'nav.alerts'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

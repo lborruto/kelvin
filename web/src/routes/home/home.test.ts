@@ -1,14 +1,27 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
 import { api } from '$lib/api/client';
 import { applyLocale, m } from '$lib/i18n';
+import { desktop } from '$lib/media.svelte';
 import { alerts } from '$lib/stores/alerts.svelte';
 import { auth } from '$lib/stores/auth.svelte';
-import { history } from '$lib/stores/history.svelte';
+import { awaySheet } from '$lib/stores/away.svelte';
+import { detail } from '$lib/stores/detail.svelte';
 import { house } from '$lib/stores/house.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import Page from './+page.svelte';
+
+const LINKY_OFF = {
+  configured: false, prm: null, token_set: false, simulator: false, state: 'off', message: null,
+  last_day: null, last_ok_at: null, retry_at: null, calls_today: 0, budget: 10, consent_expires: null
+};
+const TARIFF = {
+  option: 'hchp', kva: 9, hc_slots: [{ start: '22:00', end: '06:00' }],
+  hc_schedules: [{ valid_from: '2025-01-15', variants: [{ months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], slots: [{ start: '22:00', end: '06:00' }] }] }],
+  tempo_hours: { hc_start: '22:00', hc_end: '06:00', day_start: '06:00' },
+  prices: [{ valid_from: '2025-01-15', option: 'hchp', subscription_eur_month: 15, rates: { hc: 0.2, hp: 0.27 } }]
+};
 
 vi.mock('$lib/api/client', () => ({
   api: {
@@ -18,285 +31,266 @@ vi.mock('$lib/api/client', () => ({
     cancelOverride: vi.fn().mockResolvedValue({ pending: null }),
     alerts: vi.fn().mockResolvedValue([]),
     dismissAlert: vi.fn(),
-    sessions: vi.fn().mockResolvedValue([]),
-    revokeSession: vi.fn(),
-    revokeOtherSessions: vi.fn(),
+    sessions: vi.fn().mockResolvedValue([
+      { id: 's1', browser: 'Firefox', os: 'Linux', current: true, created_at: 1, last_seen: 1 },
+      { id: 's2', browser: 'Safari', os: 'iPhone', current: false, created_at: 1, last_seen: 1 }
+    ]),
     settings: vi.fn().mockResolvedValue({ tariff: null, prefill: null }),
     status: vi.fn().mockResolvedValue({ sources: null }),
-    linkyStatus: vi.fn().mockResolvedValue({
-      configured: false, prm: null, token_set: false, simulator: false, state: 'off', message: null,
-      last_day: null, last_ok_at: null, retry_at: null, calls_today: 0, budget: 10, consent_expires: null
-    }),
-    putTariffDoc: vi.fn(),
-    tempoPrices: vi.fn(),
-    putLinky: vi.fn(),
-    logout: vi.fn().mockResolvedValue({ email: null, logged_in: false }),
+    linkyStatus: vi.fn(),
     me: vi.fn().mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true })
   },
   ApiError: class extends Error {}
 }));
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
+let navigated: ((nav: { to: { url: URL } | null }) => void) | null = null;
+vi.mock('$app/navigation', () => ({
+  goto: vi.fn(),
+  replaceState: vi.fn((url: string) => history.replaceState(null, '', url)),
+  afterNavigate: (cb: (nav: { to: { url: URL } | null }) => void) => {
+    navigated = cb;
+    cb({ to: { url: new URL(location.href) } });
+  }
+}));
+
+const ROOMS = [
+  { id: 'p-salon', name: 'Salon', radiator_ids: ['a'] },
+  { id: 'p-ch2', name: 'Chambre 2', radiator_ids: ['b'] }
+];
+const rad = (id: string, reachable: boolean) =>
+  ({ id, name: id, room_id: null, mode: 'program', target: 19, temperature: 19, heating: false, max_temperature: 28, light: null, energy_wh: null, reachable }) as never;
+
+function snapshot(overrides: unknown[] = []) {
+  house.applySnapshot({
+    house: { rooms: ROOMS as never, radiators: [rad('a', true), rad('b', false)] },
+    pending: [],
+    overrides: overrides as never,
+    status: { connected: true, last_ok_at: Date.now() / 1000, last_error: null }
+  });
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
-  auth.email = null;
-  alerts.reset();
+  vi.mocked(api.linkyStatus).mockResolvedValue(LINKY_OFF as never);
+  history.replaceState(null, '', '/home');
+  auth.email = 'demo@kelvin.local';
   auth.loggedIn = true;
+  auth.server = { id: 'sauter_cozytouch', name: 'Sauter Cozytouch', tier: 'cozytouch', default: true };
+  alerts.reset();
+  alerts.list = [];
   toasts.items = [];
+  awaySheet.close();
+  desktop.matches = false;
   house.houseCommandId = null;
-  house.applySnapshot({
-    house: { rooms: [], radiators: [] },
-    pending: [],
-    overrides: [{ id: 'o1', kind: 'boost', room_id: 'p-salon', radiator_ids: ['a'], temperature: 21, ends_at: 2e9, restoring: false }],
-    status: { connected: true, last_ok_at: Date.now() / 1000, last_error: null }
-  });
+  snapshot([{ id: 'o1', kind: 'boost', room_id: 'p-salon', radiator_ids: ['a'], temperature: 22, ends_at: 2e9, restoring: false }]);
+});
+afterEach(() => {
+  applyLocale('fr');
+  auth.server = null;
 });
 
-describe('Maison', () => {
-  it('starts an absence with a local date and a temperature', async () => {
-    render(Page);
-    const until = screen.getByLabelText(/Jusqu’au/);
-    await fireEvent.input(until, { target: { value: '2026-10-20T18:00' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Activer l’absence' }));
-    expect(api.houseAway).toHaveBeenCalledWith('2026-10-20T18:00', 12);
+describe('Maison overview', () => {
+  it('reads in order: header, En ce moment, the section cards, Affichage, the version', async () => {
+    const { container } = render(Page);
+    expect(screen.getByRole('heading', { level: 1, name: 'Maison' })).toBeInTheDocument();
+    const order = [...container.querySelectorAll('h2, h3')].filter((h) => !h.closest('dialog')).map((h) => h.textContent?.trim());
+    expect(order).toEqual([m.home.now, m.devices.title, m.tariff.title, 'Linky', m.sources.title, m.account.title, m.home.display]);
+    expect(screen.getByText(/^Kelvin \d/)).toBeInTheDocument();
   });
 
-  it('refuses an absence ending in the past', async () => {
+  it('says « Tout va bien » when nothing needs attention, and the alerts and the absence otherwise', async () => {
     render(Page);
-    await fireEvent.input(screen.getByLabelText(/Jusqu’au/), { target: { value: '2020-01-01T10:00' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Activer l’absence' }));
-    expect(screen.getByText('La fin doit être dans le futur.')).toBeInTheDocument();
-    expect(api.houseAway).not.toHaveBeenCalled();
+    expect(screen.getByText('Tout va bien')).toBeInTheDocument();
   });
 
-  it('lists active overrides with a cancel action', async () => {
+  it('has no Alertes section without alerts, and lists them when there are some', async () => {
+    const { unmount } = render(Page);
+    expect(screen.queryByRole('heading', { name: m.alerts.title })).toBeNull();
+    expect(document.getElementById('alerts')).toBeNull();
+    unmount();
+    alerts.list = [
+      { id: 1, kind: 'linky_stalled', severity: 'warn', params: { last_day: '2026-10-10', days: 4 }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false }
+    ];
+    alerts.summary = { active: 1, highest: 'warn' };
     render(Page);
-    await fireEvent.click(screen.getByRole('button', { name: 'Annuler Forçage — Toute la maison' }));
+    const section = document.getElementById('alerts')!;
+    expect(within(section).getByRole('heading', { name: m.alerts.title })).toBeInTheDocument();
+    expect(within(section).getByText(/pas de nouvelle donnée depuis le 10\/10/)).toBeInTheDocument();
+    expect(screen.getByText('1 alerte')).toBeInTheDocument();
+  });
+
+  it('a failing alerts load shows the error with a retry, not an empty list', async () => {
+    alerts.reset();
+    alerts.error = true;
+    render(Page);
+    expect(screen.getByText('Impossible de charger les alertes.')).toBeInTheDocument();
+  });
+
+  it('En ce moment: a temporary heating with « Arrêter », an absence with « Terminer »', async () => {
+    snapshot([
+      { id: 'o1', kind: 'boost', room_id: 'p-salon', radiator_ids: ['a'], temperature: 22, ends_at: 2e9, restoring: false },
+      { id: 'o2', kind: 'away', room_id: null, radiator_ids: ['a', 'b'], temperature: 12, ends_at: 2e9, restoring: false }
+    ]);
+    render(Page);
+    expect(screen.getByText('Chauffe temporaire')).toBeInTheDocument();
+    expect(screen.getByText(/toutes les pièces · Chambre 2 hors ligne/)).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: /^Arrêter la chauffe temporaire\s: Salon$/ }));
     expect(api.cancelOverride).toHaveBeenCalledWith('o1');
+    await fireEvent.click(screen.getByRole('button', { name: 'Terminer l’absence' }));
+    expect(api.cancelOverride).toHaveBeenCalledWith('o2');
+    expect(screen.getByText(/^Absence jusqu’à/)).toBeInTheDocument(); // the state line
   });
 
-  it('puts every radiator back in programme', async () => {
+  it('a boost on an offline room pauses « Arrêter », as in the room panel; « Terminer » the absence stays', async () => {
+    snapshot([
+      { id: 'o3', kind: 'boost', room_id: 'p-ch2', radiator_ids: ['b'], temperature: 22, ends_at: 2e9, restoring: false },
+      { id: 'o2', kind: 'away', room_id: null, radiator_ids: ['a', 'b'], temperature: 12, ends_at: 2e9, restoring: false }
+    ]);
     render(Page);
-    await fireEvent.click(screen.getByRole('button', { name: 'Tout remettre en programme' }));
-    expect(api.houseProgram).toHaveBeenCalled();
+    const stop = screen.getByRole('button', { name: /^Arrêter la chauffe temporaire\s: Chambre 2$/ });
+    expect(stop).toHaveAttribute('aria-disabled', 'true');
+    await fireEvent.click(stop);
+    expect(api.cancelOverride).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Terminer l’absence' })).toHaveAttribute('aria-disabled', 'false');
   });
 
-  it('house-wide actions show their progress on Maison and block a re-send', async () => {
+  it('says « Tout suit son réglage habituel. » when nothing is forced', () => {
+    snapshot([]);
+    render(Page);
+    expect(screen.getByText('Tout suit son réglage habituel.')).toBeInTheDocument();
+    expect(screen.queryByText('Aucun forçage ni absence.')).toBeNull();
+  });
+
+  it('quick actions: put everything back on schedule, with its progress blocking a re-send', async () => {
     vi.mocked(api.houseProgram).mockResolvedValueOnce({
-      pending: { id: 'h1', label: 'Tout en programme', radiator_ids: ['a'], status: 'pending', error: null, created_at: 1, expected: {} }
+      pending: { id: 'h1', label: 'Tout remettre en programme', radiator_ids: ['a'], status: 'pending', error: null, created_at: 1, expected: {} }
     } as never);
     render(Page);
     const btn = screen.getByRole('button', { name: 'Tout remettre en programme' });
     await fireEvent.click(btn);
+    expect(api.houseProgram).toHaveBeenCalled();
     expect(await screen.findByText('Envoi…')).toBeInTheDocument();
     expect(btn).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('button', { name: 'Tout éteindre' })).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('shows the Cozytouch status', async () => {
+  it('phone: « Partir en absence… » is a quick action that opens the sheet; desktop: in the header', async () => {
+    const { unmount } = render(Page);
+    await fireEvent.click(screen.getByRole('button', { name: 'Partir en absence…' }));
+    expect(awaySheet.open).toBe(true);
+    awaySheet.close();
+    unmount();
+    desktop.matches = true;
     render(Page);
-    expect(await screen.findByText('Connecté')).toBeInTheDocument();
+    const header = document.querySelector('.page-header')!;
+    await fireEvent.click(within(header as HTMLElement).getByRole('button', { name: 'Partir en absence…' }));
+    expect(awaySheet.open).toBe(true);
   });
 
-  it('shows the account and logs out to the login screen', async () => {
-    auth.email = 'demo@kelvin.local';
+  it('cards: a link each, named by their title and summary', async () => {
+    vi.mocked(api.settings).mockResolvedValueOnce({ tariff: TARIFF, prefill: null } as never);
     render(Page);
-    expect(await screen.findByText('demo@kelvin.local')).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
-    expect(api.logout).toHaveBeenCalled();
-    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replaceState: true }));
+    const devices = screen.getByRole('link', { name: /^Pièces et appareils, 2 pièces · 2 radiateurs/ });
+    expect(devices).toHaveAttribute('href', '/home/devices');
+    expect(screen.getByText('1 hors ligne')).toBeInTheDocument();
+    const tariff = await screen.findByRole('link', { name: /^Tarif, HC\/HP · 9\skVA · 15,00\s€\/mois$/ });
+    expect(tariff).toHaveAttribute('href', '/home/tariff');
+    expect(screen.getByRole('img', { name: /^Heures creuses\s: 22:00–06:00$/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Linky, Non relié · reliez-le pour la consommation de la maison' })).toHaveAttribute(
+      'href',
+      '/home/linky'
+    );
+    expect(await screen.findByRole('link', { name: 'Sources de données, Tout est à jour' })).toHaveAttribute('href', '/home/sources');
+    expect(screen.getByRole('link', { name: 'Compte, demo@kelvin.local' })).toHaveAttribute('href', '/home/account');
+    expect(await screen.findByText('Sauter Cozytouch · 2 appareils connectés')).toBeInTheDocument();
   });
 
-  it('stays on Maison with a toast when the logout fails, and logs out when the session is already gone', async () => {
-    auth.email = 'demo@kelvin.local';
-    vi.mocked(api.logout).mockRejectedValueOnce(new Error('network'));
+  it('a tariff never set says so; a failed load says « Indisponible » in its card', async () => {
+    const { unmount } = render(Page);
+    expect(await screen.findByText('Pas encore de tarif')).toBeInTheDocument();
+    unmount();
+    vi.mocked(api.settings).mockRejectedValueOnce(new Error('x'));
     render(Page);
-    await fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
-    await vi.waitFor(() => expect(toasts.items.map((t) => t.text())).toContain('Déconnexion impossible. Réessayez.'));
-    expect(goto).not.toHaveBeenCalled();
-    expect(auth.email).toBe('demo@kelvin.local');
-    expect(screen.getByRole('button', { name: 'Se déconnecter' })).toHaveAttribute('aria-disabled', 'false');
+    expect(await screen.findByRole('link', { name: 'Tarif, Indisponible pour le moment' })).toBeInTheDocument();
   });
 
-  it('empties the house and history stores on logout', async () => {
-    auth.email = 'demo@kelvin.local';
-    history.data = { k: [{ t: 1, v: 20, s: 17 }] };
+  it('experimental server: the Pièces et appareils card says read-only', () => {
+    auth.server = { id: 'x', name: 'Hitachi Hi Kumo', tier: 'experimental', default: false };
     render(Page);
-    expect(house.overrides).toHaveLength(1);
-    await fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
-    await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-    expect(house.overrides).toEqual([]);
-    expect(house.rooms).toEqual([]);
-    expect(house.loaded).toBe(false);
-    expect(history.data).toEqual({});
+    expect(screen.getByText('lecture seule sur ce serveur')).toBeInTheDocument();
   });
 
-  it('loads the tariff and Linky sections', async () => {
-    render(Page);
-    expect(await screen.findByRole('button', { name: 'Enregistrer le tarif' })).toBeInTheDocument();
-    expect(await screen.findByText('Non relié.')).toBeInTheDocument();
-    expect(api.settings).toHaveBeenCalled();
-    expect(api.linkyStatus).toHaveBeenCalled();
+  it('shows skeletons until the house and the alerts are known, at the cards’ final heights', () => {
+    house.reset();
+    alerts.reset();
+    const { container } = render(Page);
+    expect(container.querySelectorAll('.now-sk')).toHaveLength(1);
+    expect(container.querySelectorAll('.card-sk')).toHaveLength(6);
+    expect(screen.queryByText('Tout suit son réglage habituel.')).toBeNull();
+    expect(screen.queryByText('Tout va bien')).toBeNull();
   });
 
-  it('the theme switch follows the radio keyboard model', async () => {
+  it('Affichage: the theme radio keyboard model, and the « détails techniques » preference', async () => {
     render(Page);
-    const group = await screen.findByRole('radiogroup', { name: 'Thème' });
+    const group = screen.getByRole('radiogroup', { name: 'Thème' });
     const checked = group.querySelector('[aria-checked="true"]') as HTMLElement;
     await fireEvent.keyDown(checked, { key: 'End' });
     expect(screen.getByRole('radio', { name: 'Clair' })).toHaveAttribute('aria-checked', 'true');
+    const toggle = screen.getByRole('switch', { name: 'Afficher les détails techniques' });
+    const before = detail.on;
+    await fireEvent.click(toggle);
+    expect(detail.on).toBe(!before);
+    detail.set(before);
   });
+});
 
-  it('shows skeletons, not « Aucun forçage », before the house and settings are known', () => {
-    house.reset();
-    const { container } = render(Page);
-    expect(screen.queryByText('Aucun forçage ni absence.')).toBeNull();
-    expect(container.querySelectorAll('.skeleton').length).toBe(2); // the active line and the alerts line: the panels below come with the alerts (no height to reserve)
-    expect(screen.queryByText('Chargement…')).toBeNull();
+describe('old Maison anchors', () => {
+  it('#tariff, #linky and #sessions go to their sub-page (replacing the history entry)', () => {
+    for (const [hash, to] of [
+      ['#tariff', '/home/tariff'],
+      ['#linky', '/home/linky'],
+      ['#sessions', '/home/account#sessions']
+    ]) {
+      vi.mocked(goto).mockClear();
+      history.replaceState(null, '', `/home${hash}`);
+      const { unmount } = render(Page);
+      expect(goto).toHaveBeenCalledWith(to, { replaceState: true });
+      unmount();
+    }
   });
-
-  it('a failed tariff load says so inside its panel, with Réessayer', async () => {
-    vi.mocked(api.settings).mockRejectedValueOnce(new Error('x'));
+  it('#away opens the Absence sheet on the overview; #alerts stays', () => {
+    history.replaceState(null, '', '/home#away');
     render(Page);
-    const retry = await screen.findByRole('button', { name: 'Réessayer' });
-    expect(retry.closest('#tariff')).not.toBeNull();
-    expect(screen.getByText(/Impossible de charger le tarif/)).toBeInTheDocument();
-    await fireEvent.click(retry);
-    expect(await screen.findByRole('button', { name: 'Enregistrer le tarif' })).toBeInTheDocument();
-  });
-
-  it('does not offer « Absence… » on the page that holds the Absence panel', () => {
-    render(Page);
-    expect(screen.queryByRole('link', { name: 'Absence…' })).toBeNull();
-  });
-
-  it('the Tarif and Linky anchors exist from the first render, no height before the rest', () => {
-    vi.mocked(api.settings).mockReturnValueOnce(new Promise(() => {}));
-    render(Page);
-    expect(document.getElementById('tariff')).toHaveAttribute('aria-busy', 'true');
-    expect(document.getElementById('linky')).toBeInTheDocument();
-  });
-
-  it('links to the rooms and devices screen', async () => {
-    render(Page);
-    expect(await screen.findByRole('link', { name: 'Gérer les pièces et appareils' })).toHaveAttribute('href', '/home/devices');
-  });
-
-  it('orders the panels: Actions, alerts, rooms and devices, Tarif, Linky, signed-in devices, settings', async () => {
-    const { container } = render(Page);
-    await screen.findByRole('heading', { name: m.settings.title });
-    const titles = [...container.querySelectorAll('section.panel > h2')].map((h) => h.textContent);
-    const order = ['Actions', m.alerts.title, m.devices.title, m.home.tariff, 'Linky', m.sessions.title, m.settings.title];
-    expect(titles.filter((t) => order.includes(t ?? ''))).toEqual(order);
-  });
-
-  it('names the home’s server in Settings', async () => {
-    auth.server = { id: 'atlantic_cozytouch', name: 'Atlantic Cozytouch', tier: 'cozytouch', default: false };
-    render(Page);
-    expect(await screen.findByText('Atlantic Cozytouch')).toBeInTheDocument();
-    expect(screen.getByText('Serveur')).toBeInTheDocument();
-    auth.server = null;
+    expect(awaySheet.open).toBe(true);
+    expect(location.hash).toBe('');
+    awaySheet.close();
+    vi.mocked(goto).mockClear();
+    navigated?.({ to: { url: new URL('http://x/home#alerts') } });
+    expect(goto).not.toHaveBeenCalled();
+    expect(awaySheet.open).toBe(false);
   });
 });
 
 describe('Home in English', () => {
-  it('panels, the active override, settings and the Cozytouch status by code', async () => {
-    applyLocale('en');
-    house.status = { connected: false, last_ok_at: null, last_error: 'QUOTA_EXCEEDED', last_error_code: 'quota' };
-    render(Page);
-    expect(screen.getByRole('heading', { name: 'Home', level: 1 })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Away' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start away mode' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Active' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Cancel Boost — / })).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
-    expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument();
-    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(expect.arrayContaining(['System', 'Dark', 'Light']));
-    const status = screen.getByText('Cozytouch request limit reached.');
-    expect(status).toHaveAttribute('title', 'QUOTA_EXCEEDED');
-    expect(screen.getByText('Unreachable')).toBeInTheDocument();
-  });
-  it('an away period ending in the past is refused in English', async () => {
-    applyLocale('en');
-    render(Page);
-    await fireEvent.input(screen.getByLabelText(/Until/), { target: { value: '2020-01-01T10:00' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Start away mode' }));
-    expect(screen.getByText('The end must be in the future.')).toBeInTheDocument();
-  });
-});
-
-describe('Réglages › Langue', () => {
-  it('switching re-renders nav, Segmented, chips and the title without remounting, and persists', async () => {
+  it('the overview, its rows and the language switch without a remount', async () => {
+    snapshot([{ id: 'o1', kind: 'boost', room_id: 'p-salon', radiator_ids: ['a'], temperature: 22, ends_at: 2e9, restoring: false }]);
     render(Page);
     const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1).toHaveTextContent('Maison');
     expect(document.title).toBe('Maison · Kelvin');
-    const group = await screen.findByRole('radiogroup', { name: 'Langue' });
+    const group = screen.getByRole('radiogroup', { name: 'Langue' });
     const fr = within(group).getByRole('radio', { name: 'Français' });
     expect(fr).toHaveAttribute('lang', 'fr');
-    expect(fr).toHaveAttribute('aria-checked', 'true');
     await fireEvent.click(within(group).getByRole('radio', { name: 'English' }));
     expect(screen.getByRole('heading', { level: 1 })).toBe(h1);
     expect(h1).toHaveTextContent('Home');
     expect(document.title).toBe('Home · Kelvin');
+    expect(screen.getByRole('heading', { name: 'Right now' })).toBeInTheDocument();
+    expect(screen.getByText('Boost')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Stop boost: Salon' })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'System' })).toBeInTheDocument();
-    expect(screen.getByRole('radiogroup', { name: 'Language' })).toBeInTheDocument();
-    expect(document.documentElement.lang).toBe('en');
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(expect.arrayContaining(['System', 'Dark', 'Light']));
+    expect(screen.getByRole('heading', { name: 'Display' })).toBeInTheDocument();
+    expect(screen.getByText('All good')).toBeInTheDocument();
     expect(localStorage.getItem('kelvin-locale')).toBe('en');
-  });
-});
-
-describe('Maison alerts', () => {
-  it('lists the active alerts, or says there are none', async () => {
-    vi.mocked(api.alerts).mockResolvedValueOnce([
-      { id: 1, kind: 'linky_stalled', severity: 'warn', params: { last_day: '2026-10-10', days: 4 }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false },
-      { id: 2, kind: 'a_future_kind', severity: 'info', params: {}, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false }
-    ]);
-    alerts.reset();
-    render(Page);
-    expect(await screen.findByText(/pas de nouvelle donnée depuis le 10\/10/)).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /^Masquer/ })).toHaveLength(1); // the unknown kind is not shown
-    alerts.reset();
-  });
-  it('a failing alerts load still renders the panels, with the error and a retry (re-review)', async () => {
-    alerts.reset();
-    vi.mocked(api.alerts).mockReset().mockRejectedValue(new Error('x'));
-    render(Page);
-    expect(await screen.findByText('Impossible de charger les alertes.')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Enregistrer le tarif' })).toBeInTheDocument();
-    await new Promise((r) => setTimeout(r, 50));
-    expect(api.alerts).toHaveBeenCalledTimes(1); // no reload loop: retry is the button's
-    vi.mocked(api.alerts).mockResolvedValue([]);
-    await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
-    expect(await screen.findByText('Aucune alerte.')).toBeInTheDocument();
-    alerts.reset();
-  });
-  it('says so when nothing is active', async () => {
-    alerts.reset();
-    render(Page);
-    expect(await screen.findByText('Aucune alerte.')).toBeInTheDocument();
-  });
-  it('an hc_changed alert offers its off-peak hours inside the tariff form', async () => {
-    const night = [{ start: '22:00', end: '06:00' }];
-    vi.mocked(api.settings).mockResolvedValueOnce({
-      tariff: {
-        option: 'hchp', kva: 9, hc_slots: night,
-        hc_schedules: [{ valid_from: '2025-01-15', variants: [{ months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], slots: night }] }],
-        tempo_hours: { hc_start: '22:00', hc_end: '06:00', day_start: '06:00' },
-        prices: [{ valid_from: '2025-01-15', option: 'hchp', subscription_eur_month: 15, rates: { hc: 0.2068, hp: 0.27 } }]
-      },
-      prefill: null
-    } as never);
-    vi.mocked(api.alerts).mockResolvedValueOnce([
-      { id: 3, kind: 'hc_changed', severity: 'info', params: { slots: [{ start: '23:00', end: '07:00' }] }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false }
-    ]);
-    alerts.reset();
-    render(Page);
-    const tariff = await screen.findByRole('button', { name: 'Enregistrer le tarif' });
-    const form = tariff.closest('section')!;
-    expect(await within(form).findByText(/Enedis indique de nouvelles heures creuses\s: 23:00–07:00\./)).toBeInTheDocument();
-    alerts.reset();
   });
 });

@@ -14,6 +14,8 @@ export class AuthStore {
   simulator = $state(false);
   /** The home's Overkiz server (Plan 12), once logged in. */
   server = $state<ServerInfo | null>(null);
+  /** The last /auth/me failed (Kelvin unreachable): « not known yet » will not resolve by itself. */
+  meFailed = $state(false);
 
   apply(me: Me): void {
     this.email = me.email;
@@ -27,8 +29,10 @@ export class AuthStore {
     try {
       const me = await api.me();
       this.apply(me);
+      this.meFailed = false;
       return me.logged_in;
     } catch {
+      this.meFailed = true;
       return null;
     }
   }

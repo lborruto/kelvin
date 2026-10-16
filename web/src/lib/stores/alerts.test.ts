@@ -12,6 +12,17 @@ beforeEach(() => {
 });
 
 describe('AlertsStore', () => {
+  it('ensure(): the shell loads the list once there are alerts and it is missing (the nav dot needs it)', async () => {
+    const s = new AlertsStore();
+    s.ensure();
+    expect(api.alerts).not.toHaveBeenCalled(); // no alert: nothing to load
+    s.summary = { active: 1, highest: 'bad' };
+    s.ensure();
+    await vi.waitFor(() => expect(s.list).not.toBeNull());
+    s.ensure();
+    expect(api.alerts).toHaveBeenCalledTimes(1);
+  });
+
   it('loads on a changed summary only', async () => {
     const s = new AlertsStore();
     s.applySummary({ active: 1, highest: 'warn' });

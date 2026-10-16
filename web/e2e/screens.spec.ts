@@ -13,7 +13,9 @@ test.skip(!process.env.SCREENS, 'set SCREENS=1 to capture finish-review screensh
 // renders the README screenshots; the default stays inside the gitignored test-results/.
 const outDir = process.env.SCREENS_DIR ?? 'test-results/screens';
 
-for (const path of ['/', '/rooms/p-salon', '/schedule', '/energy', '/home', '/login']) {
+const PATHS = ['/', '/rooms/p-salon', '/schedule', '/energy', '/home', '/home/devices', '/home/tariff', '/home/linky'];
+PATHS.push('/home/sources', '/home/account', '/login', '/no-such-page');
+for (const path of PATHS) {
   test(`screen ${path}`, async ({ browser, page: loggedIn }, info) => {
     // /login sends a logged-in visitor away: capture it from a fresh, logged-out context.
     let page = loggedIn;

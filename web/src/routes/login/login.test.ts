@@ -39,6 +39,12 @@ beforeEach(() => {
   vi.mocked(api.servers).mockResolvedValue(LIST);
 });
 
+/** « Changer » opens the server choice (Batch 11): the select is not there before. */
+async function openPicker() {
+  await fireEvent.click(await screen.findByRole('button', { name: 'Changer' }));
+  return screen.getByRole('combobox', { name: 'Serveur' }) as HTMLSelectElement;
+}
+
 async function fill(email: string, password: string) {
   if (listReady) await waitFor(() => expect(screen.getByRole('button', { name: 'Se connecter' })).toHaveAttribute('aria-disabled', 'false'));
   await fireEvent.input(screen.getByLabelText('Email'), { target: { value: email } });
@@ -51,17 +57,17 @@ describe('Login', () => {
     vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
     render(Page);
     expect(screen.getByRole('heading', { name: 'Connexion' })).toBeInTheDocument();
-    await screen.findByRole('combobox', { name: 'Serveur' });
+    await screen.findByText('Serveur : Sauter Cozytouch');
     await fill(' demo@kelvin.local ', 'kelvin');
     expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', 'sauter_cozytouch');
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replaceState: true }));
   });
 
   it('shows the server message and stays', async () => {
-    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.'));
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.'));
     render(Page);
     await fill('demo@kelvin.local', 'nope');
-    expect(await screen.findByRole('alert')).toHaveTextContent('Email ou mot de passe Cozytouch incorrect.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cozytouch refuse cet email ou ce mot de passe.');
     expect(goto).not.toHaveBeenCalled();
   });
 
@@ -83,7 +89,7 @@ describe('Login', () => {
   });
 
   it('a refused login keeps focus in the form (the password, selected), never on <body>', async () => {
-    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.'));
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.'));
     render(Page);
     await fill('demo@kelvin.local', 'nope');
     await screen.findByRole('alert');
@@ -126,7 +132,7 @@ describe('Login', () => {
 describe('Login server', () => {
   it('offers the Cozytouch servers first, Sauter chosen', async () => {
     render(Page);
-    const select = (await screen.findByRole('combobox', { name: 'Serveur' })) as HTMLSelectElement;
+    const select = await openPicker();
     expect(select.value).toBe('sauter_cozytouch');
     const groups = [...select.querySelectorAll('optgroup')].map((g) => [
       g.label,
@@ -141,17 +147,17 @@ describe('Login server', () => {
   it('sends the chosen server on a first login', async () => {
     vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
     render(Page);
-    await fireEvent.change(await screen.findByRole('combobox', { name: 'Serveur' }), {
-      target: { value: 'atlantic_cozytouch' }
-    });
+    await fireEvent.change(await openPicker(), { target: { value: 'atlantic_cozytouch' } });
     await fill('demo@kelvin.local', 'kelvin');
     expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', 'atlantic_cozytouch');
   });
 
   it('explains an experimental server', async () => {
     render(Page);
-    await fireEvent.change(await screen.findByRole('combobox', { name: 'Serveur' }), { target: { value: 'flexom' } });
+    await fireEvent.change(await openPicker(), { target: { value: 'flexom' } });
     expect(screen.getByText('Utilisez le compte Flexom de la maison.')).toBeInTheDocument();
+    expect(screen.getByText('Serveur : Flexom')).toBeInTheDocument();
+    expect(screen.getByText('Mot de passe oublié ? Changez-le dans l’application Flexom.')).toBeInTheDocument();
     expect(screen.getByRole('note')).toHaveTextContent(/n’affiche que le chauffage/);
     expect(screen.getByRole('combobox', { name: 'Serveur' })).toHaveAccessibleDescription(/n’affiche que le chauffage/);
   });
@@ -160,8 +166,11 @@ describe('Login server', () => {
     vi.mocked(api.servers).mockResolvedValue({ ...LIST, current: 'thermor_cozytouch' });
     vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
     render(Page);
-    expect(await screen.findByText(/Serveur\s*: Thermor Cozytouch\./)).toBeInTheDocument();
+    expect(await screen.findByText('Serveur : Thermor Cozytouch')).toBeInTheDocument();
+    expect(screen.getByText('Pour changer de serveur, repartez d’une installation neuve (voir le README).')).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Serveur' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Changer' })).toBeNull();
+    expect(screen.queryByText(/Première connexion/)).toBeNull();
     await fill('demo@kelvin.local', 'kelvin');
     expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', undefined);
   });
@@ -176,9 +185,8 @@ describe('Login server', () => {
     expect(screen.getByRole('button', { name: 'Se connecter' })).toHaveAttribute('aria-disabled', 'true');
     expect(api.login).not.toHaveBeenCalled();
     answer(LIST);
-    await screen.findByRole('combobox', { name: 'Serveur' });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Se connecter' })).toHaveAttribute('aria-disabled', 'false'));
-    await fireEvent.change(screen.getByRole('combobox', { name: 'Serveur' }), { target: { value: 'thermor_cozytouch' } });
+    await fireEvent.change(await openPicker(), { target: { value: 'thermor_cozytouch' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
     expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', 'thermor_cozytouch');
   });
@@ -192,24 +200,130 @@ describe('Login server', () => {
     await fill('demo@kelvin.local', 'kelvin');
     expect(api.login).not.toHaveBeenCalled();
     await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
-    await screen.findByRole('combobox', { name: 'Serveur' });
+    await screen.findByRole('button', { name: 'Changer' });
     expect(screen.queryByRole('alert')).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
     expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', 'sauter_cozytouch');
   });
 });
 
+describe('Login, Batch 11', () => {
+  it('shows the mark and one server line, the choice closed behind « Changer »', async () => {
+    const { container } = render(Page);
+    expect(container.querySelector('.wordmark.lg svg')).toHaveAttribute('aria-hidden', 'true');
+    // Before the list: a skeleton holds the line, no « Changer » yet.
+    expect(container.querySelector('.server .skeleton')).not.toBeNull();
+    const change = await screen.findByRole('button', { name: 'Changer' });
+    expect(container.querySelector('.server .skeleton')).toBeNull();
+    expect(screen.getByText('Serveur : Sauter Cozytouch')).toBeInTheDocument();
+    expect(change).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('combobox')).toBeNull();
+    await fireEvent.click(change);
+    expect(change).toHaveAttribute('aria-expanded', 'true');
+    const select = screen.getByRole('combobox', { name: 'Serveur' });
+    expect(change).toHaveAttribute('aria-controls', 'server-pick');
+    expect(document.getElementById('server-pick')).toContainElement(select);
+    await fireEvent.click(change);
+    expect(change).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('keeps the chosen server when the choice is closed again', async () => {
+    vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
+    render(Page);
+    await fireEvent.change(await openPicker(), { target: { value: 'atlantic_cozytouch' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Changer' }));
+    expect(screen.getByText('Serveur : Atlantic Cozytouch')).toBeInTheDocument();
+    await fill('demo@kelvin.local', 'kelvin');
+    expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', 'atlantic_cozytouch');
+  });
+
+  it('says a first login claims the home, only while no home is claimed', async () => {
+    render(Page);
+    expect(await screen.findByText('Première connexion : ce compte devient celui de la maison.')).toBeInTheDocument();
+    expect(screen.getByText('Mot de passe oublié ? Changez-le dans l’application Cozytouch.')).toBeInTheDocument();
+  });
+
+  it('the reveal button shows the password without renaming the field, and never across a submit', async () => {
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.', 'bad_credentials'));
+    render(Page);
+    const pw = screen.getByLabelText('Mot de passe') as HTMLInputElement;
+    expect(pw).toHaveAttribute('type', 'password');
+    expect(pw).toHaveAttribute('name', 'password');
+    expect(pw).toHaveAttribute('autocomplete', 'current-password');
+    expect(screen.getByLabelText('Email')).toHaveAttribute('autocomplete', 'username');
+    const reveal = screen.getByRole('button', { name: 'Afficher le mot de passe' });
+    expect(reveal).toHaveAttribute('type', 'button');
+    expect(reveal).toHaveAttribute('aria-pressed', 'false');
+    expect(reveal).toHaveAttribute('aria-controls', pw.id);
+    await fireEvent.click(reveal);
+    expect(pw).toHaveAttribute('type', 'text');
+    expect(pw).toHaveAttribute('name', 'password');
+    expect(pw).toHaveAttribute('autocomplete', 'current-password');
+    // A toggle keeps its name; the state is aria-pressed.
+    expect(screen.getByRole('button', { name: 'Afficher le mot de passe' })).toHaveAttribute('aria-pressed', 'true');
+    await fill('demo@kelvin.local', 'nope');
+    expect(api.login).toHaveBeenCalled();
+    expect(pw).toHaveAttribute('type', 'password');
+    expect(reveal).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('the reveal button is not a submit: clicking it sends nothing', async () => {
+    render(Page);
+    await screen.findByRole('button', { name: 'Changer' });
+    await fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'demo@kelvin.local' } });
+    await fireEvent.input(screen.getByLabelText('Mot de passe'), { target: { value: 'kelvin' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Afficher le mot de passe' }));
+    expect(api.login).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('a refused login does not say which field was wrong', async () => {
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.', 'bad_credentials'));
+    render(Page);
+    await fill('demo@kelvin.local', 'nope');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cozytouch refuse cet email ou ce mot de passe.');
+    expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Mot de passe')).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('a data folder of another server keeps its words', async () => {
+    vi.mocked(api.login).mockRejectedValue(
+      new ApiError(409, 'x', 'data_other_server', { server: 'Atlantic Cozytouch' })
+    );
+    render(Page);
+    await fill('demo@kelvin.local', 'kelvin');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /Ce dossier de données appartient à une maison reliée au serveur Atlantic Cozytouch/
+    );
+  });
+
+  it('keyboard order: Changer, email, password, reveal, submit, language', async () => {
+    const { container } = render(Page);
+    await screen.findByRole('button', { name: 'Changer' });
+    const order = [...container.querySelectorAll<HTMLElement>('button, input, select, [tabindex]')]
+      .filter((el) => el.tabIndex >= 0 && !el.hasAttribute('hidden'))
+      .map((el) => el.getAttribute('aria-label') ?? el.getAttribute('name') ?? el.textContent?.trim());
+    expect(order.slice(0, 5)).toEqual(['Changer', 'email', 'password', 'Afficher le mot de passe', 'Se connecter']);
+    expect(order[5]).toBe('Français');
+  });
+});
+
 describe('Login in English', () => {
   it('reads in English and shows a refused login by its code', async () => {
     applyLocale('en');
-    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.', 'bad_credentials'));
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.', 'bad_credentials'));
     render(Page);
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
     expect(screen.getByText('Use the home’s Cozytouch account.')).toBeInTheDocument();
+    expect(await screen.findByText('Server: Sauter Cozytouch')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: 'Show password' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('First sign-in: this account becomes the home’s account.')).toBeInTheDocument();
+    expect(screen.getByText('Forgot your password? Change it in the Cozytouch app.')).toBeInTheDocument();
     await fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'a@b.fr' } });
     await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'x' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong Cozytouch email or password.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cozytouch didn’t accept this email or password.');
   });
   it('empty fields are refused in English', async () => {
     applyLocale('en');
@@ -221,7 +335,7 @@ describe('Login in English', () => {
 
 describe('the login language switch', () => {
   it('FR | EN switches the screen before login, and a backend error then reads in English', async () => {
-    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Email ou mot de passe Cozytouch incorrect.', 'bad_credentials'));
+    vi.mocked(api.login).mockRejectedValue(new ApiError(401, 'Cozytouch refuse cet email ou ce mot de passe.', 'bad_credentials'));
     render(Page);
     const en = screen.getByRole('radio', { name: 'English' });
     expect(en).toHaveTextContent('EN');
@@ -231,6 +345,6 @@ describe('the login language switch', () => {
     await fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'a@b.fr' } });
     await fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'x' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong Cozytouch email or password.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cozytouch didn’t accept this email or password.');
   });
 });

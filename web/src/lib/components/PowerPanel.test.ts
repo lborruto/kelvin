@@ -29,18 +29,22 @@ describe('PowerPanel', () => {
     expect(t).toContain('la pointe instantanée peut être plus élevée');
     expect(t).toContain('abonnement 12 kVA');
     expect(t).toContain('57 % de la puissance souscrite (moyenne 30 min)');
-    expect(t).toContain('kVA ≈ kW, facteur de puissance supposé 1');
-    expect(t).toContain('Talon (veille) 310 W');
+    expect(t).toContain('Hypothèse : 1 kVA ≈ 1 kW.');
+    expect(t).toContain('Consommation de fond 310 W');
     expect(t).toContain('minimum de nuit (00:00–06:00) : 280 W');
     expect(t).toContain('10 % des demi-heures sont sous 310 W');
     expect(t).toContain('consommation de fond ≈ 7,44 kWh (≈ 1,86 €)');
     expect(container.querySelector<HTMLElement>('.meter span')!.style.transform).toBe('scaleX(0.57)');
+    // L0 is the peak against the subscription; the baseload and the method sit in « Détails » (closed, findable).
+    const details = screen.getByRole('button', { name: /^Détails/ });
+    expect(details).toHaveAttribute('aria-expanded', 'false');
+    expect(document.getElementById(details.getAttribute('aria-controls')!)).toHaveTextContent('Consommation de fond');
   });
 
   it('an incomplete day reads « — » and says why', () => {
     const { container } = render(PowerPanel, { view: 'day', day: day({ complete: false }), week: null });
     expect(text(container)).toContain('Pointe moyenne sur 30 min —');
-    expect(text(container)).toContain('Talon (veille) —');
+    expect(text(container)).not.toContain('Talon');
     expect(screen.getByText('Pas de courbe complète ce jour-là.')).toBeInTheDocument();
     expect(container.querySelector('.meter')).toBeNull();
   });
@@ -65,11 +69,13 @@ describe('PowerPanel', () => {
   });
 
   it('the day’s skeleton is a complete day’s own lines, so it wraps (and stands as tall) as the figures will', () => {
-    const shape = (c: HTMLElement) => [...c.querySelectorAll('section > *:not(h2), .ghost > *')].filter((e) => !e.classList.contains('ghost')).map((e) => `${e.tagName}.${[...e.classList].filter((k) => ['figs', 'base', 'line', 'note', 'meter'].includes(k)).join('.')}`);
+    // The L0 lines and the « Détails » row (a 45 px stand-in while the day loads).
+    const kind = (e: Element) => (e.classList.contains('more-sk') || e.classList.contains('disclosure') ? 'more' : `${e.tagName}.${[...e.classList].filter((k) => ['figs', 'line', 'note', 'meter'].includes(k)).join('.')}`);
+    const shape = (c: HTMLElement) => [...c.querySelectorAll('section > *:not(h3), .ghost > *')].filter((e) => !e.classList.contains('ghost')).map(kind);
     const sk = render(PowerPanel, { view: 'day', day: null, week: null });
     const ghost = sk.container.querySelector('.ghost')!;
     expect(ghost).toHaveAttribute('aria-hidden', 'true');
-    expect(ghost.querySelectorAll('.skeleton').length).toBeGreaterThan(5);
+    expect(ghost.querySelectorAll('.skeleton').length).toBeGreaterThan(3);
     const skShape = shape(sk.container);
     sk.unmount();
     const loaded = render(PowerPanel, { view: 'day', day: day(), week: null });
@@ -90,10 +96,10 @@ it('in English: max power and base load, never “Peak”; the week names its da
   expect(screen.getByRole('heading', { name: 'Power' })).toBeInTheDocument();
   const t = text(container);
   expect(t).toContain('Max power (30-min average) 6.84 kW 19:00–19:30');
-  expect(t).toContain('Base load 310 W');
+  expect(t).toContain('Baseload 310 W');
   expect(t).toContain('12 kVA subscribed power');
   expect(t).toContain('night minimum (00:00–06:00): 280 W');
-  expect(t).toContain('background use ≈ 7.44 kWh (≈ €1.86)');
+  expect(t).toContain('baseload ≈ 7.44 kWh (≈ €1.86)');
   expect(t).not.toMatch(/\bPeak\b/);
   const w = render(PowerPanel, { view: 'week', day: day(), week });
   expect(text(w.container)).toContain('Max power (30-min average) 7.20 kW Tuesday 13 October, 19:00–19:30');
@@ -105,5 +111,4 @@ it('the skeleton’s stand-in lines follow the language', async () => {
   applyLocale('en');
   await tick();
   expect(text(container.querySelector('.ghost')!)).toContain('12 kVA subscribed power');
-  expect(text(container.querySelector('.ghost')!)).toContain('night minimum (00:00–06:00): 280 W');
 });

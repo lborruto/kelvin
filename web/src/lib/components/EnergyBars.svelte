@@ -10,6 +10,7 @@
   import { tick, untrack } from 'svelte';
   import ChartInspector from './ChartInspector.svelte';
   import { cardLeft, nearestIndex, stepIndex, swipeDirection } from '$lib/chart';
+  import { SERIES_HATCH } from '$lib/energy';
   import { fmtKwh } from '$lib/format';
   import { m } from '$lib/i18n';
   import { inspectionTable, type Inspection } from '$lib/inspector';
@@ -261,8 +262,14 @@
       {/each}
       {#each groups as g, gi (g.label)}
         {#each stacks(g) as s (s.key)}
-          <rect class="part" style:--i={gi} x={x(g.label)} width={x.bandwidth()} y={y(s.y1)} height={Math.max(0, y(s.y0) - y(s.y1))}
+          <!-- A part above another leaves a 1 px knockout (the panel shows through) between them. -->
+          {@const h = Math.max(0, y(s.y0) - y(s.y1) - (s.y0 > 0 ? 1 : 0))}
+          <rect class="part" style:--i={gi} x={x(g.label)} width={x.bandwidth()} y={y(s.y1)} height={h}
             style:fill={colors[s.key] ?? 'var(--mu)'} rx="2" />
+          {#if SERIES_HATCH[s.key]}
+            <!-- Heures creuses carry the hatch: the pair never rests on colour alone (DESIGN « Tariff blues »). -->
+            <rect class="part hatch" style:--i={gi} x={x(g.label)} width={x.bandwidth()} y={y(s.y1)} height={h} fill="url(#hc-hatch)" rx="2" />
+          {/if}
         {/each}
       {/each}
       {#each gaps as g (g.label)}

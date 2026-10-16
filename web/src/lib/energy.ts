@@ -3,13 +3,23 @@ import { fmtDay, monthName, monthYear } from './format';
 import { locale, m } from './i18n';
 import { parisDayStart } from './time';
 
-/** Categorical series (DESIGN.md Series rule): never heat colours. */
+/** Categorical series (DESIGN.md Series rule and « Tariff blues »): HC light blue (always hatched), HP dark
+ * blue, an unsplit home violet, the radiators ochre; never heat colours. */
 export const SERIES = {
-  hc: 'var(--series-1)',
-  hp: 'var(--series-2)',
+  hc: 'var(--hc)',
+  hp: 'var(--hp)',
   radiators: 'var(--series-3)',
   home: 'var(--series-1)'
 } as const;
+export type SeriesKey = keyof typeof SERIES;
+
+/** Series drawn with the off-peak hatch over their fill, so HC never rests on colour alone. */
+export const SERIES_HATCH: Readonly<Partial<Record<string, true>>> = { hc: true };
+
+/** An HTML fill (CSS `background`) for a series: the hatch layered over the colour where it has one. */
+export function seriesBackground(key: string, color: string = SERIES[key as SeriesKey] ?? 'var(--mu)'): string {
+  return SERIES_HATCH[key] ? `var(--hc-hatch), ${color}` : color;
+}
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const isoUtc = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;

@@ -29,8 +29,13 @@ describe('ProjectionPanel (M4, M5)', () => {
 
   it('says how it is computed', async () => {
     const { container } = render(ProjectionPanel, { projection, last: '2026-10-14', today: '2026-10-15' });
-    await fireEvent.click(screen.getByText('Comment c’est calculé'));
-    const d = text(container.querySelector('details')!);
+    // Closed by default, findable; the « ≈ » estimate note sits in it with the method.
+    const how = screen.getByRole('button', { name: /^Comment c’est calculé/ });
+    expect(how).toHaveAttribute('aria-expanded', 'false');
+    expect(container.querySelector('#projection')).not.toBeNull();
+    expect(container.querySelector('circle.now')).not.toBeNull();
+    await fireEvent.click(how);
+    const d = text(container.querySelector('.disclosure')!);
     expect(d).toContain('20,00 kWh par jour');
     expect(d).toContain('Base : 20,00 kWh par jour, moyenne des jours relevés parmi les 30 jours jusqu’au 14/10');
     expect(d).toContain('appliquée telle quelle à chaque jour à venir (trop peu de jours relevés l’an dernier pour l’ajuster par mois)');
@@ -94,7 +99,7 @@ describe('ProjectionPanel (M4, M5)', () => {
         last: '2026-10-14',
         today: '2026-10-15'
       });
-      const d = text(container.querySelector('details')!);
+      const d = text(container.querySelector('.disclosure')!);
       expect(d).toContain('moyenne des jours relevés parmi les 30 jours jusqu’au 14/10');
       expect(d).toContain(phrase);
       unmount();
@@ -116,7 +121,7 @@ it('in English: the month, the next 365 days, how it is calculated, the short mo
   expect(text(rows[1])).toBe('Next 365 days ≈ €2,141 15/10/2026 – 14/10/2027');
   expect(text(container.querySelector('.spark-ends')!)).toBe('Oct 2026Sept 2027');
   await fireEvent.click(screen.getByText('How it’s calculated'));
-  const d = text(container.querySelector('details')!);
+  const d = text(container.querySelector('.disclosure')!);
   expect(d).toContain('Base: 20.00 kWh a day, the average of the recorded days among the 30 days up to 14/10 (at least 7)');
   expect(d).toContain('Average price €0.2437/kWh: prices of 14/10 weighted by your off-peak share over these 30 days');
 });

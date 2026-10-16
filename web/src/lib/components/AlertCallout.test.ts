@@ -13,12 +13,20 @@ describe('AlertCallout', () => {
     const spy = vi.spyOn(alerts, 'dismiss');
     const a = render(AlertCallout, { alert: price });
     expect(screen.getByRole('status')).toHaveTextContent(/les prix changent le 1er février/);
-    expect(screen.getByRole('link', { name: 'Ajouter les prix' })).toHaveAttribute('href', '/home#tariff');
+    expect(screen.getByRole('link', { name: 'Ajouter les prix' })).toHaveAttribute('href', '/home/tariff');
     await fireEvent.click(screen.getByRole('button', { name: /^Masquer/ }));
     expect(spy).toHaveBeenCalledWith(3);
     a.unmount();
     render(AlertCallout, { alert: { ...price, kind: 'linky_stalled', severity: 'bad', params: { last_day: '2026-10-01', days: 13 } } });
     expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+  it('an offline radiator is calm: a status in the neutral style, even when the backend rates it bad', () => {
+    const { container } = render(AlertCallout, {
+      alert: { ...price, kind: 'radiator_unreachable', severity: 'bad', params: { radiator_id: 'a', room_id: 'p-ch2', since: null } }
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(/hors ligne depuis plus de 30/);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(container.querySelector('.callout')).not.toHaveClass('bad');
   });
   it('an unknown kind renders nothing', () => {
     const { container } = render(AlertCallout, { alert: { ...price, kind: 'budget' } });

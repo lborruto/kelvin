@@ -9,18 +9,25 @@ const text = (c: HTMLElement) => c.textContent!.replace(/\s+/g, ' ');
 describe('HcHpPanel', () => {
   it('asks for the tariff when there is none', () => {
     render(HcHpPanel, { lens: null, tariff: false, hpKwh: null });
-    expect(screen.getByRole('link', { name: 'Renseignez le tarif' })).toHaveAttribute('href', '/home#tariff');
+    expect(screen.getByRole('link', { name: 'Renseignez le tarif' })).toHaveAttribute('href', '/home/tariff');
     expect(screen.getByText(/pour voir la répartition\./)).toBeInTheDocument();
   });
 
   it('states the facts, and the value of moving HP to HC with its formula, never as advice', async () => {
     const { container } = render(HcHpPanel, { lens, tariff: true, hpKwh: 254.3 });
+    // L0: the share against the hours, its meter; the rest one « Détails » away (closed, findable).
+    expect(text(container.querySelector('.lead')!)).toBe('38,4 % de l’énergie, pour 33,3 % des heures');
+    expect(container.querySelector('#offpeak')).not.toBeNull();
+    const details = screen.getByRole('button', { name: /^Détails/ });
+    expect(details).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('slider')).toBeNull();
+    await fireEvent.click(details);
     let t = text(container);
     expect(t).toContain('Part en heures creuses 38,4 %');
     expect(t).toContain('vos heures creuses durent 33,3 % de la journée');
     expect(t).toContain('Prix moyen payé 0,2437 €/kWh');
-    expect(t).toContain('Chaque kWh passé d’HP en HC −0,0632 €/kWh');
-    expect(t).toContain('Si 10 % de vos HP (25,43 kWh) étaient en HC : −1,61 €, à consommation identique.');
+    expect(t).toContain('Gain par kWh déplacé en heures creuses −0,0632 €/kWh');
+    expect(t).toContain('Si 10 % de vos heures pleines (25,43 kWh) passaient en heures creuses : −1,61 €, à consommation égale.');
     expect(t).toContain('10 % × 254,30 kWh × 0,0632 €/kWh = 1,61 €');
     expect(t).toContain('Calcul sur vos prix et votre consommation, pas une économie garantie.');
     expect(t.match(/économi/g)).toHaveLength(1); // spec §9.1 rule 6
@@ -29,33 +36,35 @@ describe('HcHpPanel', () => {
     expect(slider).toHaveAttribute('aria-valuetext', '10\u00a0%');
     await fireEvent.input(slider, { target: { value: '30' } });
     t = text(container);
-    expect(t).toContain('Si 30 % de vos HP (76,29 kWh) étaient en HC : −4,82 €, à consommation identique.');
+    expect(t).toContain('Si 30 % de vos heures pleines (76,29 kWh) passaient en heures creuses : −4,82 €, à consommation égale.');
   });
 
   it('a tariff without HC slots reads « — » and says so', () => {
     const { container } = render(HcHpPanel, { lens: null, tariff: true, hpKwh: 10 });
-    expect(text(container)).toContain('Part en heures creuses —');
+    expect(container.querySelector('.big')).toHaveTextContent('—');
     expect(screen.getByText('Le tarif n’a pas d’heures creuses.')).toBeInTheDocument();
   });
 
   it('a period without consumption reads « — » and says why', () => {
     const { container } = render(HcHpPanel, { lens: { ...lens, hc_share: null, avg_price: null }, tariff: true, hpKwh: null });
-    expect(text(container)).toContain('Part en heures creuses —');
+    expect(container.querySelector('.big')).toHaveTextContent('—');
     expect(text(container)).toContain('Prix moyen payé —');
     expect(screen.getByText('Aucune consommation Linky sur la période.')).toBeInTheDocument();
     expect(container.querySelector('input')).toBeNull();
   });
 });
 
-it('in English: off-peak share, prices with € first, the slider and its sentence', () => {
+it('in English: off-peak share, prices with € first, the slider and its sentence', async () => {
   applyLocale('en');
   const { container } = render(HcHpPanel, { lens, tariff: true, hpKwh: 254.3 });
+  expect(text(container.querySelector('.lead')!)).toBe('38.4% of the energy, for 33.3% of the hours');
+  await fireEvent.click(screen.getByRole('button', { name: /^Details/ }));
   const t = text(container);
   expect(t).toContain('Off-peak share 38.4%');
   expect(t).toContain('your off-peak hours cover 33.3% of the day');
   expect(t).toContain('Average price paid €0.2437/kWh');
-  expect(t).toContain('Each kWh moved from peak to off-peak −€0.0632/kWh');
-  expect(t).toContain('If 10% of your peak use (25.43 kWh) were off-peak: −€1.61, for the same consumption.');
+  expect(t).toContain('Saving per kWh moved to off-peak −€0.0632/kWh');
+  expect(t).toContain('If 10% of your peak use (25.43 kWh) moved to off-peak: −€1.61, for the same consumption.');
   expect(t).toContain('10% × 254.30 kWh × €0.0632/kWh = €1.61');
   expect(screen.getByRole('slider', { name: 'Share of your peak use moved to off-peak' })).toHaveAttribute('aria-valuetext', '10%');
 });

@@ -139,36 +139,43 @@
 </script>
 
 <div class="stepper" class:pending role="group" aria-label={label}>
-  <button type="button" aria-label={m.stepper.decrease(label)} aria-disabled={atMin}
+  <button type="button" class="hit" aria-label={m.stepper.decrease(label)} aria-disabled={atMin}
     onpointerdown={(e) => startHold(e, -1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
     onkeydown={(e) => key(e, -1)}><Icon name="minus" /></button>
   <output class="num"><span class="val">{format(shown)}<PendingEdge {pending} confirmed={settle.confirmed} /></span></output>
-  <button type="button" aria-label={m.stepper.increase(label)} aria-disabled={atMax}
+  <button type="button" class="hit" aria-label={m.stepper.increase(label)} aria-disabled={atMax}
     onpointerdown={(e) => startHold(e, 1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
     onkeydown={(e) => key(e, 1)}><Icon name="plus" /></button>
 </div>
 
 <style>
+  /* Compact scale: a 36 px well (--ctl-h), 36 px buttons with a 44 px hit area (.hit), a 64 px value:
+     136 px in all (--w-temp). No overflow clip, so the hit areas reach past the well. */
   .stepper {
     display: inline-grid;
-    grid-template-columns: 44px minmax(5.5ch, auto) 44px;
+    grid-template-columns: 35px minmax(64px, auto) 35px;
     align-items: center;
     flex: none;
+    height: var(--ctl-h);
     background: var(--in);
     border: 1px solid var(--field-line);
-    border-radius: var(--radius);
-    overflow: hidden;
+    border-radius: var(--ctl-radius);
   }
   button {
     display: grid;
     place-items: center;
-    height: 44px;
+    height: calc(var(--ctl-h) - 2px);
+    padding: 0;
     border: 0;
+    border-radius: calc(var(--ctl-radius) - 1px);
     background: transparent;
     cursor: pointer;
     touch-action: manipulation;
     user-select: none;
     transition: background-color var(--t-state) ease, color var(--t-state) ease;
+    /* The well's edge sits 1 px outside the button: the hit area reaches 44 px from the painted edge. */
+    --hit-y: calc((var(--ctl-h) - var(--ctl-hit)) / 2 - 1px);
+    --hit-x: -1px;
   }
   @media (hover: hover) {
     button:hover:not([aria-disabled='true']) {

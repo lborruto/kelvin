@@ -1,7 +1,8 @@
 <script lang="ts" generics="T extends string">
   import { flushSync } from 'svelte';
   interface Props {
-    options: { value: T; label: string; lang?: string; ariaLabel?: string }[];
+    /** `hint`: a muted word after the label, part of its name (Programme: « hors ligne »). */
+    options: { value: T; label: string; lang?: string; ariaLabel?: string; hint?: string }[];
     value: T;
     label: string;
     onchange: (v: T) => void;
@@ -31,30 +32,33 @@
     <button
       bind:this={buttons[i]}
       type="button"
+      class="hit"
       role="radio"
       lang={o.lang}
       aria-label={o.ariaLabel}
       aria-checked={o.value === value}
       tabindex={o.value === value ? 0 : -1}
       onclick={() => onchange(o.value)}
-      onkeydown={(e) => key(e, i)}>{o.label}</button>
+      onkeydown={(e) => key(e, i)}>{o.label}{#if o.hint}{' '}<em>{o.hint}</em>{/if}</button>
   {/each}
 </div>
 
 <style>
+  /* Compact scale: 36 px segments (--ctl-h) in a 40 px well (1 px edge, 1 px inset), radius 8 → 6
+     concentric; each segment's hit area reaches 44 px (.hit). */
   .seg {
     display: inline-flex;
     gap: 2px;
-    padding: 2px;
+    padding: 1px;
     background: var(--in);
     border: 1px solid var(--line);
-    border-radius: var(--radius);
+    border-radius: var(--ctl-radius);
   }
   button {
-    min-height: 44px;
-    padding: 0 14px;
+    min-height: var(--ctl-h);
+    padding: 0 12px;
     border: 1px solid transparent;
-    border-radius: 7px;
+    border-radius: calc(var(--ctl-radius) - 2px);
     background: none;
     color: var(--mu);
     font: inherit;
@@ -72,6 +76,13 @@
     button[aria-checked='false']:hover {
       color: var(--tx);
     }
+  }
+  em {
+    margin-left: 4px;
+    font-style: normal;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fa);
   }
   /* The checked segment is edged in muted: 3:1 against the well (WCAG 1.4.11), not just a tone. */
   button[aria-checked='true'] {

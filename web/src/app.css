@@ -27,6 +27,10 @@
   --tempo-blue: #6c8cff;
   --tempo-white: #e8eaf0;
   --tempo-red: #ff5c7a;
+  /* Tariff blues (owner ruling, DESIGN « Tariff blues »): heures creuses light, heures pleines dark; HC
+     always carries the hatch (--hc-hatch / SVG #hc-hatch), so the pair never rests on colour alone. */
+  --hc: #a6d8ff;
+  --hp: #3567d6;
   --radius: 10px;
   /* motion: one curve, exits about 30 % faster than entrances */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -41,6 +45,23 @@
   --fs-field: 15px;
   --font: 'Onest Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* The off-peak hatch (45°, ground at 35 %, 1 px every 4 px) laid over an --hc fill. */
+  --hc-hatch: repeating-linear-gradient(45deg, color-mix(in srgb, var(--bg) 35%, transparent) 0 1px, transparent 1px 4px);
+  /* Compact control scale (owner ruling, DESIGN « Control sizes »): 36 px painted, 44 px hit area. */
+  --ctl-h: 36px;
+  --ctl-h-lg: 44px;
+  --ctl-hit: 44px;
+  --ctl-pad-x: 10px;
+  --ctl-pad-x-btn: 12px;
+  --ctl-radius: 8px;
+  --ctl-gap: 12px;
+  /* Intrinsic widths: a short value never gets a stretched field. */
+  --w-time: 6.5rem;
+  --w-price: 7.5rem;
+  --w-date: 10rem;
+  --w-kva: 8rem;
+  --w-temp: 136px;
+  --w-text: min(100%, 22rem);
 }
 
 :root[data-theme='light'] {
@@ -66,6 +87,8 @@
   --tempo-blue: #3355cc;
   --tempo-white: #ffffff;
   --tempo-red: #c2185b;
+  --hc: #2b8ad4;
+  --hp: #0a2a6e;
 }
 
 /* keep in sync with :root[data-theme='light'] above */
@@ -90,9 +113,11 @@
     --series-2: #0f8577;
     --series-3: #8f6d00;
     --series-4: #b8327a;
-  --tempo-blue: #3355cc;
-  --tempo-white: #ffffff;
-  --tempo-red: #c2185b;
+    --tempo-blue: #3355cc;
+    --tempo-white: #ffffff;
+    --tempo-red: #c2185b;
+    --hc: #2b8ad4;
+    --hp: #0a2a6e;
   }
 }
 
@@ -145,19 +170,49 @@ textarea {
   opacity: 0.6;
   cursor: pointer;
 }
-/* Form fields (DESIGN Form fields): a 44 px well with a 3:1 boundary. Components only add layout. */
-input:not([type='checkbox'], [type='radio']),
+/* Form fields (DESIGN Form fields): a 36 px well (--ctl-h) with a 3:1 boundary, as wide as its value
+   type (time, date) or its width class; text fields stay fluid up to --w-text. Components only add layout.
+   The caption wraps the field (a <label>), so the tap area is the caption plus the field. */
+input:not([type='checkbox'], [type='radio'], [type='range']),
 select {
-  min-height: 44px;
+  min-height: var(--ctl-h);
   min-width: 0;
   max-width: 100%;
-  padding: 0 10px;
+  padding: 0 var(--ctl-pad-x);
   background: var(--in);
   border: 1px solid var(--field-line);
-  border-radius: 8px;
+  border-radius: var(--ctl-radius);
   color: var(--tx);
   font-size: var(--fs-field);
   font-variant-numeric: tabular-nums;
+}
+input[type='time'],
+.w-time {
+  width: var(--w-time);
+}
+input[type='date'],
+.w-date {
+  width: var(--w-date);
+}
+.w-price {
+  width: var(--w-price);
+}
+.w-kva {
+  width: var(--w-kva);
+}
+.w-text {
+  width: var(--w-text);
+}
+/* The hit area of a control painted below 44 px: a vertical extension of its box (never over a
+   neighbour: rows of controls keep ≥ 8 px gaps). --hit-y overrides the overhang (a control inside a
+   bordered well). */
+.hit {
+  position: relative;
+}
+.hit::before {
+  content: '';
+  position: absolute;
+  inset: var(--hit-y, calc((var(--ctl-h) - var(--ctl-hit)) / 2)) var(--hit-x, 0px);
 }
 input:disabled,
 select:disabled {
@@ -198,16 +253,19 @@ h1[tabindex='-1']:focus {
   white-space: nowrap;
 }
 
-/* Buttons (DESIGN Buttons): one system, every state. Disabled keeps its fill and reads faint. */
+/* Buttons (DESIGN Buttons): one system, every state. Disabled keeps its fill and reads faint.
+   Painted at --ctl-h (36 px); the ::before keeps a 44 px hit area. .btn-lg is the one primary action of a
+   page or sheet on phone (44 px painted). */
 .btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 44px;
-  padding: 0 16px;
+  min-height: var(--ctl-h);
+  padding: 0 14px;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--ctl-radius);
   background: var(--s2);
   color: var(--tx);
   font-weight: 600;
@@ -221,29 +279,42 @@ h1[tabindex='-1']:focus {
     color var(--t-state) ease,
     transform var(--t-press) ease;
 }
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: calc((var(--ctl-h) - var(--ctl-hit)) / 2 - 1px) -1px;
+}
+.btn-lg {
+  min-height: var(--ctl-h-lg);
+  padding: 0 16px;
+}
+.btn-lg::before {
+  inset: -1px;
+}
 .btn-primary {
   background: var(--tx);
   border-color: var(--tx);
   color: var(--bg);
 }
 .btn-ghost {
-  min-height: 44px;
-  padding: 0 12px;
-  border-radius: 8px;
+  padding: 0 var(--ctl-pad-x-btn);
   background: transparent;
   font-size: 13px;
   font-weight: 500;
 }
+/* A square icon button: 36 px painted, 44 × 44 hit area. */
 .btn-icon {
-  width: 44px;
+  width: var(--ctl-h);
   padding: 0;
   border-color: transparent;
-  border-radius: 8px;
   background: transparent;
   color: var(--mu);
 }
+.btn-icon::before {
+  inset: calc((var(--ctl-h) - var(--ctl-hit)) / 2 - 1px);
+}
 .btn-sm {
-  padding: 0 12px;
+  padding: 0 var(--ctl-pad-x-btn);
   font-size: 13px;
 }
 .btn-danger {
@@ -276,6 +347,40 @@ h1[tabindex='-1']:focus {
 .btn-primary:is(:disabled, [aria-disabled='true']) {
   background: var(--s2);
   border-color: var(--line);
+}
+
+/* An exact-value trigger (DESIGN « Fig »): a figure that opens its Fiche. No box, the text's own style, a
+   dotted underline (the only cue, visible on touch too) that firms on hover; its hit area is 44 px tall
+   without changing the line it sits in. */
+.fig {
+  position: relative;
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-decoration: underline dotted var(--fa) 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: text-decoration-color var(--t-state) ease;
+}
+.fig::before {
+  content: '';
+  position: absolute;
+  inset: calc(50% - var(--ctl-hit) / 2) -2px;
+}
+@media (hover: hover) {
+  .fig:hover {
+    text-decoration-color: var(--mu);
+  }
+}
+.fig[aria-expanded='true'] {
+  text-decoration-color: var(--tx);
 }
 
 /* Skeleton: the shape of what is coming, at its final height. The shimmer is compositor-only and

@@ -16,9 +16,14 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
 - **Truthful commands.** A change counts as done only when the radiator reports the new state.
   Pending, confirmed and failed are shown as such, including Overkiz's misleading
   `OVERRIDEMODE_ERROR` on commands that did apply.
+- **Home overview:** Maison shows what is happening now (away, boosts) with its actions, the alerts
+  when there are some, and one card per section (Rooms and devices, Tariff, Linky, Data sources,
+  Account) that summarises it and opens its own page; theme, language and technical details are set
+  in place.
 - **Rooms and devices managed from Kelvin** (Home › Rooms and devices): create, rename and delete
   rooms, move a radiator to another room, rename a radiator. Kelvin writes to your Cozytouch
-  setup, so the Cozytouch app shows the same thing. Every device is listed with its room,
+  setup, so the Cozytouch app shows the same thing. Each radiator reads as its model, power and
+  state (« HEKLA P · 1 500 W · En ligne ») with its actions in one « ⋯ » menu. Every device is listed with its room,
   connectivity, last signal and read-only details (model, power, version, signal…). A change is
   shown as done only when Cozytouch reports it; if Cozytouch accepted it but has not confirmed it
   after a minute, it reads « non confirmé » (not failed) and its room name stays reserved until the
@@ -29,8 +34,18 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   as long as Kelvin's setup-read budget allows it (3 full reads in 24 h). The last read of the 24 h
   is always kept for a restart, so « Synchroniser » can say « not now » with the time it is
   possible again.
-- **Control:** off, manual, schedule; setpoint; the weekly schedule editor (the radiators'
-  own three slots a day); boost a room for a few hours; away for the whole house. Boost and away
+- **Rooms at a glance:** one line of state per room (« Programme · Confort jusqu’à 23:00 », « Chauffe
+  temporaire · 22 °C jusqu’à 21:45 », « Hors ligne depuis 14:32 »), the reading and its target in
+  words, and today's curve; rooms whose radiators are switched off move to the end, calm and
+  without a stale temperature. A room opens its panel: state, controls, boost written as a sentence
+  (« Chauffer à 22 °C pendant 2 h », and what happens after), today's chart with a legend, energy
+  and each radiator.
+- **Control:** off, manual, schedule; setpoint; the weekly schedule (the radiators' own three
+  comfort periods a day): the week as a read-only picture with the times written out, the comfort
+  and eco temperatures and what happens next, and one day edited at a time (drag or type the
+  periods, « Copier vers… » weekdays, the weekend or every day; nothing is sent before « Envoyer »;
+  an offline room's schedule is shown read-only); boost a room for a few hours (« Chauffe temporaire »); away for the whole house from wherever you are (« Partir en absence » with
+  « Demain 18:00 » / « Dimanche 18:00 » presets and the consequence written before sending). Boost and away
   restore what was there before. The night light's brightness (1–100 %). The programme editor
   never writes a day it cannot edit: a day ending at midnight or that Kelvin cannot read is shown
   and kept exactly as the radiator has it, and a programme changed in the Cozytouch app (or
@@ -53,15 +68,18 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   tomorrow (every household), or when Enedis lists new off-peak hours (with a link to add them
   from a date; Kelvin never changes your tariff by itself). Dismiss one and it stays hidden until
   it happens again.
-- **Signed-in devices:** Home › Settings lists the browsers signed in with the home's account and
+- **Signed-in devices:** Home › Account lists the browsers signed in with the home's account and
   signs any of them out.
-- **Energy:** whole-home consumption from Linky (through MyElectricalData) by day, ISO week,
-  month or year, with a period navigator. Every bar, half-hour and figure shows its exact value on
+- **Energy:** answer first — the period's cost (or kWh) with its off-peak/peak split, the
+  comparison with the previous period and three key figures (full month, heating share, off-peak
+  share) — then the evidence: whole-home consumption from Linky (through MyElectricalData) by day,
+  ISO week, month or year, with a period navigator (and a condensed bar once it scrolls away). Every bar, half-hour and figure shows its exact value on
   hover, tap or keyboard: off-peak/peak, radiators and the rest of the home, energy and standing charge €,
-  the prices applied. A half-hour scrubber with power and price, max power and base load, the off-peak/peak
+  the prices applied. A half-hour scrubber with power and price, max power and baseload, the off-peak/peak
   share, the radiators' share and cost, per room and per radiator (energy, €, temperature,
   heating hours), a room's temperature against its heating, comparisons on comparable days only,
-  a month and a 365-day projection, a data-quality panel, and a CSV export of what is shown
+  a month and a 365-day projection, a data-quality panel, and a CSV export of what is shown (from the page
+  header's « Exporter » menu)
   (numbers in the UI language: `;` and a decimal comma in French, `,` and a point in English;
   French headers in both). Shown parts add up to their
   total, and a day reads the same € in every view. A missing figure reads « — » with its reason,
@@ -70,17 +88,42 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   Under Tempo a day without a known colour keeps its kWh but not its €, and says so.
 - **Grid signals:** a one-line strip on Rooms and Energy. With a Tempo price row in force,
   today's and tomorrow's Tempo colours (a Tempo day runs 06:00 → 06:00); for every household,
-  EcoWatt orange and red days (RTE's grid-strain signal). Home › Settings › Sources shows when each
+  EcoWatt orange and red days (RTE's grid-strain signal). Home › Data sources shows when each
   source was last read. Nothing acts on the radiators by itself.
 - **French and English.** The whole UI, errors included, in French (the default) or English
-  (en-GB, with its own number, date and currency formats), chosen per device in Home › Settings or
+  (en-GB, with its own number, date and currency formats), chosen per device in Home › Display or
   on the sign-in screen, without a reload. A browser in French starts in French, any other
-  language in English. URLs are English (`/rooms`, `/schedule`, `/energy`, `/home`, `/home/devices`); old
+  language in English. URLs are English (`/rooms`, `/schedule`, `/energy`, `/home`, `/home/devices`, `/home/tariff`, `/home/linky`, `/home/sources`, `/home/account`); old
   bookmarks are redirected.
-- **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets.
+- **Calm by default, real data on demand.** Every figure that has more precision or a source shows it
+  one hover, tap or Enter away (its exact value, where it comes from, how fresh, measured or estimated);
+  analysis sits behind « Détails ». Home › Display › « Afficher les détails techniques » brings it up one
+  level on that device: detail sections open, the live heating power « ≈ 1,70 kW » beside « En chauffe »,
+  each radiator's signal and last event inline.
+- **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets, checked
+  with axe on every screen in both themes and for layout shift (CLS < 0.05) from 320 to 1440 px.
 - **A simulator** of a whole home and a synthetic Linky, for trying Kelvin and for every test.
   `KELVIN_FAKE_HOUSE=atlantic|thermor|experimental` shows another invented house; without it, the
   house follows the server chosen at login.
+
+## Screens
+
+| Screen | Path | What it answers |
+|---|---|---|
+| Pièces / Rooms | `/` | Each room in one line of state, its reading and target, today's strip; offline rooms grouped at the end. Desktop opens the room panel beside the list |
+| Room | `/rooms/<id>` | The room panel on a phone: state, Réglage (mode, Confort / Éco), Chauffe temporaire, today's chart, energy, each radiator |
+| Programme / Schedule | `/schedule` | The week as a picture and one day edited at a time; nothing is sent before « Envoyer » |
+| Énergie / Energy | `/energy` | The period's cost and kWh first, then the bars, the half-hour curve, where the energy goes, analysis and data quality |
+| Maison / Home | `/home` | What is happening now, alerts, one card per section, display preferences |
+| Pièces et appareils | `/home/devices` | Rooms, radiators and box devices as Cozytouch holds them, with their actions and the sync line |
+| Tarif / Tariff | `/home/tariff` | The tariff in force as a summary, « Nouveau prix… », the price history |
+| Linky | `/home/linky` | The connection, the MyElectricalData calls, « Modifier la connexion » |
+| Sources de données | `/home/sources` | When Cozytouch, Linky, RTE EcoWatt (and Tempo) were last read |
+| Compte / Account | `/home/account` | The home's account, its server, signed-in devices |
+| Connexion / Sign in | `/login` | The home's Cozytouch account, the server in one line |
+
+`cd web && SCREENS=1 SCREENS_DIR=../docs/screenshots npx playwright test screens.spec.ts` renders them
+from the simulator (`SCREENS_SCHEME=dark|light`, `SCREENS_LOCALE=fr|en`).
 
 ## Compatibility
 
@@ -120,7 +163,7 @@ servers' homes: Kelvin refuses (« Ce dossier de données appartient à une mais
   against that server. The first login on a fresh install decides which
   account the install belongs to. Anyone who can log in to Cozytouch with that account can log
   in to Kelvin. Logins are throttled per client (5 failures per 15 min) and overall.
-- **Sessions:** every signed-in browser is listed in Home › Settings › Signed-in devices (browser
+- **Sessions:** every signed-in browser is listed in Home › Account › Signed-in devices (browser
   and system only; the raw user agent and the session token never leave the server). Signing a
   device out takes effect on its next request and closes its live stream within 30 seconds.
 - **Kelvin stores that password** in `/data/account.json` (mode 0600), because it must
@@ -162,7 +205,12 @@ building it: in `docker-compose.yml`, replace `build: .` with the commented
 ### First login
 
 Log in with the email and password of the home's Cozytouch account (the one the Cozytouch app
-uses). Kelvin checks them with Cozytouch, stores them, and loads your rooms and radiators.
+uses). Kelvin checks them with Cozytouch, stores them, and loads your rooms and radiators. The
+login screen says so on a fresh install (“First sign-in: this account becomes the home's
+account.”). It names the server on one line, Sauter Cozytouch by default: choose **Change**
+(**Changer**) to pick Atlantic or Thermor Cozytouch or an experimental server before this first
+login; afterwards the server is fixed. The eye button in the password field shows the password
+while you type it.
 Anyone in the household logs in with the same account. If the Cozytouch password changes,
 Kelvin shows “Cozytouch password changed: sign in again” (« Mot de passe Cozytouch modifié :
 reconnectez-vous » in French); log in once with the new one.
@@ -171,10 +219,11 @@ reconnectez-vous » in French); log in once with the new one.
 
 1. Create a MyElectricalData account and give it access to your meter's data (Enedis consent).
    It gives you a token; your PDL is the 14-digit number on your contract or meter.
-2. In Kelvin, open **Home › Settings** (**Maison › Réglages** in French), enter the PDL and
-   the token, and the tariff: the option (Base, HC/HP or Tempo), the prices from their date, and
-   for HC/HP the off-peak hours (they may differ by season). Existing HC/HP settings are carried
-   over as they are.
+2. In Kelvin, open **Home › Linky** (**Maison › Linky** in French) and enter the PDL and the
+   token (the PDL stays masked on that page until you press « Afficher »). Then **Home › Tariff**
+   shows the tariff in force; « Nouveau prix… » adds one from a date (the option, Base, HC/HP or
+   Tempo, the prices, and for HC/HP the off-peak hours, which may differ by season) and « Corriger
+   le tarif en vigueur » fixes the row in force. Existing HC/HP settings are carried over as they are.
 3. Kelvin syncs at 08:00 and 14:00 (Europe/Paris), backfills a year of daily data and 30 days
    of 30-minute curve, and never spends more than 10 of MyElectricalData's 50 daily calls
    (4 a day at most for the grid signals; the simulator allows 14). Every MyElectricalData call
@@ -229,7 +278,7 @@ replace the volume's content and give it back to Kelvin's user (uid 10001). On a
 All settings are environment variables, and every one is optional. `.env.example` lists them.
 The compose file passes `TZ` and `KELVIN_ALLOWED_HOSTS` from `.env`; add any other one to
 `environment:` in `docker-compose.yml`. No password or token belongs in the compose file or in
-`.env`: you log in with the Cozytouch account in the browser and connect Linky in Settings, and
+`.env`: you log in with the Cozytouch account in the browser and connect Linky in Home › Linky, and
 Kelvin keeps both in `account.json` (0600) in its data volume.
 
 | Variable | Default in the image | Meaning |
@@ -237,7 +286,7 @@ Kelvin keeps both in `account.json` (0600) in its data volume.
 | `TZ` | `Europe/Paris` | Time zone for schedules, energy days and the Linky sync |
 | `COZY_SERVER` | `sauter_cozytouch` | The home's Overkiz server (`atlantic_cozytouch`, `thermor_cozytouch`, or an experimental server id); read only when `COZY_USER`/`COZY_PASS` create the account file |
 | `COZY_USER`, `COZY_PASS` | — | Advanced, unattended setup only: create the account file on the first start instead of the first login (Compose interpolates `$`: write it as `$$`) |
-| `MED_PRM`, `MED_TOKEN` | — | Advanced: fallback Linky PDL and token; Settings wins |
+| `MED_PRM`, `MED_TOKEN` | — | Advanced: fallback Linky PDL and token; Home › Linky wins |
 | `KELVIN_DATA` | `/data` | SQLite database and `account.json` |
 | `KELVIN_WEB` | `/app/web` | The built web app served next to the API |
 | `KELVIN_HOST`, `KELVIN_PORT` | `0.0.0.0`, `8080` | Bind address (outside Docker: `127.0.0.1`, `8000`) |
@@ -286,7 +335,7 @@ Early (0.x). Kelvin is developed against one installation: Sauter IPALA H and HE
 on io-homecontrol, with a Cozytouch bridge. Multi-brand (Plan 12): servers and device kinds beyond
 Sauter are « expected to work » or « experimental » and untested on real hardware (see
 [Compatibility](#compatibility)); messages that name Cozytouch keep that word on every server. The
-UI is in French and English (French by default; switch in Home › Settings, or on the sign-in
+UI is in French and English (French by default; switch in Home › Display, or on the sign-in
 screen). The Linky bill estimate supports the Base, HC/HP and Tempo options; Tempo and EcoWatt
 are shown on Rooms and Energy and raise alerts.
 

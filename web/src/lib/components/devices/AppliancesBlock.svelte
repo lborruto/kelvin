@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { SetupDevice } from '$lib/api/types';
   import { m } from '$lib/i18n';
-  import DeviceRow from './DeviceRow.svelte';
+  import { deviceLabel } from '$lib/setup';
+  import BridgeRow from './BridgeRow.svelte';
 
   /** Plan 12: every device that is neither a radiator's nor a bridge — water heaters, heat
    *  pumps, devices that do not heat — listed read-only, never hidden. */
@@ -13,19 +14,18 @@
     <h2 id="appliances-title">{m.devices.appliances}</h2>
     <p class="note">{m.devices.appliancesNote}</p>
     <ul class="list">
-      {#each devices as d (d.id)}<DeviceRow device={d} {now} />{/each}
+      {#each devices as d (d.id)}<BridgeRow device={d} {now} name={deviceLabel(d)} lead={m.devices.role[d.role]} />{/each}
     </ul>
   </section>
 {/if}
 
 <style>
   .panel {
-    padding: 14px;
+    padding: 14px 14px 4px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--s1);
-    margin-bottom: 14px;
-    max-width: 720px;
+    min-width: 0;
   }
   h2 {
     font-size: 12px;

@@ -29,7 +29,7 @@ describe('LinkyPanel', () => {
 
   it('shows the sync problem in words', () => {
     render(LinkyPanel, {
-      status: { ...base, state: 'auth', message: 'MyElectricalData refuse le jeton : renouvelez-le dans Réglages.' },
+      status: { ...base, state: 'auth', message: 'MyElectricalData refuse le jeton : renouvelez-le dans Maison › Linky.' },
       onsaved: vi.fn()
     });
     expect(screen.getByRole('alert')).toHaveTextContent('MyElectricalData refuse le jeton');
@@ -41,7 +41,7 @@ describe('LinkyPanel', () => {
       onsaved: vi.fn()
     });
     expect(
-      screen.getByText('Relié · données jusqu’au 13/10 · historique en cours de récupération, la suite arrive demain')
+      screen.getByText('Relié · données jusqu’au 13/10 · historique en cours, la suite demain')
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -114,9 +114,9 @@ describe('LinkyPanel in English', () => {
   it('a rejected token reads in English whatever the server sent', () => {
     applyLocale('en');
     render(LinkyPanel, {
-      status: { ...base, state: 'auth', message: 'MyElectricalData refuse le jeton : renouvelez-le dans Réglages.' },
+      status: { ...base, state: 'auth', message: 'MyElectricalData refuse le jeton : renouvelez-le dans Maison › Linky.' },
       onsaved: vi.fn()
     });
-    expect(screen.getByRole('alert')).toHaveTextContent('MyElectricalData rejected the token: renew it in Settings.');
+    expect(screen.getByRole('alert')).toHaveTextContent('MyElectricalData rejected the token: renew it in Home › Linky.');
   });
 });

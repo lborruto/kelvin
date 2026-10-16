@@ -73,21 +73,21 @@ describe('api client', () => {
     mockFetch(401, { detail: 'Connexion requise.', code: 'login_required' });
     await expect(api.house()).rejects.toMatchObject({ status: 401, code: 'login_required' });
     expect(handler).toHaveBeenCalledTimes(1);
-    mockFetch(401, { detail: 'Email ou mot de passe Cozytouch incorrect.', code: 'bad_credentials', params: {} });
+    mockFetch(401, { detail: 'Cozytouch refuse cet email ou ce mot de passe.', code: 'bad_credentials', params: {} });
     await expect(api.login('a@b.fr', 'x')).rejects.toMatchObject({
       status: 401,
       code: 'bad_credentials',
-      message: 'Email ou mot de passe Cozytouch incorrect.'
+      message: 'Cozytouch refuse cet email ou ce mot de passe.'
     });
     expect(handler).toHaveBeenCalledTimes(1);
     setLoginRequiredHandler(null);
   });
 
   it('shows the server message of a 503', async () => {
-    mockFetch(503, { detail: 'Cozytouch injoignable, réessayez dans un instant.' });
+    mockFetch(503, { detail: 'Cozytouch injoignable. Réessayez dans un instant.' });
     await expect(api.login('a@b.fr', 'x')).rejects.toMatchObject({
       status: 503,
-      message: 'Cozytouch injoignable, réessayez dans un instant.'
+      message: 'Cozytouch injoignable. Réessayez dans un instant.'
     });
   });
 

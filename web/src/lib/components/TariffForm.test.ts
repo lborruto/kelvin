@@ -31,12 +31,73 @@ beforeEach(() => {
 });
 afterEach(() => applyLocale('fr'));
 
+describe('TariffForm editor (Maison › Tarif)', () => {
+  it('the date comes first and takes focus; « Nouveau prix » starts today', async () => {
+    render(TariffForm, { settings, onsaved: vi.fn(), autofocus: true });
+    const date = field('Applicable à partir du');
+    const all = [...document.querySelectorAll('input, select, [role="radiogroup"]')];
+    expect(all[0]).toBe(date);
+    expect(document.activeElement).toBe(date);
+    expect(date.value).not.toBe('2025-01-15');
+    expect(date).not.toHaveAttribute('readonly');
+  });
+  it('« Corriger » locks the date to the row in force and says what it corrects', async () => {
+    const onsaved = vi.fn();
+    render(TariffForm, { settings, onsaved, mode: 'fix' });
+    const date = field('Applicable à partir du');
+    expect(date.value).toBe('2025-01-15');
+    expect(date).toHaveAttribute('readonly');
+    expect(date).toHaveAccessibleDescription('Corrige les coûts passés depuis le 15 janvier 2025.');
+    const hcFrom = field('Heures creuses applicables à partir du');
+    expect(hcFrom).toHaveAttribute('readonly');
+    expect(hcFrom.value).toBe('2025-01-15');
+    await fireEvent.input(field('Prix heures creuses (€/kWh)'), { target: { value: '0,2' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
+    const doc = vi.mocked(api.putTariffDoc).mock.calls[0][0];
+    expect(doc.prices).toHaveLength(1); // the row is replaced, not added
+    expect(doc.prices[0]).toMatchObject({ valid_from: '2025-01-15', rates: { hc: 0.2, hp: 0.27 } });
+    expect(doc.hc_schedules.map((x) => x.valid_from)).toEqual(['2025-01-15']);
+  });
+  it('« Annuler » closes without saving; no « Annuler » without a callback', async () => {
+    const oncancel = vi.fn();
+    const a = render(TariffForm, { settings, onsaved: vi.fn(), oncancel });
+    await fireEvent.click(screen.getByRole('button', { name: 'Annuler' }));
+    expect(oncancel).toHaveBeenCalled();
+    expect(api.putTariffDoc).not.toHaveBeenCalled();
+    a.unmount();
+    render(TariffForm, { settings, onsaved: vi.fn() });
+    expect(screen.queryByRole('button', { name: 'Annuler' })).toBeNull();
+  });
+  it('no longer carries the price history (the page holds it in a Disclosure)', () => {
+    render(TariffForm, { settings, onsaved: vi.fn() });
+    expect(screen.queryByRole('table', { name: 'Historique des prix' })).toBeNull();
+  });
+});
+
 describe('TariffForm v2', () => {
   it('a migrated HC/HP tariff opens on HC/HP with the prices in force', () => {
     render(TariffForm, { settings, onsaved: vi.fn() });
     expect(screen.getByRole('radio', { name: 'HC/HP' })).toHaveAttribute('aria-checked', 'true');
     expect(field('Prix heures creuses (€/kWh)').value).toBe('0,2068');
     expect(field('Début de la plage 1').value).toBe('22:00');
+  });
+
+  it('compact fields: intrinsic widths, the HC/HP swatch before each price, one line per off-peak slot', async () => {
+    const { container } = render(TariffForm, { settings, onsaved: vi.fn() });
+    expect(field('Prix heures creuses (€/kWh)')).toHaveClass('w-price');
+    expect(field('Abonnement (€/mois)')).toHaveClass('w-price');
+    expect(container.querySelector('select')).toHaveClass('w-kva');
+    const swatch = (l: string) => field(l).closest('label')!.querySelector('.sw')!.getAttribute('data-series');
+    expect([swatch('Prix heures creuses (€/kWh)'), swatch('Prix heures pleines (€/kWh)')]).toEqual(['hc', 'hp']);
+    // « [22:00] → [06:00] [Retirer] » on one line: both times and the button share the slot row.
+    const row = field('Début de la plage 1').closest('.slot')!;
+    expect(within(row as HTMLElement).getByLabelText('Fin de la plage 1')).toBeTruthy();
+    expect(within(row as HTMLElement).getByRole('button', { name: 'Retirer la plage 1' })).toBeTruthy();
+    // Tempo keeps the day colour (round TempoDot) and adds the hour type (square swatch).
+    await fireEvent.click(screen.getByRole('radio', { name: 'Tempo' }));
+    const cap = field('Rouge HC (€/kWh)').closest('label')!;
+    expect(cap.querySelector('.dot.red')).toBeTruthy();
+    expect(cap.querySelector('.sw')!.getAttribute('data-series')).toBe('hc');
   });
 
   it('a new price is added as a dated row and the history is kept', async () => {

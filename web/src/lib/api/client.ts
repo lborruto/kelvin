@@ -127,7 +127,8 @@ export const api = {
   roomEnergy: (roomId: string, days: number) => call<RoomEnergy>('GET', `/rooms/${enc(roomId)}/energy?days=${days}`),
   roomActivity: (roomId: string, start: number, end: number) =>
     call<RoomActivity>('GET', `/rooms/${enc(roomId)}/activity?start=${start}&end=${end}`),
-  roomsDuty: () => call<RoomsDuty>('GET', '/rooms/duty'),
+  /** Each room's share of time heating over the last 24 h, or since `since` (epoch s: local midnight). */
+  roomsDuty: (since?: number) => call<RoomsDuty>('GET', since == null ? '/rooms/duty' : `/rooms/duty?since=${since}`),
   roomBoost: (roomId: string, temperature: number, durationMin: number) =>
     cmd('POST', `/rooms/${enc(roomId)}/boost`, { temperature, duration_min: durationMin }),
 

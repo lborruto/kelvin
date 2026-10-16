@@ -12,10 +12,12 @@
   }
   let { alert }: Props = $props();
   let t = $derived(alertText(alert));
+  // An offline radiator is a normal state here (switched off at the mains): calm, never red, whatever the backend severity.
+  let tone = $derived(alert.kind === 'radiator_unreachable' ? 'info' : alert.severity);
 </script>
 
 {#if t}
-  <div class="callout {alert.severity}" role={alert.severity === 'bad' ? 'alert' : 'status'} out:fade|global={{ duration: dur(T.exit) }}>
+  <div class="callout {tone}" role={tone === 'bad' ? 'alert' : 'status'} out:fade|global={{ duration: dur(T.exit) }}>
     <Icon name="alert" size={14} />
     <p>{t.text}{#if t.link}&nbsp;<a href={t.link.href} rel={t.link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
           target={t.link.href.startsWith('http') ? '_blank' : undefined}>{t.link.label}</a>{/if}</p>
@@ -57,6 +59,6 @@
     text-decoration: underline;
   }
   .btn-icon {
-    margin: -6px 0;
+    margin: -2px 0;
   }
 </style>

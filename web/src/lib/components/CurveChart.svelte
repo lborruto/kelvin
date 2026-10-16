@@ -1,11 +1,12 @@
 <script lang="ts">
   import { scaleBand, scaleLinear } from 'd3-scale';
   import Scrubber from './Scrubber.svelte';
+  import Swatch from './Swatch.svelte';
   import type { EnergyInterval, RoomSample } from '$lib/api/types';
   import { SERIES } from '$lib/energy';
   import { fmtTime, fmtWh } from '$lib/format';
   import { m } from '$lib/i18n';
-  import { inspectionTable, intervalLabel, READOUT_ORDER, readInterval, type Row } from '$lib/inspector';
+  import { inspectionTable, intervalLabel, READOUT_ORDER, readInterval, type Inspection, type Row } from '$lib/inspector';
 
   interface Props {
     intervals: EnergyInterval[];
@@ -20,8 +21,10 @@
     room?: string | null;
     /** The scrubbed interval, shared with Température et chauffe. */
     index?: number | null;
+    /** The day as a whole (`readDay`): what the readout says when no half-hour is chosen. */
+    idle?: Inspection | null;
   }
-  let { intervals, label, split = true, kva = null, samples = null, room = null, index = $bindable(null) }: Props = $props();
+  let { intervals, label, split = true, kva = null, samples = null, room = null, index = $bindable(null), idle = null }: Props = $props();
 
   let width = $state(0);
   let W = $derived(width > 0 ? width : 600);
@@ -57,6 +60,8 @@
     });
     return d;
   });
+  /** HC/HP halves are drawn (a tariff splits the day and some half-hour has its off-peak fraction). */
+  let hasSplit = $derived(split && intervals.some((p) => p.offpeak != null));
   let ctx = $derived({ intervals, samples, room, tariff: split });
   let current = $derived(index != null && intervals[index] ? intervals[index] : null);
   let readout = $derived(readInterval(current, ctx));
@@ -68,9 +73,12 @@
    * that size depends on the day only, so scrubbing never reflows the row (R2).
    */
   const variantId = (x: Row) => `${x.value}\u0001${x.est ? 1 : 0}\u0001${x.note ?? ''}`;
+  let idleRows = $derived(new Map((idle?.rows ?? []).map((r) => [r.key, r])));
+  /** The row a field shows: the half-hour's, else the day's (a field with no day value is kept, unseen). */
+  const shownRow = (r: Row): Row | null => (current || !idle ? r : (idleRows.get(r.key) ?? null));
   let variants = $derived.by(() => {
     const byKey = new Map<string, Map<string, Row>>();
-    for (const r of [readInterval(null, ctx), ...readings]) {
+    for (const r of [idle ?? readInterval(null, ctx), ...readings]) {
       for (const x of r.rows) {
         const vs = byKey.get(x.key) ?? new Map<string, Row>();
         if (!vs.has(variantId(x))) vs.set(variantId(x), x);
@@ -88,11 +96,12 @@
   <dl class="readout">
     <div class="when">
       <dt class="visually-hidden">{m.curve.hour}</dt>
-      <dd class="num">{#if current}{readout.title}{:else}{m.curve.idle}<span class="wide">{m.curve.idleKeys}</span>{/if}</dd>
+      <dd class="num">{#if current}{readout.title}{:else if idle}{idle.title}{:else}{m.curve.idle}<span class="wide">{m.curve.idleKeys}</span>{/if}</dd>
     </div>
     {#each readout.rows as r (r.key)}
-      {@const cur = variantId(r)}
-      <div class="field">
+      {@const s = shownRow(r)}
+      {@const cur = s ? variantId(s) : null}
+      <div class="field" class:off={!s}>
         <dt>{r.label}</dt>
         <dd class="num">
           {#each variants.get(r.key) ?? [] as [id, v] (id)}
@@ -115,10 +124,12 @@
             <rect class="all" x={x(i)} width={x.bandwidth()} y={top} height={Math.max(0, BASE - top)} style:fill={SERIES.home} rx="1" />
           {:else}
             {#if f < 1}
-              <rect class="hp" x={x(i)} width={x.bandwidth()} y={top} height={Math.max(0, cut - top)} style:fill={SERIES.hp} rx="1" />
+              <!-- 1 px knockout above the HC part, so the two blues never touch. -->
+              <rect class="hp" x={x(i)} width={x.bandwidth()} y={top} height={Math.max(0, cut - top - (f > 0 ? 1 : 0))} style:fill={SERIES.hp} rx="1" />
             {/if}
             {#if f > 0}
               <rect class="hc" x={x(i)} width={x.bandwidth()} y={cut} height={Math.max(0, BASE - cut)} style:fill={SERIES.hc} rx="1" />
+              <rect class="hc hatch" x={x(i)} width={x.bandwidth()} y={cut} height={Math.max(0, BASE - cut)} fill="url(#hc-hatch)" rx="1" />
             {/if}
           {/if}
         </g>
@@ -147,10 +158,15 @@
     {#each ticks as t (t.i)}<span class="curve-tick" style:left="{((x(t.i) ?? 0) / W) * 100}%">{t.text}</span>{/each}
     <span class="curve-tick end">24</span>
   </div>
+  {#if idle}<p class="muted hint">{m.energyUi.scrubHint}</p>{/if}
   <!-- A legend only for what is drawn: no empty list when the subscribed power is only stated. -->
-  {#if radPath || (kvaShown && kva != null)}
+  {#if radPath || (kvaShown && kva != null) || hasSplit}
     <ul class="legend">
-      {#if radPath}<li><span class="line" style:background={SERIES.radiators}></span>{m.curve.radiators}</li>{/if}
+      {#if hasSplit}
+        <li><Swatch series="hc" />{m.energyPage.hc}</li>
+        <li><Swatch series="hp" />{m.energyPage.hp}</li>
+      {/if}
+      {#if radPath}<li><Swatch series="radiators" line />{m.curve.radiators}</li>{/if}
       {#if kvaShown && kva != null}<li><span class="dash"></span>{m.curve.kva(kva)}</li>{/if}
     </ul>
   {/if}
@@ -207,6 +223,17 @@
   .field dt {
     white-space: nowrap;
     color: var(--mu);
+  }
+  /* A field with no whole-day value (Tarif, Prix) while the day is shown: its box stays, unseen (no reflow). */
+  .field.off {
+    visibility: hidden;
+  }
+  .field.off .v.cur {
+    visibility: hidden;
+  }
+  .hint {
+    margin: 6px 0 0;
+    font-size: 12px;
   }
   dd {
     margin: 0;
@@ -310,11 +337,6 @@
     display: flex;
     align-items: center;
     gap: 6px;
-  }
-  .line {
-    width: 14px;
-    height: 2px;
-    border-radius: 1px;
   }
   .dash {
     width: 14px;

@@ -164,9 +164,11 @@ depends on.
   Params hold keys and figures only: never an id, email, PDL, token or other secret, and
   third-party text (a gateway's message) goes through `errors.scrub` before any API body, SSE
   or log.
-- **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/home/devices`;
-  anchors `#away`, `#tariff`, `#linky`, `#quality`, `#curve`, `#alerts`, `#sessions`) and come from
-  `web/src/lib/paths.ts`. Old
+- **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/home/devices`,
+  `/home/tariff`, `/home/linky`, `/home/sources`, `/home/account`; anchors `#away`, `#tariff`, `#linky`,
+  `#quality`, `#curve`, `#alerts`, `#sessions`) and come from `web/src/lib/paths.ts`. Maison's old
+  section anchors land on their sub-page (`homeAnchor`: `/home#tariff` → `/home/tariff`, `#sessions` →
+  `/home/account#sessions`, `#away` opens the Absence sheet). Old
   French paths are redirected only by its legacy table and the marked block in `app.html` (a test
   keeps them equal; `scripts/check-paths.mjs` fails on a French path anywhere else).
 - **API header:** mutating API routes require the header `X-Kelvin: 1`.
@@ -181,7 +183,7 @@ depends on.
   does not write: unsorted, not three entries) are locked: `plan_program` re-sends them exactly
   as the radiator reported them, whatever the payload says. Only the days a programme body names
   are written (`[]` clears one); a day it leaves out or lists in `keep` is re-sent as read on
-  every radiator it reaches, so « Envoyer aussi à » or a mixed room never empties a day. The
+  every radiator it reaches, so « Aussi pour… » (sending to other rooms) or a mixed room never empties a day. The
   editor never makes an end after 23:45. Every editor send carries `base` (each radiator's
   programme when the editor loaded); the backend answers `409 program_changed_elsewhere`
   (`params.days` only) instead of overwriting a change made elsewhere, unless `force`; the editor
@@ -240,7 +242,27 @@ depends on.
   before data, never placeholder values; no horizontal scroll from 320 px and CLS < 0.05
   (e2e checks both). Buttons use the global `.btn-*` classes. Svelte 5 transitions on an element
   that a parent mounts inside its own `{#if}` (ChartInspector) need `|global`, or they never play.
-  `--tempo-*` tokens are used only by `TempoDot` (DESIGN « Tempo day chip »).
+  `--tempo-*` tokens are used only by `TempoDot` (DESIGN « Tempo day chip »); `--hc` / `--hp` (Tariff
+  blues, HC always hatched) only through `SERIES` / `Swatch` on Énergie and the tariff, never a round
+  dot. Controls are painted at `--ctl-h` (36 px) with a 44 px hit area (`.hit` / the `.btn` `::before`)
+  and sized by the `--w-*` widths, never stretched.
+  Every route stays free of serious and critical axe violations in both themes (`e2e/a11y.spec.ts`,
+  `@axe-core/playwright`); a new route joins it, `e2e/cls.spec.ts` and `e2e/screens.spec.ts`.
+- **Copy** (DESIGN « Copy (French and English) »): short and plain, household words before device words
+  (Overkiz terms only in a Fiche or Détails), one term per concept from `docs/glossary.md` (glossary first),
+  errors say what happened then what to do. Safety copy keeps its meaning (locked days, offline, absence
+  consequence, estimated vs measured). A backend error text changes in `errors.py` and `fr.ts` together
+  (`codes.test.ts`); `labels.py` text is the Overkiz execution label pinned by the Sauter golden fixture, so
+  a pending label is reworded on the web only (`REWORDED` in `codes.test.ts`).
+- **« Détails techniques »** (`$lib/stores/detail.svelte.ts`, `<html data-detail>` before first paint) only
+  moves L1/L2 content up one depth (open `detail` disclosures, live power via `livePower`, inline radiator
+  facts via `detailFacts`); it never changes a format, adds a panel or shifts the page.
+- **Data on demand** (DESIGN « Data on demand: three depths »): L0 the rounded answer on screen, L1 the
+  exact value in a Fiche one hover/tap/Enter away, L2 the analysis in a `Disclosure` (`hidden="until-found"`).
+  Every exact figure goes through `Fig` (its Fiche) with a Provenance block from `$lib/provenance.ts`
+  (Source, Relevé, Nature: mesuré / estimé / projection / calculé / publié); freshness is said with
+  `Freshness` + `SourceLine` (`$lib/freshness.ts` cadences), never in ad-hoc words. Their props are
+  listed in DESIGN.md « Foundation components: API ».
 - **Énergie figures:** formatted through the precision functions in `$lib/format.ts` (spec
   §3.2.1), and every inspector, readout, hidden table and announcement built from
   `$lib/inspector.ts`, so a value reads the same everywhere. Shown sums add up: a total shown

@@ -39,9 +39,11 @@
       <MonthChips bind:months={v.months} label={m.tariff.months} />
     {/if}
     {#each v.slots as slot, i (i)}
+      <!-- One line per slot: « [22:00] → [06:00] [Retirer] »; the captions stay for screen readers. -->
       <div class="slot">
-        <label class="field"><span>{m.tariff.slotStart(i + 1)}</span><input type="time" step="600" bind:value={slot.start} /></label>
-        <label class="field"><span>{m.tariff.slotEnd(i + 1)}</span><input type="time" step="600" bind:value={slot.end} /></label>
+        <label class="field"><span class="visually-hidden">{m.tariff.slotStart(i + 1)}</span><input type="time" step="600" bind:value={slot.start} /></label>
+        <span class="arr" aria-hidden="true">→</span>
+        <label class="field"><span class="visually-hidden">{m.tariff.slotEnd(i + 1)}</span><input type="time" step="600" bind:value={slot.end} /></label>
         <button type="button" class="btn btn-ghost" aria-label={m.tariff.removeSlotLabel(i + 1)} aria-disabled={v.slots.length === 1}
           onclick={() => removeSlot(v, i)}>{m.tariff.removeSlot}</button>
       </div>
@@ -75,24 +77,16 @@
     font-weight: 600;
   }
   .slot {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-    align-items: end;
-    gap: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
   }
-  /* From a phone's width the two time fields keep the whole row (a 44 px clock icon eats a narrow one). */
-  @media (max-width: 480px) {
-    .slot {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    }
-    .slot button {
-      grid-column: 1 / -1;
-      justify-self: start;
-    }
+  .arr {
+    color: var(--fa);
   }
   .field {
     display: grid;
-    gap: 4px;
     font-size: 12px;
     color: var(--mu);
   }

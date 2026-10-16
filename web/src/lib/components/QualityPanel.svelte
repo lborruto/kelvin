@@ -4,7 +4,7 @@
   import { fmtDateLong, fmtPct1 } from '$lib/format';
   import { m } from '$lib/i18n';
   import { ANCHORS } from '$lib/paths';
-  import Icon from './Icon.svelte';
+  import Disclosure from './Disclosure.svelte';
 
   type Mark = 'full' | 'partial' | 'missing' | 'none';
   interface Props {
@@ -65,6 +65,10 @@
     if (mark !== 'partial' || c == null) return m.quality.mark[mark];
     return c >= 0.0005 ? m.quality.partialPct(fmtPct1(c)) : m.quality.partialNone;
   };
+  // The heading's meta (direction-2 §2): how many estimates the period holds (days whose HC/HP split is estimated,
+  // buckets whose radiator energy was spread between readings), else « tout est mesuré ».
+  let estimates = $derived(quality.estimated_days + buckets.filter((b) => b.radiators?.interpolated || b.radiators?.apportioned).length);
+  let meta = $derived(estimates > 0 ? m.energyUi.qualityMeta(estimates) : m.energyUi.allMeasured);
   let strip = $derived([
     { label: m.quality.rows.linky, marks: buckets.map(linky) },
     { label: m.quality.rows.curve, marks: buckets.map(curve) },
@@ -86,17 +90,10 @@
   );
 </script>
 
-<!-- A heading holding its toggle (the disclosure pattern), not an <h2> inside <summary>: a summary is a button, and
-     some screen readers drop the heading role of what it holds, so « Qualité des données » left heading navigation. -->
+<!-- A heading holding its toggle (the shared Disclosure): find-in-page reaches the closed facts and opens the
+     panel (`hidden="until-found"` + `beforematch`); « détails techniques » opens it by default. -->
 <section id={ANCHORS.quality} class="panel {cls}" class:open aria-labelledby="{uid}-title">
-  <h2 class="qtitle">
-    <button type="button" id="{uid}-title" class="disclose" aria-expanded={open} aria-controls="{uid}-body" onclick={() => (open = !open)}>
-      <span class="chev" class:on={open} aria-hidden="true"><Icon name="chevron" size={16} /></span>{m.quality.title}
-    </button>
-  </h2>
-  <!-- Hidden until found: find-in-page still reaches the facts and opens the panel (`beforematch`); a browser without
-       it reads the value as plain `hidden`. -->
-  <div id="{uid}-body" hidden={open ? undefined : 'until-found'} onbeforematch={() => (open = true)}>
+  <Disclosure title={m.quality.title} meta={meta} heading="h2" buttonId="{uid}-title" detail bind:open>
   <div class="strip" aria-hidden="true" style:--n={buckets.length}>
     {#each strip as row (row.label)}
       <div class="row">
@@ -128,49 +125,16 @@
   </table></div>
   <ul class="facts">{#each facts as f (f)}<li>{f}</li>{/each}</ul>
   <p class="muted note">{m.quality.est}</p>
-  </div>
+  </Disclosure>
 </section>
 
 <style>
   /* Beats the page's section-label margin (.panels > .panel h2): the toggle row is the whole collapsed panel. */
-  section.panel > h2.qtitle {
+  section.panel :global(h2.dhead) {
     margin: -10px 0;
   }
-  section.panel.open > h2.qtitle {
+  section.panel.open :global(h2.dhead) {
     margin-bottom: 0;
-  }
-  /* The toggle takes the heading's own type (the section label), full width and 44 px tall; the chevron (as in Par
-     pièce) says it opens, and the title's line box is the chevron's height, so both centre on the row. */
-  .disclose {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-    min-height: 44px;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: inherit;
-    font: inherit;
-    letter-spacing: inherit;
-    text-transform: inherit;
-    line-height: 16px;
-    text-align: left;
-    cursor: pointer;
-  }
-  .chev {
-    display: grid;
-    flex: none;
-    color: var(--mu);
-    transition: transform var(--t-state) var(--ease-out);
-  }
-  .chev.on {
-    transform: rotate(90deg);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .chev {
-      transition: none;
-    }
   }
   .strip {
     display: grid;

@@ -20,9 +20,11 @@ const quality: Quality = {
 describe('QualityPanel', () => {
   it('is a heading holding its toggle (final review minor 2: a heading inside <summary> loses its role in some readers)', async () => {
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
-    const heading = screen.getByRole('heading', { level: 2, name: 'Qualité des données' });
+    const heading = screen.getByRole('heading', { level: 2, name: /^Qualité des données/ });
     expect(heading.closest('summary, button')).toBeNull();
-    const toggle = within(heading).getByRole('button', { name: 'Qualité des données', expanded: false });
+    const toggle = within(heading).getByRole('button', { name: /^Qualité des données/, expanded: false });
+    // The meta says how many estimates the period holds (3 days whose HC/HP split is estimated).
+    expect(toggle.querySelector('.meta')).toHaveTextContent('3 estimations');
     const body = document.getElementById(toggle.getAttribute('aria-controls')!)!;
     expect(body).not.toBeVisible();
     expect(container.querySelector('#quality')).toContainElement(body);
@@ -33,7 +35,7 @@ describe('QualityPanel', () => {
 
   it('closed, its body stays findable: hidden until found, and a find-in-page match opens it', async () => {
     render(QualityPanel, { buckets, group: 'day', quality });
-    const toggle = screen.getByRole('button', { name: 'Qualité des données' });
+    const toggle = screen.getByRole('button', { name: /^Qualité des données/ });
     const body = document.getElementById(toggle.getAttribute('aria-controls')!)!;
     expect(body).toHaveAttribute('hidden', 'until-found');
     await fireEvent(body, new Event('beforematch', { bubbles: true }));
@@ -74,7 +76,7 @@ describe('QualityPanel', () => {
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
     const t = container.textContent!.replace(/\s+/g, ' ');
     expect(t).toContain('Courbe disponible depuis le 15 janvier 2026');
-    expect(t).toContain('Radiateurs enregistrés depuis le 1 septembre 2026');
+    expect(t).toContain('Radiateurs enregistrés depuis le 1er septembre 2026');
     expect(t).toContain('Jours HC/HP estimés : 3 (part de repli 36,2 %, méthode : ±15 jours)');
     expect(t).toContain('Écart moyen courbe / relevé : 1,4 %');
     expect(t).toContain('Prix du premier tarif appliqué à 6 jours antérieurs');
@@ -122,7 +124,7 @@ describe('QualityPanel', () => {
 it('in English: the heading, the legend, the hidden table and the facts', () => {
   applyLocale('en');
   const { container } = render(QualityPanel, { buckets, group: 'day', quality });
-  expect(screen.getByRole('heading', { level: 2, name: 'Data quality' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 2, name: 'Data quality 3 estimates' })).toBeInTheDocument();
   expect([...container.querySelectorAll('.legend li')].map((l) => l.textContent)).toEqual(['complete', 'partial', 'missing']);
   const cells = [...container.querySelectorAll('.visually-hidden tbody tr')[1].querySelectorAll('td')].map((t) => t.textContent);
   expect(cells).toEqual(['complete', 'missing', 'partial (50.0%)']);
@@ -130,6 +132,11 @@ it('in English: the heading, the legend, the hidden table and the facts', () => 
   expect(t).toContain('Off-peak/peak days estimated: 3 (fallback share 36.2%, method: ±15 days)');
   expect(t).toContain('First tariff’s price applied to 6 earlier days');
   expect(t).toContain('Curve available since 15 January 2026');
+});
+
+it('the meta says « tout est mesuré » when nothing is estimated', () => {
+  render(QualityPanel, { buckets: [], group: 'day', quality: { ...quality, estimated_days: 0 } });
+  expect(screen.getByRole('heading', { level: 2, name: 'Qualité des données tout est mesuré' })).toBeInTheDocument();
 });
 
 it('lists the days without a Tempo colour and those before the first off-peak hours', () => {

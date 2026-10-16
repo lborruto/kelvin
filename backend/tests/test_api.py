@@ -305,11 +305,11 @@ async def test_overkiz_quotas_unreachable_is_a_french_503(ctx):
     rt.gateway.fail_quotas = QuotaError("QUOTA_EXCEEDED")
     r = await c.get("/api/overkiz/quotas")
     assert r.status_code == 503
-    assert r.json()["detail"] == "Cozytouch injoignable, réessayez plus tard."
+    assert r.json()["detail"] == "Cozytouch injoignable. Réessayez plus tard."
     rt.quotas = None
     r = await c.get("/api/overkiz/quotas")
     assert r.status_code == 503
-    assert r.json()["detail"] == "Quotas indisponibles."
+    assert r.json()["detail"] == "Limites de requêtes Cozytouch indisponibles. Réessayez plus tard."
 
 
 @pytest.mark.parametrize(
@@ -381,7 +381,8 @@ async def test_an_unexpected_quota_failure_is_a_french_503_not_a_500(ctx):
     rt.gateway.quotas = broken
     rt.quotas = type(rt.quotas)(broken)
     r = await c.get("/api/overkiz/quotas")
-    assert r.status_code == 503 and r.json()["detail"] == "Quotas indisponibles."
+    assert r.status_code == 503
+    assert r.json()["detail"] == "Limites de requêtes Cozytouch indisponibles. Réessayez plus tard."
 
 
 async def test_validation_errors_carry_invalid_request_and_the_field(ctx):
@@ -528,6 +529,20 @@ async def test_duty_route_gives_every_room_over_24h(ctx):
     assert set(body["rooms"]) == set(rt.house.rooms)
     for v in body["rooms"].values():
         assert v["coverage"] >= 0.5 and 0.0 <= v["duty"] <= 1.0
+
+
+async def test_duty_route_can_start_at_local_midnight(ctx):
+    """The room panel's « Aujourd’hui » block asks the share since midnight, the window of its kWh,
+    € and heating hours; `since` is clamped to 25 h (a DST day) and must be before now."""
+    c, rt, _ = ctx
+    now = int(rt.recorder.wall())
+    body = (await c.get("/api/rooms/duty", params={"since": now - 5 * 3600})).json()
+    assert body["to"] - body["from"] == 5 * 3600
+    assert set(body["rooms"]) == set(rt.house.rooms)
+    body = (await c.get("/api/rooms/duty", params={"since": now - 3 * 86400})).json()
+    assert body["to"] - body["from"] == 25 * 3600
+    r = await c.get("/api/rooms/duty", params={"since": now + 60})
+    assert (r.status_code, r.json()["code"]) == (422, "period_invalid")
 
 
 async def test_activity_and_duty_read_the_runtime_clock(tmp_path):

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
+import { awaySheet } from '$lib/stores/away.svelte';
 import { house } from '$lib/stores/house.svelte';
 import HouseActions from './HouseActions.svelte';
 import { applyLocale } from '$lib/i18n';
@@ -32,7 +33,7 @@ it('names the confirmation dialog by its question and says what happens', () => 
   expect(document.getElementById(id)).toHaveTextContent('Tout éteindre ?');
   expect(document.getElementById(id)!.tagName).toBe('H2');
   expect(document.getElementById(dialog.getAttribute('aria-describedby')!)).toHaveTextContent(
-    'Les radiateurs passent à l’arrêt. Vous pourrez les remettre en programme depuis Maison.'
+    'Toutes les pièces passent à l’arrêt. Pour les rallumer : Maison › Tout remettre en programme.'
   );
 });
 
@@ -49,12 +50,28 @@ it('is disabled while Kelvin is disconnected', () => {
   expect(screen.getByRole('button', { name: 'Tout remettre en programme' })).toHaveAttribute('aria-disabled', 'true');
 });
 
-it('offers « Absence… » except where the Absence panel already is', () => {
+it('« Absence… » opens the Absence sheet where the user is (focus returns to it); away: false hides it', async () => {
   const a = render(HouseActions);
-  expect(screen.getByRole('link', { name: 'Absence…' })).toHaveAttribute('href', '/home#away');
+  const btn = screen.getByRole('button', { name: 'Absence…' });
+  await fireEvent.click(btn);
+  expect(awaySheet.open).toBe(true);
+  expect(awaySheet.trigger).toBe(btn);
+  awaySheet.close();
   a.unmount();
   render(HouseActions, { away: false });
-  expect(screen.queryByRole('link', { name: 'Absence…' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Absence…' })).toBeNull();
+});
+
+it('while an absence runs, the button says its end in cool, and a dot marks the icon form', () => {
+  house.overrides = [{ id: 'o1', kind: 'away', room_id: null, radiator_ids: ['a'], temperature: 12, ends_at: Date.UTC(2026, 9, 18, 16) / 1000, restoring: false }];
+  const a = render(HouseActions);
+  const btn = screen.getByRole('button', { name: /^Absence · dim\. 18:00$/ });
+  expect(btn).toHaveClass('on');
+  a.unmount();
+  render(HouseActions, { icons: true });
+  const icon = screen.getByRole('button', { name: /^Absence · dim\. 18:00$/ });
+  expect(icon.querySelector('.adot')).not.toBeNull();
+  house.overrides = [];
 });
 
 it('gives each mounted instance its own dialog title id', () => {
@@ -80,13 +97,13 @@ it('Tout éteindre shows Envoi… then Confirmé, and is disabled while it runs'
 });
 
 it('a failed house command shows its error where it was taken', async () => {
-  vi.mocked(api.houseProgram).mockResolvedValue({ pending: { ...pending('pending'), label: 'Tout en programme' } } as never);
+  vi.mocked(api.houseProgram).mockResolvedValue({ pending: { ...pending('pending'), label: 'Tout remettre en programme' } } as never);
   render(HouseActions, { program: true });
   await fireEvent.click(screen.getByRole('button', { name: 'Tout remettre en programme' }));
   await screen.findByText('Envoi…');
   expect(screen.getByRole('button', { name: 'Tout remettre en programme' })).toHaveAttribute('aria-disabled', 'true');
-  house.applyPending({ ...pending('failed', 'Pas de confirmation du radiateur.'), label: 'Tout en programme' } as never);
-  await waitFor(() => expect(screen.getByText('Pas de confirmation du radiateur.')).toBeInTheDocument());
+  house.applyPending({ ...pending('failed', 'Le radiateur n’a pas confirmé la commande.'), label: 'Tout remettre en programme' } as never);
+  await waitFor(() => expect(screen.getByText('Le radiateur n’a pas confirmé la commande.')).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument();
 });
 
@@ -97,13 +114,13 @@ it('a double tap during the round trip sends one house command', async () => {
   const button = screen.getByRole('button', { name: 'Tout remettre en programme' });
   await fireEvent.click(button);
   await fireEvent.click(button);
-  resolve({ pending: { ...pending('pending'), label: 'Tout en programme' } });
+  resolve({ pending: { ...pending('pending'), label: 'Tout remettre en programme' } });
   await screen.findByText('Envoi…');
   expect(api.houseProgram).toHaveBeenCalledTimes(1);
 });
 
 it('keeps keyboard focus on « Tout remettre en programme » while its command runs', async () => {
-  vi.mocked(api.houseProgram).mockResolvedValue({ pending: { ...pending('pending'), label: 'Tout en programme' } } as never);
+  vi.mocked(api.houseProgram).mockResolvedValue({ pending: { ...pending('pending'), label: 'Tout remettre en programme' } } as never);
   render(HouseActions, { program: true });
   const button = screen.getByRole('button', { name: 'Tout remettre en programme' });
   button.focus();
@@ -120,10 +137,19 @@ it('in English: the actions, the dialog and the away link', () => {
   render(HouseActions, { program: true });
   expect(screen.getByRole('button', { name: 'Turn everything off' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Put everything back on schedule' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Away…' })).toHaveAttribute('href', '/home#away');
+  expect(screen.getByRole('button', { name: 'Away…' })).toBeInTheDocument();
   const dialog = document.querySelector('dialog')!;
   expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)).toHaveTextContent('Turn everything off?');
   expect(document.getElementById(dialog.getAttribute('aria-describedby')!)).toHaveTextContent(
-    'The radiators switch off. You can put them back on schedule from Home.'
+    'Every room switches off. To turn them back on: Home › Put everything back on schedule.'
   );
+});
+
+it('the icon form (phone Rooms header) keeps the names as labels and still asks before switching off', async () => {
+  render(HouseActions, { icons: true });
+  const off = screen.getByRole('button', { name: 'Tout éteindre' });
+  expect(off).not.toHaveTextContent('Tout éteindre');
+  expect(screen.getByRole('button', { name: 'Absence…' })).not.toHaveTextContent('Absence…');
+  await fireEvent.click(off);
+  expect(document.querySelector('dialog')!.open).toBe(true);
 });

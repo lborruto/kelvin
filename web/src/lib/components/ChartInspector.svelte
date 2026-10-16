@@ -1,10 +1,10 @@
 <script lang="ts">
   import { fade, slide } from 'svelte/transition';
   import { CARD_W } from '$lib/chart';
-  import { m } from '$lib/i18n';
   import type { Inspection } from '$lib/inspector';
   import { dur, T } from '$lib/motion';
-  import { ANCHORS } from '$lib/paths';
+  import type { Provenance } from '$lib/provenance';
+  import FicheBody from './FicheBody.svelte';
 
   interface Props {
     ins: Inspection;
@@ -18,9 +18,10 @@
     action?: { label: string; run: () => void } | null;
     /** Esc inside the card or sheet: the host closes it and puts focus back on what opened it. */
     onclose?: (() => void) | null;
+    /** Where the values come from (the Fiche's Provenance block). */
+    provenance?: Provenance | null;
   }
-  let { ins, mode, id, left = 0, top = 0, pinned = false, action = null, onclose = null }: Props = $props();
-  let hasEst = $derived(ins.rows.some((r) => r.est));
+  let { ins, mode, id, left = 0, top = 0, pinned = false, action = null, onclose = null, provenance = null }: Props = $props();
   function onkeydown(e: KeyboardEvent) {
     if (e.key !== 'Escape' || !onclose) return;
     e.preventDefault();
@@ -29,23 +30,8 @@
 </script>
 
 {#snippet body()}
-  <p class="title">{ins.title}</p>
-  {#if ins.empty}<p class="empty">{ins.empty}</p>{/if}
-  {#if ins.rows.length}
-    <dl>
-      {#each ins.rows as r (r.key)}
-        <div class="row" class:sub={r.sub}>
-          <dt>{r.label}</dt>
-          <dd class="num">{r.value}{#if r.est}<span class="est">{m.chartInspector.est}</span>{/if}{#if r.note}<span class="why">{r.note}</span>{/if}</dd>
-        </div>
-      {/each}
-    </dl>
-  {/if}
-  {#if ins.notes.length}
-    <ul class="notes">{#each ins.notes as n (n)}<li>{n}</li>{/each}</ul>
-  {/if}
-  {#if hasEst}<p class="foot">{m.chartInspector.estNote} <a href="#{ANCHORS.quality}">{m.chartInspector.quality}</a>.</p>{/if}
-  {#if action}<button type="button" class="btn btn-sm" onclick={action.run}>{action.label}</button>{/if}
+  <FicheBody title={ins.title} rows={ins.rows} empty={ins.empty} notes={ins.notes} {provenance} estLink
+    action={action ? { label: action.label, run: action.run } : null} />
 {/snippet}
 
 <!-- The host mounts the inspector inside its own {#if}: |global lets the entrance play all the same. The keydown only
@@ -91,65 +77,5 @@
   }
   .sheet {
     margin-top: 10px;
-  }
-  .title {
-    margin: 0 0 6px;
-    font-weight: 600;
-  }
-  dl {
-    margin: 0;
-    display: grid;
-    gap: 3px;
-  }
-  .row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
-  }
-  .row.sub dt {
-    padding-left: 10px;
-  }
-  dt {
-    color: var(--mu);
-  }
-  dd {
-    margin: 0;
-    text-align: right;
-    white-space: pre-line;
-  }
-  .est {
-    margin-left: 4px;
-    font-size: 12px;
-    color: var(--mu);
-  }
-  /* Why a value reads « — »: under it, muted. */
-  .why {
-    display: block;
-    font-size: 12px;
-    color: var(--mu);
-  }
-  .empty,
-  .notes,
-  .foot {
-    margin: 6px 0 0;
-    padding: 0;
-    list-style: none;
-    font-size: 12px;
-    color: var(--mu);
-  }
-  /* A 44 px tall target around 12 px text, without moving the lines around it. */
-  .foot a {
-    padding-block: 14px;
-    color: var(--tx);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-  .btn {
-    margin-top: 10px;
-  }
-  /* Clear of the link's target above it. */
-  .foot + .btn {
-    margin-top: 18px;
   }
 </style>

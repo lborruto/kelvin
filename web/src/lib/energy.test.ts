@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyLocale } from '$lib/i18n';
-import { addDays, bucketLabel, firstCounted, leadingMissing, spanLabel } from './energy';
+import { addDays, bucketLabel, firstCounted, leadingMissing, SERIES, SERIES_HATCH, seriesBackground, spanLabel } from './energy';
 
 describe('energy periods', () => {
   it('adds days across months and years', () => {
@@ -140,5 +140,19 @@ describe('periods in English (en-GB)', () => {
     applyLocale('fr');
     expect(periodTitle('day', periodOf('day', '2026-10-13'))).toBe('Mardi 13 octobre 2026');
     expect(bucketLabel('2026-W42', 'week')).toBe('S42');
+  });
+});
+
+describe('SERIES (owner ruling: tariff blues)', () => {
+  it('draws HC light blue and HP dark blue, an unsplit home violet and the radiators ochre', () => {
+    expect(SERIES).toEqual({ hc: 'var(--hc)', hp: 'var(--hp)', radiators: 'var(--series-3)', home: 'var(--series-1)' });
+    expect(Object.values(SERIES)).not.toContain('var(--series-2)');
+  });
+  it('hatches heures creuses only, in every HTML fill', () => {
+    expect(SERIES_HATCH).toEqual({ hc: true });
+    expect(seriesBackground('hc')).toBe('var(--hc-hatch), var(--hc)');
+    expect(seriesBackground('hp')).toBe('var(--hp)');
+    expect(seriesBackground('radiators')).toBe('var(--series-3)');
+    expect(seriesBackground('rad', 'var(--series-3)')).toBe('var(--series-3)');
   });
 });

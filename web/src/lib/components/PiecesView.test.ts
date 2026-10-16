@@ -83,7 +83,28 @@ describe('PiecesView before the house is known', () => {
   it('says « Pièce introuvable » only once the house is loaded', () => {
     media.desktop.matches = false;
     render(PiecesView, { roomId: 'nope' });
-    expect(screen.getByText('Pièce introuvable.')).toBeInTheDocument();
+    expect(screen.getByText(/^Pièce introuvable/)).toBeInTheDocument();
+  });
+});
+
+describe('PiecesView summary', () => {
+  it('counts the rooms heating and the offline ones', () => {
+    media.desktop.matches = true;
+    house.applySnapshot({
+      house: {
+        rooms: [
+          { id: 'salon', name: 'Salon', radiator_ids: ['a'], temperature: 20, mode: 'program', target: 20, comfort: 20, eco: 17,
+            effective_setpoint: 17, heating_level: 'eco', window_open: false, occupied: false },
+          { id: 'ch2', name: 'Chambre 2', radiator_ids: ['b'], temperature: 16, mode: 'program', target: 20, comfort: 20, eco: 17,
+            effective_setpoint: 17, heating_level: 'eco', window_open: false, occupied: false }
+        ],
+        // An offline radiator's last working rate is stale: it does not count as heating.
+        radiators: [{ ...rad, working_rate: 30 }, { ...rad, id: 'b', room_id: 'ch2', working_rate: 30, reachable: false }]
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
+    } as never);
+    render(PiecesView, { roomId: 'salon', home: true });
+    expect(screen.getByText('1 pièce en chauffe · 1 hors ligne')).toBeInTheDocument();
   });
 });
 
@@ -93,7 +114,7 @@ describe('PiecesView in English', () => {
     media.desktop.matches = true;
     const a = render(PiecesView, { roomId: 'salon', home: true });
     expect(screen.getByRole('heading', { name: 'Rooms', level: 1 })).toBeInTheDocument();
-    expect(screen.getByText(/^1 room · (none|\d+) heating$/)).toBeInTheDocument();
+    expect(screen.getByText('No room heating')).toBeInTheDocument();
     a.unmount();
     media.desktop.matches = false;
     render(PiecesView, { roomId: 'salon' });

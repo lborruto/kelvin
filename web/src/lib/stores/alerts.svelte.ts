@@ -32,6 +32,12 @@ export class AlertsStore {
     }
   }
 
+  /** The shell's alert dot needs the list (red only for what the user must fix) on every page: load it
+   * once there are alerts and it is not there yet (the layout calls this; a failure waits for Réessayer). */
+  ensure(): void {
+    if (this.due && this.summary.active > 0) void this.load();
+  }
+
   applySummary(s: AlertSummary | undefined): void {
     if (!s) return;
     const changed = s.active !== this.summary.active || s.highest !== this.summary.highest || this.list === null;

@@ -5,6 +5,11 @@ import ModeSwitch from './ModeSwitch.svelte';
 import { applyLocale } from '$lib/i18n';
 
 describe('ModeSwitch', () => {
+  it('compact scale: every segment carries the 44 px hit area (.hit)', () => {
+    render(ModeSwitch, { value: 'program', onchange: vi.fn() });
+    for (const r of screen.getAllByRole('radio')) expect(r).toHaveClass('hit');
+  });
+
   it('marks the current mode and emits changes', async () => {
     const onchange = vi.fn();
     render(ModeSwitch, { value: 'program', onchange });

@@ -80,7 +80,7 @@
     min-width: 0;
   }
   input {
-    min-height: 44px;
+    min-height: var(--ctl-h);
     width: 100%;
     box-sizing: border-box;
     font: inherit;

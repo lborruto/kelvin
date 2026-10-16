@@ -9,6 +9,14 @@ import { toasts } from '$lib/stores/toasts.svelte';
 import SyncLine from './SyncLine.svelte';
 import { setupFixture } from './fixture';
 
+// The Fiche as a desktop card (a phone opens the same rows in a sheet).
+vi.mock('$lib/media.svelte', () => ({ desktop: { matches: true } }));
+
+/** Opens the line's Fiche (pinned): the budget, the daily time and the spent reason live there. */
+async function fiche() {
+  await fireEvent.click(screen.getByRole('button', { name: /^(Synchronisé avec Cozytouch|Synced with Cozytouch|Pas encore|Not synced)/ }));
+}
+
 vi.mock('$lib/api/client', async (importActual) => {
   // The real ApiError: errorText (already loaded by the test setup) checks against that class.
   const actual = await importActual<typeof import('$lib/api/client')>();
@@ -26,14 +34,19 @@ beforeEach(() => {
   for (const t of toasts.items) toasts.remove(t.id);
   house.applySetup(setupFixture());
 });
-afterEach(() => applyLocale('fr'));
+afterEach(() => {
+  applyLocale('fr');
+  document.querySelectorAll('.fiche').forEach((n) => n.remove());
+});
 
 describe('SyncLine', () => {
-  it('says when Kelvin last read Cozytouch, how many full reads are used, and the daily time', () => {
+  it('says when Kelvin last read Cozytouch; its Fiche: full reads used, the daily time, the last full read', async () => {
     render(SyncLine, { sync: sync(), now });
     expect(screen.getByText(/^Synchronisé avec Cozytouch il y a 3\sh$/)).toBeInTheDocument();
+    await fiche();
+    expect(screen.getByText('Dernière synchronisation')).toBeInTheDocument();
     // Testing Library collapses every \s (no-break spaces included) in the page text, not in the query.
-    expect(screen.getByText('Lectures complètes : 1 sur 3 en 24 h')).toBeInTheDocument();
+    expect(screen.getByText('Synchronisations : 1 sur 3 en 24 h')).toBeInTheDocument();
     expect(screen.getByText('Synchronisation automatique chaque jour à 04:30.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Synchroniser' })).toHaveAttribute('aria-disabled', 'false');
   });
@@ -66,9 +79,11 @@ describe('SyncLine', () => {
 
   it('when the budget is spent, says when the next sync is possible and does not send', async () => {
     render(SyncLine, { sync: sync({ used: 3, next_possible_at: Date.parse('2026-10-14T12:10:00Z') / 1000 }), now });
-    expect(screen.getByText(/prochaine synchronisation possible à 14:10/)).toBeInTheDocument();
     const button = screen.getByRole('button', { name: 'Synchroniser' });
     expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveAccessibleDescription('possible à 14:10');
+    await fiche();
+    expect(screen.getByText(/prochaine possible à 14:10/)).toBeInTheDocument();
     await fireEvent.click(button);
     expect(api.syncSetup).not.toHaveBeenCalled();
   });
@@ -81,7 +96,7 @@ describe('SyncLine', () => {
     render(SyncLine, { sync: sync(), now });
     await fireEvent.click(screen.getByRole('button', { name: 'Synchroniser' }));
     flushSync();
-    expect(toasts.items.at(-1)?.text()).toMatch(/lectures complètes de Cozytouch/);
+    expect(toasts.items.at(-1)?.text()).toMatch(/Plus de synchronisation disponible/);
     expect(api.setupDevices).toHaveBeenCalledOnce();
   });
 
@@ -90,16 +105,18 @@ describe('SyncLine', () => {
     expect(screen.getByText(/modifiées dans l’application Cozytouch/)).toBeInTheDocument();
   });
 
-  it('at 2 of 3 the last read is kept for a restart: says so, not « all used »', () => {
+  it('at 2 of 3 the last read is kept for a restart: says so, not « all used »', async () => {
     render(SyncLine, { sync: sync({ used: 2, next_possible_at: Date.parse('2026-10-14T12:10:00Z') / 1000 }), now });
+    await fiche();
     expect(screen.getByText(/la dernière reste pour un redémarrage/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Synchroniser' })).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('speaks English', () => {
+  it('speaks English', async () => {
     applyLocale('en');
     render(SyncLine, { sync: sync(), now });
     expect(screen.getByRole('button', { name: 'Sync' })).toBeInTheDocument();
-    expect(screen.getByText('Full reads: 1 of 3 in 24 hours')).toBeInTheDocument();
+    await fiche();
+    expect(screen.getByText('Syncs: 1 of 3 in 24 h')).toBeInTheDocument();
   });
 });

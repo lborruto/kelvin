@@ -43,11 +43,13 @@ forEachLocale((l) => {
   });
 });
 
-it('the rooms summary never reads “0 heating” in English', () => {
+it('the rooms summary: heating rooms, then offline ones only when there are some', () => {
   const en = dictionary('en');
-  expect(en.rooms.heating(0)).toBe('none heating');
-  expect(en.rooms.heating(2)).toBe('2 heating');
-  expect(dictionary('fr').rooms.heating(0)).toBe('0 en chauffe');
+  const fr = dictionary('fr');
+  expect(en.rooms.summary(0, 0)).toBe('No room heating');
+  expect(en.rooms.summary(1, 2)).toBe('1 room heating · 2 offline');
+  expect(fr.rooms.summary(2, 0)).toBe('2 pièces en chauffe');
+  expect(fr.rooms.summary(0, 1)).toBe('Aucune pièce en chauffe · 1 hors ligne');
 });
 
 it('English counts agree with their noun (“0 of 1 day comparable”, “3 of 12 days”)', () => {

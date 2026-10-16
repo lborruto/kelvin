@@ -4,7 +4,7 @@
   import { curveMonotoneX, curveStepAfter, line } from 'd3-shape';
   import { runText } from '$lib/activity';
   import type { RoomActivity, RoomMode, WeekProgram } from '$lib/api/types';
-  import { fmtTemp, fmtTime } from '$lib/format';
+  import { fmtTemp, fmtTempTick, fmtTime } from '$lib/format';
   import { heatColor } from '$lib/heat';
   import { m } from '$lib/i18n';
   import { comfortBands } from '$lib/program';
@@ -29,10 +29,15 @@
     label: string;
     /** Window-open and presence runs the radiators reported (QW4). */
     activity?: RoomActivity | null;
+    /** Draw those runs (the room panel's chart, which has a legend). Cards leave them out and draw the setpoint dashed. */
+    events?: boolean;
+    /** Whole-degree labels at the top and bottom of the scale, in a left gutter (the room panel's chart). */
+    yAxis?: boolean;
   }
   let {
     points, start, end, now, program = {}, mode = null, comfort = null, eco = null,
-    target = null, pendingTarget = null, pendingComfort = null, axis = false, height = 36, label, activity = null
+    target = null, pendingTarget = null, pendingComfort = null, axis = false, height = 36, label, activity = null,
+    events = false, yAxis = false
   }: Props = $props();
 
   const W = 300;
@@ -90,8 +95,8 @@
     a: Math.max(start, r.start * 1000),
     b: Math.min(end, r.end * 1000)
   });
-  let windowRuns = $derived((activity?.window ?? []).map((r) => ({ r, ...clip(r) })).filter((x) => x.b > x.a));
-  let presenceRuns = $derived((activity?.presence ?? []).map((r) => ({ r, ...clip(r) })).filter((x) => x.b > x.a));
+  let windowRuns = $derived((events ? (activity?.window ?? []) : []).map((r) => ({ r, ...clip(r) })).filter((x) => x.b > x.a));
+  let presenceRuns = $derived((events ? (activity?.presence ?? []) : []).map((r) => ({ r, ...clip(r) })).filter((x) => x.b > x.a));
 
   let tempPath = $derived(
     line<StripPoint>()
@@ -143,6 +148,17 @@
     return m.strip.summary(parts);
   });
 
+  // The scale's whole degrees inside its domain: the top and bottom labels of the gutter.
+  let yTicks = $derived.by(() => {
+    const [lo, hi] = y.domain();
+    const top = Math.floor(hi);
+    const bottom = Math.ceil(lo);
+    return top > bottom ? [top, bottom].map((v) => ({ v, at: y(v) })) : [];
+  });
+  // Recording started after the range began (a fresh install, a restart): say from when, not an empty box.
+  let firstAt = $derived(points.find((p) => p.v != null)?.t ?? null);
+  let sparseSince = $derived(yAxis && firstAt != null && firstAt - start > 3_600_000 ? firstAt : null);
+
   const HOURS = [0, 6, 12, 18, 24];
   let nowPct = $derived((nowX / W) * 100);
   let nowIn = $derived(now >= start && now <= end);
@@ -153,7 +169,13 @@
   );
 </script>
 
-<div class="strip">
+<div class="strip" class:gutter={yAxis}>
+  {#if yAxis}
+    <div class="yaxis" aria-hidden="true" style:height="{height}px">
+      {#each yTicks as t (t.v)}<span class="ytick" style:top="{t.at}px">{fmtTempTick(t.v)}°</span>{/each}
+    </div>
+  {/if}
+  {#if sparseSince != null}<p class="since" aria-hidden="true">{m.strip.since(fmtTime(sparseSince))}</p>{/if}
   <svg viewBox="0 0 {W} {height}" preserveAspectRatio="none" role="img" aria-label={label} aria-describedby="{uid}d"
     style:height="{height}px">
     <defs>
@@ -179,7 +201,7 @@
       <rect class="band" x={x(b.start)} y="0" width={Math.max(0.5, x(b.end) - x(b.start))} {height} />
       <line class="band-edge" x1={x(b.start)} x2={x(b.end)} y1="0.5" y2="0.5" vector-effect="non-scaling-stroke" />
     {/each}
-    {#if setpointPath}<path class="setpoint" d={setpointPath} vector-effect="non-scaling-stroke" />{/if}
+    {#if setpointPath}<path class="setpoint" class:quiet={!events} d={setpointPath} vector-effect="non-scaling-stroke" />{/if}
     {#if pendingComfortPath}
       <path class="pending-comfort" class:confirmed={held?.kind === 'comfort' && confirmed} d={pendingComfortPath}
         clip-path="url(#{uid}f)" vector-effect="non-scaling-stroke" />
@@ -216,6 +238,34 @@
     position: relative;
     min-width: 0;
   }
+  /* The room panel's chart: a 28 px gutter for the scale; the time axis below lines up with the plot. */
+  .strip.gutter {
+    padding-left: 28px;
+  }
+  .yaxis {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 24px;
+  }
+  .ytick {
+    position: absolute;
+    right: 0;
+    transform: translateY(-50%);
+    font-size: 11px;
+    line-height: 14px;
+    color: var(--fa);
+    font-variant-numeric: tabular-nums;
+  }
+  .since {
+    position: absolute;
+    top: 2px;
+    left: 34px;
+    margin: 0;
+    font-size: 11px;
+    color: var(--mu);
+    pointer-events: none;
+  }
   svg {
     display: block;
     width: 100%;
@@ -236,6 +286,13 @@
     stroke: var(--mu);
     stroke-width: 1;
     opacity: 0.8;
+  }
+  /* The target: a muted dashed step (the legend's « Consigne »), quieter still on cards. Pending requests are ink. */
+  .setpoint {
+    stroke-dasharray: 3 3;
+  }
+  .setpoint.quiet {
+    opacity: 0.7;
   }
   .pending-target,
   .pending-comfort {

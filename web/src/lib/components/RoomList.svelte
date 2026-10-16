@@ -1,10 +1,8 @@
-<script lang="ts" module>
-  // Survives navigation: once the user has opened or closed a card on the phone, their choice wins over the default.
-  let remembered: { id: string | null } | null = null;
-</script>
-
 <script lang="ts">
+  import type { Room } from '$lib/api/types';
+  import { m } from '$lib/i18n';
   import { desktop } from '$lib/media.svelte';
+  import { isOffline } from '$lib/status';
   import { history } from '$lib/stores/history.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
@@ -17,16 +15,6 @@
   }
   let { selectedId = null, selectedIsPage = false }: Props = $props();
 
-  let expanded = $state<string | null>(remembered ? remembered.id : null);
-  let autoExpanded = false;
-  // The default opening is not animated (cards below would slide down: CLS); the user's own taps are.
-  let animate = $state(false);
-  // Phone: open the room that needs attention (else the first) in place once the house is known.
-  $effect(() => {
-    if (remembered || autoExpanded || !house.loaded || desktop.matches) return;
-    autoExpanded = true;
-    expanded = house.defaultRoomId;
-  });
   let now = $state(Date.now());
   $effect(() => {
     const t = setInterval(() => (now = Date.now()), 60_000);
@@ -36,27 +24,34 @@
   let end = $derived(addParisDays(start, 1));
   const key = (roomId: string) => `${roomId}|day|${start}`;
 
-  $effect(() => {
-    for (const r of house.rooms) history.load(key(r.id), r.radiator_ids, start, Math.min(end, now), 900);
+  // Cozytouch order, except that offline rooms (radiators switched off at the mains: normal here)
+  // move to the end under a quiet label, so the rooms that answer carry the attention.
+  let groups = $derived.by(() => {
+    const on: Room[] = [];
+    const off: Room[] = [];
+    for (const r of house.rooms) (isOffline(house.roomRadiators(r.id)) ? off : on).push(r);
+    return { on, off };
   });
 
-  // Phone only: on desktop the card is a link to the room.
-  function select(id: string) {
-    animate = true;
-    expanded = expanded === id ? null : id;
-    remembered = { id: expanded };
-  }
+  $effect(() => {
+    for (const r of groups.on) history.load(key(r.id), r.radiator_ids, start, Math.min(end, now), 900);
+  });
 </script>
+
+{#snippet card(room: Room)}
+  <RoomCard {room} {now} points={history.data[key(room.id)] ?? []} desktop={desktop.matches} selected={desktop.matches && selectedId === room.id}
+    current={selectedIsPage && selectedId === room.id} />
+{/snippet}
 
 <div class="list">
   {#if !house.loaded}
     {#each [0, 1, 2] as i (i)}<div class="skeleton card-sk" aria-hidden="true"></div>{/each}
   {:else}
-    {#each house.rooms as room (room.id)}
-      <RoomCard {room} {now} expanded={!desktop.matches && expanded === room.id} points={history.data[key(room.id)] ?? []}
-        onselect={() => select(room.id)} navigates={desktop.matches} {animate} selected={selectedId === room.id}
-        current={selectedIsPage && selectedId === room.id} />
-    {/each}
+    {#each groups.on as room (room.id)}{@render card(room)}{/each}
+    {#if groups.off.length}
+      <h2 class="group">{m.rooms.offlineGroup(groups.off.length)}</h2>
+      {#each groups.off as room (room.id)}{@render card(room)}{/each}
+    {/if}
   {/if}
 </div>
 
@@ -64,8 +59,33 @@
   .list {
     display: grid;
     gap: 10px;
+    container-type: inline-size;
   }
+  /* The final height of an online card: one status line on a wide card, two on a narrow one. */
   .card-sk {
-    height: 132px;
+    height: 116px;
+  }
+  @container (max-width: 419px) {
+    .card-sk {
+      height: 136px;
+    }
+  }
+  /* Section label style, with a hairline to the right. */
+  .group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mu);
+  }
+  .group::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
   }
 </style>

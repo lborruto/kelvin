@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Radiator } from '$lib/api/types';
 import { applyLocale } from '$lib/i18n';
-import { infoRows } from './roomfacts';
+import { detailFacts, infoRows, livePower } from './roomfacts';
 
 const NB = ' ';
 const now = Date.parse('2026-10-14T12:10:00Z'); // 14:10 in Paris
@@ -18,18 +18,18 @@ describe('infoRows', () => {
   it('French: model, power, raw RSSI, reachable, last signal', () => {
     applyLocale('fr');
     expect(values(base)).toEqual({
-      model: 'HEKLA P', power: `1500${NB}W`, signal: 'RSSI 87', reach: 'Joignable', last: `il y a 3${NB}min`
+      model: 'HEKLA P', power: `1\u202f500${NB}W`, signal: 'RSSI 87', reach: 'En ligne', last: `il y a 3${NB}min`
     });
     expect(infoRows(base, now).map((x) => x.label)).toEqual(['Modèle', 'Puissance', 'Niveau de signal', 'Connexion', 'Dernier signal']);
   });
-  it('unreachable since today shows the time, since an earlier day the date', () => {
+  it('offline since today shows the time, since an earlier day the date', () => {
     applyLocale('fr');
     const today = { ...base, reachable: false, unreachable_since: Date.parse('2026-10-14T12:05:00Z') / 1000 };
-    expect(values(today).reach).toBe('Injoignable depuis 14:05');
-    expect(infoRows(today, now).find((x) => x.key === 'reach')!.bad).toBe(true);
+    expect(values(today).reach).toBe('Hors ligne depuis 14:05');
+    expect(infoRows(today, now).find((x) => x.key === 'reach')!.bad).toBe(false); // offline is a normal state here: muted, never red
     const earlier = { ...base, reachable: false, unreachable_since: Date.parse('2026-10-12T06:00:00Z') / 1000 };
-    expect(values(earlier).reach).toMatch(/^Injoignable depuis .*12.*08:00$/);
-    expect(values({ ...base, reachable: false, unreachable_since: null }).reach).toBe('Injoignable');
+    expect(values(earlier).reach).toMatch(/^Hors ligne depuis .*12.*08:00$/);
+    expect(values({ ...base, reachable: false, unreachable_since: null }).reach).toBe('Hors ligne');
   });
   it('Infos shows — for every unknown', () => {
     applyLocale('fr');
@@ -41,9 +41,33 @@ describe('infoRows', () => {
   it('English', () => {
     applyLocale('en');
     expect(values({ ...base, reachable: false, unreachable_since: Date.parse('2026-10-14T12:05:00Z') / 1000 })).toMatchObject({
-      reach: 'Unreachable since 14:05', last: `3${NB}min ago`
+      reach: 'Offline since 14:05', last: `3${NB}min ago`
     });
     expect(infoRows(base, now)[2].label).toBe('Signal level');
     applyLocale('fr');
+  });
+});
+
+describe('livePower (« Détails techniques »: ≈ W beside « En chauffe »)', () => {
+  const r = (over: Partial<Radiator>) => ({ ...base, ...over }) as Radiator;
+  it('sums working rate × power over the radiators heating now', () => {
+    const p = livePower([r({ id: 'a', working_rate: 80, power_w: 1500 }), r({ id: 'b', working_rate: 50, power_w: 1000 }), r({ id: 'c', working_rate: 0 })]);
+    expect(p?.watts).toBe(1700);
+    expect(p?.parts.map((x) => [x.rate, x.power])).toEqual([[80, 1500], [50, 1000]]);
+  });
+  it('nothing heating, an offline radiator ignored, an unknown power gives no figure (never a partial sum)', () => {
+    expect(livePower([r({ working_rate: 0 })])).toBeNull();
+    expect(livePower([r({ working_rate: 60, reachable: false })])).toBeNull();
+    expect(livePower([r({ id: 'a', working_rate: 60, power_w: 1000 }), r({ id: 'b', working_rate: 40, power_w: null })])).toBeNull();
+  });
+});
+
+describe('detailFacts (radiator rows with « Détails techniques »)', () => {
+  it('signal and last event inline, in words', () => {
+    applyLocale('fr');
+    expect(detailFacts(base, now)).toEqual(['RSSI 87', `dernier signal il y a 3${NB}min`]);
+    applyLocale('en');
+    expect(detailFacts(base, now)).toEqual(['RSSI 87', `last signal 3${NB}min ago`]);
+    expect(detailFacts({ ...base, rssi: null, last_event_at: null } as Radiator, now)).toEqual([]);
   });
 });

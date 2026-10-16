@@ -58,7 +58,7 @@ describe('HouseStore', () => {
     expect(s.pending.p1).toBeUndefined();
     s.applyPending(pending('p2', { status: 'superseded' }));
     expect(s.pending.p2).toBeUndefined();
-    s.applyPending(pending('p3', { status: 'failed', error: 'Pas de confirmation du radiateur.' }));
+    s.applyPending(pending('p3', { status: 'failed', error: 'Le radiateur n’a pas confirmé la commande.' }));
     expect(s.pendingFor(['a'])?.id).toBe('p3');
     s.dismiss('p3');
     expect(s.pendingFor(['a'])).toBeUndefined();
@@ -122,7 +122,7 @@ describe('HouseStore', () => {
     expect(s.pending.ok).toBeUndefined();
     expect(s.pending.ko?.status).toBe('failed');
     expect(s.pending.ko?.error_code).toBe(LOST);
-    expect(pendingError(s.pending.ko!)).toBe('Commande non confirmée (connexion perdue).');
+    expect(pendingError(s.pending.ko!)).toBe('Connexion perdue\u00a0: commande non confirmée. Vérifiez la pièce.');
   });
 
   it('a newer command re-sending the same values retires the old failure (no stale Réessayer)', () => {
@@ -311,5 +311,26 @@ describe('a write Cozytouch did not confirm in time (unconfirmed)', () => {
     expect(s.pending.p1?.status).toBe('confirmed');
     later.forEach((fn) => fn());
     expect(s.pending.p1).toBeUndefined(); // dropped after its linger
+  });
+});
+
+describe('HouseStore: what the banner needs', () => {
+  it('remembers when the stream was lost (once) and forgets it when it opens again; dates what it hears', () => {
+    let t = 1000;
+    const s = new HouseStore();
+    s.clock = () => t;
+    s.connection = 'reconnecting';
+    t = 5000;
+    s.connection = 'reconnecting';
+    expect(s.lostAt).toBe(1000);
+    // Down 5 min, the tab comes back (a reset to 'connecting'), the retry fails: the loss keeps its start.
+    t = 300_000;
+    s.connection = 'connecting';
+    s.connection = 'reconnecting';
+    expect(s.lostAt).toBe(1000);
+    s.connection = 'open';
+    expect(s.lostAt).toBeNull();
+    s.heard();
+    expect(s.dataAt).toBe(300_000);
   });
 });

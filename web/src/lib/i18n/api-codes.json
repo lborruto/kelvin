@@ -5,21 +5,21 @@
       "params": {}
     },
     "bad_credentials": {
-      "fr": "Email ou mot de passe Cozytouch incorrect.",
+      "fr": "Cozytouch refuse cet email ou ce mot de passe.",
       "params": {}
     },
     "bad_credentials_server": {
-      "fr": "Email ou mot de passe Flexom incorrect.",
+      "fr": "Flexom refuse cet email ou ce mot de passe.",
       "params": {
         "server": "Flexom"
       }
     },
     "cozytouch_unavailable": {
-      "fr": "Cozytouch injoignable, réessayez plus tard.",
+      "fr": "Cozytouch injoignable. Réessayez plus tard.",
       "params": {}
     },
     "cozytouch_unreachable": {
-      "fr": "Cozytouch injoignable, réessayez dans un instant.",
+      "fr": "Cozytouch injoignable. Réessayez dans un instant.",
       "params": {}
     },
     "data_other_server": {
@@ -53,7 +53,7 @@
       }
     },
     "end_in_past": {
-      "fr": "La fin doit être dans le futur.",
+      "fr": "Choisissez une fin dans le futur.",
       "params": {}
     },
     "feature_unknown": {
@@ -117,7 +117,7 @@
       "params": {}
     },
     "linky_status_auth": {
-      "fr": "MyElectricalData refuse le jeton : renouvelez-le dans Réglages.",
+      "fr": "MyElectricalData refuse le jeton : renouvelez-le dans Maison › Linky.",
       "params": {}
     },
     "linky_status_error": {
@@ -151,7 +151,7 @@
       "params": {}
     },
     "med_unreachable": {
-      "fr": "MyElectricalData injoignable, réessayez plus tard.",
+      "fr": "MyElectricalData injoignable. Réessayez plus tard.",
       "params": {}
     },
     "method_not_allowed": {
@@ -165,7 +165,7 @@
       }
     },
     "no_confirmation": {
-      "fr": "Pas de confirmation du radiateur.",
+      "fr": "Le radiateur n’a pas confirmé la commande.",
       "params": {}
     },
     "no_night_light": {
@@ -185,7 +185,7 @@
       "params": {}
     },
     "override_not_found": {
-      "fr": "Forçage ou absence introuvable.",
+      "fr": "Chauffe temporaire ou absence introuvable : elle est peut-être déjà terminée.",
       "params": {}
     },
     "pdl_invalid": {
@@ -250,7 +250,7 @@
       }
     },
     "quotas_unavailable": {
-      "fr": "Quotas indisponibles.",
+      "fr": "Limites de requêtes Cozytouch indisponibles. Réessayez plus tard.",
       "params": {}
     },
     "radiator_in_room": {
@@ -373,7 +373,7 @@
       "params": {}
     },
     "setup_sync_spent": {
-      "fr": "Les lectures complètes de Cozytouch disponibles sur 24 h sont utilisées (la dernière reste pour un redémarrage) : réessayez plus tard.",
+      "fr": "Plus de synchronisation disponible sur 24 h (la dernière reste pour un redémarrage) : réessayez plus tard.",
       "params": {
         "limit": 3,
         "next_at": 1760500000.0,

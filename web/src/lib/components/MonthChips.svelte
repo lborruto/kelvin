@@ -16,7 +16,7 @@
 <fieldset class="months">
   <legend>{label}</legend>
   {#each ALL_MONTHS as mo (mo)}
-    <label class="chip" class:on={months.includes(mo)}>
+    <label class="chip hit" class:on={months.includes(mo)}>
       <input type="checkbox" checked={months.includes(mo)} onchange={(e) => toggle(mo, e.currentTarget.checked)} />{name(mo)}
     </label>
   {/each}
@@ -29,7 +29,7 @@
     margin: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
   }
   legend {
     font-size: 12px;
@@ -37,11 +37,11 @@
     margin-bottom: 6px;
     padding: 0;
   }
-  /* DESIGN « copy chips »: 44 px, hairline, 13 px 600 muted; checked: s2, muted edge, ink. */
+  /* DESIGN « copy chips »: 36 px (44 px hit area), hairline, 13 px 600 muted; checked: s2, muted edge, ink. */
   .chip {
     display: inline-flex;
     align-items: center;
-    min-height: 44px;
+    min-height: var(--ctl-h);
     min-width: 52px;
     justify-content: center;
     padding: 0 10px;

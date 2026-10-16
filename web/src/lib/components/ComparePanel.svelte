@@ -3,6 +3,7 @@
   import { addDays, previousName, type View } from '$lib/energy';
   import { fmtChangeShare, fmtDateLong, fmtKwhExact, fmtSigned } from '$lib/format';
   import { m } from '$lib/i18n';
+  import Disclosure from './Disclosure.svelte';
 
   interface Props {
     comparison: Comparisons;
@@ -53,8 +54,9 @@
   ]);
 </script>
 
+<!-- Analyse card: the three rows are the answer (L0); only the rule behind them moves to « Détails ». -->
 <section class="panel {cls}">
-  <h2>{m.compare.title}</h2>
+  <h3>{m.compare.title}</h3>
   {#each lines as l (l.label)}
     <div class="row">
       <div class="label">{l.label}{#if l.basis}{' '}<span class="basis muted num">{l.basis}</span>{/if}</div>
@@ -64,7 +66,9 @@
       {#if l.why}<div class="muted note">{l.why}</div>{/if}
     </div>
   {/each}
-  <p class="muted foot">{m.compare.basis}{#if tariff}{m.compare.energyOnly}{/if}</p>
+  <Disclosure title={m.energyUi.details} detail class="more">
+    <p class="muted foot">{m.compare.basis}{#if tariff}{m.compare.energyOnly}{/if}</p>
+  </Disclosure>
 </section>
 
 <style>
@@ -95,6 +99,9 @@
   }
   .foot {
     font-size: 12px;
-    margin: 8px 0 0;
+    margin: 0 0 4px;
+  }
+  .panel :global(.disclosure.more) {
+    border-top: 1px solid var(--line);
   }
 </style>

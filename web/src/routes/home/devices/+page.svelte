@@ -3,7 +3,6 @@
   import { api } from '$lib/api/client';
   import Icon from '$lib/components/Icon.svelte';
   import RoomBlock from '$lib/components/devices/RoomBlock.svelte';
-  import DeviceRow from '$lib/components/devices/DeviceRow.svelte';
   import StrayNotice from '$lib/components/devices/StrayNotice.svelte';
   import SyncLine from '$lib/components/devices/SyncLine.svelte';
   import type { Pending, SetupDevice, SetupRadiator, SetupRoom } from '$lib/api/types';
@@ -13,8 +12,13 @@
   import LabelForm from '$lib/components/devices/LabelForm.svelte';
   import MoveDialog from '$lib/components/devices/MoveDialog.svelte';
   import AppliancesBlock from '$lib/components/devices/AppliancesBlock.svelte';
-  import { canEditSetup } from '$lib/capabilities';
+  import { canEditSetup, capsOf, isReadOnly } from '$lib/capabilities';
+  import { run } from '$lib/actions';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import BridgeRow from '$lib/components/devices/BridgeRow.svelte';
+  import type { MenuItem } from '$lib/components/Menu.svelte';
   import { m } from '$lib/i18n';
+  import { desktop } from '$lib/media.svelte';
   import { ROUTES } from '$lib/paths';
   import { radiatorName } from '$lib/setup';
   import { installUndo, runSetup } from '$lib/setupActions';
@@ -49,6 +53,12 @@
   // which decides the setup actions. Shown piecemeal, the actions arrived after the rooms and
   // pushed them down (CLS, CI 2026-10-15).
   let setup = $derived(auth.loggedIn === null ? null : house.setup);
+  // /auth/me failed (not merely late): the skeleton would never resolve, so say it and offer a retry.
+  let unavailable = $derived(failed || (auth.loggedIn === null && auth.meFailed));
+  function retryAll(): void {
+    void load();
+    if (auth.loggedIn === null) void auth.refresh();
+  }
   // Plan 12: rooms and devices are written on the Cozytouch servers only.
   let editable = $derived(canEditSetup(auth.server));
   // The house root is a room only while radiators are in no other room (decision 9).
@@ -96,6 +106,46 @@
     await runSetup(() => api.moveRadiator(r.id, roomId), undo, `radiator:${r.id}`);
   }
 
+  // The « ⋯ » menus (UX batch 10): every action of the room and of the radiator, a reason when one cannot run.
+  let deleters = $state<Record<string, DeleteRoomDialog>>({});
+  let movers = $state<Record<string, MoveDialog>>({});
+  const BLOCK: Record<string, () => string> = { room_not_empty: () => m.devices.emptyFirst, room_protected: () => m.devices.protectedRoom };
+  function roomItems(room: SetupRoom): MenuItem[] {
+    if (room.is_root || !editable) return [];
+    const busy = active(house.pendingForRoom(room.id));
+    return [
+      { label: m.devices.renameRoom, icon: 'edit', disabled: busy ? m.devices.busy : null, onselect: () => toggle(`room:${room.id}`) },
+      'separator',
+      {
+        label: m.devices.deleteRoom, icon: 'trash', danger: true,
+        disabled: room.block ? BLOCK[room.block]() : busy ? m.devices.busy : null,
+        onselect: () => deleters[room.id]?.open()
+      }
+    ];
+  }
+  function radiatorItems(r: SetupRadiator): MenuItem[] {
+    const live = house.radiators[r.id];
+    const busy = active(radiatorPending(r.id));
+    const items: MenuItem[] = [];
+    if (editable) {
+      const others = (setup?.rooms ?? []).some((x) => !x.is_root && x.id !== r.room_id);
+      items.push(
+        { label: m.devices.rename, icon: 'edit', disabled: busy ? m.devices.busy : null, onselect: () => toggle(`radiator:${r.id}`) },
+        {
+          label: m.devices.moveTo, icon: 'arrow-right', disabled: !others ? m.devices.noOtherRoom : busy ? m.devices.busy : null,
+          onselect: () => movers[r.id]?.open()
+        }
+      );
+    }
+    if (live && capsOf(live).identify && !isReadOnly(live)) {
+      items.push({
+        label: m.devices.blink, icon: 'flash', disabled: !house.online ? m.devices.waiting : live.reachable === false ? m.devices.offline : null,
+        onselect: () => void run(() => api.identify(r.id))
+      });
+    }
+    return items;
+  }
+
   async function renameRadiator(r: SetupRadiator, name: string): Promise<void> {
     // The undo restores the heater's exact Cozytouch label, not the shown name (which falls back
     // to the device name when the label is Cozytouch's generic one).
@@ -111,42 +161,49 @@
 
 <svelte:head><title>{m.page.title(m.devices.title)}</title></svelte:head>
 
-<a class="back btn btn-ghost" href={ROUTES.home}><Icon name="arrow-left" size={16} />{m.devices.home}</a>
-<h1>{m.devices.title}</h1>
+<div class="vt">
+  <PageHeader title={m.devices.title} back={{ href: ROUTES.home, label: m.nav.home }}>
+    {#snippet actions()}
+      {#if setup && editable && desktop.matches}
+        <button type="button" class="btn" aria-expanded={creating} onclick={() => (creating = !creating)}><Icon name="plus" size={16} />{m.devices.newRoom}</button>
+      {/if}
+    {/snippet}
+  </PageHeader>
+</div>
+<div class="page">
 {#if !setup}
   <p class="intro">{m.devices.intro}</p>
-  {#if failed}
-    <p class="error" role="alert">{m.devices.loadFailed} <button type="button" class="btn btn-sm" onclick={load}>{m.devices.reload}</button></p>
+  {#if unavailable}
+    <p class="error" role="alert">{m.devices.loadFailed} <button type="button" class="btn btn-sm" onclick={retryAll}>{m.devices.reload}</button></p>
   {:else}
-    <div aria-busy="true">
-      {#each [150, 110, 110] as h, i (i)}<div class="skeleton block" style:height="{h}px" aria-hidden="true"></div>{/each}
-      <div class="skeleton block" style:height="120px" aria-hidden="true"></div>
+    <div class="stack" aria-busy="true">
+      <div class="skeleton block" style:height="44px" aria-hidden="true"></div>
+      {#each [170, 114, 114] as h, i (i)}<div class="skeleton block" style:height="{h}px" aria-hidden="true"></div>{/each}
     </div>
   {/if}
 {:else}
   <p class="intro">{auth.server && !editable ? m.devices.introExperimental(auth.server.name) : m.devices.intro}</p>
-  {#if setup.sync}<SyncLine sync={setup.sync} {now} />{/if}
-  {#if editable}<div class="new">
+  {#if auth.server && !editable}<p class="ro">{m.home.readOnlyServer}</p>{/if}
+  {#if editable && !desktop.matches}
+    <button type="button" class="btn new-phone" aria-expanded={creating} onclick={() => (creating = !creating)}><Icon name="plus" size={16} />{m.devices.newRoom}</button>
+  {/if}
+  {#if editable && (creating || createPending)}<div class="new">
     {#if creating}
       <LabelForm name={m.devices.newRoomField} kind="room" existing={labels} submitText={m.devices.create}
         busy={active(createPending)} onsubmit={createRoom} oncancel={() => (creating = false)} />
-    {:else}
-      <button type="button" class="btn btn-sm" onclick={() => (creating = true)}><Icon name="plus" size={16} />{m.devices.newRoom}</button>
     {/if}
     <PendingTag pending={createPending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
   </div>{/if}
+  {#if setup.sync}<SyncLine sync={setup.sync} {now} />{/if}
   {#each rooms as room (room.id)}
-    <RoomBlock {room} radiators={setup.radiators.filter((r) => r.room_id === room.id)} {now} {deviceActions} {radiatorActions}
-      pending={house.pendingForRoom(room.id)} {radiatorPending}>
+    <RoomBlock {room} radiators={setup.radiators.filter((r) => r.room_id === room.id)} {now} items={roomItems(room)} {radiatorItems}
+      live={house.radiators} {deviceActions} {radiatorActions} pending={house.pendingForRoom(room.id)} {radiatorPending}
+      onrename={editable ? (r) => (editing = `radiator:${r.id}`) : null}>
       {#snippet actions()}
         {#if !room.is_root && editable}
           {@const pending = house.pendingForRoom(room.id)}
-          <div class="actions">
-            <button type="button" class="btn btn-sm btn-ghost" aria-expanded={editing === `room:${room.id}`}
-              onclick={() => toggle(`room:${room.id}`)}><Icon name="edit" size={16} />{m.devices.rename}</button>
-            <DeleteRoomDialog {room} busy={active(pending)} ondelete={() => deleteRoom(room)} />
-            <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
-          </div>
+          <DeleteRoomDialog bind:this={deleters[room.id]} button={false} {room} busy={active(pending)} ondelete={() => deleteRoom(room)} />
+          {#if pending}<div class="tag"><PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} /></div>{/if}
           {#if editing === `room:${room.id}`}
             <LabelForm name={m.devices.roomField} initial={room.name} kind="room" existing={labels.filter((n) => n !== room.name)}
               submitText={m.devices.save} busy={active(pending)} onsubmit={(v) => renameRoom(room, v)} oncancel={() => (editing = null)} />
@@ -154,16 +211,16 @@
         {/if}
       {/snippet}
     </RoomBlock>
-
   {/each}
   <section class="panel" aria-labelledby="bridges-title">
     <h2 id="bridges-title">{m.devices.bridges}</h2>
     <ul class="bridges">
-      {#each setup.bridges as d (d.id)}<DeviceRow device={d} {now} />{/each}
+      {#each setup.bridges as d (d.id)}<BridgeRow device={d} {now} />{/each}
     </ul>
   </section>
   <AppliancesBlock devices={setup.appliances ?? []} {now} />
 {/if}
+</div>
 
 {#snippet deviceActions(d: SetupDevice)}
   {#if d.misplaced}
@@ -174,12 +231,10 @@
 
 {#snippet radiatorActions(r: SetupRadiator)}
   {@const pending = radiatorPending(r.id)}
-  {#if editable}<div class="actions">
-    <button type="button" class="btn btn-sm btn-ghost" aria-expanded={editing === `radiator:${r.id}`}
-      onclick={() => toggle(`radiator:${r.id}`)}><Icon name="edit" size={16} />{m.devices.rename}</button>
-    <MoveDialog radiator={r} rooms={setup?.rooms ?? []} busy={active(pending)} onmove={(id) => moveRadiator(r, id)} />
-    <PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />
-  </div>{/if}
+  {#if editable}
+    <MoveDialog bind:this={movers[r.id]} button={false} radiator={r} rooms={setup?.rooms ?? []} busy={active(pending)} onmove={(id) => moveRadiator(r, id)} />
+    {#if pending}<div class="tag"><PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} /></div>{/if}
+  {/if}
   {#if editable && editing === `radiator:${r.id}`}
     <LabelForm name={m.devices.radiatorField} initial={radiatorName(r)} kind="device" submitText={m.devices.save}
       busy={active(pending)} onsubmit={(v) => renameRadiator(r, v)} oncancel={() => (editing = null)} />
@@ -187,53 +242,60 @@
 {/snippet}
 
 <style>
+  /* The header (and its action) ends where the content column does. */
+  .vt {
+    max-width: 720px;
+  }
+  .vt :global(h1) {
+    view-transition-name: home-devices;
+  }
+  .page {
+    display: grid;
+    gap: 14px;
+    max-width: 720px;
+    min-width: 0;
+  }
+  .stack {
+    display: grid;
+    gap: 14px;
+  }
   .new {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    margin-bottom: 14px;
-    max-width: 720px;
   }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
+  .new-phone {
+    width: 100%;
+    justify-content: center;
   }
-  .back {
-    margin-bottom: 8px;
-  }
-  h1 {
-    font-size: 22px;
-    margin: 0 0 6px;
+  .tag {
+    padding-bottom: 8px;
   }
   .intro {
     font-size: 13px;
     color: var(--mu);
-    margin: 0 0 14px;
-    max-width: 720px;
+    margin: -10px 0 0;
+  }
+  .ro {
+    margin: -8px 0 0;
+    font-size: 12px;
+    color: var(--mu);
   }
   .block {
-    max-width: 720px;
-    margin-bottom: 14px;
     border-radius: var(--radius);
   }
   .panel {
-    padding: 14px;
+    padding: 14px 14px 4px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--s1);
-    margin-bottom: 14px;
-    max-width: 720px;
+    min-width: 0;
   }
   h2 {
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--mu);
-    margin: 0 0 8px;
+    margin: 0 0 6px;
   }
   .bridges {
     margin: 0;

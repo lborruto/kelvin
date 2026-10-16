@@ -25,8 +25,10 @@ describe('AppliancesBlock', () => {
     expect(screen.getByRole('heading', { name: 'Autres appareils' })).toBeInTheDocument();
     expect(screen.getByText(/Kelvin ne pilote pas ces appareils/)).toBeInTheDocument();
     expect(screen.getByText('Chauffe-eau', { selector: '.label' })).toBeInTheDocument();
-    expect(screen.getAllByText('Lecture seule')).toHaveLength(2);
-    expect(screen.queryAllByRole('button').filter((b) => !b.closest('summary'))).toHaveLength(0);
+    expect(screen.getAllByText('Lecture seule').length).toBeGreaterThanOrEqual(2);
+    // Read-only: the rows only open their raw details, no action.
+    expect(screen.getAllByRole('button').every((b) => b.hasAttribute('aria-expanded'))).toBe(true);
+    expect(screen.getByRole('button', { name: /^Chauffe-eau/ })).toHaveTextContent('Chauffe-eau · En ligne');
   });
 
   it('renders nothing without appliances', () => {

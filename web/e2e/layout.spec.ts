@@ -3,6 +3,8 @@ import { expect, test, type Page } from '@playwright/test';
 // Layout guards, run once (desktop project; widths are set per check).
 const WIDTHS = [320, 360, 390, 768, 1024, 1280, 1440];
 const ROUTES = ['/', '/rooms/p-salon', '/schedule', '/energy', '/home', '/home/devices'];
+// Maison sub-pages (UX batches 8–10).
+ROUTES.push('/home/tariff', '/home/linky', '/home/sources', '/home/account');
 
 /** The page is in its loaded state: a title, no skeleton left. */
 async function settled(page: Page) {
@@ -32,9 +34,10 @@ test.describe('layout', () => {
   test('/schedule with three periods on a day never scrolls sideways from 320 to 1440 px', async ({ page }) => {
     page.on('dialog', (d) => d.accept());
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto('/schedule');
+    // Monday in the day editor (beside the week on desktop, its own view on a phone) gets its third
+    // period: its row in the week is then at its longest.
+    await page.goto('/schedule?day=monday');
     await settled(page);
-    // The open day (today on a phone) gets its third period: its summary is then at its longest.
     // Clicked in the DOM: once the first period is added, the sticky send bar may cover the button.
     const add = page.locator('button.add').first();
     for (let i = 0; i < 3; i++) await add.evaluate((b: HTMLButtonElement) => b.click());
@@ -57,6 +60,50 @@ test.describe('layout', () => {
       expect(await overflow(page), `/login at ${width} px`).toBeLessThanOrEqual(0);
     }
   });
+
+  test('/schedule with the copy sheet open, and an offline room, never scrolls sideways', async ({ page }) => {
+    for (const width of WIDTHS) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/schedule?day=monday');
+      await settled(page);
+      await page.getByRole('button', { name: 'Copier vers…' }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      expect(await overflow(page), `/schedule copy sheet at ${width} px`).toBeLessThanOrEqual(0);
+      await page.keyboard.press('Escape');
+      await page.goto('/schedule?room=p-ch2');
+      await settled(page);
+      await expect(page.getByText('Chambre 2 est hors ligne')).toBeVisible();
+      expect(await overflow(page), `/schedule offline room at ${width} px`).toBeLessThanOrEqual(0);
+    }
+  });
+
+  // CI has only the fallback fonts: the page must not shift when Onest never arrives either.
+  for (const fonts of ['web fonts', 'fallback fonts only'])
+    test(`/schedule loads without layout shift (CLS < 0.05), ${fonts}`, async ({ page }) => {
+      await page.addInitScript(() => {
+        const w = window as unknown as { __cls: number };
+        w.__cls = 0;
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) {
+            if (!e.hadRecentInput) w.__cls += e.value;
+          }
+        }).observe({ type: 'layout-shift', buffered: true });
+      });
+      if (fonts !== 'web fonts') await page.route('**/*.woff2', (route) => route.abort());
+      for (const width of [390, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.route('**/api/**', async (route) => {
+          await new Promise((r) => setTimeout(r, 150));
+          await route.continue();
+        });
+        await page.goto('/schedule');
+        await settled(page);
+        await page.waitForTimeout(800);
+        const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+        expect(cls, `/schedule at ${width} px (${fonts})`).toBeLessThan(0.05);
+        await page.unroute('**/api/**');
+      }
+    });
 
   for (const path of ['/home', '/energy', '/home/devices']) {
     test(`${path} loads without layout shift (CLS < 0.05)`, async ({ page }) => {
@@ -160,40 +207,70 @@ test.describe('layout with alerts', () => {
       });
     }
   }
+});
 
-  test('/ cards keep their height when the duty line arrives, at 320 px', async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 900 });
-    // Late evening: no next change to announce, so the duty is all the foot says (the worst case).
-    const late = new Date();
-    late.setHours(23, 40, 0, 0);
-    await page.clock.install({ time: late });
-    // The duty answer is held until the cards are drawn, then released.
-    let release!: () => void;
-    const gate = new Promise<void>((r) => (release = r));
-    await page.route('**/api/rooms/duty', async (route) => {
-      await gate;
-      await route.continue();
-    });
-    await page.goto('/');
-    await page.clock.resume();
-    const cards = page.locator('article.card');
-    await expect(cards.first()).toBeVisible();
-    await page.waitForTimeout(800);
-    const heights = () => cards.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
-    const before = await heights();
-    await expect(page.getByText(/chauffe \d+\s?% sur 24/)).toHaveCount(0);
-    release();
-    await expect(page.getByText(/chauffe \d+\s?% sur 24/).first()).toBeVisible();
-    await page.waitForTimeout(800);
-    expect(await heights(), 'card heights before and after the duty').toEqual(before);
-    expect(await shifts(page), '/ at 320 px').toBeLessThan(0.05);
+// The Rooms page: cards, the offline group and the header keep their place while the data and the
+// fonts arrive, in both languages, whether the web font loads, loads late (wider than the fallback
+// for a moment) or never loads (CI).
+test.describe('Rooms without layout shift', () => {
+  test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
+  for (const lang of ['fr', 'en'])
+    for (const fonts of ['web fonts', 'late web fonts', 'fallback fonts only'])
+      test(`/ at 320, 390 and 1440 px (${lang}, ${fonts}): CLS < 0.05`, async ({ page }) => {
+        await countShifts(page);
+        await page.addInitScript((l) => localStorage.setItem('kelvin-locale', l), lang);
+        if (fonts === 'fallback fonts only') await page.route('**/*.woff2', (route) => route.abort());
+        if (fonts === 'late web fonts')
+          await page.route('**/*.woff2', async (route) => {
+            await new Promise((r) => setTimeout(r, 400));
+            await route.continue();
+          });
+        for (const width of [320, 390, 1440]) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.route('**/api/**', async (route) => {
+            await new Promise((r) => setTimeout(r, 150));
+            await route.continue();
+          });
+          await page.goto('/');
+          await settled(page);
+          await page.waitForTimeout(900);
+          await expect(page.locator('article.card.off')).toHaveCount(1);
+          expect(await shifts(page), `/ at ${width} px (${lang}, ${fonts})`).toBeLessThan(0.05);
+          expect(await overflow(page), `/ at ${width} px (${lang})`).toBeLessThanOrEqual(0);
+          await page.unroute('**/api/**');
+        }
+      });
+
+  test('desktop room panel: scrolled, a compact bar names the room; nothing shifts', async ({ page }) => {
+    await countShifts(page);
+    await page.setViewportSize({ width: 1280, height: 700 });
+    await page.goto('/rooms/p-salon');
+    await settled(page);
+    const mini = page.locator('.detail .mini');
+    await expect(mini).toBeHidden();
+    await page.locator('.detail').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    await expect(mini).toBeVisible();
+    await expect(mini).toContainText('Salon');
+    await page.locator('.detail').evaluate((el) => el.scrollTo(0, 0));
+    await expect(mini).toBeHidden();
+    expect(await shifts(page), '/rooms/p-salon scrolled').toBeLessThan(0.05);
+  });
+
+  test('/ cards have one height per width whatever their state', async ({ page }) => {
+    for (const width of [320, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/');
+      await settled(page);
+      const heights = await page.locator('article.card:not(.off)').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+      expect(new Set(heights).size, `online cards at ${width} px: ${heights}`).toBe(1);
+    }
   });
 });
 
 // The grid strip on Rooms (Plan 9) arrives with the stream's snapshot: its room is held from the
 // first paint, so the cards never move when it lands — under the HC/HP demo (an EcoWatt line) and
 // under Tempo (the colour pair as well, two lines on a phone), fonts loaded, blocked or late, fr and en.
-// The phone header's actions stay on one row whatever the font (HouseActions `oneLine`).
+// The phone header's actions stay on one row whatever the font (HouseActions `icons`: fixed 44 px icon buttons).
 test.describe('layout of / with the grid strip', () => {
   test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
   test.describe.configure({ mode: 'serial' });
@@ -331,7 +408,7 @@ test.describe('layout in English', () => {
   test('layout in English never scrolls sideways: /schedule with three periods on a day', async ({ page }) => {
     page.on('dialog', (d) => d.accept());
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto('/schedule');
+    await page.goto('/schedule?day=monday');
     await settled(page);
     const add = page.locator('button.add').first();
     for (let i = 0; i < 3; i++) await add.evaluate((b: HTMLButtonElement) => b.click());
@@ -356,4 +433,112 @@ test.describe('layout in English', () => {
     }
     await context.close();
   });
+});
+
+// Énergie (UX batches 6–7): the CLS matrix over its four views (a cold load in Mois, then each view switch) at every
+// width and font mode, and no sideways scroll with its sheets, menus and disclosures open.
+test.describe('Énergie layout matrix', () => {
+  test.skip(({ isMobile }) => isMobile, 'explicit widths');
+  test.use({ serviceWorkers: 'block' });
+  const VIEWS = ['Jour', 'Semaine', 'Année'];
+
+  for (const fonts of ['normal', 'blocked', 'late'] as const) {
+    test(`/energy · Jour, Semaine, Mois, Année · fonts ${fonts} · CLS < 0.05 from 320 to 1440 px`, async ({ page }) => {
+      test.setTimeout(240_000);
+      const { measureCls, CLS_WIDTHS } = await import('./cls');
+      for (const width of CLS_WIDTHS) {
+        await page.setViewportSize({ width, height: 900 });
+        const cls = await measureCls(page, '/energy', { fonts });
+        expect(cls, `/energy Mois at ${width} px, fonts ${fonts}`).toBeLessThan(0.05);
+        // Each view after the first: the data arrives 150 ms late, as on a real visit (shifts within 500 ms of the
+        // click are input-driven by definition, but the panels must not keep moving after).
+        await page.route('**/api/**', async (r) => {
+          await new Promise((ok) => setTimeout(ok, 150));
+          await r.continue().catch(() => {});
+        });
+        for (const view of VIEWS) {
+          await page.evaluate(() => ((window as unknown as { __cls: number }).__cls = 0));
+          await page.getByRole('radio', { name: view, exact: true }).click();
+          await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'), null, { timeout: 15_000 });
+          await page.waitForTimeout(1200);
+          const v = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+          expect(v, `/energy ${view} at ${width} px, fonts ${fonts}`).toBeLessThan(0.05);
+        }
+        await page.unrouteAll({ behavior: 'ignoreErrors' });
+      }
+    });
+  }
+  test('/energy never scrolls sideways, fr and en, in every view and with its Fiche, menu and disclosures open', async ({ browser }) => {
+    test.setTimeout(240_000);
+    for (const locale of ['fr-FR', 'en-GB']) {
+      const ctx = await browser.newContext({ storageState: 'e2e/.auth/state.json', locale });
+      const page = await ctx.newPage();
+      const en = locale === 'en-GB';
+      for (const width of WIDTHS) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto('/energy');
+        await settled(page);
+        for (const view of en ? ['Day', 'Week', 'Month', 'Year'] : ['Jour', 'Semaine', 'Mois', 'Année']) {
+          await page.getByRole('radio', { name: view, exact: true }).click();
+          await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'), null, { timeout: 15_000 });
+          expect(await overflow(page), `/energy ${view} at ${width} px (${locale})`).toBeLessThanOrEqual(0);
+        }
+        // Every disclosure open (the Courbe, the rooms, Analyse « Détails », Qualité).
+        await page.evaluate(() => document.querySelectorAll<HTMLButtonElement>('main button[aria-expanded="false"][aria-controls]').forEach((b) => b.click()));
+        await page.waitForTimeout(400);
+        expect(await overflow(page), `/energy disclosures open at ${width} px (${locale})`).toBeLessThanOrEqual(0);
+        await page.locator('.hero .fig').first().click();
+        await page.waitForTimeout(300);
+        expect(await overflow(page), `/energy hero Fiche at ${width} px (${locale})`).toBeLessThanOrEqual(0);
+        await page.keyboard.press('Escape');
+        await page.locator('.export button[aria-haspopup="menu"]').filter({ visible: true }).first().click();
+        await page.waitForTimeout(300);
+        expect(await overflow(page), `/energy export menu at ${width} px (${locale})`).toBeLessThanOrEqual(0);
+        await page.keyboard.press('Escape');
+      }
+      await ctx.close();
+    }
+  });
+});
+
+// The Absence sheet (UX batch 8) open over Pièces and Maison, fr and en, both themes: never sideways.
+test.describe('layout with the Absence sheet open', () => {
+  test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
+  for (const lang of ['fr', 'en'])
+    for (const theme of ['light', 'dark'])
+      test(`${lang}, ${theme}: never scrolls sideways from 320 to 1440 px`, async ({ page }) => {
+        await page.addInitScript(
+          ([l, t]) => {
+            localStorage.setItem('kelvin-locale', l);
+            localStorage.setItem('kelvin-theme', t);
+          },
+          [lang, theme]
+        );
+        for (const width of WIDTHS) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto('/home#away');
+          await expect(page.getByRole('dialog')).toBeVisible();
+          // The precise date field is the widest content.
+          await page.getByRole('dialog').getByRole('button', { name: /^(Date précise…|Pick a date…)$/ }).click();
+          await page.waitForTimeout(250);
+          expect(await overflow(page), `/home with the sheet (${lang}, ${theme}) at ${width} px`).toBeLessThanOrEqual(0);
+        }
+      });
+});
+
+// Pièces et appareils (UX batch 10): a « ⋯ » menu open (a sheet on a phone, a popover on desktop) never widens the page.
+test.describe('layout of /home/devices with a menu open', () => {
+  test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
+  for (const lang of ['fr', 'en'])
+    test(`${lang}: never scrolls sideways from 320 to 1440 px`, async ({ page }) => {
+      await page.addInitScript((l) => localStorage.setItem('kelvin-locale', l), lang);
+      for (const width of WIDTHS) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto('/home/devices');
+        await settled(page);
+        await page.getByRole('button', { name: /^(Actions pour|Actions for) .+\(/ }).first().click();
+        await expect(page.getByRole('menuitem').first()).toBeVisible();
+        expect(await overflow(page), `/home/devices menu (${lang}) at ${width} px`).toBeLessThanOrEqual(0);
+      }
+    });
 });
