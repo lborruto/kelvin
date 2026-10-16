@@ -258,7 +258,7 @@ describe('Énergie', () => {
     r.linky_since = '2025-11-01';
     vi.mocked(api.energyReport).mockResolvedValueOnce(r).mockResolvedValueOnce(r);
     render(Page);
-    expect(await screen.findByText('Pas de données pour Septembre 2025 : l’historique commence le 1 novembre 2025.')).toBeInTheDocument();
+    expect(await screen.findByText('Pas de données pour Septembre 2025 : l’historique commence le 1er novembre 2025.')).toBeInTheDocument();
     vi.mocked(api.energyReport).mockResolvedValue(report());
     await fireEvent.click(screen.getByRole('button', { name: 'Aller au 1/11' }));
     await waitFor(() => expect(vi.mocked(api.energyReport).mock.calls.at(-1)![0]).toBe('2025-11-01'));
@@ -713,7 +713,7 @@ describe('Énergie', () => {
       expect(card.querySelector('.title')).toHaveTextContent('Compteur Linky');
       expect(ficheRow(card, 'Dernier relevé journalier')).toBe('12 octobre 2026');
       expect(ficheRow(card, 'Appels MyElectricalData')).toBe('2 sur 10 aujourd’hui');
-      expect(ficheRow(card, 'Historique depuis le')).toBe('1 novembre 2025');
+      expect(ficheRow(card, 'Historique depuis le')).toBe('1er novembre 2025');
       expect(ficheRow(card, 'Dernière synchronisation')).not.toBeNull();
     } finally {
       desktop.matches = false;
