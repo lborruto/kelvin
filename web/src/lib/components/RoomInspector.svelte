@@ -4,7 +4,7 @@
   import { api } from '$lib/api/client';
   import { activityKey } from '$lib/activity';
   import { capsOf, isReadOnly, roomControls, roomRange } from '$lib/capabilities';
-  import { fmtTemp, fmtTime } from '$lib/format';
+  import { fmtPct, fmtTemp, fmtTime, fmtW } from '$lib/format';
   import { m, modeLabel } from '$lib/i18n';
   import { dur, easeOut, flash, T } from '$lib/motion';
   import { ROUTES } from '$lib/paths';
@@ -14,6 +14,8 @@
   import { provenance } from '$lib/provenance';
   import { radiatorTitle, roomName, whenText as atText } from '$lib/setup';
   import { reportedKey, requestKey, roomReading, roomStatus, sharedProgram, whenParts, whenText } from '$lib/status';
+  import { livePower } from '$lib/roomfacts';
+  import { detail as tech } from '$lib/stores/detail.svelte';
   import { history } from '$lib/stores/history.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { roomActivity, roomsDuty } from '$lib/stores/roomdata.svelte';
@@ -90,6 +92,21 @@
     return provenance('cozytouch', { at: last > 0 ? last * 1000 : null, method: several ? m.roomReading.method : null }, now);
   });
   let heating = $derived(!offline && mode !== 'off' && house.roomHeating(roomId));
+  // « Détails techniques » (direction-2 §1.3): the live power beside « En chauffe », its Fiche the sum's parts.
+  let power = $derived(heating && tech.on ? livePower(radiators) : null);
+  let powerRows = $derived(
+    power
+      ? [
+          ...power.parts.map((p, i) => ({
+            key: p.radiator.id || String(i),
+            label: radiatorTitle(p.radiator),
+            value: m.room.livePowerRow(fmtPct(p.rate / 100), m.roomInfo.watts(p.power))
+          })),
+          ...(power.parts.length > 1 ? [{ key: 'total', label: m.room.livePowerTotal, value: fmtW(power.watts) }] : [])
+        ]
+      : []
+  );
+  let powerProv = $derived(provenance('cozytouch', { nature: 'computed', method: m.room.livePowerMethod }, now));
   let maxT = $derived(Math.min(...radiators.map((r) => r.max_temperature), 28));
   let end = $derived(range === 'day' ? addParisDays(parisMidnight(now), 1) : now);
   let start = $derived(range === 'day' ? parisMidnight(now) : now - RANGES[range].days * 86_400_000);
@@ -225,7 +242,7 @@
         </p>
         {#if heating || room.presence === true || status.someOffline}
           <p class="sub">
-            {#if heating}<span class="heat"><span class="dot" aria-hidden="true"></span>{m.room.heatingNow}</span>{/if}
+            {#if heating}<span class="heat"><span class="dot" aria-hidden="true"></span>{m.room.heatingNow}</span>{#if power}<span class="power num"><Fig value={m.room.livePower(fmtW(power.watts))} title={m.room.livePowerTitle} rows={powerRows} provenance={powerProv} /></span>{/if}{/if}
             {#if room.presence === true}<span class="muted">{m.room.presenceDetected}</span>{/if}
             {#if status.someOffline}<span class="muted part"><Icon name="plug-off" size={14} />{m.status.someOffline(status.someOffline.k, status.someOffline.n)}</span>{/if}
           </p>
@@ -491,6 +508,9 @@
     flex-wrap: wrap;
     gap: 2px 10px;
     font-size: 12px;
+  }
+  .power {
+    color: var(--mu);
   }
   .heat {
     display: inline-flex;

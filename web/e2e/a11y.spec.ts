@@ -1,0 +1,66 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Page } from '@playwright/test';
+import { settled } from './cls';
+
+// axe-core on every route, both themes (direction-2 §10): no serious or critical violation. Runs in both
+// projects (phone and desktop), so the tab bar and the sidebar, the phone sheets and the desktop panels
+// are all checked. The 404 and the login screen are routes too.
+const ROUTES = [
+  '/',
+  '/rooms/p-salon',
+  '/schedule',
+  '/energy',
+  '/home',
+  '/home/tariff',
+  '/home/linky',
+  '/home/sources',
+  '/home/account',
+  '/home/devices',
+  '/no-such-page'
+];
+const THEMES = ['dark', 'light'] as const;
+
+async function violations(page: Page) {
+  // Scan a still page: a sheet fading in or a button turning enabled is mid-colour for a moment
+  // (reduced motion keeps the opacity and colour transitions, DESIGN « Motion »).
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getTiming().iterations === Infinity));
+  const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice']).analyze();
+  return result.violations
+    .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+    .map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => `${n.target.join(' ')} [${n.any.map((c) => c.message).join('; ')}]`).slice(0, 5).join(' | ')}`);
+}
+
+test.describe('accessibility (axe)', () => {
+  test.use({ serviceWorkers: 'block' });
+  for (const theme of THEMES) {
+    for (const route of ROUTES) {
+      test(`${route} · ${theme} · no serious or critical axe violation`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+        await page.goto(route);
+        await settled(page);
+        expect(await violations(page)).toEqual([]);
+      });
+    }
+
+    test(`/login · ${theme} · no serious or critical axe violation`, async ({ browser }, info) => {
+      const context = await browser.newContext({ ...info.project.use, storageState: { cookies: [], origins: [] } });
+      const page = await context.newPage();
+      await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+      await page.goto('/login');
+      await settled(page);
+      expect(await violations(page)).toEqual([]);
+      await context.close();
+    });
+
+    test(`the Absence sheet and technical details · ${theme} · no serious or critical axe violation`, async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem('kelvin-detail', 'on'));
+      await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+      await page.goto('/home');
+      await settled(page);
+      expect(await violations(page)).toEqual([]);
+      await page.getByRole('button', { name: /^Partir en absence/ }).click();
+      await expect(page.getByRole('dialog', { name: 'Partir en absence' })).toBeVisible();
+      expect(await violations(page)).toEqual([]);
+    });
+  }
+});

@@ -164,14 +164,14 @@
     border: 1.5px dashed var(--mu);
     cursor: default;
   }
-  /* Times in a block: dark ink on the warm fill (about 4.5:1 on it in both themes). */
-  /* Above the now marker, on a halo of the block's own fill, so a marker never cuts the times. */
+  /* Times in a block: dark ink on a halo of the warm fill at 82 % (≥ 4.9:1 in both themes, axe), above
+     the now marker so a marker never cuts the times. A locked day's paler halo takes ink (≥ 6.6:1). */
   .times {
     position: relative;
     z-index: 2;
     padding: 0 3px;
     border-radius: 3px;
-    background: color-mix(in srgb, var(--warm) 75%, var(--in));
+    background: color-mix(in srgb, var(--warm) 82%, var(--in));
     font-size: 11px;
     font-weight: 600;
     color: #1a0d05;
@@ -180,6 +180,7 @@
   }
   .locked .times {
     background: color-mix(in srgb, var(--warm) 45%, var(--in));
+    color: var(--tx);
   }
   .pending .times {
     background: var(--in);

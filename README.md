@@ -23,7 +23,7 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
 - **Rooms and devices managed from Kelvin** (Home › Rooms and devices): create, rename and delete
   rooms, move a radiator to another room, rename a radiator. Kelvin writes to your Cozytouch
   setup, so the Cozytouch app shows the same thing. Each radiator reads as its model, power and
-  state (« HEKLA P · 1 500 W · Joignable ») with its actions in one « ⋯ » menu. Every device is listed with its room,
+  state (« HEKLA P · 1 500 W · En ligne ») with its actions in one « ⋯ » menu. Every device is listed with its room,
   connectivity, last signal and read-only details (model, power, version, signal…). A change is
   shown as done only when Cozytouch reports it; if Cozytouch accepted it but has not confirmed it
   after a minute, it reads « non confirmé » (not failed) and its room name stays reserved until the
@@ -75,7 +75,7 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   share) — then the evidence: whole-home consumption from Linky (through MyElectricalData) by day,
   ISO week, month or year, with a period navigator (and a condensed bar once it scrolls away). Every bar, half-hour and figure shows its exact value on
   hover, tap or keyboard: off-peak/peak, radiators and the rest of the home, energy and standing charge €,
-  the prices applied. A half-hour scrubber with power and price, max power and base load, the off-peak/peak
+  the prices applied. A half-hour scrubber with power and price, max power and baseload, the off-peak/peak
   share, the radiators' share and cost, per room and per radiator (energy, €, temperature,
   heating hours), a room's temperature against its heating, comparisons on comparable days only,
   a month and a 365-day projection, a data-quality panel, and a CSV export of what is shown (from the page
@@ -95,10 +95,35 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   on the sign-in screen, without a reload. A browser in French starts in French, any other
   language in English. URLs are English (`/rooms`, `/schedule`, `/energy`, `/home`, `/home/devices`); old
   bookmarks are redirected.
-- **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets.
+- **Calm by default, real data on demand.** Every figure that has more precision or a source shows it
+  one hover, tap or Enter away (its exact value, where it comes from, how fresh, measured or estimated);
+  analysis sits behind « Détails ». Home › Display › « Afficher les détails techniques » brings it up one
+  level on that device: detail sections open, the live heating power « ≈ 1,70 kW » beside « En chauffe »,
+  each radiator's signal and last event inline.
+- **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets, checked
+  with axe on every screen in both themes and for layout shift (CLS < 0.05) from 320 to 1440 px.
 - **A simulator** of a whole home and a synthetic Linky, for trying Kelvin and for every test.
   `KELVIN_FAKE_HOUSE=atlantic|thermor|experimental` shows another invented house; without it, the
   house follows the server chosen at login.
+
+## Screens
+
+| Screen | Path | What it answers |
+|---|---|---|
+| Pièces / Rooms | `/` | Each room in one line of state, its reading and target, today's strip; offline rooms grouped at the end. Desktop opens the room panel beside the list |
+| Room | `/rooms/<id>` | The room panel on a phone: state, Réglage (mode, Confort / Éco), Chauffe temporaire, today's chart, energy, each radiator |
+| Programme / Schedule | `/schedule` | The week as a picture and one day edited at a time; nothing is sent before « Envoyer » |
+| Énergie / Energy | `/energy` | The period's cost and kWh first, then the bars, the half-hour curve, where the energy goes, analysis and data quality |
+| Maison / Home | `/home` | What is happening now, alerts, one card per section, display preferences |
+| Pièces et appareils | `/home/devices` | Rooms, radiators and box devices as Cozytouch holds them, with their actions and the sync line |
+| Tarif / Tariff | `/home/tariff` | The tariff in force as a summary, « Nouveau prix… », the price history |
+| Linky | `/home/linky` | The connection, the MyElectricalData calls, « Modifier la connexion » |
+| Sources de données | `/home/sources` | When Cozytouch, Linky, RTE EcoWatt (and Tempo) were last read |
+| Compte / Account | `/home/account` | The home's account, its server, signed-in devices |
+| Connexion / Sign in | `/login` | The home's Cozytouch account, the server in one line |
+
+`cd web && SCREENS=1 SCREENS_DIR=../docs/screenshots npx playwright test screens.spec.ts` renders them
+from the simulator (`SCREENS_SCHEME=dark|light`, `SCREENS_LOCALE=fr|en`).
 
 ## Compatibility
 

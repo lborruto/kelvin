@@ -9,7 +9,8 @@
   import { m, modeLabel } from '$lib/i18n';
   import { slide } from 'svelte/transition';
   import { dur, easeOut, T } from '$lib/motion';
-  import { reachText } from '$lib/roomfacts';
+  import { detailFacts, reachText } from '$lib/roomfacts';
+  import { detail } from '$lib/stores/detail.svelte';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
   import CommandSwitch from './CommandSwitch.svelte';
@@ -69,7 +70,16 @@
   // The device default ("Radiateur", or the model) says nothing; the model and power do.
   let renamed = $derived(!!radiator.name.trim() && radiator.name !== 'Radiateur' && radiator.name !== radiator.model); // i18n-ignore: upstream device default
   let title = $derived(radiatorTitle(radiator));
-  let sub = $derived([renamed && radiator.power_w ? m.roomInfo.watts(radiator.power_w) : null, reach === '—' ? null : reach].filter(Boolean).join(' · '));
+  // « Détails techniques » (direction-2 §1.3): the signal and the last event inline, not one tap away.
+  let sub = $derived(
+    [
+      renamed && radiator.power_w ? m.roomInfo.watts(radiator.power_w) : null,
+      reach === '—' ? null : reach,
+      ...(detail.on && !offline ? detailFacts(radiator, now) : [])
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  );
   // The command each toggle sent last: dashed while the radiator has not answered it.
   let sent = $state<Record<string, string>>({});
   const busy = (key: string) => {

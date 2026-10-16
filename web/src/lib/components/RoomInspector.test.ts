@@ -6,6 +6,7 @@ import { house } from '$lib/stores/house.svelte';
 import RoomInspector from './RoomInspector.svelte';
 import { applyLocale } from '$lib/i18n';
 import { alerts } from '$lib/stores/alerts.svelte';
+import { detail } from '$lib/stores/detail.svelte';
 
 vi.mock('$lib/api/client', () => ({
   api: { roomMode: vi.fn(), roomSetpoint: vi.fn(), roomBoost: vi.fn(), cancelOverride: vi.fn(), history: vi.fn().mockResolvedValue([]),
@@ -369,5 +370,39 @@ describe('the room panel, in order', () => {
     expect(screen.getByText('target 17.0 °C')).toBeInTheDocument();
     expect(screen.getByText('3.0 °C below comfort')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Edit schedule' })).toBeInTheDocument();
+  });
+});
+
+describe('« Détails techniques » on the room panel (direction-2 §1.3)', () => {
+  afterEach(() => detail.set(false));
+  const heatingSnapshot = () =>
+    house.applySnapshot({
+      house: {
+        rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a', 'b'], temperature: 20, mode: 'program', target: 20, comfort: 20, eco: 17,
+          effective_setpoint: 20, heating_level: 'comfort', window_open: false, occupied: false, presence: false }],
+        radiators: [{ ...a, mode: 'program', working_rate: 80 }, { ...b, mode: 'program', working_rate: 50, power_w: 1000, rssi: 62, last_event_at: null }]
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: 1, last_error: null }
+    } as never);
+  it('off (the household default): « En chauffe » alone, the signal one tap away', () => {
+    heatingSnapshot();
+    render(RoomInspector, { roomId: 'salon' });
+    expect(screen.getByText('En chauffe')).toBeInTheDocument();
+    expect(screen.queryByText(/^≈/)).toBeNull();
+    expect(screen.queryByText(/RSSI/)).toBeNull();
+  });
+  it('on: ≈ W beside « En chauffe » with its Fiche, and the signal inline on each radiator row', async () => {
+    detail.set(true);
+    heatingSnapshot();
+    render(RoomInspector, { roomId: 'salon' });
+    // 80 % of 1 500 W + 50 % of 1 000 W = 1 700 W
+    const fig = screen.getByRole('button', { name: /^≈\s1,70\skW, détails$/ });
+    await fireEvent.click(fig);
+    flushSync();
+    expect(screen.getByText('Puissance de chauffe')).toBeInTheDocument();
+    expect(screen.getByText(/^80\s%\sde\s1\s500\sW$/)).toBeInTheDocument();
+    expect(screen.getByText(/calculé · taux de chauffe Cozytouch × puissance du radiateur/)).toBeInTheDocument();
+    expect(screen.getByText(/RSSI 100/)).toBeInTheDocument();
+    expect(screen.getByText(/RSSI 62/)).toBeInTheDocument();
   });
 });

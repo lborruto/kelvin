@@ -2,13 +2,15 @@
   import { fade } from 'svelte/transition';
   import type { Room } from '$lib/api/types';
   import { retry } from '$lib/actions';
-  import { fmtTemp } from '$lib/format';
+  import { fmtTemp, fmtW } from '$lib/format';
   import { m } from '$lib/i18n';
   import { dur, flash, T } from '$lib/motion';
   import { ROUTES } from '$lib/paths';
   import { Settle } from '$lib/settle.svelte';
   import { roomName } from '$lib/setup';
   import { reportedKey, requestKey, roomReading, roomStatus } from '$lib/status';
+  import { livePower } from '$lib/roomfacts';
+  import { detail } from '$lib/stores/detail.svelte';
   import { house } from '$lib/stores/house.svelte';
   import type { StripPoint } from '$lib/stores/history.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
@@ -43,6 +45,11 @@
   const settle: Settle<string> = new Settle<string>(() => requestKey(expected), () => reportedKey(radiators, settle.held?.v ?? null));
   let reading = $derived(roomReading(room, radiators));
   let heating = $derived(!offline && status.kind !== 'off' && house.roomHeating(room.id));
+  // « Détails techniques »: the live power beside « En chauffe » (plain text here: the card is a link).
+  let power = $derived.by(() => {
+    const p = heating && detail.on ? livePower(radiators) : null;
+    return p ? m.room.livePower(fmtW(p.watts)) : null;
+  });
   let start = $derived(parisMidnight(now));
   let end = $derived(addParisDays(start, 1));
   let name = $derived(roomName(room));
@@ -53,7 +60,7 @@
     (
       offline
         ? [name, status.text, status.hint ?? '']
-        : [name, fmtTemp(reading), status.text, target ?? '', heating ? m.room.heatingNow : '', partial ?? ''].filter(Boolean)
+        : [name, fmtTemp(reading), status.text, target ?? '', heating ? [m.room.heatingNow, power].filter(Boolean).join(' ') : '', partial ?? ''].filter(Boolean)
     ).join(', ')
   );
   let href = $derived(ROUTES.room(room.id));
@@ -72,7 +79,7 @@
     <span class="nameline">
       <a class="cover" {href} aria-label={label} aria-current={current ? 'page' : undefined} data-sveltekit-keepfocus={desktop || undefined}
         data-sveltekit-noscroll={desktop || undefined}><span class="name">{name}</span></a>
-      {#if heating}<span class="heat" aria-hidden="true"><span class="dot"></span>{m.room.heatingNow}</span>{/if}
+      {#if heating}<span class="heat" aria-hidden="true"><span class="dot"></span>{m.room.heatingNow}{#if power}<span class="power num">{power}</span>{/if}</span>{/if}
       {#if partial}<span class="part" aria-hidden="true"><Icon name="plug-off" size={14} />{partial}</span>{/if}
     </span>
     <span class="temp num" style:view-transition-name={vtName} aria-hidden="true">{#key reading}<span class="val"
@@ -167,6 +174,10 @@
   /* Warm means heating (DESIGN: Heat Means Heat). */
   .heat {
     color: var(--warm);
+  }
+  .power {
+    margin-left: 6px;
+    color: var(--mu);
   }
   .dot {
     width: 6px;

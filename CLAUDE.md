@@ -246,6 +246,17 @@ depends on.
   blues, HC always hatched) only through `SERIES` / `Swatch` on Énergie and the tariff, never a round
   dot. Controls are painted at `--ctl-h` (36 px) with a 44 px hit area (`.hit` / the `.btn` `::before`)
   and sized by the `--w-*` widths, never stretched.
+  Every route stays free of serious and critical axe violations in both themes (`e2e/a11y.spec.ts`,
+  `@axe-core/playwright`); a new route joins it, `e2e/cls.spec.ts` and `e2e/screens.spec.ts`.
+- **Copy** (DESIGN « Copy (French and English) »): short and plain, household words before device words
+  (Overkiz terms only in a Fiche or Détails), one term per concept from `docs/glossary.md` (glossary first),
+  errors say what happened then what to do. Safety copy keeps its meaning (locked days, offline, absence
+  consequence, estimated vs measured). A backend error text changes in `errors.py` and `fr.ts` together
+  (`codes.test.ts`); `labels.py` text is the Overkiz execution label pinned by the Sauter golden fixture, so
+  a pending label is reworded on the web only (`REWORDED` in `codes.test.ts`).
+- **« Détails techniques »** (`$lib/stores/detail.svelte.ts`, `<html data-detail>` before first paint) only
+  moves L1/L2 content up one depth (open `detail` disclosures, live power via `livePower`, inline radiator
+  facts via `detailFacts`); it never changes a format, adds a panel or shifts the page.
 - **Data on demand** (DESIGN « Data on demand: three depths »): L0 the rounded answer on screen, L1 the
   exact value in a Fiche one hover/tap/Enter away, L2 the analysis in a `Disclosure` (`hidden="until-found"`).
   Every exact figure goes through `Fig` (its Fiche) with a Provenance block from `$lib/provenance.ts`

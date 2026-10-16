@@ -211,7 +211,12 @@ export const en: Messages = {
     history: 'History',
     range: 'Time range',
     historyLabel: (name: string, range: string) => `${name}, temperature over ${range}`,
-    radiators: (n: number) => `Radiators · ${int(n)}`
+    radiators: (n: number) => `Radiators · ${int(n)}`,
+    livePower: (w: string) => `≈${NB}${w}`,
+    livePowerTitle: 'Heating power',
+    livePowerRow: (pct: string, power: string) => `${pct} of ${power}`,
+    livePowerTotal: 'Total',
+    livePowerMethod: 'Cozytouch heating rate × radiator power'
   },
   boost: {
     title: 'Boost',
@@ -421,7 +426,7 @@ export const en: Messages = {
     title: 'Details',
     model: 'Model',
     power: 'Power',
-    watts: (w: number) => `${w}${NB}W`,
+    watts: (w: number) => `${int(w)}${NB}W`,
     signal: 'Signal level',
     rssi: (v: number) => `RSSI ${v}`,
     rssiHint: 'Raw value reported by the radiator; scale not verified.',
@@ -429,7 +434,8 @@ export const en: Messages = {
     reachable: 'Online',
     unreachable: 'Offline',
     unreachableSince: (t: string) => `Offline since ${t}`,
-    lastSignal: 'Last signal'
+    lastSignal: 'Last signal',
+    lastSignalInline: (ago: string) => `last signal ${ago}`
   },
   roomReading: {
     title: (room: string) => `Temperature · ${room}`,

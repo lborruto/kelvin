@@ -100,6 +100,8 @@ export const ARGS: Record<string, unknown[]> = {
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
 export const SAME = new Set<string>([
+  // Batch 13: « ≈ 1,70 kW » and « Total » read the same in both languages
+  'room.livePower', 'room.livePowerTotal',
   'energyUi.keyName', 'energyUi.barView', 'energyUi.roomKwhName',
   'account.email', 'devices.syncAt', 'tariffSummary.option', 'tariffSummary.options.base', 'tariffSummary.options.tempo', 'tariffSummary.unit',
   'devices.watts', 'devices.detail.version', 'devices.detail.rssi', 'devices.role.wifi',
@@ -229,6 +231,8 @@ const SCANNER_BLIND = new Set([
   'login.change',
   // Batch 12: « En ligne », « Ouvrir Linky »
   'roomInfo.reachable', 'devices.reachable', 'energyPage.settings',
+  // Batch 13: « 80 % de 1 500 W », « dernier signal il y a 3 min »
+  'room.livePowerRow', 'roomInfo.lastSignalInline',
   // Plan 12: no accent and no listed French word
   'support.expected', 'pilot.label', 'dryer.boost',
   // Programme redesign: figures and short words (« 7 h 30 », « … et … », « Week-end », « Raccourcis »)

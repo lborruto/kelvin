@@ -221,7 +221,13 @@ export const fr = {
     history: 'Historique',
     range: 'Période',
     historyLabel: (name: string, range: string) => `${name}, température sur ${range}`,
-    radiators: (n: number) => `Radiateurs · ${int(n)}`
+    radiators: (n: number) => `Radiateurs · ${int(n)}`,
+    // « Détails techniques » (direction-2 §1.3): the live power beside « En chauffe ».
+    livePower: (w: string) => `≈${NB}${w}`,
+    livePowerTitle: 'Puissance de chauffe',
+    livePowerRow: (pct: string, power: string) => `${pct} de ${power}`,
+    livePowerTotal: 'Total',
+    livePowerMethod: 'taux de chauffe Cozytouch × puissance du radiateur'
   },
   boost: {
     title: 'Chauffe temporaire',
@@ -436,7 +442,7 @@ export const fr = {
     title: 'Infos',
     model: 'Modèle',
     power: 'Puissance',
-    watts: (w: number) => `${w}${NB}W`,
+    watts: (w: number) => `${int(w)}${NB}W`,
     signal: 'Niveau de signal',
     rssi: (v: number) => `RSSI ${v}`,
     rssiHint: `Valeur brute rapportée par le radiateur${NB}; échelle non vérifiée.`,
@@ -444,7 +450,8 @@ export const fr = {
     reachable: 'En ligne',
     unreachable: 'Hors ligne',
     unreachableSince: (t: string) => `Hors ligne depuis ${t}`,
-    lastSignal: 'Dernier signal'
+    lastSignal: 'Dernier signal',
+    lastSignalInline: (ago: string) => `dernier signal ${ago}`
   },
   roomReading: {
     title: (room: string) => `Température · ${room}`,
