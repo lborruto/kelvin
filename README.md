@@ -143,6 +143,13 @@ computed from your tariff or estimated.
 3. Ask, for example: « Analyse my last month and propose savings » (the `analyse_last_month`
    prompt), « Why was October more expensive than September? », « Plan tomorrow's Tempo red day ».
 
+Prompts take plain words as arguments, in Claude Code as `/kelvin:<prompt> <arguments>`:
+`/kelvin:explain_bill september english` (a month as `2026-09`, `september`, `septembre`,
+`september 2026` or `last`; a bare name means its most recent occurrence), `/kelvin:plan_tempo_red_day
+demain`, `/kelvin:review_programme salon`, `/kelvin:analyse_last_month anglais`. The language is
+`fr` (default) or `en` (`french`, `english`, `francais`, `anglais` also work); a room is its id or
+its name; a wrong value gets a message that lists what is accepted.
+
 Tools: `get_overview`, `get_room`, `get_programmes`, `get_temperature_history`, `get_energy`,
 `get_room_energy`, `get_day_detail`, `get_tariff`, `get_grid_signals`, `get_alerts`,
 `get_data_status`, `propose_savings`, `evaluate_programme`. Resources: `kelvin://house`,

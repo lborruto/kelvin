@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.shared.exceptions import MCPError
 
 from kelvin.errors import UserError
 from kelvin.mcp.errors import TOOL_ERRORS, tool_error
@@ -50,6 +51,9 @@ class Runner:
                 return redact(await build(ctx))
         except ToolError as e:
             outcome, code = "error", str(e).split(":", 1)[0]
+            raise
+        except MCPError:  # a refused prompt argument: its message is for the client
+            outcome, code = "error", "invalid_argument"
             raise
         except UserError as e:
             outcome = "error"

@@ -4,15 +4,14 @@ agent to answer in the owner's language."""
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from datetime import datetime
+from typing import Any
+from zoneinfo import ZoneInfo
 
 from mcp.server.mcpserver import MCPServer
 
-from kelvin.mcp import tools
+from kelvin.mcp import prompt_args, tools
 from kelvin.mcp.runner import Runner
-
-Language = Literal["fr", "en"]
-_LANG = {"fr": "French", "en": "English"}
 
 GUIDE = """# Reading Kelvin's data
 
@@ -64,7 +63,8 @@ PROMPTS: dict[str, str] = {
         " figures, basis and assumptions. " + _COMMON
     ),
     "explain_bill": (
-        "Explain my electricity cost for {month}. Call get_energy for that month by day and by"
+        "Explain my electricity cost for {month_name} ({month}). Call get_energy for that month by"
+        " day and by"
         " month (with the previous month and the same month last year), get_tariff and"
         " get_data_status. Separate energy and subscription, show the split by rate and by room,"
         " say what is estimated or partial. " + _COMMON
@@ -117,40 +117,66 @@ def register_content(server: MCPServer, run: Runner) -> None:
 
         return await run("resource", "kelvin://guide", {}, text, needs_runtime=False)
 
-    async def _prompt(name: str, args: dict[str, Any], language: Language) -> str:
-        async def text(_: Any) -> str:
-            return PROMPTS[name].format(lang=_LANG[language], **args)
+    def _today(ctx: Any):
+        return datetime.fromtimestamp(ctx.wall(), ZoneInfo(ctx.settings.tz)).date()
 
-        return await run("prompt", name, {**args, "language": language}, text, needs_runtime=False)
+    async def _prompt(name: str, raw: dict[str, str], lang: str) -> str:
+        async def text(ctx: Any) -> str:
+            lang_name = prompt_args.language(lang)
+            args: dict[str, str] = {}
+            if name == "explain_bill":
+                args["month"], args["month_name"] = prompt_args.month(raw["month"], _today(ctx))
+            elif name == "plan_tempo_red_day":
+                args["date"] = prompt_args.day(raw["date"], _today(ctx))
+            elif name == "review_programme":
+                rt = ctx.rt
+                rooms = (
+                    {rid: rt.house.room_view(rid)["name"] for rid in rt.house.rooms}
+                    if rt is not None
+                    else None
+                )
+                args["room_id"] = prompt_args.room(raw["room_id"], rooms)
+            return PROMPTS[name].format(lang=lang_name, **args)
+
+        return await run("prompt", name, {**raw, "language": lang}, text, needs_runtime=False)
+
+    _LANG_HINT = "fr (default) or en; french/english/francais/anglais also work"
 
     @server.prompt(
         name="analyse_last_month",
         title="Analyse last month",
-        description="Where last month's heating money went, and proposals.",
+        description="Where last month's heating money went, and proposals."
+        f" Argument: language ({_LANG_HINT}).",
     )
-    async def analyse_last_month(language: Language = "fr") -> str:
+    async def analyse_last_month(language: str = "fr") -> str:
         return await _prompt("analyse_last_month", {}, language)
 
     @server.prompt(
         name="explain_bill",
         title="Explain a month's cost",
-        description="A month's electricity cost by rate, room and comparison.",
+        description="A month's electricity cost by rate, room and comparison."
+        " Arguments: month (2026-09, september, septembre, 'september 2026', last; a bare name is"
+        f" its most recent occurrence), language ({_LANG_HINT}).",
     )
-    async def explain_bill(month: str, language: Language = "fr") -> str:
+    async def explain_bill(month: str = "last", language: str = "fr") -> str:
         return await _prompt("explain_bill", {"month": month}, language)
 
     @server.prompt(
         name="plan_tempo_red_day",
         title="Plan a Tempo red day",
-        description="What to lower and when to pre-heat on a red day.",
+        description="What to lower and when to pre-heat on a red day."
+        " Arguments: date (tomorrow (default), demain, today, aujourd'hui or 2026-12-01),"
+        f" language ({_LANG_HINT}).",
     )
-    async def plan_tempo_red_day(date: str = "tomorrow", language: Language = "fr") -> str:
+    async def plan_tempo_red_day(date: str = "tomorrow", language: str = "fr") -> str:
         return await _prompt("plan_tempo_red_day", {"date": date}, language)
 
     @server.prompt(
         name="review_programme",
         title="Review a room's programme",
-        description="Draft a cheaper week and check it with evaluate_programme.",
+        description="Draft a cheaper week and check it with evaluate_programme."
+        " Arguments: room_id (an id from get_overview, or the room's name),"
+        f" language ({_LANG_HINT}).",
     )
-    async def review_programme(room_id: str, language: Language = "fr") -> str:
+    async def review_programme(room_id: str, language: str = "fr") -> str:
         return await _prompt("review_programme", {"room_id": room_id}, language)
