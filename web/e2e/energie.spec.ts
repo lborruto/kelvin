@@ -52,7 +52,7 @@ async function previousMonth(page: Page) {
 }
 /** Mois opens the Courbe in a sheet from its board widget (« par demi-heure › »); Jour and Semaine show it on the board. */
 async function openCurve(page: Page) {
-  if (!(await page.locator('#curve').isVisible())) await page.locator('.w-curve').getByRole('button', { name: 'par demi-heure' }).click();
+  if (!(await page.locator('#curve').isVisible())) await page.locator('.w-curve').getByRole('button', { name: /^par demi-heure, courbe du / }).click();
   await expect(page.locator('#curve').getByRole('slider', { name: SCRUB })).toBeVisible();
   // The sheet has finished rising (phone) or scaling in (desktop): boxes measured now are final.
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getComputedTiming().endTime === Infinity));
@@ -546,11 +546,22 @@ test.describe('Énergie Tableau board', () => {
     await expect(page.locator('#curve')).toHaveCount(0);
     await expect(page.locator('#energy-where')).toBeHidden();
     await expect(page.getByRole('button', { name: 'Exporter (CSV)' })).toHaveCount(0);
+    // The Chauffage key figure opens the rooms and lands on them, again after « Replier la liste ».
+    const where = page.locator('#energy-where');
+    for (let i = 0; i < 2; i++) {
+      await page.evaluate(() => scrollTo(0, 0));
+      await page.locator('.hero .keys a[href="#energy-where"]').click();
+      await expect(where).toBeVisible();
+      await expect(where).toBeInViewport();
+      await page.getByRole('button', { name: 'Replier la liste' }).click();
+      await expect(where).toBeHidden();
+    }
+    await page.evaluate(() => scrollTo(0, 0));
     // « par demi-heure › » opens the full Courbe in a sheet.
-    await page.locator('.w-curve').getByRole('button', { name: 'par demi-heure' }).click();
+    await page.locator('.w-curve').getByRole('button', { name: /^par demi-heure, courbe du / }).click();
     await expect(page.locator('dialog[open] #curve')).toBeVisible();
     await closeCurve(page);
-    await expect(page.locator('.w-curve').getByRole('button', { name: 'par demi-heure' })).toBeFocused();
+    await expect(page.locator('.w-curve').getByRole('button', { name: /^par demi-heure, courbe du / })).toBeFocused();
     await page.getByRole('radio', { name: 'Jour', exact: true }).click();
     await settled(page);
     const curve = await box('#curve');
@@ -569,7 +580,7 @@ test.describe('Énergie Tableau board', () => {
     expect(hero.y).toBeLessThan(bars.y);
     await expect(page.locator('.w-where')).toBeVisible();
     await expect(page.locator('.w-curve')).toBeVisible();
-    await page.locator('.w-curve').getByRole('button', { name: 'par demi-heure' }).click();
+    await page.locator('.w-curve').getByRole('button', { name: /^par demi-heure, courbe du / }).click();
     await expect(page.locator('dialog[open] #curve')).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     await closeCurve(page);

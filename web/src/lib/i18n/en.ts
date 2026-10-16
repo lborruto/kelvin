@@ -1309,6 +1309,7 @@ export const en: Messages = {
     monthsTitle: 'Month by month',
     monthUntil: (d: string) => `to ${d}`,
     curveMore: 'by half-hour',
+    curveMoreName: (d: string) => `by half-hour, load curve for ${d}`,
     curveNone: 'No load curve for this day.',
     curveMiniLabel: (d: string) => `Load curve preview, ${d}`,
     sevenDays: (d: string) => `The 7 days to ${d}`,

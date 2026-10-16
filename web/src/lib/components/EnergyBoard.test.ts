@@ -109,7 +109,8 @@ describe('CurveMini', () => {
     expect(container.querySelector('.line')).toHaveTextContent(/^22,03\skWh · 6,10\s€ · pointe 800\sW à \d\d:\d\d$/);
     expect(container.querySelectorAll('.seg.hc')).toHaveLength(2);
     expect(screen.getByRole('img', { name: 'Aperçu de la courbe du 12 octobre 2026' })).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole('button', { name: 'par demi-heure' }));
+    // Its name says which day (the visible words first).
+    await fireEvent.click(screen.getByRole('button', { name: 'par demi-heure, courbe du 12 octobre 2026' }));
     expect(onopen).toHaveBeenCalledOnce();
   });
   it('another day still on screen is never drawn under this heading; an empty day says so', () => {
@@ -133,5 +134,18 @@ describe('EnergyMonths', () => {
     expect(text(rows[1])).toBe('Octobre 2026 au 12/10 120,00 kWh 30,00 €');
     await fireEvent.click(rows[1].querySelector('button')!);
     expect(onopen).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('Résumé parts at the figure’s decimals', () => {
+  it('cents below 1 000 €, whole euros above, always adding up to the figure', async () => {
+    const { eurDigits, fmtEurAt, matchParts } = await import('$lib/format');
+    expect(eurDigits(999.994)).toBe(2);
+    expect(eurDigits(1777.4)).toBe(0);
+    const [e, s] = matchParts(1777.4, [1634.6, 142.8], 0).parts;
+    expect([fmtEurAt(e, 0), fmtEurAt(s, 0)]).toEqual(['1\u202f634\u00a0€', '143\u00a0€']);
+    expect((e as number) + (s as number)).toBe(1777);
+    expect(fmtEurAt(92.39, 2)).toBe('92,39\u00a0€');
+    expect(fmtEurAt(null, 2)).toBe('—');
   });
 });

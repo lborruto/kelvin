@@ -1353,6 +1353,7 @@ export const fr = {
     monthsTitle: 'Mois par mois',
     monthUntil: (d: string) => `au ${d}`,
     curveMore: 'par demi-heure',
+    curveMoreName: (d: string) => `par demi-heure, courbe du ${d}`,
     curveNone: 'Pas de courbe pour ce jour.',
     curveMiniLabel: (d: string) => `Aperçu de la courbe du ${d}`,
     sevenDays: (d: string) => `Les 7 jours jusqu’au ${d}`,

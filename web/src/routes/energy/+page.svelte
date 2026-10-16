@@ -29,7 +29,7 @@
   import TempoRows from '$lib/components/TempoRows.svelte';
   import WhereTop from '$lib/components/WhereTop.svelte';
   import type { TempoColour, TempoCounts } from '$lib/api/types';
-  import { addDays, bucketLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
+  import { addDays, bucketLabel, spanLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
   import { exportActions } from '$lib/export';
   import { freshness } from '$lib/freshness';
   import { fmtDateLong, fmtDay, fmtEurHero, fmtKwhHero, fmtTime, monthName, monthYear } from '$lib/format';
@@ -37,7 +37,7 @@
   import { inspectBucket } from '$lib/inspector';
   import { desktop } from '$lib/media.svelte';
   import { reducedMotion } from '$lib/motion';
-  import { ANCHORS, ROUTES } from '$lib/paths';
+  import { ANCHORS, ENERGY_ANCHORS, ROUTES } from '$lib/paths';
   import { provenance, when } from '$lib/provenance';
   import { alerts } from '$lib/stores/alerts.svelte';
   import { auth } from '$lib/stores/auth.svelte';
@@ -211,11 +211,7 @@
   );
   let barsAside = $derived(loaded && !dayish && main ? (chart?.linky ? fmtKwhHero(main.period.kwh) : fmtKwhHero(main.period.radiators?.kwh)) : null);
   let barsHeight = $derived(dayish ? 140 : desktop.matches ? 300 : 160);
-  let whereAside = $derived(elapsed ? (spanLabelOf(elapsed)) : null);
-  function spanLabelOf(s: { from: string; to: string }) {
-    const last = addDays(s.to, -1);
-    return last === s.from ? fmtDateLong(s.from) : m.energy.span(fmtDay(s.from), fmtDay(last));
-  }
+  let whereAside = $derived(elapsed ? spanLabel(elapsed) || m.roomsEnergy.day(fmtDateLong(elapsed.from)) : null);
   /** Mois: the Courbe opens in a sheet over the board (« par demi-heure › », a day bar's drill). */
   let curveTrigger = $state<HTMLElement | null>(null);
   function openCurve(e?: Event) {
@@ -224,6 +220,11 @@
   }
   function openWhere() {
     whereOpen = true;
+  }
+  /** A key figure's link: its section opens first (the rooms; the Courbe's sheet in Mois). */
+  function reveal(id: string) {
+    if (id === ENERGY_ANCHORS.where) whereOpen = true;
+    else if (id === ANCHORS.curve && loaded?.view === 'month') curveOpen = true;
   }
 
   // Analyse: Comparaisons and Projection (and Heures creuses / pleines when the Tempo rows took its place in the board).
@@ -311,8 +312,8 @@
 
 <svelte:head><title>{m.page.title(m.nav.energy)}</title></svelte:head>
 
-<!-- Header (spec §4 Énergie): « Énergie », the views, ‹ period ›, Exporter on one row from 1024 px; on a phone the title
-     and its « ⋯ », then the views, then the period. -->
+<!-- Header (spec §4 Énergie): « Énergie », the views, ‹ period ›, Exporter on one row from 1280 px, two rows (title and
+     Exporter, then the views and the period) from 1024 px; on a phone the title and its « ⋯ », the views, the period. -->
 <div class="top">
   <div class="title"><PageHeader title={m.nav.energy} /></div>
   <div class="views">
@@ -467,7 +468,7 @@
   {/if}
 
   <EnergyHero report={main} view={loaded.view} last={data.last} latest={data.latest} linkyState={linky?.state ?? null}
-    syncAt={linky?.last_ok_at != null ? linky.last_ok_at * 1000 : null} first={data.first} ongofirst={toFirst} />
+    syncAt={linky?.last_ok_at != null ? linky.last_ok_at * 1000 : null} first={data.first} ongofirst={toFirst} onreveal={reveal} />
 
   {#if dayish}{@render barsPanel()}{/if}
 

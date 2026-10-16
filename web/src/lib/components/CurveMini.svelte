@@ -44,7 +44,7 @@
 <section class="panel w-curve {cls}" aria-labelledby="{uid}-t">
   <div class="head">
     <h3 id="{uid}-t">{m.curvePanel.heading(fmtDateLong(dayIso))}</h3>
-    <button type="button" class="more" onclick={onopen}>{m.energyBoard.curveMore}</button>
+    <button type="button" class="more" aria-label={m.energyBoard.curveMoreName(fmtDateLong(dayIso))} onclick={onopen}>{m.energyBoard.curveMore}</button>
   </div>
   <p class="line num">{line ?? '—'}</p>
   {#if !shown}

@@ -6,11 +6,12 @@
 <script lang="ts">
   import type { EnergyReport, LinkyState } from '$lib/api/types';
   import { dataSpan, periodTitle, previousName, spanLabel, type Span, type View } from '$lib/energy';
-  import { fmtChangeShare, fmtDateLong, fmtDay, fmtEurExact, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct, fmtPct1, matchParts } from '$lib/format';
+  import { fmtChangeShare, fmtDateLong, fmtDay, eurDigits, fmtEurAt, fmtEurExact, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct, fmtPct1, matchParts } from '$lib/format';
   import { m } from '$lib/i18n';
   import { inspectBucket } from '$lib/inspector';
   import { ENERGY_ANCHORS, ROUTES } from '$lib/paths';
   import { provenance } from '$lib/provenance';
+  import { goToSection } from '$lib/sections';
   import { today } from '$lib/today.svelte';
   import Fig from './Fig.svelte';
   import Icon from './Icon.svelte';
@@ -31,8 +32,10 @@
     /** The first day with data: a period before it offers to go there. */
     first?: string | null;
     ongofirst?: () => void;
+    /** A key figure's section is revealed (opened) before the page goes to it. */
+    onreveal?: (id: string) => void;
   }
-  let { report, view, last, latest = false, linkyState = null, syncAt = null, first = null, ongofirst }: Props = $props();
+  let { report, view, last, latest = false, linkyState = null, syncAt = null, first = null, ongofirst, onreveal }: Props = $props();
 
   let p = $derived(report.period);
   // € when a tariff priced the period, else Linky kWh, else (no Linky) radiator kWh.
@@ -52,8 +55,10 @@
   // « énergie 92,11 € · abonnement 6,29 € »: the two lines of the cost, matched to the total shown (L1).
   let eurParts = $derived.by(() => {
     if (kind !== 'eur' || p.energy_eur == null || p.subscription_eur == null) return null;
-    const [energy, subscription] = matchParts(p.eur, [p.energy_eur, p.subscription_eur], 2).parts;
-    return m.energyBoard.eurParts(fmtEurExact(energy), fmtEurExact(subscription));
+    // At the figure's own decimals: cents below 1 000 €, whole euros above (as `fmtEurHero` shows the total).
+    const digits = eurDigits(p.eur as number);
+    const [energy, subscription] = matchParts(p.eur, [p.energy_eur, p.subscription_eur], digits).parts;
+    return m.energyBoard.eurParts(fmtEurAt(energy, digits), fmtEurAt(subscription, digits));
   });
   let prev = $derived(report.comparison.previous);
   // M3: a change only when Plan 5 found enough comparable days; it compares consumption and says so.
@@ -177,7 +182,7 @@
       {#each slots as k, i (i)}
         {#if !k}<li class="none" aria-hidden="true"></li>{:else}
         <li>
-          <a href="#{k.id}" aria-label={m.energyUi.keyName(k.label, k.sub ? `${k.value} ${k.sub}` : k.value)}>
+          <a href="#{k.id}" onclick={(e) => goToSection(e, k.id, onreveal)} aria-label={m.energyUi.keyName(k.label, k.sub ? `${k.value} ${k.sub}` : k.value)}>
             <span class="klabel">{k.label}</span>
             <span class="kval"><span class="num v">{k.value}</span>{#if k.sub}<span class="ksub">{k.sub}</span>{/if}</span>
             <span class="chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>

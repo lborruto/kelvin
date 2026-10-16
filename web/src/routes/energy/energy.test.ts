@@ -118,7 +118,7 @@ function cell(container: HTMLElement, caption: string, row: string, column: stri
 /** Mois opens the Courbe in a sheet from its board widget (« par demi-heure › »); Jour and Semaine show it on the board. */
 async function openCurve() {
   if (document.getElementById('curve')) return;
-  await fireEvent.click(await screen.findByRole('button', { name: 'par demi-heure' }));
+  await fireEvent.click(await screen.findByRole('button', { name: /^par demi-heure, courbe du / }));
   await waitFor(() => {
     if (!document.getElementById('curve')) throw new Error('no Courbe yet');
   });
@@ -526,7 +526,7 @@ describe('Énergie', () => {
     expect(line).toHaveTextContent(`10,00 kWh · 3,00 € · pointe 6,84 kW à ${fmtTime(parisDayStart('2026-10-12') + 19 * 3600_000)}`);
     // No second Courbe on the page until it is asked for.
     expect(document.getElementById('curve')).toBeNull();
-    await fireEvent.click(screen.getByRole('button', { name: 'par demi-heure' }));
+    await fireEvent.click(screen.getByRole('button', { name: /^par demi-heure, courbe du / }));
     expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
     expect(document.getElementById('curve')!.closest('dialog')).toHaveAttribute('open');
   });
@@ -537,7 +537,7 @@ describe('Énergie', () => {
     await fireEvent.click(screen.getByRole('radio', { name: 'Année' }));
     await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: '2026' })).toBeInTheDocument());
     await waitFor(() => expect(document.getElementById('curve')).toBeNull());
-    expect(screen.queryByRole('button', { name: 'par demi-heure' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^par demi-heure, courbe du / })).toBeNull();
   });
 
   it('the Courbe readout at rest is the whole day, the bar’s figures, under « Journée »; scrubbing shows the half-hour', async () => {
@@ -802,7 +802,16 @@ describe('Énergie', () => {
     expect(wrap).not.toHaveAttribute('hidden');
     await fireEvent.click(within(wrap as HTMLElement).getByRole('button', { name: 'Replier la liste' }));
     expect(wrap).toHaveAttribute('hidden', 'until-found');
-    // A find-in-page or a link (#energy-where) reveals it too.
+    // The Chauffage key figure opens it each time, even after « Replier » (never the browser's same-hash jump).
+    expect(wrap).toHaveAttribute('hidden', 'until-found');
+    const heating = screen.getByRole('link', { name: /^Chauffage,/ });
+    await fireEvent.click(heating);
+    expect(wrap).not.toHaveAttribute('hidden');
+    await fireEvent.click(within(wrap as HTMLElement).getByRole('button', { name: 'Replier la liste' }));
+    await fireEvent.click(heating);
+    expect(wrap).not.toHaveAttribute('hidden');
+    await fireEvent.click(within(wrap as HTMLElement).getByRole('button', { name: 'Replier la liste' }));
+    // A find-in-page reveals it too.
     wrap.dispatchEvent(new Event('beforematch'));
     await tick();
     expect(wrap).not.toHaveAttribute('hidden');
