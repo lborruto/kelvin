@@ -104,15 +104,6 @@ export function nextChange(program: WeekProgram, nowMs: number): Change | null {
   return null;
 }
 
-export function fmtNextChange(c: Change, nowMs: number): string {
-  const level = m.level[c.to];
-  const time = fmtTime(c.atMs);
-  const days = Math.round((parisMidnight(c.atMs) - parisMidnight(nowMs)) / 86_400_000);
-  if (days === 0) return `${time} → ${level}`;
-  if (days === 1) return m.program.nextTomorrow(time, level);
-  return m.program.nextOn(parisParts(c.atMs).weekday, time, level);
-}
-
 export function comfortBands(program: WeekProgram, startMs: number, endMs: number): Seg[] {
   const out: Seg[] = [];
   for (let midnight = parisMidnight(startMs); midnight < endMs; midnight = addParisDays(midnight, 1)) {

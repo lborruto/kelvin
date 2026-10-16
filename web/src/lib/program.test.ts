@@ -14,7 +14,6 @@ import {
   shiftDay,
   slotTimes,
   EDIT_MAX,
-  fmtNextChange,
   fromMin,
   fromWeekProgram,
   isComfortAt,
@@ -70,13 +69,12 @@ describe('next change', () => {
     const c = nextChange(usual, now)!;
     expect(c.to).toBe('comfort');
     expect(c.atMs).toBe(Date.parse('2026-10-13T15:30:00Z'));
-    expect(fmtNextChange(c, now)).toBe('17:30 → Confort');
   });
   it('rolls to tomorrow', () => {
     const now = Date.parse('2026-10-13T21:00:00Z'); // Tue 23:00 Paris
     const c = nextChange(usual, now)!;
     expect(c.to).toBe('comfort');
-    expect(fmtNextChange(c, now)).toBe('demain 06:15 → Confort');
+    expect(c.atMs).toBe(Date.parse('2026-10-14T04:15:00Z'));
   });
   it('is null for an empty week', () => {
     expect(nextChange({}, Date.now())).toBeNull();
@@ -152,7 +150,6 @@ describe('DST days', () => {
     const now = Date.parse('2026-03-28T22:00:00Z'); // Sat 23:00 Paris
     const c = nextChange(usual, now)!;
     expect(c.atMs).toBe(Date.parse('2026-03-29T04:15:00Z'));
-    expect(fmtNextChange(c, now)).toBe('demain 06:15 → Confort');
   });
 });
 
@@ -168,21 +165,7 @@ describe('adjacent slots', () => {
   });
 });
 
-describe('next change in each language', () => {
-  const now = Date.parse('2026-10-13T11:48:00Z'); // Tue 13:48 Paris
-  const thursday: WeekProgram = { thursday: [{ start: '06:15', end: '08:00' }] };
-  it('French: today, tomorrow, a weekday in lower case', () => {
-    expect(fmtNextChange(nextChange(usual, now)!, now)).toBe('17:30 → Confort');
-    expect(fmtNextChange(nextChange(thursday, now)!, now)).toBe('jeudi 06:15 → Confort');
-  });
-  it('English', () => {
-    applyLocale('en');
-    expect(fmtNextChange(nextChange(usual, now)!, now)).toBe('17:30 → Comfort');
-    const late = Date.parse('2026-10-13T21:00:00Z');
-    expect(fmtNextChange(nextChange(usual, late)!, late)).toBe('tomorrow 06:15 → Comfort');
-    expect(fmtNextChange(nextChange(thursday, now)!, now)).toBe('Thursday 06:15 → Comfort');
-  });
-});
+
 
 describe('midnight and locked days (QW8)', () => {
   it('24:00 reads and formats; the editor never makes an end after 23:45', () => {

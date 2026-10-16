@@ -267,8 +267,6 @@ export const en: Messages = {
     reload: 'Reload',
     replaceAnyway: 'Replace anyway',
     noRooms: 'No radiator in this home has a schedule Kelvin can edit. The others follow their own schedule or the maker’s app.',
-    nextTomorrow: (time: string, level: string) => `tomorrow ${time} → ${level}`,
-    nextOn: (day: Day, time: string, level: string) => `${DAY[day]} ${time} → ${level}`,
     dayError: {
       tooMany: '3 comfort periods at most.',
       endBeforeStart: 'A period must end after it starts.',
@@ -445,6 +443,11 @@ export const en: Messages = {
   },
   roomFigures: {
     title: (range: string) => `Energy over ${range}`,
+    today: 'Energy today',
+    noKwhToday: 'Consumption and heating hours: no meter reading today yet.',
+    noKwh: 'Consumption and heating hours: no meter reading over the period.',
+    notEnoughToday: 'Not enough readings since midnight yet.',
+    dutyHintToday: 'Share of the time since midnight the radiators heated, weighted by their power (5-minute readings).',
     kwh: 'Consumption',
     eur: 'Cost (energy)',
     eurHint: 'Energy only, without the standing charge, at your prices.',

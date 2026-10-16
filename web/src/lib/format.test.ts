@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  fmtAgo, fmtAmount, fmtDateLong, fmtDay, fmtDelta, fmtKwh, fmtPct, fmtPrice, fmtTemp, fmtTime, fmtWh,
+  fmtAgo, fmtAmount, fmtDateLong, fmtDay, fmtKwh, fmtPct, fmtPrice, fmtTemp, fmtTime, fmtWh,
   fmtDayShort, monthName, monthYear, parseDecimal, premier
 } from './format';
 import { applyLocale } from '$lib/i18n';
@@ -19,11 +19,6 @@ describe('format', () => {
     expect(fmtTemp(undefined)).toBe('—');
     expect(fmtTemp(Number.NaN)).toBe('—');
     expect(fmtKwh(null)).toBe('—');
-  });
-  it('eco lowering is shown as a negative delta', () => {
-    expect(fmtDelta(3)).toBe(`−3,0${NB}°C`);
-    expect(fmtDelta(null)).toBe('—');
-    expect(fmtDelta(0)).toBe(`0,0${NB}°C`);
   });
   it('energy groups thousands the French way', () => {
     expect(fmtKwh(2400)).toBe(`2 400${NB}kWh`);
@@ -270,7 +265,6 @@ function frenchGrid(): Record<string, unknown> {
   const days = ['2026-01-01', '2026-02-28', '2026-08-15', '2026-10-12', '2026-12-31'];
   return {
     fmtTemp: each((v) => [fmtTemp(v), fmtTemp(v, false)]),
-    fmtDelta: each(fmtDelta),
     fmtKwh: each((v) => [fmtKwh(v), fmtKwh(v, false)]),
     fmtWh: each(fmtWh),
     fmtPrice: each(fmtPrice),
@@ -317,7 +311,6 @@ describe('format in English (en-GB)', () => {
   const NB = '\u00a0';
   it('decimal point, NBSP before °C and kWh, € before the figure, no space before %', () => {
     expect(fmtTemp(20.5)).toBe(`20.5${NB}°C`);
-    expect(fmtDelta(3)).toBe(`−3.0${NB}°C`);
     expect(fmtKwh(2400)).toBe(`2,400${NB}kWh`);
     expect(fmtKwh(12.34)).toBe(`12.3${NB}kWh`);
     expect(fmtWh(1500)).toBe(`1,500${NB}Wh`);
@@ -413,7 +406,7 @@ describe('negatives use the true minus in every formatter, in both languages', (
         const out = [
           fmtTemp(v), fmtKwh(v), fmtWh(v), fmtPrice(v), fmtAmount(v, 2), fmtAmount(v, 4), fmtPct(v), fmtKwhHero(v),
           fmtKwhExact(v), fmtW(v), fmtEurHero(v), fmtEurExact(v), fmtEurHalfHour(v), fmtPct1(v), fmtSigned(v, '€'),
-          fmtSignedPrice(v), fmtHours(v), fmtDelta(v), fmtChangeShare(v) ?? ''
+          fmtSignedPrice(v), fmtHours(v), fmtChangeShare(v) ?? ''
         ];
         for (const s of out) expect(s, `${l} ${v}`).not.toMatch(/-/);
       }

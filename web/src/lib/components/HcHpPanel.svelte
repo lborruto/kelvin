@@ -3,7 +3,7 @@
   import { fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
   import { SERIES, seriesBackground } from '$lib/energy';
   import { m } from '$lib/i18n';
-  import { ANCHORS, ROUTES, ENERGY_ANCHORS } from '$lib/paths';
+  import { ROUTES, ENERGY_ANCHORS } from '$lib/paths';
   import { shiftValue } from '$lib/power';
   import Disclosure from './Disclosure.svelte';
   import TempoRows from './TempoRows.svelte';
@@ -28,7 +28,7 @@
 <section class="panel {cls}" id={ENERGY_ANCHORS.offpeak}>
   <h3>{m.hcHp.title}</h3>
   {#if !tariff}
-    <p class="line"><a href="{ROUTES.home}#{ANCHORS.tariff}">{m.hcHp.tariffLink}</a>{m.hcHp.tariffTail}</p>
+    <p class="line"><a href="{ROUTES.tariff}">{m.hcHp.tariffLink}</a>{m.hcHp.tariffTail}</p>
   {:else if option === 'base'}
     <p class="line">{m.energyTariff.baseOption}</p>
   {:else}

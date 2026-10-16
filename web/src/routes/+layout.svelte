@@ -146,8 +146,9 @@
   <div class="tabs"><TabBar /></div>
   <!-- The Absence sheet (UX batch 8): one instance, opened from wherever the user is. -->
   <AwaySheet />
+  <!-- The charts' shared SVG defs (hatches): every route but Login draws a chart or a swatch. -->
+  <ChartDefs />
 {/if}
-<ChartDefs />
 <Toasts />
 <div class="visually-hidden" role="status" aria-live="polite">{announcer.polite}</div>
 <div class="visually-hidden" aria-live="assertive">{announcer.assertive}</div>

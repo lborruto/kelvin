@@ -51,7 +51,7 @@ const SEP = ' · ';
 const join = (lead: string, rest: string) => (rest ? `${lead}${SEP}${rest}` : lead);
 
 /** « 14:32 » today, « demain 06:30 », « jeudi 06:30 » further on. */
-export function whenText(atMs: number, now: number): string {
+export function whenAhead(atMs: number, now: number): string {
   const time = fmtTime(atMs);
   const days = Math.round((parisMidnight(atMs) - parisMidnight(now)) / 86_400_000);
   if (days <= 0) return time;
@@ -106,9 +106,9 @@ export function roomStatus(room: Room, rads: Radiator[], override: Override | un
   }
   if (override?.restoring) return make(override.kind === 'away' ? 'away' : 'boost', m.status.restoring, '', 'muted', null);
   if (override?.kind === 'away')
-    return make('away', m.status.away, m.status.until(fmtTemp(override.temperature), whenText(override.ends_at * 1000, now)), 'cool', override.temperature);
+    return make('away', m.status.away, m.status.until(fmtTemp(override.temperature), whenAhead(override.ends_at * 1000, now)), 'cool', override.temperature);
   if (override?.kind === 'boost')
-    return make('boost', m.status.boost, m.status.until(fmtTemp(override.temperature), whenText(override.ends_at * 1000, now)), 'warm', override.temperature);
+    return make('boost', m.status.boost, m.status.until(fmtTemp(override.temperature), whenAhead(override.ends_at * 1000, now)), 'warm', override.temperature);
   if (room.window_open) return make('window', m.room.windowOpen, '', 'bad', null);
 
   const mode = expected.mode ?? room.mode;
@@ -130,7 +130,7 @@ export function roomStatus(room: Room, rads: Radiator[], override: Override | un
       const comfortNow = isComfortAt(program, parisParts(now).weekday, parisMinuteOfDay(now));
       const c = nextChange(program, now);
       const level = comfortNow ? m.level.comfort : m.level.eco;
-      const rest = !c ? m.status.steady(level) : comfortNow ? m.status.comfortUntil(whenText(c.atMs, now)) : m.status.ecoUntil(whenText(c.atMs, now));
+      const rest = !c ? m.status.steady(level) : comfortNow ? m.status.comfortUntil(whenAhead(c.atMs, now)) : m.status.ecoUntil(whenAhead(c.atMs, now));
       return make(comfortNow ? 'comfort' : 'eco', m.mode.program, rest, 'tx', comfortNow ? comfort : eco, flag);
     }
     if (rads.some((r) => capsOf(r).program))

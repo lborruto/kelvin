@@ -299,7 +299,7 @@
 
 {#if data.error}<p class="error" role="alert">{data.failed ? m.energyPage.failedPeriod(periodTitle(data.failed.view, data.failed.period), data.error()) : data.error()} <button type="button" class="btn btn-sm" onclick={() => navigate(() => data.retry())}>{m.energyPage.retry}</button></p>{/if}
 {#if ready && linkyProblem}
-  <p class="callout bad" role="status">{linkyProblem.text}&nbsp;<a href="{ROUTES.home}#{ANCHORS.linky}">{linkyProblem.link}</a></p>
+  <p class="callout bad" role="status">{linkyProblem.text}&nbsp;<a href="{ROUTES.linky}">{linkyProblem.link}</a></p>
 {/if}
 {#if ready}{#each alerts.of(['price_change', 'consent_expiring', 'linky_stalled', 'hc_changed']) as a (a.id)}<AlertCallout alert={a} />{/each}{/if}
 
@@ -320,7 +320,7 @@
     <div>
       <h2 id="invite-title">{m.energyUi.noLinkyTitle}</h2>
       <p>{m.energyUi.noLinkyBody}</p>
-      <a class="btn" href="{ROUTES.home}#{ANCHORS.linky}">{m.energyUi.noLinkyCta}</a>
+      <a class="btn" href="{ROUTES.linky}">{m.energyUi.noLinkyCta}</a>
     </div>
   </section>
 {/if}

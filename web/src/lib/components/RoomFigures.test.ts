@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import type { RoomEnergy as RE } from '$lib/api/types';
+import { applyLocale } from '$lib/i18n';
 import { forEachLocale } from '$lib/i18n/testing';
 import { resetRoomData } from '$lib/stores/roomdata.svelte';
 import RoomFigures from './RoomFigures.svelte';
@@ -29,7 +30,7 @@ describe('RoomFigures', () => {
     const kwh = await screen.findByRole('button', { name: /^4,57\skWh est\., détails$/ });
     await fireEvent.click(kwh);
     const card = document.querySelector('.fiche')!;
-    expect(card.querySelector('.title')).toHaveTextContent('Énergie sur 24 h');
+    expect(card.querySelector('.title')).toHaveTextContent('Énergie aujourd’hui');
     const cell = (r: Element, t: string) => r.querySelector(t)!.textContent!.replace(/\s/g, ' ');
     const rows = [...card.querySelectorAll('dl:not(.prov) .row')].map((r) => `${cell(r, 'dt')}|${cell(r, 'dd')}`);
     expect(rows).toEqual(['Consommation|4,57 kWhest.', 'dont heures creuses|1,50 kWh', 'dont heures pleines|3,07 kWh', 'Période relevée|100,0 %']);
@@ -61,7 +62,7 @@ describe('RoomFigures', () => {
     vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, interpolated: true, coverage: 0.5, priced: false, eur: null });
     render(RoomFigures, props);
     expect(await screen.findByText('est.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Renseigner le tarif' })).toHaveAttribute('href', '/home#tariff');
+    expect(screen.getByRole('link', { name: 'Renseigner le tarif' })).toHaveAttribute('href', '/home/tariff');
     expect(screen.getByText(/relevé sur 50/)).toBeInTheDocument();
   });
   it('days without a Tempo colour: the priced days\' € with the reason, as the radiator block', async () => {
@@ -79,7 +80,7 @@ describe('RoomFigures', () => {
   it('every value unknown: one sentence with its reason, never a row of — or a 0', async () => {
     vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, kwh: null, eur: null, heating_hours: null, coverage: null });
     render(RoomFigures, props);
-    expect(await screen.findByText(/^Pas encore assez de relevés sur 24.h \(il faut au moins la moitié de la période\)\.$/)).toBeInTheDocument();
+    expect(await screen.findByText('Pas encore assez de relevés depuis minuit.')).toBeInTheDocument();
     expect(screen.queryByText('—')).toBeNull();
   });
   it('some values unknown read —, never 0', async () => {
@@ -108,7 +109,34 @@ forEachLocale((l) => {
   it('titles', async () => {
     vi.mocked(api.roomEnergy).mockResolvedValue(full);
     render(RoomFigures, props);
-    expect(await screen.findByText(l === 'fr' ? 'Énergie sur 24 h' : 'Energy over 24 h', { normalizer: (t) => t })).toBeInTheDocument();
+    expect(await screen.findByText(l === 'fr' ? 'Énergie aujourd’hui' : 'Energy today')).toBeInTheDocument();
     expect(screen.getByText(l === 'fr' ? 'Heures de chauffe' : 'Heating hours')).toBeInTheDocument();
+  });
+});
+
+describe('RoomFigures today (one window: since midnight)', () => {
+  // 04:54 in Paris: the radiators' meters have not moved since midnight, the heating rate has.
+  const early = { ...props, now: Date.parse('2026-10-14T02:54:00Z') };
+  const blank: RE = { ...full, kwh: null, hc_kwh: null, hp_kwh: null, eur: null, heating_hours: 0, coverage: null };
+  it('is titled « Énergie aujourd’hui », shows no measured-looking 0,0 h, and says why kWh and hours are unknown', async () => {
+    vi.mocked(api.roomEnergy).mockResolvedValue(blank);
+    render(RoomFigures, { ...early, duty: 0.15 });
+    expect(await screen.findByText('Énergie aujourd’hui')).toBeInTheDocument();
+    expect(screen.queryByText(/0,0\sh/)).toBeNull();
+    expect(screen.getByText(/^Consommation et heures de chauffe\s: pas encore de relevé de compteur aujourd’hui\.$/)).toBeInTheDocument();
+    const duty = screen.getByRole('button', { name: /^15\s%, détails$/ });
+    await fireEvent.click(duty);
+    expect(screen.getByText(/depuis minuit/)).toBeInTheDocument();
+  });
+  it('in English', async () => {
+    applyLocale('en');
+    try {
+      vi.mocked(api.roomEnergy).mockResolvedValue(blank);
+      render(RoomFigures, { ...early, duty: 0.15 });
+      expect(await screen.findByText('Energy today')).toBeInTheDocument();
+      expect(screen.getByText('Consumption and heating hours: no meter reading today yet.')).toBeInTheDocument();
+    } finally {
+      applyLocale('fr');
+    }
   });
 });

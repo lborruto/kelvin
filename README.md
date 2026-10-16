@@ -93,7 +93,7 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
 - **French and English.** The whole UI, errors included, in French (the default) or English
   (en-GB, with its own number, date and currency formats), chosen per device in Home › Display or
   on the sign-in screen, without a reload. A browser in French starts in French, any other
-  language in English. URLs are English (`/rooms`, `/schedule`, `/energy`, `/home`, `/home/devices`); old
+  language in English. URLs are English (`/rooms`, `/schedule`, `/energy`, `/home`, `/home/devices`, `/home/tariff`, `/home/linky`, `/home/sources`, `/home/account`); old
   bookmarks are redirected.
 - **Calm by default, real data on demand.** Every figure that has more precision or a source shows it
   one hover, tap or Enter away (its exact value, where it comes from, how fresh, measured or estimated);

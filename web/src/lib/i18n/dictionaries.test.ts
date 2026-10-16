@@ -52,7 +52,6 @@ export const ARGS: Record<string, unknown[]> = {
   'rooms.summary': [1, 2],
   'status.someOffline': [1, 2],
   'radiator.facts': ['HEKLA P', 1500],
-  'program.nextOn': ['monday', '06:15', 'B'],
   'program.whenOn': ['monday', '06:15'],
   'program.copyTitle': ['thursday'],
   'program.list': [['06:30–08:00', '12:00–14:00', '17:00–23:00']],

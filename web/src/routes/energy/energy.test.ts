@@ -245,7 +245,7 @@ describe('Énergie', () => {
   it('no tariff: the figure is the kWh, a line asks for the tariff, and no euro anywhere in the Résumé', async () => {
     vi.mocked(api.energyReport).mockResolvedValue(report({ tariff: false, ...periodWith({ kwh: 412.64, eur: null, energy_eur: null, subscription_eur: null }) }));
     const { container } = render(Page);
-    expect(await screen.findByRole('link', { name: 'Renseigner le tarif' })).toHaveAttribute('href', '/home#tariff');
+    expect(await screen.findByRole('link', { name: 'Renseigner le tarif' })).toHaveAttribute('href', '/home/tariff');
     expect(screen.getByText(/^Ajoutez votre tarif pour voir les coûts\./)).toBeInTheDocument();
     expect(container.querySelector('.hero .big')).toHaveTextContent('412,6 kWh');
     expect(container.querySelector('.hero .answer')!.textContent).not.toContain('€');
@@ -356,7 +356,7 @@ describe('Énergie', () => {
     vi.mocked(api.energyReport).mockResolvedValue(report({ linky: false, last_day: null, projection: null, heating_share: null, ...periodWith({ kwh: null, eur: null }) }));
     const { container } = render(Page);
     expect(await screen.findByRole('heading', { name: 'Reliez votre compteur Linky' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Relier le Linky' })).toHaveAttribute('href', '/home#linky');
+    expect(screen.getByRole('link', { name: 'Relier le Linky' })).toHaveAttribute('href', '/home/linky');
     expect(await screen.findByRole('img', { name: 'Consommation des radiateurs par jour' })).toBeInTheDocument();
     expect(container.querySelector('.hero .big')).toHaveTextContent('140,0 kWh');
     expect(container.querySelector('.hero .range')).toHaveTextContent(/^des radiateurs, /);
@@ -732,7 +732,7 @@ describe('Énergie', () => {
   it('Linky auth is an error with a way to renew the token', async () => {
     vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'auth', message: null });
     const { container } = render(Page);
-    expect(await screen.findByRole('link', { name: 'Renouveler le jeton' })).toHaveAttribute('href', '/home#linky');
+    expect(await screen.findByRole('link', { name: 'Renouveler le jeton' })).toHaveAttribute('href', '/home/linky');
     expect(container.querySelector('.callout.bad')).toHaveTextContent('MyElectricalData refuse le jeton Linky.');
   });
 
@@ -740,7 +740,7 @@ describe('Énergie', () => {
     vi.mocked(api.linkyStatus).mockRejectedValue(new Error('boom'));
     const { container } = render(Page);
     expect(await screen.findByText(/État du Linky indisponible\./)).toBeInTheDocument();
-    expect(container.querySelector('.callout.bad a')).toHaveAttribute('href', '/home#linky');
+    expect(container.querySelector('.callout.bad a')).toHaveAttribute('href', '/home/linky');
     expect(api.energyReport).toHaveBeenCalled(); // from yesterday's period, without a Linky day to anchor it
   });
 

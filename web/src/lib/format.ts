@@ -70,12 +70,6 @@ export function fmtTempTick(v: number): string {
   return signed(whole(), v);
 }
 
-export function fmtDelta(v: number | null | undefined): string {
-  if (bad(v)) return '—';
-  const a = Math.abs(v);
-  return `${a === 0 ? '' : '−'}${one().format(a)}${NB}°C`;
-}
-
 /** "2 050 kWh", "12,5 kWh" (en "2,050 kWh"); `unit: false` for a column whose header carries the unit. */
 export function fmtKwh(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';

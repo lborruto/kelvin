@@ -3,7 +3,7 @@
   import { addDays, spanLabel } from '$lib/energy';
   import { fmtEurExact, fmtHours, fmtKwhExact, fmtPct, fmtPct1, matchParts } from '$lib/format';
   import { m } from '$lib/i18n';
-  import { ANCHORS, ROUTES } from '$lib/paths';
+  import { ROUTES } from '$lib/paths';
   import { provenance } from '$lib/provenance';
   import { roomEnergy } from '$lib/stores/roomdata.svelte';
   import Fig from './Fig.svelte';
@@ -16,7 +16,8 @@
     /** The parent's clock: the figures are asked again at most once per half-hour. */
     now: number;
     rangeLabel: string;
-    /** The 24 h share of time heating (`/rooms/duty`): absent on 7 j / 30 j, 'loading' until it answers. */
+    /** Today's share of time heating since midnight (`/rooms/duty?since=`), the window of the other figures:
+     * absent on 7 j / 30 j, 'loading' until it answers. */
     duty?: number | null | 'loading';
   }
   let { roomId, days, now, rangeLabel, duty }: Props = $props();
@@ -30,7 +31,11 @@
   let v = $derived(entry?.value ?? null);
   let est = $derived(!!v && (v.interpolated || v.apportioned));
   // L1 (direction-2 §1): each figure opens its Fiche: exact value, parts, period, where it comes from.
-  let title = $derived(m.roomFigures.title(rangeLabel));
+  // days = 1 is today since midnight (the API's window), so it says « aujourd’hui », not « 24 h ».
+  let today = $derived(days === 1);
+  let title = $derived(today ? m.roomFigures.today : m.roomFigures.title(rangeLabel));
+  // Heating hours are energy ÷ power: with no meter reading they are unknown, never a measured-looking 0.
+  let hours = $derived(v?.kwh == null ? null : v.heating_hours);
   let period = $derived(v ? spanLabel({ from: v.from, to: addDays(v.to, 1) }) || null : null);
   let common = $derived.by((): FicheRow[] => {
     const out: FicheRow[] = [];
@@ -52,15 +57,15 @@
     provenance('radiator-meter', est ? { nature: 'estimated', method: m.roomFigures.estMethod } : {}, now)
   );
   // Every figure unknown (too few readings): one sentence with its reason instead of a row of « — ».
-  let notEnough = $derived(!!v && v.kwh == null && v.eur == null && v.heating_hours == null && (duty === undefined || duty === null));
+  let notEnough = $derived(!!v && v.kwh == null && v.eur == null && (duty === undefined || duty === null));
 </script>
 
 <div class="energy" aria-busy={!entry}>
-  <h3>{m.roomFigures.title(rangeLabel)}</h3>
+  <h3>{title}</h3>
   {#if !entry || duty === 'loading'}
     <div class="skeleton inset" style:height="88px" aria-hidden="true"></div>
   {:else if notEnough}
-    <p class="note">{m.roomFigures.notEnough(rangeLabel)}</p>
+    <p class="note">{today ? m.roomFigures.notEnoughToday : m.roomFigures.notEnough(rangeLabel)}</p>
   {:else}
     <dl class="tiles">
       <div>
@@ -74,7 +79,7 @@
       <div>
         <dt>{m.roomFigures.eur}</dt>
         <dd class="num">
-          {#if v && !v.priced}<a href="{ROUTES.home}#{ANCHORS.tariff}">{m.roomFigures.noTariff}</a>
+          {#if v && !v.priced}<a href="{ROUTES.tariff}">{m.roomFigures.noTariff}</a>
           {:else if v?.eur != null}<Fig value={fmtEurExact(v.eur)} {title}
               rows={[{ label: m.roomFigures.eur, value: fmtEurExact(v.eur), est }, ...common]}
               notes={[m.roomFigures.eurHint]}
@@ -85,8 +90,8 @@
       <div>
         <dt>{m.roomFigures.hours}</dt>
         <dd class="num">
-          {#if v?.heating_hours != null}<Fig value={fmtHours(v.heating_hours)} {title}
-              rows={[{ label: m.roomFigures.hours, value: fmtHours(v.heating_hours) }, ...common]}
+          {#if hours != null}<Fig value={fmtHours(hours)} {title}
+              rows={[{ label: m.roomFigures.hours, value: fmtHours(hours) }, ...common]}
               provenance={provenance('kelvin-calc', { method: m.roomFigures.hoursMethod }, now)} /><small>{m.roomFigures.hoursNote}</small>
           {:else}{fmtHours(null)}{/if}
         </dd>
@@ -97,13 +102,14 @@
           <dd class="num">
             {#if duty != null}<Fig value={fmtPct(duty)} {title}
                 rows={[{ label: m.roomFigures.duty, value: fmtPct1(duty) }]}
-                notes={[m.roomFigures.dutyHint]}
+                notes={[today ? m.roomFigures.dutyHintToday : m.roomFigures.dutyHint]}
                 provenance={provenance('cozytouch', { nature: 'computed', method: m.roomFigures.dutyMethod }, now)} />
             {:else}{fmtPct(null)}{/if}
           </dd>
         </div>
       {/if}
     </dl>
+    {#if v && v.kwh == null}<p class="note">{today ? m.roomFigures.noKwhToday : m.roomFigures.noKwh}</p>{/if}
     {#if v && v.kwh != null && v.coverage != null && v.coverage < 0.999}<p class="note">{m.roomFigures.partial(fmtPct(v.coverage))}</p>{/if}
     <!-- As Énergie's radiator block: the € are the priced days', and the days they leave out are said. -->
     {#if v && v.priced && v.missing_colour_days}<p class="note">{m.energyTariff.notCounted(v.missing_colour_days)}</p>{/if}

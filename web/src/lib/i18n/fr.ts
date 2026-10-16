@@ -279,8 +279,6 @@ export const fr = {
     reload: 'Recharger',
     replaceAnyway: 'Remplacer quand même',
     noRooms: 'Aucun radiateur de cette maison n’a de programme que Kelvin sait modifier. Les autres suivent leur propre programme ou l’application du fabricant.',
-    nextTomorrow: (time: string, level: string) => `demain ${time} → ${level}`,
-    nextOn: (day: Day, time: string, level: string) => `${DAY_LOWER[day]} ${time} → ${level}`,
     dayError: {
       tooMany: '3 plages confort au maximum.',
       endBeforeStart: 'Une plage doit finir après son début.',
@@ -461,6 +459,12 @@ export const fr = {
   },
   roomFigures: {
     title: (range: string) => `Énergie sur ${range}`,
+    // The 24 h range shows today since midnight: kWh, €, hours and the share of time heating alike.
+    today: 'Énergie aujourd’hui',
+    noKwhToday: `Consommation et heures de chauffe${NB}: pas encore de relevé de compteur aujourd’hui.`,
+    noKwh: `Consommation et heures de chauffe${NB}: aucun relevé de compteur sur la période.`,
+    notEnoughToday: 'Pas encore assez de relevés depuis minuit.',
+    dutyHintToday: 'Part du temps depuis minuit où les radiateurs ont chauffé, pondérée par leur puissance (relevés toutes les 5 minutes).',
     kwh: 'Consommation',
     eur: 'Coût (énergie)',
     eurHint: 'Énergie seulement, hors abonnement, à vos prix.',

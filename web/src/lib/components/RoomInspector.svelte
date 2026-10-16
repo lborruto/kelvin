@@ -13,7 +13,7 @@
   import { Settle } from '$lib/settle.svelte';
   import { provenance } from '$lib/provenance';
   import { radiatorTitle, roomName, whenText as atText } from '$lib/setup';
-  import { reportedKey, requestKey, roomReading, roomStatus, sharedProgram, whenParts, whenText } from '$lib/status';
+  import { reportedKey, requestKey, roomReading, roomStatus, sharedProgram, whenAhead, whenParts } from '$lib/status';
   import { livePower } from '$lib/roomfacts';
   import { detail as tech } from '$lib/stores/detail.svelte';
   import { history } from '$lib/stores/history.svelte';
@@ -112,14 +112,18 @@
   let start = $derived(range === 'day' ? parisMidnight(now) : now - RANGES[range].days * 86_400_000);
   let key = $derived(`${roomId}|${range}|${range === 'day' ? start : Math.floor(now / 3_600_000)}`);
   let actKey = $derived(activityKey(roomId, start, Math.min(end, now)));
+  // One key per midnight and quarter-hour: the share moves with the samples, at most every 5 min.
+  let dutyKey = $derived(`today|${parisMidnight(now)}|${Math.floor(now / 900_000)}`);
   $effect(() => {
     if (!room) return;
     const [id, a, z] = [roomId, Math.floor(start / 1000), Math.floor(Math.min(end, now) / 1000)];
     roomActivity.load(actKey, () => api.roomActivity(id, a, z));
-    roomsDuty.load('all', () => api.roomsDuty());
+    // Today's share of time heating, since midnight: the window of the energy block's kWh, € and hours.
+    const since = Math.floor(parisMidnight(now) / 1000);
+    roomsDuty.load(dutyKey, () => api.roomsDuty(since));
   });
   let activity = $derived(roomActivity.data[actKey]?.value ?? null);
-  let dutyEntry = $derived(roomsDuty.data.all);
+  let dutyEntry = $derived(roomsDuty.data[dutyKey]);
   let duty = $derived<number | null | 'loading' | undefined>(
     range !== 'day' ? undefined : !dutyEntry ? 'loading' : (dutyEntry.value?.rooms[roomId]?.duty ?? null)
   );
@@ -323,7 +327,7 @@
         {#if override?.kind === 'boost'}
           <h3 id="{uid}-boost">{m.boost.title}</h3>
           <div class="row">
-            <p class="active num">{m.status.until(fmtTemp(override.temperature), whenText(override.ends_at * 1000, now))}</p>
+            <p class="active num">{m.status.until(fmtTemp(override.temperature), whenAhead(override.ends_at * 1000, now))}</p>
             <button type="button" class="btn secondary" aria-disabled={paused}
               onclick={() => !paused && run(() => api.cancelOverride(override!.id))}>{m.boost.stop}</button>
           </div>

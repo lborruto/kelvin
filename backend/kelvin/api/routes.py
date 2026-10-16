@@ -180,11 +180,17 @@ async def stream(request: Request) -> EventSourceResponse:
 
 
 @router.get("/rooms/duty")
-async def rooms_duty(request: Request) -> dict:
-    """Each room's share of time heating over the last 24 h (spec QW5)."""
+async def rooms_duty(request: Request, since: float | None = None) -> dict:
+    """Each room's share of time heating over the last 24 h (spec QW5), or since `since` (the room
+    panel's « Aujourd’hui »: local midnight), at most 25 h back (a DST day)."""
     rt = _rt(request)
     end = int(rt.recorder.wall())  # the runtime's injected clock
-    start = end - DUTY_WINDOW_S
+    if since is None:
+        start = end - DUTY_WINDOW_S
+    else:
+        start = max(int(since), end - DUTY_WINDOW_S - 3600)
+        if start >= end:
+            raise UserError("period_invalid")
     samples = await asyncio.to_thread(
         rt.recorder.activity_samples, list(rt.house.radiators), start, end
     )

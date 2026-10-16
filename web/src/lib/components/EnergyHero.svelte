@@ -9,7 +9,7 @@
   import { fmtChangeShare, fmtDateLong, fmtDay, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct, fmtPct1 } from '$lib/format';
   import { m } from '$lib/i18n';
   import { inspectBucket } from '$lib/inspector';
-  import { ANCHORS, ENERGY_ANCHORS, ROUTES } from '$lib/paths';
+  import { ENERGY_ANCHORS, ROUTES } from '$lib/paths';
   import { provenance } from '$lib/provenance';
   import { today } from '$lib/today.svelte';
   import Fig from './Fig.svelte';
@@ -154,7 +154,7 @@
         {#if change && prev}<p class="muted delta">{m.hero.compare(change, prevName, prev.pairs)}</p>{/if}
         {#each meaning as n (n)}<p class="muted note"><Icon name="info" size={14} /><span>{n}</span></p>{/each}
         {#if report.linky && !report.tariff}
-          <p class="muted note tariff">{m.energyUi.noTariff} <a class="link" href="{ROUTES.home}#{ANCHORS.tariff}">{m.energyUi.noTariffCta}</a></p>
+          <p class="muted note tariff">{m.energyUi.noTariff} <a class="link" href="{ROUTES.tariff}">{m.energyUi.noTariffCta}</a></p>
         {/if}
       {/if}
     {/if}

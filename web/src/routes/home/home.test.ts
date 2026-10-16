@@ -141,6 +141,19 @@ describe('Maison overview', () => {
     expect(screen.getByText(/^Absence jusqu’à/)).toBeInTheDocument(); // the state line
   });
 
+  it('a boost on an offline room pauses « Arrêter », as in the room panel; « Terminer » the absence stays', async () => {
+    snapshot([
+      { id: 'o3', kind: 'boost', room_id: 'p-ch2', radiator_ids: ['b'], temperature: 22, ends_at: 2e9, restoring: false },
+      { id: 'o2', kind: 'away', room_id: null, radiator_ids: ['a', 'b'], temperature: 12, ends_at: 2e9, restoring: false }
+    ]);
+    render(Page);
+    const stop = screen.getByRole('button', { name: /^Arrêter la chauffe temporaire\s: Chambre 2$/ });
+    expect(stop).toHaveAttribute('aria-disabled', 'true');
+    await fireEvent.click(stop);
+    expect(api.cancelOverride).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Terminer l’absence' })).toHaveAttribute('aria-disabled', 'false');
+  });
+
   it('says « Tout suit son réglage habituel. » when nothing is forced', () => {
     snapshot([]);
     render(Page);

@@ -89,6 +89,10 @@
       .join(' · ') || m.home.allGood
   );
 
+  // As the room panel's « Arrêter »: a boost whose radiators are all offline cannot be ended (nothing would
+  // answer), so its button pauses like the room's; away covers the whole home and stays available.
+  const pausedFor = (o: { kind: string; radiator_ids: string[] }) =>
+    !house.online || (o.kind === 'boost' && o.radiator_ids.length > 0 && o.radiator_ids.every((id) => house.radiators[id]?.reachable === false));
   const roomsOf = (ids: string[]) =>
     house.rooms.filter((r) => r.radiator_ids.some((i) => ids.includes(i))).map((r) => roomName(r)).join(', ') || m.home.wholeHome;
   /** « 21:45 » today, « dim. 18:00 » another day. */
@@ -184,9 +188,9 @@
                   <small>{o.restoring ? m.home.restoring : m.home.thenBack}</small>
                 {/if}
               </div>
-              <button type="button" class="btn btn-sm" aria-disabled={!house.online}
+              <button type="button" class="btn btn-sm" aria-disabled={pausedFor(o)}
                 aria-label={o.kind === 'away' ? m.home.endAwayLabel : m.home.stopLabel(roomsOf(o.radiator_ids))}
-                onclick={() => house.online && run(() => api.cancelOverride(o.id))}>{o.kind === 'away' ? m.home.end : m.home.stop}</button>
+                onclick={() => !pausedFor(o) && run(() => api.cancelOverride(o.id))}>{o.kind === 'away' ? m.home.end : m.home.stop}</button>
             </li>
           {/each}
         </ul>

@@ -222,7 +222,7 @@ describe('the room panel, in order', () => {
     expect(container.querySelector('.fig')!.getAttribute('style') ?? '').not.toMatch(/color/);
     expect(screen.getByText('consigne 17,0 °C')).toBeInTheDocument();
     const heads = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent?.trim().replace(/\s+/g, ' '));
-    expect(heads.map((h) => h?.split(' ex.')[0])).toEqual(['Réglage', 'Chauffe temporaire', 'Aujourd’hui', 'Énergie sur 24 h', 'Radiateurs · 1']);
+    expect(heads.map((h) => h?.split(' ex.')[0])).toEqual(['Réglage', 'Chauffe temporaire', 'Aujourd’hui', 'Énergie aujourd’hui', 'Radiateurs · 1']);
     expect(screen.getByRole('link', { name: 'Modifier les horaires' })).toHaveAttribute('href', '/schedule?room=salon');
   });
 
