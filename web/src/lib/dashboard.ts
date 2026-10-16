@@ -116,19 +116,21 @@ export function radiatorsText(rads: Radiator[], room: string, off: boolean): str
 
 /** The Réseau chip's value: the next grid signal worth saying (EcoWatt orange/red today or tomorrow, else
  * tomorrow's Tempo colour when Tempo is in force), or null (« Rien à signaler »). */
-export type GridNext = { kind: 'ecowatt'; level: 2 | 3; tomorrow: boolean } | { kind: 'tempo'; colour: TempoColour } | null;
+export type GridNext = { kind: 'ecowatt'; level: 2 | 3; tomorrow: boolean; hours: string | null } | { kind: 'tempo'; colour: TempoColour } | null;
 
 export function gridNext(view: GridView | null, todayIso: string): GridNext {
   const lines = stripLines(view, todayIso);
   if (!lines) return null;
   const e = lines.ecowatt[0];
-  if (e) return { kind: 'ecowatt', level: e.level, tomorrow: e.when === 'tomorrow' };
+  if (e) return { kind: 'ecowatt', level: e.level, tomorrow: e.when === 'tomorrow', hours: e.hours };
   const c = lines.tempo?.tomorrow;
   return c ? { kind: 'tempo', colour: c } : null;
 }
 
 export function gridNextText(g: GridNext): string {
   if (!g) return m.maison.gridCalm;
+  // Today's signal says its hours (it is happening now); tomorrow's are in « Demain ».
+  if (g.kind === 'ecowatt' && !g.tomorrow && g.hours) return m.maison.gridEcowattHours(g.level, g.hours);
   return g.kind === 'ecowatt' ? m.maison.gridEcowatt(g.level, g.tomorrow) : m.maison.gridTempo(m.grid.colour[g.colour]);
 }
 

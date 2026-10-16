@@ -302,3 +302,14 @@ test('the manifest has a stable id; theme-color and the version follow the app',
   const colours = await page.locator('meta[name="theme-color"]').evaluateAll((ms) => ms.map((m) => (m as HTMLMetaElement).content));
   expect(colours).toEqual(['#050506']);
 });
+
+test('from a scrolled Maison, today’s programme link lands at the top of Programme (only room links keep the scroll)', async ({ page }) => {
+  await page.goto('/');
+  const link = page.getByRole('region', { name: 'Programme d’aujourd’hui' }).getByRole('link', { name: 'Programme' });
+  await link.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollBy(0, 400));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await link.click();
+  await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+});

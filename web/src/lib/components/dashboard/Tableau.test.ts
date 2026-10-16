@@ -213,6 +213,38 @@ describe('Maison on the phone', () => {
     expect(api.cancelOverride).toHaveBeenCalledWith('b1');
   });
 
+  it('a window open: the tile never takes the heat colour nor says « En chauffe », even if a radiator still draws power', async () => {
+    load([room('salon', 'Salon', ['a'], { window_open: true })], [rad('a', 'salon', { window_open: true, working_rate: 80 })]);
+    const { container } = render(Tableau);
+    await settle();
+    expect(container.querySelector('.rt .ti.heat')).toBeNull();
+    expect(container.querySelector('.rt .lead.bad')).toHaveTextContent('Fenêtre ouverte');
+    expect(screen.getByRole('link', { name: /^Salon,/ }).getAttribute('aria-label')).not.toMatch(/En chauffe/);
+  });
+
+  it('Demain under Tempo: a colour not published yet says when it is expected', async () => {
+    media.desktop.matches = true;
+    standard();
+    grid.apply({ tempo: { today: { date: '2026-10-13', colour: 'blue' }, tomorrow: { date: '2026-10-14', colour: null, expected_at: '11:00' }, fetched_at: 1 }, ecowatt: { days: [], fetched_at: null }, source: 'MED' });
+    render(Tableau);
+    await settle();
+    expect(screen.getByRole('region', { name: 'Demain' })).toHaveTextContent('couleur pas encore publiée (vers 11:00)');
+  });
+
+  it('only the room links keep the tableau’s scroll and focus; other links land at the top of their page', async () => {
+    media.desktop.matches = true;
+    standard();
+    const { container } = render(Tableau);
+    await settle();
+    expect(container.querySelector('.maison')).not.toHaveAttribute('data-sveltekit-noscroll');
+    const tile = screen.getByRole('link', { name: /^Salon,/ });
+    expect(tile.closest('[data-sveltekit-noscroll]')).not.toBeNull();
+    expect(screen.getByRole('link', { name: /^Chauffe temporaire · Salon/ }).closest('[data-sveltekit-noscroll]')).not.toBeNull();
+    for (const name of [/^Programme · Salon/, /^Programme$/, /^Énergie/]) {
+      for (const a of screen.getAllByRole('link', { name })) expect(a.closest('[data-sveltekit-noscroll]')).toBeNull();
+    }
+  });
+
   it('Tempo is named only when the backend sends it (Tempo in force)', async () => {
     standard();
     grid.apply({ tempo: null, ecowatt: { days: [{ date: '2026-10-14', level: 2, hours: [{ start: '18:00', end: '20:00', level: 2 }] }], fetched_at: 1 }, source: 'MED' });

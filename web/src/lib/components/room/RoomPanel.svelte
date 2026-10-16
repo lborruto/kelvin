@@ -15,7 +15,7 @@
   import { api } from '$lib/api/client';
   import { activityKey } from '$lib/activity';
   import { capsOf, isReadOnly, roomControls, roomRange } from '$lib/capabilities';
-  import { fmtEurExact, fmtKwhExact, fmtPct, fmtTemp, fmtTempShort, fmtTime, fmtW } from '$lib/format';
+  import { fmtDayShort, fmtEurExact, fmtKwhExact, fmtPct, fmtTemp, fmtTempShort, fmtTime, fmtW } from '$lib/format';
   import { levelLabel, m, modeLabel } from '$lib/i18n';
   import { segsText, todaySegs } from '$lib/dashboard';
   import { dur, easeOut, T } from '$lib/motion';
@@ -333,7 +333,7 @@
     <p class="note center">{m.roomCaps.readOnly}</p>
   {:else if offline}
     <span class="plug" aria-hidden="true"><Icon name="plug-off" size={48} /></span>
-    <p class="cap">{status?.since != null ? m.roomSheet.noReading(fmtTime(status.since), radiators.length) : m.roomSheet.noReadingUnknown}</p>
+    <p class="cap">{status?.since != null ? m.roomSheet.noReading(parisMidnight(status.since) === parisMidnight(now) ? fmtTime(status.since) : m.status.onDate(fmtDayShort(status.since)), radiators.length) : m.roomSheet.noReadingUnknown}</p>
   {:else if mode === 'off' && status?.kind === 'off'}
     <p class="display off">{m.mode.off}</p>
     <p class="cap">{m.roomSheet.now(fmtTemp(reading))}</p>

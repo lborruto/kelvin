@@ -1469,6 +1469,8 @@ export const en: Messages = {
     climateAllOff: (range: string) => `${range} · everything off`,
     grid: 'Grid',
     gridEcowatt: (level: number, tomorrow: boolean) => `EcoWatt ${level >= 3 ? 'red' : 'orange'} ${tomorrow ? 'tomorrow' : 'today'}`,
+    gridEcowattHours: (level: number, hours: string) => `EcoWatt ${level >= 3 ? 'red' : 'orange'} today · ${hours}`,
+    tempoPending: (at: string | null) => (at ? `colour not published yet (around ${at})` : 'colour not published yet'),
     gridTempo: (colour: string) => `Tempo ${colour} tomorrow`,
     gridCalm: 'Nothing to report',
     away: 'Away',

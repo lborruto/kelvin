@@ -53,9 +53,9 @@
   {#if rc.controllable > 0}
     <div class="two">
       {#if rc.boost > 0}
-        <IconTile layout="stack" icon="bolt" tone={boosting ? 'heat' : null} title={m.kit.boostShort}
+        <div class="keep" data-sveltekit-noscroll data-sveltekit-keepfocus><IconTile layout="stack" icon="bolt" tone={boosting ? 'heat' : null} title={m.kit.boostShort}
           sub={boosting ? m.maison.boostUntil(boostEnd) : m.maison.boostLaunch} href={boosting ? href : `${href}?boost=1`}
-          ariaLabel={`${m.boost.title} · ${name} · ${boosting ? m.maison.boostUntil(boostEnd) : m.maison.boostLaunch}`} inert={!house.online} />
+          ariaLabel={`${m.boost.title} · ${name} · ${boosting ? m.maison.boostUntil(boostEnd) : m.maison.boostLaunch}`} inert={!house.online} /></div>
       {/if}
       {#if rc.program > 0}
         <IconTile layout="stack" icon="cal" title={m.mode.program} sub={programSub} href="{ROUTES.schedule}?room={encodeURIComponent(room.id)}"
@@ -86,6 +86,9 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
+  }
+  .keep {
+    display: contents;
   }
   .two > :global(:only-child) {
     grid-column: span 2;

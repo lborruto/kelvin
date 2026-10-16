@@ -16,11 +16,13 @@
   let { grid, todayIso, compact = false }: Props = $props();
   let eco = $derived(ecowattTomorrow(grid, todayIso));
   let tempo = $derived(grid?.tempo ? grid.tempo.tomorrow.colour : undefined);
+  let expectedAt = $derived(grid?.tempo?.tomorrow.expected_at ?? null);
 </script>
 
 <Widget title={m.maison.tomorrow} pad={compact ? 'sm' : 'md'}>
   {#if tempo !== undefined}
     <p class="line"><TempoDot colour={tempo} /><b>{tempo ? m.maison.tempo(m.grid.colour[tempo]) : m.maison.tempo('—')}</b></p>
+    {#if !tempo}<p class="sub">{m.maison.tempoPending(expectedAt)}</p>{/if}
   {/if}
   {#if eco}
     <p class="line" class:bad={eco.level >= 3}><Icon name="alert" size={15} /><b>{m.maison.ecowatt(eco.level)}</b></p>

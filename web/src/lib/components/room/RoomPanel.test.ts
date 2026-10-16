@@ -378,6 +378,13 @@ describe('the room panel, in order', () => {
     delete (history.data as Record<string, unknown>)[day];
   });
 
+  it('offline since another day: the hero says its date, as the status does', () => {
+    const since = Date.parse('2026-10-11T10:32:00Z') / 1000;
+    load(one({ reachable: false, unreachable_since: since }));
+    render(RoomPanel, { roomId: 'salon' });
+    expect(screen.getByText(/^Pas de température : le radiateur ne répond plus depuis le 11 oct\.\.?$/)).toBeInTheDocument();
+  });
+
   it('offline with no time for the last reading: the line is left out', () => {
     load(one({ reachable: false, unreachable_since: null, last_event_at: null }));
     render(RoomPanel, { roomId: 'salon' });

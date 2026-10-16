@@ -43,7 +43,7 @@
   let rc = $derived(roomControls(rads));
   let readonly = $derived(rc.controllable === 0);
   let offline = $derived(status.kind === 'offline');
-  let heating = $derived(!offline && status.kind !== 'off' && house.roomHeating(room.id));
+  let heating = $derived(!offline && status.kind !== 'off' && status.kind !== 'window' && house.roomHeating(room.id));
   let program = $derived(sharedProgram(rads) ?? rads[0]?.program ?? null);
   let pending = $derived(house.pendingFor(room.radiator_ids));
   let inFlight = $derived(pending?.status === 'sending' || pending?.status === 'pending');
@@ -91,8 +91,18 @@
 {#snippet pendingTag()}<PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />{/snippet}
 {#snippet sparkLine()}<MiniSpark points={points.map((x) => ({ t: x.t, v: x.v }))} {setpoint} {bands} {start} {end} {now} dim={variant !== 'normal'} />{/snippet}
 
+<!-- Opening the sheet keeps the tableau's scroll and the tile's focus (the sheet gives it back on close); only the
+     room links do: every other link on Maison lands at the top of its page. -->
+<div class="keep" data-sveltekit-noscroll data-sveltekit-keepfocus>
 <RoomTile {name} href={ROUTES.room(room.id)} ariaLabel={label} {reading} lead={line.lead} tone={line.tone} rest={line.rest}
   pending={status.pending} {heating} {variant} {layout} {note} hint={status.hint} chip={readonly ? m.support.readonly : undefined}
   glyph={variant === 'off' ? 'power' : undefined} dipKey={reading} class={cls}
   control={p && variant === 'normal' ? stepper : undefined} tag={pending ? pendingTag : undefined}
   spark={layout === 'widget' && !offline ? sparkLine : undefined} />
+</div>
+
+<style>
+  .keep {
+    display: contents;
+  }
+</style>

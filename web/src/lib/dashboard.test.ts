@@ -93,6 +93,10 @@ describe('grid signals', () => {
     expect(gridNextText(gridNext(view(), '2026-10-16'))).toBe('EcoWatt orange demain');
     expect(gridNextText(gridNext(view({ ecowatt: { days: [], fetched_at: null } }), '2026-10-16'))).toBe('Rien à signaler');
   });
+  it('today’s EcoWatt says its hours (it is happening now)', () => {
+    const today = view({ ecowatt: { days: [{ date: '2026-10-16', level: 3, hours: [{ start: '08:00', end: '10:00', level: 3 }] }], fetched_at: 1 } });
+    expect(gridNextText(gridNext(today, '2026-10-16'))).toBe('EcoWatt rouge aujourd’hui · 08:00–10:00');
+  });
   it('Tempo only when the backend sends it (Tempo in force)', () => {
     const tempo = { today: { date: '2026-10-16', colour: 'blue' as const }, tomorrow: { date: '2026-10-17', colour: 'white' as const, expected_at: null }, fetched_at: 1 };
     expect(gridNextText(gridNext(view({ tempo, ecowatt: { days: [], fetched_at: null } }), '2026-10-16'))).toBe('Tempo Blanc demain');

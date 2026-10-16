@@ -125,7 +125,7 @@
   {/if}
 {/snippet}
 
-<div class="maison" data-sveltekit-noscroll data-sveltekit-keepfocus>
+<div class="maison">
   <header class="head">
     <div class="phone-actions"><HouseActions menu /></div>
     <div class="title">

@@ -1517,6 +1517,8 @@ export const fr = {
     climateAllOff: (range: string) => `${range} · tout éteint`,
     grid: 'Réseau',
     gridEcowatt: (level: number, tomorrow: boolean) => `EcoWatt ${level >= 3 ? 'rouge' : 'orange'} ${tomorrow ? 'demain' : 'aujourd’hui'}`,
+    gridEcowattHours: (level: number, hours: string) => `EcoWatt ${level >= 3 ? 'rouge' : 'orange'} aujourd’hui · ${hours}`,
+    tempoPending: (at: string | null) => (at ? `couleur pas encore publiée (vers ${at})` : 'couleur pas encore publiée'),
     gridTempo: (colour: string) => `Tempo ${colour} demain`,
     gridCalm: 'Rien à signaler',
     away: 'Absence',
