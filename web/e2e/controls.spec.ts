@@ -78,7 +78,7 @@ test.describe('compact controls', () => {
     await settled(page);
     const remove = page.locator('.slots .btn-icon').first();
     await expect(remove).toBeVisible();
-    expect((await remove.boundingBox())!.height).toBe(36);
+    expect((await remove.boundingBox())!.height).toBeCloseTo(36, 1);
     expect(await hitsAround(remove)).toEqual({ above: true, below: true });
   });
 
@@ -98,6 +98,6 @@ test.describe('compact controls', () => {
     await page.locator('button.add').first().evaluate((el: HTMLButtonElement) => el.click());
     const send = page.getByRole('button', { name: 'Envoyer' });
     await expect(send).toBeVisible();
-    expect((await send.boundingBox())!.height).toBe(44);
+    expect((await send.boundingBox())!.height).toBeCloseTo(44, 1); // subpixel layout at the phone DPR
   });
 });
