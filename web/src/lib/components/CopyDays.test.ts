@@ -86,6 +86,7 @@ it('a tap inside the sheet (its padding too) never closes it; only the backdrop 
   const dialog = screen.getByRole('dialog', { name: 'Copier lundi vers…' });
   await fireEvent.click(dialog.querySelector('.body')!);
   expect(dialog).toHaveAttribute('open');
-  await fireEvent.click(dialog); // the backdrop: a click whose target is the dialog itself
+  // The backdrop: a click on the dialog itself, outside its box (jsdom's box is empty, so any real point is outside).
+  await fireEvent.click(dialog, { clientX: 5, clientY: 5 });
   expect(dialog).not.toHaveAttribute('open');
 });
