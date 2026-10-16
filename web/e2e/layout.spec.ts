@@ -509,7 +509,7 @@ test.describe('layout with the Absence sheet open', () => {
           // The precise date field is the widest content.
           await page.getByRole('dialog').getByRole('button', { name: /^(Date précise…|Pick a date…)$/ }).click();
           await page.waitForTimeout(250);
-          expect(await overflow(page), `/home with the sheet (${lang}) at ${width} px`).toBeLessThanOrEqual(0);
+          expect(await overflow(page), `/ with the sheet from /home#away (${lang}) at ${width} px`).toBeLessThanOrEqual(0);
         }
       });
 });

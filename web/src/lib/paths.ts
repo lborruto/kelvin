@@ -21,8 +21,8 @@ export const ANCHORS = { away: 'away', tariff: 'tariff', linky: 'linky', quality
 /** Énergie's section anchors (the Résumé's key figures link to them). */
 export const ENERGY_ANCHORS = { where: 'energy-where', offpeak: 'offpeak', projection: 'projection' } as const; // i18n-ignore: anchor ids (URL fragments), not copy
 
-/** Maison's old section anchors (one page until UX batch 8) and where each now lives: a sub-page, or the
- * Absence sheet opened over the overview (`away`). `#alerts` stays on the overview. */
+/** Maison's old section anchors (one page until UX batch 8, now Réglages at `/home`) and where each now lives: a
+ * sub-page, or the Absence sheet opened over the Maison tableau at `/` (`away`). `#alerts` stays on the overview. */
 export const HOME_ANCHORS: Record<string, string | 'away'> = {
   [ANCHORS.tariff]: ROUTES.tariff,
   [ANCHORS.linky]: ROUTES.linky,
@@ -31,7 +31,7 @@ export const HOME_ANCHORS: Record<string, string | 'away'> = {
   [ANCHORS.away]: 'away'
 };
 
-/** Where `/home` + `hash` now lives: a path, `'away'` (open the Absence sheet on the overview) or null. */
+/** Where `/home` + `hash` now lives: a path, `'away'` (open the Absence sheet over `/`) or null. */
 export function homeAnchor(hash: string): string | 'away' | null {
   const id = hash.replace(/^#/, '');
   return Object.hasOwn(HOME_ANCHORS, id) ? HOME_ANCHORS[id] : null;

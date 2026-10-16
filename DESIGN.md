@@ -505,7 +505,7 @@ title's link, named « Tarif, HC/HP · 9 kVA · 15,00 €/mois ». **Affichage**
 List form (phone): one s1 grouped list of 64 px rows (34 px disc, title 15/600 over one ellipsised summary line,
 chevron), then Affichage as `.grph` + `.grp`. « Kelvin 0.2.0 » (mono 12 muted) closes the page. What happens now
 (absence, chauffe temporaire) and the house actions live on Maison, not here. Old anchors: `homeAnchor` unchanged;
-`/home#away` opens the Absence sheet over Réglages. Skeleton: five card shapes and Affichage at their heights.
+`/home#away` goes to `/` and opens the Absence sheet over the Maison tableau. Skeleton: five card shapes and Affichage at their heights.
 
 #### Tarif (`/home/tariff`)
 State line « Option Heures creuses / pleines depuis le 1 février 2025 ». Enedis notices above. Desktop: a 400 px

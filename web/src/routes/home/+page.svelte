@@ -4,9 +4,9 @@
      then Affichage (Langue, Afficher les détails techniques; no theme: Kelvin is dark only) and the version.
      The alerts sit above the cards while there are some (#alerts). What happens now (absence, temporary
      heating) and the house actions live on the Maison tableau. The old section anchors land on their new place
-     (`homeAnchor`; #away opens the Absence sheet here). -->
+     (`homeAnchor`; #away opens the Absence sheet over Maison, spec §2). -->
 <script lang="ts">
-  import { afterNavigate, goto, replaceState } from '$app/navigation';
+  import { afterNavigate, goto } from '$app/navigation';
   import { api } from '$lib/api/client';
   import type { LinkyStatus, McpTokenList, SessionInfo, SettingsView, Sources } from '$lib/api/types';
   import { alertText } from '$lib/alerts-text';
@@ -38,17 +38,17 @@
 
   const TEMPO_COLOURS = ['blue', 'white', 'red'] as const;
 
-  // An old anchor (/home#tariff, #linky, #sessions, #mcp) lands on its page; #away opens the sheet here.
-  let leaving = $state(typeof location !== 'undefined' && !!homeAnchor(location.hash) && homeAnchor(location.hash) !== 'away');
+  // An old anchor (/home#tariff, #linky, #sessions, #mcp) lands on its page; #away opens the sheet over Maison.
+  let leaving = $state(typeof location !== 'undefined' && !!homeAnchor(location.hash));
   function land(hash: string) {
     const target = homeAnchor(hash);
     if (!target) return;
+    leaving = true;
     if (target === 'away') {
-      replaceState(ROUTES.home, {});
-      awaySheet.show();
+      // The sheet lives in the layout: open it once Maison is the page under it.
+      void goto(ROUTES.rooms, { replaceState: true }).then(() => awaySheet.show());
       return;
     }
-    leaving = true;
     void goto(target, { replaceState: true });
   }
   afterNavigate(({ to }) => land(to?.url.hash ?? ''));

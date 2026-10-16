@@ -169,7 +169,7 @@ depends on.
   `/home/tariff`, `/home/linky`, `/home/sources`, `/home/account`; anchors `#away`, `#tariff`, `#linky`,
   `#quality`, `#curve`, `#alerts`, `#sessions`, `#mcp`) and come from `web/src/lib/paths.ts`. Maison's old
   section anchors land on their sub-page (`homeAnchor`: `/home#tariff` → `/home/tariff`, `#sessions` →
-  `/home/account#sessions`, `#mcp` → `/home/account#mcp`, `#away` opens the Absence sheet). Old
+  `/home/account#sessions`, `#mcp` → `/home/account#mcp`, `#away` → `/` with the Absence sheet open over Maison). Old
   French paths are redirected only by its legacy table and the marked block in `app.html` (a test
   keeps them equal; `scripts/check-paths.mjs` fails on a French path anywhere else).
 - **API header:** mutating API routes require the header `X-Kelvin: 1`.

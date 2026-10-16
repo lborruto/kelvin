@@ -259,7 +259,7 @@ test('the old Maison anchors land on their sub-page (#linky, #tariff, #sessions)
   }
   await page.goto('/home#away');
   await expect(page.getByRole('dialog', { name: 'Partir en absence' })).toBeVisible();
-  await expect(page).toHaveURL(/\/home$/);
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test('Tarif saves a tariff and Linky shows the simulated Linky', async ({ page }) => {

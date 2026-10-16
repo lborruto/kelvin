@@ -49,7 +49,7 @@ vi.mock('$lib/api/client', () => ({
 
 let navigated: ((nav: { to: { url: URL } | null }) => void) | null = null;
 vi.mock('$app/navigation', () => ({
-  goto: vi.fn(),
+  goto: vi.fn().mockResolvedValue(undefined),
   replaceState: vi.fn((url: string) => history.replaceState(null, '', url)),
   afterNavigate: (cb: (nav: { to: { url: URL } | null }) => void) => {
     navigated = cb;
@@ -221,11 +221,11 @@ describe('old Maison anchors', () => {
       unmount();
     }
   });
-  it('#away opens the Absence sheet on the overview; #alerts stays', () => {
+  it('#away goes to Maison (/) and opens the Absence sheet over it; #alerts stays', async () => {
     history.replaceState(null, '', '/home#away');
     render(Page);
-    expect(awaySheet.open).toBe(true);
-    expect(location.hash).toBe('');
+    expect(goto).toHaveBeenCalledWith('/', { replaceState: true });
+    await vi.waitFor(() => expect(awaySheet.open).toBe(true));
     awaySheet.close();
     vi.mocked(goto).mockClear();
     navigated?.({ to: { url: new URL('http://x/home#alerts') } });
