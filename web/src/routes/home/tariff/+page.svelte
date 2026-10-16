@@ -196,4 +196,10 @@
   .error .btn {
     color: var(--tx);
   }
+  /* The disclosure's heading holds its button: a 13 px 600 row, not a page heading. */
+  .hist :global(h2) {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
 </style>
