@@ -419,7 +419,7 @@ Stacked bottom-centre: s2, hairline (red-tinted for errors), 10 px, 13 px, a clo
 - One app-level pair of live regions (`$lib/stores/announcer.svelte.ts`) carries announcements: command progress for commands sent from this browser (« … — envoi… », « … — confirmé », the failure assertively) and committed stepper values. Regions inserted with their text are not relied on.
 
 ### Raster provenance
-`web/static/icon.svg` is hand-authored: a graphite tile with a heat-ramp sparkline and an ink now-marker (the strip in miniature). `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` (56 px safe padding) and `apple-touch-icon.png` (180 px) are rendered from it on a bg ground by `web/scripts/icons.mjs` (`npm run icons`). Edit the SVG, then re-render; never edit the PNGs.
+`web/static/icon.svg` is hand-authored: the Tableau mark, an ink disc with a stroked « K » on a `--bg` tile (the Wordmark's glyph). `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` (56 px safe padding) and `apple-touch-icon.png` (180 px) are rendered from it on the `--ground` colour by `web/scripts/icons.mjs` (`npm run icons`). Edit the SVG, then re-render; never edit the PNGs.
 
 ### Copy (French and English)
 Rules for every string (the UX copy pass, both languages):
@@ -482,6 +482,103 @@ never reloads. URL paths are English in both languages (`/rooms`, `/schedule`, `
 - **Don't** draw a missing value as zero; don't show « Chargement… » or an invented value before data.
 - **Don't** use native `disabled` on a button that may hold focus; don't restyle `.btn` inside a component.
 - **Don't** put `--fa` text on s2/s3 (it reads under 4.5:1 there); use `--mu`.
+
+## Screens: Réglages, Absence, Login
+
+Built by the Tableau settings batch (mockups 5, 6, 7). URLs unchanged (`/home/*`); the nav says « Réglages ».
+
+### Réglages header (`settings/SettingsHeader`)
+A sub-page starts with « ‹ Réglages » (15 px muted, 44 px hit), then the h1 (`.t-page`) and one 15 px muted line
+(13.5 on a phone) that holds its height from the first paint (an `sk-line` skeleton, then the state or a
+Freshness + words line). Actions (« Nouvelle pièce ») sit right of the h1 on desktop. The h1 carries
+`view-transition-name: home-<section>`, the overview card's title travels into it.
+
+### Overview (`/home`)
+h1 « Réglages » and its state line (« Tout va bien » | « 2 alertes · Absence jusqu’à dim. 18:00 »). The alerts
+(`#alerts`, an `.areah` « Alertes » + AlertList) only while there are some. Then the **cards** (`HomeCard`):
+3 columns from 960 px of container, 2 from 720, a grouped list below. A card is a 22 px-radius s1 surface,
+min-height 150, padding 18 × 20: a 36 px s2 glyph disc (grid · tag · meter · sync · user), the title 16/600 and a
+chevron; the summary in 14 px ink, detail lines 13 muted, the SourceLine or the tariff band (`TariffBand`, 8 px, no
+ticks) at the bottom. Pièces et appareils (« 3 pièces · 4 radiateurs », « 1 hors ligne », « lecture seule sur ce
+serveur »), Tarif (« HC/HP · 9 kVA · 23,48 €/mois », the prices with 10 px swatches), Linky (state, « synchro il y a
+12 min », Linky SourceLine), Sources de données (« Tout est à jour », the source names), Compte (email, « Sauter
+Cozytouch · 3 appareils connectés · 1 jeton MCP »: active tokens counted, never a secret). The whole card is the
+title's link, named « Tarif, HC/HP · 9 kVA · 15,00 €/mois ». **Affichage** is the sixth cell (not a link): Langue
+(Segmented) and « Afficher les détails techniques » (Toggle), the note « … Kelvin est en thème sombre. »; no Thème.
+List form (phone): one s1 grouped list of 64 px rows (34 px disc, title 15/600 over one ellipsised summary line,
+chevron), then Affichage as `.grph` + `.grp`. « Kelvin 0.2.0 » (mono 12 muted) closes the page. What happens now
+(absence, chauffe temporaire) and the house actions live on Maison, not here. Old anchors: `homeAnchor` unchanged;
+`/home#away` opens the Absence sheet over Réglages. Skeleton: five card shapes and Affichage at their heights.
+
+### Tarif (`/home/tariff`)
+State line « Option Heures creuses / pleines depuis le 1 février 2025 ». Enedis notices above. Desktop: a 400 px
+column (**Tarif en vigueur** widget: TariffSummary rows of 40 px with hairlines, 14 px muted labels and 600 values,
+10 px swatches, « Heures creuses 22:00–06:00 » over a 14 px TariffBand with ticks, one per season; then primary
+« Nouveau prix… » and « Corriger le tarif en vigueur »; **Historique des prix** widget: « 2 lignes » aside, one 48 px
+row per dated price, newest first, « Depuis le 1 février 2025 » over « HC/HP · 15,00 €/mois » (faint), the rates in
+mono 12/600 right, then « Heures creuses successives ») and, while editing, the form widget beside it (« Nouveau
+prix » / « Corriger… », « brouillon » aside, edged by `--field`). Phone: the same, stacked. Saving closes the form,
+pulses the changed rows and says « Tarif enregistré. » (ok) for 6 s. **Inline check**: a price field that cannot be
+right (`priceProblem`: not a number, more than 4 decimals, 0, above 5 €/kWh) is flagged when it is left
+(aria-invalid, bad edge, « Indiquez le prix en €/kWh, avec 4 décimales au plus, ex. 0,2780. » under the fields,
+linked by aria-describedby) and the save refuses it. Form captions are 13 px muted, legends 13/600 ink.
+
+### Linky (`/home/linky`)
+State line: Freshness + « Relié · données jusqu’au 15/10 · synchro il y a 12 min ». A token problem is a bad
+Notice. « CONNEXION » grouped list: PDL masked (« Afficher » dotted text button, named « Afficher le PDL »; the full
+PDL never in the page before it), Jeton MyElectricalData (« Enregistré », never shown), Appels MyElectricalData (a Fig),
+Consentement Enedis. « Modifier la connexion » is its own grouped row (Disclosure; the form only while open). The
+J+1 note closes the page. No « Historique » row: the API gives no history start (never invented).
+
+### Sources (`/home/sources`)
+State line « Tout est à jour » | « 1 source en retard ». One s1 grouped list (`SourcesList`): 64 px rows, ring, name
+15/600 over its sentence, time right (14 muted), chevron; a row opens its exact rows (`hidden="until-found"`). Two
+notes: the day's MyElectricalData calls, and where Tempo/EcoWatt come from.
+
+### Compte (`/home/account`)
+No state line. Desktop: two columns (Compte Cozytouch, Appareils connectés, « Se déconnecter » left; Accès MCP
+right); phone: one column in that order with « Se déconnecter » last. **Compte Cozytouch** (`.grph` + `.grp`): Email,
+Serveur (support chip when experimental), Connexion (Cozytouch SourceLine, last error in words), note « Fixé à la
+première connexion. ». **Appareils connectés** (`#sessions`, SessionsPanel): 56 px rows, name 600, « cet appareil » /
+« dernière activité … » (13 muted), « connecté le … » (12 faint), `.btn-sm` « Déconnecter » except on this device; the
+last row « Déconnecter les autres appareils » in bad asks first in a Sheet (Annuler focused). **Accès MCP** (`#mcp`,
+McpPanel): the lead, token rows (34 px key disc, name 600 + last four in mono faint, « créé le … · dernier appel … »;
+revoked rows faint, no actions), « ⋯ » → Révoquer (danger) asks in a Sheet; « Nom du jeton : Claude » field + primary
+« Créer un jeton »; « Derniers appels » Disclosure (refusals are counted rows, « 300 fois »). The secret is shown once
+in a Sheet (560 px dialog / phone bottom sheet) titled « Jeton « Claude » créé »: the token and the Claude Code /
+Claude Desktop snippets in s2 blocks (mono 12, wrapping) with « Copier » (copy glyph; « Copié » with check), closed by
+primary « J’ai copié le jeton »; any close drops the secret from the page. MCP appears once the devices are known
+and « Se déconnecter » once the tokens are (CLS).
+
+### Pièces et appareils (`/home/devices`)
+The lead (13.5 muted), « Nouvelle pièce » (header on desktop, `.btn-lg` full width on a phone), the SyncLine with
+ghost « Synchroniser », then one s1 grouped list per room (radius 16): a 52 px header (name 15/600 + « 2 radiateurs »
+faint) with its « ⋯ » (Renommer la pièce, Supprimer la pièce with its reason), radiator rows of 56 px (rad glyph, or
+plug-off faint when offline; name 14/600 over « Sauter · 1 500 W · En ligne » 12.5 muted; « ⋯ »: Renommer, Déplacer
+vers…, Faire clignoter when capable, Voir les appareils (n)). « BOX ET PONT COZYTOUCH » and « AUTRES APPAREILS » are
+grouped lists of BridgeRows (glyph box / sync, name 15, state right 14 muted, the row opening the raw device). Menus
+are popovers on desktop and action sheets with « Annuler » on a phone. Experimental server: no action, « lecture
+seule sur ce serveur ». The page renders once the setup and `/auth/me` are known (skeleton), error + « Réessayer ».
+
+### Absence sheet (`AwaySheet`)
+One Sheet (460 px `--pop` dialog with « Partir en absence » and ×; phone bottom sheet), mounted in the layout and
+opened from the sidebar « Partir… », Maison, the phone and `/home#away`; focus starts on the chosen chip. Lead 13.5
+muted; « Jusqu’à (heure de Paris) » (13 faint) over day chips (40 px, radius 12, s2; the chosen one ink,
+`aria-pressed`): « Demain 18:00 », « Dimanche 18:00 », « Date précise… » (a `datetime-local`); « Température » over a
+block Stepper captioned « pendant l’absence » (7–19, 12,0 °C) and « hors-gel à partir de 7 °C »; the consequence in an
+s1 group (14.5 px, `aria-live`), each offline room on its own line with the plug-off glyph (« Chambre 2 est hors
+ligne : elle ne recevra peut-être pas la consigne. »). Footer: « Partir » (`.btn-lg` primary, away glyph, full width;
+paused with its reason while Kelvin is not connected or another house command is on its way), and « Annuler » on a
+phone. Running: « Absence en cours », the state in cool glyph, « Prolonger… » and « Terminer maintenant ».
+
+### Login
+Outside the shell, one 360 px column (full width with 16 px gutters on a phone): `Wordmark size="lg"` (ink K disc),
+« Connexion » 30/700, the 14 px lead, the server line « Serveur : Sauter Cozytouch · Changer » (13.5; skeleton until
+the list is read; « Changer » only before a home is claimed), Email and Mot de passe as 44 px fields under 13 px
+captions, the eye as a 34 px s3 disc inside the field (`aria-pressed`, constant name, reset to hidden on every
+submit; only `type` changes, for password managers), the error in 13.5 px bad with the alert glyph, « Se connecter »
+(`.btn-lg` primary), the 12 px fine print, then FR | EN. Behaviour, order and CLS rules unchanged (`login.spec.ts`,
+`brands.spec.ts`).
 
 ## Appendix: pre-Tableau screen components
 
@@ -563,15 +660,6 @@ A hatched bar (its blocks warm at 45 %) for a day Kelvin cannot edit, with its r
 #### Conflict notice
 Shown when a send answers `program_changed_elsewhere` (« Programme modifié ailleurs »): bad tint, the two choices « Recharger » and « Remplacer quand même » (danger).
 
-#### Signed-in devices
-Rows of 56 px: the device in 600, « dernière activité … » muted; « Déconnecter » per row (none on « cet appareil »); « Déconnecter les autres appareils » asks in the Dialog. The panel lives in Maison › Compte (`/home/account#sessions`).
-
-#### MCP access
-Maison › Compte, after the signed-in devices (`/home/account#mcp`, `McpPanel`): a 13 px muted lead (« Un assistant IA … peut lire les données de Kelvin avec un jeton. Il ne peut rien modifier. »), token rows of 56 px (name 600 with its last four characters in 12 px muted tabular figures, « créé le … · dernier appel il y a 2 min » muted; a revoked token stays 90 days, muted, without actions), each with a « ⋯ » Menu « Actions pour Claude » holding « Révoquer » (danger), which asks in the Dialog (« Révoquer « Claude » ? », Annuler focused). Under them « Nom du jeton » (`.w-text`, placeholder « Claude ») and « Créer un jeton ». The secret is shown once, in a wider Dialog (at most 560 px): the token, then the Claude Code command and the Claude Desktop JSON, each in an s2 hairline block (12 px tabular, wrapping, never scrolling sideways) with its « Copier » (`.btn-sm`, « Copié » once done), closed by the primary « J’ai copié le jeton »; closing it drops the secret from the page. « Derniers appels » is a Disclosure (L2, `detail`). With `KELVIN_MCP=false` the panel says « L’accès MCP est désactivé sur ce serveur. » and offers nothing. The section appears once the devices are known and « Se déconnecter » once the tokens are, so neither list moves what is below it (CLS).
-
-#### Pièces et appareils (`/home/devices`)
-UX batch 10. Back « ‹ Maison », h1, the 13 px muted lead « Vos pièces telles que Cozytouch les connaît : un changement ici s’applique aussi dans l’application Cozytouch. » (on an experimental server « Lu dans votre installation … » and « lecture seule sur ce serveur » under it). « Nouvelle pièce » (`.btn` with plus) sits in the PageHeader on desktop and full width under the lead on a phone; it opens the name form above the rooms. **Sync line** (`SyncLine`): Freshness + « Synchronisé avec Cozytouch il y a 1 min » as a Fig (Fiche: « Dernière synchronisation »; notes: « Synchronisations : 1 sur 3 en 24 h », the daily time, the spent reason, what a sync does) and a ghost « Synchroniser » (sync glyph spinning while it runs; `aria-disabled` with « possible à 14:30 » beside it when the budget is spent); a change made in the Cozytouch app and not read yet is said under it. **Room blocks** (s1 panels, 4 × 14 px padding, hairline rows): a 52 px header, name 15/600 + « 2 radiateurs » 12 muted, and the room's « ⋯ » Menu named « Actions pour Salon » (Renommer la pièce; Supprimer la pièce in bad, `aria-disabled` with « Videz d’abord la pièce » / « Pièce protégée par Cozytouch » / « Une modification est en cours »); none for the house root or on an experimental server. Two radiators sharing a shown name: a 12 px muted line with the help glyph « Deux radiateurs portent le même nom : renommez-les pour les distinguer. » and a ghost « Renommer » (the only text button inside a room block). **Radiator rows** (56 px): name 14/600 (via `radiatorName`, support chip when not tested) over « HEKLA P · 1 500 W · En ligne » (« Hors ligne depuis 14:32 »), and a « ⋯ » Menu « Actions pour Radiateur (HEKLA P) »: Renommer, Déplacer vers… (reason « Aucune autre pièce »), Faire clignoter (only when the radiator can identify; reasons offline / Kelvin not connected), then « Voir les appareils (6) » / « Masquer les appareils », which shows the sub-devices (DeviceRow unchanged, its raw states in its own details) under the row, indented by a hairline; a radiator with a misplaced device starts open. Rename forms and PendingTags sit under their row; the dialogs (MoveDialog, DeleteRoomDialog) are unchanged and opened from the menus. **Box et pont Cozytouch** and **Autres appareils** (read-only note) use `BridgeRow`: the household name (« Box Cozytouch », « Pont radio (io-homecontrol) », « Wi-Fi de la box », `bridgeName`; an appliance its label with its role) over the state in words (« En ligne », « Hors ligne » in bad, « — non signalé par la box »), the row a button opening the raw device below it (`hidden="until-found"`, open with « Détails techniques »). Loading: a 44 px sync-line skeleton and three room skeletons; on an error « Réessayer ».
-
 #### EnergyBars
 Stacked SVG bars, drawn at the measured width and a fixed 160 px height (so a phone keeps tall bars and true corners); bars grow from the baseline (360 ms, 12 ms stagger capped at 180 ms) on first draw and on each period change, one series colour per part (2 px corners; HC hatched over its blue, a 1 px knockout between stacked parts), hairline grid at four ticks, micro faint axis labels thinned so each keeps 44 px. The radiators are an **overlay mark**: a 2.5 px round-capped line across the bar at its value, in series-3, over a 4 px s1 knockout so it reads on any bar; the y-scale includes it. Missing parts are never drawn as zero: an interior bucket with no data (data on both sides) gets a faint 2 px dashed (3/3) baseline tick; leading and trailing empties stay blank. With `details` the bars are inspectable: the whole plot is the hit area and the nearest bar wins; a mouse hover shows its ChartInspector, a click or tap pins it, a second tap unpins; while a bar is pinned, hovering another only gives it a muted outline and the card stays. A horizontal touch swipe of 48 px (at least twice its vertical travel) steps the period instead. Each bar has an invisible full-height button in a roving-tabindex group (« Barres du graphique : … ») whose name carries its values: `←`/`→`/`Home`/`End` move and pin, `Enter` drills down (a month opens Mois, a day its Courbe, another day of Jour its own Jour) or, with nothing to drill, pins the bar, and `Esc` clears; Esc inside the card closes it and puts focus back on its bar. The inspected bar takes a 1 px ink outline, never animated. No SVG `<title>`. Empty: « Pas encore de données. » The legend below uses `Swatch`: 10 px squares (3 px radius, HC hatched) for stacked series and a 14 × 2 px line for the radiator mark.
 
@@ -587,32 +675,6 @@ Every chart is a `role="img"` SVG with an aria-label, followed by a table inside
 The exact values behind a mark: the chart placement of the **Fiche** (below), drawn through the same row renderer (`FicheBody`), with an optional Provenance block. `$lib/inspector.ts` builds the rows, and the card, the sheet, the hidden table and the announcement all read the same rows, so they cannot disagree. Desktop: a 260 px **card**, s2 with a hairline and the 10 px radius, flat (no shadow), placed beside the bar and flipped to its left near the right edge (centred and clamped when neither side fits), never outside the chart; it takes the pointer only when pinned, so its action can be clicked. Phone: a **sheet** docked under its chart (the hero's at the hero's end), so nothing above it moves. A 13 px 600 title, then label / value rows (muted label left, tabular value right, « dont … » rows indented 10 px); a row is omitted when its source does not apply, but a value the reader expects (the radiators in a home that has them, a cost) reads « — » with its reason under it in 12 px muted. A 12 px muted « est. » follows an estimate, then the notes, and a footnote linking « est. » to Qualité des données; an optional `.btn-sm` action (« Voir la courbe du 13/10 »). Esc inside closes it and gives focus back to what opened it.
 - **Motion:** the card fades in over `dur(T.state)` (160 ms) and the sheet slides open over `dur(T.enter)` (220 ms), both `|global` transitions: the host mounts the inspector inside its own `{#if}`, and a local transition would not play there. Under reduced motion `dur()` is 0: it appears and leaves at once.
 
-#### Maison overview (`/home`)
-An overview, not a form (UX batch 8). PageHeader « Maison » with its state line (« Tout va bien » | « 2 alertes · Absence jusqu’à dim. 18:00 ») and, on desktop, « Partir en absence… » (« Absence · dim. 18:00 » in cool while one runs). Then:
-- **En ce moment** (panel, 12 px section label): one row per override, a 16 px glyph (away in cool, flame in warm), « **Absence** · 12,0 °C jusqu’à dim. 18:00 » / « **Chauffe temporaire** · Salon · 22,0 °C jusqu’à 21:45 » with a 12 px muted second line (« toutes les pièces · Chambre 2 hors ligne », « puis retour au réglage d’avant », « Rétablissement en cours… ») and a `.btn-sm` « Terminer » / « Arrêter » (named « Terminer l’absence », « Arrêter la chauffe temporaire : Salon »); none: « Tout suit son réglage habituel. ». Quick actions below (HouseActions): desktop « Tout remettre en programme », « Tout éteindre »; phone full-width rows « Partir en absence… », « Tout remettre en programme », « Tout éteindre ».
-- **Alertes** only when there are some (or their load failed); never « Aucune alerte » on the overview.
-- **Section cards** (HomeCard) in a grid of two columns from 720 px of container (max 1080 px): Pièces et appareils (« 3 pièces · 4 radiateurs », « 1 hors ligne », « lecture seule sur ce serveur » on an experimental server, the Cozytouch SourceLine), Tarif (« HC/HP · 9 kVA · 15,00 €/mois », the prices with their swatches, a compact HoursBar; « Pas encore de tarif »), Linky (state with its Freshness ring; « Non relié · reliez-le pour la consommation de la maison »), Sources de données (« Tout est à jour » | « 1 source en retard », a ring per source), Compte (email, « Sauter Cozytouch · 2 appareils connectés »), and **Affichage** (not a link: Langue, « Afficher les détails techniques »; no Thème since Tableau). A card whose summary failed says « Indisponible pour le moment ».
-- Version footer « Kelvin 0.1.0 » (mono 12 muted, centred).
-Below 720 px of container the five cards become one grouped panel of 64 px rows (title 15/600, one ellipsised summary line, chevron), Affichage its own panel. Old anchors: `/home#tariff` → `/home/tariff`, `#linky` → `/home/linky`, `#sessions` → `/home/account#sessions` (replacing the history entry), `#away` opens the Absence sheet on the overview, `#alerts` stays (`homeAnchor` in `paths.ts`).
-
-#### HomeCard
-s1, hairline, radius 10, 14 px padding, min-height 132 px; title 15/600 + chevron, 13 px lines, the SourceLine at the bottom above the stretched link. The whole card is the title's link (`::after` inset 0); its name is « Tarif, HC/HP · 9 kVA · 15,00 €/mois ». Hover firms the edge to faint, press is s2, focus rings the card. The title carries `view-transition-name: home-<section>` and travels into the sub-page's h1. List form: see Maison overview.
-
-#### AwaySheet (« Partir en absence »)
-One sheet, mounted in the layout, opened from wherever the user is (`awaySheet.show(trigger)`): the sidebar « Absence… », the phone Pièces header icon, Maison, `/home#away`. ChoiceSheet: a bottom sheet below 1024 px, the centred dialog above; focus starts on the selected preset and returns to the opener. Content: the 13 px muted lead « Toutes les pièces baissent, puis reprennent leur réglage. »; « Jusqu’à (heure de Paris) » with three 36 px chips (44 px hit, `aria-pressed`): « Demain 18:00 », « Dimanche 18:00 » (the coming Sunday; next week's once today's is less than 15 min away), « Date précise… » (reveals a `datetime-local`, `min` now + 15 min). Default « Dimanche » from Thursday 14:00 to Sunday 12:00, else « Demain » (`awayPresets(now)`, Paris time). Température: Stepper 7–19 °C (12 °C) with « hors-gel à partir de 7 °C ». The consequence sentence (`aria-live`): « Les 3 pièces passeront à 12,0 °C jusqu’à dim. 18 oct. 18:00, puis reprendront leur réglage. », the rooms counted from the radiators that take a temperature, and a muted line per offline room « Chambre 2 est hors ligne : elle ne recevra peut-être pas la consigne. ». Then « Partir » (`.btn-lg` primary, full width; paused with « En attente de la connexion à Kelvin. » while Kelvin is not connected) and « Annuler » (ghost). Sent through the house command path (the sidebar PendingTag shows « Envoi… »); the sheet closes and a toast « Absence jusqu’à dim. 18 oct. 18:00. » offers « Annuler l’absence ». While an absence runs the sheet is « Absence en cours »: « Absence jusqu’à … · 12,0 °C », « Prolonger… » (the presets again, primary « Prolonger ») and « Terminer maintenant ». The sidebar button reads « Absence · dim. 18:00 » in cool; the phone header icon gains a 4 px cool dot.
-
-#### HoursBar
-The off-peak hours on a 24 h bar (tariff, never warm): 16 px (10 px compact, on the Maison card), radius 4, the rest of the day solid `--hp` (dark blue), each off-peak block `--hc` with the hatch (a slot past midnight is two blocks); scale 00 · 06 · 12 · 18 · 24 in 11 px faint below (not in the compact form). An image named by the hours in words (« Heures creuses : 22:00–06:00 »), which are always written beside it.
-
-#### Tarif page (`/home/tariff`, TariffSummary)
-Back « ‹ Maison », h1 « Tarif », state line « Option Heures creuses / pleines depuis le 15 janvier 2025 ». Enedis notices (a price change, new off-peak hours) sit above as AlertCallouts; their link opens the editor. **Tarif en vigueur** (panel) reads the tariff with no input on screen: label / value rows of 40 px (13 px muted label, 600 tabular value, hairlines) — Option, Puissance souscrite, Abonnement « 15,00 €/mois », the prices (Base: « Prix du kWh »; HC/HP: « Heures creuses » and « Heures pleines », each label led by its 8 px tariff swatch; Tempo: a 3 × 2 table, the colour's TempoDot and name per row, the HC / HP swatches in the header, « €/kWh » under it), then « Heures creuses 22:00–06:00 » over a HoursBar (one per season, its months after the label; Tempo: its hours). Under it, primary « Nouveau prix… » and ghost « Corriger le tarif en vigueur ». Either opens the TariffForm in place of the panel body (title « Nouveau prix » / « Corriger le tarif en vigueur », « Enregistrer le tarif » and « Annuler »). Saved: the editor closes, the changed rows pulse once (opacity 1 → .55 → 1, 700 ms; none under reduced motion) and « Tarif enregistré. » (ok) shows beside the panel title for 6 s. No tariff yet: the editor is the page (no « Annuler »), the state line « Pas encore de tarif : … ».
-
-#### Linky page (`/home/linky`)
-State line: the Freshness mark and « Relié · données jusqu’au 14/10 · synchro il y a 5 min ». **Connexion** (panel, only once connected): PDL shown masked « •••• •••• ••12 34 » with a text button « Afficher » / « Masquer » (named « Afficher le PDL »): the full PDL is never in the page before it, the form included; Jeton « Enregistré » / « Non enregistré »; « Appels MyElectricalData » as a Fig « 10 appels sur 14 aujourd’hui » (Fiche: today, daily limit, reset at midnight Paris, provenance Linky); the consent date; the simulator note. A token problem is a bad line at the top. **Modifier la connexion** (Disclosure, open when Linky is not connected) holds LinkyPanel's form, rendered only while open.
-
-#### Compte page (`/home/account`)
-No state line (the email is the first row). **Compte Cozytouch**: Email, Serveur (« Sauter Cozytouch », the support chip when experimental, and 12 px muted « Fixé à la première connexion. »: one line at 320 px in any font), Connexion (the Cozytouch SourceLine with its Fiche, and the last error in words). **Appareils connectés** (`#sessions`, SessionsPanel). « Se déconnecter » (`.btn`) last, on its own, rendered once the devices list (or its error) is known so the list's height never moves it; every line above it fits one line at 320 px whatever the font (CLS with late fonts). The future « Accès MCP » panel goes between « Appareils connectés » and « Se déconnecter ».
-
 #### Linky status wording
 One status, three places (Énergie's source line and callout, the Maison card and the Linky page), from `$lib/linky.ts`. On Énergie progress is the source line's words and dashed ring, never a callout. Progress is neutral and offers no link, because there is nothing to fix: never synced (« première synchronisation en attente »), quota (« historique en cours, la suite demain ») and throttled (« Enedis limite les requêtes, nouvel essai à 14:30 ») read as plain or muted text. Only `auth` (« MyElectricalData refuse le jeton Linky. » with « Renouveler le jeton ») and `error` (with « Ouvrir Linky ») use the bad colour and an alert role. Not connected at all is a neutral invitation (« Reliez votre compteur Linky », « Relier le Linky »). In the panel the good state reads « Relié · données jusqu’au 13/10 · synchro il y a 5 min ».
 
@@ -622,17 +684,6 @@ A field is a label wrapping its control: a 12 px muted caption, 4 px, then a 36 
 #### Grid strip
 One 13 px line under the page header on Rooms (Énergie uses the GridChips of its context row, see Énergie), wrapping on a phone: the Tempo pair « Aujourd’hui : ● Bleu · Demain : ● Rouge » (only while the price row in force is Tempo; « Demain : couleur pas encore publiée (vers 11:00) » before publication, « couleur inconnue » when a day has none), then « EcoWatt orange demain, 18:00–20:00 » with the alert glyph (muted; red in State Red; the hours dated by their own timestamps), then the muted source « RTE via MyElectricalData · 11:20 ». Nothing when there is nothing to say (EcoWatt green, no Tempo). It arrives with the snapshot and is updated by the SSE `grid` event. Its height is known only then, so no skeleton can hold it: on Rooms the skeleton columns are replaced as a whole by the loaded ones, strip included, in one frame; on Energy it waits for the report. Either way it never shifts the page (`layout.spec.ts` measures `/` under HC/HP and Tempo).
 
-#### Sources
-Maison › Sources de données (`/home/sources`, `SourcesList`, built by `$lib/sources.ts`): one panel, one 64 px row per source — Cozytouch, Linky, RTE EcoWatt, and Tempo only while a Tempo price is in force — each a button: the Freshness mark, the name (14/600) over its state sentence (13 muted; « Connecté · dernier relevé il y a 1 min », « à jour, relevé à 11:20 », « indisponible depuis 08:15 » in bad text, « quota du jour atteint, reprise demain », « pas encore interrogé »), the last time right (tabular; « dim. 18:00 » another day) and a chevron. A row opens its exact rows (FicheBody: last successful read, failing since, next read, the Linky calls) in a region `hidden="until-found"`; « Détails techniques » opens them all. The panel ends with the muted MyElectricalData calls line and its source note. The state line counts the late ones (« Tout est à jour » | « 1 source en retard »), as the Maison card does.
-
 #### Tariff form
 « Applicable à partir du » heads the form (focused when the editor opens; in a correction, read-only at the row's own date with « Corrige les coûts passés depuis le … » as its description, and the off-peak hours' date read-only at the schedule's own date, described the same way), then the option Segmented (Base · HC/HP · Tempo); the fields follow the option at their intrinsic widths: one price, two (each caption starting with its 8 px tariff-blue swatch, HC hatched), or six in a two-column grid (each colour's off-peak then peak; the caption carries the TempoDot for the day colour **and** the swatch for the hour type). HC/HP has its own « Applicable à partir du » and an optional season split: each season is a hairline-topped block with twelve 36 px month chips (copy-chip style, 44 px hit, 8 px apart) and up to three slots. Tempo has its two hour fields and the note on the 06:00 day; « Préremplir avec les prix Tempo publiés » is a ghost button whose result states its source and date (the Paris day) and saves nothing. Enedis' new off-peak hours appear as a calm callout inside the HC section with a date and « Ajouter ces heures creuses à partir du … ». Both time fields stay whole at 320 px.
-
-#### Price history (Tarif)
-Inside « Historique des prix » (a `detail` Disclosure under the summary, its meta « 2 lignes »): a 13 px table « Depuis » (long date), « Option », « Abonnement (€/mois) » and « Prix (€/kWh) » (the row's rates, « HC 0,2068 · HP 0,2700 », « Bleu HC … »), the units in the headers so the mono cells are bare figures (« 15,00 »); below, « Heures creuses successives », one line per schedule with its seasons. Headers muted 500, hairline rows, cells never wrap, the wrapper scrolls inside the panel rather than the page. Below 600 px it is replaced by a list, one hairline-separated entry per price with the same labels on the left and mono values on the right.
-
-#### Login
-Outside the shell, one centred 360 px column: the « Kelvin » brand (700), « Connexion » as a headline, a 13 px muted lead « Utilisez le compte Cozytouch de la maison. », two labelled 36 px fields (Email, Mot de passe), the error line when there is one, then a full-width large ink primary (`.btn-lg`, 44 px) « Se connecter » (« Connexion… » while busy). With the simulator a 12 px muted line gives the demo account. After a password change the screen adds a neutral note (s1, hairline, 10 px, 13 px, role status) « Reconnectez-vous avec le compte Cozytouch. »: being asked to sign in again is not an error. At the bottom of the column, centred, a compact « FR | EN » Segmented (each option with its `lang`, named « Français » / “English” by `ariaLabel`, the group named by the current language's « Langue » / “Language”) switches the language before signing in, without a reload; the choice is remembered on the device. In English the screen reads “Sign in”, “Use the home’s Cozytouch account.”, “Email”, “Password”.
-
-Batch 11 (direction-2 §5), top to bottom: the mark (`Wordmark size="lg"`: the PWA icon's sparkline at 48 × 20 beside an 18 px « Kelvin »), the headline and lead, then **one server line** (13 px, one 20 px line held from the first paint by a skeleton): « Serveur : Sauter Cozytouch · Changer ». « Changer » is a dotted text button (`aria-expanded`, `aria-controls`, 44 px hit area) that slides open the grouped select (« Cozytouch », then « Expérimental — chauffage seulement »; labelled « Serveur », visually hidden) and, for an experimental server, its note (s1 box, linked by `aria-describedby`); a long name ellipsises, « Changer » never wraps. Once the home is claimed the line is « Serveur : … » alone (no choice), and a fine-print line says « Pour changer de serveur, repartez d’une installation neuve (voir le README). ». « Se connecter » waits until the list is read; a failed read puts an alert with « Réessayer » in the line's place. The password field carries a 36 px eye button at its right edge (`.btn-icon`, `type="button"`, `aria-pressed`, `aria-controls`, named « Afficher le mot de passe » by hidden text so a lookup by the field's label finds the field alone, a constant name: the state is `aria-pressed`, the glyph turns to eye-off); only the input's `type` changes (its `name` and `autocomplete="current-password"` stay for password managers) and every submit hides the password again. Below the primary, 12 px muted fine print: « Première connexion : ce compte devient celui de la maison. » while no home is claimed (or the claimed home's server line above), « Mot de passe oublié ? Changez-le dans l’application Cozytouch. » (the server's name for an experimental one, as in the lead), and the simulator line. Keyboard order: « Changer » → email → password → eye → submit → language. Server names are product names, never translated. CLS < 0.05 from 320 to 1440 px with fonts normal, blocked and late, and with the server list 2 s late (`e2e/login.spec.ts`, `e2e/brands.spec.ts` on a fresh install).
 
