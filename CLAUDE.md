@@ -252,7 +252,9 @@ depends on.
   `prefers-color-scheme` path); « Maison » is the dashboard at `/` and « Réglages » is `/home` (URLs unchanged);
   orange (`--heat`) only for heating, comfort blocks and a running chauffe temporaire; Tempo colours only when
   the price row in force is Tempo; −/+ is the primary setpoint control and in Programme changes the level running
-  now (`$lib/setpoint` `primarySetpoint`).
+  now (`$lib/setpoint` `primarySetpoint`). Maison is `lib/components/dashboard/` (words in `$lib/dashboard`, energy
+  answers in `$lib/stores/dashboardEnergy`); `/rooms/[id]` opens the room sheet (`lib/components/room/`) over it, so
+  the tableau stays mounted, and a floating card (Fiche, Menu) opened inside an open modal is portalled into it.
   Every route stays free of serious and critical axe violations (`e2e/a11y.spec.ts`,
   `@axe-core/playwright`); a new route joins it, `e2e/cls.spec.ts` and `e2e/screens.spec.ts`.
 - **Copy** (DESIGN « Copy (French and English) »): short and plain, household words before device words

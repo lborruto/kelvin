@@ -8,6 +8,8 @@ import { settled } from './cls';
 const ROUTES = [
   '/',
   '/rooms/p-salon',
+  // The room sheet's offline state (calm notice, ghost day, paused modes).
+  '/rooms/p-ch2',
   '/schedule',
   // Programme (Tableau): a day view with three periods' worth of rows, a locked day, an offline room
   '/schedule?room=p-salon&day=monday',

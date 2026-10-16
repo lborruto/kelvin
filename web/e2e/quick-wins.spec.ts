@@ -11,7 +11,10 @@ async function confirmed(page: Page) {
 
 test('night-light brightness: pending, then confirmed by the radiator', async ({ page }) => {
   await page.goto('/rooms/p-ch1');
-  // Each radiator is a disclosure row in the room panel: open it.
+  // Each radiator is a disclosure row in the room sheet (on a phone, behind « Programme, températures, radiateurs »): open it.
+  const more = page.getByRole('button', { name: 'Programme, températures, radiateurs' });
+  await expect(more.or(page.locator('.rad button.row').first())).toBeVisible();
+  if (await more.count()) await more.click();
   await page.locator('.rad button.row').first().click();
   const light = page.getByRole('switch', { name: 'Veilleuse' }).first();
   if ((await light.getAttribute('aria-checked')) !== 'true') {
@@ -152,13 +155,14 @@ test('an offline room: a calm notice in its panel, the alert in Home (neutral), 
   test.skip(isMobile, 'dismissal is shared state: one project runs it');
   const sinceText = await pinSameDay(page);
   await page.goto('/rooms/p-ch2');
-  await expect(page.getByText(sinceText).first()).toBeVisible(); // the status sentence
-  const notice = page.getByRole('status').filter({ hasText: 'Radiateur hors tension ou hors de portée' });
+  const sheet = page.getByRole('dialog', { name: 'Chambre 2' });
+  await expect(sheet.getByText(sinceText).first()).toBeVisible(); // the state under the name
+  const notice = sheet.getByRole('status').filter({ hasText: 'Radiateur hors tension ou hors de portée' });
   await expect(notice).toContainText('Les commandes reprendront quand il sera rallumé.');
   // Not repeated as an alert in the room, and never red.
-  await expect(page.getByText(/Chambre 2\s:\sradiateur hors ligne/)).toHaveCount(0);
-  await expect(page.locator('.inspector .bad')).toHaveCount(0);
-  await expect(page.locator('.inspector header .temp')).toHaveCount(0); // no reading for an offline room
+  await expect(sheet.getByText(/Chambre 2\s:\sradiateur hors ligne/)).toHaveCount(0);
+  await expect(sheet.locator('.bad')).toHaveCount(0);
+  await expect(sheet.locator('.head .fig')).toHaveCount(0); // no reading for an offline room
   await page.goto('/home#alerts');
   const list = page.locator('#alerts');
   const callout = list.getByText(/Chambre 2\s:\sradiateur hors ligne/);

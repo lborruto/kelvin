@@ -12,30 +12,28 @@ async function confirmed(page: Page) {
 
 const roomMode = (page: Page) => page.getByRole('radiogroup', { name: 'Mode de la pièce' });
 
-test('rooms load with temperatures and thermal strips', async ({ page, isMobile }) => {
+test('Maison loads its rooms with their readings and today’s programme', async ({ page, isMobile }) => {
   const sinceText = await pinSameDay(page);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
-  // Every card is a link to its room (the inspector on desktop, the room page on a phone).
+  // Every tile is a link to its room (the room sheet over the tableau).
   for (const name of ['Chambre 1', 'Salon', 'Chambre 2']) {
-    await expect(page.getByRole('link', { name: new RegExp(`^${name},`) }).first()).toBeVisible();
+    await expect(page.getByRole('main').getByRole('link', { name: new RegExp(`^${name},`) })).toBeVisible();
   }
-  await expect(page.locator('svg[aria-label^="Salon"]').first()).toBeVisible();
-  // « Chambre 2 » is offline in the simulator: last, under its group label, with no figure and no strip.
-  await expect(page.getByRole('heading', { name: 'Hors ligne · 1' })).toBeVisible();
-  const offline = page.locator('article.card.off');
+  await expect(page.getByRole('img', { name: /^Salon\s: confort/ })).toBeVisible();
+  // « Chambre 2 » is offline in the simulator: last, calm, with no figure (desktop: under its column label).
+  if (!isMobile) await expect(page.getByRole('heading', { name: 'Hors ligne · 1' })).toBeVisible();
+  const offline = page.locator('article.rt.offline');
   await expect(offline).toHaveCount(1);
   await expect(offline).toContainText(sinceText);
-  await expect(offline).not.toContainText('°C');
-  await expect(offline.locator('svg[role="img"]')).toHaveCount(0);
-  expect(await page.locator('article.card .name').allTextContents()).toEqual(['Chambre 1', 'Salon', 'Chambre 2']);
-  void isMobile;
+  await expect(offline).not.toContainText('°');
+  expect(await page.locator('article.rt .n').allTextContents()).toEqual(['Chambre 1', 'Salon', 'Chambre 2']);
 });
 test('an outage that began another day says its date (« depuis le 15 oct. »)', async ({ page }) => {
   const since = await offlineSince(page);
   await page.clock.setFixedTime(since + 24 * 3_600_000); // the next day, whatever the hour
   await page.goto('/');
-  await expect(page.locator('article.card.off')).toContainText(`Hors ligne depuis le ${dayShortFr(since)}`);
+  await expect(page.locator('article.rt.offline')).toContainText(`Hors ligne depuis le ${dayShortFr(since)}`);
 });
 
 
@@ -52,9 +50,10 @@ test('rapid stepper taps send one setpoint', async ({ page }) => {
   await page.goto('/rooms/p-ch1');
   await roomMode(page).getByRole('radio', { name: 'Manuel' }).click();
   await confirmed(page);
-  const output = page.getByRole('group', { name: 'Consigne' }).getByRole('status');
+  // The large −/+ of the room sheet changes the setpoint in force: in Manuel, the manual setpoint.
+  const output = page.getByRole('group', { name: 'Consigne Manuel' }).getByRole('status');
   const before = Number((await output.textContent())!.replace(/[^\d,]/g, '').replace(',', '.'));
-  const plus = page.getByRole('button', { name: 'Augmenter Consigne' });
+  const plus = page.getByRole('button', { name: 'Augmenter Consigne Manuel' });
   const requests: string[] = [];
   page.on('request', (r) => {
     if (r.url().includes('/setpoint')) requests.push(r.url());
@@ -95,10 +94,11 @@ test('Chauffe temporaire: a sentence, then the room says it until « Arrêter »
   // Any wall time: a 2 h boost started after 22:00 ends « demain ».
   await expect(page.getByText(/^Puis retour au programme (demain )?vers \d\d:\d\d\.$/)).toBeVisible();
   await page.getByRole('button', { name: 'Lancer' }).click();
-  const status = page.locator('.inspector .st');
+  const status = page.getByRole('dialog', { name: 'Salon' }).locator('.st');
   await expect(status).toContainText(/Chauffe temporaire · \d+,\d\s°C jusqu’à/, { timeout: 20_000 });
-  await expect(page.locator('article.card', { hasText: 'Salon' }).locator('.status')).toContainText('Chauffe temporaire');
-  await page.getByRole('button', { name: 'Arrêter' }).click();
+  // The tile behind the sheet says it too, in heat.
+  await expect(page.locator('article.rt', { hasText: 'Salon' }).locator('.lead.warm').first()).toContainText(/Chauffe temp/);
+  await page.getByRole('dialog', { name: 'Salon' }).getByRole('button', { name: 'Arrêter', exact: true }).click();
   await expect(status).not.toContainText('Chauffe temporaire', { timeout: 20_000 });
 });
 
@@ -109,34 +109,32 @@ async function openTariffEditor(page: import('@playwright/test').Page) {
   if (await fresh.isVisible()) await fresh.click();
 }
 
-test('absence from the old #away anchor: started, said in the Réglages state line, ended from the sheet', async ({ page }) => {
-  await page.goto('/home#away');
+test('absence can be started from Maison and ended from its « Absence » row on Maison', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /^(Partir…|Absence…)$/ }).filter({ visible: true }).first().click();
   const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
   await expect(sheet.getByText(/^Les \d+ pièces passeront à 12,0\s°C jusqu’à/)).toBeVisible();
   await sheet.getByRole('button', { name: 'Partir' }).click();
   await expect(sheet).toBeHidden();
   await expect(page.getByText(/^Absence jusqu’à .*\.$/).first()).toBeVisible(); // the toast
-  // The state line says it once the override arrives.
-  await expect(page.locator('main .sh').getByText(/Absence jusqu’à/)).toBeVisible({ timeout: 20_000 });
-  await page.goto('/home#away');
-  const running = page.getByRole('dialog', { name: 'Absence en cours' });
-  await running.getByRole('button', { name: 'Terminer maintenant' }).click();
-  await expect(running).toBeHidden();
-  // Default-ish timeout on purpose: the override must leave as soon as its restore settles.
-  await expect(page.locator('main .sh').getByText(/Absence jusqu’à/)).toBeHidden({ timeout: 20_000 });
+  const end = page.getByRole('button', { name: 'Terminer l’absence' });
+  await expect(end).toBeVisible({ timeout: 20_000 });
+  await end.click();
+  // Default timeout on purpose: the override must leave as soon as its restore settles.
+  await expect(end).toBeHidden();
 });
 
 test('absence from Maison in two taps (desktop sidebar, phone header), ended from the sheet', async ({ page, isMobile }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
-  const opener = isMobile ? page.locator('.top').getByRole('button', { name: 'Absence…' }) : page.locator('.sidebar').getByRole('button', { name: 'Partir…' });
+  const opener = isMobile ? page.locator('.phone-actions').getByRole('button', { name: 'Absence…' }) : page.locator('.sidebar').getByRole('button', { name: 'Partir…' });
   await opener.click();
   const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
   await expect(sheet.getByRole('button', { pressed: true })).toBeFocused();
   await sheet.getByRole('button', { name: 'Partir' }).click();
   await expect(sheet).toBeHidden();
   // The opener now says the absence and opens it in its active state.
-  const active = isMobile ? page.locator('.top').getByRole('button', { name: /^Absence · / }) : page.locator('.sidebar').getByRole('button', { name: /^Absence · / });
+  const active = isMobile ? page.locator('.phone-actions').getByRole('button', { name: /^Absence · / }) : page.locator('.sidebar').getByRole('button', { name: /^Absence · / });
   await expect(active).toBeVisible({ timeout: 20_000 });
   await active.click();
   const running = page.getByRole('dialog', { name: 'Absence en cours' });
@@ -145,11 +143,11 @@ test('absence from Maison in two taps (desktop sidebar, phone header), ended fro
   await expect(opener).toBeVisible({ timeout: 20_000 });
 });
 
-test('desktop shows the sidebar and the inspector with every radiator', async ({ page, isMobile }) => {
+test('desktop shows the sidebar and the room sheet with every radiator', async ({ page, isMobile }) => {
   test.skip(isMobile, 'desktop layout only');
   await page.goto('/rooms/p-salon');
-  await expect(page.getByRole('navigation', { name: 'Navigation principale' }).first()).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Salon', level: 2 })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Navigation principale' }).first()).toBeAttached();
+  await expect(page.getByRole('dialog', { name: 'Salon' })).toBeVisible();
   // Each radiator is a disclosure row: name, power and reachability, its reading; its controls one tap away.
   const rows = page.locator('.rad button.row');
   await expect(rows).toHaveCount(2);
@@ -158,24 +156,33 @@ test('desktop shows the sidebar and the inspector with every radiator', async ({
   await expect(page.getByRole('button', { name: 'Faire clignoter' })).toHaveCount(2);
 });
 
-test('desktop: choosing a room card keeps keyboard focus on it and marks it current', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'desktop layout only');
+test('a room tile opens its sheet over the tableau; Esc closes it back to « / » and gives focus back to the tile', async ({ page }) => {
   await page.goto('/');
-  // The room card in the page (the sidebar has its own « Salon » row).
-  const card = page.getByRole('main').getByRole('link', { name: /^Salon/ });
-  await card.focus();
+  const tile = page.getByRole('main').getByRole('link', { name: /^Salon,/ });
+  await tile.focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/rooms\/p-salon$/);
-  await expect(page.getByRole('heading', { name: 'Salon', level: 2 })).toBeVisible();
-  await expect(card).toHaveAttribute('aria-current', 'page');
-  await expect(card).toBeFocused();
+  const sheet = page.getByRole('dialog', { name: 'Salon' });
+  await expect(sheet).toBeVisible();
+  // The tableau stays behind it.
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeAttached();
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(tile).toBeFocused();
 });
 
-test('phone room page: the room is the h1, and moving to another tab focuses its title', async ({ page, isMobile }) => {
-  test.skip(!isMobile, 'phone layout only');
+test('a deep link to a room opens its sheet over Maison; × closes it; another tab focuses its title', async ({ page }) => {
   await page.goto('/rooms/p-salon');
-  await expect(page.getByRole('heading', { name: 'Salon', level: 1 })).toBeVisible();
-  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Programme' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Salon' });
+  await expect(sheet).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeAttached();
+  await sheet.getByRole('button', { name: 'Fermer' }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Navigation principale' }).filter({ visible: true }).getByRole('link', { name: 'Programme' }).click();
   await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeFocused();
 });
 
@@ -189,24 +196,17 @@ test('the toast live regions are rendered (not display: none) before any toast',
   expect(displays).not.toContain('none');
 });
 
-test('"/" opens a default room in the inspector on desktop; a phone taps a card to its room page', async ({ page, isMobile }) => {
+test('"/" opens no room: a tap on a tile opens its sheet with the modes; −/+ act on the tile directly', async ({ page }) => {
   await page.goto('/');
-  if (isMobile) {
-    // No expansion in place: the card is a link, the room page starts with the controls. (Scoped to the
-    // cards: the grid strip's SourceLine, shown on the days the simulator's EcoWatt has a signal, is a Fig.)
-    await expect(page.locator('article.card')).toHaveCount(3);
-    await expect(page.locator('article.card [aria-expanded]')).toHaveCount(0);
-    await page.getByRole('link', { name: /^Salon,/ }).click();
-    await expect(page).toHaveURL(/\/rooms\/p-salon$/);
-    await expect(page.getByRole('heading', { name: 'Salon', level: 1 })).toBeVisible();
-    await expect(page.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeVisible();
-  } else {
-    // The default room is one that answers, never the offline one.
-    const title = page.locator('.inspector h2.name');
-    await expect(title).toBeVisible();
-    await expect(title).not.toHaveText('Chambre 2');
-    await expect(page.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeVisible();
-  }
+  await expect(page.locator('article.rt')).toHaveCount(3);
+  await expect(page.locator('article.rt [aria-expanded]')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  // A room that answers has its −/+ on the tile, named by the room and the level in force (Chambre 1: the
+  // boost test leaves Salon restoring for a while, without a stepper).
+  await expect(page.getByRole('main').getByRole('group', { name: /^Chambre 1 · (Confort|Éco|Manuel)$/ })).toBeVisible();
+  await page.getByRole('main').getByRole('link', { name: /^Salon,/ }).click();
+  await expect(page).toHaveURL(/\/rooms\/p-salon$/);
+  await expect(page.getByRole('dialog', { name: 'Salon' }).getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeVisible();
 });
 
 test('backend unreachable at load shows the shell and a banner', async ({ page }) => {
@@ -300,4 +300,15 @@ test('the manifest has a stable id; theme-color and the version follow the app',
   await expect(page.getByRole('radiogroup', { name: 'Thème' })).toHaveCount(0);
   const colours = await page.locator('meta[name="theme-color"]').evaluateAll((ms) => ms.map((m) => (m as HTMLMetaElement).content));
   expect(colours).toEqual(['#050506']);
+});
+
+test('from a scrolled Maison, today’s programme link lands at the top of Programme (only room links keep the scroll)', async ({ page }) => {
+  await page.goto('/');
+  const link = page.getByRole('region', { name: 'Programme d’aujourd’hui' }).getByRole('link', { name: 'Programme' });
+  await link.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollBy(0, 400));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await link.click();
+  await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });

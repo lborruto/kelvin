@@ -368,3 +368,33 @@ export function fmtHours(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';
   return unit ? `${signed(one(), v)}${NB}h` : signed(one(), v);
 }
+
+// Maison's date line (Tableau §4): « vendredi 16 octobre », “Friday 16 October”, Paris day.
+const weekdayLong = new Map<Locale, Intl.DateTimeFormat>();
+export function fmtWeekdayDate(ms: number): string {
+  const l = locale.current;
+  let x = weekdayLong.get(l);
+  if (!x) {
+    x = new Intl.DateTimeFormat(INTL[l], { timeZone: ZONE, weekday: 'long', day: 'numeric', month: 'long' });
+    weekdayLong.set(l, x);
+  }
+  return x.format(new Date(ms)).replace(',', '');
+}
+
+// A month's name alone, in the language's own case inside a sentence: « septembre », “September” (a YYYY-MM… iso).
+const monthOnly = new Map<Locale, Intl.DateTimeFormat>();
+export function monthWord(iso: string): string {
+  const l = locale.current;
+  let x = monthOnly.get(l);
+  if (!x) {
+    x = new Intl.DateTimeFormat(INTL[l], { timeZone: 'UTC', month: 'long' });
+    monthOnly.set(l, x);
+  }
+  return x.format(new Date(`${iso.slice(0, 7)}-15T12:00:00Z`));
+}
+
+/** The month's name as a title: « Octobre », “October”. */
+export function monthTitle(iso: string): string {
+  const s = monthWord(iso);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}

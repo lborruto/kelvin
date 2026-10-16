@@ -1,18 +1,14 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import PiecesView from '$lib/components/PiecesView.svelte';
-  import { house } from '$lib/stores/house.svelte';
+  import Tableau from '$lib/components/dashboard/Tableau.svelte';
+  import RoomSheet from '$lib/components/room/RoomSheet.svelte';
 
   let { children } = $props();
-  // "/" and "/rooms/[id]" share one PiecesView: on desktop the list stays mounted when a card is
-  // chosen, so keyboard focus stays on that card and nothing re-renders but the inspector.
+  // "/" and "/rooms/[id]" share one tableau: a room opens as a sheet over it, so the tableau never re-renders
+  // and a deep link to a room still shows the house behind it (Tableau §4 « Room sheet »).
   let id = $derived(page.params.id ?? null);
-  // "/": chosen once, so the inspector does not jump when another room starts needing attention.
-  let chosen = $state<string | null>(null);
-  $effect(() => {
-    if (house.loaded && (!chosen || !house.room(chosen))) chosen = house.defaultRoomId;
-  });
 </script>
 
-<PiecesView roomId={id ?? chosen} home={!id} />
+<Tableau />
 {@render children()}
+<RoomSheet roomId={id} />

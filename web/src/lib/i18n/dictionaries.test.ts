@@ -15,6 +15,17 @@ export const ARGS: Record<string, unknown[]> = {
   'away.offline': [['Chambre 2'], 1],
   'devices.syncAt': ['14:10'],
   'home.everyRoomBut': [['Chambre 2']],
+  'maison.allOffOffline': [['Chambre 2'], 1],
+  'maison.climateHeating': ['19,1–19,6°', 1],
+  'maison.roomsSummary': [1, 1, false],
+  'maison.ecowatt': [1],
+  'maison.billDays': [16, 31],
+  'maison.billProgress': [16, 31],
+  'maison.ecowattTense': ['18:00–20:00', 2],
+  'roomSheet.noReading': ['04:07', 1],
+  'maison.awayEveryBut': [['Chambre 2']],
+  'maison.billTitle': ['Octobre', 15],
+  'roomSheet.month': [15],
   'home.cardDevices': [2, 3],
   'devices.done': ['Salon'],
   'devices.lastSignal': ['12:10'],
@@ -101,6 +112,9 @@ export const ARGS: Record<string, unknown[]> = {
 export const SAME = new Set<string>([
   // Programme (Tableau batch): « S » is Saturday (and Sunday) in both languages
   'daysLetter.saturday', 'program.dayReason',
+  // Maison (Tableau): a date and a time, a range, arrows to a time, « Total », « Tempo Bleu », « ≈ 3,40 € »
+  'maison.dateLine', 'maison.climateRange', 'maison.nextAt', 'maison.arrowAt', 'maison.arrowLevel', 'maison.billTotal', 'maison.tempo',
+  'maison.yesterdayEur',
   // Batch 13: « ≈ 1,70 kW » and « Total » read the same in both languages
   'room.livePower', 'room.livePowerTotal',
   'energyUi.keyName', 'energyUi.barView', 'energyUi.roomKwhName',
@@ -227,6 +241,9 @@ const SCANNER_BLIND = new Set([
   'daysAbbr.monday', 'daysAbbr.tuesday', 'daysAbbr.wednesday', 'daysAbbr.thursday', 'daysAbbr.friday', 'daysAbbr.saturday',
   'daysAbbr.sunday', 'daysLetter.monday', 'daysLetter.tuesday', 'daysLetter.wednesday', 'daysLetter.thursday',
   'daysLetter.friday', 'daysLetter.sunday', 'program.bubbleEnd', 'program.lockedShort.unrecognised',
+  // Maison and the room sheet (Tableau): short French words and figures the scanner reads as neutral.
+  'maison.climate', 'maison.boostLaunch', 'maison.paused', 'maison.awayEnd', 'maison.alerts', 'maison.ecowatt', 'maison.progLastKnown',
+  'roomSheet.caption', 'roomSheet.captionPaused', 'roomSheet.now',
   'energyUi.ecowatt', 'energyUi.analysis', 'energyUi.qualityMeta',
   // Maison (UX batch 8): short French words the scanner reads as neutral.
   'tariff.historyMeta', 'linky.show', 'linky.hide',

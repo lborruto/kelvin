@@ -11,6 +11,8 @@ ROUTES.push('/home/tariff', '/home/linky', '/home/sources', '/home/account', '/h
 ROUTES.push('/rooms/p-salon', '/no-such-page');
 // Programme (Tableau): the day view (a phone width) beside the agenda, and an offline room's read-only agenda.
 ROUTES.push('/schedule?room=p-ch1&day=tuesday', '/schedule?room=p-ch2');
+// Tableau: the room sheet of an offline room (notice, ghost day) over the tableau.
+ROUTES.push('/rooms/p-ch2');
 
 test.describe('CLS matrix', () => {
   test.skip(({ isMobile }) => isMobile, 'explicit widths');

@@ -3,7 +3,8 @@ import { expect, test, type Page } from '@playwright/test';
 test.describe.configure({ mode: 'serial' });
 
 const H = { 'X-Kelvin': '1' };
-const strip = (page: Page) => page.getByRole('region', { name: 'Signaux du réseau électrique' });
+// Maison says the grid signals in its Réseau chip, « Demain » and the « Maintenant » card (Tempo only when Tempo is in force).
+const chips = (page: Page) => page.getByRole('group', { name: 'Résumés' });
 const daysAgo = (n: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(Date.now() - n * 86_400_000));
 
 interface TariffView {
@@ -51,9 +52,9 @@ async function openTariffEditor(page: Page) {
 
 test('an HC/HP home sees EcoWatt and no Tempo colour', async ({ page }) => {
   await page.goto('/');
-  await expect(strip(page)).toContainText('EcoWatt orange demain');
-  await expect(strip(page)).not.toContainText(/Bleu|Blanc|Rouge|Tempo/);
-  await expect(strip(page)).toContainText('RTE via MyElectricalData');
+  await expect(chips(page)).toContainText('EcoWatt orange demain');
+  await expect(page.getByRole('region', { name: 'Demain' })).toContainText('EcoWatt orange');
+  await expect(page.getByRole('main')).not.toContainText(/Tempo|Bleu|Blanc|Rouge/);
   await page.goto('/energy');
   // Énergie says the grid signals as chips on its context row (GridChips), RTE's time in their Fiche.
   await expect(page.getByRole('list', { name: 'Signaux du réseau électrique' })).toContainText('EcoWatt orange demain');
@@ -86,9 +87,11 @@ test('switching to Tempo: six prices prefilled with their source, then the day c
   await expect(form.locator('td, dd').filter({ hasText: /^Tempo$/ }).locator('visible=true').first()).toBeVisible();
 
   await page.goto('/');
-  await expect(strip(page)).toContainText(/Aujourd’hui : (Bleu|Blanc|Rouge)/);
-  await expect(strip(page)).toContainText(/Demain : (Bleu|Blanc|Rouge|couleur pas encore publiée \(vers 11:00\))/);
-  await expect(strip(page).locator('.dot').first()).toBeVisible();
+  const now = page.getByRole('region', { name: 'Maintenant' });
+  // Before 06:00 the Tempo day in force is yesterday's, whose colour is not known: said, never guessed.
+  await expect(now).toContainText(/Jour Tempo (Bleu|Blanc|Rouge)|couleur du jour Tempo pas encore connue/);
+  await expect(page.getByRole('region', { name: 'Demain' })).toContainText(/Tempo (Bleu|Blanc|Rouge|—)/);
+  await expect(page.getByRole('region', { name: 'Demain' }).locator('.dot').first()).toBeVisible();
   await page.goto('/energy');
   // Tempo in force: the six colours take the split's place on the board (« Jours Tempo »), dots under the day bars.
   const tempo = page.getByRole('region', { name: 'Jours Tempo' });
@@ -134,7 +137,6 @@ test('phone and desktop widths never scroll sideways with the Tempo form open', 
 test('in English', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('kelvin-locale', 'en'));
   await page.goto('/');
-  const s = page.getByRole('region', { name: 'Power grid signals' });
-  await expect(s).toContainText(/Today: (Blue|White|Red)/);
-  await expect(s).toContainText('EcoWatt orange tomorrow');
+  await expect(page.getByRole('region', { name: 'Now' })).toContainText(/Tempo (Blue|White|Red) day|today’s Tempo colour isn’t known yet/);
+  await expect(page.getByRole('group', { name: 'Summary' })).toContainText('EcoWatt orange tomorrow');
 });

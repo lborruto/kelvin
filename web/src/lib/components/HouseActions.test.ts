@@ -153,3 +153,23 @@ it('the icon form (phone Rooms header) keeps the names as labels and still asks 
   await fireEvent.click(off);
   expect(document.querySelector('dialog')!.open).toBe(true);
 });
+
+it('Maison (desktop): Partir…, Tout éteindre, Tout remettre en programme, in that order; no Tout éteindre while all is off', async () => {
+  const { unmount } = render(HouseActions, { maison: true, awayText: 'Partir…' });
+  expect(screen.getAllByRole('button').filter((b) => !b.closest('dialog')).map((b) => b.textContent?.trim())).toEqual([
+    'Partir…', 'Tout éteindre', 'Tout remettre en programme'
+  ]);
+  await fireEvent.click(screen.getByRole('button', { name: 'Tout remettre en programme' }));
+  expect(api.houseProgram).toHaveBeenCalled();
+  unmount();
+  render(HouseActions, { maison: true, allOff: true });
+  expect(screen.queryByRole('button', { name: 'Tout éteindre' })).toBeNull();
+});
+
+it('Maison (phone): the away icon and a « ⋯ » menu holding the two house commands', async () => {
+  render(HouseActions, { menu: true });
+  expect(screen.getByRole('button', { name: 'Absence…' })).toBeInTheDocument();
+  const more = screen.getByRole('button', { name: 'Plus d’actions pour la maison' });
+  expect(more).toHaveAttribute('aria-haspopup', 'menu');
+  expect(screen.queryByRole('button', { name: 'Tout éteindre' })).toBeNull();
+});

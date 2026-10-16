@@ -1,7 +1,7 @@
 <!-- The grid signals on Énergie's context row (direction-2 §2 « GridChips », from GridStrip): the Tempo pair as two
      chips « Aujourd’hui ● Bleu » « Demain ● Rouge » (only under a Tempo tariff), an EcoWatt chip with the alert glyph
      (bad text at level 3). Each chip is a Fig: its Fiche holds every signal with RTE's fetch time (the time no longer
-     sits on the page). Pièces keeps GridStrip. -->
+     sits on the page). -->
 <script lang="ts">
   import { fmtTime, parisTodayIso } from '$lib/format';
   import { stripLines } from '$lib/grid';

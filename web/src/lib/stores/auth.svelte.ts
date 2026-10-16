@@ -4,6 +4,7 @@ import { alerts } from './alerts.svelte';
 import { grid } from './grid.svelte';
 import { history } from './history.svelte';
 import { house } from './house.svelte';
+import { dashboardEnergy } from './dashboardEnergy.svelte';
 import { resetRoomData } from './roomdata.svelte';
 
 export class AuthStore {
@@ -51,6 +52,7 @@ export class AuthStore {
     resetRoomData();
     alerts.reset();
     grid.reset();
+    dashboardEnergy.reset();
   }
 
   /** A 401 means the session is already gone (success); any other failure rejects and changes nothing. */
