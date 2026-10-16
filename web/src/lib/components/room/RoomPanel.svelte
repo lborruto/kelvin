@@ -487,7 +487,7 @@
 
 {#snippet temps()}
   {#if !readonly && !offline && mode !== 'off' && (comfortRange || (ecoRange && comfortNow != null))}
-    <section>
+    <section aria-labelledby="{uid}-temps">
       <GroupedList label={m.roomSheet.programTemps} id="{uid}-temps">
         {#if comfortRange}
           <div class="li trow">
@@ -539,7 +539,7 @@
 
 {#snippet rads()}
   {#if !readonly}
-    <section id="{uid}-radiators">
+    <section aria-labelledby="{uid}-rads" id="{uid}-radiators">
       <GroupedList label={m.room.radiators(radiators.length)} id="{uid}-rads" class="rads">
         {#each radiators as r (r.id)}<RadiatorPanel radiator={r} showControls={radiators.length > 1} />{/each}
       </GroupedList>

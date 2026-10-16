@@ -62,7 +62,7 @@
   {#if status}
     {#if problem}<div class="notice bad" role="alert"><p>{problem}</p></div>{/if}
     {#if status.configured}
-      <section class="conn">
+      <section class="conn" aria-labelledby="linky-conn">
         <GroupedList label={m.linky.connection} id="linky-conn" level="h2" tag="dl">
           <div class="li">
             <dt>{m.linky.pdl}</dt>

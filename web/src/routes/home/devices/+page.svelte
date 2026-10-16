@@ -217,7 +217,7 @@
       {/snippet}
     </RoomBlock>
   {/each}
-  <section class="bridges">
+  <section class="bridges" aria-labelledby="bridges-title">
     <GroupedList label={m.devices.bridges} id="bridges-title" level="h2" tag="ul">
       {#each setup.bridges as d (d.id)}<BridgeRow device={d} {now} icon={d.role === 'box' ? 'box' : d.role === 'bridge' ? 'sync' : null} />{/each}
     </GroupedList>

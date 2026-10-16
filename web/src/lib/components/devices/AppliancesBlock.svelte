@@ -13,7 +13,7 @@
 </script>
 
 {#if devices.length}
-  <section>
+  <section aria-labelledby="appliances-title">
     <GroupedList label={m.devices.appliances} id="appliances-title" level="h2" tag="ul">
       {#each devices as d (d.id)}<BridgeRow device={d} {now} name={deviceLabel(d)} lead={m.devices.role[d.role]} />{/each}
     </GroupedList>

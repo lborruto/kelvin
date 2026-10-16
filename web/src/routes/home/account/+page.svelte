@@ -49,7 +49,7 @@
 
 <div class="cols">
   <div class="left">
-  <section class="acct">
+  <section class="acct" aria-labelledby="account-cozy">
     <GroupedList label={m.account.cozytouch} id="account-cozy" level="h2" tag="dl">
       <div class="li"><dt>{m.account.email}</dt><dd class="strong">{auth.email ?? '—'}</dd></div>
       <div class="li">
@@ -78,7 +78,7 @@
   </div>
 
   {#if sessionsReady}
-    <section id={ANCHORS.mcp} class="mcp">
+    <section id={ANCHORS.mcp} class="mcp" aria-labelledby="account-mcp">
       <GroupedList label={m.mcp.title} id="account-mcp" level="h2"><McpPanel bind:ready={mcpReady} /></GroupedList>
     </section>
   {/if}
