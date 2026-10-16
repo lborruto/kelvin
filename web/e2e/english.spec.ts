@@ -134,13 +134,14 @@ test.describe('key flows in English', () => {
   test('Schedule: the week, one day editor, copy and the offline room read in English', async ({ page }) => {
     await page.goto('/schedule');
     await expect(page.getByRole('heading', { name: 'Schedule', level: 1 })).toBeVisible();
-    await expect(page.getByText('Outside comfort periods, the room is on eco.')).toBeVisible();
     await expect(page.getByText(/^Now: (Comfort|Eco)/)).toBeVisible();
     await page.getByRole('radio', { name: 'Chambre 2 offline' }).click();
     await expect(page.getByText('Chambre 2 is offline')).toBeVisible();
     await page.getByRole('radio', { name: 'Salon' }).click();
     await page.getByRole('button', { name: 'How to edit' }).click();
     await expect(page.getByText(/drag it to move it/)).toBeVisible();
+    // The rule: under the title on desktop, in the help on a phone.
+    await expect(page.getByText('Outside comfort periods, the room is on eco.')).toBeVisible();
     await page.getByRole('button', { name: /^Monday,/ }).click();
     await expect(page.getByRole('heading', { name: /^Monday/ })).toBeVisible();
     await page.getByRole('button', { name: 'Copy to…' }).click();

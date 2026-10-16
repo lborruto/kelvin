@@ -10,11 +10,11 @@
   import { capsOf, programRooms } from '$lib/capabilities';
   import ChoiceSheet from '$lib/components/ChoiceSheet.svelte';
   import DayEditor from '$lib/components/DayEditor.svelte';
-  import Disclosure from '$lib/components/Disclosure.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import Notice from '$lib/components/Notice.svelte';
   import PendingTag from '$lib/components/PendingTag.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
-  import WeekOverview from '$lib/components/WeekOverview.svelte';
+  import WeekCalendar from '$lib/components/WeekCalendar.svelte';
   import { fmtTemp } from '$lib/format';
   import { desktop } from '$lib/media.svelte';
   import { dur, easeOut, T } from '$lib/motion';
@@ -32,6 +32,7 @@
     toWeekProgram,
     validateDay,
     type Base,
+    type Seg,
     type Week
   } from '$lib/program';
   import { follow } from '$lib/schedule-sync';
@@ -70,6 +71,8 @@
   // The days a copy just changed: their bars pulse once.
   let pulse = $state<{ days: Day[]; n: number } | null>(null);
   let showChanges = $state(false);
+  // « Comment modifier ? »: the gestures and keys, under the header.
+  let howOpen = $state(false);
   let alsoOpen = $state(false);
   let alsoTrigger = $state<HTMLButtonElement>();
 
@@ -216,7 +219,16 @@
   let phoneDay = $derived(!desktop.matches && dayView && !offline);
   // The sticky send bar: there is something to send, or a send is on its way.
   let bar = $derived(changes.length > 0 || alsoTargets.length > 0 || busy);
-  let barText = $derived(busy ? m.program.sending : changes.length ? m.program.daysChanged(changes.length) : m.program.noDaysChanged);
+  let barText = $derived(
+    busy
+      ? m.program.sending
+      : unsentRooms
+        ? m.program.sendStopped
+        : changes.length
+          ? m.program.daysChanged(changes.length)
+          : m.program.noDaysChanged
+  );
+  const lockText = (d: Day) => (dayLocks[d] === 'midnight' ? m.program.lockedMidnight : m.program.lockedUnrecognised);
   // A retry would overwrite later edits of the room being edited, so it is only offered while the draft is the sent week.
   let statuses = $derived(
     sentList
@@ -264,6 +276,11 @@
     e.preventDefault();
     dayView = false;
     void goto(dayHref(null));
+  }
+  // A drag in the agenda edits that day and brings it into the editor.
+  function dragDay(d: Day, segs: Seg[]) {
+    selected = d;
+    setDay(d, segs);
   }
   function setDay(d: Day, segs: Week[Day]) {
     if (!draft || busy || dayLocks[d]) return;
@@ -350,7 +367,7 @@
     <span class="k"><i class="sw e" aria-hidden="true"></i>{m.level.eco} <b class="num">{fmtTemp(room?.eco)}</b></span>
     {#if offline}
       <span class="muted small">{m.program.lastKnown}</span>
-    {:else if !compact && roomId}
+    {:else if !compact && roomId && desktop.matches}
       <a class="link" href={ROUTES.room(roomId)}>{m.program.editTemps}<Icon name="chevron" size={14} /></a>
     {/if}
   </div>
@@ -358,24 +375,69 @@
 
 {#snippet phoneTemps()}{@render temps(true)}{/snippet}
 
+{#snippet back()}
+  <a class="back" href={dayHref(null)} onclick={toWeek}><Icon name="chevron-left" size={20} />{m.program.weekOf(roomId ? roomTitle(roomId) : '')}</a>
+{/snippet}
+
 {#snippet editor(compact: boolean)}
-  <DayEditor day={selected} segs={shown![selected]} {today} {nowMinute} {compact} edited={changes.includes(selected)}
-    pending={busy} locked={dayLocks[selected] ?? null} locks={dayLocks} onchange={(segs) => setDay(selected, segs)}
-    onprev={() => step(-1)} onnext={() => step(1)} oncopy={applyCopy}
-    below={compact ? phoneTemps : undefined} />
+  <DayEditor day={selected} segs={shown![selected]} {today} {nowMinute} {compact} room={roomId ? roomTitle(roomId) : ''}
+    edited={changes.includes(selected)} pending={busy} locked={dayLocks[selected] ?? null} locks={dayLocks}
+    onchange={(segs) => setDay(selected, segs)} onprev={() => step(-1)} onnext={() => step(1)} oncopy={applyCopy}
+    back={compact ? back : undefined} below={compact && !dayLocks[selected] ? phoneTemps : undefined} />
 {/snippet}
 
 {#snippet sendArea()}
+  {@render statusList()}
+  <!-- The conflict notice and the send bar travel together: sticky above the tab bar on a phone. -->
+  {#if conflict.length || bar}<div class="dock">
   {#if conflict.length}
-    <div class="conflict" role="alert">
-      <p><Icon name="alert" size={14} /><strong>{m.program.changedElsewhere}</strong></p>
-      <p class="muted">{m.program.changedElsewhereDays(conflict.map((d) => m.days[d]).join(', '))}</p>
-      <div class="row">
+    <Notice tone="bad" title={m.program.changedElsewhere} role="alert">
+      {m.program.changedElsewhereDays(conflict.map((d) => m.days[d]).join(', '))}
+      <span class="row">
         <button type="button" class="btn btn-sm" onclick={reload}>{m.program.reload}</button>
         <button type="button" class="btn btn-sm btn-danger" aria-disabled={busy || !house.online} onclick={replace}>{m.program.replaceAnyway}</button>
+      </span>
+    </Notice>
+  {/if}
+  <!-- Unsent edits keep Annuler and Envoyer in reach, above the tab bar on a phone. -->
+  {#if bar}
+    <div class="sendbar" transition:fly|global={{ y: 8, duration: dur(T.enter), easing: easeOut }}>
+      <div class="bar-main">
+        <div class="bar-text">
+          <span class="count" class:muted={busy}>{barText}</span>
+          {#if alsoOptions.length && !busy}
+            <button type="button" class="also" bind:this={alsoTrigger} aria-haspopup="dialog" onclick={() => (alsoOpen = true)}>
+              {alsoTargets.length ? m.program.alsoForRooms(alsoTargets.map(roomTitle).join(', ')) : m.program.alsoFor}</button>
+          {/if}
+        </div>
+        <div class="bar-actions">
+          <button type="button" class="btn btn-sm undo" aria-disabled={busy || !changes.length}
+            onclick={() => !busy && changes.length && (draft = baseline)}>{m.program.undo}</button>
+          <button type="button" class="btn btn-sm btn-primary" aria-disabled={!canSend}
+            aria-describedby={offline ? 'kv-offline-send' : undefined} onclick={() => send()}>{m.program.send}</button>
+        </div>
       </div>
+      {#if offline}<p class="why" id="kv-offline-send">{m.program.offlineSend}</p>{/if}
+      {#if desktop.matches && !busy}
+        <p class="note foot-note">{m.program.copyNote}
+          {#if changes.length}
+            <button type="button" class="see" aria-expanded={showChanges} aria-controls="kv-changes" onclick={() => (showChanges = !showChanges)}>{m.program.seeChanges}</button>
+          {/if}
+        </p>
+        {#if showChanges && changes.length}
+          <ul class="changes" id="kv-changes" transition:slide|global={{ duration: dur(T.enter), easing: easeOut }}>
+            {#each changes as d (d)}
+              <li><strong>{m.days[d]}</strong>{m.common.colon}{fmtSegs(draft![d])} <span class="muted">{m.program.changeBefore(fmtSegs(baseline![d]))}</span></li>
+            {/each}
+          </ul>
+        {/if}
+      {/if}
     </div>
   {/if}
+  </div>{/if}
+{/snippet}
+
+{#snippet statusList()}
   {#if statuses.length}
     <ul class="status">
       {#each statuses as { e, pending, stale } (e.roomId)}
@@ -391,96 +453,86 @@
       {/each}
     </ul>
   {/if}
-  <!-- Unsent edits keep Annuler and Envoyer in reach, above the tab bar on a phone. -->
-  {#if bar}
-    <div class="sendbar" transition:fly|global={{ y: 8, duration: dur(T.enter), easing: easeOut }}>
-      <div class="bar-text">
-        <span class="count" class:muted={busy}>{barText}</span>
-        {#if alsoOptions.length && !busy}
-          <button type="button" class="also" bind:this={alsoTrigger} aria-haspopup="dialog" onclick={() => (alsoOpen = true)}>
-            {alsoTargets.length ? m.program.alsoForRooms(alsoTargets.map(roomTitle).join(', ')) : m.program.alsoFor}</button>
-        {/if}
-      </div>
-      <div class="bar-actions">
-        <button type="button" class="btn btn-sm" aria-disabled={busy || !changes.length}
-          onclick={() => !busy && changes.length && (draft = baseline)}>{m.program.undo}</button>
-        <button type="button" class="btn btn-sm btn-primary" aria-disabled={!canSend}
-          aria-describedby={offline ? 'kv-offline-send' : undefined} onclick={() => send()}>{m.program.send}</button>
-      </div>
-      {#if offline}<p class="why" id="kv-offline-send">{m.program.offlineSend}</p>{/if}
-      {#if changes.length && !busy}
-        <button type="button" class="see" aria-expanded={showChanges} aria-controls="kv-changes" onclick={() => (showChanges = !showChanges)}>
-          <Icon name="chevron" size={14} />{m.program.seeChanges}</button>
-        {#if showChanges}
-          <ul class="changes" id="kv-changes" transition:slide|global={{ duration: dur(T.enter), easing: easeOut }}>
-            {#each changes as d (d)}
-              <li><strong>{m.days[d]}</strong>{m.common.colon}{fmtSegs(draft![d])} <span class="muted">{m.program.changeBefore(fmtSegs(baseline![d]))}</span></li>
-            {/each}
-          </ul>
-        {/if}
-      {/if}
-    </div>
-  {/if}
 {/snippet}
 
-{#if !phoneDay}<h1>{m.nav.schedule}</h1>{/if}
+{#if !phoneDay}
+  <header class="head">
+    <div class="titles">
+      <h1 class="t-page">{m.nav.schedule}</h1>
+      {#if desktop.matches}<p class="lede">{m.program.ecoRest}</p>{/if}
+    </div>
+    {#if house.loaded && rooms.length && shown && !offline}
+      <button type="button" class="how" class:round={!desktop.matches} aria-expanded={howOpen} aria-controls="kv-howto"
+        aria-label={desktop.matches ? undefined : m.program.howTo} onclick={() => (howOpen = !howOpen)}>
+        <Icon name="help" size={desktop.matches ? 16 : 18} />{#if desktop.matches}<span>{m.program.howTo}</span>{/if}
+      </button>
+    {/if}
+  </header>
+  {#if howOpen && house.loaded && !offline}
+    <div class="howto" id="kv-howto" transition:slide|global={{ duration: dur(T.enter), easing: easeOut }}>
+      {#if !desktop.matches}<p><b>{m.program.ecoRest}</b></p>{/if}
+      <p>{m.program.howToBody}</p>
+    </div>
+  {/if}
+{/if}
 {#if !house.loaded}
-  <!-- The page's shape until the house is known: the picker, the temperatures and plan, the week, the editor. -->
+  <!-- The page's shape until the house is known: the room chips, the temperatures and plan, the agenda, the editor. -->
   <div class="sk" aria-hidden="true">
-    <div class="skeleton" style:height="48px" style:width="min(100%, 320px)"></div>
-    <div class="skeleton" style:height="20px" style:width="min(100%, 360px)"></div>
-    <div class="skeleton" style:height="20px" style:width="min(100%, 520px)"></div>
-    <div class="grid">
-      <div class="sk-week">
-        {#each DAYS as d (d)}<div class="skeleton" style:height="{desktop.matches ? 44 : 58}px"></div>{/each}
-      </div>
-      {#if desktop.matches}<div class="skeleton" style:height="360px"></div>{/if}
+    <div class="sk-row">{#each [64, 92, 120] as w (w)}<div class="skeleton" style:height="32px" style:width="{w}px"></div>{/each}{#if desktop.matches}<div
+          class="skeleton" style:height="32px" style:width="min(30%, 420px)" style:margin-left="27px"></div>{/if}</div>
+    {#if !desktop.matches}<div class="skeleton" style:height="20px" style:width="min(100%, 240px)"></div>{/if}
+    <div class="skeleton" style:height="18px" style:width="min(100%, 220px)"></div>
+    <div class="grid" class:solo={!desktop.matches}>
+      <div class="skeleton cal-sk"></div>
+      {#if desktop.matches}<div class="sk-side"><div class="skeleton" style:height="400px"></div><div class="skeleton" style:height="90px"></div></div>{/if}
     </div>
   </div>
 {:else if !rooms.length}
   <p class="muted">{m.program.noRooms}</p>
 {:else if phoneDay && shown && radiators.length}
   <!-- Phone: one day at a time, back to the week. -->
-  <a class="back" href={dayHref(null)} onclick={toWeek}><Icon name="arrow-left" size={16} />{m.program.weekOf(roomId ? roomTitle(roomId) : '')}</a>
   <div class="dayview">
     {@render editor(true)}
+    {#if dayLocks[selected]}
+      <p class="grph">{m.program.roomTemps}</p>
+      <ul class="grp temps-grp">
+        <li class="li"><span>{m.level.comfort}</span><b class="num">{fmtTemp(room?.comfort)}</b></li>
+        <li class="li"><span>{m.level.eco}</span><b class="num">{fmtTemp(room?.eco)}</b></li>
+      </ul>
+    {/if}
     {@render sendArea()}
   </div>
 {:else}
-  <div class="rooms">
-    {#if roomId}<Segmented options={roomOptions} value={roomId} label={m.program.roomPicker} onchange={pickRoom} />{/if}
+  <div class="rooms-row">
+    <div class="rooms">
+      {#if roomId}<Segmented variant="chips" hideHints={!desktop.matches} options={roomOptions} value={roomId} label={m.program.roomPicker}
+          onchange={pickRoom} />{/if}
+    </div>
+    {#if desktop.matches && shown && radiators.length}<span class="divider" aria-hidden="true"></span>{@render temps(false)}{/if}
   </div>
 
   {#if roomId && !radiators.length}
     <p class="muted">{m.program.noRadiator}</p>
   {:else if shown}
+    {#if !desktop.matches}{@render temps(false)}{/if}
+    {#if !offline}
+      <p class="plan">{room && room.mode !== 'program' && room.mode ? m.program.notRunning(m.mode[room.mode]) : fmtNow(source, now)}</p>
+    {/if}
     {#if offline}
-      <div class="offline" role="status">
-        <Icon name="plug-off" size={18} />
-        <strong>{m.program.offlineTitle(roomTitle(roomId!))}</strong>
-        <p>{m.program.offlineBody}</p>
+      <div class="notice-wrap">
+        <Notice title={m.program.offlineTitle(roomTitle(roomId!))} icon="plug-off">{m.program.offlineBody}</Notice>
       </div>
     {/if}
     {#if mismatch}
       <p class="warn"><Icon name="alert" size={14} /> {m.program.mismatch}</p>
     {/if}
-    {@render temps(false)}
-    <div class="plan">
-      {#if !offline}
-        <span>{room && room.mode !== 'program' && room.mode ? m.program.notRunning(m.mode[room.mode]) : fmtNow(source, now)}</span>
-      {/if}
-      <span>{m.program.ecoRest}</span>
-      {#if !offline}
-        <!-- The shared Disclosure, inline: the question ends the line, its answer takes the next one. -->
-        <Disclosure variant="inline" title={m.program.howTo} id="kv-howto">
-          <p class="howto-body">{m.program.howToBody}</p>
-        </Disclosure>
-      {/if}
-    </div>
 
     <div class="grid" class:solo={offline || !desktop.matches}>
-      <WeekOverview week={shown} {today} {nowMinute} selected={desktop.matches && !offline ? selected : null} changed={changes}
-        locks={dayLocks} {pulse} pending={busy} interactive={!offline} onselect={openDay} />
+      <div class="calw" class:compact={!desktop.matches}>
+        <WeekCalendar week={shown} {today} {nowMinute} selected={desktop.matches && !offline ? selected : null} changed={changes}
+          locks={dayLocks} {pulse} pending={busy} interactive={!offline} compact={!desktop.matches} onselect={openDay}
+          onedit={desktop.matches && !offline ? dragDay : undefined} />
+      </div>
       {#if desktop.matches && !offline}
         <aside class="side">
           {@render editor(false)}
@@ -488,8 +540,13 @@
         </aside>
       {/if}
     </div>
+    {#if !desktop.matches && !offline}
+      <div class="week-notes">
+        <p class="note">{m.program.tapDay}</p>
+        {#each lockedList as d (d)}<p class="note" data-lock={d}><Icon name="lock" size={12} />{m.program.dayReason(m.days[d], lockText(d))}</p>{/each}
+      </div>
+    {/if}
     {#if !desktop.matches || offline}<div class="foot">{@render sendArea()}</div>{/if}
-
   {/if}
 {/if}
 
@@ -498,8 +555,8 @@
   <ChoiceSheet title={m.program.alsoSend} open={alsoOpen} trigger={alsoTrigger} onclose={() => (alsoOpen = false)}>
     <div class="chips">
       {#each alsoOptions as r (r.id)}
-        <label class="chip hit"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} /><span
-            aria-hidden="true" class="box"><Icon name="check" size={12} /></span>{roomName(r)}</label>
+        <label class="rchip hit"><input class="visually-hidden" type="checkbox" value={r.id} bind:group={alsoRooms} />{roomName(r)}<span
+            aria-hidden="true" class="tick"><Icon name="check" size={14} /></span></label>
       {/each}
     </div>
     <p class="note">{m.program.alsoNote}</p>
@@ -507,61 +564,168 @@
 {/if}
 
 <style>
-  h1 {
-    font-size: 22px;
-    margin: 0 0 12px;
+  .head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 6px 0 0;
+  }
+  .titles {
+    min-width: 0;
+  }
+  .lede {
+    margin: 4px 0 0;
+    font-size: var(--fs-body);
+    color: var(--mu);
+  }
+  .how {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--mu);
+    font: inherit;
+    font-size: 13.5px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .how span {
+    color: var(--tx);
+    text-decoration: underline dotted;
+    text-underline-offset: 4px;
+  }
+  .how.round {
+    position: relative;
+    justify-content: center;
+    width: 36px;
+    min-height: 36px;
+    border-radius: 50%;
+    background: var(--s2);
+    color: var(--tx);
+  }
+  .how.round::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+  }
+  @media (hover: hover) {
+    .how:hover span {
+      color: var(--tx);
+    }
+  }
+  .howto {
+    max-width: 65ch;
+    margin: 10px 0 0;
+    padding: 12px 14px;
+    border-radius: var(--r-group);
+    background: var(--s1);
+    font-size: 13px;
+    color: var(--mu);
+  }
+  .howto p {
+    margin: 0;
+  }
+  .howto p + p {
+    margin-top: 6px;
+  }
+  .howto b {
+    color: var(--tx);
+    font-weight: 600;
   }
   .sk {
     display: grid;
     gap: 12px;
+    margin-top: 16px;
   }
-  .sk-week {
-    display: grid;
+  .sk-row {
+    display: flex;
     gap: 8px;
+  }
+  .cal-sk {
+    height: 670px;
+    border-radius: var(--r-widget);
+  }
+  .sk-side {
+    display: grid;
+    gap: 12px;
     align-content: start;
   }
-  /* The room picker scrolls inside itself when the rooms are wider than the page. */
+  @media (max-width: 1023px) {
+    .cal-sk {
+      height: 346px;
+    }
+  }
+  /* Room chips, then (desktop) a hairline and the temperatures. The chips scroll inside themselves when they
+     are wider than the page; their width never widens it. */
+  .rooms-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin: 16px 0 8px;
+    min-width: 0;
+  }
   .rooms {
+    min-width: 0;
     max-width: 100%;
-    /* Its width never widens the page (the « hors ligne » suffixes make it long): it scrolls instead. */
-    contain: inline-size;
     overflow-x: auto;
-    margin-bottom: 12px;
     padding: 2px;
     scrollbar-width: none;
+  }
+  @media (max-width: 1023px) {
+    .rooms-row {
+      margin: 12px calc(-1 * var(--gutter)) 10px;
+    }
+    .rooms {
+      padding: 2px var(--gutter);
+    }
+  }
+  .divider {
+    flex: none;
+    width: 1px;
+    height: 24px;
+    background: var(--line);
   }
   .temps {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 4px 18px;
-    margin: 0 0 6px;
+    margin: 0 0 4px;
     font-size: 14px;
+    min-width: 0;
+  }
+  .rooms-row .temps {
+    margin: 0;
   }
   .temps.compact {
-    margin: 0;
-    font-size: 13px;
+    margin: 8px 0 0;
+    font-size: 13.5px;
   }
   .k {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    white-space: nowrap;
   }
   .k b {
     font-weight: 600;
   }
-  /* The same swatches as the bars: comfort is the block, eco the empty well. */
+  /* The same swatches as the agenda: comfort is the block, eco the empty well. */
   .sw {
-    width: 14px;
-    height: 14px;
+    width: 10px;
+    height: 10px;
     border-radius: 3px;
   }
   .sw.c {
-    background: color-mix(in srgb, var(--warm) 75%, var(--in));
+    background: var(--heat);
   }
   .sw.e {
     background: var(--in);
-    border: 1px solid var(--field-line);
+    box-shadow: inset 0 0 0 1px var(--field);
   }
   .small {
     font-size: 12px;
@@ -571,9 +735,10 @@
     align-items: center;
     gap: 2px;
     min-height: 44px;
-    font-size: 13px;
+    font-size: 14px;
     color: var(--mu);
     text-decoration: none;
+    white-space: nowrap;
   }
   @media (hover: hover) {
     .link:hover {
@@ -581,52 +746,18 @@
     }
   }
   .plan {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0 14px;
-    margin: 0 0 12px;
+    margin: 0 0 14px;
     font-size: 13px;
-    color: var(--mu);
+    color: var(--fa);
   }
-  .also,
-  .see {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 44px;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--mu);
-    font-size: 13px;
-    text-decoration: underline dotted;
-    text-underline-offset: 4px;
-    cursor: pointer;
-    touch-action: manipulation;
-  }
-  @media (hover: hover) {
-    .also:hover,
-    .see:hover {
-      color: var(--tx);
-    }
-  }
-  .see :global(svg) {
-    transition: transform var(--t-state) var(--ease-out);
-  }
-  .see[aria-expanded='true'] :global(svg) {
-    transform: rotate(90deg);
-  }
-  .howto-body {
+  .notice-wrap {
     max-width: 65ch;
-    margin: 0 0 8px;
-    font-size: 13px;
-    color: var(--mu);
+    margin: 0 0 14px;
   }
   .grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+    gap: 18px;
     align-items: start;
   }
   @media (min-width: 1024px) {
@@ -634,8 +765,18 @@
       max-width: 960px;
     }
     .grid:not(.solo) {
-      grid-template-columns: minmax(0, 1fr) clamp(320px, 38%, 440px);
+      grid-template-columns: minmax(0, 1fr) clamp(340px, 32%, 410px);
     }
+  }
+  .calw {
+    padding: 10px 14px;
+    background: var(--s1);
+    border-radius: var(--r-widget);
+    min-width: 0;
+  }
+  .calw.compact {
+    padding: 8px 8px 4px;
+    border-radius: var(--r-tile);
   }
   .side {
     position: sticky;
@@ -644,74 +785,61 @@
     gap: 12px;
     min-width: 0;
   }
-  .foot,
+  .week-notes {
+    margin-top: 10px;
+  }
+  .week-notes .note {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: 0;
+  }
   .dayview {
     display: grid;
     gap: 12px;
     min-width: 0;
   }
-  .foot:not(:empty) {
+  /* Under the week the send area's pieces belong to main itself, so the dock can stay sticky over the whole
+     page (a sticky element never leaves its parent). */
+  .foot {
+    display: contents;
+  }
+  .foot > :global(*) {
     margin-top: 12px;
+  }
+  .dayview .grph {
+    margin-bottom: -6px;
+  }
+  .temps-grp .li {
+    justify-content: space-between;
+    font-size: 15px;
+  }
+  .temps-grp b {
+    font-weight: 600;
   }
   .back {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 2px;
     min-height: 44px;
-    font-size: 13px;
+    min-width: 0;
+    font-size: 15px;
     color: var(--mu);
     text-decoration: none;
-  }
-  .offline {
-    display: grid;
-    grid-template-columns: 18px minmax(0, 1fr);
-    gap: 4px 10px;
-    max-width: 65ch;
-    margin: 0 0 12px;
-    padding: 12px 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: color-mix(in srgb, var(--s2) 60%, transparent);
-    font-size: 13px;
-    color: var(--mu);
-  }
-  .offline strong {
-    color: var(--tx);
-    font-size: 14px;
-    font-weight: 600;
-  }
-  .offline p {
-    grid-column: 2;
-    margin: 0;
   }
   .warn {
     display: flex;
     align-items: center;
     gap: 6px;
     max-width: 65ch;
-    margin: 0 0 8px;
+    margin: 0 0 10px;
     font-size: 13px;
-  }
-  .conflict {
-    display: grid;
-    gap: 6px;
-    padding: 12px 14px;
-    border: 1px solid color-mix(in srgb, var(--bad) 60%, var(--line));
-    border-radius: var(--radius);
-    background: color-mix(in srgb, var(--bad) 8%, var(--s1));
-    font-size: 13px;
-  }
-  .conflict p {
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
   }
   .row {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    margin-top: 10px;
   }
   .status {
     list-style: none;
@@ -733,25 +861,38 @@
     font-size: 12px;
     color: var(--bad);
   }
-  .sendbar {
+  /* The SendBar (Tableau): an s2 card (16 px, hairline) holding the count and « Aussi pour… », Annuler and
+     Envoyer; sticky above the tab bar on a phone, under the editor on desktop. */
+  .dock {
     position: sticky;
-    bottom: calc(64px + env(safe-area-inset-bottom));
+    bottom: calc(var(--tabbar-h) + 14px + env(safe-area-inset-bottom));
     z-index: 10;
+    display: grid;
+    gap: 10px;
+  }
+  /* Sticky over the page: the tint is mixed onto bg so nothing shows through. */
+  .dock :global(.notice.bad) {
+    background: color-mix(in srgb, var(--bad) 12%, var(--bg));
+  }
+  .side .dock {
+    position: static;
+  }
+  .sendbar {
+    padding: 12px 14px;
+    background: var(--s2);
+    border-radius: var(--r-group);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .bar-main {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 4px 12px;
-    padding: 8px 8px 8px 14px;
-    background: var(--s2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-  }
-  .side .sendbar {
-    position: static;
+    gap: 6px 8px;
   }
   .bar-text {
     display: grid;
+    justify-items: start;
     min-width: 0;
     line-height: 1.3;
   }
@@ -760,115 +901,103 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
-  .also {
-    min-height: 32px;
-    font-size: 12px;
-    justify-self: start;
+  .also,
+  .see {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--mu);
+    font: inherit;
+    font-size: 13px;
     text-align: left;
+    text-decoration: underline dotted;
+    text-underline-offset: 4px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .see {
+    min-height: 0;
+    color: var(--mu);
+    font-size: inherit;
+  }
+  @media (hover: hover) {
+    .also:hover,
+    .see:hover {
+      color: var(--tx);
+    }
   }
   .bar-actions {
     display: flex;
     gap: 8px;
     margin-left: auto;
   }
-  .sendbar .btn:not(.btn-primary) {
-    background: var(--s1);
-  }
-  /* On a phone « Envoyer » is the page's one primary action: the large control (--ctl-h-lg). */
-  @media (max-width: 1023px) {
-    .sendbar .btn-primary {
-      min-height: var(--ctl-h-lg);
-      padding: 0 16px;
-    }
-    .sendbar .btn-primary::before {
-      inset: -1px;
-    }
+  .undo {
+    background: var(--s3);
   }
   .why {
-    flex-basis: 100%;
-    margin: 0;
+    margin: 6px 0 0;
     font-size: 12px;
     color: var(--mu);
   }
-  .see {
-    flex-basis: 100%;
-    min-height: 32px;
-    font-size: 12px;
+  .foot-note {
+    margin: 8px 0 0;
+    font-size: 12.5px;
+    color: var(--mu);
   }
   .changes {
-    flex-basis: 100%;
-    margin: 0 0 4px;
+    margin: 6px 0 2px;
     padding-left: 18px;
     font-size: 13px;
   }
-  /* Room choices in « Aussi pour… »: 36 px chips (44 px hit area); the native box is visually hidden, its focus shows on the chip. */
+  /* Room choices in « Aussi pour… »: 40 px pills, ink with ✓ once picked; the native box is visually hidden,
+     its focus shows on the pill. */
   .chips {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 12px;
   }
-  .chip {
+  .rchip {
+    --ctl-h: 40px;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    min-height: var(--ctl-h);
-    padding: 0 12px 0 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--mu);
-    font-size: 13px;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 12px;
+    background: var(--s2);
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     user-select: none;
     touch-action: manipulation;
     transition:
       background-color var(--t-state) ease,
-      border-color var(--t-state) ease,
       color var(--t-state) ease;
   }
-  .box {
-    display: inline-grid;
-    place-items: center;
-    width: 16px;
-    height: 16px;
-    border: 1.5px solid var(--field-line);
-    border-radius: 4px;
-    color: transparent;
+  .tick {
+    display: none;
   }
-  @media (hover: hover) {
-    .chip:hover {
-      color: var(--tx);
-      border-color: var(--fa);
-    }
-  }
-  .chip:has(:checked) {
-    background: var(--s2);
-    border-color: var(--mu);
-    color: var(--tx);
-  }
-  .chip:has(:checked) .box {
+  .rchip:has(:checked) {
     background: var(--tx);
-    border-color: var(--tx);
     color: var(--bg);
   }
-  .chip:has(:focus-visible) {
+  .rchip:has(:checked) .tick {
+    display: inline-grid;
+  }
+  .rchip:has(:focus-visible) {
     outline: 2px solid var(--tx);
     outline-offset: 2px;
   }
   .note {
     margin: 0;
-    font-size: 12px;
-    color: var(--mu);
   }
   @media (min-width: 1024px) {
-    .sendbar {
+    .dock {
       bottom: 16px;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .see :global(svg) {
-      transition: none;
     }
   }
 </style>

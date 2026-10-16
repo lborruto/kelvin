@@ -92,7 +92,7 @@ test.describe('compact controls', () => {
     expect(await hitsAround(remove)).toEqual({ above: true, below: true });
   });
 
-  test('time fields are as wide as their value; the phone « Envoyer » is the large primary', async ({ page }) => {
+  test('time fields are as wide as their value; the phone « Envoyer » is the SendBar’s ink pill', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/schedule?day=monday');
     await settled(page);
@@ -108,7 +108,8 @@ test.describe('compact controls', () => {
     await page.locator('button.add').first().evaluate((el: HTMLButtonElement) => el.click());
     const send = page.getByRole('button', { name: 'Envoyer' });
     await expect(send).toBeVisible();
-    // The send bar's own phone override (44 px) until the Programme batch rebuilds it with the SendBar.
-    expect((await send.boundingBox())!.height).toBeCloseTo(44, 0);
+    // The Tableau SendBar: Annuler and Envoyer are a pair of .btn-sm pills (34 px, 44 px hit), the primary in ink.
+    expect((await send.boundingBox())!.height).toBeCloseTo(34, 0);
+    expect(await hitsAround(send)).toEqual({ above: true, below: true });
   });
 });

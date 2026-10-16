@@ -263,6 +263,8 @@ export const en: Messages = {
     sunday: 'Sunday'
   },
   daysShort: { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' },
+  daysAbbr: { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' },
+  daysLetter: { monday: 'M', tuesday: 'T', wednesday: 'W', thursday: 'T', friday: 'F', saturday: 'S', sunday: 'S' },
   program: {
     lockedMidnight: 'Ends at midnight: edit this day in the Cozytouch app',
     lockedUnrecognised: 'Unrecognised period: edit this day in the Cozytouch app',
@@ -337,7 +339,21 @@ export const en: Messages = {
     changeBefore: (segs: string) => `(before: ${segs})`,
     staleHint: 'Edit, then send again.',
     undo: 'Undo changes',
-    send: 'Send'
+    send: 'Send',
+    slotsHead: (n: number) => `Comfort periods · ${int(n)} of 3`,
+    stepNote: '15-minute steps',
+    dragHint: 'Drag a period or its edges · 15-minute steps',
+    bubbleStart: (t: string) => `start ${t}`,
+    bubbleEnd: (t: string) => `end ${t}`,
+    lockedTag: 'locked',
+    lockedShort: { midnight: 'ends at midnight', unrecognised: 'not recognised' },
+    lockedKeepTitle: 'This day stays as the radiator has it.',
+    lockedKeepBody: 'Kelvin sends it back unchanged with every send. No copy lands on this day.',
+    tapDay: 'Tap a day to edit it.',
+    dayReason: (day: string, reason: string) => `${day} · ${reason}`,
+    lockedNotOffered: (days: string, n: number) => (n > 1 ? `${days} are locked: they are not offered.` : `${days} is locked: it is not offered.`),
+    sendStopped: 'Send stopped',
+    roomTemps: 'Room temperatures'
   },
   strip: {
     windowRun: (a: string, b: string) => `Window open (reported by the radiator) ${a}–${b}`,
