@@ -5,6 +5,7 @@
   import { m } from '$lib/i18n';
   import { deviceLabel } from '$lib/setup';
   import BridgeRow from './BridgeRow.svelte';
+  import GroupedList from '../GroupedList.svelte';
 
   /** Plan 12: every device that is neither a radiator's nor a bridge — water heaters, heat
    *  pumps, devices that do not heat — listed read-only, never hidden. */
@@ -12,11 +13,10 @@
 </script>
 
 {#if devices.length}
-  <section aria-labelledby="appliances-title">
-    <h2 id="appliances-title" class="grph">{m.devices.appliances}</h2>
-    <ul class="grp list">
+  <section>
+    <GroupedList label={m.devices.appliances} id="appliances-title" level="h2" tag="ul">
       {#each devices as d (d.id)}<BridgeRow device={d} {now} name={deviceLabel(d)} lead={m.devices.role[d.role]} />{/each}
-    </ul>
+    </GroupedList>
     <p class="note">{m.devices.appliancesNote}</p>
   </section>
 {/if}
@@ -25,7 +25,7 @@
   section {
     min-width: 0;
   }
-  .grph {
+  section > :global(.grph) {
     margin-top: 6px;
   }
   .note {

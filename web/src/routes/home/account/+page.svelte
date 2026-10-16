@@ -6,6 +6,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import CozytouchStatus from '$lib/components/CozytouchStatus.svelte';
+  import GroupedList from '$lib/components/GroupedList.svelte';
   import McpPanel from '$lib/components/McpPanel.svelte';
   import SessionsPanel from '$lib/components/SessionsPanel.svelte';
   import SupportChip from '$lib/components/SupportChip.svelte';
@@ -48,9 +49,8 @@
 
 <div class="cols">
   <div class="left">
-  <section class="acct" aria-labelledby="account-cozy">
-    <h2 id="account-cozy" class="grph">{m.account.cozytouch}</h2>
-    <dl class="grp">
+  <section class="acct">
+    <GroupedList label={m.account.cozytouch} id="account-cozy" level="h2" tag="dl">
       <div class="li"><dt>{m.account.email}</dt><dd class="strong">{auth.email ?? '—'}</dd></div>
       <div class="li">
         <dt>{m.settings.server}</dt>
@@ -63,7 +63,7 @@
           {#if house.status.last_error}<span class="err" title={house.status.last_error}>{statusError(house.status)}</span>{/if}
         </dd>
       </div>
-    </dl>
+    </GroupedList>
     <p class="note">{m.account.serverNote}</p>
   </section>
 
@@ -71,16 +71,15 @@
     <h2 id="account-sessions" class="grph">{m.sessions.title}</h2>
     <!-- The lead sits above the list: nothing under the list moves when it arrives. -->
     <p class="note lead">{m.sessions.intro}</p>
-    <div class="grp"><SessionsPanel bind:ready={sessionsReady} /></div>
+    <GroupedList><SessionsPanel bind:ready={sessionsReady} /></GroupedList>
   </section>
 
   {#if sessionsReady && mcpReady && desktop.matches}{@render signOut()}{/if}
   </div>
 
   {#if sessionsReady}
-    <section id={ANCHORS.mcp} class="mcp" aria-labelledby="account-mcp">
-      <h2 id="account-mcp" class="grph">{m.mcp.title}</h2>
-      <div class="grp"><McpPanel bind:ready={mcpReady} /></div>
+    <section id={ANCHORS.mcp} class="mcp">
+      <GroupedList label={m.mcp.title} id="account-mcp" level="h2"><McpPanel bind:ready={mcpReady} /></GroupedList>
     </section>
   {/if}
   {#if sessionsReady && mcpReady && !desktop.matches}{@render signOut()}{/if}
@@ -110,15 +109,8 @@
   section {
     min-width: 0;
   }
-  .grph {
+  .acct > :global(.grph) {
     margin-top: 6px;
-  }
-  .sess .grph,
-  .mcp .grph {
-    margin-top: 18px;
-  }
-  dl {
-    margin: 0;
   }
   .li {
     justify-content: space-between;
@@ -179,7 +171,7 @@
       display: block;
       min-width: 0;
     }
-    .mcp .grph {
+    .mcp > :global(.grph) {
       margin-top: 6px;
     }
   }

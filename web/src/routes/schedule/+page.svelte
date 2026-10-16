@@ -10,6 +10,8 @@
   import { capsOf, programRooms } from '$lib/capabilities';
   import ChoiceSheet from '$lib/components/ChoiceSheet.svelte';
   import DayEditor from '$lib/components/DayEditor.svelte';
+  import GroupedList from '$lib/components/GroupedList.svelte';
+  import ListRow from '$lib/components/ListRow.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Notice from '$lib/components/Notice.svelte';
   import PendingTag from '$lib/components/PendingTag.svelte';
@@ -494,11 +496,10 @@
   <div class="dayview">
     {@render editor(true)}
     {#if dayLocks[selected]}
-      <p class="grph">{m.program.roomTemps}</p>
-      <ul class="grp temps-grp">
-        <li class="li"><span>{m.level.comfort}</span><b class="num">{fmtTemp(room?.comfort)}</b></li>
-        <li class="li"><span>{m.level.eco}</span><b class="num">{fmtTemp(room?.eco)}</b></li>
-      </ul>
+      <GroupedList label={m.program.roomTemps} level="p" tag="ul" class="temps-grp">
+        <ListRow tag="li" label={m.level.comfort} value={fmtTemp(room?.comfort)} />
+        <ListRow tag="li" label={m.level.eco} value={fmtTemp(room?.eco)} />
+      </GroupedList>
     {/if}
     {@render sendArea()}
   </div>
@@ -807,15 +808,8 @@
   .foot > :global(*) {
     margin-top: 12px;
   }
-  .dayview .grph {
+  .dayview > :global(.grph) {
     margin-bottom: -6px;
-  }
-  .temps-grp .li {
-    justify-content: space-between;
-    font-size: 15px;
-  }
-  .temps-grp b {
-    font-weight: 600;
   }
   .back {
     display: inline-flex;

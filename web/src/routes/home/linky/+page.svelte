@@ -9,6 +9,7 @@
   import Disclosure from '$lib/components/Disclosure.svelte';
   import Fig from '$lib/components/Fig.svelte';
   import Freshness from '$lib/components/Freshness.svelte';
+  import GroupedList from '$lib/components/GroupedList.svelte';
   import LinkyPanel from '$lib/components/LinkyPanel.svelte';
   import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
   import { fmtAgo, fmtDateLong } from '$lib/format';
@@ -61,9 +62,8 @@
   {#if status}
     {#if problem}<div class="notice bad" role="alert"><p>{problem}</p></div>{/if}
     {#if status.configured}
-      <section aria-labelledby="linky-conn">
-        <h2 id="linky-conn" class="grph">{m.linky.connection}</h2>
-        <dl class="grp">
+      <section class="conn">
+        <GroupedList label={m.linky.connection} id="linky-conn" level="h2" tag="dl">
           <div class="li">
             <dt>{m.linky.pdl}</dt>
             <dd>
@@ -87,7 +87,7 @@
             </dd>
           </div>
           {#if status.consent_expires}<div class="li"><dt>{m.linky.consentRow}</dt><dd>{fmtDateLong(status.consent_expires)}</dd></div>{/if}
-        </dl>
+        </GroupedList>
         {#if status.simulator}<p class="note">{m.linky.simulator}</p>{/if}
       </section>
     {/if}
@@ -135,11 +135,8 @@
     height: 14px;
     margin: 18px 16px 0;
   }
-  .grph {
+  .conn > :global(.grph) {
     margin-top: 6px;
-  }
-  dl {
-    margin: 0;
   }
   .li {
     flex-wrap: wrap;

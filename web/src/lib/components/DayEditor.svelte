@@ -14,6 +14,7 @@
   import Icon from './Icon.svelte';
   import Notice from './Notice.svelte';
   import DayBar from './DayBar.svelte';
+  import GroupedList from './GroupedList.svelte';
 
   interface Props {
     day: Day;
@@ -111,8 +112,7 @@
   {:else}
     {#if compact}<p class="note hint">{m.program.dragHint}</p>{/if}
     {#if segs.length}
-      <p class="grph">{m.program.slotsHead(segs.length)}</p>
-      <ul class="grp slots">
+      <GroupedList label={m.program.slotsHead(segs.length)} level="p" tag="ul" class="slots">
         {#each segs as s, i (i)}
           <li class="li">
             <span class="sw" aria-hidden="true"></span>
@@ -126,18 +126,18 @@
               onclick={() => remove(i)}><Icon name="x" size={15} /></button>
           </li>
         {/each}
-      </ul>
+      </GroupedList>
     {/if}
     {#if error}<p class="error" role="alert">{m.program.dayError[error]}</p>{/if}
     {#if compact}
-      <ul class="grp acts">
+      <GroupedList tag="ul" class="acts">
         <li class="li">
           <button type="button" class="row add" aria-disabled={pending || full} aria-label={m.program.addSlot(label)}
             aria-describedby={full ? `${uid}-max` : undefined} onclick={addFirstFree}><Icon name="plus" size={18} /><span class="x">{m.program.addPeriod}</span>
             {#if full}<span class="note" id="{uid}-max">{m.program.maxPeriods}</span>{/if}</button>
         </li>
         <li class="li"><CopyDays source={day} {locks} disabled={pending} {oncopy} variant="row" /></li>
-      </ul>
+      </GroupedList>
     {:else}
       <div class="actions">
         <button type="button" class="btn btn-sm add" aria-disabled={pending || full} aria-label={m.program.addSlot(label)}
@@ -243,22 +243,22 @@
   .hint {
     margin: 6px 0 0;
   }
-  .grph {
+  .editor :global(.grph) {
     margin: 18px 2px 6px;
   }
-  .slots {
+  .editor :global(.slots) {
     margin: 0;
     padding: 0 12px;
   }
   /* One period per line from 320 px: the swatch, its number, two 36 px time fields as wide as « 22:00 »
      (--w-time; they may shrink a little on the narrowest phones) and the remove disc (36, 44 px hit). */
-  .slots .li {
+  .editor :global(.slots > .li) {
     display: grid;
     grid-template-columns: 10px minmax(0, 1fr) minmax(0, 5rem) 14px minmax(0, 5rem) var(--ctl-h);
     gap: 8px;
     font-size: 14px;
   }
-  .compact .slots .li {
+  .compact :global(.slots > .li) {
     grid-template-columns: 10px minmax(0, 1fr) minmax(0, 5.2rem) 14px minmax(0, 5.2rem) var(--ctl-h);
   }
   .sw {
@@ -307,10 +307,10 @@
   .note {
     margin: 6px 0 0;
   }
-  .acts {
+  .editor :global(.acts) {
     margin-top: 12px;
   }
-  .acts .li {
+  .editor :global(.acts > .li) {
     padding: 0;
   }
   .row {

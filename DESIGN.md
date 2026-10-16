@@ -304,7 +304,12 @@ modal dialog it was opened from (the room sheet), never behind it on `<body>`.
 ### Lists, notices, small pieces
 - **GroupedList / ListRow** (`.grph` + `.grp` + `.li`): s1, radius 16, rows ≥ 52 px (64 with a second line)
   split by hairlines; a row is a link (chevron), a button (`expanded` for a disclosure), or facts (`value`);
-  `disc` puts its glyph in a 34 px s2 disc; `danger` writes the label in bad.
+  `disc` puts its glyph in a 34 px s2 disc; `danger` writes the label in bad. Every grouped list on a screen is a
+  `GroupedList` (its label a real heading, or `level="p"`; `id` when the page points at it; `tag="ul"` / `"dl"` keeps
+  list or facts semantics). Its rows are `ListRow` where a row is a link, a button or one label with one value
+  (`tag="li"` inside a `ul`), and the caller's own `.li` where the row is richer (a `dt`/`dd` facts row, a slot
+  editor row, a BridgeRow, a panel), styled by the caller. `.grp` alone is also the plain s1 group surface for
+  content that is not a list (the room sheet's chart box and boost form, Affichage, Today's programme on a phone).
 - **Notice** (`.notice`): neutral (s2 60 %, hairline, muted glyph) or bad (tint and edge); 14/600 title, 13 px
   muted body; `role="status"` by default.
 - **Segmented:** s2 track radius 10, 32 px segments radius 8, the checked one s3 + shadow + 600 (arrows select:

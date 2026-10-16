@@ -19,6 +19,7 @@
   import LabelForm from '$lib/components/devices/LabelForm.svelte';
   import MoveDialog from '$lib/components/devices/MoveDialog.svelte';
   import AppliancesBlock from '$lib/components/devices/AppliancesBlock.svelte';
+  import GroupedList from '$lib/components/GroupedList.svelte';
   import { canEditSetup, capsOf, isReadOnly } from '$lib/capabilities';
   import { run } from '$lib/actions';
   import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
@@ -216,11 +217,10 @@
       {/snippet}
     </RoomBlock>
   {/each}
-  <section aria-labelledby="bridges-title">
-    <h2 id="bridges-title" class="grph">{m.devices.bridges}</h2>
-    <ul class="grp bridges">
+  <section class="bridges">
+    <GroupedList label={m.devices.bridges} id="bridges-title" level="h2" tag="ul">
       {#each setup.bridges as d (d.id)}<BridgeRow device={d} {now} icon={d.role === 'box' ? 'box' : d.role === 'bridge' ? 'sync' : null} />{/each}
-    </ul>
+    </GroupedList>
   </section>
   <AppliancesBlock devices={setup.appliances ?? []} {now} />
 {/if}
@@ -281,11 +281,8 @@
     font-size: var(--fs-note);
     color: var(--mu);
   }
-  .grph {
+  .bridges > :global(.grph) {
     margin-top: 4px;
-  }
-  .bridges {
-    margin: 0;
   }
   .error {
     font-size: 13px;

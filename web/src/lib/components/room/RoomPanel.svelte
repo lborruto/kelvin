@@ -36,6 +36,8 @@
   import { addParisDays, parisMidnight, parisMinuteOfDay, parisParts } from '$lib/time';
   import { parisTodayIso } from '$lib/format';
   import DayBar from '../DayBar.svelte';
+  import GroupedList from '../GroupedList.svelte';
+  import ListRow from '../ListRow.svelte';
   import Fig from '../Fig.svelte';
   import Icon from '../Icon.svelte';
   import Menu from '../Menu.svelte';
@@ -485,9 +487,8 @@
 
 {#snippet temps()}
   {#if !readonly && !offline && mode !== 'off' && (comfortRange || (ecoRange && comfortNow != null))}
-    <section aria-labelledby="{uid}-temps">
-      <h3 class="grph" id="{uid}-temps">{m.roomSheet.programTemps}</h3>
-      <div class="grp">
+    <section>
+      <GroupedList label={m.roomSheet.programTemps} id="{uid}-temps">
         {#if comfortRange}
           <div class="li trow">
             <span class="sw comfort" aria-hidden="true"></span>
@@ -505,9 +506,9 @@
           </div>
         {/if}
         {#if rc.program > 0}
-          <a class="li link" href="{ROUTES.schedule}?room={encodeURIComponent(roomId)}"><span class="x">{m.room.editHours}</span><Icon name="chevron" size={16} /></a>
+          <ListRow label={m.room.editHours} href="{ROUTES.schedule}?room={encodeURIComponent(roomId)}" />
         {/if}
-      </div>
+      </GroupedList>
     </section>
   {/if}
 {/snippet}
@@ -525,24 +526,23 @@
   <section aria-labelledby="{uid}-facts">
     <h3 class="grph" id="{uid}-facts">{m.roomSheet.devices}</h3>
     {#each radiators as r (r.id)}
-      <dl class="grp">
+      <GroupedList tag="dl">
         <div class="li"><dt>{m.roomSheet.device}</dt><dd><b>{m.kind[r.kind ?? 'setpoint_heater'] ?? radiatorTitle(r)}</b><SupportChip support={r.support} /></dd></div>
         {#if r.heating_level}<div class="li"><dt>{m.roomSheet.level}</dt><dd>{levelLabel(r.heating_level)}</dd></div>{/if}
         <div class="li"><dt>{m.roomSheet.readSetpoint}</dt><dd class="num">{fmtTemp(r.effective_setpoint ?? r.target)}</dd></div>
         <div class="li"><dt>{m.roomSheet.measured}</dt><dd class="num">{fmtTemp(r.temperature)}</dd></div>
         <div class="li"><dt>{m.roomInfo.lastSignal}</dt><dd class="num">{r.last_event_at ? fmtTime(r.last_event_at * 1000) : '—'}</dd></div>
-      </dl>
+      </GroupedList>
     {/each}
   </section>
 {/snippet}
 
 {#snippet rads()}
   {#if !readonly}
-    <section aria-labelledby="{uid}-rads" id="{uid}-radiators">
-      <h3 class="grph" id="{uid}-rads">{m.room.radiators(radiators.length)}</h3>
-      <div class="grp rads">
+    <section id="{uid}-radiators">
+      <GroupedList label={m.room.radiators(radiators.length)} id="{uid}-rads" class="rads">
         {#each radiators as r (r.id)}<RadiatorPanel radiator={r} showControls={radiators.length > 1} />{/each}
-      </div>
+      </GroupedList>
     </section>
   {/if}
 {/snippet}
@@ -942,7 +942,8 @@
   .grph-row .grph {
     margin: 0 16px;
   }
-  section > .grph {
+  section > .grph,
+  section > :global(.grph) {
     margin: 4px 16px 6px;
   }
   .box {
@@ -1017,14 +1018,7 @@
     color: var(--fa);
     font-size: 12px;
   }
-  .link {
-    color: var(--tx);
-    text-decoration: none;
-  }
-  .link .x {
-    flex: 1;
-  }
-  .rads {
+  section > :global(.rads) {
     padding: 0 16px;
   }
   .lbl {
@@ -1032,10 +1026,10 @@
     color: var(--mu);
     font-size: 13px;
   }
-  dl {
+  section > :global(dl) {
     margin: 0 0 10px;
   }
-  dl .li {
+  section :global(dl > .li) {
     justify-content: space-between;
     gap: 12px;
   }

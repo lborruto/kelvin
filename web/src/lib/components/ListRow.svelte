@@ -1,7 +1,8 @@
 <!-- A grouped-list row (spec §3, `.li`): ≥ 52 px, an optional 34 px glyph disc or bare glyph, the label (with a
      muted second line), a value or any trailing content, and a chevron when it leads somewhere. A link
      (`href`), a button (`onclick`, `expanded` for a disclosure row) or plain facts. `danger` writes the label in
-     bad (« Déconnecter les autres appareils »). Must sit directly in a GroupedList / `.grp`. -->
+     bad (« Déconnecter les autres appareils »). Must sit directly in a GroupedList / `.grp`; a plain-facts row in a
+     `ul` list is `tag="li"`. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import Icon, { type IconName } from './Icon.svelte';
@@ -25,10 +26,12 @@
     tall?: boolean;
     trailing?: Snippet;
     class?: string;
+    /** A plain-facts row's element: `li` inside a `ul` GroupedList (links and buttons keep theirs). */
+    tag?: 'div' | 'li';
   }
   let {
     label, sub, value, icon, disc = false, iconTone = 'muted', href, onclick, expanded, controls, chevron, danger = false, tall = false,
-    trailing, class: cls = ''
+    trailing, class: cls = '', tag = 'div'
   }: Props = $props();
   let showChevron = $derived(chevron ?? (!!href || (!!onclick && expanded === undefined)));
 </script>
@@ -47,7 +50,7 @@
 {:else if onclick}
   <button type="button" class="li row {cls}" class:tall {onclick} aria-expanded={expanded} aria-controls={controls}>{@render inner()}</button>
 {:else}
-  <div class="li {cls}" class:tall>{@render inner()}</div>
+  <svelte:element this={tag} class="li {cls}" class:tall>{@render inner()}</svelte:element>
 {/if}
 
 <style>

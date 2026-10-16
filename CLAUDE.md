@@ -263,7 +263,7 @@ depends on.
   current (not Maison) and the tab bar keeps Maison. The house actions (Partir…, Tout éteindre, Tout remettre en
   programme) live on Maison (and « Partir… » in the sidebar), never on Réglages. **Kit:** screens are built from
   the kit in DESIGN « Kit components » (Stepper, RoomTile, IconTile, SummaryChip, Widget, Sheet, GroupedList /
-  ListRow, Notice, Segmented `track` | `chips`, DayBar, MiniBars / MiniSpark, TariffBand, Skeleton); a screen that
+  ListRow (every grouped list; rows richer than a ListRow stay the caller's `.li`), Notice, Segmented `track` | `chips`, DayBar, MiniBars / MiniSpark, TariffBand, Skeleton); a screen that
   needs more extends a kit component additively (optional props, defaults keep the old behaviour) and never forks
   a copy (one `DayBar`: read-only on Maison and the room sheet, editable in Programme's day editor). Réglages
   sub-pages start with `settings/SettingsHeader`. Énergie sections reached by a hash (`#energy-where`,
