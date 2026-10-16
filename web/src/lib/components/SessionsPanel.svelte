@@ -198,7 +198,7 @@
     color: var(--bad);
   }
   .body {
-    margin: -6px 0 0;
+    margin: 0;
     font-size: 14px;
     color: var(--mu);
   }

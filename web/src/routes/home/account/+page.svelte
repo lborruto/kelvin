@@ -11,6 +11,7 @@
   import SupportChip from '$lib/components/SupportChip.svelte';
   import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
   import { m, statusError } from '$lib/i18n';
+  import { desktop } from '$lib/media.svelte';
   import { ANCHORS, ROUTES } from '$lib/paths';
   import { auth } from '$lib/stores/auth.svelte';
   import { house } from '$lib/stores/house.svelte';
@@ -46,6 +47,7 @@
 <SettingsHeader back bare title={m.account.title} vt="home-account" />
 
 <div class="cols">
+  <div class="left">
   <section class="acct" aria-labelledby="account-cozy">
     <h2 id="account-cozy" class="grph">{m.account.cozytouch}</h2>
     <dl class="grp">
@@ -67,9 +69,13 @@
 
   <section id={ANCHORS.sessions} class="sess" aria-labelledby="account-sessions">
     <h2 id="account-sessions" class="grph">{m.sessions.title}</h2>
+    <!-- The lead sits above the list: nothing under the list moves when it arrives. -->
+    <p class="note lead">{m.sessions.intro}</p>
     <div class="grp"><SessionsPanel bind:ready={sessionsReady} /></div>
-    <p class="note">{m.sessions.intro}</p>
   </section>
+
+  {#if sessionsReady && mcpReady && desktop.matches}{@render signOut()}{/if}
+  </div>
 
   {#if sessionsReady}
     <section id={ANCHORS.mcp} class="mcp" aria-labelledby="account-mcp">
@@ -77,34 +83,28 @@
       <div class="grp"><McpPanel bind:ready={mcpReady} /></div>
     </section>
   {/if}
+  {#if sessionsReady && mcpReady && !desktop.matches}{@render signOut()}{/if}
+</div>
 
-  {#if sessionsReady && mcpReady}
+<!-- « Se déconnecter »: under the devices on a wide screen, last of all on a phone (one place in the DOM each). -->
+{#snippet signOut()}
     <div class="out">
       <button type="button" class="btn" aria-disabled={loggingOut} onclick={logout}>{m.settings.signOut}</button>
     </div>
-  {/if}
-</div>
+{/snippet}
 
 <style>
+  /* Phone: one column, « Se déconnecter » last (after Accès MCP). Wide: the account and its devices on the left
+     with « Se déconnecter » under them, Accès MCP on the right; neither column moves the other. */
   .cols {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'acct' 'sess' 'mcp' 'out';
-    align-items: start;
-    gap: 0 24px;
+    display: flex;
+    flex-direction: column;
     max-width: 1160px;
   }
-  .acct {
-    grid-area: acct;
-  }
-  .sess {
-    grid-area: sess;
-  }
-  .mcp {
-    grid-area: mcp;
+  .left {
+    display: contents;
   }
   .out {
-    grid-area: out;
     margin-top: 20px;
   }
   section {
@@ -113,7 +113,7 @@
   .grph {
     margin-top: 6px;
   }
-  section + section .grph,
+  .sess .grph,
   .mcp .grph {
     margin-top: 18px;
   }
@@ -150,11 +150,34 @@
   .note {
     margin: 6px 16px 0;
   }
+  .note.lead {
+    margin: -2px 16px 8px;
+  }
+  /* A narrow phone: label over value, so a value arriving late (the email, the source line) never rewraps its row. */
+  @media (max-width: 479px) {
+    .li {
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0;
+      min-height: 60px;
+    }
+    dd,
+    .conn {
+      text-align: left;
+      justify-items: start;
+    }
+  }
   @media (min-width: 1024px) {
     .cols {
+      display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      grid-template-areas: 'acct mcp' 'sess mcp' 'out mcp';
-      grid-template-rows: auto auto 1fr;
+      align-items: start;
+      gap: 24px;
+    }
+    .left {
+      display: block;
+      min-width: 0;
     }
     .mcp .grph {
       margin-top: 6px;

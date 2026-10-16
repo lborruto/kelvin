@@ -20,7 +20,7 @@ test('MCP token: shown once, works on /mcp, revoked at once', async ({ page, pla
   await panel.getByLabel('Nom du jeton').fill(name);
   await panel.getByRole('button', { name: 'Créer un jeton' }).click();
 
-  const dialog = page.getByRole('dialog', { name: 'Votre jeton MCP' });
+  const dialog = page.getByRole('dialog', { name: /^Jeton «.+» créé$/ });
   await expect(dialog).toBeVisible();
   const secret = (await dialog.locator('code').innerText()).trim();
   expect(secret).toMatch(/^kmcp_[A-Za-z0-9_-]{43}$/);

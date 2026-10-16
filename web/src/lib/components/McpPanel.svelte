@@ -334,7 +334,7 @@
     color: var(--bad);
   }
   .once {
-    margin: -6px 0 14px;
+    margin: 0 0 14px;
     font-size: 13.5px;
     color: var(--mu);
   }

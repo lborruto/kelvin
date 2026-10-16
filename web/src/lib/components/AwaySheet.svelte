@@ -182,12 +182,13 @@
   .away {
     display: grid;
     gap: 16px;
+    margin-top: -4px;
+    padding-top: 4px;
   }
   p {
     margin: 0;
   }
   .lead {
-    margin-top: -8px;
     color: var(--mu);
     font-size: 13.5px;
   }
@@ -277,7 +278,8 @@
     gap: 8px;
     padding: 12px 16px;
     border-radius: var(--r-group);
-    background: var(--s1);
+    /* A group one step up from the sheet (--sheet and --s1 are nearly equal on a phone). */
+    background: color-mix(in srgb, var(--s2) 70%, transparent);
     font-size: 14.5px;
   }
   .consequence:empty {
