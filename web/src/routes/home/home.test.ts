@@ -230,12 +230,9 @@ describe('Maison overview', () => {
     expect(screen.queryByText('Tout va bien')).toBeNull();
   });
 
-  it('Affichage: the theme radio keyboard model, and the « détails techniques » preference', async () => {
+  it('Affichage: no theme choice (dark only), and the « détails techniques » preference', async () => {
     render(Page);
-    const group = screen.getByRole('radiogroup', { name: 'Thème' });
-    const checked = group.querySelector('[aria-checked="true"]') as HTMLElement;
-    await fireEvent.keyDown(checked, { key: 'End' });
-    expect(screen.getByRole('radio', { name: 'Clair' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByRole('radiogroup', { name: 'Thème' })).toBeNull();
     const toggle = screen.getByRole('switch', { name: 'Afficher les détails techniques' });
     const before = detail.on;
     await fireEvent.click(toggle);
@@ -287,8 +284,7 @@ describe('Home in English', () => {
     expect(screen.getByRole('heading', { name: 'Right now' })).toBeInTheDocument();
     expect(screen.getByText('Boost')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Stop boost: Salon' })).toBeInTheDocument();
-    expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeInTheDocument();
-    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(expect.arrayContaining(['System', 'Dark', 'Light']));
+    expect(screen.queryByRole('radiogroup', { name: 'Theme' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Display' })).toBeInTheDocument();
     expect(screen.getByText('All good')).toBeInTheDocument();
     expect(localStorage.getItem('kelvin-locale')).toBe('en');

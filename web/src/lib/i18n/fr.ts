@@ -998,8 +998,6 @@ export const fr = {
     signOut: 'Se déconnecter',
     connected: 'Connecté',
     unreachable: 'Injoignable',
-    theme: 'Thème',
-    themes: { system: 'Système', dark: 'Sombre', light: 'Clair' },
     language: 'Langue'
   },
   tariff: {

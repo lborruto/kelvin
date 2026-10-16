@@ -77,7 +77,7 @@ test.describe('layout', () => {
     }
   });
 
-  // CI has only the fallback fonts: the page must not shift when Onest never arrives either.
+  // CI has only the fallback fonts: the page must not shift when Geist never arrives either.
   for (const fonts of ['web fonts', 'fallback fonts only'])
     test(`/schedule loads without layout shift (CLS < 0.05), ${fonts}`, async ({ page }) => {
       await page.addInitScript(() => {
@@ -363,26 +363,19 @@ test('/home/devices renders once: late /auth/me and late font (CLS < 0.05)', asy
 });
 
 // The device screen with every disclosure open (details, long Cozytouch state names), in both
-// languages and both themes: the longest it gets.
+// languages: the longest it gets.
 test.describe('layout of /home/devices fully open', () => {
   test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
   for (const lang of ['fr', 'en'])
-    for (const theme of ['light', 'dark'])
-      test(`${lang}, ${theme}: never scrolls sideways from 320 to 1440 px`, async ({ page }) => {
-        await page.addInitScript(
-          ([l, t]) => {
-            localStorage.setItem('kelvin-locale', l);
-            localStorage.setItem('kelvin-theme', t);
-          },
-          [lang, theme]
-        );
+      test(`${lang}: never scrolls sideways from 320 to 1440 px`, async ({ page }) => {
+        await page.addInitScript((l) => localStorage.setItem('kelvin-locale', l), lang);
         await page.goto('/home/devices');
         await settled(page);
         await page.evaluate(() => document.querySelectorAll('details').forEach((d) => (d.open = true)));
         for (const width of WIDTHS) {
           await page.setViewportSize({ width, height: 900 });
           await page.waitForTimeout(100);
-          expect(await overflow(page), `/home/devices open (${lang}, ${theme}) at ${width} px`).toBeLessThanOrEqual(0);
+          expect(await overflow(page), `/home/devices open (${lang}) at ${width} px`).toBeLessThanOrEqual(0);
         }
       });
 });
@@ -501,19 +494,12 @@ test.describe('Énergie layout matrix', () => {
   });
 });
 
-// The Absence sheet (UX batch 8) open over Pièces and Maison, fr and en, both themes: never sideways.
+// The Absence sheet (UX batch 8) open over Pièces and Maison, fr and en: never sideways.
 test.describe('layout with the Absence sheet open', () => {
   test.skip(({ isMobile }) => isMobile, 'runs once, at explicit widths');
   for (const lang of ['fr', 'en'])
-    for (const theme of ['light', 'dark'])
-      test(`${lang}, ${theme}: never scrolls sideways from 320 to 1440 px`, async ({ page }) => {
-        await page.addInitScript(
-          ([l, t]) => {
-            localStorage.setItem('kelvin-locale', l);
-            localStorage.setItem('kelvin-theme', t);
-          },
-          [lang, theme]
-        );
+      test(`${lang}: never scrolls sideways from 320 to 1440 px`, async ({ page }) => {
+        await page.addInitScript((l) => localStorage.setItem('kelvin-locale', l), lang);
         for (const width of WIDTHS) {
           await page.setViewportSize({ width, height: 900 });
           await page.goto('/home#away');
@@ -521,7 +507,7 @@ test.describe('layout with the Absence sheet open', () => {
           // The precise date field is the widest content.
           await page.getByRole('dialog').getByRole('button', { name: /^(Date précise…|Pick a date…)$/ }).click();
           await page.waitForTimeout(250);
-          expect(await overflow(page), `/home with the sheet (${lang}, ${theme}) at ${width} px`).toBeLessThanOrEqual(0);
+          expect(await overflow(page), `/home with the sheet (${lang}) at ${width} px`).toBeLessThanOrEqual(0);
         }
       });
 });

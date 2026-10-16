@@ -1,7 +1,5 @@
 import { test } from '@playwright/test';
 
-const scheme = (process.env.SCREENS_SCHEME as 'light' | 'dark' | undefined) ?? 'light';
-test.use({ colorScheme: scheme });
 // SCREENS_LOCALE=en captures the English UI (Plan 7); French is the default.
 const locale = (process.env.SCREENS_LOCALE as 'fr' | 'en' | undefined) ?? 'fr';
 test.beforeEach(async ({ page }) => {
@@ -23,7 +21,6 @@ for (const path of PATHS) {
       page = await (
         await browser.newContext({
           ...info.project.use,
-          colorScheme: scheme,
           locale: 'fr-FR',
           storageState: { cookies: [], origins: [] }
         })
@@ -34,7 +31,7 @@ for (const path of PATHS) {
     await page.getByRole('main').waitFor();
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(1200);
-    const name = `${scheme}_${locale}_${info.project.name}${path === '/' ? '_rooms' : path.replaceAll('/', '_')}.png`;
+    const name = `${locale}_${info.project.name}${path === '/' ? '_rooms' : path.replaceAll('/', '_')}.png`;
     await page.screenshot({ path: `${outDir}/${name}`, fullPage: true });
   });
 }
@@ -71,7 +68,7 @@ test('screens under a Tempo tariff', async ({ page, request }, info) => {
       await page.getByRole('main').waitFor();
       await page.waitForLoadState('networkidle').catch(() => {});
       await page.waitForTimeout(1200);
-      await page.screenshot({ path: `${outDir}/${scheme}_${locale}_${info.project.name}${tag}.png`, fullPage: true });
+      await page.screenshot({ path: `${outDir}/${locale}_${info.project.name}${tag}.png`, fullPage: true });
     }
   } finally {
     await request.put('/api/settings', { headers: H, data: { tariff: doc(all) } });

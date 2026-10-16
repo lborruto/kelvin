@@ -1,6 +1,6 @@
 <script lang="ts">
   import '../app.css';
-  import onestLatin from '@fontsource-variable/onest/files/onest-latin-wght-normal.woff2?url';
+  import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
   import { pwaInfo } from 'virtual:pwa-info';
   import { afterNavigate, goto, onNavigate } from '$app/navigation';
   import { navigating, page } from '$app/state';
@@ -127,7 +127,7 @@
 </script>
 
 <svelte:head>
-  <link rel="preload" as="font" type="font/woff2" href={onestLatin} crossorigin="anonymous" />
+  <link rel="preload" as="font" type="font/woff2" href={geistLatin} crossorigin="anonymous" />
   {@html manifestLink}
 </svelte:head>
 

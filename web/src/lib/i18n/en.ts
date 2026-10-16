@@ -964,8 +964,6 @@ export const en: Messages = {
     signOut: 'Sign out',
     connected: 'Connected',
     unreachable: 'Unreachable',
-    theme: 'Theme',
-    themes: { system: 'System', dark: 'Dark', light: 'Light' },
     language: 'Language'
   },
   tariff: {

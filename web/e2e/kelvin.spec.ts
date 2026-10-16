@@ -290,16 +290,12 @@ test('Linky: the PDL is masked until « Afficher », the form one disclosure awa
 test('the manifest has a stable id; theme-color and the version follow the app', async ({ page, request }) => {
   const manifest = await (await request.get('/manifest.webmanifest')).json();
   expect(manifest.id).toBe('/');
+  expect(manifest.theme_color.toLowerCase()).toBe('#050506');
   const pkg = JSON.parse(await (await import('node:fs/promises')).readFile('package.json', 'utf8'));
   await page.goto('/home');
   await expect(page.getByText(`Kelvin ${pkg.version}`)).toBeVisible();
-  const themes = page.getByRole('radiogroup', { name: 'Thème' });
-  const colours = () =>
-    page.locator('meta[name="theme-color"]').evaluateAll((ms) => ms.map((m) => (m as HTMLMetaElement).content));
-  await themes.getByRole('radio', { name: 'Clair' }).click();
-  expect(await colours()).toEqual(['#f5f6f8', '#f5f6f8']);
-  await themes.getByRole('radio', { name: 'Sombre' }).click();
-  expect(await colours()).toEqual(['#0f1115', '#0f1115']);
-  await themes.getByRole('radio', { name: 'Système' }).click();
-  expect(await colours()).toEqual(['#0f1115', '#f5f6f8']);
+  // One dark theme (Tableau): no theme choice, one browser-chrome colour, the ground.
+  await expect(page.getByRole('radiogroup', { name: 'Thème' })).toHaveCount(0);
+  const colours = await page.locator('meta[name="theme-color"]').evaluateAll((ms) => ms.map((m) => (m as HTMLMetaElement).content));
+  expect(colours).toEqual(['#050506']);
 });

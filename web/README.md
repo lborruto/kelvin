@@ -34,8 +34,8 @@ its `-brands` sibling). The `brands` project logs in choosing « Atlantic Cozyto
 if `KELVIN_E2E_BRANDS_URL` points at a fresh simulator (empty `KELVIN_DATA`).
 
 Screenshots (simulator only): `SCREENS=1 npx playwright test screens` writes them to
-`test-results/screens/` as `<scheme>_<locale>_<project>_<page>.png`; set `SCREENS_DIR` to write
-elsewhere, `SCREENS_SCHEME=dark` for the dark theme and `SCREENS_LOCALE=en` for English.
+`test-results/screens/` as `<locale>_<project>_<page>.png`; set `SCREENS_DIR` to write
+elsewhere and `SCREENS_LOCALE=en` for English.
 
 ## Components
 

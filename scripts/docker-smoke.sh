@@ -131,7 +131,7 @@ for f in kelvin.db-wal kelvin.db-shm; do
     [[ "$(docker exec "$NAME" stat -c '%a' "/data/$f")" == 600 ]] || fail "/data/$f is not mode 600"
   fi
 done
-docker exec "$NAME" test -s /usr/share/licenses/kelvin/fonts/Onest-OFL-1.1.txt \
+docker exec "$NAME" test -s /usr/share/licenses/kelvin/fonts/Geist-OFL-1.1.txt \
   || fail "the font licences are missing"
 docker exec "$NAME" test -s /usr/share/licenses/kelvin/fonts/JetBrainsMono-OFL-1.1.txt \
   || fail "the font licences are missing"

@@ -33,7 +33,6 @@
   import { awaySheet } from '$lib/stores/away.svelte';
   import { detail } from '$lib/stores/detail.svelte';
   import { house } from '$lib/stores/house.svelte';
-  import { theme, type ThemeChoice } from '$lib/stores/theme';
   import { inForce, RATE_KEYS, slotsText } from '$lib/tariff';
   import { VERSION } from '$lib/version';
 
@@ -135,13 +134,6 @@
     [auth.server?.name ?? null, sessions ? m.home.cardSessions(sessions.length) : null].filter(Boolean).join(' · ')
   );
 
-  // Affichage.
-  let themeChoice = $state<ThemeChoice>(theme.get());
-  const THEMES: ThemeChoice[] = ['system', 'dark', 'light'];
-  function setTheme(v: ThemeChoice) {
-    themeChoice = v;
-    theme.set(v);
-  }
 </script>
 
 <svelte:head><title>{m.page.title(m.nav.home)}</title></svelte:head>
@@ -248,11 +240,6 @@
         </div>
         <section class="panel display" aria-labelledby="display-title">
           <h2 id="display-title" class="sl">{m.home.display}</h2>
-          <div class="setrow">
-            <span class="lbl">{m.settings.theme}</span>
-            <Segmented options={THEMES.map((t) => ({ value: t, label: m.settings.themes[t] }))} value={themeChoice} label={m.settings.theme}
-              onchange={setTheme} />
-          </div>
           <div class="setrow">
             <span class="lbl">{m.settings.language}</span>
             <Segmented options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l], lang: l }))} value={locale.current} label={m.settings.language}

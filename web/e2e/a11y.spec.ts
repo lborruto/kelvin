@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { settled } from './cls';
 
-// axe-core on every route, both themes (direction-2 §10): no serious or critical violation. Runs in both
+// axe-core on every route (one dark theme, Tableau): no serious or critical violation. Runs in both
 // projects (phone and desktop), so the tab bar and the sidebar, the phone sheets and the desktop panels
 // are all checked. The 404 and the login screen are routes too.
 const ROUTES = [
@@ -18,7 +18,6 @@ const ROUTES = [
   '/home/devices',
   '/no-such-page'
 ];
-const THEMES = ['dark', 'light'] as const;
 
 async function violations(page: Page) {
   // Scan a still page: a sheet fading in or a button turning enabled is mid-colour for a moment
@@ -32,29 +31,29 @@ async function violations(page: Page) {
 
 test.describe('accessibility (axe)', () => {
   test.use({ serviceWorkers: 'block' });
-  for (const theme of THEMES) {
+  {
     for (const route of ROUTES) {
-      test(`${route} · ${theme} · no serious or critical axe violation`, async ({ page }) => {
-        await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+      test(`${route} · no serious or critical axe violation`, async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto(route);
         await settled(page);
         expect(await violations(page)).toEqual([]);
       });
     }
 
-    test(`/login · ${theme} · no serious or critical axe violation`, async ({ browser }, info) => {
+    test(`/login · no serious or critical axe violation`, async ({ browser }, info) => {
       const context = await browser.newContext({ ...info.project.use, storageState: { cookies: [], origins: [] } });
       const page = await context.newPage();
-      await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto('/login');
       await settled(page);
       expect(await violations(page)).toEqual([]);
       await context.close();
     });
 
-    test(`the Absence sheet and technical details · ${theme} · no serious or critical axe violation`, async ({ page }) => {
+    test(`the Absence sheet and technical details · no serious or critical axe violation`, async ({ page }) => {
       await page.addInitScript(() => localStorage.setItem('kelvin-detail', 'on'));
-      await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto('/home');
       await settled(page);
       expect(await violations(page)).toEqual([]);
@@ -63,4 +62,14 @@ test.describe('accessibility (axe)', () => {
       expect(await violations(page)).toEqual([]);
     });
   }
+});
+
+// Dark only (Tableau): a browser that prefers light still gets the one dark theme.
+test('a light-preferring browser still gets the dark theme', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/home');
+  await settled(page);
+  const [bg, ground] = await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.documentElement).backgroundColor]);
+  expect(bg).toBe('rgb(11, 11, 13)');
+  expect(ground).toBe('rgb(5, 5, 6)');
 });

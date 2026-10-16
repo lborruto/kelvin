@@ -8,10 +8,10 @@ the third-party works below. Their licence texts ship in the image under
 
 | Font | Copyright | Licence | Source |
 |---|---|---|---|
-| Onest (variable) | Copyright 2021 The Onest Project Authors | SIL Open Font License 1.1 | https://github.com/simpals/onest, via `@fontsource-variable/onest` |
+| Geist (variable) | Copyright 2024 The Geist Project Authors | SIL Open Font License 1.1 | https://github.com/vercel/geist-font, via `@fontsource-variable/geist` |
 | JetBrains Mono | Copyright 2020 The JetBrains Mono Project Authors | SIL Open Font License 1.1 | https://github.com/JetBrains/JetBrainsMono, via `@fontsource/jetbrains-mono` |
 
-The web app imports them from the Fontsource npm packages (`web/src/app.css`): Onest as a
+The web app imports them from the Fontsource npm packages (`web/src/app.css`): Geist as a
 variable font, JetBrains Mono at weight 400 only. Vite copies Fontsource's per-script subset
 files (WOFF2, plus WOFF fallbacks for JetBrains Mono) into the build unmodified. The licence
 files from both packages ship in the image under `/usr/share/licenses/kelvin/fonts/`. The

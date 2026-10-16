@@ -191,7 +191,7 @@ def test_compose_is_generic_for_any_self_hoster():
 
 def test_third_party_notices_cover_the_bundled_fonts():
     text = _read("THIRD_PARTY_NOTICES.md")
-    assert "Onest" in text and "JetBrains Mono" in text and "SIL Open Font License 1.1" in text
+    assert "Geist" in text and "JetBrains Mono" in text and "SIL Open Font License 1.1" in text
 
 
 def test_third_party_notices_summarise_the_runtime_and_the_base_image():

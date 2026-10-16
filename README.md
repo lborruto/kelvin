@@ -100,8 +100,8 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   analysis sits behind « Détails ». Home › Display › « Afficher les détails techniques » brings it up one
   level on that device: detail sections open, the live heating power « ≈ 1,70 kW » beside « En chauffe »,
   each radiator's signal and last event inline.
-- **An installable PWA** with an offline shell, dark and light themes, 44 px touch targets, checked
-  with axe on every screen in both themes and for layout shift (CLS < 0.05) from 320 to 1440 px.
+- **An installable PWA** with an offline shell, one dark theme, 44 px touch targets, checked
+  with axe on every screen and for layout shift (CLS < 0.05) from 320 to 1440 px.
 - **A simulator** of a whole home and a synthetic Linky, for trying Kelvin and for every test.
   `KELVIN_FAKE_HOUSE=atlantic|thermor|experimental` shows another invented house; without it, the
   house follows the server chosen at login.
@@ -183,7 +183,7 @@ supported. `KELVIN_MCP=false` removes the endpoint.
 | Connexion / Sign in | `/login` | The home's Cozytouch account, the server in one line |
 
 `cd web && SCREENS=1 SCREENS_DIR=../docs/screenshots npx playwright test screens.spec.ts` renders them
-from the simulator (`SCREENS_SCHEME=dark|light`, `SCREENS_LOCALE=fr|en`).
+from the simulator (`SCREENS_LOCALE=fr|en`).
 
 ## Compatibility
 
@@ -403,7 +403,7 @@ read-only MCP endpoint (Plan 13), with its tokens in Home › Account.
 
 ## Licence
 
-MIT, see [LICENSE](LICENSE). Bundled fonts (Onest, JetBrains Mono) are under the SIL Open Font
+MIT, see [LICENSE](LICENSE). Bundled fonts (Geist, JetBrains Mono) are under the SIL Open Font
 License 1.1; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Not affiliated
