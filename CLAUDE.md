@@ -10,9 +10,8 @@ depends on.
 
 - `PRODUCT.md`: who it is for and the product principles.
 - `DESIGN.md`: the design system as built (the « Tableau » tokens, shell, kit components, copy rules
-  in French and English). It is the design reference; UI work follows it. The kit's props and examples
-  for screen work: `.superpowers/sdd/tableau/kit-api.md`; every component in its states: `/kit` under
-  `npm run dev` (development only: a production build answers 404 and ships no gallery).
+  in French and English). It is the design reference; UI work follows it. Every kit component in its
+  states: `/kit` under `npm run dev` (development only: a production build answers 404 and ships no gallery).
 - `docs/glossary.md`: the French ↔ English terms every English string follows; a new term goes
   there first. `docs/i18n-catalogue.md` is the design snapshot behind the dictionaries.
 - `docs/overkiz-notes.md`: Overkiz behaviour verified on real radiators (its « UNVERIFIED » section

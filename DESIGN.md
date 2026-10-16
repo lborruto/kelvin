@@ -63,9 +63,9 @@ spacing:
 # Design System: Kelvin « Tableau »
 
 The design reference for the web app. It describes the system as built by the Tableau foundation batch
-(spec `.superpowers/sdd/tableau/spec.md`, owner decisions in `progress.md`); the screen batches extend it.
+(the owner's Tableau spec and decisions of 2026-10-16); the screen batches extend it.
 Tokens live in `web/src/app.css` (pinned by `tokens.test.ts`); components in `web/src/lib/components/`; their
-props and examples for screen work in `.superpowers/sdd/tableau/kit-api.md`. Every component in its states is
+props below, examples in the component headers and in `src/routes/kit/Gallery.svelte`. Every component in its states is
 on the development-only gallery `/kit` (`npm run dev`, then `/kit`; a production build answers 404).
 
 ## Overview
@@ -209,7 +209,7 @@ Skeleton shimmer 1.4 s × 7, then stops. Reduced motion: nothing travels or scal
 
 ## Kit components
 
-Props and examples for each: `.superpowers/sdd/tableau/kit-api.md`. All strings come from the dictionaries
+Each component's props are typed and commented in its file. All strings come from the dictionaries
 (`m.*`); a component writes only its own words (`m.kit`, `m.now`, `m.common`, `m.stepper`).
 
 ### Buttons (`.btn` in app.css)

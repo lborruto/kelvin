@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// The Tableau tokens (spec .superpowers/sdd/tableau/spec.md §1): one dark theme. DESIGN.md « Tokens ».
+// The Tableau tokens (the Tableau spec, §1): one dark theme. DESIGN.md « Tokens ».
 const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8');
 
 function body(start: string): string {

@@ -1,7 +1,7 @@
 @import '@fontsource-variable/geist';
 @import '@fontsource/jetbrains-mono/400.css';
 
-/* Kelvin « Tableau » (spec .superpowers/sdd/tableau/spec.md §1): one dark theme, no light theme and no
+/* Kelvin « Tableau » (the Tableau spec, §1): one dark theme, no light theme and no
    colour-scheme media query. Surfaces step up bg → s1 → s2 → s3; popovers, menus, the Fiche and dialogs
    use --pop with the one shadow. DESIGN.md « Tokens » lists every role. */
 :root {
