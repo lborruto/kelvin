@@ -13,7 +13,7 @@ describe('AlertCallout', () => {
     const spy = vi.spyOn(alerts, 'dismiss');
     const a = render(AlertCallout, { alert: price });
     expect(screen.getByRole('status')).toHaveTextContent(/les prix changent le 1er février/);
-    expect(screen.getByRole('link', { name: 'Ajouter les prix' })).toHaveAttribute('href', '/home#tariff');
+    expect(screen.getByRole('link', { name: 'Ajouter les prix' })).toHaveAttribute('href', '/home/tariff');
     await fireEvent.click(screen.getByRole('button', { name: /^Masquer/ }));
     expect(spy).toHaveBeenCalledWith(3);
     a.unmount();

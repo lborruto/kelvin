@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { findLegacyPaths, isLegacyPathLine } from '../../scripts/check-paths.mjs';
-import { ANCHORS, canonical, isActive, LEGACY, LEGACY_HASH, NAV, ROUTES } from './paths';
+import { ANCHORS, canonical, homeAnchor, isActive, LEGACY, LEGACY_HASH, NAV, ROUTES } from './paths';
 
 describe('ROUTES', () => {
   it('English paths; a room id is encoded', () => {
@@ -14,6 +14,32 @@ describe('ROUTES', () => {
     expect(ROUTES.room('a/b c')).toBe('/rooms/a%2Fb%20c');
     expect(ANCHORS).toEqual({ away: 'away', tariff: 'tariff', linky: 'linky', quality: 'quality', curve: 'curve', alerts: 'alerts', sessions: 'sessions' });
     expect(NAV.map((n) => n.href)).toEqual(['/', '/schedule', '/energy', '/home']);
+  });
+});
+
+describe('Maison sub-pages (UX batch 8)', () => {
+  it('English sub-paths under /home', () => {
+    expect([ROUTES.devices, ROUTES.tariff, ROUTES.linky, ROUTES.sources, ROUTES.account]).toEqual([
+      '/home/devices', '/home/tariff', '/home/linky', '/home/sources', '/home/account'
+    ]);
+    for (const r of [ROUTES.tariff, ROUTES.linky, ROUTES.sources, ROUTES.account]) expect(isActive(r, ROUTES.home)).toBe(true);
+  });
+  it('the old Maison anchors reach their new place', () => {
+    expect(homeAnchor('#tariff')).toBe('/home/tariff');
+    expect(homeAnchor('#linky')).toBe('/home/linky');
+    expect(homeAnchor('#sessions')).toBe('/home/account#sessions');
+    expect(homeAnchor('#away')).toBe('away');
+    expect(homeAnchor('away')).toBe('away');
+    // #alerts stays on the overview; anything else is not an old section.
+    expect(homeAnchor('#alerts')).toBeNull();
+    expect(homeAnchor('')).toBeNull();
+    expect(homeAnchor('#constructor')).toBeNull();
+  });
+  it('a French bookmark lands on the new page in two steps (/maison#tarif → /home#tariff → /home/tariff)', () => {
+    const c = canonical('/maison', '#tarif'); // legacy-path-test
+    expect(c).toEqual({ pathname: '/home', hash: '#tariff' });
+    expect(homeAnchor(c!.hash)).toBe('/home/tariff');
+    expect(homeAnchor(canonical('/maison', '#absence')!.hash)).toBe('away'); // legacy-path-test
   });
 });
 

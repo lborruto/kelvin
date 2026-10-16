@@ -23,7 +23,7 @@ describe('alert texts', () => {
     applyLocale('fr');
     const p = alertText(a('price_change', { date: '2027-02-01' }, 'info'))!;
     expect(p.text).toBe(`Si votre offre suit le tarif réglementé, les prix changent le 1er février${NB}: ajoutez les nouveaux prix.`);
-    expect(p.link).toEqual({ href: '/home#tariff', label: 'Ajouter les prix' });
+    expect(p.link).toEqual({ href: '/home/tariff', label: 'Ajouter les prix' });
     const c = alertText(a('consent_expiring', { date: '2026-12-03', days: 20 }))!;
     expect(c.text).toBe(`Le consentement Enedis expire le 3 décembre${NB}: renouvelez-le sur MyElectricalData.`);
     expect(c.link?.href).toBe('https://www.myelectricaldata.fr/');
@@ -65,7 +65,7 @@ describe('alert texts', () => {
     expect(failed.text).not.toMatch(/p1/);
     const stalled = alertText(a('linky_stalled', { last_day: '2026-10-10', days: 4 }))!;
     expect(stalled.text).toBe(`Linky${NB}: pas de nouvelle donnée depuis le 10/10 (4${NB}jours).`);
-    expect(stalled.link).toEqual({ href: '/home#linky', label: 'Linky' });
+    expect(stalled.link).toEqual({ href: '/home/linky', label: 'Linky' });
     expect(alertText(a('a_future_kind', {}))).toBeNull();
   });
 
@@ -82,7 +82,7 @@ describe('alert texts', () => {
     );
     const hc = alertText(a('hc_changed', { slots: [{ start: '23:00', end: '07:00' }] }, 'info'))!;
     expect(hc.text).toBe(`Enedis indique de nouvelles heures creuses${NB}: 23:00–07:00.`);
-    expect(hc.link).toEqual({ href: '/home#tariff', label: 'Ajouter ces heures creuses' });
+    expect(hc.link).toEqual({ href: '/home/tariff', label: 'Ajouter ces heures creuses' });
     applyLocale('en');
     expect(alertText(a('tempo_red_tomorrow', { date: '2026-12-02' }))!.text).toBe('Tempo Red day tomorrow (2 December): peak hours are at the red price.');
     expect(alertText(a('ecowatt', { date: '2026-12-02', level: 2, hours: null }))!.text).toBe('EcoWatt orange on 2 December: the power grid is under strain.');

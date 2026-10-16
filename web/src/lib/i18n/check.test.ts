@@ -127,6 +127,8 @@ describe('frozenMessages', () => {
 
 /** Parents whose children are read by index (m.mode[mode]); a key under one counts as used. */
 export const DYNAMIC = [
+  // Maison › Tarif (UX batch 9): m.tariffSummary.options[row.option]
+  'tariffSummary.options',
   'devices.problem',
   'devices.detail',
   'devices.role',

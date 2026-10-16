@@ -104,7 +104,7 @@ test.describe('on the Atlantic house', () => {
     await page.goto('/home/devices');
     const block = page.getByRole('region', { name: 'Autres appareils' });
     await expect(block.getByText('Chauffe-eau').first()).toBeVisible();
-    await expect(block.getByText('Lecture seule', { exact: true })).toBeVisible();
+    await expect(block.getByText('Lecture seule', { exact: true }).first()).toBeVisible();
   });
 
   test('the schedule offers only rooms with an editable programme', async ({ page }) => {
@@ -114,8 +114,8 @@ test.describe('on the Atlantic house', () => {
     await expect(page.getByRole('radio', { name: 'Salle de bain' })).toHaveCount(0);
   });
 
-  test('Settings name the server', async ({ page }) => {
-    await page.goto('/home');
+  test('Compte names the server', async ({ page }) => {
+    await page.goto('/home/account');
     await expect(page.getByText('Atlantic Cozytouch')).toBeVisible();
   });
 

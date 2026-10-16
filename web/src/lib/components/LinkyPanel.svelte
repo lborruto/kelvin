@@ -8,8 +8,10 @@
   interface Props {
     status: LinkyStatus;
     onsaved: (s: LinkyStatus) => void;
+    /** The state lines above the form (false on the Linky page, which shows them as its Connexion panel). */
+    meta?: boolean;
   }
-  let { status, onsaved }: Props = $props();
+  let { status, onsaved, meta = true }: Props = $props();
 
   let prm = $state(untrack(() => status.prm ?? ''));
   let token = $state('');
@@ -69,13 +71,13 @@
 
 <div class="linky">
   <!-- The state and its facts read as one block. -->
-  <div class="meta">
+  {#if meta}<div class="meta">
     {#if line}<p class="state">{line}{#if status.state === 'ok' && status.last_ok_at}<span class="muted">&nbsp;· {m.linky.sync(fmtAgo(status.last_ok_at * 1000, now))}</span>{/if}</p>{/if}
     {#if problem}<p class="error" role="alert">{problem}</p>{/if}
     {#if status.simulator}<p class="muted small">{m.linky.simulator}</p>{/if}
     {#if status.consent_expires}<p class="muted small">{m.linky.consent(fmtDateLong(status.consent_expires))}</p>{/if}
     {#if status.configured}<p class="muted small">{m.linky.calls(status.calls_today, status.budget)}</p>{/if}
-  </div>
+  </div>{/if}
 
   <form onsubmit={save} novalidate>
     <div class="fields">

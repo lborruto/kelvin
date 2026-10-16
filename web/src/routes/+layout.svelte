@@ -6,6 +6,7 @@
   import { navigating, page } from '$app/state';
   import { setLoginRequiredHandler } from '$lib/api/client';
   import { loginHref } from '$lib/auth';
+  import AwaySheet from '$lib/components/AwaySheet.svelte';
   import Banner from '$lib/components/Banner.svelte';
   import ChartDefs from '$lib/components/ChartDefs.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
@@ -143,6 +144,8 @@
     </div>
   </div>
   <div class="tabs"><TabBar /></div>
+  <!-- The Absence sheet (UX batch 8): one instance, opened from wherever the user is. -->
+  <AwaySheet />
 {/if}
 <ChartDefs />
 <Toasts />

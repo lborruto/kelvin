@@ -21,9 +21,9 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Repos (level off) | Idle | The heater is not calling for heat. Not shown on rooms any more: only « En chauffe » / “Heating”, when true |
 | Consigne / Consigne active | Setpoint / Current setpoint | Controls. The card and panel caption « consigne 21,0 °C » is “target 21.0 °C” |
 | Chauffe temporaire | Boost | Replaces « Forcer temporairement » in the UI (the API stays `boost`): « Chauffer à 22 °C pendant 2 h » → “Heat to 22 °C for 2 h”, « Lancer » / « Arrêter » → “Start” / “Stop”, « Puis retour au programme vers 21:45. » → “Then back to the schedule at about 21:45.” |
-| Absence | Away | « Activer l’absence » → “Start away mode”; « Absence en cours » → “Away mode on” |
+| Absence | Away | The state. « Partir en absence » (sheet title) and its button « Partir » → “Go away”; « Absence en cours » → “Away mode on”; « Prolonger… » → “Extend…”; « Terminer maintenant » → “End now”; « Annuler l’absence » → “Cancel away”; sidebar « Absence · dim. 18:00 » → “Away · Sun 18:00” |
 | Rétablissement… | Restoring… | |
-| En cours (Maison) | Active | |
+| En ce moment (Maison) | Right now | The overview's live section; « Tout suit son réglage habituel. » → “Everything follows its usual settings.” (« Aucun forçage ni absence » left the UI) |
 | Tout éteindre | Turn everything off | |
 | Tout remettre en programme | Put everything back on schedule | |
 | Heures creuses / HC | Off-peak | Never “HC”, even in compact places |
@@ -57,7 +57,13 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Depuis l’installation | Since installation | |
 | Maison (nav, page) | Home | Page at `/home` |
 | Toute la maison | Whole home | |
-| Réglages | Settings | |
+| Réglages | Settings | Left Maison in UX batch 8: the overview has « Affichage » → “Display” (theme, language, technical details); account and server are « Compte » → “Account” |
+| Sources de données | Data sources | Maison › Sources de données (Cozytouch, Linky, RTE EcoWatt, Tempo) |
+| Nouveau prix… | New price… | Tarif: opens the editor |
+| Tarif en vigueur | Current tariff | « Corriger le tarif en vigueur » → “Correct the current tariff”; « Heures creuses / pleines » (option) → “Peak / off-peak” |
+| Afficher / Masquer (PDL) | Show / Hide | « Modifier la connexion » → “Change connection” |
+| Box Cozytouch / Pont radio (io-homecontrol) / Wi-Fi de la box | Cozytouch box / Radio bridge (io-homecontrol) / Box Wi-Fi | Pièces et appareils: plain names; Pod, IOStack, Wifi only in the raw details |
+| Voir les appareils (6) / Faire clignoter | Show devices (6) / Make it blink | Radiator « ⋯ » menu; « Actions pour … » → “Actions for …” |
 | Thème : Système / Sombre / Clair | Theme: System / Dark / Light | |
 | Langue | Language | Options never translated: « Français », “English” |
 | Compte | Account | |

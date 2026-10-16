@@ -7,7 +7,6 @@
   import { ALL_MONTHS, DEFAULT_TEMPO_HOURS, OPTIONS, RATE_KEYS, buildDocument, inForce, monthsProblem, withSchedule } from '$lib/tariff';
   import HcScheduleEditor from './HcScheduleEditor.svelte';
   import PriceFields from './PriceFields.svelte';
-  import PriceHistory from './PriceHistory.svelte';
   import Segmented from './Segmented.svelte';
 
   const KVA = [3, 6, 9, 12, 15, 18, 24, 30, 36];
@@ -17,8 +16,19 @@
     onsaved: (s: SettingsView) => void;
     /** Off-peak hours Enedis now lists (the `hc_changed` alert's slots); null when none. */
     contractSlots?: Slot[] | null;
+    /** `new`: a new dated price (« Nouveau prix… », from today); `fix`: corrects the row in force, its date
+     * locked to that row's start (« Corriger le tarif en vigueur »). */
+    mode?: 'new' | 'fix';
+    /** « Annuler »: the editor closes without saving (absent when there is no tariff to go back to). */
+    oncancel?: (() => void) | null;
+    /** Focus the first field (the date) when the editor opens. */
+    autofocus?: boolean;
   }
-  let { settings, onsaved, contractSlots = null }: Props = $props();
+  let { settings, onsaved, contractSlots = null, mode = 'new', oncancel = null, autofocus = false }: Props = $props();
+  let dateField = $state<HTMLInputElement>();
+  $effect(() => {
+    if (autofocus) dateField?.focus();
+  });
 
   const dec = (v: number | null | undefined) => (v == null ? '' : locale.current === 'en' ? String(v) : String(v).replace('.', ','));
   // The fields start from the row and the off-peak hours in force today, else the Enedis contract.
@@ -30,6 +40,9 @@
     const prefill = settings.prefill?.hc_slots?.length ? settings.prefill.hc_slots : null;
     return {
       today,
+      // A correction keeps the dates of what it corrects: the row's, and the off-peak hours' in force.
+      from: mode === 'fix' && row ? row.valid_from : today,
+      hcFrom: mode === 'fix' && sched ? sched.valid_from : today,
       option: (row?.option ?? 'hchp') as TariffOption,
       kva: t?.kva ?? settings.prefill?.kva ?? 6,
       sub: dec(row?.subscription_eur_month),
@@ -44,8 +57,9 @@
   let kva = $state(init.kva);
   let sub = $state(init.sub);
   let rates = $state<Record<string, string>>(init.rates);
-  let validFrom = $state(init.today);
-  let hcFrom = $state(init.today);
+  let validFrom = $state(init.from);
+  let hcFrom = $state(init.hcFrom);
+  const locked = untrack(() => mode === 'fix' && !!settings.tariff);
   let variants = $state(init.variants);
   let seasonal = $state(init.variants.length > 1);
   let tempoStart = $state(init.tempo.hc_start);
@@ -156,6 +170,13 @@
   {#if !settings.tariff && settings.prefill}
     <p class="muted note">{m.tariff.prefill(String(settings.prefill.kva ?? '—'), settings.prefill.hc_slots.map((x) => `${x.start}–${x.end}`).join(', '))}</p>
   {/if}
+  <!-- The date first (direction-2 §3): from when this price applies; a correction keeps the row's own date. -->
+  <label class="field">
+    <span>{m.tariff.validFrom}</span>
+    <input class="w-date" type="date" bind:this={dateField} bind:value={validFrom} readonly={locked} aria-readonly={locked}
+      aria-describedby={locked ? 'tariff-fix-note' : undefined} />
+  </label>
+  {#if locked}<p class="muted note" id="tariff-fix-note">{m.tariff.fixNote(fmtDateLong(validFrom))}</p>{/if}
   <div class="options">
     <Segmented options={OPTIONS.map((o) => ({ value: o, label: m.tariff.options[o] }))} value={option} label={m.tariff.option}
       onchange={(v) => { option = v; saved = false; }} />
@@ -165,7 +186,6 @@
       <span>{m.tariff.kva}</span>
       <select class="w-kva" bind:value={kva}>{#each kvaOptions as k (k)}<option value={k}>{m.tariff.kvaValue(k)}</option>{/each}</select>
     </label>
-    <label class="field"><span>{m.tariff.validFrom}</span><input type="date" bind:value={validFrom} /></label>
     <label class="field"><span>{m.tariff.subscription}</span><input class="w-price" inputmode="decimal" autocomplete="off" bind:value={sub} /></label>
   </div>
 
@@ -198,16 +218,19 @@
           </div>
         </div>
       {/if}
-      <label class="field"><span>{m.tariff.hcValidFrom}</span><input type="date" bind:value={hcFrom} /></label>
+      <label class="field"><span>{m.tariff.hcValidFrom}</span><input type="date" bind:value={hcFrom} readonly={locked} aria-readonly={locked}
+          aria-describedby={locked ? 'tariff-fix-hc-note' : undefined} /></label>
+      {#if locked}<p class="muted note" id="tariff-fix-hc-note">{m.tariff.fixNote(fmtDateLong(hcFrom))}</p>{/if}
       <HcScheduleEditor bind:variants bind:seasonal />
     </fieldset>
   {/if}
 
   {#if error}<p class="error" role="alert">{error()}</p>{/if}
   {#if saved}<p class="ok" role="status">{m.tariff.saved}</p>{/if}
-  <button type="submit" class="btn btn-primary save" aria-disabled={busy}>{busy ? m.tariff.saving : m.tariff.save}</button>
-
-  {#if settings.tariff}<PriceHistory tariff={settings.tariff} />{/if}
+  <div class="buttons">
+    <button type="submit" class="btn btn-primary" aria-disabled={busy}>{busy ? m.tariff.saving : m.tariff.save}</button>
+    {#if oncancel}<button type="button" class="btn btn-ghost" onclick={() => oncancel?.()}>{m.common.cancel}</button>{/if}
+  </div>
 </form>
 
 <style>
@@ -250,8 +273,13 @@
     padding: 0;
     margin-bottom: 8px;
   }
-  .save {
-    justify-self: start;
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  input[readonly] {
+    color: var(--mu);
   }
   .error {
     color: var(--bad);

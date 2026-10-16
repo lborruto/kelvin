@@ -12,6 +12,10 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
  * a list, an object. A task that adds such a message adds its line here. */
 export const ARGS: Record<string, unknown[]> = {
   'energyUi.linkyCallsValue': [2, 10],
+  'away.offline': [['Chambre 2'], 1],
+  'devices.syncAt': ['14:10'],
+  'home.everyRoomBut': [['Chambre 2']],
+  'home.cardDevices': [2, 3],
   'devices.done': ['Salon'],
   'devices.lastSignal': ['12:10'],
   'devices.detailsOf': ['Hekla'],
@@ -96,6 +100,7 @@ export const ARGS: Record<string, unknown[]> = {
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
 export const SAME = new Set<string>([
   'energyUi.keyName', 'energyUi.barView', 'energyUi.roomKwhName',
+  'account.email', 'devices.syncAt', 'tariffSummary.option', 'tariffSummary.options.base', 'tariffSummary.options.tempo', 'tariffSummary.unit',
   'devices.watts', 'devices.detail.version', 'devices.detail.rssi', 'devices.role.wifi',
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
@@ -210,6 +215,9 @@ describe('English messages take the same parameters as French', () => {
  * slip through: short forms that are English words or names, a bare figure. Kept small on purpose. */
 const SCANNER_BLIND = new Set([
   'energyUi.ecowatt', 'energyUi.analysis', 'energyUi.qualityMeta',
+  // Maison (UX batch 8): short French words the scanner reads as neutral.
+  'tariff.historyMeta', 'linky.show', 'linky.hide',
+  'away.extendGo', 'away.extend', 'away.endNow', 'home.stateAlerts', 'home.now', 'home.end', 'home.cardSourcesLate', 'home.display',
   'devices.detail.voltage', 'devices.detail.wifi', 'devices.role.box',
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
   'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',

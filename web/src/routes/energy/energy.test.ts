@@ -860,7 +860,7 @@ describe('Énergie', () => {
   it('the Projection says it is late when Linky is', async () => {
     vi.mocked(api.energyReport).mockResolvedValue(report({ projection: null, last_day: '2026-10-01' }));
     render(Page);
-    expect(await screen.findByText(/^Relevés Linky en retard \(dernier jour le 1 octobre 2026\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/^Relevés Linky en retard \(dernier jour le 1er octobre 2026\)/)).toBeInTheDocument();
   });
 
   it('Qualité des données is collapsed, last; the header menu exports the period shown, the Courbe’s day and the rooms', async () => {

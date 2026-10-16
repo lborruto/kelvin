@@ -76,7 +76,7 @@ describe('QualityPanel', () => {
     const { container } = render(QualityPanel, { buckets, group: 'day', quality });
     const t = container.textContent!.replace(/\s+/g, ' ');
     expect(t).toContain('Courbe disponible depuis le 15 janvier 2026');
-    expect(t).toContain('Radiateurs enregistrés depuis le 1 septembre 2026');
+    expect(t).toContain('Radiateurs enregistrés depuis le 1er septembre 2026');
     expect(t).toContain('Jours HC/HP estimés : 3 (part de repli 36,2 %, méthode : ±15 jours)');
     expect(t).toContain('Écart moyen courbe / relevé : 1,4 %');
     expect(t).toContain('Prix du premier tarif appliqué à 6 jours antérieurs');

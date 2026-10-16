@@ -10,8 +10,10 @@
     busy?: boolean;
     /** May return the write's promise: the trigger waits for it. */
     onmove: (roomId: string) => unknown;
+    /** Its own trigger button; false when a Menu opens it (`open()`). */
+    button?: boolean;
   }
-  let { radiator, rooms, busy = false, onmove }: Props = $props();
+  let { radiator, rooms, busy = false, onmove, button = true }: Props = $props();
   let dialog = $state<HTMLDialogElement>();
   let choice = $state<string | null>(null);
   // Never the house itself (decision 9), never where it already is.
@@ -21,7 +23,7 @@
   let closing = $state(false);
   let paused = $derived(busy || submitting || targets.length === 0);
 
-  function open(): void {
+  export function open(): void {
     if (paused) return;
     choice = null;
     closing = false;
@@ -41,7 +43,7 @@
   }
 </script>
 
-<button type="button" class="btn btn-sm" aria-disabled={paused} onclick={open}>{m.devices.moveTo}</button>
+{#if button}<button type="button" class="btn btn-sm" aria-disabled={paused} onclick={open}>{m.devices.moveTo}</button>{/if}
 
 <Sheet bind:dialog title={m.devices.moveTitle(radiatorName(radiator))} description={m.devices.moveBody}>
   <fieldset>

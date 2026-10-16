@@ -42,6 +42,13 @@ test.afterAll(async ({ request }) => {
   }
 });
 
+/** Maison › Tarif shows the tariff in force; « Nouveau prix… » opens the editor (no tariff yet: the editor is the page). */
+async function openTariffEditor(page: Page) {
+  const fresh = page.getByRole('button', { name: 'Nouveau prix…' });
+  await expect(fresh.or(page.getByRole('button', { name: 'Enregistrer le tarif' }))).toBeVisible();
+  if (await fresh.isVisible()) await fresh.click();
+}
+
 test('an HC/HP home sees EcoWatt and no Tempo colour', async ({ page }) => {
   await page.goto('/');
   await expect(strip(page)).toContainText('EcoWatt orange demain');
@@ -52,8 +59,9 @@ test('an HC/HP home sees EcoWatt and no Tempo colour', async ({ page }) => {
   await expect(page.getByRole('list', { name: 'Signaux du réseau électrique' })).toContainText('EcoWatt orange demain');
   await page.goto('/home');
   await expect(page.getByText(/EcoWatt orange le .*système électrique tendu/)).toBeVisible();
-  await expect(page.getByText('EcoWatt (RTE)')).toBeVisible();
-  await expect(page.getByText('Tempo (RTE)')).toHaveCount(0);
+  await page.goto('/home/sources');
+  await expect(page.getByText(/^(RTE EcoWatt|EcoWatt \(RTE\))$/).first()).toBeVisible();
+  await expect(page.getByText(/^Tempo( \(RTE\))?$/)).toHaveCount(0);
 });
 
 test('switching to Tempo: six prices prefilled with their source, then the day colours everywhere', async ({ page, request }) => {
@@ -64,8 +72,9 @@ test('switching to Tempo: six prices prefilled with their source, then the day c
     headers: H,
     data: { tariff: asDoc(t, t.prices.filter((p) => p.valid_from < daysAgo(30))) }
   });
-  await page.goto('/home#tariff');
-  const form = page.locator('#tariff');
+  await page.goto('/home/tariff');
+  const form = page.locator('main');
+  await openTariffEditor(page);
   await form.getByRole('radio', { name: 'Tempo' }).click();
   await form.getByRole('button', { name: 'Préremplir avec les prix Tempo publiés' }).click();
   await expect(form.getByText(/relevés via MyElectricalData le/)).toBeVisible();
@@ -88,8 +97,9 @@ test('switching to Tempo: six prices prefilled with their source, then the day c
 });
 
 test('seasonal off-peak hours: a month left out is named and nothing is sent', async ({ page }) => {
-  await page.goto('/home#tariff');
-  const form = page.locator('#tariff');
+  await page.goto('/home/tariff');
+  const form = page.locator('main');
+  await openTariffEditor(page);
   await form.getByRole('radio', { name: 'HC/HP' }).click();
   await form.getByLabel('Prix heures creuses (€/kWh)').fill('0,2068'); // the Tempo row in force has no HC/HP prices
   await form.getByLabel('Prix heures pleines (€/kWh)').fill('0,27');
@@ -109,8 +119,9 @@ test('seasonal off-peak hours: a month left out is named and nothing is sent', a
 test('phone and desktop widths never scroll sideways with the Tempo form open', async ({ page }) => {
   for (const width of [320, 390, 1024]) {
     await page.setViewportSize({ width, height: 800 });
-    await page.goto('/home#tariff');
-    await page.locator('#tariff').getByRole('radio', { name: 'Tempo' }).click();
+    await page.goto('/home/tariff');
+    await openTariffEditor(page);
+    await page.locator('main').getByRole('radio', { name: 'Tempo' }).click();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `width ${width}`).toBeLessThanOrEqual(0);
     await page.goto('/');

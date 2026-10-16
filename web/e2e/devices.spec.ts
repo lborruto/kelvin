@@ -1,9 +1,18 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
 
 // The simulator applies a setup write 2 s after it is sent; the pump confirms it on its next poll.
 const WAIT = { timeout: 15_000 };
+
+/** Every room and radiator action goes through its « ⋯ » menu (UX batch 10): the room's « Actions pour <room> »,
+ * a radiator's « Actions pour <name> (<model>) ». */
+async function act(page: Page, scope: Locator, menu: RegExp, item: string) {
+  await scope.getByRole('button', { name: menu }).first().click();
+  await page.getByRole('menuitem', { name: item }).click();
+}
+const RADIATOR = /^Actions pour .+\(/;
+const ROOM = (name: string) => new RegExp(`^Actions pour ${name}$`);
 
 test('rooms: create → move a radiator → Pièces updates → move back → delete the empty room', async ({ page }) => {
   // Pièces: every card is a link to its room (kelvin.spec.ts).
@@ -18,7 +27,7 @@ test('rooms: create → move a radiator → Pièces updates → move back → de
   await page.getByRole('button', { name: 'Créer' }).click();
   await expect(room('Bureau e2e')).toContainText('Pièce vide', WAIT);
 
-  await room('Chambre 1').getByRole('button', { name: 'Déplacer vers…' }).click();
+  await act(page, room('Chambre 1'), RADIATOR, 'Déplacer vers…');
   await dialog.getByRole('radio', { name: 'Bureau e2e' }).check();
   await dialog.getByRole('button', { name: 'Déplacer', exact: true }).click();
   await expect(room('Bureau e2e')).toContainText('1 radiateur', WAIT);
@@ -30,12 +39,12 @@ test('rooms: create → move a radiator → Pièces updates → move back → de
 
   // Put the radiator back: the other specs share this simulator.
   await page.goto('/home/devices');
-  await room('Bureau e2e').getByRole('button', { name: 'Déplacer vers…' }).click();
+  await act(page, room('Bureau e2e'), RADIATOR, 'Déplacer vers…');
   await dialog.getByRole('radio', { name: 'Chambre 1' }).check();
   await dialog.getByRole('button', { name: 'Déplacer', exact: true }).click();
   await expect(room('Bureau e2e')).toContainText('Pièce vide', WAIT);
 
-  await room('Bureau e2e').getByRole('button', { name: 'Supprimer la pièce' }).click();
+  await act(page, room('Bureau e2e'), ROOM('Bureau e2e'), 'Supprimer la pièce');
   await expect(dialog.getByRole('button', { name: 'Annuler' })).toBeFocused();
   await dialog.getByRole('button', { name: 'Supprimer la pièce' }).click();
   await expect(page.getByRole('heading', { name: 'Bureau e2e', exact: true })).toHaveCount(0, WAIT);
@@ -55,7 +64,7 @@ test('undo: a deleted room comes back once, with its name, and the undo offers n
   // Close the create's own « Annuler » toast: only the delete's undo is under test.
   for (const close of await page.locator('.toast').getByRole('button', { name: 'Fermer' }).all()) await close.click();
 
-  await room.getByRole('button', { name: 'Supprimer la pièce' }).click();
+  await act(page, room, ROOM('Annulation e2e'), 'Supprimer la pièce');
   await dialog.getByRole('button', { name: 'Supprimer la pièce' }).click();
   await expect(heading).toHaveCount(0, WAIT);
 
@@ -67,7 +76,7 @@ test('undo: a deleted room comes back once, with its name, and the undo offers n
   await expect(heading).toHaveCount(1); // never a duplicate
 
   // Leave the simulator as the other specs expect it.
-  await room.getByRole('button', { name: 'Supprimer la pièce' }).click();
+  await act(page, room, ROOM('Annulation e2e'), 'Supprimer la pièce');
   await dialog.getByRole('button', { name: 'Supprimer la pièce' }).click();
   await expect(heading).toHaveCount(0, WAIT);
 });
@@ -83,4 +92,22 @@ test('/auth/me unreachable: an error with « Réessayer », and the retry brings
   await alert.getByRole('button', { name: 'Réessayer' }).click();
   await expect(page.getByRole('heading', { name: 'Salon', exact: true })).toBeVisible(WAIT);
   await expect(alert).toHaveCount(0);
+});
+
+test('a full room cannot be deleted: its menu says why; plain names for the box and the bridge', async ({ page }) => {
+  await page.goto('/home/devices');
+  const salon = page.locator('section', { has: page.getByRole('heading', { name: 'Salon', exact: true }) });
+  await salon.getByRole('button', { name: ROOM('Salon') }).click();
+  const del = page.getByRole('menuitem', { name: /Supprimer la pièce/ });
+  await expect(del).toHaveAttribute('aria-disabled', 'true');
+  await expect(del).toContainText('Videz d’abord la pièce');
+  await page.keyboard.press('Escape');
+  await expect(salon.getByRole('button', { name: ROOM('Salon') })).toBeFocused();
+  // Each radiator says its model, power and state; its devices are one menu item away.
+  await expect(salon.getByText(/ · \d[\d\s]*\sW · (Joignable|Hors ligne)/).first()).toBeVisible();
+  await expect(salon.getByText(/Deux radiateurs portent le même nom/)).toBeVisible(); // the simulator's two « Radiateur »
+  await act(page, salon, RADIATOR, 'Voir les appareils (6)');
+  await expect(salon.getByText('Sonde de température').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Box Cozytouch/ })).toBeVisible();
+  await expect(page.getByText('IOStack')).toBeHidden();
 });
