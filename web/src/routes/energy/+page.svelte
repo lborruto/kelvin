@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { api } from '$lib/api/client';
   import type { LinkyStatus } from '$lib/api/types';
   import AlertCallout from '$lib/components/AlertCallout.svelte';
@@ -226,6 +226,19 @@
     if (id === ENERGY_ANCHORS.where) whereOpen = true;
     else if (id === ANCHORS.curve && loaded?.view === 'month') curveOpen = true;
   }
+
+  // Arriving with a section's hash (the room sheet's « Énergie de la pièce » → #energy-where, Maison's month-end
+  // estimate → #projection): once the first report is drawn, the section opens, then the page scrolls to it.
+  const LANDING: string[] = [ENERGY_ANCHORS.where, ENERGY_ANCHORS.offpeak, ENERGY_ANCHORS.projection, ANCHORS.curve];
+  let landed = false;
+  $effect(() => {
+    if (landed || !loaded) return;
+    landed = true;
+    const id = location.hash.slice(1);
+    if (!LANDING.includes(id)) return;
+    untrack(() => reveal(id));
+    void tick().then(() => document.getElementById(id)?.scrollIntoView?.({ block: 'start', behavior: 'auto' }));
+  });
 
   // Analyse: Comparaisons and Projection (and Heures creuses / pleines when the Tempo rows took its place in the board).
   let cards = $derived(!loaded || !loaded.main.linky ? 0 : tempoLens ? 3 : 2);

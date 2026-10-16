@@ -7,7 +7,7 @@
   import { fmtEurExact, fmtEurHero, fmtKwhExact, fmtKwhHero, monthTitle, monthWord } from '$lib/format';
   import { m } from '$lib/i18n';
   import { monthSpan } from '$lib/dashboard';
-  import { ROUTES } from '$lib/paths';
+  import { ENERGY_ANCHORS, ROUTES } from '$lib/paths';
   import { provenance } from '$lib/provenance';
   import Fig from '../Fig.svelte';
   import Widget from '../Widget.svelte';
@@ -47,7 +47,7 @@
 <Widget {title} aside={compact || !priced ? undefined : m.maison.billSub} {span} pad={compact ? 'sm' : 'md'} class="bill">
   <div class="fig-row">
     <span class="big num" class:compact><Fig value={figure} {title} {rows} provenance={prov} /></span>
-    {#if end && !compact}<a class="end muted" href={ROUTES.energy}>{m.maison.billEnd(end)} <span class="note">{m.fiche.est}</span></a>{/if}
+    {#if end && !compact}<a class="end muted" href="{ROUTES.energy}#{ENERGY_ANCHORS.projection}">{m.maison.billEnd(end)} <span class="note">{m.fiche.est}</span></a>{/if}
   </div>
   {#if end && compact}<p class="note end-c">{m.maison.billEnd(end)} {m.fiche.est}</p>{/if}
   <div class="bar" role="img" aria-label={m.maison.billProgress(s.day, s.days)}><i style:width="{pct}%"></i></div>

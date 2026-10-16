@@ -828,6 +828,18 @@ describe('Énergie', () => {
     for (const b of container.querySelectorAll('.panels .dbtn')) if (!b.closest('#curve, #quality')) expect(b).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('arriving at #energy-where (the room sheet’s « Énergie de la pièce ») opens the rooms once the report is drawn', async () => {
+    history.replaceState(null, '', '/energy#energy-where');
+    try {
+      const { container } = render(Page);
+      await screen.findByRole('heading', { level: 2, name: 'Analyse' });
+      await tick();
+      expect(container.querySelector('.where-wrap')).not.toHaveAttribute('hidden');
+    } finally {
+      history.replaceState(null, '', '/energy');
+    }
+  });
+
   it('Tempo in force: the six Tempo rows take the split’s place (adding up to the energy €), dots under the day bars', async () => {
     const tempo_lens = {
       rows: [
