@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   fmtAgo, fmtAmount, fmtDateLong, fmtDay, fmtDelta, fmtKwh, fmtPct, fmtPrice, fmtTemp, fmtTime, fmtWh,
-  monthName, monthYear, parseDecimal
+  fmtDayShort, monthName, monthYear, parseDecimal, premier
 } from './format';
+import { applyLocale } from '$lib/i18n';
 
 const NB = ' ';
 
@@ -310,7 +311,6 @@ describe('French output is unchanged (snapshot of Plan 6)', () => {
   });
 });
 
-import { applyLocale } from '$lib/i18n';
 
 describe('format in English (en-GB)', () => {
   beforeEach(() => applyLocale('en'));
@@ -435,5 +435,20 @@ describe('parseDecimal: separators', () => {
     expect(parseDecimal('1,234,5.6')).toBeNull();
     expect(parseDecimal('1.234,567.8')).toBeNull();
     expect(parseDecimal(',5.0')).toBeNull();
+  });
+});
+
+describe('the first of the month in French (« 1er »)', () => {
+  it('fmtDateLong, fmtDayShort and fmtDateTime write « 1er » in French only', () => {
+    applyLocale('fr');
+    expect(fmtDateLong('2000-01-01')).toBe('1er janvier 2000');
+    expect(fmtDateLong('2026-10-11')).toBe('11 octobre 2026');
+    expect(fmtDateLong('2026-10-21')).toBe('21 octobre 2026');
+    expect(fmtDayShort(Date.UTC(2026, 10, 1, 12))).toBe('1er nov.');
+    expect(fmtDateTime(Date.UTC(2026, 10, 1, 17))).toMatch(/^dim\. 1er nov\.,? 18:00$/);
+    expect(premier('11 h')).toBe('11 h');
+    applyLocale('en');
+    expect(fmtDateLong('2000-01-01')).toBe('1 January 2000');
+    applyLocale('fr');
   });
 });

@@ -776,6 +776,7 @@ export const en: Messages = {
     go: 'Go away',
     extendGo: 'Extend',
     waiting: 'Waiting for the connection to Kelvin.',
+    busy: 'A command for the whole home is already on its way.',
     started: (t: string) => `Away until ${t}.`,
     undo: 'Cancel away',
     active: (t: string, temp: string) => `Away until ${t} · ${temp}`,

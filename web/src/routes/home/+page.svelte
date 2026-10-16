@@ -3,7 +3,7 @@
      state and leads to its page (Pièces et appareils, Tarif, Linky, Sources de données, Compte), and the
      Affichage card set in place. The old section anchors land on their new place (`homeAnchor`). -->
 <script lang="ts">
-  import { afterNavigate, goto } from '$app/navigation';
+  import { afterNavigate, goto, replaceState } from '$app/navigation';
   import { run } from '$lib/actions';
   import { api } from '$lib/api/client';
   import type { LinkyStatus, SessionInfo, SettingsView, Sources } from '$lib/api/types';
@@ -43,7 +43,7 @@
     const target = homeAnchor(hash);
     if (!target) return;
     if (target === 'away') {
-      history.replaceState(history.state, '', ROUTES.home);
+      replaceState(ROUTES.home, {});
       awaySheet.show();
       return;
     }
@@ -143,6 +143,7 @@
 <svelte:head><title>{m.page.title(m.nav.home)}</title></svelte:head>
 
 {#if !leaving}
+<div class="head">
 <PageHeader title={m.nav.home}>
   {#snippet actions()}
     {#if desktop.matches}
@@ -155,6 +156,7 @@
     {#if ready}<p class="state">{stateText}</p>{:else}<p class="state"><span class="skeleton line-sk" aria-hidden="true"></span></p>{/if}
   {/snippet}
 </PageHeader>
+</div>
 
 {#if !ready}
   <div class="page" aria-busy="true">
@@ -266,6 +268,10 @@
 {/if}
 
 <style>
+  /* The header (and « Partir en absence… ») ends where the content column does. */
+  .head {
+    max-width: 1080px;
+  }
   .page {
     display: grid;
     gap: 14px;

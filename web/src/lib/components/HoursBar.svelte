@@ -1,5 +1,5 @@
 <!-- Off-peak hours on a 24 h bar (direction-2 §3 « /home/tariff », DESIGN « HoursBar »): tariff, not heat, so
-     never warm. The off-peak blocks are `--hc` with the hatch, the rest of the day a 35 % `--hp` wash: the two
+     never warm. The off-peak blocks are `--hc` with the hatch, the rest of the day solid `--hp`: the two
      tariff blues the Énergie charts and the form swatches speak. A slot past midnight is drawn as its two
      halves. The words (« 22:00–06:00 ») are always written beside it by the caller; the bar is an image
      named by the same words. -->
@@ -42,8 +42,7 @@
     height: 16px;
     border-radius: 4px;
     overflow: hidden;
-    background: color-mix(in srgb, var(--hp) 35%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hp) 55%, transparent);
+    background: var(--hp);
   }
   .compact .bar {
     height: 10px;

@@ -806,6 +806,7 @@ export const fr = {
     go: 'Partir',
     extendGo: 'Prolonger',
     waiting: 'En attente de la connexion à Kelvin.',
+    busy: 'Une commande pour toute la maison est déjà en cours.',
     started: (t: string) => `Absence jusqu’à ${t}.`,
     undo: 'Annuler l’absence',
     active: (t: string, temp: string) => `Absence jusqu’à ${t} · ${temp}`,

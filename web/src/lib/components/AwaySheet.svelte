@@ -65,7 +65,10 @@
   let offline = $derived(rooms.filter((r) => house.roomRadiators(r.id).filter(takes).every((x) => x.reachable === false)));
   let consequence = $derived(until === null ? null : rooms.length ? m.away.consequence(rooms.length, fmtTemp(temp), fmtDateTime(until)) : m.away.noRoom);
   let offlineLine = $derived(offline.length && rooms.length ? m.away.offline(offline.map((r) => roomName(r)), offline.length) : null);
-  let blocked = $derived(sending || !house.online || !rooms.length);
+  // Another house-wide command on its way (« Tout éteindre », « Tout remettre en programme »): one at a time.
+  let houseBusy = $derived(house.houseCommand?.status === 'sending' || house.houseCommand?.status === 'pending');
+  let why = $derived(!house.online ? m.away.waiting : houseBusy ? m.away.busy : null);
+  let blocked = $derived(sending || !!why || !rooms.length);
 
   function choose(p: AwayPreset) {
     preset = p;
@@ -82,20 +85,38 @@
     error = null;
     sending = true;
     const end = until;
+    const toastsBefore = toasts.items.length;
     try {
       const p = await runHouse(() => api.houseAway(parisLocal(end), temp));
-      if (!p) return; // the error is already a toast; the sheet stays open with the choice
+      if (!p) {
+        // An error is already a toast; no toast means another house command was still on its way.
+        if (toasts.items.length === toastsBefore) error = () => m.away.busy;
+        return; // the sheet stays open with the choice
+      }
       awaySheet.close();
+      undoWanted = false;
       toasts.push(() => m.away.started(fmtDateTime(end)), 'info', undefined, { label: () => m.away.undo, run: undo });
     } finally {
       sending = false;
     }
   }
 
+  // « Annuler l’absence » works at once: the override may not be known yet (it comes with the stream), so the
+  // wish is kept and carried out as soon as it arrives (within a minute).
+  let undoWanted = $state(false);
+  let undoTimer: ReturnType<typeof setTimeout> | undefined;
   function undo() {
-    const o = house.away;
-    if (o) void run(() => api.cancelOverride(o.id));
+    undoWanted = true;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => (undoWanted = false), 60_000);
   }
+  $effect(() => {
+    const o = house.away;
+    if (!undoWanted || !o) return;
+    undoWanted = false;
+    clearTimeout(undoTimer);
+    void run(() => api.cancelOverride(o.id));
+  });
 
   function endNow() {
     const o = house.away;
@@ -142,8 +163,8 @@
       {#if error}<p class="error" role="alert">{error()}</p>{/if}
       <div class="stack">
         <button type="button" class="btn btn-primary btn-lg" aria-disabled={blocked}
-          aria-describedby={!house.online ? `${uid}-why` : undefined} onclick={go}>{extending ? m.away.extendGo : m.away.go}</button>
-        {#if !house.online}<p class="muted why" id="{uid}-why">{m.away.waiting}</p>{/if}
+          aria-describedby={why ? `${uid}-why` : undefined} onclick={go}>{extending ? m.away.extendGo : m.away.go}</button>
+        {#if why}<p class="muted why" id="{uid}-why">{why}</p>{/if}
         <button type="button" class="btn btn-ghost btn-lg" onclick={() => (extending ? (extending = false) : awaySheet.close())}>{m.common.cancel}</button>
       </div>
     {/if}

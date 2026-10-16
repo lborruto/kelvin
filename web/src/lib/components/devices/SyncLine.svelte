@@ -68,7 +68,7 @@
   </p>
   <div class="act">
     <button type="button" class="btn btn-sm btn-ghost" aria-disabled={paused}
-      aria-describedby={info.nextPossibleMs !== null ? `${uid}-spent` : undefined} onclick={syncNow}>
+      aria-describedby={info.nextPossibleMs !== null && !running ? `${uid}-spent` : undefined} onclick={syncNow}>
       <span class="glyph" class:spin={running}><Icon name="sync" size={16} /></span>{running ? m.devices.syncing : m.devices.sync}
     </button>
     {#if info.nextPossibleMs !== null && !running}<span class="when" id="{uid}-spent">{m.devices.syncAt(whenText(info.nextPossibleMs, now))}</span>{/if}

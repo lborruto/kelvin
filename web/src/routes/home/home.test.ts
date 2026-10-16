@@ -46,6 +46,7 @@ vi.mock('$lib/api/client', () => ({
 let navigated: ((nav: { to: { url: URL } | null }) => void) | null = null;
 vi.mock('$app/navigation', () => ({
   goto: vi.fn(),
+  replaceState: vi.fn((url: string) => history.replaceState(null, '', url)),
   afterNavigate: (cb: (nav: { to: { url: URL } | null }) => void) => {
     navigated = cb;
     cb({ to: { url: new URL(location.href) } });

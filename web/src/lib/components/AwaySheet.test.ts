@@ -137,7 +137,27 @@ describe('AwaySheet send', () => {
     expect(toast.action?.label()).toBe('Annuler l’absence');
     snapshot(undefined, [{ id: 'o9', kind: 'away', room_id: null, radiator_ids: ['a'], temperature: 12, ends_at: 2e9, restoring: false }]);
     toast.action!.run();
-    expect(api.cancelOverride).toHaveBeenCalledWith('o9');
+    await waitFor(() => expect(api.cancelOverride).toHaveBeenCalledWith('o9'));
+  });
+  it('« Annuler l’absence » pressed before the override arrives: carried out as soon as it does', async () => {
+    await open(THURSDAY);
+    await fireEvent.click(screen.getByRole('button', { name: 'Partir' }));
+    await waitFor(() => expect(awaySheet.open).toBe(false));
+    toasts.items.at(-1)!.action!.run();
+    expect(api.cancelOverride).not.toHaveBeenCalled(); // not known yet
+    snapshot(undefined, [{ id: 'o7', kind: 'away', room_id: null, radiator_ids: ['a'], temperature: 12, ends_at: 2e9, restoring: false }]);
+    await waitFor(() => expect(api.cancelOverride).toHaveBeenCalledWith('o7'));
+  });
+  it('another house command on its way: « Partir » is paused and says why', async () => {
+    house.applyPending({ id: 'h1', label: 'Tout éteindre', radiator_ids: ['a'], status: 'pending', error: null, created_at: 1, expected: {} } as never);
+    house.houseCommandId = 'h1';
+    await open(THURSDAY);
+    const go = screen.getByRole('button', { name: 'Partir' });
+    expect(go).toHaveAttribute('aria-disabled', 'true');
+    expect(go).toHaveAccessibleDescription('Une commande pour toute la maison est déjà en cours.');
+    await fireEvent.click(go);
+    expect(api.houseAway).not.toHaveBeenCalled();
+    house.houseCommandId = null;
   });
   it('the Stepper sets the temperature (7–19 °C) and the sentence follows', async () => {
     await open(THURSDAY);

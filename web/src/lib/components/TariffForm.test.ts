@@ -48,6 +48,9 @@ describe('TariffForm editor (Maison › Tarif)', () => {
     expect(date.value).toBe('2025-01-15');
     expect(date).toHaveAttribute('readonly');
     expect(date).toHaveAccessibleDescription('Corrige les coûts passés depuis le 15 janvier 2025.');
+    const hcFrom = field('Heures creuses applicables à partir du');
+    expect(hcFrom).toHaveAttribute('readonly');
+    expect(hcFrom.value).toBe('2025-01-15');
     await fireEvent.input(field('Prix heures creuses (€/kWh)'), { target: { value: '0,2' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
     const doc = vi.mocked(api.putTariffDoc).mock.calls[0][0];

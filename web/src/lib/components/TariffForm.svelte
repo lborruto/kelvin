@@ -218,7 +218,9 @@
           </div>
         </div>
       {/if}
-      <label class="field"><span>{m.tariff.hcValidFrom}</span><input type="date" bind:value={hcFrom} /></label>
+      <label class="field"><span>{m.tariff.hcValidFrom}</span><input type="date" bind:value={hcFrom} readonly={locked} aria-readonly={locked}
+          aria-describedby={locked ? 'tariff-fix-hc-note' : undefined} /></label>
+      {#if locked}<p class="muted note" id="tariff-fix-hc-note">{m.tariff.fixNote(fmtDateLong(hcFrom))}</p>{/if}
       <HcScheduleEditor bind:variants bind:seasonal />
     </fieldset>
   {/if}

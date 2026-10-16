@@ -30,7 +30,7 @@ describe('Maison › Linky', () => {
     expect(document.body.innerHTML).not.toContain(PRM);
     expect(screen.getByText('Enregistré')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^10 appels sur 14 aujourd’hui, détails$/ })).toBeInTheDocument();
-    expect(screen.getByText('1 avril 2027')).toBeInTheDocument();
+    expect(screen.getByText('1er avril 2027')).toBeInTheDocument();
     expect(screen.getByText(/^Simulateur/)).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: /^Afficher\s+le PDL$/ }));
     expect(screen.getByText(PRM)).toBeInTheDocument();

@@ -88,17 +88,22 @@ export function fmtWh(v: number | null | undefined): string {
   return `${signed(whole(), v)}${NB}Wh`;
 }
 
+/** French writes the first of the month « 1er » (« le 1er janvier », « dim. 1er nov. »); English is unchanged. */
+export function premier(s: string): string {
+  return locale.current === 'fr' ? s.replace(/(^|\s)1(?=\s\p{L})/u, '$1' + '1er') : s;
+}
+
 export function fmtTime(ms: number): string {
   return f().clock.format(new Date(ms));
 }
 
 export function fmtDateTime(ms: number): string {
-  return f().dateTime.format(new Date(ms));
+  return premier(f().dateTime.format(new Date(ms)));
 }
 
 /** A Paris calendar day, short: « 2 oct. », “2 Oct”. */
 export function fmtDayShort(ms: number): string {
-  return f().dayShort.format(new Date(ms));
+  return premier(f().dayShort.format(new Date(ms)));
 }
 
 // A weekday and a time, Paris (UX batch 8, the Absence end in one short line): « dim. 18:00 », “Sun 18:00”.
@@ -167,7 +172,7 @@ export function fmtDay(iso: string): string {
 }
 
 export function fmtDateLong(iso: string): string {
-  return f().dayLong.format(isoNoon(iso));
+  return premier(f().dayLong.format(isoNoon(iso)));
 }
 
 /** Month and year inside a sentence, in the language's own case: « septembre 2026 », “September 2026”. */

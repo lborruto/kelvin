@@ -112,6 +112,10 @@
 </div>
 
 <style>
+  /* The header (and its action) ends where the content column does. */
+  .vt {
+    max-width: 720px;
+  }
   .vt :global(h1) {
     view-transition-name: home-tariff;
   }
