@@ -8,11 +8,17 @@
   }
 </script>
 
+<!-- Réglages › Compte › Appareils connectés (Tableau mockups 5 « Compte »): the rows of a grouped list, one per
+     signed-in browser (browser and system names only, never the user agent), « cet appareil » for this one (it
+     cannot be signed out here), « Déconnecter » for the others, then « Déconnecter les autres appareils » as a
+     danger row that asks first (Annuler focused). -->
 <script lang="ts">
+  import { tick } from 'svelte';
   import { api, ApiError } from '$lib/api/client';
   import { fmtAgo, fmtDateTime } from '$lib/format';
   import { errorText } from '$lib/i18n';
   import { toasts } from '$lib/stores/toasts.svelte';
+  import Sheet from './Sheet.svelte';
 
   interface Props {
     /** True once the list (or its error) is known: what follows the panel waits for it, so the list's
@@ -24,7 +30,7 @@
   let list = $state<SessionInfo[] | null>(null);
   let failed = $state(false);
   let busy = $state<string | null>(null);
-  let dialog = $state<HTMLDialogElement>();
+  let asking = $state(false);
   let cancel = $state<HTMLButtonElement>();
   let now = $state(Date.now());
   $effect(() => {
@@ -66,11 +72,11 @@
 
   function ask() {
     if (busy) return;
-    dialog?.showModal();
-    cancel?.focus(); // the safe choice takes focus
+    asking = true;
+    void tick().then(() => cancel?.focus()); // the safe choice takes focus
   }
   async function revokeOthers() {
-    dialog?.close();
+    asking = false;
     busy = 'others';
     try {
       const { revoked } = await api.revokeOtherSessions();
@@ -84,12 +90,9 @@
   }
 </script>
 
-<p class="muted intro">{m.sessions.intro}</p>
 {#if list === null && !failed}
   <div class="sk" aria-hidden="true">
-    <ul class="list">
-      {#each [0, 1] as i (i)}<li class="row"><span class="skeleton inset"></span></li>{/each}
-    </ul>
+    {#each [0, 1] as i (i)}<span class="skeleton inset"></span>{/each}
   </div>
 {:else if failed && list === null}
   <p class="error" role="alert">{m.sessions.loadError} <button type="button" class="btn btn-sm" onclick={load}>{m.sessions.retry}</button></p>
@@ -99,8 +102,8 @@
       <li class="row">
         <div class="who">
           <span class="name">{deviceName(s)}</span>
-          <span class="muted small">{s.current ? m.sessions.thisDevice : m.sessions.lastActive(fmtAgo(s.last_seen * 1000, now))}</span>
-          <span class="muted small">{m.sessions.created(fmtDateTime(s.created * 1000))}</span>
+          <span class="sub">{s.current ? m.sessions.thisDevice : m.sessions.lastActive(fmtAgo(s.last_seen * 1000, now))}</span>
+          <span class="when">{m.sessions.created(fmtDateTime(s.created * 1000))}</span>
         </div>
         {#if !s.current}
           <button type="button" class="btn btn-sm" aria-disabled={!!busy} aria-busy={busy === s.id}
@@ -110,24 +113,21 @@
     {/each}
   </ul>
   {#if others > 0}
-    <button type="button" class="btn btn-sm others" aria-disabled={!!busy} onclick={ask}>{m.sessions.signOutOthers}</button>
+    <button type="button" class="others" aria-disabled={!!busy} onclick={ask}>{m.sessions.signOutOthers}</button>
   {/if}
 {/if}
 
-<dialog bind:this={dialog} aria-labelledby="{uid}-t" aria-describedby="{uid}-b">
-  <h2 id="{uid}-t">{m.sessions.confirmTitle}</h2>
-  <p id="{uid}-b">{m.sessions.confirmBody}</p>
-  <div class="actions">
-    <button type="button" class="btn" bind:this={cancel} onclick={() => dialog?.close()}>{m.common.cancel}</button>
-    <button type="button" class="btn btn-danger" onclick={revokeOthers}>{m.sessions.signOut}</button>
-  </div>
-</dialog>
+<Sheet open={asking} title={m.sessions.confirmTitle} width={400} onclose={() => (asking = false)} noClose>
+  <p class="body">{m.sessions.confirmBody}</p>
+  {#snippet footer()}
+    <div class="actions">
+      <button type="button" class="btn" bind:this={cancel} onclick={() => (asking = false)}>{m.common.cancel}</button>
+      <button type="button" class="btn btn-danger" onclick={revokeOthers}>{m.sessions.signOut}</button>
+    </div>
+  {/snippet}
+</Sheet>
 
 <style>
-  .intro {
-    margin: 0 0 8px;
-    font-size: 13px;
-  }
   .list {
     list-style: none;
     margin: 0;
@@ -140,25 +140,20 @@
     justify-content: space-between;
     gap: 12px;
     min-height: 56px;
-    padding: 6px 0;
+    padding: 8px 0;
     border-top: 1px solid var(--line);
   }
   .row:first-child {
     border-top: 0;
   }
-  /* The real row's height: name + two 12 px lines (and the sign-out button beside them, which wraps them on a phone). */
   .sk {
-    container-type: inline-size;
+    display: grid;
+    gap: 8px;
+    padding: 8px 0;
   }
-  .row .skeleton {
+  .sk .skeleton {
     display: block;
-    width: 100%;
     height: 56px;
-  }
-  @container (max-width: 280px) {
-    .row:nth-child(2) .skeleton {
-      height: 91px;
-    }
   }
   .who {
     display: grid;
@@ -168,72 +163,43 @@
     font-weight: 600;
     overflow-wrap: anywhere;
   }
-  .small {
+  .sub {
+    font-size: 13px;
+    color: var(--mu);
+  }
+  .when {
     font-size: 12px;
+    color: var(--fa);
   }
   .others {
-    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 52px;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+    background: none;
+    color: var(--bad);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .others[aria-disabled='true'] {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .others:focus-visible {
+    outline-offset: -2px;
+    border-radius: 8px;
   }
   .error {
+    margin: 12px 0;
     color: var(--bad);
   }
-  /* The same dialog as « Tout éteindre » (DESIGN: Dialog). */
-  dialog {
-    background: var(--s1);
-    color: var(--tx);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 20px;
-    width: min(340px, calc(100vw - 32px));
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-    transition:
-      opacity var(--t-exit) var(--ease-in),
-      transform var(--t-exit) var(--ease-in),
-      overlay var(--t-exit) allow-discrete,
-      display var(--t-exit) allow-discrete;
-  }
-  dialog[open] {
-    opacity: 1;
-    transform: none;
-    transition-duration: 200ms;
-    transition-timing-function: var(--ease-out);
-  }
-  @starting-style {
-    dialog[open] {
-      opacity: 0;
-      transform: translateY(8px) scale(0.98);
-    }
-  }
-  dialog::backdrop {
-    background: transparent;
-    transition:
-      background-color var(--t-exit) ease,
-      overlay var(--t-exit) allow-discrete,
-      display var(--t-exit) allow-discrete;
-  }
-  dialog[open]::backdrop {
-    background: color-mix(in srgb, var(--bg) 72%, transparent);
-  }
-  @starting-style {
-    dialog[open]::backdrop {
-      background: transparent;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    dialog,
-    dialog[open] {
-      transform: none;
-    }
-  }
-  dialog h2 {
-    margin: 0 0 8px;
-    font-size: 16px;
-    font-weight: 600;
-  }
-  dialog p {
-    margin: 0 0 16px;
-    font-size: 13px;
+  .body {
+    margin: -6px 0 0;
+    font-size: 14px;
     color: var(--mu);
   }
   .actions {

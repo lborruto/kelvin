@@ -3,7 +3,7 @@ import { inForce } from './tariff';
 import { addParisDays, isoParis, parisAt, parisMidnight, parisMinuteOfDay } from './time';
 
 /** The « Maintenant » card (Tableau spec §3, decision 3): the tariff period in force now and what comes next,
- * from the tariff in force and Paris time, the way HoursBar draws the hours. Tempo colours appear only when
+ * from the tariff in force and Paris time, the way the tariff band (TariffBand) draws the hours. Tempo colours appear only when
  * the price row in force is Tempo, and a Tempo day starts at 06:00: before it, the day in force is
  * yesterday's, whose colour `/api/grid` does not carry, so its price is unknown (`null`), never guessed. */
 export type Period = 'hc' | 'hp';

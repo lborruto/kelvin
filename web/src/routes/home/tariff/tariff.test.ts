@@ -30,8 +30,10 @@ describe('Maison › Tarif', () => {
     expect(await screen.findByRole('heading', { name: 'Tarif en vigueur' })).toBeInTheDocument();
     expect(screen.getByText('Option Heures creuses / pleines depuis le 15 janvier 2025')).toBeInTheDocument();
     expect(container.querySelector('main input, section input, select')).toBeNull();
-    expect(screen.getByRole('button', { name: /^Historique des prix/ })).toHaveAttribute('aria-expanded', 'false');
+    // The price history is read in place: one dated row per price.
+    expect(screen.getByRole('heading', { name: 'Historique des prix' })).toBeInTheDocument();
     expect(screen.getByText('1 ligne')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Historique des prix' })).toHaveTextContent(/Depuis le 15 janvier 2025.*HC 0,2068 · HP 0,2700/);
   });
 
   it('« Nouveau prix… » opens the editor with the date focused; saving closes it, pulses and says « Tarif enregistré. »', async () => {
@@ -41,6 +43,8 @@ describe('Maison › Tarif', () => {
     render(Page);
     await fireEvent.click(await screen.findByRole('button', { name: 'Nouveau prix…' }));
     expect(screen.getByRole('heading', { name: 'Nouveau prix' })).toBeInTheDocument();
+    // Beside the tariff in force, which stays readable while the new price is typed.
+    expect(screen.getByRole('heading', { name: 'Tarif en vigueur' })).toBeInTheDocument();
     expect(document.activeElement).toBe(screen.getByLabelText('Applicable à partir du'));
     await fireEvent.input(screen.getByLabelText('Prix heures creuses (€/kWh)'), { target: { value: '0,2' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
@@ -76,6 +80,22 @@ describe('Maison › Tarif', () => {
     const link = await screen.findByRole('link', { name: 'Ajouter les prix' });
     await fireEvent.click(link);
     expect(screen.getByRole('heading', { name: 'Nouveau prix' })).toBeInTheDocument();
+  });
+
+  it('a mistyped price is flagged when its field is left, before saving; nothing is sent', async () => {
+    vi.mocked(api.settings).mockResolvedValueOnce({ tariff: TARIFF, prefill: null } as never);
+    render(Page);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Nouveau prix…' }));
+    const hp = screen.getByLabelText('Prix heures pleines (€/kWh)');
+    await fireEvent.input(hp, { target: { value: '0,27801' } });
+    expect(hp).not.toHaveAttribute('aria-invalid');
+    await fireEvent.blur(hp);
+    expect(hp).toHaveAttribute('aria-invalid', 'true');
+    expect(hp).toHaveAccessibleDescription(/4\s?décimales au plus/);
+    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le tarif' }));
+    expect(api.putTariffDoc).not.toHaveBeenCalled();
+    await fireEvent.input(hp, { target: { value: '0,2780' } });
+    expect(hp).not.toHaveAttribute('aria-invalid');
   });
 
   it('a failed load says so, with Réessayer', async () => {

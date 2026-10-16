@@ -218,6 +218,9 @@ describe('English messages take the same parameters as French', () => {
 /** French the strict scanner cannot tell from English or code, so a hard-coded copy of it would
  * slip through: short forms that are English words or names, a bare figure. Kept small on purpose. */
 const SCANNER_BLIND = new Set([
+  // Réglages (Tableau settings batch): « 2 jetons MCP », « brouillon »
+  'home.cardMcp',
+  'tariff.draft',
   'energyUi.ecowatt', 'energyUi.analysis', 'energyUi.qualityMeta',
   // Maison (UX batch 8): short French words the scanner reads as neutral.
   'tariff.historyMeta', 'linky.show', 'linky.hide',

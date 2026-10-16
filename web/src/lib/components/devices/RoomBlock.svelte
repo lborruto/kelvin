@@ -1,5 +1,5 @@
-<!-- A room in Pièces et appareils (direction-2 §4, UX batch 10): s1 panel, hairline rows. Header: the name
-     (15/600), « 2 radiateurs » (12 muted), and the room's « ⋯ » Menu (`items`: Renommer la pièce, Supprimer la
+<!-- A room in Pièces et appareils (Tableau §4, mockups 5 « Pièces et appareils »): a grouped list (s1, radius 16,
+     hairline rows). Header: the name (15/600), « 2 radiateurs » (12.5 faint), and the room's « ⋯ » Menu (`items`: Renommer la pièce, Supprimer la
      pièce with its reason when it cannot go). Two radiators with one name get a muted hint with « Renommer »
      (the only text button inside a room block). Each radiator is a RadiatorDevices row. -->
 <script lang="ts">
@@ -42,7 +42,7 @@
 </script>
 
 <section class="panel room" aria-labelledby="{uid}-name">
-  <PendingEdge shape="rect" rx={10} pending={pending?.status === 'sending' || pending?.status === 'pending'} confirmed={pending?.status === 'confirmed'} />
+  <PendingEdge shape="rect" rx={16} pending={pending?.status === 'sending' || pending?.status === 'pending'} confirmed={pending?.status === 'confirmed'} />
   <header>
     <div class="title">
       <h2 id="{uid}-name">{name}</h2>
@@ -69,9 +69,8 @@
 
 <style>
   .panel {
-    padding: 4px 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
+    padding: 0 16px;
+    border-radius: var(--r-group);
     background: var(--s1);
     min-width: 0;
     position: relative;
@@ -97,8 +96,8 @@
     overflow-wrap: anywhere;
   }
   .count {
-    font-size: 12px;
-    color: var(--mu);
+    font-size: var(--fs-note);
+    color: var(--fa);
   }
   .hint {
     display: flex;

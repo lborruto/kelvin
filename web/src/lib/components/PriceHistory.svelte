@@ -1,6 +1,10 @@
+<!-- « Historique des prix » (Tableau §4 « Tarif », mockups 5): one row per dated price, newest first: « Depuis le
+     1 février 2025 » over its option and subscription (muted), its prices on the right (mono, €/kWh, 4
+     decimals). Past days keep the prices of their own row. The successive off-peak hours follow when the tariff
+     has any. -->
 <script lang="ts">
   import type { HcVariant, Slot, Tariff, TariffRow } from '$lib/api/types';
-  import { fmtAmount, fmtDateLong } from '$lib/format';
+  import { fmtAmount, fmtDateLong, fmtEurExact } from '$lib/format';
   import { locale, m } from '$lib/i18n';
   import { RATE_KEYS } from '$lib/tariff';
 
@@ -12,116 +16,68 @@
   const slots = (s: Slot[]) => s.map((x) => `${x.start}–${x.end}`).join(', ');
   const month = (mo: number) => new Intl.DateTimeFormat(locale.intl, { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, mo - 1, 15)));
   const variant = (v: HcVariant) => `${v.months.length === 12 ? m.tariff.allYear : v.months.map(month).join(', ')}${m.common.colon}${slots(v.slots)}`;
+  let rows = $derived([...tariff.prices].sort((a, b) => b.valid_from.localeCompare(a.valid_from)));
 </script>
 
-<div class="table-wrap">
-  <table aria-label={m.tariff.history}>
-    <thead><tr><th>{m.tariff.since}</th><th>{m.tariff.colOption}</th><th class="r">{m.tariff.subscription}</th><th>{m.tariff.colRates}</th></tr></thead>
-    <tbody>
-      {#each tariff.prices as p (p.valid_from)}
-        <tr><td>{fmtDateLong(p.valid_from)}</td><td>{m.tariff.options[p.option]}</td><td class="r mono">{fmtAmount(p.subscription_eur_month, 2)}</td><td class="mono">{rates(p)}</td></tr>
-      {/each}
-    </tbody>
-  </table>
-</div>
-<ul class="history-list" aria-label={m.tariff.history}>
-  {#each tariff.prices as p (p.valid_from)}
+<ul class="hist" aria-label={m.tariff.history}>
+  {#each rows as p (p.valid_from)}
     <li>
-      <dl>
-        <dt>{m.tariff.since}</dt><dd>{fmtDateLong(p.valid_from)}</dd>
-        <dt>{m.tariff.colOption}</dt><dd>{m.tariff.options[p.option]}</dd>
-        <dt>{m.tariff.subscription}</dt><dd class="mono">{fmtAmount(p.subscription_eur_month, 2)}</dd>
-        <dt>{m.tariff.colRates}</dt><dd class="mono">{rates(p)}</dd>
-      </dl>
+      <span class="when"><span>{m.tariff.sinceDate(fmtDateLong(p.valid_from))}</span><small
+          >{m.tariff.options[p.option]} · {m.tariffSummary.perMonth(fmtEurExact(p.subscription_eur_month))}</small></span>
+      <span class="rates mono">{rates(p)}</span>
     </li>
   {/each}
 </ul>
 {#if tariff.hc_schedules.length}
-  <h4>{m.tariff.schedules}</h4>
+  <h3>{m.tariff.schedules}</h3>
   <ul class="schedules">
     {#each tariff.hc_schedules as s (s.valid_from)}<li>{m.tariff.scheduleLine(fmtDateLong(s.valid_from), s.variants.map(variant).join(' ; '))}</li>{/each}
   </ul>
 {/if}
 
 <style>
-  /* min-width: 0 lets the grid item shrink below the table's width, so the page never scrolls. */
-  .table-wrap {
-    overflow-x: auto;
-    min-width: 0;
-  }
-  .history-list {
-    display: none;
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .history-list li {
-    border-top: 1px solid var(--line);
-    padding: 10px 0;
-  }
-  .history-list li:last-child {
-    border-bottom: 1px solid var(--line);
-  }
-  .history-list dl {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 4px 12px;
-    margin: 0;
-    font-size: 13px;
-  }
-  .history-list dt {
-    color: var(--mu);
-  }
-  .history-list dd {
-    margin: 0;
-    text-align: right;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-  @media (max-width: 599px) {
-    .table-wrap {
-      display: none;
-    }
-    .history-list {
-      display: block;
-    }
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-  th,
-  td {
-    padding: 8px 6px;
-    border-bottom: 1px solid var(--line);
-    text-align: left;
-    white-space: nowrap;
-  }
-  th {
-    color: var(--mu);
-    font-weight: 500;
-  }
-  .r {
-    text-align: right;
-  }
-  td.mono {
-    white-space: normal;
-  }
-  h4 {
-    margin: 14px 0 6px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--mu);
-  }
+  .hist,
   .schedules {
     margin: 0;
     padding: 0;
     list-style: none;
-    font-size: 13px;
+  }
+  .hist li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2px 16px;
+    min-height: 48px;
+    padding: 6px 0;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .when {
+    display: grid;
+    min-width: 0;
+    color: var(--mu);
+  }
+  .when small {
+    font-size: 12.5px;
+    color: var(--fa);
+  }
+  .rates {
+    font-size: 12px;
+    font-weight: 600;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  h3 {
+    margin: 12px 0 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--mu);
+  }
+  .schedules {
     display: grid;
     gap: 4px;
+    font-size: 13px;
+    color: var(--mu);
   }
 </style>

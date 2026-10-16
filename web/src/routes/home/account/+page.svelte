@@ -1,13 +1,15 @@
-<!-- Maison › Compte (direction-2 §3, UX batch 9): the home's Cozytouch account (email, server, the connection's
-     SourceLine), the signed-in devices (#sessions), then « Se déconnecter » last, on its own.
-     « Accès MCP » (#mcp, Plan 13) follows « Appareils connectés », before « Se déconnecter ». -->
+<!-- Réglages › Compte (Tableau §4, mockups 5 « Compte »): the home's Cozytouch account (email, server, the
+     connection's SourceLine; the server is fixed at the first login), the signed-in devices (#sessions), then
+     « Accès MCP » (#mcp, Plan 13), and « Se déconnecter » last. Wide: two columns (the account and its devices
+     on the left with « Se déconnecter » under them, Accès MCP on the right); phone: one column in that order.
+     Each part arrives below or beside what is already placed, so nothing on screen moves. -->
 <script lang="ts">
   import { goto } from '$app/navigation';
   import CozytouchStatus from '$lib/components/CozytouchStatus.svelte';
   import McpPanel from '$lib/components/McpPanel.svelte';
-  import PageHeader from '$lib/components/PageHeader.svelte';
   import SessionsPanel from '$lib/components/SessionsPanel.svelte';
   import SupportChip from '$lib/components/SupportChip.svelte';
+  import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
   import { m, statusError } from '$lib/i18n';
   import { ANCHORS, ROUTES } from '$lib/paths';
   import { auth } from '$lib/stores/auth.svelte';
@@ -20,10 +22,8 @@
     return () => clearInterval(t);
   });
 
-  // « Se déconnecter » follows the signed-in devices: it appears with their list, never pushed by it.
+  // « Accès MCP » appears once the devices are known and « Se déconnecter » once its tokens are.
   let sessionsReady = $state(false);
-  // « Accès MCP » appears once the devices are known and « Se déconnecter » once its tokens are: each part
-  // arrives below what is already placed, so nothing on screen moves.
   let mcpReady = $state(false);
   let loggingOut = $state(false);
   async function logout() {
@@ -43,41 +43,38 @@
 
 <svelte:head><title>{m.page.title(m.account.title)}</title></svelte:head>
 
-<div class="vt">
-  <PageHeader title={m.account.title} back={{ href: ROUTES.home, label: m.nav.home }} />
-</div>
+<SettingsHeader back bare title={m.account.title} vt="home-account" />
 
-<div class="page">
-  <section class="panel" aria-labelledby="account-cozy">
-    <h2 id="account-cozy" class="sl">{m.account.cozytouch}</h2>
-    <dl>
-      <div class="r"><dt>{m.account.email}</dt><dd class="email">{auth.email ?? '—'}</dd></div>
-      <div class="r">
+<div class="cols">
+  <section class="acct" aria-labelledby="account-cozy">
+    <h2 id="account-cozy" class="grph">{m.account.cozytouch}</h2>
+    <dl class="grp">
+      <div class="li"><dt>{m.account.email}</dt><dd class="strong">{auth.email ?? '—'}</dd></div>
+      <div class="li">
         <dt>{m.settings.server}</dt>
-        <dd>
-          <span class="srv">{auth.server?.name ?? '—'}{#if auth.server?.tier === 'experimental'} <SupportChip support="experimental" />{/if}</span>
-          <span class="note">{m.account.serverNote}</span>
-        </dd>
+        <dd class="strong">{auth.server?.name ?? '—'}{#if auth.server?.tier === 'experimental'} <SupportChip support="experimental" />{/if}</dd>
       </div>
-      <div class="r">
+      <div class="li">
         <dt>{m.account.connection}</dt>
-        <dd>
+        <dd class="conn">
           <CozytouchStatus {now} />
-          {#if house.status.last_error}<span class="note" title={house.status.last_error}>{statusError(house.status)}</span>{/if}
+          {#if house.status.last_error}<span class="err" title={house.status.last_error}>{statusError(house.status)}</span>{/if}
         </dd>
       </div>
     </dl>
+    <p class="note">{m.account.serverNote}</p>
   </section>
 
-  <section id={ANCHORS.sessions} class="panel" aria-labelledby="account-sessions">
-    <h2 id="account-sessions" class="sl">{m.sessions.title}</h2>
-    <SessionsPanel bind:ready={sessionsReady} />
+  <section id={ANCHORS.sessions} class="sess" aria-labelledby="account-sessions">
+    <h2 id="account-sessions" class="grph">{m.sessions.title}</h2>
+    <div class="grp"><SessionsPanel bind:ready={sessionsReady} /></div>
+    <p class="note">{m.sessions.intro}</p>
   </section>
 
   {#if sessionsReady}
-    <section id={ANCHORS.mcp} class="panel" aria-labelledby="account-mcp">
-      <h2 id="account-mcp" class="sl">{m.mcp.title}</h2>
-      <McpPanel bind:ready={mcpReady} />
+    <section id={ANCHORS.mcp} class="mcp" aria-labelledby="account-mcp">
+      <h2 id="account-mcp" class="grph">{m.mcp.title}</h2>
+      <div class="grp"><McpPanel bind:ready={mcpReady} /></div>
     </section>
   {/if}
 
@@ -89,77 +86,78 @@
 </div>
 
 <style>
-  /* The header (and its action) ends where the content column does. */
-  .vt {
-    max-width: 720px;
-  }
-  .vt :global(h1) {
-    view-transition-name: home-account;
-  }
-  .page {
+  .cols {
     display: grid;
-    gap: 14px;
-    max-width: 720px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'acct' 'sess' 'mcp' 'out';
+    align-items: start;
+    gap: 0 24px;
+    max-width: 1160px;
+  }
+  .acct {
+    grid-area: acct;
+  }
+  .sess {
+    grid-area: sess;
+  }
+  .mcp {
+    grid-area: mcp;
+  }
+  .out {
+    grid-area: out;
+    margin-top: 20px;
+  }
+  section {
     min-width: 0;
   }
-  .panel {
-    padding: 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--s1);
-    min-width: 0;
+  .grph {
+    margin-top: 6px;
   }
-  .sl {
-    margin: 0 0 4px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--mu);
+  section + section .grph,
+  .mcp .grph {
+    margin-top: 18px;
   }
   dl {
     margin: 0;
-    font-size: 13px;
   }
-  .r {
-    display: grid;
-    grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
-    align-items: center;
+  .li {
+    justify-content: space-between;
     gap: 4px 16px;
-    min-height: 44px;
+    flex-wrap: wrap;
     padding: 6px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .r:last-child {
-    border-bottom: 0;
   }
   dt {
     color: var(--mu);
   }
   dd {
-    display: grid;
-    justify-items: end;
-    gap: 2px;
     margin: 0;
     min-width: 0;
     text-align: right;
   }
-  .email,
-  .srv {
+  .strong {
     font-weight: 600;
     overflow-wrap: anywhere;
   }
-  .note {
+  .conn {
+    display: grid;
+    justify-items: end;
+    gap: 2px;
+  }
+  .err {
     font-size: 12px;
     color: var(--mu);
   }
-  @media (max-width: 479px) {
-    .r {
-      grid-template-columns: minmax(0, 1fr);
+  .note {
+    margin: 6px 16px 0;
+  }
+  @media (min-width: 1024px) {
+    .cols {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-areas: 'acct mcp' 'sess mcp' 'out mcp';
+      grid-template-rows: auto auto 1fr;
     }
-    dd {
-      justify-items: start;
-      text-align: left;
+    .mcp .grph {
+      margin-top: 6px;
     }
   }
 </style>
