@@ -128,7 +128,9 @@ TEMPLATES: dict[str, str] = {
     "linky_refused": "MyElectricalData refuse ce PDL ou ce jeton.",
     "linky_throttled": "Enedis limite les requêtes : réessayez plus tard.",
     "med_unreachable": "MyElectricalData injoignable. Réessayez plus tard.",
-    "linky_status_auth": ("MyElectricalData refuse le jeton : renouvelez-le dans Réglages › Linky."),
+    "linky_status_auth": (
+        "MyElectricalData refuse le jeton : renouvelez-le dans Réglages › Linky."
+    ),
     "linky_status_quota": "Quota Linky du jour atteint : reprise demain.",
     "linky_status_error": "Synchronisation Linky en échec.",
     "linky_status_throttled": "Enedis limite les requêtes : nouvel essai à {at}.",
