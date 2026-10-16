@@ -48,7 +48,8 @@ test('an HC/HP home sees EcoWatt and no Tempo colour', async ({ page }) => {
   await expect(strip(page)).not.toContainText(/Bleu|Blanc|Rouge|Tempo/);
   await expect(strip(page)).toContainText('RTE via MyElectricalData');
   await page.goto('/energy');
-  await expect(strip(page)).toContainText('EcoWatt orange demain');
+  // Énergie says the grid signals as chips on its context row (GridChips), RTE's time in their Fiche.
+  await expect(page.getByRole('list', { name: 'Signaux du réseau électrique' })).toContainText('EcoWatt orange demain');
   await page.goto('/home');
   await expect(page.getByText(/EcoWatt orange le .*système électrique tendu/)).toBeVisible();
   await expect(page.getByText('EcoWatt (RTE)')).toBeVisible();
@@ -80,6 +81,8 @@ test('switching to Tempo: six prices prefilled with their source, then the day c
   await expect(strip(page)).toContainText(/Demain : (Bleu|Blanc|Rouge|couleur pas encore publiée \(vers 11:00\))/);
   await expect(strip(page).locator('.dot').first()).toBeVisible();
   await page.goto('/energy');
+  // The six colours live in the Heures creuses card's « Détails ».
+  await page.locator('#offpeak').getByRole('button', { name: /^Détails/ }).click();
   await expect(page.getByText(/Jours rouges : \d+/)).toBeVisible();
   await expect(page.getByRole('table', { name: 'Énergie par couleur Tempo' })).toBeVisible();
 });

@@ -11,6 +11,7 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
 /** Sample arguments for messages whose parameters are not (number, string, string, …): a day key,
  * a list, an object. A task that adds such a message adds its line here. */
 export const ARGS: Record<string, unknown[]> = {
+  'energyUi.linkyCallsValue': [2, 10],
   'devices.done': ['Salon'],
   'devices.lastSignal': ['12:10'],
   'devices.detailsOf': ['Hekla'],
@@ -94,10 +95,11 @@ export const ARGS: Record<string, unknown[]> = {
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
 export const SAME = new Set<string>([
+  'energyUi.keyName', 'energyUi.barView', 'energyUi.roomKwhName',
   'devices.watts', 'devices.detail.version', 'devices.detail.rssi', 'devices.role.wifi',
   'page.title', 'range.day', 'radiator.facts', 'inspector.est', 'inspector.eurWord',
   'chartInspector.est', 'heatingPanel.est', 'compare.range', 'power.range', 'projection.range', 'projection.approx', 'quality.mark.none',
-  'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.kwh', 'roomsEnergy.eur', 'roomsEnergy.est',
+  'curve.est', 'curvePanel.est', 'roomDay.wh', 'roomDay.degrees', 'roomDay.withWhy', 'roomsEnergy.est',
   'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est',
   'tariff.kvaValue', 'tariff.options.base', 'tariff.options.tempo', 'tariff.rateShort.base', 'tariff.colOption',
   'energyTariff.colKwh', 'energyTariff.colEur', 'energyTariff.withColour',
@@ -207,6 +209,7 @@ describe('English messages take the same parameters as French', () => {
 /** French the strict scanner cannot tell from English or code, so a hard-coded copy of it would
  * slip through: short forms that are English words or names, a bare figure. Kept small on purpose. */
 const SCANNER_BLIND = new Set([
+  'energyUi.ecowatt', 'energyUi.analysis', 'energyUi.qualityMeta',
   'devices.detail.voltage', 'devices.detail.wifi', 'devices.role.box',
   'modeSwitch.programShort', 'range.week', 'range.month', 'daysShort.monday', 'daysShort.tuesday', 'daysShort.wednesday',
   'daysShort.thursday', 'daysShort.friday', 'daysShort.saturday', 'daysShort.sunday', 'energy.weekShort',

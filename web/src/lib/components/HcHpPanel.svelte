@@ -3,8 +3,9 @@
   import { fmtEurExact, fmtKwhExact, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
   import { SERIES, seriesBackground } from '$lib/energy';
   import { m } from '$lib/i18n';
-  import { ANCHORS, ROUTES } from '$lib/paths';
+  import { ANCHORS, ROUTES, ENERGY_ANCHORS } from '$lib/paths';
   import { shiftValue } from '$lib/power';
+  import Disclosure from './Disclosure.svelte';
   import TempoRows from './TempoRows.svelte';
 
   interface Props {
@@ -22,52 +23,53 @@
   let value = $derived(lens && lens.delta_price != null && hpKwh != null ? shiftValue(pct / 100, hpKwh, lens.delta_price) : null);
 </script>
 
-<section class="panel {cls}">
-  <h2>{m.hcHp.title}</h2>
+<!-- Analyse card (direction-2 §2): the off-peak share against the off-peak hours, with its meter, in L0; the mean
+     price, the saving per kWh moved, the simulator and its formula, and the Tempo colours one « Détails » away. -->
+<section class="panel {cls}" id={ENERGY_ANCHORS.offpeak}>
+  <h3>{m.hcHp.title}</h3>
   {#if !tariff}
     <p class="line"><a href="{ROUTES.home}#{ANCHORS.tariff}">{m.hcHp.tariffLink}</a>{m.hcHp.tariffTail}</p>
   {:else if option === 'base'}
     <p class="line">{m.energyTariff.baseOption}</p>
   {:else}
-    <dl class="figs">
-      <div>
-        <dt>{m.hcHp.share}</dt>
-        <dd><strong class="num big">{fmtPct1(lens?.hc_share)}</strong></dd>
-      </div>
-    </dl>
+    <p class="lead">
+      <strong class="num big">{fmtPct1(lens?.hc_share)}</strong>{#if lens?.hc_share != null && lens.slot_share != null}{' '}<span class="muted">{m.energyUi.hcLine(fmtPct1(lens.slot_share))}</span>{/if}
+    </p>
     {#if lens?.hc_share != null}
       <!-- The split as a meter: heures creuses (light blue, hatched) then heures pleines (dark blue). -->
       <div class="split" aria-hidden="true">
         <span class="hc" style:flex-basis="{Math.min(1, Math.max(0, lens.hc_share)) * 100}%" style:background={seriesBackground('hc')}></span>
         <span class="hp" style:background={SERIES.hp}></span>
       </div>
-      <p class="muted line">{m.hcHp.slots(fmtPct1(lens.slot_share))}</p>
+      <p class="visually-hidden">{m.hcHp.share} {fmtPct1(lens.hc_share)}, {m.hcHp.slots(fmtPct1(lens.slot_share))}</p>
     {:else}
       <!-- The backend gives no lens for a tariff without HC slots. -->
       <p class="muted note">{lens ? m.hcHp.none : m.hcHp.noSlots}</p>
     {/if}
-    <dl class="figs rows">
-      <div>
-        <dt>{m.hcHp.avg}</dt>
-        <dd class="num">{fmtPrice(lens?.avg_price)}</dd>
-      </div>
-      {#if lens && lens.delta_price != null}
+    <Disclosure title={m.energyUi.details} meta={m.energyUi.hchpMeta} detail class="more">
+      <dl class="figs rows">
         <div>
-          <dt>{m.hcHp.perKwh}</dt>
-          <dd class="num">{fmtSignedPrice(-lens.delta_price)}</dd>
+          <dt>{m.hcHp.avg}</dt>
+          <dd class="num">{fmtPrice(lens?.avg_price)}</dd>
         </div>
+        {#if lens && lens.delta_price != null}
+          <div>
+            <dt>{m.hcHp.perKwh}</dt>
+            <dd class="num">{fmtSignedPrice(-lens.delta_price)}</dd>
+          </div>
+        {/if}
+      </dl>
+      {#if lens && lens.delta_price != null && hpKwh != null && lens.hc_share != null && value != null}
+        <div class="shift">
+          <label for="{uid}-shift">{m.hcHp.slider}</label>
+          <input id="{uid}-shift" type="range" min="0" max="50" step="5" aria-valuetext={m.hcHp.valueText(pct)} bind:value={pct} />
+          <p class="line num">{m.hcHp.result(pct, fmtKwhExact((pct / 100) * hpKwh), fmtSigned(-value, '€'))}</p>
+          <p class="muted note num">{m.hcHp.formula(pct, fmtKwhExact(hpKwh), fmtPrice(lens.delta_price), fmtEurExact(value))}</p>
+        </div>
+        <p class="muted note">{m.hcHp.caveat}</p>
       {/if}
-    </dl>
-    {#if lens && lens.delta_price != null && hpKwh != null && lens.hc_share != null && value != null}
-      <div class="shift">
-        <label for="{uid}-shift">{m.hcHp.slider}</label>
-        <input id="{uid}-shift" type="range" min="0" max="50" step="5" aria-valuetext={m.hcHp.valueText(pct)} bind:value={pct} />
-        <p class="line num">{m.hcHp.result(pct, fmtKwhExact((pct / 100) * hpKwh), fmtSigned(-value, '€'))}</p>
-        <p class="muted note num">{m.hcHp.formula(pct, fmtKwhExact(hpKwh), fmtPrice(lens.delta_price), fmtEurExact(value))}</p>
-      </div>
-      <p class="muted note">{m.hcHp.caveat}</p>
-    {/if}
-    {#if tempo}<TempoRows lens={tempo} />{/if}
+      {#if tempo}<TempoRows lens={tempo} />{/if}
+    </Disclosure>
   {/if}
 </section>
 
@@ -78,7 +80,15 @@
     gap: 6px;
   }
   .rows {
-    margin-top: 10px;
+    margin-top: 0;
+  }
+  .lead {
+    margin: 0;
+    font-size: 13px;
+  }
+  .panel :global(.disclosure.more) {
+    margin-top: 8px;
+    border-top: 1px solid var(--line);
   }
   .split {
     display: flex;

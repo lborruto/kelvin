@@ -4,6 +4,7 @@
   import { fmtEurExact, fmtKwhExact, fmtPct, fmtTime, fmtW } from '$lib/format';
   import { locale, m } from '$lib/i18n';
   import { baseLoad, peakShare } from '$lib/power';
+  import Disclosure from './Disclosure.svelte';
 
   /** The skeleton's stand-in texts: never shown (transparent, aria-hidden), they only give the bars a complete
    * day's line breaks, so the skeleton wraps as the figures will at every width. */
@@ -11,11 +12,7 @@
     peak: fmtW(6840),
     when: m.power.range('19:00', '19:30'),
     kva: m.power.kva(12),
-    share: m.power.share(fmtPct(0.57)),
-    base: fmtW(310),
-    night: m.power.night(fmtW(280)),
-    p10: m.power.p10(fmtW(310)),
-    floor: m.power.floorDay(fmtKwhExact(7.44), fmtEurExact(1.86))
+    share: m.power.share(fmtPct(0.57))
   });
   let dayName = $derived(
     new Intl.DateTimeFormat(locale.intl, { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
@@ -59,11 +56,12 @@
   <p class="line skeleton inset">{GHOST.kva}</p>
   <div class="meter"></div>
   <p class="line skeleton inset">{GHOST.share}</p>
-  <p class="note skeleton inset">{m.power.pf}</p>
 {/snippet}
 
+<!-- Analyse card (direction-2 §2): the peak against the subscribed power in L0; the baseload, the night minimum, the
+     10 % line, the background consumption and the kVA assumption one « Détails » away (`detail`). -->
 <section class="panel {cls}" aria-busy={view === 'day' && waiting}>
-  <h2>{m.power.title}</h2>
+  <h3>{m.power.title}</h3>
   {#if view === 'day' && waiting}
     <!-- The loaded day's own structure, each line a skeleton bar of its text: same breaks, same height. -->
     <div class="ghost" aria-hidden="true">
@@ -73,17 +71,9 @@
           <dd><strong class="num big skeleton inset">{GHOST.peak}</strong><span class="num when skeleton inset">{GHOST.when}</span></dd>
         </div>
       </dl>
-      <p class="note skeleton inset">{m.power.instant}</p>
       {@render kvaGhost()}
-      <dl class="figs base">
-        <div>
-          <dt>{m.power.base}</dt>
-          <dd><strong class="num big skeleton inset">{GHOST.base}</strong></dd>
-        </div>
-      </dl>
-      <p class="line num skeleton inset">{GHOST.night}</p>
-      <p class="line num skeleton inset">{GHOST.p10}</p>
-      <p class="line num skeleton inset">{GHOST.floor}</p>
+      <!-- The « Détails » row to come. -->
+      <div class="more-sk"></div>
     </div>
   {:else}
     <dl class="figs">
@@ -93,7 +83,6 @@
         <dd><strong class="num big">{fmtW(src?.peak_w)}</strong>{#if when}{' '}<span class="num when">{when}</span>{/if}</dd>
       </div>
     </dl>
-    {#if src}<p class="muted note">{m.power.instant}</p>{/if}
     {#if src && waiting}
       <div class="ghost" aria-hidden="true">{@render kvaGhost()}</div>
     {:else if src && kva != null}
@@ -101,26 +90,28 @@
       {#if share != null}
         <div class="meter" aria-hidden="true"><span style:transform="scaleX({Math.min(1, share)})" style:background={SERIES.home}></span></div>
         <p class="line">{m.power.share(fmtPct(share))}</p>
-        <p class="muted note">{m.power.pf}</p>
       {/if}
     {/if}
-    <dl class="figs base">
-      <div>
-        <dt>{m.power.base}</dt>
-        <dd><strong class="num big">{fmtW(src?.base_w_p10)}</strong></dd>
-      </div>
-    </dl>
+    {#if !src}<p class="muted note">{why}</p>{/if}
     {#if src}
-      {#if src.night_min_w != null}<p class="muted line num">{m.power.night(fmtW(src.night_min_w))}</p>{/if}
-      {#if src.base_w_p10 != null}<p class="muted line num">{m.power.p10(fmtW(src.base_w_p10))}</p>{/if}
-      {#if floor?.kwh != null}
-        <p class="line num">{m.power.floorDay(fmtKwhExact(floor.kwh), floor.eur != null ? fmtEurExact(floor.eur) : null)}</p>
-      {:else if floorWeek != null}
-        <p class="line num">{m.power.floorWeek(fmtKwhExact(floorWeek))}</p>
-        <p class="muted note">{m.power.days(src.days)}</p>
-      {/if}
-    {:else}
-      <p class="muted note">{why}</p>
+      <Disclosure title={m.energyUi.details} meta={m.energyUi.powerMeta} detail class="more">
+        <p class="muted note">{m.power.instant}</p>
+        {#if kva != null && share != null}<p class="muted note">{m.power.pf}</p>{/if}
+        <dl class="figs base">
+          <div>
+            <dt>{m.power.base}</dt>
+            <dd><strong class="num big">{fmtW(src.base_w_p10)}</strong></dd>
+          </div>
+        </dl>
+        {#if src.night_min_w != null}<p class="muted line num">{m.power.night(fmtW(src.night_min_w))}</p>{/if}
+        {#if src.base_w_p10 != null}<p class="muted line num">{m.power.p10(fmtW(src.base_w_p10))}</p>{/if}
+        {#if floor?.kwh != null}
+          <p class="line num">{m.power.floorDay(fmtKwhExact(floor.kwh), floor.eur != null ? fmtEurExact(floor.eur) : null)}</p>
+        {:else if floorWeek != null}
+          <p class="line num">{m.power.floorWeek(fmtKwhExact(floorWeek))}</p>
+          <p class="muted note">{m.power.days(src.days)}</p>
+        {/if}
+      </Disclosure>
     {/if}
   {/if}
 </section>
@@ -156,8 +147,14 @@
     font-size: 12px;
   }
   .base {
-    margin-top: 14px;
-    padding-top: 12px;
+    margin-top: 10px;
+  }
+  .more-sk {
+    height: 45px;
+    margin-top: 6px;
+  }
+  .panel :global(.disclosure.more) {
+    margin-top: 6px;
     border-top: 1px solid var(--line);
   }
   .line {

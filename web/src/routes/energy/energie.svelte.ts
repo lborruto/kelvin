@@ -129,6 +129,13 @@ export class EnergieData {
     void this.load();
   }
 
+  /** The view's period holding the first day with data (a period before the history offers it). */
+  toFirst(): void {
+    if (!this.first) return;
+    this.period = periodOf(this.view, this.first);
+    void this.load();
+  }
+
   retry(): void {
     if (this.failed) {
       this.view = this.failed.view;

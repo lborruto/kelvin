@@ -3,10 +3,10 @@
  * API objects (spec §3.2.3, §3.2.4). Pure: the card, the phone sheet, the visually hidden table
  * and the screen-reader text all come from the same rows, so they cannot disagree.
  */
-import type { EnergyGroup, EnergyInterval, EnergySummary, PriceRow, RoomSample } from './api/types';
+import type { EnergyDay, EnergyGroup, EnergyInterval, EnergySummary, PriceRow, RoomSample } from './api/types';
 import { periodTitle, spokenTitle, type Span } from './energy';
 import {
-  fmtAmount, fmtDay, fmtEurExact, fmtEurHalfHour, fmtKwhExact, fmtPct1, fmtPrice, fmtTemp, fmtW, fmtWh, matchParts
+  fmtAmount, fmtDay, fmtEurExact, fmtEurHalfHour, fmtKwhExact, fmtPct1, fmtPrice, fmtTemp, fmtTime, fmtW, fmtWh, matchParts
 } from './format';
 import { m } from './i18n';
 import { parisOffsetMinutes, parisParts } from './time';
@@ -281,4 +281,33 @@ export function readInterval(iv: EnergyInterval | null, ctx: ReadoutCtx): Inspec
   }
   const title = iv ? intervalLabel(iv, ctx.intervals) : '—';
   return { title, rows, notes: [], empty: null, spoken: iv ? `${title}, ${fmtW(iv.w)}, ${fmtWh(iv.wh)}` : '' };
+}
+
+/**
+ * The Courbe's idle readout (direction-2 §2): the day as a whole in the readout's own fields, keyed like
+ * `readInterval`'s rows. Énergie, Coût, Radiateurs and Reste are the day bar's own inspection rows (`bar`), so the
+ * day reads the same figure in the readout, the bar and the CSV; without a day bar (Année) Énergie is the daily
+ * reading. Puissance is the day's highest half-hour mean with its time; Température the mean of the room's
+ * samples. A field with no whole-day meaning (Tarif, Prix) is absent: the chart keeps its place, empty.
+ */
+export function readDay(day: Pick<EnergyDay, 'power' | 'totals'>, bar: Inspection | null, ctx: ReadoutCtx): Inspection {
+  const pick = (k: string) => bar?.rows.find((r) => r.key === k) ?? null;
+  const rows: Row[] = [];
+  const peak = day.power.peak_w;
+  const at = day.power.peak_ts;
+  rows.push({ key: 'power', label: m.inspector.power, value: peak != null && at != null ? m.energyUi.peakAt(fmtW(peak), fmtTime(at * 1000)) : '—' });
+  const home = pick('home');
+  const daily = day.totals.daily_kwh;
+  rows.push({ key: 'energy', label: m.inspector.energyWh, value: home?.value ?? fmtKwhExact(daily), est: home?.est });
+  for (const k of ['cost', 'radiators', 'rest'] as const) {
+    const r = pick(k);
+    if (r) rows.push({ key: k, label: r.label, value: r.value, est: r.est });
+  }
+  const temps = (ctx.samples ?? []).map((x) => x.temperature).filter((x): x is number => x != null);
+  if (temps.length) {
+    const mean = Math.round((temps.reduce((a, b) => a + b, 0) / temps.length) * 100) / 100;
+    rows.push({ key: 'temperature', label: m.inspector.temperature(ctx.room ?? null), value: m.energyUi.tempAvg(fmtTemp(mean)) });
+  }
+  const title = m.energyUi.day;
+  return { title, rows, notes: [], empty: null, spoken: '' };
 }

@@ -115,6 +115,20 @@ function cell(container: HTMLElement, caption: string, row: string, column: stri
   return tr.children[col]?.textContent ?? '';
 }
 
+/** Mois and Année show the Courbe collapsed to its summary row: open it (Jour and Semaine show it open). */
+async function openCurve() {
+  const b = await waitFor(() => {
+    const x = document.querySelector<HTMLButtonElement>('#curve-title');
+    if (!x) throw new Error('no Courbe yet');
+    return x;
+  });
+  if (b.getAttribute('aria-expanded') === 'false') await fireEvent.click(b);
+}
+/** A Fiche row's value by its label (the desktop card is portalled to <body>). */
+const ficheRow = (card: Element, label: string) =>
+  [...card.querySelectorAll('.row')].find((r) => r.querySelector('dt')?.textContent === label)?.querySelector('dd')?.textContent ?? null;
+const clearFiches = () => document.querySelectorAll('.fiche, .pop').forEach((n) => n.remove());
+
 const linkyOk: LinkyStatus = {
   configured: true, prm: '12345678901234', token_set: true, simulator: false, state: 'ok', message: null,
   last_day: '2026-10-12', last_ok_at: null, retry_at: null, calls_today: 2, budget: 10, consent_expires: null
@@ -136,18 +150,22 @@ beforeEach(() => {
 });
 
 describe('Énergie', () => {
-  it('shows the period’s estimate in euros: parts that add up, the breakdown, a comparison on comparable days', async () => {
+  it('shows the period’s estimate in euros: the range with its kWh, a split that adds up, a comparison on comparable days', async () => {
     const { container } = render(Page);
     expect(await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' })).toBeInTheDocument();
     expect(container.querySelector('.hero')).toHaveAttribute('aria-labelledby', 'period-label');
     expect(container.querySelector('.hero .big')).toHaveTextContent('98,40 €');
-    expect(screen.getByText('estimation')).toBeInTheDocument();
-    expect(container.querySelector('.hero .sub .figs')).toHaveTextContent('412,6 kWh · HC 158,3 kWh · HP 254,3 kWh');
-    // A running month is described up to its last day with data.
-    expect(container.querySelector('.hero .sub .range')!.textContent).toContain('du\u00a01/10\u00a0au\u00a012/10');
-    expect(container.querySelector('.hero .breakdown')).toHaveTextContent('Énergie 92,11 € + abonnement 6,29 €');
+    expect(container.querySelector('.hero .tag')).toHaveTextContent('est.');
+    expect(screen.getByRole('button', { name: /^98,40\s€, estimation, détails$/ })).toBeInTheDocument();
+    // A running month is described up to its last day with data, then the kWh its parts add up to.
+    expect(container.querySelector('.hero .range')!.textContent).toBe('du\u00a01/10\u00a0au\u00a012/10 · 412,6\u00a0kWh');
+    expect(screen.getByRole('img', { name: 'Heures creuses 158,3\u00a0kWh, heures pleines 254,3\u00a0kWh' })).toBeInTheDocument();
+    expect(container.querySelector('.hero .words')).toHaveTextContent('Heures creuses 158,3 kWh Heures pleines 254,3 kWh');
     expect(screen.getByText('−4 % de consommation par rapport à septembre 2026, sur 12 jours comparables')).toBeInTheDocument();
-    expect(screen.getByText('Linky : données jusqu’au 12/10')).toBeInTheDocument();
+    // The Linky source line on the context row, fresh ring and words.
+    const line = container.querySelector('.context .source-line')!;
+    expect(line).toHaveTextContent('Linky · données jusqu’au 12/10');
+    expect(line.querySelector('[data-fresh]')).not.toBeNull();
   });
 
   it('renders the report although the alerts cannot be loaded (re-review)', async () => {
@@ -169,45 +187,92 @@ describe('Énergie', () => {
     expect(container.querySelector('.hero .delta')).toBeNull();
   });
 
-  it('the hero figure opens the period inspector', async () => {
-    const { container } = render(Page);
-    await fireEvent.click(await screen.findByRole('button', { name: /Détail de la période/ }));
-    const sheet = container.querySelector('.hero .inspector.sheet')!;
-    expect(sheet.querySelector('.title')).toHaveTextContent('Octobre 2026');
-    expect(sheet).toHaveTextContent('Maison 412,64 kWh');
-  });
-
-  it('the hero’s sheet docks at the hero’s end, under the figure’s lines; Esc inside closes it and focus returns to the figure', async () => {
-    const { container } = render(Page);
-    const fig = await screen.findByRole('button', { name: /Détail de la période/ });
-    await fireEvent.click(fig);
-    const hero = container.querySelector('.hero')!;
-    const sheet = hero.querySelector<HTMLElement>('.inspector.sheet')!;
-    expect(hero.lastElementChild).toBe(sheet);
-    expect(sheet.compareDocumentPosition(hero.querySelector('.sub')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-    sheet.querySelector<HTMLElement>('a[href="#quality"]')?.focus();
-    await fireEvent.keyDown(sheet, { key: 'Escape' });
-    await tick();
-    expect(hero.querySelector('.inspector')).toBeNull();
-    expect(fig).toHaveAttribute('aria-expanded', 'false');
-    expect(document.activeElement).toBe(fig);
-  });
-
-  it('desktop: Esc inside the hero’s pinned card closes it and focus returns to the figure', async () => {
+  it('the hero figure opens the period’s Fiche: the inspection, its notes and where it comes from; Esc gives focus back', async () => {
     desktop.matches = true;
     try {
-      const { container } = render(Page);
-      const fig = await screen.findByRole('button', { name: /Détail de la période/ });
+      render(Page);
+      const fig = await screen.findByRole('button', { name: /^98,40\s€, estimation, détails$/ });
       await fireEvent.click(fig);
-      const card = container.querySelector<HTMLElement>('.hero .inspector.card.pinned')!;
-      expect(card).not.toBeNull();
+      const card = document.querySelector('.fiche')!;
+      expect(card.querySelector('.title')).toHaveTextContent('Octobre 2026');
+      expect(ficheRow(card, 'Maison')).toBe('412,64\u00a0kWh');
+      expect(ficheRow(card, 'Coût estimé')).toBe('98,40\u00a0€');
+      expect(ficheRow(card, 'dont énergie')).toBe('92,11\u00a0€');
+      expect(ficheRow(card, 'dont abonnement')).toBe('6,29\u00a0€');
+      expect(ficheRow(card, 'Source')).toBe('Linky · Enedis via MyElectricalData');
+      expect(ficheRow(card, 'Nature')).toBe('estimé · kWh Linky × votre tarif');
       await fireEvent.keyDown(card, { key: 'Escape' });
       await tick();
-      expect(container.querySelector('.hero .inspector')).toBeNull();
+      expect(document.querySelector('.fiche')).toBeNull();
       expect(document.activeElement).toBe(fig);
     } finally {
       desktop.matches = false;
+      clearFiches();
     }
+  });
+
+  it('phone: the hero figure opens the same Fiche in the bottom sheet', async () => {
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+    render(Page);
+    await fireEvent.click(await screen.findByRole('button', { name: /^98,40\s€, estimation, détails$/ }));
+    const dialog = [...document.querySelectorAll('dialog')].find((d) => d.hasAttribute('open'))!;
+    expect(dialog.querySelector('h2')).toHaveTextContent('Octobre 2026');
+    expect(ficheRow(dialog, 'Coût estimé')).toBe('98,40\u00a0€');
+  });
+
+  it('key figures link to their sections: the full month, the heating share and the off-peak share', async () => {
+    vi.mocked(api.energyReport).mockResolvedValue(report({ hc_lens: { hc_share: 0.384, slot_share: 0.3333, avg_price: 0.2437, delta_price: 0.0632 } }));
+    render(Page);
+    const month = await screen.findByRole('link', { name: 'Mois complet, ≈\u00a0120,50\u00a0€' });
+    expect(month).toHaveAttribute('href', '#projection');
+    expect(screen.getByRole('link', { name: 'Chauffage, 47\u00a0% de la maison' })).toHaveAttribute('href', '#energy-where');
+    expect(screen.getByRole('link', { name: 'Heures creuses, 38\u00a0% 33\u00a0% du temps' })).toHaveAttribute('href', '#offpeak');
+  });
+
+  it('a past period has no full-month figure; Base has no off-peak figure', async () => {
+    vi.mocked(api.energyReport).mockResolvedValue(report({ option: 'base', hc_lens: { hc_share: 0.384, slot_share: 0.3333, avg_price: 0.2437, delta_price: 0.0632 } }));
+    render(Page);
+    await screen.findByRole('link', { name: /^Mois complet/ });
+    expect(screen.queryByRole('link', { name: /^Heures creuses,/ })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Période précédente' }));
+    await screen.findByRole('heading', { level: 2, name: 'Septembre 2026' });
+    expect(screen.queryByRole('link', { name: /^Mois complet/ })).toBeNull();
+    expect(screen.getByRole('link', { name: /^Chauffage,/ })).toBeInTheDocument();
+  });
+
+  it('no tariff: the figure is the kWh, a line asks for the tariff, and no euro anywhere in the Résumé', async () => {
+    vi.mocked(api.energyReport).mockResolvedValue(report({ tariff: false, ...periodWith({ kwh: 412.64, eur: null, energy_eur: null, subscription_eur: null }) }));
+    const { container } = render(Page);
+    expect(await screen.findByRole('link', { name: 'Renseigner le tarif' })).toHaveAttribute('href', '/home#tariff');
+    expect(screen.getByText(/^Ajoutez votre tarif pour voir les coûts\./)).toBeInTheDocument();
+    expect(container.querySelector('.hero .big')).toHaveTextContent('412,6 kWh');
+    expect(container.querySelector('.hero .answer')!.textContent).not.toContain('€');
+    expect(container.querySelector('.hero .tag')).toBeNull();
+  });
+
+  it('a period before the history says where it starts and goes there', async () => {
+    const r = report({ ...periodWith({ ...NONE, missing_days: 0 }) });
+    r.period = { ...r.period, from: '2025-09-01', to: '2025-10-01' };
+    r.linky_since = '2025-11-01';
+    vi.mocked(api.energyReport).mockResolvedValueOnce(r).mockResolvedValueOnce(r);
+    render(Page);
+    expect(await screen.findByText('Pas de données pour Septembre 2025 : l’historique commence le 1 novembre 2025.')).toBeInTheDocument();
+    vi.mocked(api.energyReport).mockResolvedValue(report());
+    await fireEvent.click(screen.getByRole('button', { name: 'Aller au 1/11' }));
+    await waitFor(() => expect(vi.mocked(api.energyReport).mock.calls.at(-1)![0]).toBe('2025-11-01'));
+  });
+
+  it('first sync: the source line waits (dashed) and the Résumé says the history is on its way', async () => {
+    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'never', last_day: null });
+    vi.mocked(api.energyReport).mockResolvedValue(report({ last_day: null, ...periodWith({ ...NONE }) }));
+    const { container } = render(Page);
+    expect(await screen.findByText('Première synchronisation : l’historique Linky arrive dans quelques minutes.')).toBeInTheDocument();
+    const line = container.querySelector('.context .source-line')!;
+    expect(line).toHaveTextContent('Linky · première synchronisation en attente');
+    expect(line.querySelector('[data-fresh="late"]')).not.toBeNull();
+    expect(container.querySelector('.callout')).toBeNull();
   });
 
   it('loads Mois first (its day bars and the month itself), and switches views with the keyboard', async () => {
@@ -280,22 +345,30 @@ describe('Énergie', () => {
     const bar = screen.getByRole('button', { name: /^11 octobre, 10,00 kilowattheures, 3,00 euros$/ });
     await fireEvent.keyDown(bar, { key: 'Enter' });
     await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-11', 'salon'));
-    expect(await screen.findByRole('heading', { name: 'Courbe du 11 octobre 2026' })).toBeInTheDocument();
+    // Mois: the drill opens the collapsed Courbe on that day.
+    expect(await screen.findByRole('heading', { name: /^Courbe du 11 octobre 2026/ })).toBeInTheDocument();
+    expect(document.getElementById('curve-title')).toHaveAttribute('aria-expanded', 'true');
     expect(announcer.polite).toBe('Courbe du 11 octobre 2026');
   });
 
-  it('without Linky: a way to connect it, and the radiators alone', async () => {
+  it('without Linky: an invitation to connect it, and the radiators alone', async () => {
     vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, configured: false, state: 'off', last_day: null });
     vi.mocked(api.energyReport).mockResolvedValue(report({ linky: false, last_day: null, projection: null, heating_share: null, ...periodWith({ kwh: null, eur: null }) }));
-    render(Page);
-    expect(await screen.findByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/home#linky');
+    const { container } = render(Page);
+    expect(await screen.findByRole('heading', { name: 'Reliez votre compteur Linky' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Relier le Linky' })).toHaveAttribute('href', '/home#linky');
     expect(await screen.findByRole('img', { name: 'Consommation des radiateurs par jour' })).toBeInTheDocument();
+    expect(container.querySelector('.hero .big')).toHaveTextContent('140,0 kWh');
+    expect(container.querySelector('.hero .range')).toHaveTextContent(/^des radiateurs, /);
+    expect(container.querySelector('.context .source-line')).toBeNull();
+    expect(container.querySelector('.hero .keys')).toBeNull();
     expect(api.energyDay).not.toHaveBeenCalled();
   });
 
   it('the Courbe gives the daily-scaled HC/HP and the curve against the daily reading (M7)', async () => {
     const { container } = render(Page);
-    expect(await screen.findByRole('heading', { name: 'Courbe du 12 octobre 2026' })).toBeInTheDocument();
+    await openCurve();
+    expect(await screen.findByRole('heading', { name: /^Courbe du 12 octobre 2026/ })).toBeInTheDocument();
     expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
     const notes = [...container.querySelectorAll('#curve .note')].map((n) => n.textContent);
     expect(notes).toContain('Courbe 21,60\u00a0kWh · relevé journalier 22,03\u00a0kWh (écart 2,0\u00a0%)');
@@ -313,6 +386,7 @@ describe('Énergie', () => {
       energyDay(d, { totals: { curve_kwh: 12.2, daily_kwh: 12.23, hc_kwh: 4.115, hp_kwh: 8.115, split_method: 'curve', hc_kwh_curve: 4.1, hp_kwh_curve: 8.1 } })
     );
     const { container } = render(Page);
+    await openCurve();
     await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' });
     const notes = [...container.querySelectorAll('#curve .note')].map((n) => n.textContent);
     const caption = 'Consommation de la maison par jour';
@@ -325,6 +399,7 @@ describe('Énergie', () => {
 
   it('the Courbe readout prices each half-hour from /api/energy/day: with a tariff, Prix and Coût are figures', async () => {
     const { container } = render(Page);
+    await openCurve();
     const caption = 'Consommation par demi-heure le 12 octobre 2026';
     await screen.findByRole('img', { name: caption });
     expect(cell(container, caption, '00:00–00:30', 'Prix')).toBe('0,2000\u00a0€/kWh');
@@ -427,16 +502,81 @@ describe('Énergie', () => {
     expect(legend).not.toHaveTextContent('Heures pleines');
   });
 
+  it('Mois: the Courbe is its summary row (the day’s kWh, € and peak), opened by a click', async () => {
+    const { container } = render(Page);
+    const b = await waitFor(() => {
+      const x = document.querySelector<HTMLButtonElement>('#curve-title');
+      if (!x?.querySelector('.meta')) throw new Error('no summary yet');
+      return x;
+    });
+    expect(b).toHaveAttribute('aria-expanded', 'false');
+    expect(b.closest('h2')).not.toBeNull();
+    // The day bar's own figures: 10,00 kWh and 3,00 € for the 12th; the peak from the curve.
+    expect(b.querySelector('.meta')).toHaveTextContent(`10,00 kWh · 3,00 € · pointe 6,84 kW à ${fmtTime(parisDayStart('2026-10-12') + 19 * 3600_000)}`);
+    expect(container.querySelector('#curve .region')).toHaveAttribute('hidden', 'until-found');
+    await fireEvent.click(b);
+    expect(b).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
+  });
+
+  it('the Courbe starts collapsed in each view that collapses it, even after it was opened in another', async () => {
+    render(Page);
+    await openCurve();
+    expect(document.getElementById('curve-title')).toHaveAttribute('aria-expanded', 'true');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Année' }));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: '2026' })).toBeInTheDocument());
+    await waitFor(() => expect(document.getElementById('curve-title')).toHaveAttribute('aria-expanded', 'false'));
+  });
+
+  it('the Courbe readout at rest is the whole day, the bar’s figures, under « Journée »; scrubbing shows the half-hour', async () => {
+    const { container } = render(Page);
+    await fireEvent.click(await screen.findByRole('radio', { name: 'Jour' }));
+    await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' });
+    const readout = container.querySelector('#curve .readout')!;
+    const cur = (label: string) =>
+      [...readout.querySelectorAll('.field')].find((f) => f.querySelector('dt')?.textContent === label)?.querySelector('.v.cur .val')?.textContent ?? null;
+    expect(readout.querySelector('.when dd')).toHaveTextContent('Journée');
+    expect(cur('Énergie')).toBe('10,00\u00a0kWh');
+    expect(cur('Coût')).toBe('3,00\u00a0€');
+    expect(cur('Radiateurs')).toBe('5,00\u00a0kWh');
+    // Tarif and Prix have no whole-day value: their place is kept, unseen.
+    const rate = [...readout.querySelectorAll('.field')].find((f) => f.querySelector('dt')?.textContent === 'Tarif')!;
+    expect(rate).toHaveClass('off');
+    expect(screen.getByText('Survolez, touchez ou utilisez ← → pour lire chaque demi-heure')).toBeInTheDocument();
+    await fireEvent.keyDown(screen.getByRole('slider', { name: 'Parcourir la courbe, demi-heure par demi-heure' }), { key: 'ArrowRight' });
+    expect(readout.querySelector('.when dd')).toHaveTextContent('00:00–00:30');
+    expect(cur('Énergie')).toBe('400\u00a0Wh');
+    expect(rate).not.toHaveClass('off');
+  });
+
+  it('a day with no off-peak split beside split days reads « Non réparti » (violet), never « Heures creuses »', async () => {
+    const days = october();
+    days[3] = { ...days[3], hc_kwh: null, hp_kwh: null };
+    vi.mocked(api.energyReport).mockResolvedValue(report({ buckets: days }));
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
+    const legend = [...container.querySelectorAll('.panels > section:nth-child(2) > ul.legend li')].map((l) => l.textContent);
+    expect(legend).toEqual(['Heures creuses', 'Heures pleines', 'Non réparti', 'Radiateurs']);
+    expect(cell(container, 'Consommation de la maison par jour', '4/10', 'Maison')).toMatch(/^10/);
+  });
+
+  it('the legend names only what is drawn: no « Non réparti » for days still to come', async () => {
+    const { container } = render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
+    expect([...container.querySelectorAll('.panels > section:nth-child(2) > ul.legend li')].map((l) => l.textContent)).toEqual(['Heures creuses', 'Heures pleines', 'Radiateurs']);
+  });
+
   it('a failed curve says so, and Réessayer reads it again', async () => {
     vi.mocked(api.energyDay).mockRejectedValueOnce(new Error('boom'));
     render(Page);
+    await openCurve();
     expect(await screen.findByText('Impossible de charger la courbe.')).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /^Consommation par demi-heure/ })).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByRole('img', { name: 'Consommation par demi-heure le 12 octobre 2026' })).toBeInTheDocument();
   });
 
-  it('says when data is partial, the split estimated, radiators interpolated or prices retroactive', async () => {
+  it('missing days and prices applied after the fact stay on screen (ⓘ); the estimated split and interpolation go to the Fiche', async () => {
     const r = report(
       periodWith({
         kwh: 300, missing_days: 2, estimated_split: true, retro_priced: true,
@@ -447,11 +587,22 @@ describe('Énergie', () => {
     r.quality = { ...r.quality, estimated_days: 5 };
     r.period.quality = { ...r.period.quality, estimated_days: 3 };
     vi.mocked(api.energyReport).mockResolvedValue(r);
-    render(Page);
-    expect(await screen.findByText('Données partielles : 2 jours manquants. L’énergie de ces jours n’est pas comptée dans le coût.')).toBeInTheDocument();
-    expect(screen.getByText('Répartition heures creuses / pleines estimée pour 3 jours sans courbe complète.')).toBeInTheDocument();
-    expect(screen.getByText('Radiateurs : énergie répartie sur une interruption de l’enregistrement (est.).')).toBeInTheDocument();
-    expect(screen.getByText('Prix du 5/10 appliqué aux jours antérieurs.')).toBeInTheDocument();
+    desktop.matches = true;
+    try {
+      const { container } = render(Page);
+      expect(await screen.findByText('Données partielles : 2 jours manquants. L’énergie de ces jours n’est pas comptée dans le coût.')).toBeInTheDocument();
+      expect(screen.getByText('Prix du 5/10 appliqué aux jours antérieurs.')).toBeInTheDocument();
+      expect(container.querySelectorAll('.hero .note svg')).toHaveLength(2);
+      expect(screen.queryByText('Répartition heures creuses / pleines estimée pour 3 jours sans courbe complète.')).toBeNull();
+      await fireEvent.click(container.querySelector<HTMLButtonElement>('.hero .fig')!);
+      const card = document.querySelector('.fiche')!;
+      expect(card).toHaveTextContent('Répartition heures creuses / pleines estimée pour 3 jours sans courbe complète.');
+      expect(card).toHaveTextContent('Radiateurs : énergie répartie sur une interruption de l’enregistrement (est.).');
+      expect(card).toHaveTextContent('Données partielles : 2 jours manquants.');
+    } finally {
+      desktop.matches = false;
+      clearFiches();
+    }
   });
 
   it('names the days whose energy has no Tempo colour (hero)', async () => {
@@ -465,11 +616,17 @@ describe('Énergie', () => {
     r.quality = { ...r.quality, estimated_days: 4, fallback_method: 'fallback_window', fallback_share: 0.4, retro_priced_days: 3 };
     r.period.quality = { ...r.period.quality, estimated_days: 1, fallback_method: 'fallback_window', fallback_share: 0.4 };
     vi.mocked(api.energyReport).mockResolvedValue(r);
+    desktop.matches = true;
     const { container } = render(Page);
     await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
-    expect(await screen.findByText('Répartition heures creuses / pleines estimée pour 1 jour sans courbe complète.')).toBeInTheDocument();
-    expect(screen.queryByText(/estimée pour 4 jours/)).toBeNull();
+    await screen.findByRole('heading', { level: 2, name: 'Lundi 12 octobre 2026' });
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.hero .fig')!);
+    const card = document.querySelector('.fiche')!;
+    expect(card).toHaveTextContent('Répartition heures creuses / pleines estimée pour 1 jour sans courbe complète.');
+    expect(card).not.toHaveTextContent(/estimée pour 4 jours/);
+    desktop.matches = false;
+    clearFiches();
     const q = container.querySelector('#quality')!;
     expect(q).toHaveTextContent('Jours HC/HP estimés : 1 (');
     expect(q).not.toHaveTextContent('Prix du premier tarif');
@@ -508,9 +665,10 @@ describe('Énergie', () => {
     const { container } = render(Page);
     expect(container.querySelectorAll('.panel-sk')).toHaveLength(4);
     expect(screen.queryByText('Chargement…')).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'Compteurs des radiateurs' })).toBeNull();
+    expect(container.querySelector('.hero-sk')).not.toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Consommation de la maison' })).toBeNull();
     resolve(report());
-    expect(await screen.findByRole('heading', { name: 'Compteurs des radiateurs' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Consommation de la maison' })).toBeInTheDocument();
     expect(container.querySelectorAll('.panel-sk, .nav-sk')).toHaveLength(0);
   });
 
@@ -534,12 +692,33 @@ describe('Énergie', () => {
     expect(await screen.findByRole('img', { name: 'Consommation de la maison par jour' })).toBeInTheDocument();
   });
 
-  it('Linky quota is a neutral progress note, with nothing to fix in the settings', async () => {
+  it('Linky quota is the source line’s words and dashed ring: no callout, nothing to fix in the settings', async () => {
     vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, state: 'quota', message: 'Quota Linky du jour atteint : reprise demain.' });
     const { container } = render(Page);
-    expect(await screen.findByText(/Historique en cours de récupération : la suite arrive demain\./)).toBeInTheDocument();
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    const line = await waitFor(() => container.querySelector('.context .source-line')!);
+    expect(line).toHaveTextContent('Linky · historique en cours, la suite demain');
+    expect(line.querySelector('[data-fresh="late"]')).not.toBeNull();
     expect(screen.queryByRole('link', { name: 'Réglages' })).toBeNull();
-    expect(container.querySelector('.callout.bad')).toBeNull();
+    expect(container.querySelector('.callout')).toBeNull();
+  });
+
+  it('the Linky source line’s Fiche holds the last day, the sync, the calls and the history', async () => {
+    desktop.matches = true;
+    vi.mocked(api.linkyStatus).mockResolvedValue({ ...linkyOk, last_ok_at: Date.UTC(2026, 9, 13, 5, 0) / 1000 });
+    try {
+      render(Page);
+      await fireEvent.click(await screen.findByRole('button', { name: 'Linky · données jusqu’au 12/10, détails' }));
+      const card = document.querySelector('.fiche')!;
+      expect(card.querySelector('.title')).toHaveTextContent('Compteur Linky');
+      expect(ficheRow(card, 'Dernier relevé journalier')).toBe('12 octobre 2026');
+      expect(ficheRow(card, 'Appels MyElectricalData')).toBe('2 sur 10 aujourd’hui');
+      expect(ficheRow(card, 'Historique depuis le')).toBe('1 novembre 2025');
+      expect(ficheRow(card, 'Dernière synchronisation')).not.toBeNull();
+    } finally {
+      desktop.matches = false;
+      clearFiches();
+    }
   });
 
   it('Linky throttled is neutral and gives the retry time', async () => {
@@ -565,24 +744,13 @@ describe('Énergie', () => {
     expect(api.energyReport).toHaveBeenCalled(); // from yesterday's period, without a Linky day to anchor it
   });
 
-  it('meter cells are bare figures under « Registre » headers (T1/T2 are not HC/HP)', async () => {
-    const { container } = render(Page);
-    await screen.findByRole('columnheader', { name: 'Depuis l’installation (kWh)' });
-    expect([...container.querySelectorAll('th.opt')].map((t) => t.textContent)).toEqual(['Registre 1 (kWh)', 'Registre 2 (kWh)']);
-    expect([...container.querySelectorAll('.table-wrap td.mono')].map((t) => t.textContent)).toEqual(['1,0', '0,4', '0,6']);
-  });
-
-  it('an absent meter register reads « — », never 0 kWh', async () => {
-    house.applySnapshot({
-      house: {
-        rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a'] }] as never,
-        radiators: [{ id: 'a', room_id: 'salon', energy_wh: { total: 1000, t1: null, t2: 600 }, model: 'HEKLA', name: 'R' }] as never
-      },
-      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
-    });
-    const { container } = render(Page);
-    await screen.findByRole('columnheader', { name: 'Depuis l’installation (kWh)' });
-    expect([...container.querySelectorAll('td.opt')].map((t) => t.textContent)).toEqual(['—', '0,6']);
+  it('no « Compteurs des radiateurs » or « Exporter » panel: the files are in the header menu', async () => {
+    render(Page);
+    await screen.findByRole('img', { name: 'Consommation de la maison par jour' });
+    expect(screen.queryByRole('heading', { name: 'Compteurs des radiateurs' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Exporter' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Exporter' }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Exporter (CSV)' })).toHaveAttribute('aria-haspopup', 'menu');
   });
 
   it('shows the report as soon as it arrives, even before the live stream; house parts wait in their own slots', async () => {
@@ -590,19 +758,26 @@ describe('Énergie', () => {
     const { container } = render(Page);
     expect(await screen.findByRole('img', { name: 'Consommation de la maison par jour' })).toBeInTheDocument();
     expect(container.querySelector('.hero .big')).toHaveTextContent('€');
-    expect(screen.getByRole('heading', { name: 'Compteurs des radiateurs' }).closest('section')).toHaveAttribute('aria-busy', 'true');
-    expect(screen.getByRole('heading', { name: 'Par pièce et par radiateur' }).closest('section')).toHaveAttribute('aria-busy', 'true');
-    expect(container.querySelector('.table-wrap')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Où part l’énergie' }).closest('section')).toHaveAttribute('aria-busy', 'true');
   });
 
   it('Mois shows Heures creuses / pleines and Chauffage; Jour and Semaine add Puissance', async () => {
     vi.mocked(api.energyReport).mockResolvedValue(report({ hc_lens: { hc_share: 0.384, slot_share: 0.3333, avg_price: 0.2437, delta_price: 0.0632 } }));
     render(Page);
-    expect(await screen.findByRole('heading', { name: 'Heures creuses / pleines' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Chauffage' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Puissance' })).toBeNull();
+    // Order: Résumé, Consommation, Courbe, Où part l'énergie, Analyse (its cards' labels are h3), Qualité.
+    const analysis = (await screen.findByRole('heading', { level: 2, name: 'Analyse' })).closest('section')!;
+    const cards = () => [...analysis.querySelectorAll('.cards > section h3')].map((h) => h.textContent);
+    expect(cards()).toEqual(['Heures creuses / pleines', 'Comparaisons', 'Projection']);
+    const order = () =>
+      [...document.querySelectorAll('.panels > section')].map((x) => x.querySelector('h2')?.textContent?.trim().split(/\s{2,}|\n/)[0] ?? x.className);
+    expect(order().slice(2)).toEqual([expect.stringMatching(/^Courbe du/), 'Où part l’énergie', 'Analyse', expect.stringMatching(/^Qualité des données/)]);
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
-    expect(await screen.findByRole('heading', { name: 'Puissance' })).toBeInTheDocument();
+    await screen.findByRole('heading', { level: 2, name: 'Lundi 12 octobre 2026' });
+    const day = screen.getByRole('heading', { level: 2, name: 'Analyse' }).closest('section')!;
+    expect([...day.querySelectorAll('.cards > section h3')].map((h) => h.textContent)).toEqual(['Puissance', 'Heures creuses / pleines', 'Comparaisons', 'Projection']);
+    expect(day.querySelector('.cards')).toHaveClass('n4');
+    // Every card's detail is closed by default.
+    for (const b of day.querySelectorAll('.cards .dbtn')) expect(b).toHaveAttribute('aria-expanded', 'false');
   });
   it('Jour shows Température et chauffe under the Courbe for a room, and another room re-reads the day', async () => {
     house.applySnapshot({
@@ -621,10 +796,9 @@ describe('Énergie', () => {
     expect(screen.queryByRole('heading', { name: 'Température et chauffe' })).toBeNull();
     await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
     const h = await screen.findByRole('heading', { name: 'Température et chauffe' });
-    // Full width, straight under the Courbe whose scrubber it shares.
-    const panel = h.closest('section')!;
-    expect(panel).toHaveClass('wide');
-    expect(panel.previousElementSibling).toHaveAttribute('id', 'curve');
+    // Inside « Où part l'énergie », under the rooms (an h3 there), sharing the Courbe's scrubber.
+    expect(h.tagName).toBe('H3');
+    expect(h.closest('#energy-where')).not.toBeNull();
     // The first room in the Pièces order.
     await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'salon'));
     // The half-hour scrubbed on one chart is the other's.
@@ -635,19 +809,40 @@ describe('Énergie', () => {
     // Chambre's radiator has no figure that day: said, never a flat zero.
     expect(await screen.findByText('Pas de relevé pour cette pièce ce jour-là.')).toBeInTheDocument();
   });
-  it('Comparaisons and Projection share a row in every view; the Projection is an estimate that says how', async () => {
-    const { container } = render(Page);
+  it('Comparaisons and Projection are Analyse cards in every view; the Projection says how, one disclosure away', async () => {
+    render(Page);
     for (const view of ['Mois', 'Jour', 'Semaine', 'Année']) {
       if (view !== 'Mois') await fireEvent.click(screen.getByRole('radio', { name: view }));
       const cmp = (await screen.findByRole('heading', { name: 'Comparaisons' })).closest('section')!;
-      const proj = screen.getByRole('heading', { name: 'Projection' }).closest('section')!;
-      expect(cmp).toHaveClass('half');
-      expect(proj).toHaveClass('half');
-      expect(cmp.nextElementSibling).toBe(proj);
+      expect(cmp.parentElement).toHaveClass('cards');
+      expect(screen.getByRole('heading', { name: 'Projection' }).closest('section')).toHaveAttribute('id', 'projection');
     }
-    expect(screen.getByText('Comment c’est calculé')).toBeInTheDocument();
-    expect(container.textContent).not.toContain('12 prochains mois');
+    expect(screen.getByRole('button', { name: /^Comment c’est calculé/ })).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('expanding a room in Jour selects it in Température et chauffe', async () => {
+    house.applySnapshot({
+      house: {
+        rooms: [{ id: 'salon', name: 'Salon', radiator_ids: ['a'] }, { id: 'chambre', name: 'Chambre', radiator_ids: ['b'] }] as never,
+        radiators: [{ id: 'a', room_id: 'salon', energy_wh: null, model: 'HEKLA', name: 'R' }, { id: 'b', room_id: 'chambre', energy_wh: null, model: 'HEKLA', name: 'S' }] as never
+      },
+      pending: [], overrides: [], status: { connected: true, last_ok_at: null, last_error: null }
+    });
+    const r = report();
+    r.by_radiator = [
+      { radiator_id: 'a', room_id: 'salon', kwh: 5, hc_kwh: 2, hp_kwh: 3, eur: 1.2, coverage: 1, interpolated: false, apportioned: false, from: null, temp_avg: 19, setpoint_avg: 20, heating_hours: 2 },
+      { radiator_id: 'b', room_id: 'chambre', kwh: 3, hc_kwh: 1, hp_kwh: 2, eur: 0.8, coverage: 1, interpolated: false, apportioned: false, from: null, temp_avg: 18, setpoint_avg: 19, heating_hours: 1 }
+    ];
+    vi.mocked(api.energyReport).mockResolvedValue(r);
+    const { container } = render(Page);
+    await screen.findByRole('heading', { level: 2, name: 'Octobre 2026' });
+    await fireEvent.click(screen.getByRole('radio', { name: 'Jour' }));
+    await screen.findByRole('heading', { name: 'Température et chauffe' });
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'salon'));
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('#energy-where button.name[data-room="chambre"]')!);
+    await waitFor(() => expect(api.energyDay).toHaveBeenLastCalledWith('2026-10-12', 'chambre'));
+  });
+
   it('the default room is the first, in the Pièces order, that has a radiator', async () => {
     house.applySnapshot({
       house: {
@@ -668,23 +863,38 @@ describe('Énergie', () => {
     expect(await screen.findByText(/^Relevés Linky en retard \(dernier jour le 1 octobre 2026\)/)).toBeInTheDocument();
   });
 
-  it('Qualité des données is collapsed under the panels, and Exporter, the last panel, exports the period shown', async () => {
-    const { container } = render(Page);
-    const quality = (await screen.findByRole('heading', { name: 'Qualité des données' })).closest('section')!;
-    expect(quality).toHaveAttribute('id', 'quality');
-    expect(within(quality).getByRole('button', { name: 'Qualité des données' })).toHaveAttribute('aria-expanded', 'false');
-    const exporter = screen.getByRole('heading', { name: 'Exporter' }).closest('section')!;
-    expect([...container.querySelectorAll('.panels > *')].at(-1)).toBe(exporter);
-    await fireEvent.click(screen.getByRole('button', { name: 'Exporter la période (CSV)' }));
-    const file = vi.mocked(download).mock.calls[0][0];
-    expect(file.name).toBe('energie_2026-10-01_2026-11-01_day.csv');
-    const rows = file.text.slice(1).split('\r\n');
-    expect(rows).toHaveLength(31 + 2 + 1); // header, 31 days, total, the final CRLF
-    // The total row is the hero's period: 412,6 kWh, 98,40 €.
-    expect(rows[32].split(';').slice(0, 4).join(';')).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;412,640');
-    expect(rows[32].split(';')[12]).toBe('98,40');
-    expect(await screen.findByRole('button', { name: /^Exporter la courbe du / })).toBeInTheDocument();
+  it('Qualité des données is collapsed, last; the header menu exports the period shown, the Courbe’s day and the rooms', async () => {
+    desktop.matches = true;
+    try {
+      const { container } = render(Page);
+      const quality = (await screen.findByRole('heading', { name: /^Qualité des données/ })).closest('section')!;
+      expect(quality).toHaveAttribute('id', 'quality');
+      expect(within(quality).getByRole('button', { name: /^Qualité des données/ })).toHaveAttribute('aria-expanded', 'false');
+      expect([...container.querySelectorAll('.panels > *')].at(-1)).toBe(quality);
+      const trigger = container.querySelector<HTMLButtonElement>('.export .desk button')!;
+      expect(trigger).toHaveTextContent('Exporter');
+      await fireEvent.click(trigger);
+      const items = await screen.findAllByRole('menuitem');
+      expect(items.map((i) => i.textContent!.trim())).toEqual(['Exporter la période (CSV)', 'Exporter la courbe du 12/10 (CSV)']);
+      expect(document.querySelector('.pop .foot')).toHaveTextContent('CSV : « ; » entre les colonnes, virgule décimale, dates ISO.');
+      await fireEvent.click(items[0]);
+      const file = vi.mocked(download).mock.calls[0][0];
+      expect(file.name).toBe('energie_2026-10-01_2026-11-01_day.csv');
+      const rows = file.text.slice(1).split('\r\n');
+      expect(rows).toHaveLength(31 + 2 + 1); // header, 31 days, total, the final CRLF
+      // The total row is the hero's period: 412,6 kWh, 98,40 €.
+      expect(rows[32].split(';').slice(0, 4).join(';')).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;412,640');
+      expect(rows[32].split(';')[12]).toBe('98,40');
+      // The same menu closes the page (the ghost « Exporter (CSV) »).
+      await fireEvent.click(screen.getByRole('button', { name: 'Exporter (CSV)' }));
+      await fireEvent.click((await screen.findAllByRole('menuitem', { name: 'Exporter la courbe du 12/10 (CSV)' }))[0]);
+      expect(vi.mocked(download).mock.calls[1][0].name).toBe('courbe_2026-10-12.csv');
+    } finally {
+      desktop.matches = false;
+      clearFiches();
+    }
   });
+
 });
 
 describe('Energy in English', () => {
@@ -697,13 +907,13 @@ describe('Energy in English', () => {
     expect(screen.getByRole('radio', { name: 'Month' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('radiogroup', { name: 'Period' })).toBeInTheDocument();
     expect(container.querySelector('.hero .big')).toHaveTextContent('€98.40');
-    expect(container.querySelector('.hero .tag')).toHaveTextContent('estimate');
-    expect(container.querySelector('.hero .sub')).toHaveTextContent('412.6 kWh · Off-peak 158.3 kWh · Peak 254.3 kWh · 1/10 – 12/10');
+    expect(screen.getByRole('button', { name: '€98.40, estimate, details' })).toBeInTheDocument();
+    expect(container.querySelector('.hero .range')).toHaveTextContent('1/10 – 12/10 · 412.6 kWh');
+    expect(container.querySelector('.hero .words')).toHaveTextContent('Off-peak 158.3 kWh Peak 254.3 kWh');
     expect(screen.getByText('−4% consumption compared with September 2026, over 12 comparable days')).toBeInTheDocument();
-    expect(screen.getByText('Linky: data up to 12/10')).toBeInTheDocument();
+    expect(container.querySelector('.context .source-line')).toHaveTextContent('Linky · data up to 12/10');
     expect(screen.getByRole('img', { name: 'Home consumption by day' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Radiator meters' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Register 1 (kWh)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export (CSV)' })).toBeInTheDocument();
   });
   it('a failed report shows the code’s English text, a code-less failure the page’s own message', async () => {
     applyLocale('en');
