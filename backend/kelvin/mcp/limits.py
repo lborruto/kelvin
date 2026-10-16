@@ -11,6 +11,7 @@ from itertools import takewhile
 FAIL_LIMIT, FAIL_WINDOW_S = 10, 15 * 60
 MINUTE_LIMIT, HOUR_LIMIT = 60, 1000
 MAX_KEYS = 10_000
+AUDIT_DENIAL_EVERY_S = 60  # one `denied` audit row a minute for all bad tokens together
 AUDIT_REFUSAL_EVERY_S = 60  # one `rate_limited` audit row per token a minute, however many 429s
 
 
@@ -25,6 +26,8 @@ class McpLimits:
         self._fail: dict[str, deque[float]] = {}
         self._calls: dict[str, deque[float]] = {}
         self._audited: dict[str, float] = {}
+        self._denial_at: float | None = None
+        self._denials_folded = 0
 
     def failure_wait(self, key: str) -> float | None:
         q = self._fail.get(key)
@@ -64,3 +67,15 @@ class McpLimits:
             return False
         self._audited[token_id] = now
         return True
+
+    def denial_to_audit(self) -> int | None:
+        """For a refused authentication: None when it folds into the minute's audit row, else the
+        number folded since the last row (the new row carries it). Global, not per address: bad
+        tokens from any number of addresses or rotating headers write one row a minute, so they
+        can never crowd the owner's real audit rows out."""
+        now = self.clock()
+        if self._denial_at is not None and now - self._denial_at < AUDIT_DENIAL_EVERY_S:
+            self._denials_folded += 1
+            return None
+        folded, self._denials_folded, self._denial_at = self._denials_folded, 0, now
+        return folded

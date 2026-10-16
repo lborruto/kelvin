@@ -13,6 +13,7 @@ from kelvin.recorder.db import Database
 
 KEEP_S = 90 * 86400
 MAX_ROWS = 20_000
+KEEP_PER_TOKEN = 200  # the cap never takes a token (or the refused authentications) below this
 PRUNE_BATCH = 5000
 PRUNE_EVERY_S = 3600
 ARGS_MAX = 500
@@ -100,7 +101,11 @@ class McpAudit:
         ]
 
     def prune(self) -> int:
-        """Older than 90 days, then beyond the newest MAX_ROWS; in batches (CLAUDE.md)."""
+        """Older than 90 days; then, above MAX_ROWS, the oldest rows of the heaviest source (a token
+        id, or NULL for refused authentications) first, never taking a source below its newest
+        KEEP_PER_TOKEN rows. One token flooding at its rate limit evicts only its own history,
+        never another token's recent calls. In batches (CLAUDE.md); the table holds MCP rows
+        only, so MCP traffic never evicts any other record."""
         removed = 0
         cutoff = self.wall() - KEEP_S
         while True:
@@ -112,15 +117,22 @@ class McpAudit:
             if n < PRUNE_BATCH:
                 break
         while True:
-            top = self.db.query("SELECT MAX(id) AS m FROM mcp_audit")[0]["m"]
-            if top is None:
+            total = self.db.query("SELECT COUNT(*) AS n FROM mcp_audit")[0]["n"]
+            if total <= MAX_ROWS:
                 break
+            heavy = self.db.query(
+                "SELECT token_id, COUNT(*) AS n FROM mcp_audit GROUP BY token_id"
+                " ORDER BY n DESC LIMIT 1"
+            )[0]
+            excess = min(total - MAX_ROWS, heavy["n"] - KEEP_PER_TOKEN, PRUNE_BATCH)
+            if excess <= 0:
+                break  # every source is at its floor: the cap yields to fairness
             n = self.db.execute(
-                "DELETE FROM mcp_audit WHERE id IN"
-                " (SELECT id FROM mcp_audit WHERE id <= ? ORDER BY id LIMIT ?)",
-                (top - MAX_ROWS, PRUNE_BATCH),
+                "DELETE FROM mcp_audit WHERE id IN (SELECT id FROM mcp_audit"
+                " WHERE token_id IS ? ORDER BY id LIMIT ?)",
+                (heavy["token_id"], excess),
             )
             removed += n
-            if n < PRUNE_BATCH:
+            if n == 0:
                 break
         return removed

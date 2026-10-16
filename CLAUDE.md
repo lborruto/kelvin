@@ -293,8 +293,9 @@ depends on.
 - **MCP tokens:** `kmcp_…`, shown once, only their SHA-256 stored (`mcp_tokens`), accepted only as
   `Authorization: Bearer` on `/mcp` (never on `/api`; `/mcp` never takes the session cookie). The
   gate (`mcp/gate.py`) refuses any `Origin` header, locks a client out after 10 failures in 15 min,
-  limits a token to 60 calls a minute and 1 000 an hour, and audits every refusal without token
-  material. The SDK (`mcp`, exact pin) runs stateless with JSON responses; `/mcp` takes POST only
+  limits a token to 60 calls a minute and 1 000 an hour, and audits refusals without token
+  material, one row a minute however many (bad tokens folded together, a throttled token once);
+  the audit's cap prunes the heaviest source first and keeps every source's newest 200 rows. The SDK (`mcp`, exact pin) runs stateless with JSON responses; `/mcp` takes POST only
   (a GET would open an idle SSE stream); its DNS-rebinding check is off on purpose (TrustedHost +
   Origin refusal replace it).
 - **Time in tests:** tests that depend on the time of day use the injected clock

@@ -1,5 +1,7 @@
 """Spec MCP §5.2: who gets through /mcp, and what is written about who did not."""
 
+from httpx import ASGITransport, AsyncClient
+
 from kelvin.mcp.limits import FAIL_LIMIT, MINUTE_LIMIT
 from tests.mcp_helpers import INIT, kelvin_app, rpc
 
@@ -32,7 +34,7 @@ async def test_missing_malformed_wrong_and_cookie_only_are_401(tmp_path):
         r = await rpc(c, "initialize", INIT, cookies=True)  # a session cookie is not a token
         assert r.status_code == 401
         rows = _denials(app)
-        assert len(rows) == 5 and {x["outcome"] for x in rows} == {"denied"}
+        assert len(rows) == 1 and {x["outcome"] for x in rows} == {"denied"}  # folded a minute
         assert all(x["token_id"] is None and good not in str(x) for x in rows)
         assert app.state.ctx.mcp_tokens.listing()[0]["last_used"] is None
 
@@ -103,3 +105,24 @@ async def test_oversized_bodies_are_refused(tmp_path):
         big = {"name": "get_data_status", "arguments": {}, "pad": "x" * (70 * 1024)}
         r = await rpc(c, "tools/call", big, token=good)
         assert r.status_code == 413
+
+
+async def test_a_bad_token_flood_from_many_addresses_writes_one_row(tmp_path):
+    """Security review: 1 000 distinct bad tokens from 200 addresses (5 each, under the per-address
+    lockout) are one audit row; a real token's calls stay in the log."""
+    async with kelvin_app(tmp_path, sync=False) as (c, app):
+        good = (await _token(c))["secret"]
+        assert (
+            await rpc(c, "tools/call", {"name": "get_data_status", "arguments": {}}, token=good)
+        ).status_code == 200
+        for ip in range(200):
+            transport = ASGITransport(app=app, client=(f"10.1.{ip // 250}.{ip % 250}", 1234))
+            async with AsyncClient(transport=transport, base_url="http://t") as other:
+                for k in range(5):
+                    bad = "kmcp_" + f"{ip:03d}{k}".ljust(43, "z")
+                    r = await rpc(other, "initialize", INIT, token=bad)
+                    assert r.status_code == 401
+        rows = _denials(app)
+        assert len(rows) == 1 and rows[0]["outcome"] == "denied"
+        kept = app.state.ctx.db.query("SELECT name FROM mcp_audit WHERE token_id IS NOT NULL")
+        assert "get_data_status" in {r["name"] for r in kept}

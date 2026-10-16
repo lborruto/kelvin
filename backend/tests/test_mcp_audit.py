@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from kelvin.mcp import audit as audit_mod
 from kelvin.mcp.audit import MAX_ROWS, McpAudit, sanitise
 from kelvin.recorder.db import Database
 from tests.conftest import ManualClock
@@ -95,3 +96,34 @@ def test_retention_and_cap(audit):
     names = {r["name"] for r in db.query("SELECT DISTINCT name FROM mcp_audit")}
     assert "old" not in names
     assert db.query("SELECT COUNT(*) AS n FROM mcp_audit")[0]["n"] == MAX_ROWS
+
+
+def test_a_flooding_token_never_evicts_the_others(audit, monkeypatch):
+    """Security review: a valid token at its rate limit for hours fills the cap with its own rows;
+    pruning takes the heaviest token's oldest rows first and keeps every token (and the refused
+    authentications) at least KEEP_PER_TOKEN recent rows."""
+    a, db = audit
+    monkeypatch.setattr(audit_mod, "MAX_ROWS", 300)
+    monkeypatch.setattr(audit_mod, "KEEP_PER_TOKEN", 50)
+    for i in range(20):
+        a.record(token_id="quiet", kind="tool", name=f"q{i}", args={}, outcome="ok")
+    for i in range(80):
+        a.record(token_id="busy", kind="tool", name=f"b{i}", args={}, outcome="ok")
+    for _ in range(5):
+        a.record(token_id=None, kind="auth", name="authenticate", args={}, outcome="denied")
+    for _ in range(3 * 1000):  # 1 000 calls an hour (the hour limit) for 3 hours
+        a.wall.advance(3.6)
+        a.record(token_id="flood", kind="tool", name="get_energy", args={}, outcome="ok")
+    a.prune()
+
+    def count(where: str, *args) -> int:
+        return db.query(f"SELECT COUNT(*) AS n FROM mcp_audit WHERE {where}", args)[0]["n"]
+
+    assert count("1") <= 300
+    assert count("token_id = ?", "quiet") == 20  # under the floor: untouched
+    assert count("token_id = ?", "busy") >= 50
+    assert {r["name"] for r in db.query("SELECT name FROM mcp_audit WHERE token_id = 'busy'")} >= {
+        f"b{i}" for i in range(30, 80)
+    }  # its newest rows are the ones kept
+    assert count("token_id IS NULL") == 5
+    assert count("token_id = ?", "flood") > 0  # the flood keeps its newest rows too
