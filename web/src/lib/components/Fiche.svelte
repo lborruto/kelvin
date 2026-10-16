@@ -2,7 +2,7 @@
      Desktop (≥ 1024 px): a 280 px card (s2, hairline, radius 10, flat) beside its trigger, flipped left near
      the edge and clamped in the viewport, a non-modal role="dialog" named by its title; pinned, it takes
      the pointer and shows a close button. Phone: the same content in the shared bottom sheet (ChoiceSheet).
-     Usually driven by Fig (hover intent, pin, Esc); see .superpowers/sdd/ux/foundation-api.md. -->
+     Usually driven by Fig (hover intent, pin, Esc). -->
 <script lang="ts" module>
   export const FICHE_W = 280;
   const GAP = 8;
