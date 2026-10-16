@@ -89,7 +89,7 @@
   }
 </script>
 
-<dialog bind:this={dialog} class="sheet {variant} tone-{tone} {cls}" class:tall class:dragging aria-labelledby="{uid}-title"
+<dialog bind:this={dialog} class="ksheet v-{variant} tone-{tone} {cls}" class:tall class:dragging aria-labelledby="{uid}-title"
   style:--w="{width}px" style:--drag="{drag}px" onclose={closed} oncancel={() => (drag = 0)}
   onclick={(e) => e.target === dialog && dialog?.close?.()}>
   <!-- Only the backdrop closes: a tap anywhere in the sheet (its padding too) lands on .body. -->
@@ -203,8 +203,8 @@
 
   /* The phone bottom sheet. */
   @media (max-width: 1023px) {
-    dialog.auto,
-    dialog.sheet {
+    dialog.v-auto,
+    dialog.v-sheet {
       width: 100%;
       max-height: calc(100dvh - 56px);
       margin: auto 0 0;
@@ -218,15 +218,15 @@
         overlay var(--t-sheet-out) allow-discrete,
         display var(--t-sheet-out) allow-discrete;
     }
-    dialog.auto[open],
-    dialog.sheet[open] {
+    dialog.v-auto[open],
+    dialog.v-sheet[open] {
       transform: translateY(var(--drag));
       transition-duration: var(--t-sheet-in);
       transition-timing-function: var(--ease-sheet);
     }
     @starting-style {
-      dialog.auto[open],
-      dialog.sheet[open] {
+      dialog.v-auto[open],
+      dialog.v-sheet[open] {
         transform: translateY(100%);
       }
     }
@@ -258,7 +258,7 @@
     }
   }
   @media (min-width: 1024px) {
-    dialog.sheet {
+    dialog.v-sheet {
       margin: auto auto 0;
       border-radius: var(--r-sheet) var(--r-sheet) 0 0;
     }
@@ -266,8 +266,8 @@
   @media (prefers-reduced-motion: reduce) {
     dialog,
     dialog[open],
-    dialog.auto,
-    dialog.sheet {
+    dialog.v-auto,
+    dialog.v-sheet {
       transform: none !important;
       transition-property: opacity, overlay, display;
     }

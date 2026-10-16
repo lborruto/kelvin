@@ -34,7 +34,7 @@
     {/if}
     <div class="phone-only"><HouseActions icons /></div>
     <!-- Desktop: the house actions sit on the title row (Tableau §4 header), no longer in the sidebar. -->
-    <div class="desk-only"><HouseActions program /></div>
+    <div class="desk-only"><HouseActions program awayText={m.nav.away} /></div>
   </header>
   {#if house.loaded}<GridStrip />{/if}
 {:else}

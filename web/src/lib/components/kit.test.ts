@@ -112,7 +112,7 @@ describe('RoomTile', () => {
   });
   it('offline: calm and faint, no temperature, never red', () => {
     const { container } = render(RoomTile, { ...base, reading: null, variant: 'offline', lead: 'Hors ligne depuis 04:07', hint: 'Radiateur hors tension ou hors de portée' });
-    expect(container.querySelector('.rt')).toHaveClass('off');
+    expect(container.querySelector('.rt')).toHaveClass('offline');
     expect(container.querySelector('.t')).toBeNull();
     expect(container.innerHTML).not.toMatch(/bad/);
   });

@@ -55,7 +55,7 @@
 </script>
 
 {#if variant === 'offline'}
-  <article class="rt off {layout} {cls}">
+  <article class="rt offline {layout} {cls}">
     <span class="ti" aria-hidden="true"><Icon name="plug-off" size={18} /></span>
     <div class="tx">
       <a class="cover n" {href} aria-label={ariaLabel}>{name}</a>
@@ -244,7 +244,7 @@
     align-self: flex-start;
   }
   /* Offline: calm, full width, faint; never red, no temperature. */
-  .rt.off {
+  .rt.offline {
     flex-direction: row;
     align-items: center;
     gap: 12px;
@@ -253,25 +253,25 @@
     background: transparent;
     box-shadow: inset 0 0 0 1px var(--line);
   }
-  .rt.off.widget {
+  .rt.offline.widget {
     flex-direction: column;
     align-items: flex-start;
     padding: 16px;
   }
-  .off .ti {
+  .offline .ti {
     width: 40px;
     height: 40px;
     color: var(--fa);
   }
-  .off .tx {
+  .offline .tx {
     display: grid;
     min-width: 0;
   }
-  .off .n {
+  .offline .n {
     color: var(--fa);
     font-weight: 600;
   }
-  .off .s {
+  .offline .s {
     white-space: normal;
   }
   .faint {
