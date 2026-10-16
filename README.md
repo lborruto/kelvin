@@ -143,6 +143,13 @@ computed from your tariff or estimated.
 3. Ask, for example: « Analyse my last month and propose savings » (the `analyse_last_month`
    prompt), « Why was October more expensive than September? », « Plan tomorrow's Tempo red day ».
 
+Prompts take plain words as arguments, in Claude Code as `/kelvin:<prompt> <arguments>`:
+`/kelvin:explain_bill september english` (a month as `2026-09`, `september`, `septembre`,
+`september 2026` or `last`; a bare name means its most recent occurrence), `/kelvin:plan_tempo_red_day
+demain`, `/kelvin:review_programme salon`, `/kelvin:analyse_last_month anglais`. The language is
+`fr` (default) or `en` (`french`, `english`, `francais`, `anglais` also work); a room is its id or
+its name; a wrong value gets a message that lists what is accepted.
+
 Tools: `get_overview`, `get_room`, `get_programmes`, `get_temperature_history`, `get_energy`,
 `get_room_energy`, `get_day_detail`, `get_tariff`, `get_grid_signals`, `get_alerts`,
 `get_data_status`, `propose_savings`, `evaluate_programme`. Resources: `kelvin://house`,
@@ -345,6 +352,7 @@ Kelvin keeps both in `account.json` (0600) in its data volume.
 | `KELVIN_HOST`, `KELVIN_PORT` | `0.0.0.0`, `8080` | Bind address (outside Docker: `127.0.0.1`, `8000`) |
 | `KELVIN_ALLOWED_HOSTS` | — | Comma-separated Host allowlist; `localhost` always passes |
 | `KELVIN_TRUSTED_PROXIES` | — | **Only behind a trusted reverse proxy:** its exact addresses |
+| `KELVIN_MCP` | `true` | `false` removes the read-only MCP endpoint at `/mcp` (see [AI assistants](#ai-assistants-mcp)) |
 | `KELVIN_FAKE` | `0` | `1` runs the simulator |
 | `KELVIN_FAKE_HOUSE` | — | Simulator only: `sauter`, `atlantic`, `thermor` or `experimental` shows another invented house (pilot-wire heaters, towel dryers, a water heater, a heat pump…); empty, the house follows the server chosen at login |
 | `KELVIN_DEBUG` | `0` | `1` serves the API docs at `/docs` |

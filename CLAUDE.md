@@ -307,7 +307,8 @@ depends on.
 
 - backend: `cd backend && uv run pytest -q && uv run ruff check . && uv run ruff format --check .`
 - property tests use `hypothesis` (dev dependency); keep their example counts as written.
-- web: `cd web && npx vitest run && npm run check && npx playwright test`
+- web: `cd web && npx vitest run && npm run check && npx playwright test` (CI shards the e2e
+  suite: 4 shards on the dev server, 3 against the container image)
 - i18n and paths: part of `npx vitest run` (`web/scripts/i18n-check.mjs --strict` and
   `web/scripts/check-paths.mjs` also run alone).
 - image (Dockerfile, compose or launcher changes): `bash scripts/docker-smoke.sh`
