@@ -13,7 +13,8 @@ TOOL_ERRORS: dict[str, str] = {
     "too_many_radiators": "At most 50 radiators per call.",
     "period_invalid": (
         "Invalid period: dates from 2000-01-01, the end after the start, at most 1464 days;"
-        " history at most 2000 points per radiator (use a larger step_minutes)."
+        " history at most 2000 points per radiator and 20000 per call (use a larger"
+        " step_minutes or fewer radiators)."
     ),
     "linky_unavailable": "Kelvin has no Linky data source configured.",
     "invalid_argument": "Invalid argument; see the tool's input schema.",

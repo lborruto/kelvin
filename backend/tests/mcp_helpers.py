@@ -27,15 +27,18 @@ SERVER = {
 
 
 @asynccontextmanager
-async def kelvin_app(tmp_path, *, house: str = "sauter", sync: bool = True, **settings: Any):
-    """A logged-in simulator Kelvin at NOW (a fixed wall clock), Linky synced once."""
+async def kelvin_app(
+    tmp_path, *, house: str = "sauter", sync: bool = True, now: float = NOW, **settings: Any
+):
+    """A logged-in simulator Kelvin at `now` (a fixed wall clock, NOW by default), Linky synced
+    once."""
     root, devices = HOUSES[house]()
     gw = FakeGateway(root, devices, clock=ManualClock(), server=SERVER[house])
     app = create_app(
         Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True, **settings),
         gw,
         start_tasks=False,
-        wall=lambda: NOW,
+        wall=lambda: now,
     )
     async with LifespanManager(app):
         async with AsyncClient(

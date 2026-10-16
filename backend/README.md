@@ -139,9 +139,9 @@ Tools (all annotated `read_only_hint`, never `destructive`, never `open_world`):
 | Tool | Arguments | Data |
 |---|---|---|
 | `get_overview` | — | Rooms (temperature, mode, setpoints, heating now, window, presence), boosts and aways in progress, active alert count and severity, today's Tempo and EcoWatt, the option in force |
-| `get_room` | `room_id` | Each radiator's state, setpoints, power and capabilities (as data); 24 h heating share and coverage; today's window-open and presence runs |
+| `get_room` | `room_id` | Each radiator's state, setpoints, power and capabilities (as data); 24 h heating share and coverage; today's window-open and presence runs; `meter_total_kwh` is a lifetime counter as last reported (never a consumption by difference) |
 | `get_programmes` | `room_id?` | Weekly programmes per radiator, locked days, comfort/eco, this week's off-peak hours per day, the share of comfort minutes in peak hours (`billing/overlap.py`) |
-| `get_temperature_history` | `start`, `end` (local ISO), `room_id` or `radiator_ids`, `step_minutes` 5–1440 | Mean temperature, effective setpoint and target per step; `/api/history` bounds, at most 2 000 points per radiator |
+| `get_temperature_history` | `start`, `end` (local ISO), `room_id` or `radiator_ids`, `step_minutes` 5–1440 | Mean temperature, effective setpoint and target per step; `/api/history` bounds, at most 2 000 points per radiator and 20 000 per call |
 | `get_energy` | `start`, `end` (dates, end exclusive), `group` | The report of `GET /api/energy` with neutral keys: totals, buckets (at most 93), by rate, by room (the sum of its radiators' `by_radiator` cents), by radiator, comparisons, projection, lenses, quality |
 | `get_room_energy` | `room_id`, `days` 1–31 | `GET /api/rooms/{id}/energy` |
 | `get_day_detail` | `date` | `GET /api/energy/day` without `room` |
@@ -149,8 +149,8 @@ Tools (all annotated `read_only_hint`, never `destructive`, never `open_world`):
 | `get_grid_signals` | `start?`, `end?` (≤ 366 days) | Stored Tempo colours (only with a Tempo row) and counts, EcoWatt days, today/tomorrow; never a fetch |
 | `get_alerts` | `state` (`active`/`all`) | `AlertStore.listing` |
 | `get_data_status` | — | Kelvin's mode, Cozytouch connection, Linky state and MED calls (no `prm`), grid sources, each radiator meter's first and last reading |
-| `propose_savings` | `days` 7–31 | Proposals (`shift_to_offpeak`, `tempo_red_days`, `tempo_peak_share`, `review_programme`, `review_setpoints`, `data_gaps`): measured figures, an upper-bound estimate only at equal consumption, `apply_in_app`; nothing is applied |
-| `evaluate_programme` | `room_id`, `week` | A draft week checked against Kelvin's programme rules and locked days, the peak share before and after, a labelled estimate; nothing is sent or stored |
+| `propose_savings` | `days` 7–31 | Proposals (`shift_to_offpeak`, `tempo_red_days`, `tempo_peak_share`, `review_programme`, `review_setpoints` for rooms in manual mode, `data_gaps`) over `[from_date, to_date_exclusive)`, the last `days` elapsed days (every room figure from the report's `by_radiator` for that window, today never in it): measured figures, an upper-bound estimate only at equal consumption, `apply_in_app`; nothing is applied |
+| `evaluate_programme` | `room_id`, `week` | A draft week checked against Kelvin's programme rules and locked days, the peak share before and after, the room's measured peak kWh over the last 30 elapsed days (`measured`, from the report's `by_radiator`), a labelled estimate; nothing is sent or stored |
 
 Resources: `kelvin://house` (the `get_overview` envelope), `kelvin://tariff`,
 `kelvin://rooms/{room_id}` (the `get_room` envelope), `kelvin://guide` (Markdown: how to read

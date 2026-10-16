@@ -230,7 +230,11 @@ async def room(ctx: Any, room_id: str) -> dict[str, Any]:
         ctx=ctx,
         sources=["cozytouch", "recorder"],
         basis="measured",
-        notes=["capabilities are what Kelvin's app can drive; nothing here drives them"],
+        notes=[
+            "capabilities are what Kelvin's app can drive; nothing here drives them",
+            "meter_total_kwh is a radiator's lifetime counter as last reported: never subtract two"
+            " readings to get consumption (the counter lags and resets); use get_room_energy",
+        ],
     )
 
 
@@ -293,6 +297,7 @@ async def programmes(ctx: Any, room_id: str | None) -> dict[str, Any]:
 
 
 MAX_MCP_POINTS = 2000  # per radiator: a result an agent can read (Decision 9)
+MAX_MCP_TOTAL_POINTS = 20_000  # per call, all radiators together (review M-6)
 MAX_GRID_DAYS = 366
 
 
@@ -320,7 +325,8 @@ async def history(
         raise UserError("radiator_unknown")
     bounds.check_span(a, b)
     step = step_minutes * 60
-    if (b - a) / step > MAX_MCP_POINTS:
+    points = (b - a) / step
+    if points > MAX_MCP_POINTS or points * len(ids) > MAX_MCP_TOTAL_POINTS:
         raise UserError("period_invalid")
     rows = await asyncio.to_thread(rt.recorder.history, ids, a, b, step)
     series: dict[str, list[list[Any]]] = {i: [] for i in ids}
@@ -505,22 +511,26 @@ async def day_detail(ctx: Any, day: date) -> dict[str, Any]:
 
 
 PROPOSAL_DAYS_MIN, PROPOSAL_DAYS_MAX = 7, 31
+EVALUATE_DAYS = 30  # evaluate_programme's measured window: the last 30 elapsed days
 
 
-async def _room_facts(
-    ctx: Any, days: int, progs: list[dict[str, Any]], by_radiator: list[dict[str, Any]]
+def _room_facts(
+    ctx: Any, progs: list[dict[str, Any]], by_radiator: list[dict[str, Any]]
 ) -> list[pr.RoomFacts]:
+    """Every room figure from the report's own `by_radiator` rows, so it covers exactly the
+    window the result declares (review I-2), never the last days with today running."""
     rt = ctx.rt
-    linky = views.linky_of(rt)
     stats = {r["radiator_id"]: r for r in by_radiator}
+    totals = en.room_totals(by_radiator)
+    empty = dict.fromkeys(
+        ("peak_kwh", "offpeak_kwh", "cost_eur", "coverage_share", "heating_hours")
+    )
     facts = []
     for room_id, room in rt.house.rooms.items():
         rads = rt.house.room_radiators(room_id)
         if not any(r.capabilities.energy for r in rads):
             continue
-        body = await asyncio.to_thread(
-            linky.room_energy, [r.id for r in rads], days, rt.recorder, set(rt.house.radiators)
-        )
+        body = totals.get(room_id, empty)
         v = rt.house.room_view(room_id)
         mine = [p for p in progs if p["room_id"] == room_id and p["comfort_peak_share"] is not None]
         top = max(mine, key=lambda p: p["comfort_peak_share"], default=None)
@@ -528,10 +538,10 @@ async def _room_facts(
             pr.RoomFacts(
                 room_id=room_id,
                 name=room.name,
-                peak_kwh=body["hp_kwh"],
-                offpeak_kwh=body["hc_kwh"],
-                cost_eur=body["eur"],
-                coverage_share=body["coverage"],
+                peak_kwh=body["peak_kwh"],
+                offpeak_kwh=body["offpeak_kwh"],
+                cost_eur=body["cost_eur"],
+                coverage_share=body["coverage_share"],
                 comfort_c=v["comfort"],
                 eco_c=v["eco"],
                 heating_hours=body["heating_hours"],
@@ -543,10 +553,7 @@ async def _room_facts(
                     }
                     for r in rads
                 ],
-                manual_setpoint=any(
-                    r.capabilities.manual is not None or r.capabilities.comfort is not None
-                    for r in rads
-                ),
+                manual_setpoint=any(r.mode == "manual" for r in rads),
                 in_programme=any(p["programme_applies"] for p in mine),
                 peak_share=top["comfort_peak_share"] if top else None,
                 comfort_minutes=top["comfort_minutes_per_week"] if top else None,
@@ -582,7 +589,7 @@ async def savings(ctx: Any, days: int) -> dict[str, Any]:
         missing_days=total.get("missing_days") or 0,
         linky_last_day=report["last_day"],
     )
-    rooms = await _room_facts(ctx, days, progs, report["by_radiator"])
+    rooms = _room_facts(ctx, progs, report["by_radiator"])
     found = pr.build_proposals(h, rooms)
     data = {
         "window_days": days,
@@ -637,21 +644,37 @@ async def evaluate(ctx: Any, room_id: str, week: dict[str, list[dict[str, str]]]
                 "after": after.view() if after else None,
             }
         )
-    body = (
-        await asyncio.to_thread(
-            rt.linky.room_energy, [r.id for r in rads], 30, rt.recorder, set(rt.house.radiators)
+    measured: dict[str, Any] | None = None
+    if rt.linky is not None:
+        # The room's measured peak kWh over the last 30 elapsed days, from the report's own
+        # by_radiator rows (review I-2): a declared window, today never in it.
+        last = rt.linky.today()
+        first = last - timedelta(days=EVALUATE_DAYS)
+        report = await asyncio.to_thread(
+            rt.linky.report,
+            first,
+            last,
+            "day",
+            rt.recorder,
+            views.radiator_rooms(rt),
+            (first, last),
         )
-        if rt.linky
-        else {}
-    )
+        mine = en.room_totals(report["by_radiator"]).get(room_id, {})
+        measured = {
+            "from_date": first.isoformat(),
+            "to_date_exclusive": last.isoformat(),
+            "days": EVALUATE_DAYS,
+            "peak_kwh": mine.get("peak_kwh"),
+            "coverage_share": mine.get("coverage_share"),
+        }
     row = tariff.prices_on(today) if tariff else None
     estimate = pr.programme_estimate(
         option=row.option if row else None,
         rates=dict(row.rates) if row else {},
-        peak_kwh=body.get("hp_kwh"),
+        peak_kwh=measured["peak_kwh"] if measured else None,
         before_peak_minutes=before_peak or None,
         after_peak_minutes=after_peak,
-        days=30,
+        days=EVALUATE_DAYS,
     )
     data = {
         "room_id": room_id,
@@ -659,6 +682,7 @@ async def evaluate(ctx: Any, room_id: str, week: dict[str, list[dict[str, str]]]
         "valid": not [p for p in problems if p["code"] != "day_locked"],
         "problems": problems,
         "radiators": rows,
+        "measured": measured,
         "estimate": estimate,
         "sent": False,
         "apply_in_app": {"path": "/schedule", "what": "enter this week in the room's programme"},
@@ -725,7 +749,7 @@ def register_tools(server: MCPServer, run: Runner) -> None:
         description=(
             "Temperature, effective setpoint and target per radiator over a period, as means per"
             " step. Give room_id or radiator_ids; start/end are local ISO date-times; at most 2000"
-            " points per radiator."
+            " points per radiator and 20000 per call."
         ),
     )
     async def get_temperature_history(

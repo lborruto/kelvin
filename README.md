@@ -157,7 +157,11 @@ Tools: `get_overview`, `get_room`, `get_programmes`, `get_temperature_history`, 
 Security: a token reads everything in Kelvin except secrets (never the PDL, your email, a
 token or a device id). It is stored hashed, limited to 60 calls a minute, and revoked at once
 (`DELETE /api/mcp/tokens/{id}`; the panel will do it and list the last calls). Use HTTPS (your
-reverse proxy): on plain HTTP the token crosses the network in clear. Kelvin stays off the
+reverse proxy): on plain HTTP the token crosses the network in clear. Behind a reverse proxy,
+set `KELVIN_TRUSTED_PROXIES` to it, or every client looks like the proxy and ten wrong tokens from
+any device lock your assistant out for 15 minutes; set `KELVIN_ALLOWED_HOSTS` to the names you
+reach Kelvin by (with the refusal of any browser `Origin`, it replaces the MCP SDK's
+localhost-only DNS-rebinding check). Kelvin stays off the
 internet; clients that need a public URL with OAuth (claude.ai web connectors) are not
 supported. `KELVIN_MCP=false` removes the endpoint.
 

@@ -90,3 +90,21 @@ async def test_tariff_is_neutral_and_has_no_pdl(tmp_path):
         assert d["tariff"] == neutral(rt.linky.tariffs.get().view())
         assert d["option_today"] == rt.linky.tariffs.get().option_on(date(2026, 11, 20))
         assert "prm" not in str(d)
+
+
+async def test_history_caps_the_points_of_one_call(tmp_path, monkeypatch):
+    """Review M-6: 2 000 points per radiator, and a total cap per call."""
+    from kelvin.mcp import tools
+
+    async with kelvin_app(tmp_path, sync=False) as (c, app):
+        rt = app.state.ctx.rt
+        ids = [r.id for r in rt.house.radiators.values()][:2]
+        args = {
+            "radiator_ids": ids,
+            "start": "2026-11-19T00:00:00",
+            "end": "2026-11-20T00:00:00",
+            "step_minutes": 60,
+        }
+        assert data(await call(app, "get_temperature_history", args))["data"]["series"]
+        monkeypatch.setattr(tools, "MAX_MCP_TOTAL_POINTS", 24 * len(ids) - 1)
+        assert error_code(await call(app, "get_temperature_history", args)) == "period_invalid"

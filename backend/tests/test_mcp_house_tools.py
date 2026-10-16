@@ -51,6 +51,7 @@ async def test_get_room(tmp_path):
         midnight = int(NOW) - 14 * 3600
         act = views.room_activity(rt, [r.id for r in rads], midnight, int(NOW))
         assert len(d["today_window_open"]) == len(act["window"])
+        assert any("lifetime counter" in n for n in env["meta"]["notes"])  # review M-7
         assert error_code(await call(app, "get_room", {"room_id": "nope"})) == "room_unknown"
 
 

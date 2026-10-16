@@ -65,6 +65,34 @@ def by_room(by_radiator: list[dict[str, Any]], names: dict[str, str]) -> list[di
     return sorted(out, key=lambda x: -(x["cost_eur"] or 0.0))
 
 
+def room_totals(by_radiator: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Per room, the report's `by_radiator` rows over the report's own window: kWh by rate, €
+    as whole cents summed (the Par pièce rule, as `by_room`), the lowest coverage, the heating
+    hours summed. Unknown is None, never 0."""
+
+    def total(rows: list[dict[str, Any]], key: str) -> float | None:
+        known = [r[key] for r in rows if r.get(key) is not None]
+        return round(sum(known), 3) if known else None
+
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for row in by_radiator:
+        if row["room_id"] is not None:
+            groups.setdefault(row["room_id"], []).append(row)
+    out = {}
+    for room_id, rows in groups.items():
+        cents = [round(r["eur"] * 100) for r in rows if r["eur"] is not None]
+        cover = [r["coverage"] for r in rows if r.get("coverage") is not None]
+        hours = total(rows, "heating_hours")
+        out[room_id] = {
+            "peak_kwh": total(rows, "hp_kwh"),
+            "offpeak_kwh": total(rows, "hc_kwh"),
+            "cost_eur": sum(cents) / 100 if cents else None,
+            "coverage_share": min(cover) if cover else None,
+            "heating_hours": None if hours is None else round(hours, 1),
+        }
+    return out
+
+
 def energy_view(report: dict[str, Any], names: dict[str, str]) -> dict[str, Any]:
     return neutral(
         {

@@ -1,6 +1,7 @@
 """Proposals (spec MCP §6): measured exposure, labelled estimates, never a promise."""
 
 import json
+from datetime import datetime
 
 from kelvin.mcp.proposals import (
     PROMISE_WORDS,
@@ -13,7 +14,7 @@ from kelvin.mcp.proposals import (
     shift_to_offpeak,
     tempo_red_days,
 )
-from tests.mcp_helpers import call, data, error_code, kelvin_app
+from tests.mcp_helpers import PARIS, call, data, error_code, kelvin_app
 
 
 def house(**over) -> HouseFacts:
@@ -198,3 +199,53 @@ async def test_evaluate_programme_sends_nothing(tmp_path, monkeypatch):
         assert sent == [] and before == {r.id: dict(r.program) for r in rt.house.radiators.values()}
         bad = {"room_id": "nope", "week": week}
         assert error_code(await call(app, "evaluate_programme", bad)) == "room_unknown"
+
+
+SEVEN_AM = datetime(2026, 11, 20, 7, 0, tzinfo=PARIS).timestamp()
+
+
+def _room_sums(rows, room_id):
+    mine = [r for r in rows if r["room_id"] == room_id]
+    peak = [r["hp_kwh"] for r in mine if r["hp_kwh"] is not None]
+    cents = [round(r["eur"] * 100) for r in mine if r["eur"] is not None]
+    return (round(sum(peak), 3) if peak else None), (sum(cents) / 100 if cents else None)
+
+
+async def _by_radiator(c, a, z):
+    q = f"from={a}&to={z}&group=day&period_from={a}&period_to={z}"
+    return (await c.get(f"/api/energy?{q}")).json()["by_radiator"]
+
+
+async def test_room_figures_cover_the_declared_window(tmp_path):
+    """Review I-2: at 07:00 a room's figures are the declared [from, to) window's, as
+    GET /api/energy gives them, never the last `days` days with this morning in."""
+    async with kelvin_app(tmp_path, now=SEVEN_AM) as (c, app):
+        d = data(await call(app, "propose_savings", {"days": 30}))["data"]
+        a, z = d["from_date"], d["to_date_exclusive"]
+        assert (a, z) == ("2026-10-21", "2026-11-20")
+        rest = await _by_radiator(c, a, z)
+        rooms = [
+            p for p in d["proposals"] if "room_id" in p["scope"] and "cost_eur" in p["figures"]
+        ]
+        assert rooms, d["proposals"]
+        for p in rooms:
+            peak, eur = _room_sums(rest, p["scope"]["room_id"])
+            assert p["figures"]["cost_eur"] == eur, p["kind"]
+            if "peak_kwh" in p["figures"]:
+                assert p["figures"]["peak_kwh"] == peak, p["kind"]
+        week = {"monday": [{"start": "05:00", "end": "06:00"}]}
+        e = data(await call(app, "evaluate_programme", {"room_id": "p-salon", "week": week}))
+        m = e["data"]["measured"]
+        rest = await _by_radiator(c, m["from_date"], m["to_date_exclusive"])
+        assert m["to_date_exclusive"] == "2026-11-20" and m["days"] == 30
+        assert m["peak_kwh"] == _room_sums(rest, "p-salon")[0]
+
+
+async def test_setpoint_reviews_only_for_rooms_in_manual_mode(tmp_path):
+    async with kelvin_app(tmp_path) as (c, app):
+        rt = app.state.ctx.rt
+        d = data(await call(app, "propose_savings", {"days": 30}))["data"]
+        for p in d["proposals"]:
+            if p["kind"] == "review_setpoints":
+                rads = rt.house.room_radiators(p["scope"]["room_id"])
+                assert any(r.mode == "manual" for r in rads), p["scope"]
