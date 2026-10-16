@@ -11,6 +11,7 @@ from itertools import takewhile
 FAIL_LIMIT, FAIL_WINDOW_S = 10, 15 * 60
 MINUTE_LIMIT, HOUR_LIMIT = 60, 1000
 MAX_KEYS = 10_000
+AUDIT_REFUSAL_EVERY_S = 60  # one `rate_limited` audit row per token a minute, however many 429s
 
 
 def _trim(q: deque[float], window: float, now: float) -> None:
@@ -23,6 +24,7 @@ class McpLimits:
         self.clock = clock
         self._fail: dict[str, deque[float]] = {}
         self._calls: dict[str, deque[float]] = {}
+        self._audited: dict[str, float] = {}
 
     def failure_wait(self, key: str) -> float | None:
         q = self._fail.get(key)
@@ -51,3 +53,14 @@ class McpLimits:
             return q[-MINUTE_LIMIT] + 60 - now
         q.append(now)
         return None
+
+    def refusal_to_audit(self, token_id: str) -> bool:
+        """True for the first refusal of a token in AUDIT_REFUSAL_EVERY_S: a client looping above
+        the limit writes one audit row a minute, never one per request (so it cannot churn the
+        database or evict the owner's real audit rows). Keyed by live token ids only (≤ 10)."""
+        now = self.clock()
+        last = self._audited.get(token_id)
+        if last is not None and now - last < AUDIT_REFUSAL_EVERY_S:
+            return False
+        self._audited[token_id] = now
+        return True

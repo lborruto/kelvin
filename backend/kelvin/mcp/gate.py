@@ -71,14 +71,15 @@ class McpGate:
             return
         wait = ctx.mcp_limits.hit(record.id)
         if wait is not None:
-            ctx.mcp_audit.record(
-                token_id=record.id,
-                kind="auth",
-                name="rate_limit",
-                args={},
-                outcome="rate_limited",
-                error_code="rate_limited",
-            )
+            if ctx.mcp_limits.refusal_to_audit(record.id):
+                ctx.mcp_audit.record(
+                    token_id=record.id,
+                    kind="auth",
+                    name="rate_limit",
+                    args={},
+                    outcome="rate_limited",
+                    error_code="rate_limited",
+                )
             await _answer(send, 429, "rate_limited", retry_after=wait)
             return
         ctx.mcp_tokens.touch(record.id)

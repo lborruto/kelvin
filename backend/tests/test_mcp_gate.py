@@ -62,8 +62,9 @@ async def test_per_token_rate_limit(tmp_path):
         other = (await _token(c, "other"))["secret"]
         for _ in range(MINUTE_LIMIT):
             assert (await rpc(c, "tools/list", token=good)).status_code == 200
-        r = await rpc(c, "tools/list", token=good)
-        assert r.status_code == 429 and r.json() == {"error": "rate_limited"}
+        for _ in range(5):  # a client looping above the limit: one audit row, not one each
+            r = await rpc(c, "tools/list", token=good)
+            assert r.status_code == 429 and r.json() == {"error": "rate_limited"}
         assert (await rpc(c, "tools/list", token=other)).status_code == 200
         limited = [x for x in _denials(app) if x["outcome"] == "rate_limited"]
         assert len(limited) == 1 and limited[0]["token_id"] is not None

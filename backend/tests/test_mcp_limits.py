@@ -42,3 +42,15 @@ def test_the_key_table_is_bounded():
     for i in range(10_005):
         lim.failure(f"k{i}")
     assert len(lim._fail) <= 10_000
+
+
+def test_a_throttled_token_is_audited_once_a_minute():
+    clock = ManualClock(0.0)
+    lim = McpLimits(clock=clock)
+    assert lim.refusal_to_audit("t1") is True
+    assert lim.refusal_to_audit("t1") is False
+    assert lim.refusal_to_audit("t2") is True  # tokens are independent
+    clock.advance(59)
+    assert lim.refusal_to_audit("t1") is False
+    clock.advance(1)
+    assert lim.refusal_to_audit("t1") is True
