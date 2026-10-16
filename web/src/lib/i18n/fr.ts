@@ -936,7 +936,15 @@ export const fr = {
     busy: 'Connexion…',
     submit: 'Se connecter',
     emptyFields: 'Saisissez l’email et le mot de passe Cozytouch.',
-    simulator: `Simulateur${NB}: demo@kelvin.local · kelvin`
+    simulator: `Simulateur${NB}: demo@kelvin.local · kelvin`,
+    /** Batch 11: the server as one line, the picker behind « Changer ». */
+    serverLine: (name: string) => `Serveur${NB}: ${name}`,
+    change: 'Changer',
+    serverFixed: 'Pour changer de serveur, repartez d’une installation neuve (voir le README).',
+    show: 'Afficher le mot de passe',
+    firstClaim: `Première connexion${NB}: ce compte devient celui de la maison.`,
+    forgot: `Mot de passe oublié${NB}? Changez-le dans l’application Cozytouch.`,
+    forgotServer: (name: string) => `Mot de passe oublié${NB}? Changez-le dans l’application ${name}.`
   },
   devices: {
     byCurrentPlacement: 'Pièces selon la répartition actuelle des radiateurs.',
@@ -1269,9 +1277,7 @@ export const fr = {
     cozytouch: 'Cozytouch',
     experimental: 'Expérimental — chauffage seulement',
     loadFailed: 'Impossible de lire la liste des serveurs.',
-    experimentalNote: `Expérimental${NB}: Kelvin n’affiche que le chauffage, ne modifie pas les pièces, et certains appareils restent en lecture seule.`,
-    locked: (name: string) =>
-      `Serveur${NB}: ${name}. Pour en changer, repartez d’une installation neuve (voir le README).`
+    experimentalNote: `Expérimental${NB}: Kelvin n’affiche que le chauffage, ne modifie pas les pièces, et certains appareils restent en lecture seule.`
   }
 };
 

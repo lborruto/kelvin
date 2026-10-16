@@ -18,7 +18,11 @@ export async function settled(page: Page) {
  * answering 150 ms late as on a real visit. Call once per load; the page keeps its viewport.
  * Use with `test.use({ serviceWorkers: 'block' })` so the routes see every font request.
  */
-export async function measureCls(page: Page, route: string, opts: { fonts?: FontMode; windowMs?: number } = {}): Promise<number> {
+export async function measureCls(
+  page: Page,
+  route: string,
+  opts: { fonts?: FontMode; windowMs?: number; slow?: { url: string; ms: number } } = {}
+): Promise<number> {
   const fonts = opts.fonts ?? 'normal';
   await page.addInitScript(() => {
     const w = window as unknown as { __cls?: number };
@@ -41,10 +45,17 @@ export async function measureCls(page: Page, route: string, opts: { fonts?: Font
     await new Promise((ok) => setTimeout(ok, 150));
     await r.continue().catch(() => {});
   });
+  // One API answer much later than the rest (Login's server list, 2 s): what waits for it must hold its place.
+  const slow = opts.slow;
+  if (slow)
+    await page.route(slow.url, async (r) => {
+      await new Promise((ok) => setTimeout(ok, slow.ms));
+      await r.continue().catch(() => {});
+    });
   const start = Date.now();
   await page.goto(route);
   await settled(page);
-  const windowMs = opts.windowMs ?? (fonts === 'late' ? LATE_FONT_MS + 1200 : 2000);
+  const windowMs = opts.windowMs ?? Math.max(fonts === 'late' ? LATE_FONT_MS + 1200 : 2000, (slow?.ms ?? 0) + 1200);
   const left = windowMs - (Date.now() - start);
   if (left > 0) await page.waitForTimeout(left);
   const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);

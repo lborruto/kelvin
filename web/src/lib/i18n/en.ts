@@ -907,7 +907,14 @@ export const en: Messages = {
     busy: 'Signing in…',
     submit: 'Sign in',
     emptyFields: 'Enter the Cozytouch email and password.',
-    simulator: 'Simulator: demo@kelvin.local · kelvin'
+    simulator: 'Simulator: demo@kelvin.local · kelvin',
+    serverLine: (name: string) => `Server: ${name}`,
+    change: 'Change',
+    serverFixed: 'To change server, start from a fresh install (see the README).',
+    show: 'Show password',
+    firstClaim: 'First sign-in: this account becomes the home’s account.',
+    forgot: 'Forgot your password? Change it in the Cozytouch app.',
+    forgotServer: (name: string) => `Forgot your password? Change it in the ${name} app.`
   },
   devices: {
     byCurrentPlacement: 'Rooms as the radiators are placed now.',
@@ -1230,7 +1237,6 @@ export const en: Messages = {
     cozytouch: 'Cozytouch',
     experimental: 'Experimental — heating only',
     loadFailed: 'Can’t read the server list.',
-    experimentalNote: 'Experimental: Kelvin shows heating only, doesn’t change rooms, and some devices stay read-only.',
-    locked: (name: string) => `Server: ${name}. To change it, start from a fresh install (see the README).`
+    experimentalNote: 'Experimental: Kelvin shows heating only, doesn’t change rooms, and some devices stay read-only.'
   }
 };
