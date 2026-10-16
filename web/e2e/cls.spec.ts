@@ -9,6 +9,8 @@ const ROUTES = ['/', '/schedule', '/energy', '/home'];
 ROUTES.push('/home/tariff', '/home/linky', '/home/sources', '/home/account', '/home/devices');
 // UX batch 13: the phone room page and the 404 (/login has its own matrix in login.spec.ts).
 ROUTES.push('/rooms/p-salon', '/no-such-page');
+// Programme (Tableau): the day view (a phone width) beside the agenda, and an offline room's read-only agenda.
+ROUTES.push('/schedule?room=p-ch1&day=tuesday', '/schedule?room=p-ch2');
 
 test.describe('CLS matrix', () => {
   test.skip(({ isMobile }) => isMobile, 'explicit widths');

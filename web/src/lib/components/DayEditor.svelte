@@ -254,12 +254,12 @@
      (--w-time; they may shrink a little on the narrowest phones) and the remove disc (36, 44 px hit). */
   .slots .li {
     display: grid;
-    grid-template-columns: 10px minmax(0, 1fr) minmax(0, 4.6rem) 14px minmax(0, 4.6rem) var(--ctl-h);
+    grid-template-columns: 10px minmax(0, 1fr) minmax(0, 5rem) 14px minmax(0, 5rem) var(--ctl-h);
     gap: 8px;
     font-size: 14px;
   }
   .compact .slots .li {
-    grid-template-columns: 10px minmax(0, 1fr) minmax(0, 4.8rem) 14px minmax(0, 4.8rem) var(--ctl-h);
+    grid-template-columns: 10px minmax(0, 1fr) minmax(0, 5.2rem) 14px minmax(0, 5.2rem) var(--ctl-h);
   }
   .sw {
     width: 10px;
@@ -278,8 +278,7 @@
   }
   input {
     width: 100%;
-    padding: 0 6px;
-    border-color: transparent;
+    padding: 0 2px;
     background: var(--s2);
     text-align: center;
     font-weight: 600;

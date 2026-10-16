@@ -104,6 +104,7 @@
   <span class="visually-hidden" id="{uid}-hint">{m.program.blockHint}</span>
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
   <div class="bar" class:pending class:dragging class:locked={!!locked} class:unknown={locked === 'unrecognised'}
+    role={locked === 'unrecognised' ? 'img' : undefined}
     aria-label={locked === 'unrecognised' ? m.program.unknownDayLabel(label) : undefined} data-testid="bar-{day}" bind:this={bar}
     bind:clientWidth={width} onclick={addAt} onpointerdown={barDown} onpointermove={move} onpointerup={up} onpointercancel={up}>
     {#each TICKS as h (h)}<span class="tick" style:left={pct(h * 60)}></span>{/each}

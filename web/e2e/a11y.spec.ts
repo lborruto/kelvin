@@ -9,6 +9,10 @@ const ROUTES = [
   '/',
   '/rooms/p-salon',
   '/schedule',
+  // Programme (Tableau): a day view with three periods' worth of rows, a locked day, an offline room
+  '/schedule?room=p-salon&day=monday',
+  '/schedule?room=p-ch1&day=saturday',
+  '/schedule?room=p-ch2',
   '/energy',
   '/home',
   '/home/tariff',
@@ -49,6 +53,15 @@ test.describe('accessibility (axe)', () => {
       await settled(page);
       expect(await violations(page)).toEqual([]);
       await context.close();
+    });
+
+    test(`/schedule with the copy sheet open · no serious or critical axe violation`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/schedule?room=p-salon&day=monday');
+      await settled(page);
+      await page.getByRole('button', { name: 'Copier vers…' }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Jours de semaine' }).click();
+      expect(await violations(page)).toEqual([]);
     });
 
     test(`the Absence sheet and technical details · no serious or critical axe violation`, async ({ page }) => {

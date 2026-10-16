@@ -112,5 +112,7 @@ describe('locked days', () => {
     const { container } = render(ProgramDay, { day: 'saturday', segs: [], locked: 'unrecognised', onchange: vi.fn() });
     expect(container.querySelector('.bar.unknown')).not.toBeNull();
     expect(screen.getByTestId('bar-saturday')).toHaveAttribute('aria-label', 'Saturday: unrecognised periods');
+    // A labelled picture (axe: aria-label needs a role).
+    expect(screen.getByRole('img', { name: 'Saturday: unrecognised periods' })).toBe(screen.getByTestId('bar-saturday'));
   });
 });
