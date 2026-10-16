@@ -1,5 +1,7 @@
 """Spec MCP §5.2: who gets through /mcp, and what is written about who did not."""
 
+import json
+
 from httpx import ASGITransport, AsyncClient
 
 from kelvin.mcp.limits import FAIL_LIMIT, MINUTE_LIMIT
@@ -34,7 +36,9 @@ async def test_missing_malformed_wrong_and_cookie_only_are_401(tmp_path):
         r = await rpc(c, "initialize", INIT, cookies=True)  # a session cookie is not a token
         assert r.status_code == 401
         rows = _denials(app)
-        assert len(rows) == 1 and {x["outcome"] for x in rows} == {"denied"}  # folded a minute
+        assert len(rows) == 1 and {x["outcome"] for x in rows} == {"denied"}  # one counted row
+        app.state.ctx.mcp_audit.flush()
+        assert json.loads(_denials(app)[0]["args"])["count"] == 5
         assert all(x["token_id"] is None and good not in str(x) for x in rows)
         assert app.state.ctx.mcp_tokens.listing()[0]["last_used"] is None
 
@@ -68,8 +72,10 @@ async def test_per_token_rate_limit(tmp_path):
             r = await rpc(c, "tools/list", token=good)
             assert r.status_code == 429 and r.json() == {"error": "rate_limited"}
         assert (await rpc(c, "tools/list", token=other)).status_code == 200
+        app.state.ctx.mcp_audit.flush()
         limited = [x for x in _denials(app) if x["outcome"] == "rate_limited"]
         assert len(limited) == 1 and limited[0]["token_id"] is not None
+        assert json.loads(limited[0]["args"])["count"] == 5  # every refusal counted
 
 
 async def test_origin_is_refused(tmp_path):
@@ -122,7 +128,14 @@ async def test_a_bad_token_flood_from_many_addresses_writes_one_row(tmp_path):
                     bad = "kmcp_" + f"{ip:03d}{k}".ljust(43, "z")
                     r = await rpc(other, "initialize", INIT, token=bad)
                     assert r.status_code == 401
+        app.state.ctx.mcp_audit.flush()
         rows = _denials(app)
         assert len(rows) == 1 and rows[0]["outcome"] == "denied"
+        assert json.loads(rows[0]["args"]) | {"first_seen_at": 0, "last_seen_at": 0} == {
+            "count": 1000,
+            "sources": 200,
+            "first_seen_at": 0,
+            "last_seen_at": 0,
+        }
         kept = app.state.ctx.db.query("SELECT name FROM mcp_audit WHERE token_id IS NOT NULL")
         assert "get_data_status" in {r["name"] for r in kept}

@@ -987,6 +987,7 @@ export const fr = {
     recent: 'Derniers appels',
     recentMeta: (n: number) => `${int(n)} ${plural(n, { one: 'appel', other: 'appels' })}`,
     noCalls: 'Aucun appel.',
+    times: (n: number) => `${int(n)}${NB}fois`,
     outcome: { ok: 'réussi', error: 'erreur', denied: 'refusé', rate_limited: 'limité' },
     unknownToken: 'jeton inconnu',
     loadError: 'Impossible de charger les jetons MCP.',

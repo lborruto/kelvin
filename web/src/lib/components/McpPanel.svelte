@@ -156,7 +156,7 @@
         {#each calls as row, i (i)}
           <li>
             <span class="num call">{row.name}</span>
-            <span class="muted small">{row.token_name ?? m.mcp.unknownToken} · {m.mcp.outcome[row.outcome]} · {fmtAgo(row.at * 1000, now)}</span>
+            <span class="muted small">{[row.token_name ?? m.mcp.unknownToken, m.mcp.outcome[row.outcome], row.count > 1 ? m.mcp.times(row.count) : null, fmtAgo(row.at * 1000, now)].filter(Boolean).join(' · ')}</span>
           </li>
         {/each}
       </ul>

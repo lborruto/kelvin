@@ -294,7 +294,8 @@ depends on.
   `Authorization: Bearer` on `/mcp` (never on `/api`; `/mcp` never takes the session cookie). The
   gate (`mcp/gate.py`) refuses any `Origin` header, locks a client out after 10 failures in 15 min,
   limits a token to 60 calls a minute and 1 000 an hour, and audits refusals without token
-  material, one row a minute however many (bad tokens folded together, a throttled token once);
+  material as counted rows (one per token-or-unknown × reason × minute, `count`/`sources` in `args`,
+  flushed at window close, listing and shutdown: aggregated, never dropped);
   the audit's cap prunes the heaviest source first and keeps every source's newest 200 rows. The SDK (`mcp`, exact pin) runs stateless with JSON responses; `/mcp` takes POST only
   (a GET would open an idle SSE stream); its DNS-rebinding check is off on purpose (TrustedHost +
   Origin refusal replace it).

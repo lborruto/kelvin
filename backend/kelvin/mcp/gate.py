@@ -59,29 +59,24 @@ class McpGate:
         record = ctx.mcp_tokens.verify(bearer(headers.get("authorization")))
         if record is None:
             ctx.mcp_limits.failure(key)
-            folded = ctx.mcp_limits.denial_to_audit()
-            if folded is not None:
-                ctx.mcp_audit.record(
-                    token_id=None,
-                    kind="auth",
-                    name="authenticate",
-                    args={"folded": folded} if folded else {},
-                    outcome="denied",
-                    error_code="invalid_token",
-                )
+            ctx.mcp_audit.refusal(
+                token_id=None,
+                name="authenticate",
+                outcome="denied",
+                error_code="invalid_token",
+                source=key,
+            )
             await _answer(send, 401, "invalid_token", challenge=True)
             return
         wait = ctx.mcp_limits.hit(record.id)
         if wait is not None:
-            if ctx.mcp_limits.refusal_to_audit(record.id):
-                ctx.mcp_audit.record(
-                    token_id=record.id,
-                    kind="auth",
-                    name="rate_limit",
-                    args={},
-                    outcome="rate_limited",
-                    error_code="rate_limited",
-                )
+            ctx.mcp_audit.refusal(
+                token_id=record.id,
+                name="rate_limit",
+                outcome="rate_limited",
+                error_code="rate_limited",
+                source=key,
+            )
             await _answer(send, 429, "rate_limited", retry_after=wait)
             return
         ctx.mcp_tokens.touch(record.id)

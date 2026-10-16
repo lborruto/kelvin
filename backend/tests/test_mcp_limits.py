@@ -42,28 +42,3 @@ def test_the_key_table_is_bounded():
     for i in range(10_005):
         lim.failure(f"k{i}")
     assert len(lim._fail) <= 10_000
-
-
-def test_a_throttled_token_is_audited_once_a_minute():
-    clock = ManualClock(0.0)
-    lim = McpLimits(clock=clock)
-    assert lim.refusal_to_audit("t1") is True
-    assert lim.refusal_to_audit("t1") is False
-    assert lim.refusal_to_audit("t2") is True  # tokens are independent
-    clock.advance(59)
-    assert lim.refusal_to_audit("t1") is False
-    clock.advance(1)
-    assert lim.refusal_to_audit("t1") is True
-
-
-def test_refused_authentications_collapse_into_one_row_a_minute():
-    """Bad tokens from any number of addresses: the first refusal of a minute is audited and
-    carries how many were folded into it since the last row."""
-    clock = ManualClock(0.0)
-    lim = McpLimits(clock=clock)
-    assert lim.denial_to_audit() == 0
-    for _ in range(999):
-        assert lim.denial_to_audit() is None
-    clock.advance(60)
-    assert lim.denial_to_audit() == 999
-    assert lim.denial_to_audit() is None

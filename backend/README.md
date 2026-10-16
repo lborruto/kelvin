@@ -166,9 +166,11 @@ PDL-like strings. Tool errors are `is_error` results whose text starts with a st
 `linky_unavailable`, `invalid_argument`, `internal_error` (never a traceback).
 
 Audit: every tool, resource and prompt call is a row in `mcp_audit` (time, token id, kind, name,
-sanitised arguments without secrets, outcome, error code, duration); refused authentications are
-one row a minute whatever their number or source (`args.folded` counts the others), a throttled
-token one `rate_limited` row a minute. Rows are kept 90 days; above 20 000 the heaviest source
+sanitised arguments without secrets, outcome, error code, duration); refusals are aggregated,
+never dropped: one row per (token, or unknown token) × reason × minute, whose `args` hold `count`,
+`first_seen_at`, `last_seen_at` and `sources` (distinct clients), updated as refusals arrive and
+flushed when the window closes, before a listing and at shutdown (`GET /api/mcp/audit` rows carry
+`count`). Rows are kept 90 days; above 20 000 the heaviest source
 (a token, or the refusals) loses its oldest rows first and no source goes below its newest 200,
 so one token flooding at its limit never evicts another's recent calls. `GET /api/mcp/audit`
 lists them. SDK-side refusals (an unknown tool, invalid arguments) are not audited.

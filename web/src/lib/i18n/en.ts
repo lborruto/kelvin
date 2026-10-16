@@ -953,6 +953,7 @@ export const en: Messages = {
     recent: 'Recent calls',
     recentMeta: (n: number) => `${int(n)} ${plural(n, { one: 'call', other: 'calls' })}`,
     noCalls: 'No calls.',
+    times: (n: number) => `${int(n)} times`,
     outcome: { ok: 'succeeded', error: 'error', denied: 'refused', rate_limited: 'limited' },
     unknownToken: 'unknown token',
     loadError: 'Couldn’t load the MCP tokens.',

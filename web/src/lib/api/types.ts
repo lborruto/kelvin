@@ -644,6 +644,8 @@ export interface McpAuditRow {
   outcome: 'ok' | 'error' | 'denied' | 'rate_limited';
   error_code: string | null;
   duration_ms: number;
+  /** How many attempts the row stands for: refusals are one counted row a minute. */
+  count: number;
 }
 
 export type Severity = 'info' | 'warn' | 'bad';

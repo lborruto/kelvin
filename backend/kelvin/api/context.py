@@ -100,7 +100,10 @@ class AppContext:
                 rt, self.rt = self.rt, None
                 await stop_runtime(rt)
         finally:
-            self.db.close()
+            try:
+                self.mcp_audit.flush()  # the open refusal windows' counts (Plan 13)
+            finally:
+                self.db.close()
 
 
 def open_context(

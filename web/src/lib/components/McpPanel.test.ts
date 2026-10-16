@@ -52,6 +52,17 @@ const audit: McpAuditRow[] = [
     outcome: "ok",
     error_code: null,
     duration_ms: 84,
+    count: 1,
+  },
+  {
+    at: now - 60,
+    token_name: null,
+    kind: "auth",
+    name: "authenticate",
+    outcome: "denied",
+    error_code: "invalid_token",
+    duration_ms: 0,
+    count: 300,
   },
 ];
 
@@ -100,6 +111,9 @@ describe("McpPanel", () => {
     expect(screen.getByText(/dernier appel il y a 2\smin/)).toBeInTheDocument();
     expect(screen.getByText(/révoqué le /)).toBeInTheDocument();
     expect(screen.getByText("get_energy")).toBeInTheDocument();
+    // refused attempts are one counted row: the count is shown, never hidden
+    const refused = screen.getByText(/^jeton inconnu · refusé/);
+    expect(refused.textContent!.replace(/\s+/g, " ")).toMatch(/^jeton inconnu · refusé · 300 fois · /);
     // a revoked token has no actions
     expect(
       screen.getByRole("button", { name: "Actions pour Claude Code" }),

@@ -68,6 +68,7 @@ def test_record_and_recent_with_token_names(audit):
             "outcome": "denied",
             "error_code": "invalid_token",
             "duration_ms": 0,
+            "count": 1,
         },
         {
             "at": 2_000_000.0,
@@ -77,6 +78,7 @@ def test_record_and_recent_with_token_names(audit):
             "outcome": "ok",
             "error_code": None,
             "duration_ms": 12,
+            "count": 1,
         },
     ]
     assert len(a.recent(1, {})) == 1
@@ -127,3 +129,74 @@ def test_a_flooding_token_never_evicts_the_others(audit, monkeypatch):
     }  # its newest rows are the ones kept
     assert count("token_id IS NULL") == 5
     assert count("token_id = ?", "flood") > 0  # the flood keeps its newest rows too
+
+
+def _args(db, where: str = "kind = 'auth'") -> list[dict]:
+    return [
+        json.loads(r["args"])
+        for r in db.query(f"SELECT args FROM mcp_audit WHERE {where} ORDER BY id")
+    ]
+
+
+def test_refusals_aggregate_into_one_counted_row_per_window(audit):
+    """Security review (suppression): nothing is dropped and nothing floods. 300 throttled calls in
+    a minute are one row with count 300, first and last seen; the next window opens a new row."""
+    a, db = audit
+    for _ in range(300):
+        a.refusal(
+            token_id="t1",
+            name="rate_limit",
+            outcome="rate_limited",
+            error_code="rate_limited",
+            source="10.0.0.2",
+        )
+        a.wall.advance(0.1)
+    a.flush()
+    (row,) = _args(db)
+    assert row["count"] == 300 and row["sources"] == 1
+    assert row["first_seen_at"] == 2_000_000.0 and row["last_seen_at"] == pytest.approx(2_000_029.9)
+    a.wall.advance(60)
+    a.refusal(
+        token_id="t1",
+        name="rate_limit",
+        outcome="rate_limited",
+        error_code="rate_limited",
+        source="10.0.0.2",
+    )
+    assert [r["count"] for r in _args(db)] == [300, 1]
+    assert a.recent(5, {"t1": "Claude"})[0]["count"] == 1 and a.recent(5, {})[1]["count"] == 300
+
+
+def test_bad_tokens_from_many_sources_count_every_attempt(audit):
+    a, db = audit
+    for i in range(1000):
+        a.refusal(
+            token_id=None,
+            name="authenticate",
+            outcome="denied",
+            error_code="invalid_token",
+            source=f"10.1.{i // 250}.{i % 250}",
+        )
+        a.wall.advance(0.15)  # 150 s in all: three windows
+    a.flush()
+    rows = _args(db)
+    assert len(rows) <= 3 and sum(r["count"] for r in rows) == 1000
+    assert sum(r["sources"] for r in rows) == 1000
+
+
+def test_a_restart_flushes_the_open_window(tmp_path):
+    db = Database(tmp_path / "k.db")
+    a = McpAudit(db, wall=ManualClock(2_000_000.0))
+    for _ in range(7):
+        a.refusal(
+            token_id=None,
+            name="authenticate",
+            outcome="denied",
+            error_code="invalid_token",
+            source="10.0.0.9",
+        )
+    a.flush()  # what AppContext.close does before the database closes
+    db.close()
+    again = Database(tmp_path / "k.db")
+    assert [r["count"] for r in _args(again)] == [7]
+    again.close()
