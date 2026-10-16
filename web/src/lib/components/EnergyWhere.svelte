@@ -63,7 +63,7 @@
     return out;
   });
   let anyEst = $derived(list.some((r) => r.est || r.radiators.some((x) => x.est)));
-  let heatingMark = $derived(radiators?.coverage != null && radiators.coverage < 1 ? (SUP[marks.size] ?? '*') : null);
+  let heatingMark = $derived(linky && radiators?.coverage != null && radiators.coverage < 1 ? (SUP[marks.size] ?? '*') : null);
 
   let open = $state<Record<string, boolean>>({});
   function toggle(id: string) {

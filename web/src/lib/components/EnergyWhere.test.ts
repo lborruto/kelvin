@@ -91,8 +91,10 @@ describe('EnergyWhere: the heating share', () => {
   });
 
   it('without Linky: no heating share, the rooms alone', () => {
-    const { container } = render(EnergyWhere, base({ linky: false, rows: [row('a', 'salon')] }));
+    const { container } = render(EnergyWhere, base({ linky: false, radiators: { ...rad, coverage: 0.5 }, rows: [row('a', 'salon')] }));
     expect(container.querySelector('.heating')).toBeNull();
+    // Its coverage footnote goes with the heating line.
+    expect(container.textContent).not.toContain('Radiateurs mesurés sur');
     expect(container.querySelectorAll('.rooms > li')).toHaveLength(3);
   });
 });
