@@ -1,6 +1,6 @@
-<!-- « Partir en absence » (direction-2 §3, DESIGN « AwaySheet »): one sheet, mounted once in the layout and
-     opened where the user is (sidebar, phone Pièces header, Maison, /home#away). A bottom sheet on a phone,
-     the centred dialog on desktop (ChoiceSheet). Three stable presets and a precise date, the temperature,
+<!-- « Partir en absence » (Tableau §4 « Absence », mockups 6, DESIGN « AwaySheet »): one sheet, mounted once in
+     the layout and opened where the user is (sidebar « Partir… », Maison, phone, /home#away). A bottom sheet on a
+     phone with « Partir » under the thumb and « Annuler », a 460 px dialog on desktop (Sheet, --pop). Three stable presets and a precise date, the temperature,
      and the consequence written out before anything is sent. While an absence runs, the same sheet shows it
      with « Prolonger… » and « Terminer maintenant ». The send goes through the house command path (the
      sidebar's PendingTag shows « Envoi… »); a toast confirms with « Annuler l’absence ». -->
@@ -17,8 +17,9 @@
   import { awaySheet } from '$lib/stores/away.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
-  import ChoiceSheet from './ChoiceSheet.svelte';
+  import { desktop } from '$lib/media.svelte';
   import Icon from './Icon.svelte';
+  import Sheet from './Sheet.svelte';
   import Stepper from './Stepper.svelte';
 
   interface Props {
@@ -54,7 +55,7 @@
       error = null;
     });
     // Initial focus: the selected preset (or, active, the first action).
-    void tick().then(() => body?.querySelector<HTMLElement>('[aria-pressed="true"], .first')?.focus());
+    void tick().then(() => (body?.closest('dialog') ?? body)?.querySelector<HTMLElement>('[aria-pressed="true"], .first')?.focus());
   });
 
   let until = $derived(preset === 'tomorrow' ? presets.tomorrow : preset === 'sunday' ? presets.sunday : parisLocalMs(picked));
@@ -126,25 +127,21 @@
   }
 </script>
 
-<ChoiceSheet title={active && !extending ? m.away.activeTitle : m.away.title} open={awaySheet.open} trigger={awaySheet.trigger}
+<Sheet title={active && !extending ? m.away.activeTitle : m.away.title} open={awaySheet.open} trigger={awaySheet.trigger} width={460}
   onclose={() => awaySheet.close()}>
   <div class="away" bind:this={body}>
     {#if !form && active}
-      <p class="state"><span class="glyph" aria-hidden="true"><Icon name="away" size={16} /></span><span
+      <p class="state"><span class="glyph" aria-hidden="true"><Icon name="away" size={18} /></span><span
           >{m.away.active(fmtDateTime(active.ends_at * 1000), fmtTemp(active.temperature))}</span></p>
       <p class="lead">{active.restoring ? m.home.restoring : m.away.activeLead}</p>
-      <div class="stack">
-        <button type="button" class="btn btn-lg first" onclick={() => (extending = true)}>{m.away.extend}</button>
-        <button type="button" class="btn btn-ghost btn-lg" aria-disabled={!house.online} onclick={endNow}>{m.away.endNow}</button>
-      </div>
     {:else}
       <p class="lead">{m.away.lead}</p>
       <fieldset>
-        <legend>{m.away.until} <span class="hint">{m.away.parisTime}</span></legend>
+        <legend>{m.away.until} {m.away.parisTime}</legend>
         <div class="chips">
-          <button type="button" class="chip hit" aria-pressed={preset === 'tomorrow'} onclick={() => choose('tomorrow')}>{m.away.tomorrow(fmtTime(presets.tomorrow))}</button>
-          <button type="button" class="chip hit" aria-pressed={preset === 'sunday'} onclick={() => choose('sunday')}>{m.away.sunday(fmtTime(presets.sunday))}</button>
-          <button type="button" class="chip hit" aria-pressed={preset === 'pick'} onclick={() => choose('pick')}>{m.away.pick}</button>
+          <button type="button" class="dchip hit" aria-pressed={preset === 'tomorrow'} onclick={() => choose('tomorrow')}>{m.away.tomorrow(fmtTime(presets.tomorrow))}</button>
+          <button type="button" class="dchip hit" aria-pressed={preset === 'sunday'} onclick={() => choose('sunday')}>{m.away.sunday(fmtTime(presets.sunday))}</button>
+          <button type="button" class="dchip hit" aria-pressed={preset === 'pick'} onclick={() => choose('pick')}>{m.away.pick}</button>
         </div>
         {#if preset === 'pick'}
           <label class="field"><span>{m.away.pickField}</span><input class="when" type="datetime-local" min={presets.min} bind:value={picked}
@@ -152,52 +149,57 @@
         {/if}
       </fieldset>
       <div class="temp">
-        <div class="caption"><span>{m.away.temperature}</span><span class="hint">{m.away.frost}</span></div>
-        <Stepper label={m.away.tempLabel} value={temp} min={AWAY_TEMP.min} max={AWAY_TEMP.max} debounceMs={0} announce={false}
-          onchange={(v) => (temp = v)} />
+        <p class="cap">{m.away.temperature}</p>
+        <Stepper label={m.away.tempLabel} caption={m.away.during} block value={temp} min={AWAY_TEMP.min} max={AWAY_TEMP.max} debounceMs={0}
+          announce={false} onchange={(v) => (temp = v)} />
+        <p class="note">{m.away.frost}</p>
       </div>
       <div class="consequence" aria-live="polite">
         {#if consequence}<p>{consequence}</p>{/if}
-        {#if offlineLine}<p class="muted">{offlineLine}</p>{/if}
+        {#if offlineLine}<p class="off"><Icon name="plug-off" size={15} /><span>{offlineLine}</span></p>{/if}
       </div>
       {#if error}<p class="error" role="alert">{error()}</p>{/if}
-      <div class="stack">
-        <button type="button" class="btn btn-primary btn-lg" aria-disabled={blocked}
-          aria-describedby={why ? `${uid}-why` : undefined} onclick={go}>{extending ? m.away.extendGo : m.away.go}</button>
-        {#if why}<p class="muted why" id="{uid}-why">{why}</p>{/if}
-        <button type="button" class="btn btn-ghost btn-lg" onclick={() => (extending ? (extending = false) : awaySheet.close())}>{m.common.cancel}</button>
-      </div>
     {/if}
   </div>
-</ChoiceSheet>
+  {#snippet footer()}
+    <div class="stack">
+      {#if !form && active}
+        <button type="button" class="btn btn-lg first" onclick={() => (extending = true)}>{m.away.extend}</button>
+        <button type="button" class="btn btn-ghost btn-lg" aria-disabled={!house.online} onclick={endNow}>{m.away.endNow}</button>
+      {:else}
+        <button type="button" class="btn btn-primary btn-lg" aria-disabled={blocked}
+          aria-describedby={why ? `${uid}-why` : undefined} onclick={go}><Icon name="away" size={18} />{extending ? m.away.extendGo : m.away.go}</button>
+        {#if why}<p class="why" id="{uid}-why">{why}</p>{/if}
+        {#if extending || !desktop.matches}
+          <button type="button" class="btn btn-lg" onclick={() => (extending ? (extending = false) : awaySheet.close())}>{m.common.cancel}</button>
+        {/if}
+      {/if}
+    </div>
+  {/snippet}
+</Sheet>
 
 <style>
   .away {
     display: grid;
-    gap: 14px;
+    gap: 16px;
   }
   p {
     margin: 0;
-    font-size: 13px;
-  }
-  .lead,
-  .muted,
-  .hint {
-    color: var(--mu);
   }
   .lead {
-    margin-top: -6px;
+    margin-top: -8px;
+    color: var(--mu);
+    font-size: 13.5px;
   }
   .state {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    font-size: 14px;
+    gap: 10px;
+    font-size: 15px;
     font-weight: 600;
   }
   .glyph {
     display: inline-flex;
-    padding-top: 1px;
     color: var(--cool);
   }
   fieldset {
@@ -209,58 +211,54 @@
     min-width: 0;
   }
   legend,
-  .caption {
+  .cap {
     padding: 0;
-    font-size: 12px;
-    color: var(--mu);
+    font-size: 13px;
+    color: var(--fa);
   }
   legend {
     margin-bottom: 8px;
-  }
-  .hint {
-    font-weight: 400;
   }
   .chips {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
-  .chip {
-    position: relative;
+  /* The day chips (spec « dchip »): 40 px, radius 12, s2; the chosen one is ink. */
+  .dchip {
     display: inline-flex;
     align-items: center;
-    min-height: var(--ctl-h);
+    justify-content: center;
+    min-height: 40px;
     padding: 0 12px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: none;
-    color: var(--mu);
+    border: 0;
+    border-radius: var(--r-input);
+    background: var(--s2);
+    color: var(--tx);
     font: inherit;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     touch-action: manipulation;
     transition:
       background-color var(--t-state) ease,
-      border-color var(--t-state) ease,
       color var(--t-state) ease;
+    --hit-y: -2px;
   }
   @media (hover: hover) {
-    .chip:hover {
-      color: var(--tx);
-      border-color: var(--fa);
+    .dchip:not([aria-pressed='true']):hover {
+      background: var(--s3);
     }
   }
-  .chip[aria-pressed='true'] {
-    background: var(--s2);
-    border-color: var(--mu);
-    color: var(--tx);
+  .dchip[aria-pressed='true'] {
+    background: var(--tx);
+    color: var(--bg);
   }
   .field {
     display: grid;
     justify-items: start;
-    gap: 4px;
-    font-size: 12px;
+    gap: 6px;
+    font-size: 13px;
     color: var(--mu);
   }
   /* « 18/10/2026 18:00 » and its picker glyph, never stretched. */
@@ -268,30 +266,37 @@
     width: min(100%, 14.5rem);
   }
   .temp {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px 16px;
-  }
-  .caption {
     display: grid;
-    gap: 2px;
+    gap: 8px;
   }
-  .caption span:first-child {
-    color: var(--tx);
-    font-size: 13px;
-    font-weight: 600;
+  .temp .note {
+    margin-top: -2px;
   }
   .consequence {
     display: grid;
-    gap: 4px;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: var(--r-group);
+    background: var(--s1);
+    font-size: 14.5px;
   }
-  .consequence p:first-child {
-    color: var(--tx);
+  .consequence:empty {
+    display: none;
+  }
+  .off {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: var(--mu);
+    font-size: 13px;
+  }
+  .off :global(svg) {
+    flex: none;
+    margin-top: 1px;
   }
   .error {
     color: var(--bad);
+    font-size: 13.5px;
   }
   .stack {
     display: grid;
@@ -299,10 +304,10 @@
   }
   .stack .btn {
     width: 100%;
-    justify-content: center;
   }
   .why {
-    font-size: 12px;
+    font-size: var(--fs-note);
+    color: var(--mu);
     text-align: center;
   }
 </style>
