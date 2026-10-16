@@ -10,12 +10,14 @@
   import { tick, untrack } from 'svelte';
   import ChartInspector from './ChartInspector.svelte';
   import { cardLeft, nearestIndex, stepIndex, swipeDirection } from '$lib/chart';
+  import type { TempoColour } from '$lib/api/types';
   import { SERIES_HATCH } from '$lib/energy';
   import { fmtKwh } from '$lib/format';
   import { m } from '$lib/i18n';
   import { inspectionTable, type Inspection } from '$lib/inspector';
   import { desktop } from '$lib/media.svelte';
   import { announcer } from '$lib/stores/announcer.svelte';
+  import TempoDot from './TempoDot.svelte';
 
   interface Group {
     label: string;
@@ -43,6 +45,13 @@
     drillLabel?: ((i: number) => string | null) | null;
     /** A horizontal swipe on a touch screen: −1 previous period, +1 next. */
     onswipe?: ((dir: -1 | 1) => void) | null;
+    /** The plot's height in px (Tableau: taller where the chart spans two columns). */
+    height?: number;
+    /** Per group: its Tempo day colour, a dot under the bar (null: colour unknown, a dashed dot; undefined: no dot).
+     * Only under a Tempo tariff, never otherwise. */
+    tempo?: (TempoColour | null | undefined)[] | null;
+    /** A projection drawn as a dashed outline on one bar (Année: the running month to its estimate). */
+    ghost?: { index: number; value: number } | null;
   }
   let {
     groups,
@@ -55,20 +64,23 @@
     selected = $bindable(null),
     ondrill = null,
     drillLabel = null,
-    onswipe = null
+    onswipe = null,
+    height = 160,
+    tempo = null,
+    ghost = null
   }: Props = $props();
 
   const uid = $props.id();
   /** Drawn at its measured width, so bars keep their height and corners on a phone. */
   let width = $state(0);
   let W = $derived(width > 0 ? width : 600);
-  const H = 160;
+  let H = $derived(height);
   const PAD = { top: 8, right: 0, bottom: 2, left: 0 };
 
   let x = $derived(scaleBand<string>().domain(groups.map((g) => g.label)).range([PAD.left, W - PAD.right]).paddingInner(0.25).paddingOuter(0.125));
   let overlayMax = $derived(Math.max(0, ...(overlay?.values ?? []).map((v) => v ?? 0)));
   const total = (g: Group) => g.parts.reduce((a, p) => a + (p.value ?? 0), 0);
-  let max = $derived(Math.max(0.1, overlayMax, ...groups.map(total)));
+  let max = $derived(Math.max(0.1, overlayMax, ghost?.value ?? 0, ...groups.map(total)));
   let y = $derived(scaleLinear().domain([0, max]).nice().range([H - PAD.bottom, PAD.top]));
   let axisWidth = $state(0);
   let every = $derived(labelEvery(groups.length, axisWidth));
@@ -272,6 +284,11 @@
           {/if}
         {/each}
       {/each}
+      {#if ghost && groups[ghost.index] && ghost.value > 0}
+        {@const g = groups[ghost.index]}
+        <!-- The estimate, never a measurement: a dashed outline only (its words say « ≈ » and « est. »). -->
+        <rect class="ghost" x={(x(g.label) ?? 0) + 0.5} width={Math.max(0, x.bandwidth() - 1)} y={y(ghost.value)} height={Math.max(0, H - PAD.bottom - y(ghost.value))} rx="2" />
+      {/if}
       {#each gaps as g (g.label)}
         <line class="gap" x1={x(g.label)} x2={(x(g.label) ?? 0) + x.bandwidth()} y1={H - PAD.bottom - 1} y2={H - PAD.bottom - 1} />
       {/each}
@@ -328,6 +345,11 @@
       <span class="cell">{#if gi % every === 0}<span class="tick">{g.label}</span>{/if}</span>
     {/each}
   </div>
+  {#if tempo}
+    <div class="dots" style:grid-template-columns="repeat({groups.length}, 1fr)" aria-hidden="true">
+      {#each groups as g, gi (g.label)}<span class="cell">{#if tempo[gi] !== undefined}<TempoDot colour={tempo[gi] ?? null} />{/if}</span>{/each}
+    </div>
+  {/if}
   {#if details && mode === 'sheet' && selected != null && details[selected]}
     <ChartInspector ins={details[selected]} mode="sheet" id="{uid}-inspector" pinned action={actionFor(selected)} onclose={close} />
   {/if}
@@ -451,6 +473,18 @@
     font-size: 11px;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+  }
+  .ghost {
+    fill: none;
+    stroke: var(--mu);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    pointer-events: none;
+  }
+  .dots {
+    display: grid;
+    margin-top: 4px;
+    min-height: 10px;
   }
   .gap {
     stroke: var(--fa);

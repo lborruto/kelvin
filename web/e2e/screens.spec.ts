@@ -36,6 +36,25 @@ for (const path of PATHS) {
   });
 }
 
+// Énergie's other views (Tableau board): Jour, Semaine, Année, and the hero Fiche.
+test('screens of the Énergie views', async ({ page }, info) => {
+  const names = locale === 'en' ? ['Day', 'Week', 'Year', 'Month'] : ['Jour', 'Semaine', 'Année', 'Mois'];
+  await page.goto('/energy');
+  await page.getByRole('main').waitFor();
+  await page.waitForLoadState('networkidle').catch(() => {});
+  for (const [i, tag] of ['day', 'week', 'year'].entries()) {
+    await page.getByRole('radio', { name: names[i], exact: true }).click();
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: `${outDir}/${locale}_${info.project.name}_energy_${tag}.png`, fullPage: true });
+  }
+  await page.getByRole('radio', { name: names[3], exact: true }).click();
+  await page.waitForTimeout(1200);
+  await page.locator('.hero .fig').first().click();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${outDir}/${locale}_${info.project.name}_energy_fiche.png` });
+});
+
 // One capture under a Tempo tariff (Plan 9): the strip's colours and the Tempo rows. The tariff is
 // restored afterwards so the other captures keep the HC/HP demo.
 test('screens under a Tempo tariff', async ({ page, request }, info) => {

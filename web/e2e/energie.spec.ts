@@ -481,12 +481,13 @@ test.describe('Énergie', () => {
     expect(await overflow(page)).toBeLessThanOrEqual(0);
   });
 
-  test('Mois on a desktop with every disclosure closed stays under 1 800 px; the key figures land on their sections', async ({ page, isMobile }) => {
+  test('Mois on a desktop with every disclosure closed stays under 2 000 px; the key figures land on their sections', async ({ page, isMobile }) => {
     test.skip(isMobile, 'explicit desktop width');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/energy');
     await settled(page);
-    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(1800);
+    // The Tableau board adds its row of three summary widgets (split, the Courbe's day, the rooms) above the full sections.
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(2000);
     // Each key figure lands its section's heading fully below the condensed period bar (nested cards included).
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
@@ -506,6 +507,45 @@ test.describe('Énergie', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const analysis = page.locator('.analysis');
     for (const b of await analysis.locator('.dbtn').all()) await expect(b).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+test.describe('Énergie Tableau board', () => {
+  test.skip(({ isMobile }) => isMobile, 'explicit widths');
+
+  test('1440: Mois puts the bars beside the Résumé, then the split, the Courbe’s day and the rooms in one row; Jour leads with the Courbe', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/energy');
+    await settled(page);
+    const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
+    const bars = await box('.bars-w');
+    const hero = await box('.hero');
+    expect(Math.abs(bars.y - hero.y), 'bars and Résumé on one row').toBeLessThan(2);
+    expect(hero.x).toBeGreaterThan(bars.x + bars.width);
+    const row = [await box('#offpeak'), await box('.w-curve'), await box('.w-where')];
+    expect(new Set(row.map((b) => Math.round(b.y))).size, 'one row of three').toBe(1);
+    // « par demi-heure › » opens the full Courbe.
+    await page.locator('.w-curve').getByRole('button', { name: 'par demi-heure' }).click();
+    await expect(page.locator('#curve-title')).toHaveAttribute('aria-expanded', 'true');
+    await page.getByRole('radio', { name: 'Jour', exact: true }).click();
+    await settled(page);
+    const curve = await box('#curve');
+    const dayHero = await box('.hero');
+    expect(Math.abs(curve.y - dayHero.y), 'Courbe and Résumé on one row').toBeLessThan(2);
+    expect(dayHero.x).toBeGreaterThan(curve.x + curve.width);
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test('390: the Résumé comes first, then the evidence; the summary widgets stay in the full sections', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/energy');
+    await settled(page);
+    const hero = (await page.locator('.hero').boundingBox())!;
+    const bars = (await page.locator('.bars-w').boundingBox())!;
+    expect(hero.y).toBeLessThan(bars.y);
+    await expect(page.locator('.w-where')).toBeHidden();
+    await expect(page.locator('.w-curve')).toBeHidden();
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
   });
 });
 

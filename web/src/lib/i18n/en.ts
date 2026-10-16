@@ -1302,6 +1302,20 @@ export const en: Messages = {
     qualityColours: (n: number) => `Days without a Tempo colour: ${n} (energy counted, euros not counted)`,
     qualityRetro: (n: number) => `Days before the first off-peak hours: ${n} (the first off-peak hours applied)`
   },
+  energyBoard: {
+    eurParts: (energy: string, subscription: string) => `energy ${energy} · standing charge ${subscription}`,
+    whereMore: 'See all',
+    whereShare: 'comes from the radiators',
+    monthsTitle: 'Month by month',
+    monthUntil: (d: string) => `to ${d}`,
+    curveMore: 'by half-hour',
+    curveNone: 'No load curve for this day.',
+    curveMiniLabel: (d: string) => `Load curve preview, ${d}`,
+    sevenDays: (d: string) => `The 7 days to ${d}`,
+    tempoTitle: 'Tempo days',
+    tempoNote: 'A Tempo day runs from 06:00 to 06:00.',
+    yearGhost: (month: string, v: string) => `${month} dashed: the full month, estimated (${v}).`
+  },
   api: {
     login_required: () => 'Please sign in.',
     session_is_current: () => 'Use “Sign out” for this device.',

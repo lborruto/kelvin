@@ -23,13 +23,15 @@
     index?: number | null;
     /** The day as a whole (`readDay`): what the readout says when no half-hour is chosen. */
     idle?: Inspection | null;
+    /** The plot's height in px (Tableau: taller where the Courbe leads the board). */
+    height?: number;
   }
-  let { intervals, label, split = true, kva = null, samples = null, room = null, index = $bindable(null), idle = null }: Props = $props();
+  let { intervals, label, split = true, kva = null, samples = null, room = null, index = $bindable(null), idle = null, height = 140 }: Props = $props();
 
   let width = $state(0);
   let W = $derived(width > 0 ? width : 600);
-  const H = 140;
-  const BASE = H - 1;
+  let H = $derived(height);
+  let BASE = $derived(H - 1);
   let x = $derived(scaleBand<number>().domain(intervals.map((_, i) => i)).range([0, W]).paddingInner(0.15));
   let dataMax = $derived(Math.max(1, ...intervals.map((p) => Math.max(p.wh, p.radiators_wh ?? 0))));
   let kvaWh = $derived(kva != null ? kva * 1000 * 0.5 : null);

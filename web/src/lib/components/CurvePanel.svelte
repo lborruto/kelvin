@@ -31,10 +31,12 @@
     /** Mois and Année: the panel is its summary line, the curve one « Voir la courbe » away (`detail`). */
     collapsible?: boolean;
     open?: boolean;
+    /** The chart's height in px (default 140). */
+    chartHeight?: number;
   }
   let {
     dayIso, day, error, view, split, canPrev, canNext, onstep, onretry, curveSince, quota, index = $bindable(null), bar = null,
-    collapsible = false, open = $bindable(false)
+    collapsible = false, open = $bindable(false), chartHeight = 140
   }: Props = $props();
 
   // Never another day's bars under this heading.
@@ -97,7 +99,7 @@
 {/snippet}
 
 {#snippet body()}
-  <div class="body">
+  <div class="body" style:--chart-h="{chartHeight}px">
     {#if error}
       <p class="error" role="status">{error} <button type="button" class="btn btn-sm" onclick={onretry}>{m.curvePanel.retry}</button></p>
     {:else if shown}
@@ -112,6 +114,7 @@
           room={roomLabel}
           label={m.curvePanel.chart(fmtDateLong(shown.date))}
           {idle}
+          height={chartHeight}
           bind:index />
         {#if !shown.complete}<p class="muted note">{m.curvePanel.incomplete(shown.points, halfHoursIn(shown.date))}</p>{/if}
         {#if reconcile}<p class="muted note num">{reconcile}</p>{/if}
@@ -188,10 +191,10 @@
   }
   /* The body keeps the chart's height while a day loads, so the panels below never move. */
   .body {
-    min-height: 236px;
+    min-height: calc(var(--chart-h, 140px) + 96px);
   }
   .curve-sk {
-    height: 216px;
+    height: calc(var(--chart-h, 140px) + 76px);
   }
   .note {
     font-size: 12px;
