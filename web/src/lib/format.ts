@@ -134,6 +134,12 @@ export function fmtPrice(v: number | null | undefined): string {
   return english() ? `${euro(s)}/kWh` : `${s}${NB}€/kWh`;
 }
 
+/** A price per kWh as the « Maintenant » card writes it, the unit in its caption: « 0,2700 € », “€0.2700”. */
+export function fmtKwhPrice(v: number | null | undefined): string {
+  if (bad(v)) return '—';
+  return euro(signed(four(), v));
+}
+
 /** A bare figure for a column whose header carries the unit: "0,2068", "16,20" (en "0.2068", "16.20"). */
 export function fmtAmount(v: number | null | undefined, digits: 2 | 4): string {
   if (bad(v)) return '—';

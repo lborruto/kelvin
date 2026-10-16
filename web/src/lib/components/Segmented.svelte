@@ -6,8 +6,10 @@
     value: T;
     label: string;
     onchange: (v: T) => void;
+    /** Stretch the segments to the container's width (equal parts). */
+    block?: boolean;
   }
-  let { options, value, label, onchange }: Props = $props();
+  let { options, value, label, onchange, block = false }: Props = $props();
   let buttons: HTMLButtonElement[] = $state([]);
 
   // A choice, not a device command: arrows move AND select (WAI-ARIA radio group).
@@ -27,7 +29,7 @@
   }
 </script>
 
-<div class="seg" role="radiogroup" aria-label={label}>
+<div class="seg" class:block role="radiogroup" aria-label={label}>
   {#each options as o, i (o.value)}
     <button
       bind:this={buttons[i]}
@@ -44,37 +46,47 @@
 </div>
 
 <style>
-  /* Compact scale: 36 px segments (--ctl-h) in a 40 px well (1 px edge, 1 px inset), radius 8 → 6
-     concentric; each segment's hit area reaches 44 px (.hit). */
+  /* Tableau « Segmented » (spec §3): an s2 track (radius 10, 2 px inset and gap) of 32 px segments (radius 8),
+     ink 500 text; the checked one is s3 with a soft shadow and 600 text (not colour alone). Each segment's
+     hit area reaches 44 px (.hit). A view choice: arrows select (the Command Keyboard Rule). */
   .seg {
     display: inline-flex;
     gap: 2px;
-    padding: 1px;
-    background: var(--in);
-    border: 1px solid var(--line);
-    border-radius: var(--ctl-radius);
+    max-width: 100%;
+    padding: 2px;
+    border-radius: var(--r-seg);
+    background: var(--s2);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .seg.block {
+    display: flex;
+    width: 100%;
+  }
+  .block button {
+    flex: 1;
   }
   button {
-    min-height: var(--ctl-h);
-    padding: 0 12px;
-    border: 1px solid transparent;
-    border-radius: calc(var(--ctl-radius) - 2px);
+    --ctl-h: 32px;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 8px;
     background: none;
-    color: var(--mu);
+    color: var(--tx);
     font: inherit;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 13.5px;
+    font-weight: 500;
     white-space: nowrap;
     cursor: pointer;
     touch-action: manipulation;
     transition:
       background-color var(--t-state) ease,
-      border-color var(--t-state) ease,
-      color var(--t-state) ease;
+      box-shadow var(--t-state) ease;
   }
   @media (hover: hover) {
     button[aria-checked='false']:hover {
-      color: var(--tx);
+      background: color-mix(in srgb, var(--s3) 50%, transparent);
     }
   }
   em {
@@ -82,12 +94,14 @@
     font-style: normal;
     font-size: 12px;
     font-weight: 500;
-    color: var(--fa);
+    color: var(--mu);
   }
-  /* The checked segment is edged in muted: 3:1 against the well (WCAG 1.4.11), not just a tone. */
   button[aria-checked='true'] {
-    background: var(--s2);
-    border-color: var(--mu);
-    color: var(--tx);
+    background: var(--s3);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    font-weight: 600;
+  }
+  button:focus-visible {
+    outline-offset: -2px;
   }
 </style>

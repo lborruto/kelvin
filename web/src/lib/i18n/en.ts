@@ -1444,6 +1444,29 @@ export const en: Messages = {
     readOnly: 'Kelvin controls no device in this room.'
   },
   // Plan 12
+  kit: {
+    boostShort: 'Boost'
+  },
+  now: {
+    title: 'Now',
+    hchp: (kva: string) => `off-peak / peak · ${kva}`,
+    tempoDay: (colour: string) => `Tempo ${colour} day`,
+    hc: 'Off-peak',
+    hp: 'Peak',
+    then: (time: string, nextHc: boolean, price: string) => `until ${time}, then ${nextHc ? 'off-peak' : 'peak'} at ${price}`,
+    thenUnknown: (time: string, nextHc: boolean) => `until ${time}, then ${nextHc ? 'off-peak' : 'peak'}`,
+    perKwh: 'per kWh',
+    base: (price: string) => `Single price ${price}`,
+    none: 'No tariff yet: the current prices will show here.',
+    setTariff: 'Add your tariff',
+    tomorrow: 'Tomorrow',
+    tomorrowPrices: (hp: string, hc: string) => `peak ${hp} · off-peak ${hc}`,
+    colourUnknown: 'today’s Tempo colour isn’t known yet',
+    band: (hc: string) => `Off-peak ${hc}`,
+    priceTitle: 'Price per kWh right now',
+    period: 'Period',
+    nextLabel: 'Next'
+  },
   servers: {
     label: 'Server',
     cozytouch: 'Cozytouch',

@@ -1491,6 +1491,31 @@ export const fr = {
     readOnly: 'Kelvin ne pilote aucun appareil de cette pièce.'
   },
   // Plan 12
+  // Tableau kit (spec §3): the shared components' own words; screens pass theirs.
+  kit: {
+    boostShort: 'Chauffe temp.'
+  },
+  // « Maintenant » (spec §3, decision 3): the tariff period in force now. Tempo words only when Tempo.
+  now: {
+    title: 'Maintenant',
+    hchp: (kva: string) => `heures creuses / pleines · ${kva}`,
+    tempoDay: (colour: string) => `Jour Tempo ${colour}`,
+    hc: 'Heures creuses',
+    hp: 'Heures pleines',
+    then: (time: string, nextHc: boolean, price: string) => `jusqu’à ${time}, puis ${nextHc ? 'creuses' : 'pleines'} à ${price}`,
+    thenUnknown: (time: string, nextHc: boolean) => `jusqu’à ${time}, puis ${nextHc ? 'heures creuses' : 'heures pleines'}`,
+    perKwh: 'par kWh',
+    base: (price: string) => `Prix unique ${price}`,
+    none: `Aucun tarif renseigné${NB}: les prix du moment apparaîtront ici.`,
+    setTariff: 'Renseigner le tarif',
+    tomorrow: 'Demain',
+    tomorrowPrices: (hp: string, hc: string) => `pleines ${hp} · creuses ${hc}`,
+    colourUnknown: 'couleur du jour Tempo pas encore connue',
+    band: (hc: string) => `Heures creuses ${hc}`,
+    priceTitle: 'Prix du kWh en ce moment',
+    period: 'Période',
+    nextLabel: 'Ensuite'
+  },
   servers: {
     label: 'Serveur',
     cozytouch: 'Cozytouch',

@@ -20,10 +20,17 @@
     announce?: boolean;
     /** May return the send's promise: a `null` result (rejected send) drops the unsent value at once. */
     onchange: (v: number) => unknown;
+    /** A small muted word above the value (Tableau: « Confort », « Manuel »); visual only, `label` names it. */
+    caption?: string;
+    /** `md`: 36 px buttons (a 44 px pill); `sm`: 32 px (the phone room tile); `lg`: 56 px discs flanking a display
+     * value (the room sheet). */
+    size?: 'md' | 'sm' | 'lg';
+    /** Stretch to the container's width (tiles, widgets). */
+    block?: boolean;
   }
   let {
     value, min, max, step = 0.5, label, pending = false, disabled = false,
-    debounceMs = 600, format = (v) => fmtTemp(v), announce = true, onchange
+    debounceMs = 600, format = (v) => fmtTemp(v), announce = true, onchange, caption, size = 'md', block = false
   }: Props = $props();
 
   const FALLBACK_MS = 10_000;
@@ -138,69 +145,121 @@
   }
 </script>
 
-<div class="stepper" class:pending role="group" aria-label={label}>
+<div class="stepper {size}" class:pending class:block class:inert={disabled} role="group" aria-label={label}>
   <button type="button" class="hit" aria-label={m.stepper.decrease(label)} aria-disabled={atMin}
     onpointerdown={(e) => startHold(e, -1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
-    onkeydown={(e) => key(e, -1)}><Icon name="minus" /></button>
-  <output class="num"><span class="val">{format(shown)}<PendingEdge {pending} confirmed={settle.confirmed} /></span></output>
+    onkeydown={(e) => key(e, -1)}><Icon name="minus" size={size === 'lg' ? 24 : size === 'sm' ? 15 : 17} /></button>
+  <output class="num">{#if caption}<small aria-hidden="true">{caption}</small>{/if}<span class="val">{format(shown)}<PendingEdge {pending}
+        confirmed={settle.confirmed} /></span></output>
   <button type="button" class="hit" aria-label={m.stepper.increase(label)} aria-disabled={atMax}
     onpointerdown={(e) => startHold(e, 1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
-    onkeydown={(e) => key(e, 1)}><Icon name="plus" /></button>
+    onkeydown={(e) => key(e, 1)}><Icon name="plus" size={size === 'lg' ? 24 : size === 'sm' ? 15 : 17} /></button>
 </div>
 
 <style>
-  /* Compact scale: a 36 px well (--ctl-h), 36 px buttons with a 44 px hit area (.hit), a 64 px value:
-     136 px in all (--w-temp). No overflow clip, so the hit areas reach past the well. */
+  /* Tableau « Stepper » (spec §3): an s2 pill (4 px inset) holding two s3 discs (36 px, 32 px small) around
+     the value; each disc's hit area reaches 44 px (.hit). The value cross-fades; its underline is the pending
+     signal (PendingEdge): dashed while the radiator has not reported it, closing solid when it does. At a
+     bound the disc is aria-disabled (focus stays). Inert (reconnecting, offline): the whole pill dims. */
   .stepper {
+    --b: 36px;
     display: inline-grid;
-    grid-template-columns: 35px minmax(64px, auto) 35px;
+    grid-template-columns: var(--b) minmax(64px, 1fr) var(--b);
     align-items: center;
+    gap: 6px;
     flex: none;
-    height: var(--ctl-h);
-    background: var(--in);
-    border: 1px solid var(--field-line);
-    border-radius: var(--ctl-radius);
+    padding: 4px;
+    border-radius: var(--r-pill);
+    background: var(--s2);
+    transition: opacity var(--t-state) ease;
+  }
+  .stepper.sm {
+    --b: 32px;
+    padding: 3px;
+  }
+  .stepper.lg {
+    --b: 56px;
+    padding: 0;
+    gap: 12px;
+    background: transparent;
+  }
+  .stepper.block {
+    display: grid;
+    width: 100%;
+  }
+  .stepper.inert {
+    opacity: 0.4;
   }
   button {
     display: grid;
     place-items: center;
-    height: calc(var(--ctl-h) - 2px);
+    width: var(--b);
+    height: var(--b);
     padding: 0;
     border: 0;
-    border-radius: calc(var(--ctl-radius) - 1px);
-    background: transparent;
+    border-radius: 50%;
+    background: var(--s3);
+    color: var(--tx);
     cursor: pointer;
     touch-action: manipulation;
     user-select: none;
-    transition: background-color var(--t-state) ease, color var(--t-state) ease;
-    /* The well's edge sits 1 px outside the button: the hit area reaches 44 px from the painted edge. */
-    --hit-y: calc((var(--ctl-h) - var(--ctl-hit)) / 2 - 1px);
-    --hit-x: -1px;
+    transition:
+      background-color var(--t-state) ease,
+      opacity var(--t-state) ease,
+      transform var(--t-press) ease;
+    --ctl-h: var(--b);
+    --hit-x: min(0px, calc((var(--b) - var(--ctl-hit)) / 2));
+  }
+  .lg button {
+    background: var(--s2);
   }
   @media (hover: hover) {
     button:hover:not([aria-disabled='true']) {
-      background: var(--s2);
+      background: color-mix(in srgb, var(--s3) 70%, var(--tx));
     }
   }
   button:active:not([aria-disabled='true']) {
-    background: var(--s2);
+    transform: scale(0.94);
   }
   button[aria-disabled='true'] {
-    color: var(--fa);
+    opacity: 0.35;
     cursor: default;
   }
   output {
+    display: grid;
+    justify-items: center;
+    min-width: 0;
     text-align: center;
     font-size: 16px;
     font-weight: 600;
-    padding: 0 6px;
+    line-height: 1.1;
+    white-space: nowrap;
   }
-  /* The underline belongs to the value, so it is as wide as the figure, not the control: a hairline
-     at rest, dashed while pending, closing solid on confirmation (PendingEdge). */
+  .sm output {
+    font-size: 15px;
+  }
+  .lg output {
+    font-size: var(--fs-display);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  small {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--mu);
+    line-height: 1.2;
+  }
+  /* The underline belongs to the value, so it is as wide as the figure: transparent at rest, dashed while
+     pending, closing solid on confirmation (PendingEdge). */
   .val {
     position: relative;
     display: inline-block;
     padding-bottom: 2px;
-    --edge-rest: var(--line);
+    --edge-rest: transparent;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button:active:not([aria-disabled='true']) {
+      transform: none;
+    }
   }
 </style>

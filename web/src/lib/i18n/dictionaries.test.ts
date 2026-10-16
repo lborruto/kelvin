@@ -241,7 +241,9 @@ const SCANNER_BLIND = new Set([
   // Pièces redesign: short words in the boost sentence (« pendant », « Lancer », « ex. 22 °C pendant 2 h »)
   'boost.during', 'boost.start', 'boost.meta',
   // UX foundation: short labels (« Adresse », « Nature », « Calcul Kelvin », « Moyenne », « Période »)
-  'page.route', 'prov.nature', 'prov.kelvin', 'nav.alerts'
+  'page.route', 'prov.nature', 'prov.kelvin', 'nav.alerts',
+  // Tableau: « Maintenant », « par kWh », « Ensuite »
+  'now.title', 'now.perKwh', 'now.nextLabel'
 ]);
 
 describe('the strict scanner against the real copy (Task 17)', () => {

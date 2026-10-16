@@ -1,10 +1,10 @@
 <!-- The exact value behind a figure (direction-2 §1.2, DESIGN « Fiche »): L1 of « data on demand ».
-     Desktop (≥ 1024 px): a 280 px card (s2, hairline, radius 10, flat) beside its trigger, flipped left near
+     Desktop (≥ 1024 px): a 300 px card (--pop, radius 16, the pop shadow) beside its trigger, flipped left near
      the edge and clamped in the viewport, a non-modal role="dialog" named by its title; pinned, it takes
      the pointer and shows a close button. Phone: the same content in the shared bottom sheet (ChoiceSheet).
      Usually driven by Fig (hover intent, pin, Esc). -->
 <script lang="ts" module>
-  export const FICHE_W = 280;
+  export const FICHE_W = 300;
   const GAP = 8;
   const EDGE = 8;
 
@@ -156,14 +156,14 @@
 {/if}
 
 <style>
-  /* Flat like every surface (DESIGN Elevation): s2, a hairline, no shadow. Fixed: placed in the viewport. */
+  /* Tableau « Fiche »: a --pop card (radius 16, the pop shadow) placed beside its figure, fixed in the viewport. */
   .fiche {
     position: fixed;
     z-index: 60;
-    padding: 10px 12px;
-    background: var(--s2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
+    padding: 14px 16px;
+    background: var(--pop);
+    border-radius: var(--r-group);
+    box-shadow: var(--shadow-pop);
     color: var(--tx);
     font-size: 13px;
     line-height: 1.45;

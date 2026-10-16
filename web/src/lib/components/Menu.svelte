@@ -27,7 +27,7 @@
   import { desktop } from '$lib/media.svelte';
   import { dur, T } from '$lib/motion';
   import { portal } from '$lib/portal';
-  import ChoiceSheet from './ChoiceSheet.svelte';
+  import Sheet from './Sheet.svelte';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -171,24 +171,24 @@
     </div>
   {/if}
 {:else}
-  <ChoiceSheet title={name} {open} {trigger} onclose={() => (open = false)}>
+  <!-- Phone: an action sheet (Tableau §3): the items, then « Annuler » as a large button under the thumb. -->
+  <Sheet title={name} {open} {trigger} onclose={() => (open = false)} noClose width={400}>
     <div id="{uid}-menu" class="in-sheet">{@render menu()}</div>
-  </ChoiceSheet>
+    {#snippet footer()}<button type="button" class="btn btn-lg btn-block" onclick={() => (open = false)}>{m.common.cancel}</button>{/snippet}
+  </Sheet>
 {/if}
 
 <style>
-  .trigger.edged {
-    border-color: var(--line);
-  }
+  /* Tableau « Menu »: a --pop popover (radius 14, 6 px padding, the pop shadow), 44 px rows (radius 9). */
   .pop {
     position: fixed;
     z-index: 60;
-    min-width: 220px;
+    min-width: 230px;
     max-width: min(320px, calc(100vw - 16px));
-    padding: 8px;
-    background: var(--s1);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
+    padding: 6px;
+    background: var(--pop);
+    border-radius: var(--r-menu);
+    box-shadow: var(--shadow-pop);
     color: var(--tx);
     font-size: 13px;
   }
@@ -203,7 +203,7 @@
     min-height: 44px;
     padding: 4px 10px;
     border: 0;
-    border-radius: var(--ctl-radius);
+    border-radius: 9px;
     background: none;
     color: var(--tx);
     font: inherit;
@@ -222,6 +222,10 @@
   }
   .item:focus {
     background: var(--s2);
+  }
+  .in-sheet .item {
+    min-height: 52px;
+    font-size: 15px;
   }
   .item.danger {
     color: var(--bad);
