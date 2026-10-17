@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { GridView, Override, Radiator, WeekProgram } from './api/types';
+import type { Alert, GridView, Override, Radiator, WeekProgram } from './api/types';
 import { applyLocale } from './i18n';
 import {
+  newAlerts,
+  sameAlerts,
   climate, climateText, ecowattTomorrow, gridNext, gridNextText, monthSpan, nextLevelText, radiatorsText, segsText,
   tileLine, todaySegs, type RoomFacts
 } from './dashboard';
@@ -112,5 +114,20 @@ describe('monthSpan', () => {
     expect(monthSpan('2026-10-16')).toEqual({ prevFrom: '2026-09-01', from: '2026-10-01', to: '2026-11-01', day: 16, days: 31 });
     expect(monthSpan('2027-01-01')).toEqual({ prevFrom: '2026-12-01', from: '2027-01-01', to: '2027-02-01', day: 1, days: 31 });
     expect(monthSpan('2028-02-10').days).toBe(29);
+  });
+});
+
+describe('Maison alerts frames (CLS)', () => {
+  const a = (id: number, params: object = {}, last_seen = 0): Alert =>
+    ({ id, kind: 'ecowatt', severity: 'warn', params, first_seen: 0, last_seen, resolved_at: null, dismissed: false }) as Alert;
+  it('the same rows in the same words, whatever `last_seen` says', () => {
+    expect(sameAlerts({ list: [a(1, {}, 1)], error: false }, { list: [a(1, {}, 2)], error: false })).toBe(true);
+    expect(sameAlerts({ list: [a(1, { level: 2 })], error: false }, { list: [a(1, { level: 3 })], error: false })).toBe(false);
+    expect(sameAlerts({ list: [a(1)], error: false }, { list: [a(1), a(2)], error: false })).toBe(false);
+    expect(sameAlerts({ list: [], error: false }, { list: [], error: true })).toBe(false);
+  });
+  it('the new alerts are those the drawn frame does not show', () => {
+    expect(newAlerts({ list: [a(1)], error: false }, { list: [a(1), a(2)], error: false }).map((x) => x.id)).toEqual([2]);
+    expect(newAlerts({ list: [a(1), a(2)], error: false }, { list: [a(2)], error: false })).toEqual([]);
   });
 });
