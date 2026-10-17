@@ -2,6 +2,11 @@
 
 FastAPI service that mirrors Sauter Cozytouch radiators (Overkiz cloud) and exposes REST + SSE.
 
+Contents: [Develop](#develop) · [Run it like production](#run-it-like-production) ·
+[Docker configuration](#docker-configuration) · [First login](#first-login) ·
+[Device compatibility](#device-compatibility) · [Environment](#environment) · [API](#api) ·
+[MCP](#mcp) · [Linky](#linky-myelectricaldata) · [Data](#data) · [Notes](#notes).
+
 ## Develop
 
     cd backend
@@ -31,6 +36,105 @@ the shell:
 start. Without them Kelvin starts in setup mode, and the first login in the browser with the
 home's Cozytouch account starts it. If Cozytouch is unreachable at startup, Kelvin serves the
 app in mode `offline` and retries in the background (15 s, doubling to 5 min).
+
+## Docker configuration
+
+What a self-hoster sets in the Docker image (the next section lists the same variables for
+`python -m kelvin` outside Docker, with their defaults there).
+
+The example `docker-compose.yml` builds the image from the repository (`build: .`). Once a
+release is published, you can pull the image instead of building it: replace `build: .` with the
+commented `image: ghcr.io/lborruto/kelvin:latest` line.
+
+The simulator (`KELVIN_FAKE=1`) needs no account. A data volume belongs to one home: Kelvin
+refuses to connect a Cozytouch account to a data directory that holds simulator data, and the
+simulator refuses a data directory that holds real readings. Give a simulator run its own
+`KELVIN_VOLUME`, `KELVIN_PORT` and `COMPOSE_PROJECT_NAME`.
+
+All settings are environment variables, and every one is optional. `.env.example` lists them.
+The compose file reads these from `.env` (or the shell):
+
+| Compose variable | Default | Meaning |
+|---|---|---|
+| `KELVIN_BIND` | `127.0.0.1` | Host address the port is published on: this machine only. To reach Kelvin from the LAN, set the host's LAN address (or `0.0.0.0`) and `KELVIN_ALLOWED_HOSTS` |
+| `KELVIN_PORT` | `8070` | Host port (inside the container Kelvin listens on 8080) |
+| `KELVIN_VOLUME` | `kelvin_data` | Docker volume holding the data |
+| `KELVIN_ALLOWED_HOSTS` | — | Host allowlist; with none, Kelvin warns when it listens beyond loopback and when reached by another name |
+| `KELVIN_FAKE`, `KELVIN_FAKE_HOUSE` | `0`, — | The simulator (`KELVIN_FAKE=1 docker compose up`) |
+| `TZ` | `Europe/Paris` | Time zone |
+| `COMPOSE_PROJECT_NAME` | `kelvin` | Compose's own: a second copy on the same host needs its own |
+
+Add any other variable below to `environment:` in `docker-compose.yml`. No password or token belongs in the compose file or in
+`.env`: you log in with the Cozytouch account in the browser and connect Linky in Réglages › Linky, and
+Kelvin keeps both in `account.json` (0600) in its data volume.
+
+| Variable | Default in the image | Meaning |
+|---|---|---|
+| `TZ` | `Europe/Paris` | Time zone for schedules, energy days and the Linky sync |
+| `COZY_SERVER` | `sauter_cozytouch` | The home's Overkiz server (`atlantic_cozytouch`, `thermor_cozytouch`, or an experimental server id); read only when `COZY_USER`/`COZY_PASS` create the account file |
+| `COZY_USER`, `COZY_PASS` | — | Advanced, unattended setup only: create the account file on the first start instead of the first login (Compose interpolates `$`: write it as `$$`) |
+| `MED_PRM`, `MED_TOKEN` | — | Advanced: fallback Linky PDL and token; Réglages › Linky wins |
+| `KELVIN_DATA` | `/data` | SQLite database and `account.json` |
+| `KELVIN_WEB` | `/app/web` | The built web app served next to the API |
+| `KELVIN_HOST`, `KELVIN_PORT` | `0.0.0.0`, `8080` | Bind address inside the container (outside Docker: `127.0.0.1`, `8000`); not Compose's `KELVIN_PORT` above |
+| `KELVIN_ALLOWED_HOSTS` | — | Comma-separated Host allowlist; `localhost` always passes |
+| `KELVIN_TRUSTED_PROXIES` | — | **Only behind a trusted reverse proxy:** its exact addresses |
+| `KELVIN_MCP` | `true` | `false` removes the read-only MCP endpoint at `/mcp` (see [AI assistants](#mcp)) |
+| `KELVIN_FAKE` | `0` | `1` runs the simulator |
+| `KELVIN_FAKE_HOUSE` | — | Simulator only: `sauter`, `atlantic`, `thermor` or `experimental` shows another invented house (pilot-wire heaters, towel dryers, a water heater, a heat pump…); empty, the house follows the server chosen at login |
+| `KELVIN_DEBUG` | `0` | `1` serves the API docs at `/docs` |
+| `MED_BASE_URL` | `https://www.myelectricaldata.fr` | MyElectricalData API base |
+
+`GET /api/health` (open, used by the healthcheck) answers `{"status": …}`:
+- `ok`: running;
+- `degraded`: Cozytouch is not answering right now;
+- `setup`: waiting for the first login;
+- `reauth`: the stored password was refused;
+- `offline`: Cozytouch was unreachable at startup, and Kelvin retries every 15 s to 5 min.
+
+## First login
+
+Log in with the email and password of the home's Cozytouch account (the one the Cozytouch app
+uses). Kelvin checks them with Cozytouch, stores them, and loads your rooms and radiators. The
+login screen says so on a fresh install (“First sign-in: this account becomes the home's
+account.”). It names the server on one line, Sauter Cozytouch by default: choose **Change**
+(**Changer**) to pick Atlantic or Thermor Cozytouch or an experimental server before this first
+login; afterwards the server is fixed. The eye button in the password field shows the password
+while you type it.
+Anyone in the household logs in with the same account. If the Cozytouch password changes,
+Kelvin shows “Cozytouch password changed: sign in again” (« Mot de passe Cozytouch modifié :
+reconnectez-vous » in French); log in once with the new one.
+
+## Device compatibility
+
+Kelvin talks to the Overkiz cloud through [pyoverkiz](https://github.com/iMicknl/python-overkiz-api).
+It has been tested on real hardware with Sauter radiators on the Sauter Cozytouch server only.
+Everything else follows pyoverkiz's device definitions and Home Assistant's Overkiz mapping and has
+**not** been tried on a real device (see the « UNVERIFIED » section of
+[docs/overkiz-notes.md](../docs/overkiz-notes.md)).
+
+| Server (chosen at the first login) | Device | Status | What Kelvin offers |
+|---|---|---|---|
+| Sauter Cozytouch | Sauter IPALA, HEKLA (adjustable setpoint) | **Tested on real hardware** | Everything: modes, setpoints, programme, boost, away, night light, window and presence detection, energy |
+| Sauter, Atlantic or Thermor Cozytouch | Other radiators with an adjustable setpoint (`AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint`) | Expected to work | The same, as far as the radiator declares each command |
+| Sauter, Atlantic or Thermor Cozytouch | Pilot-wire radiators (`AtlanticElectricalHeater`) | Expected to work | Level only (Confort, Confort −1/−2, Éco, Hors-gel, Arrêt); no setpoint, programme, boost or away |
+| Sauter, Atlantic or Thermor Cozytouch | Towel dryers (`AtlanticElectricalTowelDryer`) | Expected to work | Modes, manual setpoint, boost, drying, boost/away; not their programme |
+| Somfy (Europe, North America, Oceania), Hitachi Hi Kumo, Flexom, Nexity Eugénie, Brandt Smart Control, Hexaom HexaConnect, SIMU LiveIn2, Ubiwizz | The same three kinds | Experimental | Heating only |
+| Any server | Other heating devices, water heaters, heat pumps, anything that does not heat | Read-only | Listed with their room and connectivity, never hidden, never commanded |
+| Rexel Energeasy Connect, Somfy multi-site accounts | — | Not supported | Their login is not an email and a password in pyoverkiz |
+
+If your home works (or does not) with a device marked « expected » or « experimental », please open
+an issue with the device's widget name, never your ids.
+
+Known limitation: messages that name Cozytouch (« Cozytouch injoignable ») keep that word on every
+server, including the experimental ones.
+
+### Changing server
+
+The server is part of the home's account and is chosen at the first login. To move Kelvin to
+another server, stop it, start it on a new, empty `KELVIN_DATA` (or move the old folder away) and
+log in choosing the new server: a server change is a fresh install. A data folder never mixes two
+servers' homes: Kelvin refuses (« Ce dossier de données appartient à une maison reliée au serveur … »).
 
 ## Environment
 
@@ -121,6 +225,67 @@ a restore the device does not confirm is retried after 30 s, then less and less 
 
 ## MCP
 
+### Connect a client
+
+Kelvin serves a read-only [Model Context Protocol](https://modelcontextprotocol.io) endpoint at
+`/mcp`, so an AI assistant you run (Claude Code, Claude Desktop, any MCP client) can read your
+rooms, programmes, temperatures, energy and cost by period, room and rate, tariff, Tempo and
+EcoWatt, alerts and data freshness, answer questions about them, and propose ways to pay less.
+It cannot change anything: no tool sends a command to a radiator or changes a setting; you
+apply its proposals in Kelvin. Every figure comes with its unit and says whether it is measured,
+computed from your tariff or estimated.
+
+1. In Kelvin, open **Settings › Account › MCP access** and create a token. It is shown once, with the
+   Claude Code and Claude Desktop settings ready to copy: copy them now.
+2. Add Kelvin to your client, with Kelvin's address as your browser reaches it (LAN or VPN):
+
+   Claude Code:
+   ```bash
+   claude mcp add --transport http kelvin https://kelvin.example.lan/mcp \
+     --header "Authorization: Bearer kmcp_…"
+   ```
+
+   Claude Desktop (`claude_desktop_config.json`; needs Node.js for `mcp-remote`):
+   ```json
+   {
+     "mcpServers": {
+       "kelvin": {
+         "command": "npx",
+         "args": ["-y", "mcp-remote", "https://kelvin.example.lan/mcp",
+                  "--header", "Authorization:${KELVIN_MCP_AUTH}"],
+         "env": { "KELVIN_MCP_AUTH": "Bearer kmcp_…" }
+       }
+     }
+   }
+   ```
+3. Ask, for example: « Analyse my last month and propose savings » (the `analyse_last_month`
+   prompt), « Why was October more expensive than September? », « Plan tomorrow's Tempo red day ».
+
+Prompts take plain words as arguments, in Claude Code as `/kelvin:<prompt> <arguments>`:
+`/kelvin:explain_bill september english` (a month as `2026-09`, `september`, `septembre`,
+`september 2026` or `last`; a bare name means its most recent occurrence), `/kelvin:plan_tempo_red_day
+demain`, `/kelvin:review_programme salon`, `/kelvin:analyse_last_month anglais`. The language is
+`fr` (default) or `en` (`french`, `english`, `francais`, `anglais` also work); a room is its id or
+its name; a wrong value gets a message that lists what is accepted.
+
+Tools: `get_overview`, `get_room`, `get_programmes`, `get_temperature_history`, `get_energy`,
+`get_room_energy`, `get_day_detail`, `get_tariff`, `get_grid_signals`, `get_alerts`,
+`get_data_status`, `propose_savings`, `evaluate_programme`. Resources: `kelvin://house`,
+`kelvin://tariff`, `kelvin://rooms/{room_id}`, `kelvin://guide`.
+
+Security: a token reads everything in Kelvin except secrets (never the PDL, your email, a
+token or a device id). It is stored hashed, limited to 60 calls a minute, and revoked at once
+from the same panel (the token's “⋯” menu), which also lists the recent calls. Use HTTPS (your
+reverse proxy): on plain HTTP the token crosses the network in clear. Behind a reverse proxy,
+set `KELVIN_TRUSTED_PROXIES` to it, or every client looks like the proxy and ten wrong tokens from
+any device lock your assistant out for 15 minutes; set `KELVIN_ALLOWED_HOSTS` to the names you
+reach Kelvin by (with the refusal of any browser `Origin`, it replaces the MCP SDK's
+localhost-only DNS-rebinding check). Kelvin stays off the
+internet; clients that need a public URL with OAuth (claude.ai web connectors) are not
+supported. `KELVIN_MCP=false` removes the endpoint.
+
+### Protocol and tools
+
 `POST /mcp` — Kelvin's read-only [MCP](https://modelcontextprotocol.io) server (official
 Python SDK `mcp`, exact pin): Streamable HTTP, stateless, JSON responses (no `Mcp-Session-Id`, no
 SSE); `GET /mcp` answers `405`. `KELVIN_MCP=false` removes the endpoint (`404`).
@@ -184,6 +349,30 @@ so one token flooding at its limit never evicts another's recent calls. `GET /ap
 lists them. SDK-side refusals (an unknown tool, invalid arguments) are not audited.
 
 ## Linky (MyElectricalData)
+
+### Connect Linky
+
+1. Create a MyElectricalData account and give it access to your meter's data (Enedis consent).
+   It gives you a token; your PDL is the 14-digit number on your contract or meter.
+2. In Kelvin, open **Settings › Linky** (**Réglages › Linky** in French) and enter the PDL and the
+   token (the PDL stays masked on that page until you press « Afficher »). Then **Settings › Tariff**
+   shows the tariff in force; « Nouveau prix… » adds one from a date (the option, Base, HC/HP or
+   Tempo, the prices, and for HC/HP the off-peak hours, which may differ by season) and « Corriger
+   le tarif en vigueur » fixes the row in force. Existing HC/HP settings are carried over as they are.
+3. Kelvin syncs at 08:00 and 14:00 (Europe/Paris), backfills a year of daily data and 30 days
+   of 30-minute curve, and never spends more than 10 of MyElectricalData's 50 daily calls
+   (4 a day at most for the grid signals; the simulator allows 14). Every MyElectricalData call
+   counts in that budget, including the public Tempo and EcoWatt ones and a contract re-read once
+   a month that tells you when Enedis moves your off-peak hours; Kelvin never changes your tariff
+   by itself.
+4. Tempo colours are fetched only while a Tempo price row is in force (at 06:30 if today's colour
+   is missing, at 11:15 and 13:15 while tomorrow's is); EcoWatt is shown to
+   everyone. A Tempo colour, once stored, never changes (a correction by MyElectricalData is
+   logged, not applied: it prices the history). If you switch to Tempo on a day whose
+   MyElectricalData budget is already spent, the colours arrive the next day and the days in
+   between read « couleur inconnue » (their kWh count, their € stays blank).
+
+### Sync and budget
 
 Enter the PDL and the MyElectricalData token in Réglages › Linky (or set `MED_PRM`/`MED_TOKEN`). Kelvin
 syncs at 08:00 and 14:00 (Europe/Paris), backfills a year of daily data and 30 days of 30-min
