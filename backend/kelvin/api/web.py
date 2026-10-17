@@ -1,6 +1,9 @@
 """Serve the built SvelteKit SPA (adapter-static) from KELVIN_WEB, next to the API."""
 
+import base64
+import hashlib
 import mimetypes
+import re
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -44,9 +47,47 @@ def _accepts(header: str, coding: str) -> bool:
     return False
 
 
-def _file(path: Path, request: Request, cache: str) -> FileResponse:
+# Inline classic scripts of the page (app.html's and SvelteKit's bootstrap); a <script src> or a
+# JSON data block is not one.
+INLINE_SCRIPT = re.compile(r"<script(\s[^>]*)?>(.*?)</script>", re.S | re.I)
+# Inline event handler attributes (onclick=…): the policy allows none, so the page must hold none.
+INLINE_HANDLER = re.compile(r"<[^>]+\son[a-z]+\s*=", re.I)
+
+
+def content_security_policy(index_html: str) -> str:
+    """The page's Content-Security-Policy: scripts only from Kelvin itself plus the exact inline
+    scripts of this build (by SHA-256, computed from the served index.html, so a rebuild needs
+    no change here). Styles allow inline: Svelte sets style attributes and transition rules.
+    Nothing is loaded from, sent to or framed by another origin."""
+    hashes = []
+    for attrs, body in INLINE_SCRIPT.findall(index_html):
+        if "src=" in (attrs or "") or "application/json" in (attrs or ""):
+            continue
+        digest = base64.b64encode(hashlib.sha256(body.encode()).digest()).decode()
+        hashes.append(f"'sha256-{digest}'")
+    return "; ".join(
+        (
+            "default-src 'self'",
+            " ".join(("script-src 'self'", *dict.fromkeys(hashes))),
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "worker-src 'self'",
+            "manifest-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'",
+        )
+    )
+
+
+def _file(
+    path: Path, request: Request, cache: str, extra: dict[str, str] | None = None
+) -> FileResponse:
     media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    headers = {"Cache-Control": cache, "Vary": "Accept-Encoding"}
+    headers = {"Cache-Control": cache, "Vary": "Accept-Encoding", **(extra or {})}
     accept = request.headers.get("accept-encoding", "")
     for coding, suffix in ENCODINGS:
         packed = path.with_name(path.name + suffix)
@@ -61,6 +102,10 @@ def mount_web(app: FastAPI, web_dir: Path | None) -> None:
         return
     root = web_dir.resolve()
     index = root / "index.html"
+    page = index.read_text(encoding="utf-8")
+    if INLINE_HANDLER.search(INLINE_SCRIPT.sub("", page)):
+        raise RuntimeError(f"{index} has an inline event handler, which the CSP would block")
+    page_headers = {"Content-Security-Policy": content_security_policy(page)}
 
     @app.api_route("/{path:path}", methods=METHODS, include_in_schema=False)
     async def spa(request: Request, path: str) -> FileResponse:
@@ -80,5 +125,6 @@ def mount_web(app: FastAPI, web_dir: Path | None) -> None:
                 raise UserError("not_found", 404)
             if candidate.is_relative_to(root) and candidate.is_file():
                 cache = IMMUTABLE if "/immutable/" in f"/{path}" else "no-cache"
-                return _file(candidate, request, cache)
-        return _file(index, request, "no-cache")
+                extra = page_headers if candidate == index else None
+                return _file(candidate, request, cache, extra)
+        return _file(index, request, "no-cache", page_headers)

@@ -21,6 +21,11 @@ describe('app.html offline first load', () => {
     expect(html).toContain("if (s) s.className = 'late';");
     expect(html).toMatch(/#kv-shell \.off \{ display: none;/);
   });
+  it('has no inline event handler (the Content-Security-Policy allows none) and Retry still reloads', () => {
+    expect(html).not.toMatch(/<[^>]+\son[a-z]+\s*=/i);
+    expect(block.match(/data-reload/g)).toHaveLength(2);
+    expect(html).toContain("document.querySelectorAll('#kv-shell [data-reload]')");
+  });
   it('applies « détails techniques » before first paint', () => {
     expect(html).toContain("if (localStorage.getItem('kelvin-detail') === 'on') document.documentElement.dataset.detail = 'on';");
   });

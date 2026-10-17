@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the image, run it with the simulator (KELVIN_FAKE=1) under the compose hardening,
 # then prove: healthy, uid 10001, private /data, login through the real flow, forwarded
-# headers ignored, the SPA served (precompressed), the image running the current backend
+# headers ignored, the SPA served (precompressed, with its Content-Security-Policy), the image running the current backend
 # sources, and nothing private (.env, account.json, node_modules,
 # tests, design or agent material, captures) and no world-writable file baked into the
 # image. Cleans up on exit, anonymous /data volume included.
@@ -116,6 +116,8 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE/api/house")"
 [[ "$code" == 200 ]] || fail "/api/house with the session answered $code"
 page="$(curl -fsS "$BASE/")" || fail "GET / failed"
 grep -q '<title>Kelvin</title>' <<<"$page" || fail "the web app is not served"
+csp="$(curl -sS -D - -o /dev/null "$BASE/" | grep -i '^content-security-policy:' || true)"
+grep -q "script-src 'self' 'sha256-" <<<"$csp" || fail "GET / carries no hash-based Content-Security-Policy"
 # Precompressed assets are sent as such (adapter-static precompress + kelvin/api/web.py).
 enc="$(curl -sS -D - -o /dev/null -H 'Accept-Encoding: br, gzip' "$BASE/")"
 grep -qi '^content-encoding: br' <<<"$enc" || fail "GET / with Accept-Encoding: br was not sent brotli"
