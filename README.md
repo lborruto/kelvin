@@ -43,15 +43,17 @@ account (optional).
 
 ```bash
 git clone https://github.com/lborruto/kelvin.git && cd kelvin
-cp .env.example .env          # set KELVIN_ALLOWED_HOSTS (see below); the rest can stay empty
+cp .env.example .env          # optional: every value has a safe default
 docker compose up -d --build
 ```
 
-1. **Open Kelvin:** `http://127.0.0.1:8070` on the server itself, or `http://<your-server>:8070`
-   from another device on your network.
-2. **Log in with your Cozytouch account** (the one the Cozytouch app uses). The first login makes
-   it this Kelvin's home; everyone in the household uses the same account. Not on Sauter? Choose
-   **Changer** under the server name to pick Atlantic or Thermor before that first login.
+1. **Open Kelvin** at http://localhost:8070 on the machine that runs it. By default Kelvin is
+   published on this machine only (`127.0.0.1:8070`); see « Reach it from your other devices »
+   below.
+2. **Log in with your Cozytouch account** (the one the Cozytouch app uses), right away: the first
+   login makes it this Kelvin's home, so whoever reaches an unclaimed Kelvin first can claim it.
+   Everyone in the household then uses the same account. Not on Sauter? Choose **Changer** under
+   the server name to pick Atlantic or Thermor before that first login.
 3. **Add Linky (optional):**
    - on [myelectricaldata.fr](https://www.myelectricaldata.fr), enter your meter number (PDL: the
      14 digits on your electricity bill) and accept the Enedis consent; the site then gives you a
@@ -59,9 +61,15 @@ docker compose up -d --build
    - in Kelvin, open **Réglages › Linky** and enter the PDL and the token, then set your prices in
      **Réglages › Tarif**. The first data arrives at the next sync (08:00 or 14:00).
 
+**Reach it from your other devices:** in `.env`, set `KELVIN_BIND` to this machine's LAN address
+(or `0.0.0.0`) and list the names and addresses you will type in `KELVIN_ALLOWED_HOSTS`, then run
+`docker compose up -d` again. `KELVIN_PORT` changes the port (8070). Better still, put an HTTPS
+reverse proxy in front and keep the default bind (below).
+
 **Host allowlist (recommended):** put the names and addresses you type to reach Kelvin in
 `KELVIN_ALLOWED_HOSTS` (for example `kelvin.lan,192.168.1.10`) before the first login. Kelvin then
-refuses any other host name, which blocks DNS rebinding attacks from web pages you visit.
+refuses any other host name, which blocks DNS rebinding attacks from web pages you visit. Without
+it, Kelvin warns in its log.
 
 **A folder instead of the Docker volume?** On Linux, a bind-mounted data folder must belong to
 Kelvin's user (uid 10001): `sudo chown -R 10001:10001 ./data`.
@@ -70,15 +78,17 @@ Kelvin's user (uid 10001): `sudo chown -R 10001:10001 ./data`.
 in the browser menu. Installing and the offline shell need HTTPS (or `localhost`), so put Kelvin
 behind a reverse proxy first (below).
 
-**Just looking?** Try the simulator, no account needed. It is a throwaway container with an
-invented home; never point it at your real data volume:
+**Just looking?** Run the simulator, an invented home with no account needed. Give it its own
+volume, port and project name, so it never touches a real install (Kelvin refuses to mix simulated
+and real data in one volume):
 
 ```bash
-docker build -t kelvin .
-docker run --rm -p 127.0.0.1:8071:8080 -e KELVIN_FAKE=1 kelvin
+KELVIN_FAKE=1 KELVIN_VOLUME=kelvin_demo KELVIN_PORT=8071 COMPOSE_PROJECT_NAME=kelvin-demo \
+  docker compose up -d --build
 ```
 
-Open http://127.0.0.1:8071 and log in with `demo@kelvin.local` / `kelvin`.
+Open http://localhost:8071 and log in with `demo@kelvin.local` / `kelvin`. Remove it with the
+same variables and `docker compose down -v`.
 
 ### HTTPS with a reverse proxy
 
@@ -93,7 +103,8 @@ kelvin.example.lan {
 ```
 
 Then tell Kelvin about it:
-- `KELVIN_ALLOWED_HOSTS=kelvin.example.lan` in `.env`;
+- `KELVIN_ALLOWED_HOSTS=kelvin.example.lan` in `.env` (keep `KELVIN_BIND=127.0.0.1`: only the proxy
+  reaches Kelvin);
 - `KELVIN_TRUSTED_PROXIES` set to the proxy's address as Kelvin sees it, added under
   `environment:` in `docker-compose.yml`. With Caddy on the host, that is the Docker network's
   gateway: `docker network inspect kelvin_default --format '{{(index .IPAM.Config 0).Gateway}}'`.
@@ -129,7 +140,8 @@ Claude Desktop setup, the available prompts and tools, and the security details:
 ## Good to know
 
 - **Tested on real Sauter radiators** (IPALA, HEKLA). Other Sauter, Atlantic and Thermor radiators
-  on Cozytouch are expected to work; other Overkiz servers are experimental. Devices Kelvin cannot
+  on Cozytouch are expected to work; other Overkiz servers (Somfy, Hitachi Hi Kumo, Flexom, Nexity Eugénie, Brandt
+  Smart Control, Hexaom HexaConnect, SIMU LiveIn2, Ubiwizz) are experimental. Devices Kelvin cannot
   drive (water heaters, heat pumps…) are shown read-only, never hidden.
   [Full compatibility table](backend/README.md#device-compatibility).
 - **Linky data is a day behind.** Enedis publishes yesterday's figures; Kelvin syncs at 08:00 and
@@ -192,6 +204,8 @@ docker compose start
 | Know how Kelvin protects my account | [SECURITY.md](SECURITY.md) |
 | Use the API or the MCP server | [backend/README.md](backend/README.md) |
 | Hack on Kelvin, run the tests, see how it works | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| See what changed in each version | [CHANGELOG.md](CHANGELOG.md) |
+| Join in respectfully | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Work on the web app, see every screen | [web/README.md](web/README.md) |
 | See the design system | [DESIGN.md](DESIGN.md) and [PRODUCT.md](PRODUCT.md) |
 | Read what was verified on real devices and on Linky | [docs/](docs/) |

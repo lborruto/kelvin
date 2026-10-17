@@ -28,6 +28,8 @@ Read this before installing.
   re-login to Cozytouch unattended. Protect and back up the data volume like a password store.
 - **Keep it on your LAN or a VPN** such as Tailscale or WireGuard. Kelvin serves plain HTTP.
   **Never expose it directly to the internet** or forward a router port to it.
+  The example compose file publishes it on `127.0.0.1` only unless you set `KELVIN_BIND`: an
+  unclaimed Kelvin belongs to whoever logs in first, so claim it before opening it to the LAN.
 - **Reverse proxy:** `X-Forwarded-*` headers are ignored by default. Only behind a reverse
   proxy you control, set `KELVIN_TRUSTED_PROXIES` to that proxy's exact address. `*` and
   wildcard-sized networks are refused: they would let any client fake its IP (dodging the login

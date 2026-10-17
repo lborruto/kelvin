@@ -46,13 +46,26 @@ The example `docker-compose.yml` builds the image from the repository (`build: .
 release is published, you can pull the image instead of building it: replace `build: .` with the
 commented `image: ghcr.io/lborruto/kelvin:latest` line.
 
-The simulator (`KELVIN_FAKE=1`) needs no account. Do not reuse a simulator's data volume for your
-home: Kelvin refuses to connect a Cozytouch account to a data directory that holds simulator data.
+The simulator (`KELVIN_FAKE=1`) needs no account. A data volume belongs to one home: Kelvin
+refuses to connect a Cozytouch account to a data directory that holds simulator data, and the
+simulator refuses a data directory that holds real readings. Give a simulator run its own
+`KELVIN_VOLUME`, `KELVIN_PORT` and `COMPOSE_PROJECT_NAME`.
 
 All settings are environment variables, and every one is optional. `.env.example` lists them.
-The compose file passes `TZ` and `KELVIN_ALLOWED_HOSTS` from `.env`; add any other one to
-`environment:` in `docker-compose.yml`. No password or token belongs in the compose file or in
-`.env`: you log in with the Cozytouch account in the browser and connect Linky in Settings › Linky, and
+The compose file reads these from `.env` (or the shell):
+
+| Compose variable | Default | Meaning |
+|---|---|---|
+| `KELVIN_BIND` | `127.0.0.1` | Host address the port is published on: this machine only. To reach Kelvin from the LAN, set the host's LAN address (or `0.0.0.0`) and `KELVIN_ALLOWED_HOSTS` |
+| `KELVIN_PORT` | `8070` | Host port (inside the container Kelvin listens on 8080) |
+| `KELVIN_VOLUME` | `kelvin_data` | Docker volume holding the data |
+| `KELVIN_ALLOWED_HOSTS` | — | Host allowlist; with none, Kelvin warns when it listens beyond loopback and when reached by another name |
+| `KELVIN_FAKE`, `KELVIN_FAKE_HOUSE` | `0`, — | The simulator (`KELVIN_FAKE=1 docker compose up`) |
+| `TZ` | `Europe/Paris` | Time zone |
+| `COMPOSE_PROJECT_NAME` | `kelvin` | Compose's own: a second copy on the same host needs its own |
+
+Add any other variable below to `environment:` in `docker-compose.yml`. No password or token belongs in the compose file or in
+`.env`: you log in with the Cozytouch account in the browser and connect Linky in Réglages › Linky, and
 Kelvin keeps both in `account.json` (0600) in its data volume.
 
 | Variable | Default in the image | Meaning |
@@ -60,10 +73,10 @@ Kelvin keeps both in `account.json` (0600) in its data volume.
 | `TZ` | `Europe/Paris` | Time zone for schedules, energy days and the Linky sync |
 | `COZY_SERVER` | `sauter_cozytouch` | The home's Overkiz server (`atlantic_cozytouch`, `thermor_cozytouch`, or an experimental server id); read only when `COZY_USER`/`COZY_PASS` create the account file |
 | `COZY_USER`, `COZY_PASS` | — | Advanced, unattended setup only: create the account file on the first start instead of the first login (Compose interpolates `$`: write it as `$$`) |
-| `MED_PRM`, `MED_TOKEN` | — | Advanced: fallback Linky PDL and token; Settings › Linky wins |
+| `MED_PRM`, `MED_TOKEN` | — | Advanced: fallback Linky PDL and token; Réglages › Linky wins |
 | `KELVIN_DATA` | `/data` | SQLite database and `account.json` |
 | `KELVIN_WEB` | `/app/web` | The built web app served next to the API |
-| `KELVIN_HOST`, `KELVIN_PORT` | `0.0.0.0`, `8080` | Bind address (outside Docker: `127.0.0.1`, `8000`) |
+| `KELVIN_HOST`, `KELVIN_PORT` | `0.0.0.0`, `8080` | Bind address inside the container (outside Docker: `127.0.0.1`, `8000`); not Compose's `KELVIN_PORT` above |
 | `KELVIN_ALLOWED_HOSTS` | — | Comma-separated Host allowlist; `localhost` always passes |
 | `KELVIN_TRUSTED_PROXIES` | — | **Only behind a trusted reverse proxy:** its exact addresses |
 | `KELVIN_MCP` | `true` | `false` removes the read-only MCP endpoint at `/mcp` (see [AI assistants](#mcp)) |
