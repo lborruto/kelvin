@@ -41,6 +41,11 @@ def report_basis(report: dict[str, Any]) -> tuple[Basis, list[str]]:
         parts.append("computed")
     if report.get("projection"):
         notes.append("projection: estimated from the trailing rate or last year's months")
+    if any((b.get("outdoor") or {}).get("days") for b in report["buckets"]):
+        notes.append(
+            "outdoor: model data (Meteo-France AROME HD / ERA5-Land via Open-Meteo), not a"
+            " measurement at the home; weather_normalised is Kelvin's regression (computed)"
+        )
     return combine(*parts), notes
 
 
@@ -93,6 +98,59 @@ def room_totals(by_radiator: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _outdoor(o: dict[str, Any] | None) -> dict[str, Any] | None:
+    if o is None:
+        return None
+    return {
+        "mean_c": o["mean_c"],
+        "min_c": o["min_c"],
+        "max_c": o["max_c"],
+        "heating_degree_days": o["dju"],
+        "days_with_weather": o["days"],
+        "elapsed_days": o["of"],
+    }
+
+
+def _weather_row(w: dict[str, Any] | None) -> dict[str, Any] | None:
+    if w is None:
+        return None
+    m = w["model"]
+    return {
+        "change": w["change"],
+        "why": w["why"],
+        "heating_degree_days_cur": w["dju_cur"],
+        "heating_degree_days_ref": w["dju_ref"],
+        "expected_cur_kwh": w["expected_cur_kwh"],
+        "expected_ref_kwh": w["expected_ref_kwh"],
+        "model": None
+        if m is None
+        else {
+            "baseload_kwh_per_day": m["baseload_kwh_day"],
+            "kwh_per_degree_day": m["kwh_per_dju"],
+            "r2": m["r2"],
+            "fit_days": m["fit_days"],
+        },
+    }
+
+
+def _with_weather(summary: dict[str, Any]) -> dict[str, Any]:
+    out = {k: v for k, v in summary.items() if k != "outdoor"}
+    out["outdoor"] = _outdoor(summary.get("outdoor"))
+    return out
+
+
+def _comparison(c: dict[str, Any]) -> dict[str, Any]:
+    out = dict(c)
+    for k in ("previous", "last_year"):
+        row = c.get(k)
+        if row is not None:
+            out[k] = {
+                **{x: v for x, v in row.items() if x != "weather"},
+                "weather_normalised": _weather_row(row.get("weather")),
+            }
+    return out
+
+
 def energy_view(report: dict[str, Any], names: dict[str, str]) -> dict[str, Any]:
     return neutral(
         {
@@ -101,12 +159,12 @@ def energy_view(report: dict[str, Any], names: dict[str, str]) -> dict[str, Any]
             "to_date_exclusive": report["to"],
             "linky_last_day_date": report["last_day"],
             "tariff_option_today": report["option"],
-            "totals": report["total"],
-            "buckets": report["buckets"],
+            "totals": _with_weather(report["total"]),
+            "buckets": [_with_weather(b) for b in report["buckets"]],
             "heating": report["heating"],
             "by_room": by_room(report["by_radiator"], names),
             "by_radiator": report["by_radiator"],
-            "comparison": report["comparison"],
+            "comparison": _comparison(report["comparison"]),
             "projection": report["projection"],
             "hc_lens": report["hc_lens"],
             "tempo_lens": report["tempo_lens"],

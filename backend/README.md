@@ -273,7 +273,7 @@ its name; a wrong value gets a message that lists what is accepted.
 
 Tools: `get_overview`, `get_room`, `get_programmes`, `get_temperature_history`, `get_energy`,
 `get_room_energy`, `get_day_detail`, `get_tariff`, `get_grid_signals`, `get_alerts`,
-`get_data_status`, `propose_savings`, `evaluate_programme`. Resources: `kelvin://house`,
+`get_data_status`, `get_weather`, `propose_savings`, `evaluate_programme`. Resources: `kelvin://house`,
 `kelvin://tariff`, `kelvin://rooms/{room_id}`, `kelvin://guide`.
 
 Security: a token reads everything in Kelvin except secrets (never the PDL, your email, a
@@ -318,13 +318,14 @@ Tools (all annotated `read_only_hint`, never `destructive`, never `open_world`):
 | `get_room` | `room_id` | Each radiator's state, setpoints, power and capabilities (as data); 24 h heating share and coverage; today's window-open and presence runs; `meter_total_kwh` is a lifetime counter as last reported (never a consumption by difference) |
 | `get_programmes` | `room_id?` | Weekly programmes per radiator, locked days, comfort/eco, this week's off-peak hours per day, the share of comfort minutes in peak hours (`billing/overlap.py`) |
 | `get_temperature_history` | `start`, `end` (local ISO), `room_id` or `radiator_ids`, `step_minutes` 5–1440 | Mean temperature, effective setpoint and target per step; `/api/history` bounds, at most 2 000 points per radiator and 20 000 per call |
-| `get_energy` | `start`, `end` (dates, end exclusive), `group` | The report of `GET /api/energy` with neutral keys: totals, buckets (at most 93), by rate, by room (the sum of its radiators' `by_radiator` cents), by radiator, comparisons, projection, lenses, quality |
+| `get_energy` | `start`, `end` (dates, end exclusive), `group` | The report of `GET /api/energy` with neutral keys: totals, buckets (at most 93), by rate, by room (the sum of its radiators' `by_radiator` cents), by radiator, comparisons, projection, lenses, quality; with a weather place, each bucket and the totals carry `outdoor` (`mean_c`, `min_c`, `max_c`, `heating_degree_days`, `days_with_weather`, `elapsed_days`) and the `previous`/`last_year` comparisons `weather_normalised` (the change at equal weather, its `why` and model) |
 | `get_room_energy` | `room_id`, `days` 1–31 | `GET /api/rooms/{id}/energy` |
 | `get_day_detail` | `date` | `GET /api/energy/day` without `room` |
 | `get_tariff` | — | The tariff view (neutral keys), the option today, the last contract read (kVA, off-peak hours); never the PDL |
 | `get_grid_signals` | `start?`, `end?` (≤ 366 days) | Stored Tempo colours (only with a Tempo row) and counts, EcoWatt days, today/tomorrow; never a fetch |
+| `get_weather` | `start`, `end` (dates, end exclusive), `granularity` (`daily` ≤ 4 × 366 days, `hourly` ≤ 31) | Stored outdoor weather: daily mean, min, max, heating degree days (base 18 °C), hours, completeness and model, or hourly temperature, feels-like, humidity, model and `forecast`; `location_set` (never the place, its coordinates or altitude); basis `published`; never a fetch |
 | `get_alerts` | `state` (`active`/`all`) | `AlertStore.listing` |
-| `get_data_status` | — | Kelvin's mode, Cozytouch connection, Linky state and MED calls (no `prm`), grid sources, each radiator meter's first and last reading |
+| `get_data_status` | — | Kelvin's mode, Cozytouch connection, Linky state and MED calls (no `prm`), grid sources, `weather` (`location_set`, `mode`, the forecast job's `state`, `last_ok_at`, `next_at`, `weighted_calls_today`), each radiator meter's first and last reading |
 | `propose_savings` | `days` 7–31 | Proposals (`shift_to_offpeak`, `tempo_red_days`, `tempo_peak_share`, `review_programme`, `review_setpoints` for rooms in manual mode, `data_gaps`) over `[from_date, to_date_exclusive)`, the last `days` elapsed days (every room figure from the report's `by_radiator` for that window, today never in it): measured figures, an upper-bound estimate only at equal consumption, `apply_in_app`; nothing is applied |
 | `evaluate_programme` | `room_id`, `week` | A draft week checked against Kelvin's programme rules (`not_on_step` with `step_minutes`: the room's step, the coarsest of its radiators; `end_after_last` with `last`) and locked days, the peak share before and after, the room's measured peak kWh over the last 30 elapsed days (`measured`, from the report's `by_radiator`), a labelled estimate; nothing is sent or stored |
 
@@ -335,7 +336,7 @@ the data). Prompts (`language` `fr`/`en`, default `fr`): `analyse_last_month`, `
 
 Every tool and resource returns `{data, meta}`; `meta` holds `tool`, `generated_at` (local ISO),
 `timezone`, `simulator`, `sources`, `basis` (`measured`, `computed`, `estimated`, `mixed`,
-`static`, `unknown`), `notes` and `units` (the unit of each field suffix). `hc`/`hp` keys read
+`static`, `published` (weather model data), `unknown`), `notes` and `units` (the unit of each field suffix). `hc`/`hp` keys read
 `offpeak`/`peak`. A redaction backstop drops secret keys and refuses device URLs, emails and
 PDL-like strings. Tool errors are `is_error` results whose text starts with a stable code:
 `kelvin_not_running`, `room_unknown`, `radiator_unknown`, `too_many_radiators`, `period_invalid`,

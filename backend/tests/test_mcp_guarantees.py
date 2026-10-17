@@ -19,6 +19,9 @@ from kelvin.mcp.shape import UNITS
 from kelvin.overkiz.budget import QuotaReadout
 from kelvin.setup.refresh import SetupRefresher
 from kelvin.setup.service import SetupService
+from kelvin.weather.fake import FakeWeatherSource
+from kelvin.weather.service import WeatherService
+from kelvin.weather.store import WeatherStore
 from tests.mcp_helpers import kelvin_app
 
 MCP_DIR = Path(__file__).parents[1] / "kelvin" / "mcp"
@@ -36,6 +39,7 @@ TOOLS = {
     "get_data_status",
     "propose_savings",
     "evaluate_programme",
+    "get_weather",
 }
 FORBIDDEN_MODULES = (
     "kelvin.setup",
@@ -43,6 +47,9 @@ FORBIDDEN_MODULES = (
     "kelvin.linky.sync",
     "kelvin.linky.med",
     "kelvin.grid.client",
+    "kelvin.weather.client",
+    "kelvin.weather.service",
+    "kelvin.weather.fake",
     "kelvin.commands.service",
     "kelvin.commands.overrides",
     "kelvin.alerts.service",
@@ -75,6 +82,13 @@ FORBIDDEN_CALLS = {
     "active",
     "execute",
     "executemany",
+    "set_location",
+    "clear_location",
+    "forecast_job",
+    "backfill_job",
+    "search_places",
+    "seed_demo",
+    "ingest",
 }
 DB_WRITERS = {"tokens.py", "audit.py"}  # their own tables only
 PRM, MED_TOKEN, EMAIL = "12345678901234", "demo-token-0123456789", "demo@kelvin.local"
@@ -131,6 +145,19 @@ def _spy_writers(monkeypatch, gw) -> list[str]:
         (GridService, ("tempo_prices",)),
         (QuotaReadout, ("get",)),
         (SetupRefresher, ("request_manual",)),
+        (
+            WeatherService,
+            (
+                "set_location",
+                "clear_location",
+                "forecast_job",
+                "backfill_job",
+                "search_places",
+                "seed_demo",
+            ),
+        ),
+        (WeatherStore, ("ingest", "prune", "clear")),
+        (FakeWeatherSource, ("forecast", "history", "search")),
     ):
         for n in names:
             monkeypatch.setattr(cls, n, spy(f"{cls.__name__}.{n}"))
@@ -185,6 +212,8 @@ def calls_for(rt) -> list[tuple[str, dict]]:
         ("get_room_energy", {"room_id": room, "days": 7}),
         ("get_day_detail", {"date": "2026-11-19"}),
         ("get_data_status", {}),
+        ("get_weather", {"start": "2026-11-01", "end": "2026-11-20"}),
+        ("get_weather", {"start": "2026-11-18", "end": "2026-11-20", "granularity": "hourly"}),
         ("propose_savings", {"days": 30}),
         (
             "evaluate_programme",
@@ -264,6 +293,7 @@ async def test_every_result_has_units_and_a_basis(tmp_path):
                     "mixed",
                     "unknown",
                     "static",
+                    "published",
                 ), name
 
 
@@ -282,3 +312,33 @@ async def test_no_secret_in_any_output(tmp_path):
         audit = json.dumps(app.state.ctx.db.query("SELECT * FROM mcp_audit"))
         for secret in (PRM, MED_TOKEN, EMAIL, mcp_secret):
             assert secret not in audit
+
+
+async def test_no_coordinates_in_any_output(tmp_path):
+    async with kelvin_app(tmp_path) as (c, app):
+        r = await c.put(
+            "/api/settings/weather",
+            json={
+                "lat": 47.3217,
+                "lon": 5.0415,
+                "elevation_m": 247,
+                "name": "Dijon-Testville",
+                "origin": "manual",
+            },
+        )
+        assert r.status_code == 200
+        rt = app.state.ctx.rt
+        await rt.weather.forecast_job()
+        async with Client(app.state.mcp) as client:
+            results = await _everything(client, rt)
+        for name, res in results:
+            text = res.model_dump_json()
+            for secret in (
+                "47.32",
+                "5.04",
+                "Dijon-Testville",
+                '"latitude"',
+                '"longitude"',
+                '"elevation',
+            ):
+                assert secret not in text, (name, secret)

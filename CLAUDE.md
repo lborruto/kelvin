@@ -325,7 +325,7 @@ depends on.
   `kelvin/mcp/` and a spy + database-diff run of everything on every simulator house): a new tool
   goes into its `TOOLS` and `calls_for` in the same PR. Every tool is annotated read-only, runs
   through `Runner` (audit, redaction, two at a time) and returns `shape.envelope` with units and a
-  `basis` (`measured`, `computed`, `estimated`, `mixed`, `static`, `unknown`); keys are neutral
+  `basis` (`measured`, `computed`, `estimated`, `mixed`, `static`, `published`, `unknown`); keys are neutral
   (`offpeak`/`peak`, `shape.neutral`). Tools reuse the services and `api/bounds.py`/`api/views.py`;
   no figure is recomputed except proposal estimates, which say `estimated` and their assumptions,
   and none is given for a setpoint change (no thermal model). MCP text (tool errors, prompts, the

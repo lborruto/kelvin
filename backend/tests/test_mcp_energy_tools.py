@@ -1,5 +1,6 @@
 """Energy tools (spec MCP §3, §4.3): the report's own figures, reshaped and flagged."""
 
+from kelvin.mcp.energy import _comparison, _with_weather
 from kelvin.mcp.shape import neutral
 from tests.mcp_helpers import call, data, error_code, kelvin_app
 
@@ -15,10 +16,11 @@ async def test_get_energy_matches_the_rest_report(tmp_path):
             )
         )
         d = env["data"]
-        assert d["buckets"] == neutral(rest["buckets"])
-        assert d["totals"] == neutral(rest["total"])
+        # The same figures; only the weather blocks are renamed for agents (Plan 14).
+        assert d["buckets"] == neutral([_with_weather(b) for b in rest["buckets"]])
+        assert d["totals"] == neutral(_with_weather(rest["total"]))
         assert d["by_radiator"] == neutral(rest["by_radiator"])
-        assert d["comparison"] == neutral(rest["comparison"])
+        assert d["comparison"] == neutral(_comparison(rest["comparison"]))
 
 
 async def test_room_cost_is_the_sum_of_its_radiators(tmp_path):
