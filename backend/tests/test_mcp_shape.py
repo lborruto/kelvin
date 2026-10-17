@@ -50,7 +50,7 @@ def test_no_hc_or_hp_key_survives(doc):
 def test_redact_drops_secret_keys_and_refuses_leaks():
     doc = {"linky": {"prm": "12345678901234", "token_set": True, "state": "ok"}, "email": "x"}
     assert redact(doc) == {"linky": {"state": "ok"}}
-    for leak in ("io://1234-5678-9012/14172536", "demo@kelvin.local", "PDL 12345678901234"):
+    for leak in ("io://1234-5678-9012/10000001", "demo@kelvin.local", "PDL 12345678901234"):
         with pytest.raises(Leak) as e:
             redact({"rooms": [{"name": leak}]})
         assert leak not in str(e.value) and "rooms" in str(e.value)

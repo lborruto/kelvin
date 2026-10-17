@@ -117,7 +117,7 @@ export function whenText(ms: number, now: number): string {
   return parisTodayIso(ms) === parisTodayIso(now) ? m.devices.atTime(fmtTime(ms)) : m.devices.onDate(fmtDateTime(ms));
 }
 
-// Cozytouch's generic sub-device label « IO (8370011#2) », or any label holding a device serial or
+// Cozytouch's generic sub-device label « IO (9000011#2) », or any label holding a device serial or
 // URL: shown as the device's role, never as a serial-like id (owner ruling).
 const GENERIC_LABEL = /^IO \(.*\)$/;
 const SERIAL_LIKE = /\d{5,}|:\/\//;

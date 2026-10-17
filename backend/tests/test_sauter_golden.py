@@ -53,7 +53,7 @@ def test_the_fixture_covers_every_command_route():
     assert len(recorded) == REQUESTS
     # Plan 8b: a rename is a Cozytouch setup write (the label), not a device command, and a
     # name sent with other fields is refused (`rename_alone`): neither sends a command.
-    rename, rename_mixed = _requests(recorded, "PATCH", "/api/radiators/9312063/features")[2:]
+    rename, rename_mixed = _requests(recorded, "PATCH", "/api/radiators/9500003/features")[2:]
     assert (rename["status"], rename["commands"], rename["label"]) == (202, [], None)
     assert (rename_mixed["status"], rename_mixed["commands"]) == (422, [])
     recorded = [s for s in recorded if s not in (rename, rename_mixed)]
@@ -96,7 +96,7 @@ def test_the_fixture_covers_every_command_route():
     assert [c[1] for c in boost_end["commands"]] == ["setTargetTemperature", "setOperatingMode"]
     assert boost_end["actions"] == [2]
     # A restore back to « off » sets the remembered target, then standby.
-    off = [c[1:] for c in away_end["commands"] if c[0].endswith("/8370022#1")]
+    off = [c[1:] for c in away_end["commands"] if c[0].endswith("/9000022#1")]
     assert off == [["setTargetTemperature", [18.0]], ["setOperatingMode", ["standby"]]]
     assert away_end["actions"] == [8]
     # The expiry (override tick) restores the same way as a cancel, in one action.

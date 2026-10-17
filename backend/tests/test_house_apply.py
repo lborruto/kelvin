@@ -5,18 +5,18 @@ from kelvin.house.model import build_house
 from kelvin.overkiz.models import StateChange
 from kelvin.overkiz.sample import SAMPLE_GATEWAY, sample_house
 
-TEMP_URL = f"{SAMPLE_GATEWAY}/9312063#2"
+TEMP_URL = f"{SAMPLE_GATEWAY}/9500003#2"
 
 
 def test_apply_updates_and_returns_radiator_id():
     house = build_house(*sample_house())
-    assert house.apply(StateChange(TEMP_URL, "core:TemperatureState", 21.0)) == "9312063"
-    assert house.radiators["9312063"].temperature == 21.0
+    assert house.apply(StateChange(TEMP_URL, "core:TemperatureState", 21.0)) == "9500003"
+    assert house.radiators["9500003"].temperature == 21.0
 
 
 def test_apply_same_value_is_an_event_but_not_a_change():
     house = build_house(*sample_house())
-    assert house.apply(StateChange(TEMP_URL, "core:TemperatureState", 20.2)) == "9312063"
+    assert house.apply(StateChange(TEMP_URL, "core:TemperatureState", 20.2)) == "9500003"
     assert house.apply(StateChange(TEMP_URL, "core:TemperatureState", 20.2), event=False) is None
 
 
@@ -30,7 +30,7 @@ def test_reload_reports_changed_radiators():
     house = build_house(root, devices)
     devices2 = copy.deepcopy(devices)
     next(d for d in devices2 if d.device_url == TEMP_URL).states["core:TemperatureState"] = 22.0
-    assert house.reload(devices2) == {"9312063"}
+    assert house.reload(devices2) == {"9500003"}
     assert house.reload(devices2) == set()
 
 
@@ -47,12 +47,12 @@ def test_reload_drops_state_keys_missing_from_snapshot():
     target = next(d for d in devices2 if d.device_url == TEMP_URL)
     assert "core:TemperatureState" in target.states
     del target.states["core:TemperatureState"]
-    assert house.reload(devices2) == {"9312063"}
-    assert "core:TemperatureState" not in house.radiators["9312063"].states[TEMP_URL]
+    assert house.reload(devices2) == {"9500003"}
+    assert "core:TemperatureState" not in house.radiators["9500003"].states[TEMP_URL]
     assert house.reload(devices2) == set()
 
 
 def test_apply_none_value_for_new_key_is_stored():
     house = build_house(*sample_house())
-    assert house.apply(StateChange(TEMP_URL, "core:NewState", None)) == "9312063"
-    assert "core:NewState" in house.radiators["9312063"].states[TEMP_URL]
+    assert house.apply(StateChange(TEMP_URL, "core:NewState", None)) == "9500003"
+    assert "core:NewState" in house.radiators["9500003"].states[TEMP_URL]

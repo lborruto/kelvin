@@ -30,8 +30,8 @@ describe('api client', () => {
 
   it('encodes ids and query strings', async () => {
     const fn = mockFetch(200, []);
-    await api.history(['9312063', '14172536'], 1000, 2000, 900);
-    expect(fn.mock.calls[0][0]).toBe('/api/history?radiators=9312063%2C14172536&start=1000&end=2000&step=900');
+    await api.history(['9500003', '10000001'], 1000, 2000, 900);
+    expect(fn.mock.calls[0][0]).toBe('/api/history?radiators=9500003%2C10000001&start=1000&end=2000&step=900');
     await api.roomMode('a/b', 'off');
     expect(fn.mock.calls[1][0]).toBe('/api/rooms/a%2Fb/mode');
   });

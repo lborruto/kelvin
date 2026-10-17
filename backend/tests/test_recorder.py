@@ -19,7 +19,7 @@ from kelvin.recorder.recorder import COMMAND_LOG_RETENTION_S, SAMPLE_RETENTION_S
 from tests.conftest import ManualClock
 
 PARIS = ZoneInfo("Europe/Paris")
-ENERGY = f"{SAMPLE_GATEWAY}/9312063#5"
+ENERGY = f"{SAMPLE_GATEWAY}/9500003#5"
 
 
 def ts(y, mo, d, h=0, mi=0):
@@ -50,9 +50,9 @@ def test_history_averages_buckets(env):
     _, house, clock, rec = env
     rec.sample()
     clock.advance(300)
-    house.apply(StateChange(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 19.8))
+    house.apply(StateChange(f"{SAMPLE_GATEWAY}/9500003#2", "core:TemperatureState", 19.8))
     rec.sample()
-    rows = rec.history(["9312063"], clock() - 3600, clock(), 3600)
+    rows = rec.history(["9500003"], clock() - 3600, clock(), 3600)
     assert len(rows) == 1
     assert rows[0]["temperature"] == pytest.approx(20.0)
     assert rows[0]["setpoint"] == pytest.approx(17.0)
@@ -80,8 +80,8 @@ def test_counters_are_written_when_they_change_at_the_time_kelvin_learns_them(en
     assert rec.snapshot_energy() == 0  # nothing moved: no reading
     clock.advance(17)
     house.apply(StateChange(ENERGY, "core:ElectricEnergyConsumptionState", 2_400_500))
-    assert rec.snapshot_energy({"9312063"}) == 1
-    rows = db.query("SELECT ts, total_wh FROM energy WHERE radiator_id = '9312063' ORDER BY ts")
+    assert rec.snapshot_energy({"9500003"}) == 1
+    rows = db.query("SELECT ts, total_wh FROM energy WHERE radiator_id = '9500003' ORDER BY ts")
     assert [(r["ts"], r["total_wh"]) for r in rows] == [
         (int(ts(2026, 10, 13, 12)), 2_400_000),
         (int(ts(2026, 10, 13, 12)) + 317, 2_400_500),
@@ -92,8 +92,8 @@ def test_counters_are_written_when_they_change_at_the_time_kelvin_learns_them(en
 
 def test_an_absent_register_is_stored_as_null(env):
     db, house, _, rec = env
-    del house.radiators["9312063"].states[ENERGY]["core:ConsumptionTariff1State"]
-    rec.snapshot_energy({"9312063"})
+    del house.radiators["9500003"].states[ENERGY]["core:ConsumptionTariff1State"]
+    rec.snapshot_energy({"9500003"})
     assert db.query("SELECT t1_wh FROM energy")[0]["t1_wh"] is None
 
 
@@ -110,7 +110,7 @@ def test_energy_is_spread_over_the_time_between_readings_and_a_reset_counts(env)
             (ts(2026, 10, 14, 2), 700),  # ...confirmed (still low); 500 Wh over 24 h
         ],
     )
-    got = day_kwh(rec, ["9312063"], date(2026, 10, 12), date(2026, 10, 15))["9312063"]
+    got = day_kwh(rec, ["9500003"], date(2026, 10, 12), date(2026, 10, 15))["9500003"]
     assert got == [0.25, round(0.25 + 0.2 + 0.5 * 22 / 24, 3), round(0.5 * 2 / 24, 3)]
 
 
@@ -123,7 +123,7 @@ def test_month_buckets_split_a_span_at_the_month_edge(env):
         [(ts(2026, 10, 31, 12), 0), (ts(2026, 11, 1, 12), 2500)],  # 12 h on each side
     )
     edges = local_edges(date(2026, 10, 1), date(2026, 12, 1), "month", PARIS)
-    [oct_, nov] = rec.energy_buckets(edges, ["9312063"])["9312063"]
+    [oct_, nov] = rec.energy_buckets(edges, ["9500003"])["9500003"]
     assert (oct_.wh, nov.wh) == (pytest.approx(1250.0), pytest.approx(1250.0))
     assert oct_.apportioned and nov.apportioned
 
@@ -131,13 +131,13 @@ def test_month_buckets_split_a_span_at_the_month_edge(env):
 def test_the_time_after_the_last_reading_is_unknown(env):
     _, house, clock, rec = env
     record(house, clock, rec, [(ts(2026, 10, 13, 6), 1000), (ts(2026, 10, 13, 18), 2000)])
-    got = day_kwh(rec, ["9312063"], date(2026, 10, 13), date(2026, 10, 15))["9312063"]
+    got = day_kwh(rec, ["9500003"], date(2026, 10, 13), date(2026, 10, 15))["9500003"]
     assert got == [1.0, None]  # nothing is known after 18:00 on the 13th until the next change
 
 
 def test_working_rate_samples_decide_where_a_gap_s_energy_goes(env):
     _, house, clock, rec = env
-    heater = f"{SAMPLE_GATEWAY}/9312063#1"
+    heater = f"{SAMPLE_GATEWAY}/9500003#1"
     clock.t = ts(2026, 10, 13, 0)
     house.apply(StateChange(ENERGY, "core:ElectricEnergyConsumptionState", 10_000))
     rec.snapshot_energy()
@@ -150,7 +150,7 @@ def test_working_rate_samples_decide_where_a_gap_s_energy_goes(env):
     house.apply(StateChange(ENERGY, "core:ElectricEnergyConsumptionState", 11_000))
     rec.snapshot_energy()
     edges = [int(ts(2026, 10, 13, h)) for h in range(11)]
-    hours = rec.energy_buckets(edges, ["9312063"])["9312063"]
+    hours = rec.energy_buckets(edges, ["9500003"])["9500003"]
     assert [round(b.wh, 3) for b in hours] == [0.0] * 9 + [1000.0]
     assert hours[9].interpolated and hours[9].apportioned
 
@@ -173,20 +173,20 @@ def test_legacy_hourly_rows_then_change_only_rows_give_the_true_days(env):
     the same pipeline: 1 kWh/h for two days reads 24.0 and 24.0."""
     db, house, clock, rec = env
     legacy = [
-        (int(ts(2026, 10, 12)) + h * 3600, "9312063", 10_000.0 + 1000 * h, None, None)
+        (int(ts(2026, 10, 12)) + h * 3600, "9500003", 10_000.0 + 1000 * h, None, None)
         for h in range(25)
     ]
     db.executemany("INSERT INTO energy VALUES (?,?,?,?,?)", legacy)
     db.execute(  # the same value re-read an hour later, as the old hourly snapshot did
         "INSERT INTO energy VALUES (?,?,?,?,?)",
-        (int(ts(2026, 10, 13, 0, 30)), "9312063", 34_000.0, None, None),
+        (int(ts(2026, 10, 13, 0, 30)), "9500003", 34_000.0, None, None),
     )
     rec = Recorder(db, house, wall=clock)
     # 18 kWh in one 18 h step is more than CONFIRM_ABOVE_S of full power: the reading after it
     # (on the next day, outside the window) confirms it.
     readings = [(ts(2026, 10, 13, 6), 40_000), (ts(2026, 10, 14), 58_000)]
     record(house, clock, rec, [*readings, (ts(2026, 10, 14, 0, 30), 58_500)])
-    got = day_kwh(rec, ["9312063"], date(2026, 10, 12), date(2026, 10, 14))["9312063"]
+    got = day_kwh(rec, ["9500003"], date(2026, 10, 12), date(2026, 10, 14))["9500003"]
     assert got == [24.0, 24.0]
 
 
@@ -197,11 +197,11 @@ def test_a_year_of_five_minute_readings_stays_fast(env):
     a = int(ts(2025, 10, 1))
     db.executemany(
         "INSERT INTO energy VALUES (?,?,?,?,?)",
-        [(a + i * 300, "9312063", 1_000_000.0 + i * 50, None, None) for i in range(366 * 288)],
+        [(a + i * 300, "9500003", 1_000_000.0 + i * 50, None, None) for i in range(366 * 288)],
     )
     edges = local_edges(date(2025, 10, 1), date(2026, 10, 1), "day", PARIS)
     t0 = _time.perf_counter()
-    days = rec.energy_buckets(edges, ["9312063"])["9312063"]
+    days = rec.energy_buckets(edges, ["9500003"])["9500003"]
     assert _time.perf_counter() - t0 < 5.0
     assert sum(b.wh for b in days) == pytest.approx(50 * 365 * 288)
 
@@ -361,16 +361,16 @@ def test_readings_and_samples_stream_in_pages_with_the_same_result(env, monkeypa
     a = int(ts(2026, 10, 13))
     db.executemany(
         "INSERT INTO energy VALUES (?,?,?,?,?)",
-        [(a + i * 600, "9312063", 1000.0 + i * 37, None, None) for i in range(100)],
+        [(a + i * 600, "9500003", 1000.0 + i * 37, None, None) for i in range(100)],
     )
     db.executemany(
         "INSERT INTO samples (ts, radiator_id, working_rate) VALUES (?,?,?)",
-        [(a + i * 300, "9312063", float(i % 3) * 50) for i in range(200)],
+        [(a + i * 300, "9500003", float(i % 3) * 50) for i in range(200)],
     )
     edges = [a + h * 3600 for h in range(1, 16)]
-    whole = rec.energy_buckets(edges, ["9312063"])
+    whole = rec.energy_buckets(edges, ["9500003"])
     monkeypatch.setattr(recorder_module, "PAGE_ROWS", 7)
-    assert rec.energy_buckets(edges, ["9312063"]) == whole
+    assert rec.energy_buckets(edges, ["9500003"]) == whole
 
 
 def _h(d, h=0):
@@ -445,7 +445,7 @@ def messy_history(draw):
 )
 @given(
     messy_history(),
-    st.sampled_from(["g", "9312063"]),  # power unknown / 1500 W
+    st.sampled_from(["g", "9500003"]),  # power unknown / 1500 W
     st.sampled_from([None, (2 * 86400, 86400)]),  # default chunks, or small ones
     st.sampled_from(["day", "hour"]),
 )
@@ -529,7 +529,7 @@ def _chunk_start():
     return int(ts(2026, 10, 14)) // recorder_module.CHUNK_S * recorder_module.CHUNK_S
 
 
-@pytest.mark.parametrize("rid", ["9312063", "g"])  # 1500 W, power unknown
+@pytest.mark.parametrize("rid", ["9500003", "g"])  # 1500 W, power unknown
 @pytest.mark.parametrize("factor", [0.0, 0.7, 1.2, 1000.0])
 @pytest.mark.parametrize("pos", [0, -1, 1], ids=["anchor", "change-before", "first-after"])
 def test_a_glitch_at_the_chunk_anchor_changes_nothing(rid, factor, pos):
@@ -605,7 +605,7 @@ def test_a_holiday_after_a_glitch_before_the_anchor_is_not_phantom_energy():
         rows.append([t, v])
         t += 1800
     db.executemany(
-        "INSERT INTO energy VALUES (?,?,?,?,?)", [(a, "9312063", x, None, None) for a, x in rows]
+        "INSERT INTO energy VALUES (?,?,?,?,?)", [(a, "9500003", x, None, None) for a, x in rows]
     )
     edges = local_edges(
         datetime.fromtimestamp(g - 31 * 86400, PARIS).date(),
@@ -613,7 +613,7 @@ def test_a_holiday_after_a_glitch_before_the_anchor_is_not_phantom_energy():
         "day",
         PARIS,
     )
-    chunked = [b.wh for b in rec.energy_buckets(edges, ["9312063"])["9312063"]]
+    chunked = [b.wh for b in rec.energy_buckets(edges, ["9500003"])["9500003"]]
     full = [b.wh for b in apportion(clean_spans([tuple(r) for r in rows], power_w=1500), edges)]
     assert sum(x or 0.0 for x in chunked) == pytest.approx(300 * (len(rows) - 1))
     assert chunked == pytest.approx(full)
@@ -632,7 +632,7 @@ def test_an_off_season_reads_0_once_a_change_closes_it_and_null_until_then(env):
     rows = [
         (
             t,
-            "9312063",
+            "9500003",
             20.0,
             20.0,
             17.0,
@@ -646,7 +646,7 @@ def test_an_off_season_reads_0_once_a_change_closes_it_and_null_until_then(env):
     ]
     db.executemany("INSERT INTO samples VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
     record(house, clock, rec, [(a, 100_000), (heat + 3 * 3600, 104_000)])  # 4 kWh at 1.5 kW
-    got = day_kwh(rec, ["9312063"], date(2026, 9, 1), date(2026, 10, 13))["9312063"]
+    got = day_kwh(rec, ["9500003"], date(2026, 9, 1), date(2026, 10, 13))["9500003"]
     assert got[:39] == [0.0] * 39  # 1 Sep – 9 Oct, across a 28-day chunk edge
     assert got[39:] == [4.0, None, None]  # nothing is known after 21:00 on 10 Oct
 
@@ -660,7 +660,7 @@ def test_m2_radiator_energy_says_whether_a_bucket_is_covered_whole(env):
         rec,
         [(ts(2026, 10, 11), 1000.0), (ts(2026, 10, 12, 12), 2000.0), (ts(2026, 10, 13, 6), 3000.0)],
     )
-    rows = rec.radiator_energy(["9312063"], ts(2026, 10, 11), ts(2026, 10, 14), "day")
+    rows = rec.radiator_energy(["9500003"], ts(2026, 10, 11), ts(2026, 10, 14), "day")
     assert [(r["bucket"], r["complete"]) for r in rows] == [
         ("2026-10-11", True),
         ("2026-10-12", True),

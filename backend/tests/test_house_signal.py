@@ -6,7 +6,7 @@ from kelvin.overkiz.models import StateChange
 from kelvin.overkiz.sample import DEMO_OUTAGE_RID, SAMPLE_GATEWAY, sample_house
 from tests.conftest import ManualClock
 
-RID = "8370011"  # Chambre 1, invented
+RID = "9000011"  # Chambre 1, invented
 HEATER = f"{SAMPLE_GATEWAY}/{RID}#1"
 TEMP = f"{SAMPLE_GATEWAY}/{RID}#2"
 

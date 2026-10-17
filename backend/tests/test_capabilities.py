@@ -94,8 +94,8 @@ def test_a_stored_setup_without_ui_class_builds_the_same_radiators():
     root, devices = sample_house()
     assert all(d.ui_class == "" for d in devices)  # like a setup stored before Plan 12
     house = build_house(root, devices)
-    assert sorted(house.radiators) == ["14172536", "8370011", "8370022", "9312063"]
-    assert house.radiators["9312063"].mode == "program"
+    assert sorted(house.radiators) == ["10000001", "9000011", "9000022", "9500003"]
+    assert house.radiators["9500003"].mode == "program"
 
 
 def test_the_server_sets_the_support():

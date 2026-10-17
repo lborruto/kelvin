@@ -19,7 +19,7 @@ from kelvin.overkiz.sample import sample_house
 
 @pytest.fixture
 def r():
-    return build_house(*sample_house()).radiators["9312063"]
+    return build_house(*sample_house()).radiators["9500003"]
 
 
 def test_mode_maps_to_overkiz(r):

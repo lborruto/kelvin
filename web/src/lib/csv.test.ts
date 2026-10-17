@@ -218,7 +218,7 @@ describe('pieces_<from>_<to>.csv', () => {
     const rows: RoomRow[] = [
       {
         id: 'p-1', name: '=Salon', kwh: 100, share: '', fraction: 0.625, ...fig,
-        radiators: [{ id: 'rad-9312063', name: 'Fenêtre', kwh: 100, ...fig, coverage: 0.8, from: '2026-10-07' }]
+        radiators: [{ id: 'rad-9500003', name: 'Fenêtre', kwh: 100, ...fig, coverage: 0.8, from: '2026-10-07' }]
       },
       {
         id: 'p-2', name: 'Bureau', kwh: null, share: '', fraction: 0, ...fig, hc: null, hp: null, eur: null, temp: null, setpoint: null,
@@ -234,7 +234,7 @@ describe('pieces_<from>_<to>.csv', () => {
       "'=Salon;Fenêtre;100,000;;40,000;60,000;25,00;19,4;20,0;3,0;0,8000;2026-10-07",
       'Bureau;;;;;;;;;;;'
     ]);
-    expect(file.text).not.toContain('rad-9312063');
+    expect(file.text).not.toContain('rad-9500003');
     expect(file.text).not.toContain('p-1');
   });
 });

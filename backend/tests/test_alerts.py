@@ -249,14 +249,14 @@ def test_unreachable_needs_30_continuous_minutes():
     clock = ManualClock(1_000_000.0)
     root, devices = sample_house()
     house = build_house(root, devices, wall=clock)
-    url = f"{SAMPLE_GATEWAY}/8370011#1"
+    url = f"{SAMPLE_GATEWAY}/9000011#1"
     house.apply(StateChange(url, "core:StatusState", "unavailable"))
     clock.advance(29 * 60)
     assert radiator_unreachable(actx(house=house), clock()) == []
     clock.advance(60)
     [c] = radiator_unreachable(actx(house=house), clock())
-    assert (c.key, c.severity) == ("radiator_unreachable:8370011:1000000", "bad")
-    assert c.params == {"radiator_id": "8370011", "room_id": "p-ch1", "since": 1_000_000.0}
+    assert (c.key, c.severity) == ("radiator_unreachable:9000011:1000000", "bad")
+    assert c.params == {"radiator_id": "9000011", "room_id": "p-ch1", "since": 1_000_000.0}
     house.apply(StateChange(url, "core:StatusState", "available"))
     clock.advance(60)
     house.apply(StateChange(url, "core:StatusState", "unavailable"))
@@ -366,7 +366,7 @@ def test_linky_stalled_ignores_a_malformed_last_day():
 
 # --- Final review I1: a dismissed unreachable alert stays dismissed across a restart ---------
 
-HEATER_CH1 = f"{SAMPLE_GATEWAY}/8370011#1"
+HEATER_CH1 = f"{SAMPLE_GATEWAY}/9000011#1"
 
 
 class _Kelvin:

@@ -11,7 +11,7 @@ from kelvin.overkiz.models import RawDevice, RawPlace
 SAMPLE_GATEWAY = "io://1234-5678-9012"
 SAMPLE_INTERNAL = "internal://1234-5678-9012"
 # The simulator's « Chambre 2 » heater is unreachable for a while after start (spec §10.2).
-DEMO_OUTAGE_RID = "8370022"
+DEMO_OUTAGE_RID = "9000022"
 # Invented place types. Cozytouch's real values are recorded in docs/overkiz-notes.md (Plan 8b).
 HOUSE_TYPE = 0
 ROOM_TYPE = 7
@@ -164,7 +164,7 @@ def sample_house() -> tuple[RawPlace, list[RawDevice]]:
     )
     devices: list[RawDevice] = [
         _heater(
-            "14172536",
+            "10000001",
             "p-salon",
             "HEKLA V",
             2000,
@@ -175,9 +175,9 @@ def sample_house() -> tuple[RawPlace, list[RawDevice]]:
             level="eco",
             effective=17.0,
         ),
-        *_sensors("14172536", "p-salon", 21.4, (5_250_000, 1_050_000, 4_200_000)),
+        *_sensors("10000001", "p-salon", 21.4, (5_250_000, 1_050_000, 4_200_000)),
         _heater(
-            "9312063",
+            "9500003",
             "p-salon",
             "HEKLA P",
             1500,
@@ -188,9 +188,9 @@ def sample_house() -> tuple[RawPlace, list[RawDevice]]:
             level="eco",
             effective=17.0,
         ),
-        *_sensors("9312063", "p-salon", 20.2, (2_400_000, 500_000, 1_900_000)),
+        *_sensors("9500003", "p-salon", 20.2, (2_400_000, 500_000, 1_900_000)),
         _heater(
-            "8370011",
+            "9000011",
             "p-ch1",
             "IPALA H BLC",
             1000,
@@ -202,9 +202,9 @@ def sample_house() -> tuple[RawPlace, list[RawDevice]]:
             effective=19.0,
             program=CH1_PROGRAM,
         ),
-        *_sensors("8370011", "p-ch1", 18.9, (2_050_000, 950_000, 1_100_000)),
+        *_sensors("9000011", "p-ch1", 18.9, (2_050_000, 950_000, 1_100_000)),
         _heater(
-            "8370022",
+            "9000022",
             "p-ch2",
             "IPALA H BLC",
             1000,
@@ -215,10 +215,10 @@ def sample_house() -> tuple[RawPlace, list[RawDevice]]:
             level="eco",
             effective=14.5,
         ),
-        *_sensors("8370022", "p-ch2", 16.6, (1_800_000, 800_000, 1_000_000)),
+        *_sensors("9000022", "p-ch2", 16.6, (1_800_000, 800_000, 1_000_000)),
         RawDevice(
-            f"{SAMPLE_GATEWAY}/1698997",
-            "IO (1698997)",
+            f"{SAMPLE_GATEWAY}/1900001",
+            "IO (1900001)",
             "IOStack",
             "p-house",
             {},

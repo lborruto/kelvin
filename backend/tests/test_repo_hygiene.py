@@ -281,3 +281,54 @@ def test_only_the_simulator_gateway_ids_appear_in_tracked_files():
             if any(m.group(0) not in SIMULATOR_GATEWAYS for m in GATEWAY_ID.finditer(line)):
                 found.append(f"{rel}:{n}")  # the location only, never the value
     assert not found, found
+
+
+# Device serials (the number in a device URL, an « IO (…) » label or a radiator path; Kelvin's
+# radiator id is its heater's serial) identify real hardware: the only ones allowed are the
+# simulator's, invented. Short numbers (`…/1#2`) are obviously invented and pass.
+SERIAL = re.compile(
+    r"://\d{4}-\d{4}-\d{4}/(\d{5,})"  # a device URL
+    r"|%2F(\d{5,})"  # an encoded device URL
+    r"|IO \((\d{5,})"  # Overkiz's generic label
+    r"|/radiators/(\d{5,})"  # an API path
+    r"|[\"'`](\d{7,8})(?:#\d+)?[\"'`]"  # a quoted id, with or without its `#n`
+)
+SIMULATOR_SERIALS = {
+    # the sample (Sauter) house: four heaters and the IO bridge
+    "10000001",
+    "9500003",
+    "9000011",
+    "9000022",
+    "1900001",
+    # the Atlantic, Thermor and experimental houses
+    *(f"{brand}00000{n}" for brand in ("21", "31", "41") for n in range(1, 5)),
+    *(f"170000{n}" for n in range(1, 4)),
+    # the scrubbing example in errors.py and its tests
+    "5432187",
+}
+
+
+def test_only_the_simulator_serials_appear_in_tracked_files():
+    """A real-looking serial cannot slip into code, tests, fixtures or docs. Like the other
+    checks here, this reads the files at HEAD only: what an earlier commit held is cleaned by
+    rewriting history before a release, not by this test."""
+    found = []
+    for rel in _tracked():
+        text = _text(rel)
+        if text is None:
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            for m in SERIAL.finditer(line):
+                if next(g for g in m.groups() if g) not in SIMULATOR_SERIALS:
+                    found.append(f"{rel}:{n}")  # the location only, never the value
+    assert not found, found
+
+
+def test_the_serial_guard_reads_every_context():
+    s = "765432"  # assembled: this file must pass its own scan
+    text = (
+        f"io://1234-5678-9012/{s}1#1 IO ({s}2) /api/radiators/{s}3 '{s}4' \"{s}50#2\" "
+        f"io%3A%2F%2F1234-5678-9012%2F{s}6 io://1234-5678-9012/1#2"
+    )
+    hits = [next(g for g in m.groups() if g) for m in SERIAL.finditer(text)]
+    assert hits == [s + "1", s + "2", s + "3", s + "4", s + "50", s + "6"]

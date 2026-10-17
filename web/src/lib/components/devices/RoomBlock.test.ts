@@ -87,8 +87,8 @@ describe('RoomBlock', () => {
 
   it('a radiator title never prints a serial-like label', () => {
     const s = setupFixture();
-    render(RoomBlock, { room: s.rooms[1], radiators: [{ ...s.radiators[0], name: 'IO (8370011#1)' }], now: 0 });
-    expect(document.body.textContent).not.toContain('8370011');
+    render(RoomBlock, { room: s.rooms[1], radiators: [{ ...s.radiators[0], name: 'IO (9000011#1)' }], now: 0 });
+    expect(document.body.textContent).not.toContain('9000011');
     expect(screen.getByText('Radiateur', { selector: '.name' })).toBeInTheDocument();
   });
 });
