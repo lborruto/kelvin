@@ -282,3 +282,12 @@ class WeatherLocationBody(BaseModel):
     admin2: str | None = None
     country_code: str | None = None
     origin: Literal["search", "manual"] = "manual"
+
+
+class WeatherSearchBody(BaseModel):
+    """`POST /api/weather/search`: the typed text travels in the body, never in a URL (access
+    logs). Its length is checked by WeatherService (`weather_search_invalid`)."""
+
+    model_config = ConfigDict(extra="forbid")
+    q: str = Field(default="", max_length=200)
+    lang: Literal["fr", "en"] = "fr"

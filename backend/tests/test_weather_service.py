@@ -222,3 +222,14 @@ async def test_a_scheduler_day_costs_what_it_should(tmp_path):
     assert len([c for c in src.calls if c.startswith("history")]) == 1  # Sept–Nov in one chunk
     assert svc.calls_today() <= ws.DAILY_WEIGHT_CAP
     assert sched.status("weather_backfill")["state"] == "ok"
+
+
+async def test_the_backfill_finalises_days_the_forecast_filled(tmp_path):
+    svc, src, clock, _ = make(tmp_path, first=[date(2026, 11, 1)])
+    svc.set_location(lat=45.76, lon=4.84, origin="manual")
+    await svc.forecast_job()  # fills 18 and 19 November (past days), not final
+    day = date(2026, 11, 18)
+    assert not svc.store.daily(day, day + timedelta(days=1))[day].final
+    clock.advance(4 * 86400)
+    await svc.backfill_job()
+    assert svc.store.daily(day, day + timedelta(days=1))[day].final

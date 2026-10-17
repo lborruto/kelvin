@@ -331,14 +331,29 @@ async def test_no_coordinates_in_any_output(tmp_path):
         await rt.weather.forecast_job()
         async with Client(app.state.mcp) as client:
             results = await _everything(client, rt)
+        place_keys = {"lat", "lon", "latitude", "longitude", "elevation", "elevation_m"}
         for name, res in results:
             text = res.model_dump_json()
             for secret in (
                 "47.32",
                 "5.04",
                 "Dijon-Testville",
-                '"latitude"',
-                '"longitude"',
-                '"elevation',
+                "latitude",
+                "longitude",
+                "elevation",
             ):
                 assert secret not in text, (name, secret)
+            # Keys as JSON (structured content) or escaped inside text (resources, prompts).
+            for key in ("lat", "lon"):
+                assert f'"{key}"' not in text and f'\\"{key}\\"' not in text, (name, key)
+            structured = getattr(res, "structured_content", None)
+            if structured is not None:
+                assert not _keys(structured) & place_keys, name
+
+
+def _keys(x) -> set[str]:
+    if isinstance(x, dict):
+        return set(x) | {k for v in x.values() for k in _keys(v)}
+    if isinstance(x, list):
+        return {k for v in x for k in _keys(v)}
+    return set()

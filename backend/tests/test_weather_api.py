@@ -36,7 +36,9 @@ async def test_other_simulator_houses_start_without_weather(tmp_path):
 
 async def test_put_search_and_delete(tmp_path):
     async with kelvin_app(tmp_path, house="atlantic") as (c, app):
-        hits = (await c.get("/api/weather/search?q=Cham&lang=fr")).json()["results"]
+        hits = (await c.post("/api/weather/search", json={"q": "Cham", "lang": "fr"})).json()[
+            "results"
+        ]
         assert hits[0] == {
             "name": "Chamonix-Mont-Blanc",
             "admin1": "Auvergne-Rhône-Alpes",
@@ -88,7 +90,9 @@ async def test_mutations_need_the_header_and_search_codes(tmp_path):
             "/api/settings/weather", json={"lat": 45, "lon": 4}, headers={"X-Kelvin": ""}
         )
         assert r.status_code == 403
-        assert (await c.get("/api/weather/search?q=l")).json()["code"] == "weather_search_invalid"
+        assert (await c.post("/api/weather/search", json={"q": "l"})).json()[
+            "code"
+        ] == "weather_search_invalid"
         r = await c.get(f"/api/weather/hourly?start={DAY0}&end={DAY0 + 40 * 86400}")
         assert r.status_code == 422 and r.json()["code"] == "period_invalid"
 

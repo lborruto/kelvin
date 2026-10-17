@@ -202,7 +202,7 @@ export const api = {
   weather: () => call<WeatherView | null>('GET', '/weather'),
   weatherHourly: (start: number, end: number) => call<WeatherHourly>('GET', `/weather/hourly?start=${start}&end=${end}`),
   weatherSearch: (q: string, lang: 'fr' | 'en') =>
-    call<{ results: WeatherPlace[] }>('GET', `/weather/search?q=${enc(q)}&lang=${lang}`),
+    call<{ results: WeatherPlace[] }>('POST', '/weather/search', { q, lang }),
   weatherSettings: () => call<WeatherSettings>('GET', '/settings/weather'),
   putWeather: (body: WeatherLocationBody) => call<WeatherSettings>('PUT', '/settings/weather', body),
   deleteWeather: () => call<void>('DELETE', '/settings/weather')

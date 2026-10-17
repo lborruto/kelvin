@@ -318,6 +318,8 @@ class WeatherService:
             self._record(kind, a, b)
             spent += w
             did = True
+        # Days the forecast job filled are complete but were built while recent: now final.
+        self.store.finalise(self.wall())
         self.store.prune(self.wall())
         if did:
             self.on_change()

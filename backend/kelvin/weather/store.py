@@ -79,47 +79,80 @@ class WeatherStore:
         self._rebuild(sorted(d for d in days if d < today), hours, now)
         return days
 
+    def _day(self, d: date, batch: dict[int, Hour], now: float) -> DayWeather | None:
+        """A past day's figures from its stored hours (what the rules kept) and `batch`. An hour
+        still holding a forecast value is no measurement of that day: it is left out, so the day
+        stays incomplete (DJU null) and never final until real values replace it."""
+        a, b = day_bounds(d, self.tz)
+        merged = dict(batch)
+        forecast = False
+        for s in self.hours(a, b):
+            if s.forecast:
+                merged.pop(s.ts, None)
+                forecast = True
+            else:
+                merged[s.ts] = Hour(s.ts, s.t, s.apparent, s.rh, s.model)
+        w = aggregate(d, merged.values(), self.tz, now)
+        if w is None:
+            return None
+        return dataclasses.replace(w, final=w.final and not forecast)
+
+    def _write(self, days: list[DayWeather]) -> None:
+        if days:
+            self.db.executemany(
+                "INSERT OR REPLACE INTO weather_daily"
+                " (day, tmin, tmax, tmean, dju, hours, expected, model, final)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        w.day.isoformat(),
+                        w.tmin,
+                        w.tmax,
+                        w.tmean,
+                        w.dju,
+                        w.hours,
+                        w.expected,
+                        w.model,
+                        int(w.final),
+                    )
+                    for w in days
+                ],
+            )
+
     def _rebuild(self, days: list[date], batch: list[Hour], now: float) -> None:
         if not days:
             return
         have = self.daily(days[0], days[-1] + timedelta(days=1))
         by_day: dict[date, dict[int, Hour]] = {}
         for h in batch:
-            by_day.setdefault(local_date(h.ts, self.tz), {})[h.ts] = h
-        out: list[tuple[Any, ...]] = []
+            if h.ts <= now:  # a forecast value never counts in a past day
+                by_day.setdefault(local_date(h.ts, self.tz), {})[h.ts] = h
+        out: list[DayWeather] = []
         for d in days:
             if d in have and have[d].final:
                 continue
-            a, b = day_bounds(d, self.tz)
-            merged = dict(by_day.get(d, {}))
-            forecast = False
-            for s in self.hours(a, b):  # what is stored wins: it is what the rules kept
-                merged[s.ts] = Hour(s.ts, s.t, s.apparent, s.rh, s.model)
-                forecast = forecast or s.forecast
-            w = aggregate(d, merged.values(), self.tz, now)
-            if w is None:
-                continue
-            w = dataclasses.replace(w, final=w.final and not forecast)
-            out.append(
-                (
-                    d.isoformat(),
-                    w.tmin,
-                    w.tmax,
-                    w.tmean,
-                    w.dju,
-                    w.hours,
-                    w.expected,
-                    w.model,
-                    int(w.final),
-                )
-            )
-        if out:
-            self.db.executemany(
-                "INSERT OR REPLACE INTO weather_daily"
-                " (day, tmin, tmax, tmean, dju, hours, expected, model, final)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                out,
-            )
+            w = self._day(d, by_day.get(d, {}), now)
+            if w is not None:
+                out.append(w)
+        self._write(out)
+
+    def finalise(self, now: float) -> int:
+        """Mark final the complete days that have passed the freeze window since they were built
+        (days the forecast job filled are rebuilt only while recent, so they would otherwise
+        stay non-final). Rebuilt from the stored hours; a day whose hours are gone (pruned) or
+        still hold a forecast value keeps its row as it is."""
+        cutoff = self._today(now) - timedelta(days=FINAL_AFTER_S // 86400)
+        rows = self.db.rows(
+            "SELECT day FROM weather_daily WHERE final = 0 AND tmean IS NOT NULL AND day < ?",
+            (cutoff.isoformat(),),
+        )
+        done: list[DayWeather] = []
+        for (iso,) in rows:
+            w = self._day(date.fromisoformat(iso), {}, now)
+            if w is not None and w.final and w.tmean is not None:
+                done.append(w)
+        self._write(done)
+        return len(done)
 
     def hours(
         self, start_ts: int, end_ts: int, *, past_before: float | None = None

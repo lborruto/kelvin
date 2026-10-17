@@ -111,3 +111,38 @@ def test_prune_and_clear_work_in_batches(tmp_path):
     assert s.prune(NOW) == 2
     assert s.coverage()["first_day"] == "2026-11-18"
     assert s.clear() > 0 and s.coverage() is None
+
+
+def test_a_forecast_hour_never_completes_a_past_day(tmp_path):
+    s = store(tmp_path)
+    day = date(2026, 11, 12)
+    s.ingest(day_hours(day, 15.0), ts(2026, 11, 11, 12), replace=True)  # all forecast values
+    s.ingest(day_hours(day, 7.0)[:1], NOW, replace=False)  # one real hour arrives
+    w = s.daily(day, day + timedelta(days=1))[day]
+    assert w.hours == 1 and w.tmean is None and w.dju is None and not w.final
+    assert day in s.missing_days(day, day + timedelta(days=1))
+
+
+def test_days_the_forecast_filled_become_final_after_the_freeze_window(tmp_path):
+    s = store(tmp_path)
+    day = date(2026, 11, 18)
+    s.ingest(day_hours(day, 6.0), NOW, replace=True)  # the forecast job, two days later
+    assert not s.daily(day, day + timedelta(days=1))[day].final
+    assert s.finalise(NOW) == 0  # not yet 72 h after the day ended
+    later = ts(2026, 11, 22, 4)
+    assert s.finalise(later) == 1
+    w = s.daily(day, day + timedelta(days=1))[day]
+    assert w.final and w.tmean == 6.0
+    s.db.execute("DELETE FROM weather_hourly")  # a final day never changes again
+    s.ingest(day_hours(day, 1.0)[:3], later, replace=True)
+    assert s.daily(day, day + timedelta(days=1))[day].tmean == 6.0
+
+
+def test_finalise_keeps_a_day_whose_hours_are_gone(tmp_path):
+    s = store(tmp_path)
+    day = date(2026, 11, 18)
+    s.ingest(day_hours(day, 6.0), NOW, replace=True)
+    s.db.execute("DELETE FROM weather_hourly")  # as if pruned
+    assert s.finalise(ts(2026, 11, 25)) == 0
+    w = s.daily(day, day + timedelta(days=1))[day]
+    assert w.tmean == 6.0 and not w.final

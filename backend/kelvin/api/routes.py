@@ -46,6 +46,7 @@ from kelvin.api.schemas import (
     SettingsBody,
     TariffDocBody,
     WeatherLocationBody,
+    WeatherSearchBody,
 )
 from kelvin.api.sse import event_stream
 from kelvin.api.views import linky_of as _linky
@@ -159,10 +160,11 @@ async def weather_hourly(request: Request, start: int, end: int) -> dict:
     return w.hourly(start, min(end, int(w.wall()) + 3600))
 
 
-@router.get("/weather/search")
-async def weather_search(request: Request, q: str = "", lang: Literal["fr", "en"] = "fr") -> dict:
-    """Open-Meteo geocoding (GeoNames), French places first; coordinates already rounded."""
-    places = await _weather(_rt(request)).search_places(q, lang)
+@router.post("/weather/search")
+async def weather_search(body: WeatherSearchBody, request: Request) -> dict:
+    """Open-Meteo geocoding (GeoNames), French places first; coordinates already rounded. A POST:
+    the typed text stays out of URLs and access logs."""
+    places = await _weather(_rt(request)).search_places(body.q, body.lang)
     return {"results": [asdict(p) for p in places]}
 
 

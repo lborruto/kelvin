@@ -10,6 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ASGIApp
 
+from kelvin.api.accesslog import install as install_access_filter
 from kelvin.api.auth_routes import public
 from kelvin.api.context import boot, open_context
 from kelvin.api.exposure import ExposureWarning
@@ -44,6 +45,7 @@ def create_app(
     """`wall`: the runtime's wall clock (tests pin it so the simulator's history does not
     depend on the hour they run at)."""
     settings = settings or Settings()
+    install_access_filter()  # after uvicorn's logging setup (the app is built by its factory)
     # The read-only MCP server; tools read app.state.ctx at call time.
     mcp_server = build_server(lambda: app.state.ctx) if settings.kelvin_mcp else None
 

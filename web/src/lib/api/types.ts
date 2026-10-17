@@ -234,7 +234,7 @@ export interface WeatherView {
   /** The forecast job (the « — » reason): `next` and `error_since` epoch s. */
   fetch: { state: SourceState; next: number | null; error_since: number | null } | null;
 }
-/** A geocoder result (`GET /api/weather/search`): coordinates already rounded to 0.01°. */
+/** A geocoder result (`POST /api/weather/search`): coordinates already rounded to 0.01°. */
 export interface WeatherPlace {
   name: string;
   admin1: string | null;
