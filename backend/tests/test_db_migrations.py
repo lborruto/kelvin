@@ -194,3 +194,10 @@ def test_a_session_without_id_gets_one_at_every_start(tmp_path):
     [row] = again.query("SELECT id FROM sessions")
     assert row["id"] is not None and len(row["id"]) == 16
     again.close()
+
+
+def test_v5_adds_the_weather_tables(tmp_path):
+    db = Database(tmp_path / "k.db")
+    names = {r["name"] for r in db.query("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    assert {"weather_hourly", "weather_daily"} <= names
+    assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION >= 5
