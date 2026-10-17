@@ -10,16 +10,44 @@ on:
 permissions:
   contents: read
 
-# A new push to a pull request supersedes its running checks; runs on main always finish.
+# A new push supersedes the running checks of the same ref (Actions minutes are scarce).
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 # Every action is pinned to the commit of a release at least two weeks old (resolved from its
 # tag on 2026-10-14); the comment names the release, and the date it was published when added
 # by hand. Dependabot updates the version but not the date; its 14-day cooldown keeps the age
 # rule.
 jobs:
+  # Docs-only pull requests skip the heavy jobs: they report « skipped », and the « CI result »
+  # job below (the one check to require) passes. A push (main, or a tag through release.yml)
+  # always runs everything. Only the runner's own variables are read: no event payload.
+  changes:
+    name: Changed files
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-07-20)
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: filter
+        run: |
+          base=""
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] && [ -n "${GITHUB_BASE_REF:-}" ]; then
+            base="$(git merge-base "origin/$GITHUB_BASE_REF" HEAD || true)"
+          fi
+          if [ -z "$base" ]; then
+            echo "code=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Anything outside these paths is code: Markdown, docs/, LICENSE and issue templates are not.
+          code="$(git diff --name-only "$base" HEAD | grep -vE '\.md$|^docs/|^LICENSE$|^\.github/ISSUE_TEMPLATE/' || true)"
+          if [ -n "$code" ]; then echo "code=true"; else echo "code=false"; fi >>"$GITHUB_OUTPUT"
+
   lint:
     name: Workflows (actionlint, shellcheck)
     runs-on: ubuntu-24.04
@@ -46,6 +74,8 @@ jobs:
 
   backend:
     name: Backend (ruff, pytest)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -68,6 +98,8 @@ jobs:
 
   web:
     name: Web (vitest, svelte-check, build)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
@@ -92,6 +124,8 @@ jobs:
   # quarter of the files, so every test runs in exactly one shard.
   web-e2e:
     name: Web e2e (shard ${{ matrix.shard }}/4)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -132,15 +166,20 @@ jobs:
           path: web/test-results
           retention-days: 7
 
-  # Each shard builds and smoke-tests the image, then runs a third of the suite against a fresh container.
+  # Each shard builds and smoke-tests the image, then runs a third of the suite against a fresh
+  # container. On a pull request one job runs the build, the smoke test and a critical subset
+  # (login, Maison, a programme send, Énergie, axe on two routes); the full matrix runs on main
+  # and on tags.
   image:
-    name: Docker image (build, smoke, e2e shard ${{ matrix.shard }}/3)
+    name: Docker image (build, smoke, e2e ${{ matrix.shard == 0 && 'critical subset' || format('shard {0}/3', matrix.shard) }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: ${{ fromJSON(github.event_name == 'pull_request' && '[0]' || '[1, 2, 3]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-07-20)
         with:
@@ -183,7 +222,13 @@ jobs:
         working-directory: web
         env:
           SHARD: ${{ matrix.shard }}
-        run: KELVIN_E2E_URL=http://127.0.0.1:18080 npx playwright test --shard="$SHARD/3"
+          CRITICAL: "log in with the simulator account|a deep link asks for the login|Maison loads its rooms|programme edit round-trips|shows the bill estimate, HC/HP|axe\\) (/|/energy) · no serious"
+        run: |
+          if [ "$SHARD" = 0 ]; then
+            KELVIN_E2E_URL=http://127.0.0.1:18080 npx playwright test --project=setup --project=desktop --grep "$CRITICAL"
+          else
+            KELVIN_E2E_URL=http://127.0.0.1:18080 npx playwright test --shard="$SHARD/3"
+          fi
       - if: failure()
         run: docker logs --tail 100 kelvin-e2e
       - if: failure()
@@ -192,3 +237,19 @@ jobs:
           name: playwright-results-image-${{ matrix.shard }}
           path: web/test-results
           retention-days: 7
+
+  # The one check to require: green when every job passed or was skipped as docs-only.
+  result:
+    name: CI result
+    if: always()
+    needs: [changes, lint, backend, web, web-e2e, image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "jobs: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in success | skipped) ;; *) exit 1 ;; esac
+          done

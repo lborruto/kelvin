@@ -328,9 +328,29 @@ def test_ci_lints_the_workflows_with_a_checksummed_actionlint():
     assert "./actionlint" in lint
 
 
-def test_ci_cancels_superseded_runs_only_for_pull_requests():
+def test_ci_cancels_superseded_runs():
+    # Actions minutes are scarce: a new push supersedes the running checks of its ref.
     text = _workflows()["ci.yml"]
-    assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in text
+    assert "group: ci-${{ github.ref }}" in text and "cancel-in-progress: true" in text
+
+
+def test_docs_only_pull_requests_skip_the_heavy_jobs_but_keep_one_result_check():
+    text = _workflows()["ci.yml"]
+    for job in ("backend", "web", "web-e2e", "image"):
+        body = _job(text, job)
+        assert "needs: changes" in body and "if: needs.changes.outputs.code == 'true'" in body, job
+    changes = _job(text, "changes")
+    assert '"$GITHUB_EVENT_NAME" = pull_request' in changes  # a push always runs everything
+    assert "\\.md$|^docs/|^LICENSE$|^\\.github/ISSUE_TEMPLATE/" in changes
+    result = _job(text, "result")
+    assert "if: always()" in result and "success | skipped" in result
+    assert "needs: [changes, lint, backend, web, web-e2e, image]" in result
+
+
+def test_pull_requests_run_a_critical_container_subset_and_main_the_full_matrix():
+    image = _job(_workflows()["ci.yml"], "image")
+    assert "github.event_name == 'pull_request' && '[0]' || '[1, 2, 3]'" in image
+    assert '--grep "$CRITICAL"' in image and '--shard="$SHARD/3"' in image
 
 
 def test_the_same_action_is_pinned_to_the_same_commit_everywhere():
