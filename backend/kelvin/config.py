@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     med_prm: str = ""
     med_token: SecretStr = SecretStr("")
     med_base_url: str = "https://www.myelectricaldata.fr"
+    # Open-Meteo (Plan 14): fixed public hosts; the environment overrides them for tests only.
+    open_meteo_forecast_url: str = "https://api.open-meteo.com"
+    open_meteo_historical_url: str = "https://historical-forecast-api.open-meteo.com"
+    open_meteo_archive_url: str = "https://archive-api.open-meteo.com"
+    open_meteo_geocoding_url: str = "https://geocoding-api.open-meteo.com"
     kelvin_data: Path = Path("./data")
     kelvin_fake: bool = False
     # Simulator only: setup operations that always fail (comma-separated; see overkiz/fake.py).

@@ -144,6 +144,7 @@ servers' homes: Kelvin refuses (« Ce dossier de données appartient à une mais
 | COZY_SERVER | sauter_cozytouch | The home's Overkiz server: `atlantic_cozytouch`, `thermor_cozytouch`, or an experimental server id from `kelvin/overkiz/servers.py`. Read only when `COZY_USER`/`COZY_PASS` create `account.json`, which stores it |
 | MED_PRM / MED_TOKEN | — | Optional fallback for the Linky PDL and token |
 | MED_BASE_URL | https://www.myelectricaldata.fr | MyElectricalData API base; also serves the public Tempo and EcoWatt endpoints (tests only) |
+| OPEN_METEO_FORECAST_URL / _HISTORICAL_URL / _ARCHIVE_URL / _GEOCODING_URL | https://api.open-meteo.com, https://historical-forecast-api.open-meteo.com, https://archive-api.open-meteo.com, https://geocoding-api.open-meteo.com | Open-Meteo hosts for the outdoor weather (tests only) |
 | KELVIN_DATA | ./data | SQLite and runtime files |
 | KELVIN_WEB | — | Built SPA directory to serve |
 | KELVIN_FAKE | false | Use the simulator |
