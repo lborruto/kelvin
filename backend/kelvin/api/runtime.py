@@ -25,7 +25,7 @@ from kelvin.grid.service import GridService
 from kelvin.grid.store import GridStore
 from kelvin.house.model import House, build_house
 from kelvin.linky.fake import DEMO_PRM, FakeLinkySource
-from kelvin.linky.models import Contract, LinkySource
+from kelvin.linky.models import Contract, LinkySource, local_day
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import DAILY_BUDGET
 from kelvin.overkiz.budget import QuotaReadout, SetupReadGuard
@@ -50,6 +50,10 @@ from kelvin.recorder.recorder import Recorder
 from kelvin.scheduler import Scheduler
 from kelvin.setup.refresh import SetupRefresher
 from kelvin.setup.service import SetupPending, SetupService
+from kelvin.weather.fake import FakeWeatherSource
+from kelvin.weather.models import WeatherSource
+from kelvin.weather.service import DAILY_WEIGHT_CAP, WeatherService
+from kelvin.weather.store import WeatherStore
 
 log = logging.getLogger(__name__)
 
@@ -97,6 +101,7 @@ class Runtime:
     refresher: SetupRefresher | None = None
     grid: GridService | None = None
     scheduler: Scheduler | None = None
+    weather: WeatherService | None = None
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -112,6 +117,7 @@ class Runtime:
                 self.alerts.store.summary() if self.alerts else {"active": 0, "highest": None}
             ),
             "grid": self.grid.view() if self.grid else None,
+            "weather": weather_view(self),
         }
 
     def setup_view(self) -> dict[str, Any]:
@@ -220,6 +226,37 @@ def make_grid_source(
     return MedPublicClient(base_url=settings.med_base_url, tz=settings.tz)
 
 
+def make_weather_source(
+    settings: Settings, simulator: bool, wall: Callable[[], float] = time.time
+) -> WeatherSource:
+    """The simulator's weather, or Open-Meteo (coordinates and dates only)."""
+    if settings.kelvin_fake or simulator:
+        return FakeWeatherSource(tz=settings.tz, wall=wall)
+    from kelvin.weather.client import OpenMeteoClient
+
+    return OpenMeteoClient(
+        forecast_url=settings.open_meteo_forecast_url,
+        historical_url=settings.open_meteo_historical_url,
+        archive_url=settings.open_meteo_archive_url,
+        geocoding_url=settings.open_meteo_geocoding_url,
+        tz=settings.tz,
+    )
+
+
+def weather_view(rt: Runtime) -> dict[str, Any] | None:
+    """The chip's data with the forecast job's state (the « — » reason). None when off."""
+    view = rt.weather.view() if rt.weather is not None else None
+    if view is None:
+        return None
+    st = rt.scheduler.status("weather_forecast") if rt.scheduler is not None else None
+    view["fetch"] = (
+        None
+        if st is None
+        else {"state": st["state"], "next": st["next"], "error_since": st["error_since"]}
+    )
+    return view
+
+
 def sources(rt: Runtime) -> dict[str, Any] | None:
     """Réglages › Sources: each grid job's state, and the MED ledger."""
     if rt.grid is None or rt.scheduler is None or rt.linky is None:
@@ -228,6 +265,15 @@ def sources(rt: Runtime) -> dict[str, Any] | None:
     return {
         "tempo": {**rt.scheduler.status("tempo"), "enabled": rt.grid.tempo_needed()},
         "ecowatt": {**rt.scheduler.status("ecowatt"), "enabled": True},
+        "weather": None
+        if rt.weather is None
+        else {
+            **rt.scheduler.status("weather_forecast"),
+            "enabled": rt.weather.enabled(),
+            "backfill": rt.scheduler.status("weather_backfill")["state"],
+            "calls_today": rt.weather.calls_today(),
+            "budget": DAILY_WEIGHT_CAP,
+        },
         "med": {
             "calls_today": sync.calls_today(),
             "grid_calls_today": sync.grid_calls_today(),
@@ -332,6 +378,7 @@ async def start_runtime(
     opened: Database | None = None
     linky_service: LinkyService | None = None
     grid: GridService | None = None
+    weather: WeatherService | None = None
     guard = guard or SetupReadGuard()
     try:
         if db is None:
@@ -505,7 +552,28 @@ async def start_runtime(
             on_change=on_grid,
         )
         linky_service.colours = grid_store.tempo_colours
-        scheduler = Scheduler(db, grid.jobs(), tz=settings.tz, wall=wall)
+
+        def on_weather() -> None:
+            if runtime and not runtime[0].closed:
+                bc.publish("weather", weather_view(runtime[0]))
+
+        def weather_first_days() -> list[date | None]:
+            firsts = [a for a, _ in recorder.energy_extent().values()]
+            first_reading = local_day(int(min(firsts)), zone) if firsts else None
+            return [linky_service.store.first_day(), first_reading]
+
+        weather = WeatherService(
+            WeatherStore(db, settings.tz),
+            make_weather_source(settings, is_sim, wall),
+            db=db,
+            tz=settings.tz,
+            wall=wall,
+            first_days=weather_first_days,
+            on_change=on_weather,
+        )
+        if settings.kelvin_fake and is_sim and gateway.server == "sauter_cozytouch":
+            weather.seed_demo()  # decision 10: the default demo house only
+        scheduler = Scheduler(db, grid.jobs() + weather.jobs(), tz=settings.tz, wall=wall)
         rt = Runtime(
             settings,
             gateway,
@@ -522,6 +590,7 @@ async def start_runtime(
             refresher=refresher,
             grid=grid,
             scheduler=scheduler,
+            weather=weather,
         )
         rt.quotas = QuotaReadout(lambda: gateway.quotas())  # lazy: stub gateways need no quotas()
         rt.published_overrides = overrides.active()
@@ -548,6 +617,8 @@ async def start_runtime(
                 await linky_service.close()
             if grid is not None:
                 await grid.aclose()
+            if weather is not None:
+                await weather.aclose()
         finally:
             if opened is not None:
                 opened.close()
@@ -582,6 +653,8 @@ async def stop_runtime(rt: Runtime) -> None:
                 await rt.linky.close()
             if rt.grid is not None:
                 await rt.grid.aclose()
+            if rt.weather is not None:
+                await rt.weather.aclose()
         finally:
             await rt.gateway.close()
     finally:
