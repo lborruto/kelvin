@@ -15,7 +15,7 @@ Tool: `backend/scripts/overkiz_try.py`. Original values read with `show` before 
 | identify | [] | no state change (radiator display blinks) | COMPLETED | n/a |
 | setName | ["Radiateur"] | core:NameState='Radiateur' (event emitted even though unchanged) | COMPLETED | n/a (no-op) |
 
-## Mode and manual target (verified 2026-10-13, after the final review, I5)
+## Mode and manual target (verified 2026-10-13)
 
 The radiator was HEKLA P, starting in mode `internal`, target 20.0, effective 20.0, level `comfort`.
 
@@ -102,7 +102,7 @@ simulator; they are recorded here as **unverified**.
   applied directly.
 - An unknown oid may answer 400 « Unknown object » instead of 404: both mean « not found ».
 
-### Real-account check « Kelvin test » (Task 13) — NOT RUN YET
+### Real-account check « Kelvin test » — NOT RUN YET
 
 Placeholder. `backend/scripts/places_try.py --write --i-am-watching` creates a temporary place
 named « Kelvin test », renames it, deletes it and compares the tree before and after. It needs
@@ -164,7 +164,7 @@ ending at midnight, unsorted slots, another entry count, other keys or key order
 unreadable — is shown locked and re-sent exactly as read on every programme send. Whether the
 device ever reports another shape is not verified; record it here if seen.
 
-## Multi-brand (Plan 12, 2026-10-14) — UNVERIFIED
+## Multi-brand (2026-10-14) — UNVERIFIED
 
 Nothing in this section has been tried on a real device. It records what Kelvin sends for device
 kinds other than the Sauter radiators verified above, and where each name comes from. Move an entry

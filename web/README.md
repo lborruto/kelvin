@@ -115,7 +115,7 @@ PDL, token, email or id is exported; rooms and radiators appear by name.
   radiator sum) is the last day they count, the row's last day for a past row, yesterday for a row
   running into today (`debut`/`fin` stay the row's whole span, so a running month's total reads
   `fin` = the next 1st and `radiateurs_jusqu_au` = yesterday). `radiateurs_couverture` (last; both
-  columns were added after the spec's first header, so readers by name keep working) is the share of
+  columns were added after the first version of the header, so readers by name keep working) is the share of
   the radiator-days up to `radiateurs_jusqu_au` that were fully measured, a 4-decimal fraction: below
   `1,0000` a radiator was not measured every one of those days. A radiator sum is whole for the row
   only when `radiateurs_couverture` is `1,0000` and `radiateurs_jusqu_au` is the row's last day.

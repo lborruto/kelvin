@@ -28,7 +28,9 @@ depends on.
 - `KELVIN_FAKE_HOUSE` (`sauter`, `atlantic`, `thermor`, `experimental`) picks an invented house;
   empty, the house follows the login server. Every capability set has a house and a test
   (`tests/test_fake_houses.py`). Simulator gateway ids are an allowlist in
-  `tests/test_repo_hygiene.py`: use only the invented `io://…` ids already there.
+  `tests/test_repo_hygiene.py`: use only the invented `io://…` ids already there. Device serials
+  are an allowlist there too (`SIMULATOR_SERIALS`): a new simulator device takes an invented
+  serial and adds it.
 - Tests never contact Overkiz or MyElectricalData: use `FakeGateway`, `FakeLinkySource`,
   `httpx.MockTransport` or a stub client.
 - `backend/scripts/` talk to a real installation. Run them only when the human asks and is
@@ -45,8 +47,9 @@ depends on.
 ## Rules the code depends on
 
 - **Sauter commands are pinned byte for byte** by `tests/test_sauter_golden.py` and its fixture
-  (`tests/fixtures/sauter_commands.json`, recorded before Plan 12 by `scripts/sauter_golden.py`,
-  re-recorded after the Plan 8 and Plan 8b merges, each time identical to `main` + the harness alone).
+  (`tests/fixtures/sauter_commands.json`, recorded by `scripts/sauter_golden.py` before the
+  multi-brand command layer existed; each justified re-record so far was identical to `main` + the
+  harness alone, or differed only by a substitution its commit states).
   Never regenerate the fixture to make a change pass; a diff there is a regression. The script
   refuses to overwrite it without `--force`, and the test pins its SHA-256: a re-record needs its
   own justified commit that also edits `FIXTURE_SHA256`.
@@ -235,7 +238,14 @@ depends on.
   the engine for an evaluation.
 - **Network:** `/api/health` is open and says only the status word. Forwarded headers are
   ignored unless `KELVIN_TRUSTED_PROXIES` names the reverse proxy; nothing shipped enables them
-  (`backend/tests/test_packaging.py` checks).
+  (`backend/tests/test_packaging.py` checks). The example compose file publishes on `127.0.0.1` unless `KELVIN_BIND`
+  says otherwise (`KELVIN_PORT`, `KELVIN_VOLUME` and `KELVIN_FAKE` come from `.env` too); with no
+  `KELVIN_ALLOWED_HOSTS`, the launcher warns when it listens beyond loopback and the app warns
+  once when reached by another Host (the first login claims the home). The simulator refuses a
+  data folder holding real readings, as a real start refuses simulator data.
+- **Content-Security-Policy:** the page's scripts are Kelvin's own files plus the inline scripts
+  of the built `index.html`, allowed by SHA-256 computed at startup (`api/web.py`); `app.html`
+  never holds an inline event handler (`onclick=`…), and a build with one is refused at start.
 - **Web stack:** SvelteKit stays on 2.x (`@vite-pwa/sveltekit` does not support kit 3);
   Playwright uses `channel: 'chromium'`.
 - **UI rules** (details in DESIGN.md): motion uses the tokens in `app.css` and `$lib/motion`
@@ -251,7 +261,7 @@ depends on.
   the Tempo hours, not the HC/HP band. Buttons are ink/s2 pills (`.btn` 40 px, `.btn-sm` 34, `.btn-lg` 52; the primary is ink, never
   orange); fields and segments are painted at `--ctl-h` (36 px); every control keeps a 44 px hit area (`.hit` /
   the `.btn` `::before`); short values are sized by the `--w-*` widths, never stretched.
-  **Tableau (owner decisions 2026-10-16):** one dark theme (no light theme, no « Thème », no
+  **Tableau (binding):** one dark theme (no light theme, no « Thème », no
   `prefers-color-scheme` path); « Maison » is the dashboard at `/` and « Réglages » is `/home` (URLs unchanged);
   orange (`--heat`) only for heating, comfort blocks and a running chauffe temporaire; Tempo colours only when
   the price row in force is Tempo; −/+ is the primary setpoint control and in Programme changes the level running
@@ -286,8 +296,7 @@ depends on.
   (Source, Relevé, Nature: mesuré / estimé / projection / calculé / publié); freshness is said with
   `Freshness` + `SourceLine` (`$lib/freshness.ts` cadences), never in ad-hoc words. Their props are
   listed in DESIGN.md « Foundation components: API ».
-- **Énergie figures:** formatted through the precision functions in `$lib/format.ts` (spec
-  §3.2.1), and every inspector, readout, hidden table and announcement built from
+- **Énergie figures:** formatted through the precision functions in `$lib/format.ts`, and every inspector, readout, hidden table and announcement built from
   `$lib/inspector.ts`, so a value reads the same everywhere. Shown sums add up: a total shown
   with its parts goes through `matchParts` (largest remainder at the total's decimals). € are
   rounded once, in `billing/report.py`, from running sums anchored on 1 January (a span's cents
@@ -301,7 +310,7 @@ depends on.
   live in the `$lib/i18n` dictionaries like every other string (one group per component or
   module: `m.hero`, `m.inspector`, …); the CSV export is a machine contract documented in `web/README.md` (French headers in every locale; `;` and a
   decimal comma in French, `,` and a point in English; no ids, no PDL).
-- **MCP is read-only** (Plan 13, `kelvin/mcp/`, spec `2026-10-16-kelvin-mcp-design.md`): no tool,
+- **MCP is read-only** (`kelvin/mcp/`): no tool,
   resource or prompt may reach a command, override, setup, tariff, Linky-configuration, alert or
   session write, or an Overkiz or MyElectricalData call; the only writes are MCP's own audit rows
   and a token's `last_used`. `tests/test_mcp_guarantees.py` enforces it (an AST rule on

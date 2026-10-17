@@ -1,11 +1,11 @@
 # Kelvin i18n catalogue (design snapshot, 2026-10-14)
 
-The design Plan 7 implements, kept for its inventory, codes and reasoning. The live catalogue is
+The design the i18n work implemented, kept for its inventory, codes and reasoning. The live catalogue is
 `web/src/lib/i18n/fr.ts` and `en.ts` (web) and `backend/kelvin/errors.py`, `labels.py` (backend
 codes, exported to `web/src/lib/i18n/api-codes.json`). Counts and line references below are the
 2026-10-14 snapshot.
 
-## Copy pass (UX batch 12, 2026-10-16)
+## Copy pass (2026-10-16)
 
 Every key of `fr.ts` / `en.ts` was reread in context against DESIGN.md « Copy » and `docs/glossary.md`.
 The rows below supersede the matching rows further down (a snapshot, not edited line by line):
@@ -26,9 +26,9 @@ The rows below supersede the matching rows further down (a snapshot, not edited 
 - Boost end (owner ruling): « Puis retour au programme demain vers 00:19. » / “Then back to the schedule
   tomorrow at about 00:19.” (`boost.thenProgram(time, on)` with `whenParts` in `$lib/status`).
 
-Status: was a design, now implemented by Plan 7 (2026-10-14). Written against branch `feat/polish` on 2026-10-14, read-only. A UI polish batch
-is landing at the same time, so every count and line below is a snapshot. The plan (§10) re-extracts strings
-with a script instead of trusting this list.
+Status: was a design, now implemented (2026-10-14). Written on 2026-10-14 while UI polish was landing at the
+same time, so every count and line below is a snapshot. The implementation (§10) re-extracts strings with a
+script instead of trusting this list.
 
 Goals: the UI is available in French and English, French stays the default, and URL paths are English whatever
 the UI language. Nothing about device behaviour changes.
@@ -125,7 +125,7 @@ and checks that the tab bar, the period Segmented and the mode chips re-render (
 ## 2. String inventory
 
 Extraction was a heuristic script over every non-test `.svelte`/`.ts` file under `web/src`, plus a manual pass
-(script: `scratchpad/i18n/extract.py`; raw output `scratchpad/i18n/raw.txt`). The counts are **unique messages
+(the script and its raw output were not kept). The counts are **unique messages
 after merging duplicates and folding concatenated fragments into one parameterised message**.
 
 ### 2.1 Count per file (web)
@@ -387,7 +387,7 @@ Paths are English whatever the UI language (the API is already English).
 | `/pieces/[id]` | `/rooms/[id]` | |
 | `/programme` | `/schedule` | |
 | `/energie` | `/energy` | |
-| `/maison` | `/home` | The Maison page. `/` stays the Rooms list, so `/home` is **not** the start page. That is the owner's choice; the nav label stays « Maison » / “Home”. |
+| `/maison` | `/home` | The Maison page. `/` stays the Rooms list, so `/home` is **not** the start page. That is deliberate; the nav label stays « Maison » / “Home”. |
 | `/maison#absence` | `/home#away` | Anchor renamed for consistency (assumed; the owner listed only tarif and linky) |
 | `/maison#tarif` | `/home#tariff` | |
 | `/maison#linky` | `/home#linky` | Anchor unchanged |
@@ -843,8 +843,7 @@ depend on the polish batch's copy; phases 3–4 re-extract strings with the scri
 polish batch changed.
 
 ### Phase 0: rebase and re-inventory (half a day, no product change)
-- Rebase on the merged polish batch. Run `scratchpad/i18n/extract.py` (moved to `web/scripts/i18n-extract.py` or
-  ported to `.mjs`) to regenerate the inventory, and diff it against §2.1.
+- Rebase on the merged polish batch. Run an extraction script (to live in `web/scripts/`) to regenerate the inventory, and diff it against §2.1.
 - Commit `web/scripts/i18n-check.mjs` in **report-only mode** (it prints hard-coded French but does not fail
   yet).
 
