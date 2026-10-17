@@ -2,11 +2,12 @@
      is the period's inspection with its provenance and every method note), the range with the kWh, the split bar
      (heures creuses hatched / heures pleines), the comparison sentence, then the key figures (Mois complet, Chauffage,
      Heures creuses) linking to their sections. Only the notes that change the figure's meaning stay on screen
-     (missing days, prices applied after the fact, a partial radiator sum), each one muted line with an ⓘ. -->
+     (missing days, prices applied after the fact, a partial radiator sum), each one muted line with an ⓘ. With a
+     weather place, one muted line gives the period's outdoor mean and degree days (Plan 14). -->
 <script lang="ts">
   import type { EnergyReport, LinkyState } from '$lib/api/types';
   import { dataSpan, periodTitle, previousName, spanLabel, type Span, type View } from '$lib/energy';
-  import { fmtChangeShare, fmtDateLong, fmtDay, eurDigits, fmtEurAt, fmtEurExact, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct, fmtPct1, matchParts } from '$lib/format';
+  import { fmtChangeShare, fmtDateLong, fmtDay, fmtDju, fmtTemp, eurDigits, fmtEurAt, fmtEurExact, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct, fmtPct1, matchParts } from '$lib/format';
   import { m } from '$lib/i18n';
   import { inspectBucket } from '$lib/inspector';
   import { ENERGY_ANCHORS, ROUTES } from '$lib/paths';
@@ -66,6 +67,14 @@
   // `basis: 'days'` (a custom period) compares with as many days just before; the views here are whole units.
   let prevName = $derived(prev ? (report.comparison.basis === 'days' ? m.hero.sameLength : previousName(view, prev.from)) : '');
   let noData = $derived(report.linky && p.kwh == null);
+  // Plan 14: the period's outdoor mean and degree days, one muted line; nothing without a weather place.
+  let outdoorLine = $derived(
+    p.outdoor
+      ? p.outdoor.mean_c != null
+        ? m.weather.heroLine(fmtTemp(p.outdoor.mean_c), p.outdoor.dju != null ? fmtDju(p.outdoor.dju) : null)
+        : m.weather.heroNone
+      : null
+  );
   // A period that ends before the first day with data (reached by a drill or a view switch).
   let beforeHistory = $derived(noData && !!first && p.to <= first);
 
@@ -168,6 +177,7 @@
             hc={split ? parts.parts[0] : null} hp={split ? parts.parts[1] : null} />
         {/if}
         {#if change && prev}<p class="muted delta">{m.hero.compare(change, prevName, prev.pairs)}</p>{/if}
+        {#if outdoorLine}<p class="muted outdoor num">{outdoorLine}</p>{/if}
         {#each meaning as n (n)}<p class="muted note"><Icon name="info" size={14} /><span>{n}</span></p>{/each}
         {#if report.linky && !report.tariff}
           <p class="muted note tariff">{m.energyUi.noTariff} <a class="link" href="{ROUTES.tariff}">{m.energyUi.noTariffCta}</a></p>
@@ -245,6 +255,10 @@
     margin: 2px 0 12px;
     font-size: 13px;
     color: var(--mu);
+  }
+  .outdoor {
+    margin: 6px 0 0;
+    font-size: 13px;
   }
   .line,
   .delta {

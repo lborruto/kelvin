@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { WeatherView } from './api/types';
 import { setLocale } from './i18n';
 import { at, NOW, VIEW } from './weather.fixture';
-import { chipReason, chipValue, modelName, normalisedLine, outdoorRows, placeLine, weatherFiche, whyText } from './weather';
+import { chipReason, chipValue, modelName, normalisedLine, outdoorRows, placeLine, weatherFiche, weatherSource, whyText } from './weather';
 
 const NB = ' ';
 const view = (over: Partial<WeatherView> = {}): WeatherView => ({ ...VIEW, ...over });
@@ -84,5 +84,22 @@ describe('weather words', () => {
     expect(normalisedLine({ change: -0.08, why: null, dju_cur: 1, dju_ref: 1, expected_cur_kwh: 1, expected_ref_kwh: 1, model: null })).toBe('−8% weather-adjusted');
     expect(weatherFiche(view(), NOW).rows[4].value).toMatch(/9\.8.*expected around 15:00/);
     setLocale('fr');
+  });
+});
+
+describe('the Énergie source line (Plan 14)', () => {
+  it('« Météo · Open-Meteo », its freshness, a Fiche with the model, the last reading, the period’s days and the link', () => {
+    const src = weatherSource(VIEW, { mean_c: 6.3, min_c: 1, max_c: 11, dju: null, days: 12, of: 14 }, NOW);
+    expect([src.source, src.text, src.state]).toEqual(['Météo', 'Open-Meteo', 'fresh']);
+    expect(src.title).toBe('Température extérieure');
+    expect(src.rows.map((r) => [r.label, r.value])).toEqual([
+      ['Modèle', 'Météo-France AROME HD via Open-Meteo'],
+      ['Dernier relevé', '14:17'],
+      ['Jours avec météo', '12 sur 14']
+    ]);
+    expect(src.provenance.nature).toBe('published');
+    expect(src.link.href).toBe('https://open-meteo.com/');
+    expect(weatherSource({ ...VIEW, fetched_at: null }, null, NOW).rows.map((r) => r.label)).toEqual(['Modèle', 'Dernier relevé']);
+    expect(weatherSource({ ...VIEW, fetch: { state: 'error', next: null, error_since: at(13) } }, null, NOW).state).toBe('bad');
   });
 });

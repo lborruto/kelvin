@@ -43,6 +43,8 @@
   import { auth } from '$lib/stores/auth.svelte';
   import { announcer } from '$lib/stores/announcer.svelte';
   import { house } from '$lib/stores/house.svelte';
+  import { weather } from '$lib/stores/weather.svelte';
+  import { weatherSource } from '$lib/weather';
   import { today } from '$lib/today.svelte';
   import { EnergieData } from './energie.svelte';
 
@@ -286,6 +288,8 @@
     return null;
   });
   /** The Linky source line (direction-2 §1.2): « ○ Linky · données jusqu’au 14/10 », dashed while waiting. */
+  // Plan 14: « Météo · Open-Meteo » beside Linky, only with a weather place.
+  let weatherLine = $derived(weather.view ? weatherSource(weather.view, main?.period.outdoor, now) : null);
   let linkyLine = $derived.by(() => {
     if (!linky && !linkyFailed) return null;
     if (linky?.state === 'off') return null;
@@ -357,6 +361,10 @@
 <div class="context">
   {#if ready && linkyLine}
     <SourceLine source="Linky" text={linkyLine.text} state={linkyLine.state} title={m.energyUi.linkyTitle} rows={linkyLine.rows} provenance={linkyLine.prov} />
+  {/if}
+  {#if ready && weatherLine}
+    <SourceLine source={weatherLine.source} text={weatherLine.text} state={weatherLine.state} title={weatherLine.title} rows={weatherLine.rows}
+      notes={weatherLine.notes} provenance={weatherLine.provenance} link={weatherLine.link} />
   {/if}
   {#if ready}<GridChips />{/if}
 </div>

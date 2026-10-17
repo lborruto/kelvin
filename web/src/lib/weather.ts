@@ -2,9 +2,10 @@
 // normalised comparison. Messages are read inside the functions (never at module scope).
 import type { Outdoor, WeatherLocation, WeatherModel, WeatherPlace, WeatherRow, WeatherView } from './api/types';
 import type { FicheLink, FicheRow } from './components/FicheBody.svelte';
-import { fmtChangeShare, fmtDju, fmtMetres, fmtPct, fmtTemp, fmtTime } from './format';
+import { fmtChangeShare, fmtDju, fmtInt, fmtMetres, fmtPct, fmtTemp, fmtTime } from './format';
+import { freshness, type Fresh } from './freshness';
 import { m } from './i18n';
-import { provenance, type Provenance } from './provenance';
+import { provenance, stamp, type Provenance } from './provenance';
 
 /** Open-Meteo's licence asks for this link next to the data it serves (CC BY 4.0). */
 export const ATTRIBUTION_URL = 'https://open-meteo.com/'; // i18n-ignore: URL
@@ -94,4 +95,31 @@ export function normalisedLine(r: WeatherRow | null | undefined): string | null 
 /** Why there is no change at equal weather, in words; null for an unknown reason. */
 export function whyText(why: string | null | undefined): string | null {
   return why ? (m.weather.why[why] ?? null) : null;
+}
+
+/** Énergie's context row (Plan 14): « Météo · Open-Meteo » with its freshness, and a Fiche with the model, the last
+ *  reading, the selected period's days with weather, the Provenance and the attribution link. */
+export function weatherSource(
+  v: WeatherView,
+  outdoor: Outdoor | null | undefined,
+  now: number
+): { source: string; text: string; state: Fresh; title: string; rows: FicheRow[]; notes: string[]; provenance: Provenance; link: FicheLink } {
+  const at = v.fetched_at ? v.fetched_at * 1000 : null;
+  const f = v.fetch;
+  const state = freshness('weather', { at, failed: f?.state === 'error', waiting: f?.state === 'quota' || (f?.state === 'never' && !at) }, now);
+  const rows: FicheRow[] = [
+    { label: m.weather.modelRow, value: modelName(v.now?.model) },
+    { label: m.weather.lastRead, value: at ? stamp(at, now) : '—', note: at ? null : chipReason({ ...v, now: null }, now) }
+  ];
+  if (outdoor) rows.push({ label: m.weather.daysRow, value: m.weather.callsValue(fmtInt(outdoor.days), fmtInt(outdoor.of)) });
+  return {
+    source: m.weather.source,
+    text: 'Open-Meteo', // i18n-ignore: a product name
+    state,
+    title: m.weather.ficheTitle,
+    rows,
+    notes: [m.weather.notStation],
+    provenance: provenance('weather', { at, model: v.now?.model ?? null }, now),
+    link: { label: m.weather.attributionShort, href: ATTRIBUTION_URL }
+  };
 }

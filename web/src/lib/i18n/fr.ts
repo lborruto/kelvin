@@ -1732,6 +1732,7 @@ export const fr = {
     partialDays: (n: number, of: number) => `météo incomplète${NB}: ${n} jours sur ${of}`,
     noData: 'pas de météo pour cette période',
     heroLine: (mean: string, dju: string | null) => (dju ? `Dehors${NB}: moy. ${mean} · ${dju} DJU` : `Dehors${NB}: moy. ${mean}`),
+    heroNone: `Dehors${NB}: — (pas de météo pour cette période)`,
     atEqualWeather: (change: string) => `${change} à météo égale`,
     model: (base: string, slope: string, days: number, r2: string, cur: string, ref: string) =>
       `Consommation de fond ≈ ${base}${NB}kWh/j, chauffage ≈ ${slope}${NB}kWh par DJU (ajusté sur ${days} jours, R² ${r2})${NB}; DJU${NB}: ${cur} contre ${ref}.`,
@@ -1779,6 +1780,7 @@ export const fr = {
     historyRunning: 'en cours de récupération',
     calls: 'Appels aujourd’hui',
     callsValue: (n: string, of: string) => `${n} sur ${of}`,
+    daysRow: 'Jours avec météo',
     lastRead: 'Dernier relevé',
     state: (place: string, time: string | null) => (time ? `${place} · relevé ${time}` : place),
     manualName: (lat: string, lon: string) => `Coordonnées ${lat} · ${lon}`,

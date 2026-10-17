@@ -95,6 +95,12 @@ export function fmtInt(n: number | null | undefined): string {
   return signed(whole(), n);
 }
 
+/** A plain figure at fixed decimals, no unit (the sentence carries it): « 9,8 », « 0,81 », “1.93”. */
+export function fmtFixed(v: number | null | undefined, digits: 0 | 1 | 2 | 3 | 4): string {
+  if (bad(v)) return '—';
+  return signed(f().fixed[digits], v);
+}
+
 /** Degree days, 1 decimal, no unit (the label says « DJU »): « 11,7 », “312.0”. */
 export function fmtDju(v: number | null | undefined): string {
   if (bad(v)) return '—';

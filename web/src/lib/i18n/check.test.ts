@@ -171,8 +171,7 @@ export const DYNAMIC = [
   // Plan 14: read by index (m.prov.weather[model], m.weather.why[why])
   'prov.weather',
   'weather.why',
-  // Plan 14 (temporary, Task 9): the Réglages and Énergie words are read from Tasks 10–13; removed in Task 13
-  'weather'
+  'weather.elevationFrom'
 ];
 
 const SRC = resolve(process.cwd(), 'src');

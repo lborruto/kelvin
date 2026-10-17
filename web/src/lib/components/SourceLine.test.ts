@@ -37,4 +37,9 @@ describe('SourceLine', () => {
     expect(document.querySelector('.fiche')).toHaveTextContent('Dernier relevé');
     document.querySelectorAll('.fiche').forEach((n) => n.remove());
   });
+  it('its Fiche may carry an outside link (an attribution)', async () => {
+    render(SourceLine, { source: 'Météo', text: 'Open-Meteo', state: 'fresh', title: 'Température extérieure', rows: [], link: { label: 'Open-Meteo.com', href: 'https://open-meteo.com/' } });
+    await fireEvent.click(screen.getByRole('button'));
+    expect(screen.getByRole('link', { name: 'Open-Meteo.com' })).toHaveAttribute('href', 'https://open-meteo.com/');
+  });
 });

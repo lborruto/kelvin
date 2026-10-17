@@ -1679,6 +1679,7 @@ export const en: Messages = {
     partialDays: (n: number, of: number) => `weather incomplete: ${n} of ${of} days`,
     noData: 'no weather for this period',
     heroLine: (mean: string, dju: string | null) => (dju ? `Outside: avg. ${mean} · ${dju} HDD` : `Outside: avg. ${mean}`),
+    heroNone: 'Outside: — (no weather for this period)',
     atEqualWeather: (change: string) => `${change} weather-adjusted`,
     model: (base: string, slope: string, days: number, r2: string, cur: string, ref: string) =>
       `Baseload ≈ ${base}${NB}kWh/day, heating ≈ ${slope}${NB}kWh per HDD (fitted on ${days} days, R² ${r2}); HDD: ${cur} vs ${ref}.`,
@@ -1726,6 +1727,7 @@ export const en: Messages = {
     historyRunning: 'being fetched',
     calls: 'Calls today',
     callsValue: (n: string, of: string) => `${n} of ${of}`,
+    daysRow: 'Days with weather',
     lastRead: 'Last reading',
     state: (place: string, time: string | null) => (time ? `${place} · read ${time}` : place),
     manualName: (lat: string, lon: string) => `Coordinates ${lat}, ${lon}`,

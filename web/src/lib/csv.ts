@@ -22,7 +22,11 @@ export const ENERGY_HEADER = [
   // R1: a partial radiator sum never reads as whole. `radiateurs_jusqu_au` is the last day the radiator sum counts
   // (a period running into today counts up to yesterday, while `fin` stays the period's end); `radiateurs_couverture`
   // (last) is the share of the radiator-days up to that day that were fully measured.
-  'radiateurs_jusqu_au', 'radiateurs_couverture'
+  'radiateurs_jusqu_au', 'radiateurs_couverture',
+  // Plan 14, appended (readers by name keep working): the outdoor mean of the row's elapsed days with weather (each
+  // day (Tmin + Tmax) / 2), its degree days base 18 °C (only when every elapsed day has weather) and the number of
+  // those days; empty cells without a weather place.
+  'dehors_moy_c', 'dju_base18', 'meteo_jours'
 ];
 export const CSV_COLOUR: Record<string, string> = { blue: 'bleu', white: 'blanc', red: 'rouge' }; // i18n-ignore: CSV machine contract
 export const CURVE_HEADER = ['debut', 'fin', 'minutes', 'wh', 'w_moyen', 'part_hc', 'couleur_tempo', 'prix', 'eur', 'radiateurs_wh']; // i18n-ignore: CSV machine contract
@@ -113,7 +117,10 @@ function summaryRow(label: string, s: EnergySummary, span: Span, today: string):
     csvText(pricesCsv(s.prices)),
     String(s.missing_days),
     rad ? radiatorsUntil(span, today) : '',
-    csvNum(rad?.coverage, 4)
+    csvNum(rad?.coverage, 4),
+    csvNum(s.outdoor?.mean_c, 1),
+    csvNum(s.outdoor?.dju, 1),
+    s.outdoor ? String(s.outdoor.days) : ''
   ];
 }
 

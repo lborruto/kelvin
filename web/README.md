@@ -131,20 +131,27 @@ PDL, token, email or id is exported; rooms and radiators appear by name.
 - `energie_<from>_<to>_<group>.csv` (`<to>` exclusive) — one row per bar of the selected period
   (with Linky, the buckets before the first counted one — Linky data, or a counted day without it, which pays its subscription — are not bars, and not rows), then a
   `total` row (the hero's figures):
-  `periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_jusqu_au;radiateurs_couverture`.
+  `periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_jusqu_au;radiateurs_couverture;dehors_moy_c;dju_base18;meteo_jours`.
   kWh have 3 decimals, € 2; `split_estime` and `radiateurs_interp` are `1`/`0` (radiator energy
   spread between two readings counts as estimated); `prix` is `hc=0,2068|hp=0,2700`, or, when a bar
   used several price rows, each prefixed with its date and separated by a space.
   The radiator figures count elapsed days only: `radiateurs_jusqu_au` (`YYYY-MM-DD`, empty without a
   radiator sum) is the last day they count, the row's last day for a past row, yesterday for a row
   running into today (`debut`/`fin` stay the row's whole span, so a running month's total reads
-  `fin` = the next 1st and `radiateurs_jusqu_au` = yesterday). `radiateurs_couverture` (last; both
+  `fin` = the next 1st and `radiateurs_jusqu_au` = yesterday). `radiateurs_couverture` (both
   columns were added after the first version of the header, so readers by name keep working) is the share of
   the radiator-days up to `radiateurs_jusqu_au` that were fully measured, a 4-decimal fraction: below
   `1,0000` a radiator was not measured every one of those days. A radiator sum is whole for the row
   only when `radiateurs_couverture` is `1,0000` and `radiateurs_jusqu_au` is the row's last day.
   `reste_kwh` is given only when the radiators cover the whole bar.
   A counted day without Linky data keeps its `abonnement_eur`, with `total_eur` empty.
+  `dehors_moy_c` (1 decimal) is the mean outdoor temperature of the row's elapsed days with weather, each day's
+  mean being (Tmin + Tmax) / 2 of the Paris civil day; `dju_base18` (1 decimal) the sum of heating degree days
+  base 18 °C (méthode météo), given only when every elapsed day has weather; `meteo_jours` the number of those
+  days (an integer). All three are empty without a weather place (Réglages › Météo), and `dehors_moy_c` is empty
+  when no elapsed day has weather. Appended after `radiateurs_couverture` (Plan 14), so readers by name keep
+  working. The figures are Météo-France / Copernicus model output via Open-Meteo (CC BY 4.0), never a measurement
+  at the home.
 - `courbe_<date>.csv` — one row per interval of the Courbe's day (46, 48 or 50):
   `debut;fin;minutes;wh;w_moyen;part_hc;couleur_tempo;prix;eur;radiateurs_wh`. Wh and W are integers,
   `part_hc` a 4-decimal fraction, `prix` €/kWh and `eur` with 4 decimals; `couleur_tempo` is `bleu`, `blanc` or `rouge`
