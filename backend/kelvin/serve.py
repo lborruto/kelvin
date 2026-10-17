@@ -6,8 +6,11 @@ It runs uvicorn with the app factory and Kelvin's own network policy:
   login throttle) and claim HTTPS (the session cookie's Secure flag). A wildcard is refused.
 - Every file Kelvin creates is private to its user (umask 077): kelvin.db and its WAL hold
   session hashes and the home's history.
-- A data directory it cannot write, an account file it cannot read, or a data folder that holds
-  another Overkiz server's home, stops it with one line instead of a traceback.
+- A data directory it cannot write, an account file it cannot read, a data folder that holds
+  another Overkiz server's home, or the simulator pointed at a real installation's data, stops
+  it with one line instead of a traceback.
+- Listening beyond loopback with no Host allowlist prints a warning: whoever reaches an
+  unclaimed Kelvin first can claim the home, and any host name is accepted.
 """
 
 from __future__ import annotations
@@ -106,13 +109,21 @@ def preflight(settings: Settings) -> None:
             f"cannot read {data / 'account.json'} ({type(e).__name__}); "
             "check its owner and mode (0600)"
         ) from None
-    # The server the start would use: the account file's, else the env bootstrap's (Plan 12).
+    # The server the start would use: the account file's, else the env bootstrap's.
     if account is not None:
         server: str | None = account.server
     elif settings.cozy_user.strip() and settings.cozy_pass.get_secret_value():
         server = settings.cozy_server
     else:
         server = None  # setup mode: the first login decides (data_other_server)
+    if settings.kelvin_fake and _holds_a_real_home(data):
+        # The reverse of start_runtime's refusal of simulator data: simulated readings must
+        # never mix into a real installation's history.
+        raise ConfigError(
+            f"KELVIN_DATA={data} holds readings from a real installation; the simulator "
+            "(KELVIN_FAKE=1) needs its own data folder (with Docker Compose: another "
+            "KELVIN_VOLUME)."
+        )
     held = _held_server(data)
     if server is not None and held is not None and held != server:
         # The same refusal start_runtime makes (DataServerMismatch), as one clean line and
@@ -122,6 +133,23 @@ def preflight(settings: Settings) -> None:
             f"while the account is on {server_name(server)}. Switching server is a fresh "
             "install: use another KELVIN_DATA folder."
         )
+
+
+def _holds_a_real_home(data: Path) -> bool:
+    """True when kelvin.db holds readings the simulator did not write (no sim mark)."""
+    if not (data / "kelvin.db").exists():
+        return False
+    from kelvin.overkiz.simhistory import SIM_DB_KEY  # the API stack: loaded for this one read
+
+    db = Database(data / "kelvin.db")
+    try:
+        if db.get_setting(SIM_DB_KEY) is True:
+            return False
+        return bool(
+            db.query("SELECT 1 FROM samples LIMIT 1") or db.query("SELECT 1 FROM energy LIMIT 1")
+        )
+    finally:
+        db.close()
 
 
 def _held_server(data: Path) -> str | None:
@@ -138,6 +166,34 @@ def _held_server(data: Path) -> str | None:
     return held if isinstance(held, str) else None
 
 
+LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def is_loopback(host: str) -> bool:
+    """A bind address or a Host header name (no port) that only this machine can use."""
+    host = host.strip().strip("[]").lower()
+    if host in LOOPBACK_HOSTS:
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def exposure_warning(settings: Settings) -> str | None:
+    """The warning a start prints when Kelvin listens beyond loopback with no Host allowlist."""
+    if split_list(settings.kelvin_allowed_hosts) or is_loopback(settings.kelvin_host):
+        return None
+    return (
+        f"WARNING: Kelvin listens on {settings.kelvin_host} and KELVIN_ALLOWED_HOSTS is empty. "
+        "If other machines can reach this port, whoever opens an unclaimed Kelvin first can "
+        "claim the home with their own Cozytouch account, and any host name is accepted (DNS "
+        "rebinding). Set KELVIN_ALLOWED_HOSTS to the names and addresses you use "
+        "(e.g. kelvin.lan,192.168.1.10) and keep Kelvin on your LAN or VPN. Under Docker "
+        "Compose this is fine while KELVIN_BIND stays 127.0.0.1 (the default)."
+    )
+
+
 def main() -> int:
     os.umask(0o077)
     try:
@@ -147,5 +203,8 @@ def main() -> int:
     except (ConfigError, ValidationError) as e:
         print(f"kelvin: {e}", file=sys.stderr)
         return 2
+    warning = exposure_warning(settings)
+    if warning:
+        print(f"kelvin: {warning}", file=sys.stderr)
     uvicorn.run(**options)
     return 0

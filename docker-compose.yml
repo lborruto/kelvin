@@ -4,12 +4,27 @@
 #   docker compose up -d --build
 #
 # The image is built from this repository (`build: .`), natively for the host (amd64 or
-# arm64). Open http://<this-host>:8070 and log in with the home's Cozytouch account: the
-# first login decides which account this Kelvin belongs to. Then connect Linky in
-# Maison › Réglages. No password or token belongs in this file or in .env. Keep Kelvin on your
-# LAN or behind a VPN (Tailscale, WireGuard…); never publish this port on the internet.
+# arm64). By default Kelvin is published on this machine only: open http://localhost:8070 and
+# log in with the home's Cozytouch account. The first login decides which account this Kelvin
+# belongs to, so whoever reaches an unclaimed Kelvin first can claim it. Then connect Linky in
+# Réglages. No password or token belongs in this file or in .env.
 #
-# KELVIN_ALLOWED_HOSTS (recommended): the host names you use to reach Kelvin.
+# Every setting below comes from .env (or the shell); see .env.example:
+#   KELVIN_BIND           the host address the port is published on (default 127.0.0.1: this
+#                         machine only). To reach Kelvin from the LAN, set the host's LAN
+#                         address (or 0.0.0.0) AND set KELVIN_ALLOWED_HOSTS. Keep Kelvin on your
+#                         LAN or behind a VPN (Tailscale, WireGuard…); never publish this port
+#                         on the internet.
+#   KELVIN_PORT           the host port (default 8070).
+#   KELVIN_ALLOWED_HOSTS  the host names you use to reach Kelvin (required off localhost).
+#   KELVIN_VOLUME         the Docker volume holding the data (default kelvin_data). A second
+#                         copy of Kelvin on the same Docker host (another checkout, a test)
+#                         sets its own KELVIN_VOLUME, KELVIN_PORT and COMPOSE_PROJECT_NAME, or
+#                         it would share this one's container and home.
+#   KELVIN_FAKE           1 runs the simulator (no Cozytouch or Linky calls; log in with
+#                         demo@kelvin.local / kelvin): `KELVIN_FAKE=1 docker compose up`.
+#                         A data volume belongs to one home: the simulator refuses a real
+#                         home's data and the other way round, so use another KELVIN_VOLUME.
 name: kelvin
 
 services:
@@ -19,13 +34,15 @@ services:
     # image: ghcr.io/lborruto/kelvin:latest
     restart: unless-stopped
     ports:
-      - "8070:8080"
+      - "${KELVIN_BIND:-127.0.0.1}:${KELVIN_PORT:-8070}:8080"
     environment:
       KELVIN_ALLOWED_HOSTS: ${KELVIN_ALLOWED_HOSTS:-}
+      KELVIN_FAKE: ${KELVIN_FAKE:-0}
+      KELVIN_FAKE_HOUSE: ${KELVIN_FAKE_HOUSE:-}
       KELVIN_DATA: /data
       TZ: ${TZ:-Europe/Paris}
     volumes:
-      # Kelvin runs as uid 10001: a bind mount, or a volume created by something else, must be owned by it (`docker run --rm -u 0 -v kelvin_data:/data <image> chown -R 10001:10001 /data`).
+      # Kelvin runs as uid 10001: a bind mount, or a volume created by something else, must be owned by it (`docker run --rm -u 0 -v kelvin_data:/data <image> chown -R 10001:10001 /data`, with your KELVIN_VOLUME in place of kelvin_data).
       - data:/data
     read_only: true
     tmpfs:
@@ -38,4 +55,4 @@ services:
 
 volumes:
   data:
-    name: kelvin_data
+    name: ${KELVIN_VOLUME:-kelvin_data}

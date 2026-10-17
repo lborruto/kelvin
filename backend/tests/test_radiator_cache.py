@@ -18,8 +18,8 @@ from kelvin.recorder.db import Database
 from kelvin.recorder.recorder import Recorder
 
 PARIS = ZoneInfo("Europe/Paris")
-RID = "9312063"  # 1 500 W in the sample house
-ENERGY = f"{SAMPLE_GATEWAY}/9312063#5"
+RID = "9500003"  # 1 500 W in the sample house
+ENERGY = f"{SAMPLE_GATEWAY}/9500003#5"
 T_TARIFF = Tariff("hchp", 9, (Slot("22:00", "06:00"),), (Prices(date(2000, 1, 1), 15.0, 0.2, 0.3),))
 DEC = (date(2026, 12, 1), date(2027, 1, 1))
 

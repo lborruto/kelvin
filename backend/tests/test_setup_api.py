@@ -96,41 +96,41 @@ async def test_delete_room_route(ctx):
 
 async def test_move_a_radiator_and_the_room_views_follow(ctx):
     c, rt, clock = ctx
-    r = await c.post("/api/radiators/8370011/move", json={"room_id": salon_id(rt)})
-    assert r.status_code == 202 and r.json()["pending"]["radiator_ids"] == ["8370011"]
+    r = await c.post("/api/radiators/9000011/move", json={"room_id": salon_id(rt)})
+    assert r.status_code == 202 and r.json()["pending"]["radiator_ids"] == ["9000011"]
     await settle(rt, clock)
     rooms = (await c.get("/api/house")).json()["house"]["rooms"]
     assert [x["name"] for x in rooms] == ["Salon", "Chambre 2"]
-    assert "8370011" in next(x for x in rooms if x["name"] == "Salon")["radiator_ids"]
+    assert "9000011" in next(x for x in rooms if x["name"] == "Salon")["radiator_ids"]
     # Every room view resolves radiator → room at query time (ruling 5).
-    assert rt.house.radiators["8370011"].room_id == salon_id(rt)
-    r = await c.post("/api/radiators/8370011/move", json={"room_id": salon_id(rt)})
+    assert rt.house.radiators["9000011"].room_id == salon_id(rt)
+    r = await c.post("/api/radiators/9000011/move", json={"room_id": salon_id(rt)})
     assert r.status_code == 409 and r.json()["code"] == "radiator_in_room"
 
 
 async def test_rename_through_features_is_a_setup_write(ctx):
     c, rt, clock = ctx
-    r = await c.patch("/api/radiators/9312063/features", json={"name": "Radiateur fenêtre"})
+    r = await c.patch("/api/radiators/9500003/features", json={"name": "Radiateur fenêtre"})
     assert r.status_code == 202 and r.json()["pending"]["label_code"] == "setup_rename_device"
     await settle(rt, clock)
     assert rt.gateway.executed == []  # no setName
     radiators = (await c.get("/api/house")).json()["house"]["radiators"]
-    assert next(x for x in radiators if x["id"] == "9312063")["name"] == "Radiateur fenêtre"
+    assert next(x for x in radiators if x["id"] == "9500003")["name"] == "Radiateur fenêtre"
     r = await c.patch(
-        "/api/radiators/9312063/features", json={"name": "Salon", "window_detection": False}
+        "/api/radiators/9500003/features", json={"name": "Salon", "window_detection": False}
     )
     assert r.status_code == 422 and r.json() == err("rename_alone")
-    r = await c.patch("/api/radiators/9312063/features", json={"window_detection": False})
+    r = await c.patch("/api/radiators/9500003/features", json={"window_detection": False})
     assert r.status_code == 202 and r.json()["pending"].get("kind") != "setup"
 
 
 async def test_tidy_route(ctx):
     c, rt, clock = ctx
-    rt.gateway.outside_move(f"{SAMPLE_GATEWAY}/8370011#3", salon_id(rt))
+    rt.gateway.outside_move(f"{SAMPLE_GATEWAY}/9000011#3", salon_id(rt))
     await settle(rt, clock)
-    r = await c.post("/api/setup/devices/8370011%233/tidy")
+    r = await c.post("/api/setup/devices/9000011%233/tidy")
     assert r.status_code == 202 and r.json()["pending"]["label_code"] == "setup_tidy"
-    for bad in ("8370011", "x" * 80, "bridge-x", "bridge-1"):
+    for bad in ("9000011", "x" * 80, "bridge-x", "bridge-1"):
         r = await c.post(f"/api/setup/devices/{bad}/tidy")
         assert r.status_code == 404 and r.json()["code"] == "device_unknown"
 
@@ -212,7 +212,7 @@ async def test_a_start_from_the_stored_setup_claims_no_full_read(tmp_path):
 
 async def test_features_name_is_bounded(ctx):
     c, _, _ = ctx
-    r = await c.patch("/api/radiators/9312063/features", json={"name": "x" * 201})
+    r = await c.patch("/api/radiators/9500003/features", json={"name": "x" * 201})
     assert r.status_code == 422 and r.json()["code"] == "invalid_request"
 
 

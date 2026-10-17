@@ -88,13 +88,19 @@
         <!-- shell-offline:start -->
         <p lang="fr">Kelvin n’est pas joignable. Vérifiez la connexion à la maison (Wi-Fi ou VPN).</p>
         <p lang="en">Kelvin can’t be reached. Check your connection to home (Wi-Fi or VPN).</p>
-        <button type="button" lang="fr" onclick="location.reload()">Réessayer</button>
-        <button type="button" lang="en" onclick="location.reload()">Retry</button>
+        <button type="button" lang="fr" data-reload>Réessayer</button>
+        <button type="button" lang="en" data-reload>Retry</button>
         <!-- shell-offline:end -->
       </div>
     </div>
     <script>
       // The app removes #kv-shell when it starts; still there after 8 s, the shell says Kelvin is unreachable.
+      // « Réessayer » reloads through a listener: the Content-Security-Policy allows no inline handler.
+      document.querySelectorAll('#kv-shell [data-reload]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          location.reload();
+        });
+      });
       setTimeout(function () {
         var s = document.getElementById('kv-shell');
         if (s) s.className = 'late';

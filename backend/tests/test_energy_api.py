@@ -31,7 +31,13 @@ def wall(request):
     hm = getattr(request, "param", None)
     if hm is None:
         return time.time
-    start = datetime.combine(datetime.now(PARIS).date(), dtime(*hm), PARIS).timestamp()
+    day = datetime.now(PARIS).date()
+    if len(hm) == 3 and hm[2] == "midweek":
+        # The simulator's weekend programmes start late (Chambre 1 heats from 20:00 on Sunday):
+        # a test whose figures depend on the weekday runs on the latest Wednesday.
+        day -= timedelta(days=(day.weekday() - 2) % 7)
+        hm = hm[:2]
+    start = datetime.combine(day, dtime(*hm), PARIS).timestamp()
     t0 = time.monotonic()
     return lambda: start + time.monotonic() - t0
 
@@ -542,7 +548,7 @@ async def test_the_report_loads_only_the_linky_rows_it_needs(api, monkeypatch):
 
 @pytest.mark.parametrize(
     ("wall", "coverage"),
-    [((0, 27), 0.5), ((14, 0), 1.0)],
+    [((0, 27, "midweek"), 0.5), ((14, 0, "midweek"), 1.0)],
     indirect=["wall"],
     ids=["00h27", "14h00"],
 )

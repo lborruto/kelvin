@@ -195,11 +195,11 @@ async def test_several_writes_cost_one_after_write_refresh(stack):
 async def test_a_full_resync_also_refreshes_places_and_labels(stack):
     clock, gw, house, _, refresher, pump, layouts = stack
     gw.places["p-salon"]["label"] = "Séjour"  # changed while Kelvin was not listening
-    gw.devices[f"{SAMPLE_GATEWAY}/9312063#1"].label = "Radiateur fenêtre"
+    gw.devices[f"{SAMPLE_GATEWAY}/9500003#1"].label = "Radiateur fenêtre"
     pump.request_resync()
     await run(pump, clock, 1)
     assert house.rooms["p-salon"].name == "Séjour"
-    assert house.radiators["9312063"].name == "Radiateur fenêtre"
+    assert house.radiators["9500003"].name == "Radiateur fenêtre"
     assert refresher.last_full_at == clock.t and layouts
 
 

@@ -31,7 +31,7 @@ vi.mock('$lib/api/client', () => ({
 const exact = (t: string) => t.trim();
 
 const radiator = {
-  id: '9312063', room_id: 'salon', name: 'Radiateur', model: 'HEKLA P', power_w: 1500, temperature: 19.5,
+  id: '9500003', room_id: 'salon', name: 'Radiateur', model: 'HEKLA P', power_w: 1500, temperature: 19.5,
   mode: 'program' as const, target: 20, comfort: 20, eco_delta: 3, eco: 17, effective_setpoint: 17,
   heating_level: 'eco', max_temperature: 28, window_open: false, occupied: false, window_detection: true,
   presence_detection: false, light: { on: false, intensity: 1 }, energy_wh: { total: 2400000, t1: 500000, t2: 1900000 },
@@ -47,11 +47,11 @@ describe('RadiatorPanel', () => {
     expect(screen.getByText('Infos')).toBeInTheDocument();
     expect(screen.getByText('2 400 kWh', { normalizer: exact })).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('switch', { name: 'Détection de fenêtre ouverte' }));
-    expect(api.radiatorFeatures).toHaveBeenCalledWith('9312063', { window_detection: false });
+    expect(api.radiatorFeatures).toHaveBeenCalledWith('9500003', { window_detection: false });
     await fireEvent.click(screen.getByRole('switch', { name: 'Veilleuse' }));
-    expect(api.radiatorLight).toHaveBeenCalledWith('9312063', true);
+    expect(api.radiatorLight).toHaveBeenCalledWith('9500003', true);
     await fireEvent.click(screen.getByRole('button', { name: 'Faire clignoter' }));
-    expect(api.identify).toHaveBeenCalledWith('9312063');
+    expect(api.identify).toHaveBeenCalledWith('9500003');
   });
 
   it('hides missing sub-devices instead of showing NaN', () => {
@@ -68,7 +68,7 @@ describe('RadiatorPanel', () => {
     const input = screen.getByRole('textbox', { name: 'Nom du radiateur' });
     await fireEvent.input(input, { target: { value: 'Fenêtre' } });
     await fireEvent.submit(input.closest('form')!);
-    expect(api.radiatorFeatures).toHaveBeenCalledWith('9312063', { name: 'Fenêtre' });
+    expect(api.radiatorFeatures).toHaveBeenCalledWith('9500003', { name: 'Fenêtre' });
   });
 
   const pilotCaps: Capabilities = {
@@ -187,7 +187,7 @@ describe('RadiatorPanel', () => {
   });
 
   it('a toggle shows its own command as pending until the radiator answers', async () => {
-    const p = { id: 't1', label: 'Veilleuse', radiator_ids: ['9312063'], status: 'pending', error: null, created_at: 1, expected: {} };
+    const p = { id: 't1', label: 'Veilleuse', radiator_ids: ['9500003'], status: 'pending', error: null, created_at: 1, expected: {} };
     vi.mocked(api.radiatorLight).mockResolvedValueOnce({ pending: p } as never);
     render(RadiatorPanel, { radiator, showControls: false, expanded: true });
     const light = screen.getByRole('switch', { name: 'Veilleuse' });

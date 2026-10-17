@@ -93,12 +93,12 @@ def test_parse_program_keeps_readable_days_and_lists_locked_ones():
 
 def _house_with(day: str, slots):
     root, devices = sample_house()
-    url = f"{SAMPLE_GATEWAY}/9312063#1"
+    url = f"{SAMPLE_GATEWAY}/9500003#1"
     heater = next(d for d in devices if d.device_url == url)
     prog = heater.states["core:TimeProgramState"]
     i = next(i for i, e in enumerate(prog) if day in e)
     prog[i] = {day: slots}
-    return build_house(root, devices).radiators["9312063"]
+    return build_house(root, devices).radiators["9500003"]
 
 
 def test_a_locked_day_is_resent_byte_for_byte_whatever_the_payload_says():
@@ -130,7 +130,7 @@ def test_a_midnight_day_is_resent_as_read_and_24_00_is_never_written():
 async def test_each_radiator_keeps_its_own_locked_day(ctx):  # noqa: F811
     c, rt, clock = ctx
     gw = rt.gateway
-    a, b = f"{SAMPLE_GATEWAY}/14172536#1", f"{SAMPLE_GATEWAY}/9312063#1"
+    a, b = f"{SAMPLE_GATEWAY}/10000001#1", f"{SAMPLE_GATEWAY}/9500003#1"
     odd = copy.deepcopy(WEEK_PROGRAM)
     odd[4] = {"friday": [{"start": "21:00", "end": "00:00"}, E, E]}
     gw.push_state(a, "core:TimeProgramState", odd)
@@ -146,7 +146,7 @@ async def test_each_radiator_keeps_its_own_locked_day(ctx):  # noqa: F811
 
 def test_the_simulator_has_a_midnight_day_and_an_unrecognised_day():
     root, devices = sample_house()
-    r = build_house(root, devices).radiators["8370011"]
+    r = build_house(root, devices).radiators["9000011"]
     assert r.program_locked == {"saturday": "unrecognised", "sunday": "midnight"}
     assert r.view()["program"]["sunday"] == [{"start": "20:00", "end": "24:00"}]
     assert r.view()["program_locked"] == {"saturday": "unrecognised", "sunday": "midnight"}
@@ -165,14 +165,14 @@ async def test_a_program_changed_in_the_cozytouch_app_is_not_overwritten(ctx):  
     base = await _salon_base(c)
     changed = copy.deepcopy(WEEK_PROGRAM)
     changed[0] = {"monday": [{"start": "05:00", "end": "06:00"}, E, E]}
-    rt.gateway.push_state(f"{SAMPLE_GATEWAY}/14172536#1", "core:TimeProgramState", changed)
+    rt.gateway.push_state(f"{SAMPLE_GATEWAY}/10000001#1", "core:TimeProgramState", changed)
     await settle(rt, clock)
     sent_before = len(rt.gateway.executed)
     r = await c.put("/api/rooms/p-salon/program", json={**WEEK, "base": base})
     assert r.status_code == 409
     body = r.json()
     assert (body["code"], body["params"]) == ("program_changed_elsewhere", {"days": ["monday"]})
-    assert "14172536" not in r.text  # no id in an error body
+    assert "10000001" not in r.text  # no id in an error body
     assert len(rt.gateway.executed) == sent_before  # nothing was written
 
 
@@ -181,7 +181,7 @@ async def test_force_overwrites(ctx):  # noqa: F811
     base = await _salon_base(c)
     changed = copy.deepcopy(WEEK_PROGRAM)
     changed[2] = {"wednesday": [{"start": "05:00", "end": "06:00"}, E, E]}
-    rt.gateway.push_state(f"{SAMPLE_GATEWAY}/9312063#1", "core:TimeProgramState", changed)
+    rt.gateway.push_state(f"{SAMPLE_GATEWAY}/9500003#1", "core:TimeProgramState", changed)
     await settle(rt, clock)
     r = await c.put("/api/rooms/p-salon/program", json={**WEEK, "base": base, "force": True})
     assert r.status_code == 202, r.text
@@ -198,7 +198,7 @@ async def test_an_unchanged_base_passes_and_no_base_is_not_checked(ctx):  # noqa
 
 async def test_the_radiator_route_is_guarded_too_and_a_missing_base_entry_conflicts(ctx):  # noqa: F811
     c, rt, _ = ctx
-    r = await c.put("/api/radiators/8370022/program", json={**WEEK, "base": {"other": {}}})
+    r = await c.put("/api/radiators/9000022/program", json={**WEEK, "base": {"other": {}}})
     assert (r.status_code, r.json()["code"]) == (409, "program_changed_elsewhere")
     assert r.json()["params"]["days"] == list(
         DAY_ORDER
@@ -223,7 +223,7 @@ def test_the_base_day_names_are_the_house_s_days():
 
 # --- Final review C1: a day is written only when the body names it ---------------------------
 
-CH1, CH2 = "8370011", "8370022"
+CH1, CH2 = "9000011", "9000022"
 WEEKEND_RAW = [{"start": "08:30", "end": "22:45"}, E, E]
 
 
@@ -277,7 +277,7 @@ async def test_chambre_1_also_sent_to_chambre_2_never_empties_its_weekend(ctx): 
 
 async def test_a_mixed_room_never_empties_a_day_locked_on_its_other_radiator(ctx):  # noqa: F811
     c, rt, clock = ctx
-    a, b = f"{SAMPLE_GATEWAY}/14172536#1", f"{SAMPLE_GATEWAY}/9312063#1"
+    a, b = f"{SAMPLE_GATEWAY}/10000001#1", f"{SAMPLE_GATEWAY}/9500003#1"
     odd = copy.deepcopy(WEEK_PROGRAM)
     odd[6] = {"sunday": [{"start": "21:00", "end": "00:00"}, E, E]}
     rt.gateway.push_state(a, "core:TimeProgramState", odd)
@@ -296,11 +296,11 @@ def test_a_day_to_keep_that_the_radiator_never_reported_is_refused_not_emptied()
     from kelvin.commands.translate import CommandError
 
     root, devices = sample_house()
-    url = f"{SAMPLE_GATEWAY}/9312063#1"
+    url = f"{SAMPLE_GATEWAY}/9500003#1"
     heater = next(d for d in devices if d.device_url == url)
     prog = heater.states["core:TimeProgramState"]
     heater.states["core:TimeProgramState"] = [e for e in prog if "sunday" not in e]
-    r = build_house(root, devices).radiators["9312063"]
+    r = build_house(root, devices).radiators["9500003"]
     with pytest.raises(CommandError) as e:
         plan_program(r, WEEK)  # Sunday left out: to keep, but never reported
     assert (e.value.code, e.value.params) == ("program_day_unknown", {"day": "sunday"})

@@ -1,11 +1,11 @@
 # Kelvin i18n catalogue (design snapshot, 2026-10-14)
 
-The design Plan 7 implements, kept for its inventory, codes and reasoning. The live catalogue is
+The design the i18n work implemented, kept for its inventory, codes and reasoning. The live catalogue is
 `web/src/lib/i18n/fr.ts` and `en.ts` (web) and `backend/kelvin/errors.py`, `labels.py` (backend
 codes, exported to `web/src/lib/i18n/api-codes.json`). Counts and line references below are the
 2026-10-14 snapshot.
 
-## Copy pass (UX batch 12, 2026-10-16)
+## Copy pass (2026-10-16)
 
 Every key of `fr.ts` / `en.ts` was reread in context against DESIGN.md « Copy » and `docs/glossary.md`.
 The rows below supersede the matching rows further down (a snapshot, not edited line by line):
@@ -26,9 +26,9 @@ The rows below supersede the matching rows further down (a snapshot, not edited 
 - Boost end (owner ruling): « Puis retour au programme demain vers 00:19. » / “Then back to the schedule
   tomorrow at about 00:19.” (`boost.thenProgram(time, on)` with `whenParts` in `$lib/status`).
 
-Status: was a design, now implemented by Plan 7 (2026-10-14). Written against branch `feat/polish` on 2026-10-14, read-only. A UI polish batch
-is landing at the same time, so every count and line below is a snapshot. The plan (§10) re-extracts strings
-with a script instead of trusting this list.
+Status: was a design, now implemented (2026-10-14). Written on 2026-10-14 while UI polish was landing at the
+same time, so every count and line below is a snapshot. The implementation (§10) re-extracts strings with a
+script instead of trusting this list.
 
 Goals: the UI is available in French and English, French stays the default, and URL paths are English whatever
 the UI language. Nothing about device behaviour changes.
@@ -42,7 +42,7 @@ the UI language. Nothing about device behaviour changes.
 | Library | **A hand-rolled, fully typed dictionary** (`web/src/lib/i18n/`): zero new dependencies, with `Intl.PluralRules` for plurals. Call sites read `m.area.key(…)`, the same shape as Paraglide JS, so moving to Paraglide later is a mechanical change. |
 | English variant | **en-GB** (24 h clock, day/month order, `13 October 2026`), with metric units and € kept. |
 | Default locale | **French, always**, unless the user picks English. A first visit with `navigator.language` not starting with `fr` gets English, and that is only a starting value until the user chooses. |
-| Switch | Maison › Réglages, under « Langue » next to « Thème »; also a small FR / EN switch on the login screen. Stored in `localStorage['kelvin-locale']`; an inline script in `app.html` sets `<html lang>` before the app boots. |
+| Switch | Réglages, under « Langue » next to « Thème »; also a small FR / EN switch on the login screen. Stored in `localStorage['kelvin-locale']`; an inline script in `app.html` sets `<html lang>` before the app boots. |
 | Backend messages | **(b) Codes plus parameters, translated by the web app.** The backend keeps its French `detail` as a fallback for curl, logs and older clients. Accept-Language is not used. |
 | URL paths | English: `/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/login`. Old French paths redirect on the client, keeping query and hash. This is phase 1 of the plan. |
 | Tests | vitest runs in both locales where copy matters. Type checking guarantees no missing keys; a script finds unused keys and leftover hard-coded French; Playwright runs a smoke test per locale. |
@@ -125,7 +125,7 @@ and checks that the tab bar, the period Segmented and the mode chips re-render (
 ## 2. String inventory
 
 Extraction was a heuristic script over every non-test `.svelte`/`.ts` file under `web/src`, plus a manual pass
-(script: `scratchpad/i18n/extract.py`; raw output `scratchpad/i18n/raw.txt`). The counts are **unique messages
+(the script and its raw output were not kept). The counts are **unique messages
 after merging duplicates and folding concatenated fragments into one parameterised message**.
 
 ### 2.1 Count per file (web)
@@ -332,7 +332,7 @@ locale = stored ?? (navigator.languages?.some(l => /^fr\b/i.test(l)) ? 'fr'
 
 ### 4.2 Where to switch
 
-- **Maison › Réglages**: a row « Langue » / “Language” with a `Segmented` of **« Français » | « English »**. Each
+- **Réglages**: a row « Langue » / “Language” with a `Segmented` of **« Français » | « English »**. Each
   label is written in its own language and never translated, so someone who does not read the current language
   can still find theirs. Set `lang="fr"` / `lang="en"` on each option for screen readers. It sits directly under
   « Thème », with the same geometry.
@@ -387,7 +387,7 @@ Paths are English whatever the UI language (the API is already English).
 | `/pieces/[id]` | `/rooms/[id]` | |
 | `/programme` | `/schedule` | |
 | `/energie` | `/energy` | |
-| `/maison` | `/home` | The Maison page. `/` stays the Rooms list, so `/home` is **not** the start page. That is the owner's choice; the nav label stays « Maison » / “Home”. |
+| `/maison` | `/home` | The Maison page. `/` stays the Rooms list, so `/home` is **not** the start page. That is deliberate; the nav label stays « Maison » / “Home”. |
 | `/maison#absence` | `/home#away` | Anchor renamed for consistency (assumed; the owner listed only tarif and linky) |
 | `/maison#tarif` | `/home#tariff` | |
 | `/maison#linky` | `/home#linky` | Anchor unchanged |
@@ -806,7 +806,7 @@ token”) and contractions (“can’t”, “isn’t”) in sentences, but not 
   (the type check forces it), check the glossary (link to a new `docs/glossary.md` holding §6), run the i18n
   check, and never hard-code text in a component.
 - **README.md**: “a fast, clear web app in French” → “in French and English”; Project status “The UI is French
-  only” → “The UI is in French and English (French by default; switch in Maison › Réglages).” Update screenshot
+  only” → “The UI is in French and English (French by default; switch in Réglages).” Update screenshot
   references if file names change with paths.
 - **web/README.md**: the i18n folder, how to add a message, the `kelvin-locale` key, the manifest limitation,
   and the paths table.
@@ -843,8 +843,7 @@ depend on the polish batch's copy; phases 3–4 re-extract strings with the scri
 polish batch changed.
 
 ### Phase 0: rebase and re-inventory (half a day, no product change)
-- Rebase on the merged polish batch. Run `scratchpad/i18n/extract.py` (moved to `web/scripts/i18n-extract.py` or
-  ported to `.mjs`) to regenerate the inventory, and diff it against §2.1.
+- Rebase on the merged polish batch. Run an extraction script (to live in `web/scripts/`) to regenerate the inventory, and diff it against §2.1.
 - Commit `web/scripts/i18n-check.mjs` in **report-only mode** (it prints hard-coded French but does not fail
   yet).
 

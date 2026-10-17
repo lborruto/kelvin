@@ -12,6 +12,7 @@ from starlette.types import ASGIApp
 
 from kelvin.api.auth_routes import public
 from kelvin.api.context import boot, open_context
+from kelvin.api.exposure import ExposureWarning
 from kelvin.api.guards import LOGIN_REQUIRED_BODY, LoginRequired
 from kelvin.api.headers import SecurityHeaders
 from kelvin.api.routes import router
@@ -43,7 +44,7 @@ def create_app(
     """`wall`: the runtime's wall clock (tests pin it so the simulator's history does not
     depend on the hour they run at)."""
     settings = settings or Settings()
-    # Plan 13: the read-only MCP server; tools read app.state.ctx at call time.
+    # The read-only MCP server; tools read app.state.ctx at call time.
     mcp_server = build_server(lambda: app.state.ctx) if settings.kelvin_mcp else None
 
     @asynccontextmanager
@@ -121,4 +122,6 @@ def create_app(
     hosts = split_list(settings.kelvin_allowed_hosts)
     if hosts:  # the container healthcheck and a local shell reach Kelvin as localhost
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=[*hosts, "localhost", "127.0.0.1"])
+    else:  # any Host passes: say so once, the first time Kelvin is reached from elsewhere
+        app.add_middleware(ExposureWarning)
     return app

@@ -61,7 +61,7 @@ async def test_room_mode_roundtrip(ctx):
 
 async def test_radiator_setpoint_validation_is_french(ctx):
     c, _, _ = ctx
-    r = await c.post("/api/radiators/9312063/setpoint", json={"kind": "manual", "value": 21.3})
+    r = await c.post("/api/radiators/9500003/setpoint", json={"kind": "manual", "value": 21.3})
     assert r.status_code == 422 and "0,5 °C" in r.json()["detail"]
 
 
@@ -74,15 +74,15 @@ async def test_unknown_ids_404(ctx):
 async def test_program_features_light_identify(ctx):
     c, rt, clock = ctx
     prog = {"monday": [{"start": "06:00", "end": "08:00"}]}
-    assert (await c.put("/api/radiators/9312063/program", json=prog)).status_code == 202
+    assert (await c.put("/api/radiators/9500003/program", json=prog)).status_code == 202
     assert (
-        await c.patch("/api/radiators/9312063/features", json={"window_detection": False})
+        await c.patch("/api/radiators/9500003/features", json={"window_detection": False})
     ).status_code == 202
-    assert (await c.patch("/api/radiators/9312063/features", json={})).status_code == 422
-    assert (await c.post("/api/radiators/9312063/light", json={"on": True})).status_code == 202
-    assert (await c.post("/api/radiators/9312063/identify")).status_code == 202
+    assert (await c.patch("/api/radiators/9500003/features", json={})).status_code == 422
+    assert (await c.post("/api/radiators/9500003/light", json={"on": True})).status_code == 202
+    assert (await c.post("/api/radiators/9500003/identify")).status_code == 202
     await settle(rt, clock)
-    r = rt.house.radiators["9312063"]
+    r = rt.house.radiators["9500003"]
     assert r.program["monday"] == [{"start": "06:00", "end": "08:00"}]
     assert r.window_detection is False and r.light_on is True
 
@@ -117,11 +117,11 @@ async def test_history(ctx):
     now = int(time.time())
     r = await c.get(
         "/api/history",
-        params={"radiators": "9312063", "start": now - 3600, "end": now + 60, "step": 300},
+        params={"radiators": "9500003", "start": now - 3600, "end": now + 60, "step": 300},
     )
-    assert r.status_code == 200 and r.json()[0]["radiator_id"] == "9312063"
+    assert r.status_code == 200 and r.json()[0]["radiator_id"] == "9500003"
     assert (
-        await c.get("/api/history", params={"radiators": "9312063", "step": 10})
+        await c.get("/api/history", params={"radiators": "9500003", "step": 10})
     ).status_code == 422
 
 
@@ -144,7 +144,7 @@ async def test_validation_errors_are_french_strings(ctx):
     )
     assert r.status_code == 422 and isinstance(r.json()["detail"], str)
     assert "invalide" in r.json()["detail"]
-    r = await c.get("/api/history", params={"radiators": "9312063", "step": 10})
+    r = await c.get("/api/history", params={"radiators": "9500003", "step": 10})
     assert r.status_code == 422 and "invalide" in r.json()["detail"]
 
 
@@ -167,19 +167,19 @@ async def test_naive_away_uses_settings_tz(ctx):
 
 async def test_program_unknown_day_key_is_rejected(ctx):
     c, rt, clock = ctx
-    before = rt.house.radiators["9312063"].program
+    before = rt.house.radiators["9500003"].program
     r = await c.put(
-        "/api/radiators/9312063/program", json={"lundi": [{"start": "06:00", "end": "08:00"}]}
+        "/api/radiators/9500003/program", json={"lundi": [{"start": "06:00", "end": "08:00"}]}
     )
     assert r.status_code == 422 and isinstance(r.json()["detail"], str)
     r = await c.put(
-        "/api/radiators/9312063/program",
+        "/api/radiators/9500003/program",
         json={"monday": [{"start": "06:00", "end": "08:00", "foo": 1}]},
     )
     assert r.status_code == 422
     await settle(rt, clock)
     assert rt.commands.active() == []
-    assert rt.house.radiators["9312063"].program == before
+    assert rt.house.radiators["9500003"].program == before
 
 
 async def test_mutating_routes_require_kelvin_header(ctx):
@@ -191,8 +191,8 @@ async def test_mutating_routes_require_kelvin_header(ctx):
     del c.headers["X-Kelvin"]
     assert (await c.post("/api/house/off")).status_code == 403
     assert (await c.delete("/api/overrides/x")).status_code == 403
-    assert (await c.patch("/api/radiators/9312063/features", json={})).status_code == 403
-    assert (await c.put("/api/radiators/9312063/program", json={})).status_code == 403
+    assert (await c.patch("/api/radiators/9500003/features", json={})).status_code == 403
+    assert (await c.put("/api/radiators/9500003/program", json={})).status_code == 403
     assert (await c.get("/api/house")).status_code == 200
     assert (await c.get("/api/health")).status_code == 200
 
@@ -273,7 +273,7 @@ async def test_house_program_puts_every_radiator_back_in_program(ctx):
 
 async def test_snapshot_carries_recently_settled_commands(ctx):
     c, rt, clock = ctx
-    r = await c.post("/api/radiators/9312063/identify")
+    r = await c.post("/api/radiators/9500003/identify")
     assert r.status_code == 202
     pid = r.json()["pending"]["id"]
     await settle(rt, clock)
@@ -323,7 +323,7 @@ async def test_overkiz_quotas_unreachable_is_a_french_503(ctx):
 )
 async def test_history_windows_are_bounded(ctx, params):
     c, _, _ = ctx
-    p = {"radiators": "9312063", **params}
+    p = {"radiators": "9500003", **params}
     r = await c.get("/api/history", params=p)
     assert r.status_code == 422 and r.json()["detail"] == "Période invalide."
 
@@ -354,7 +354,7 @@ async def test_a_history_step_too_large_is_refused_not_a_crash(ctx):
     c, _, _ = ctx
     now = time.time()
     for step in (10**19, 2**63):
-        p = {"radiators": "9312063", "start": now - 86400, "end": now, "step": step}
+        p = {"radiators": "9500003", "start": now - 86400, "end": now, "step": step}
         assert (await c.get("/api/history", params=p)).status_code == 422
 
 
@@ -366,7 +366,7 @@ async def test_a_failing_energy_snapshot_never_suppresses_the_live_update(ctx, m
 
     monkeypatch.setattr(rt.recorder, "snapshot_energy", broken)
     q = rt.broadcaster.subscribe()
-    rt.pump.on_changed({"9312063"})
+    rt.pump.on_changed({"9500003"})
     assert q.get_nowait()["event"] == "house"
     assert "energy snapshot failed" in caplog.text
     rt.broadcaster.unsubscribe(q)
@@ -448,7 +448,7 @@ async def test_the_simulator_starts_with_chambre_2_unreachable(tmp_path):
 
     settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
     gw = make_gateway(settings, "demo@kelvin.local", "kelvin")
-    url = next(u for u in gw.devices if u.endswith("/8370022#1"))
+    url = next(u for u in gw.devices if u.endswith("/9000022#1"))
     assert gw.devices[url].states["core:StatusState"] == "unavailable"
     assert time.time() - gw.sim_status_since[url] >= 2700 - 5
 
@@ -460,7 +460,7 @@ async def test_the_demo_outage_ends_on_the_runtime_clock(tmp_path):
     wall = ManualClock(1_760_000_000.0)
     settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
     gw = make_gateway(settings, "demo@kelvin.local", "kelvin", wall=wall)
-    url = next(u for u in gw.devices if u.endswith("/8370022#1"))
+    url = next(u for u in gw.devices if u.endswith("/9000022#1"))
     assert gw.sim_status_since[url] == wall() - 2700
     wall.advance(DEMO_OUTAGE_AFTER_S)
     changes = [e for e in await gw.fetch_events() if isinstance(e, StateChange)]
@@ -571,7 +571,7 @@ async def test_activity_and_duty_read_the_runtime_clock(tmp_path):
 
 async def test_light_intensity_has_its_label_and_expected_value(ctx):
     c, rt, clock = ctx
-    rid = "8370011"
+    rid = "9000011"
     r = await c.post(f"/api/radiators/{rid}/light", json={"on": True, "intensity": 40})
     p = r.json()["pending"]
     assert (p["label_code"], p["label_params"]) == (
@@ -587,14 +587,14 @@ async def test_light_intensity_has_its_label_and_expected_value(ctx):
 
 async def test_intensity_with_the_light_off_is_refused(ctx):
     c, _, _ = ctx
-    r = await c.post("/api/radiators/8370011/light", json={"on": False, "intensity": 40})
+    r = await c.post("/api/radiators/9000011/light", json={"on": False, "intensity": 40})
     assert (r.status_code, r.json()["code"]) == (422, "intensity_light_off")
 
 
 async def test_an_intensity_out_of_range_reads_its_own_message(ctx):
     c, _, _ = ctx
     for value in (0, 101):
-        r = await c.post("/api/radiators/8370011/light", json={"on": True, "intensity": value})
+        r = await c.post("/api/radiators/9000011/light", json={"on": True, "intensity": value})
         assert (r.status_code, r.json()["code"]) == (422, "intensity_range"), value
 
 
@@ -646,13 +646,13 @@ async def test_an_unreachable_radiator_becomes_an_alert(ctx):
     from kelvin.overkiz.sample import SAMPLE_GATEWAY
 
     c, rt, clock = ctx
-    url = f"{SAMPLE_GATEWAY}/8370022#1"
+    url = f"{SAMPLE_GATEWAY}/9000022#1"
     rt.gateway.push_state(url, "core:StatusState", "unavailable")
     await settle(rt, clock)
     rt.house.backdate_status({url: time.time() - 3600})
     rt.alerts.evaluate()
     kinds = [(a["kind"], a["params"]["radiator_id"]) for a in (await c.get("/api/alerts")).json()]
-    assert ("radiator_unreachable", "8370022") in kinds
+    assert ("radiator_unreachable", "9000022") in kinds
 
 
 async def test_a_failed_command_alert_resolves_after_24_hours_on_the_runtime_clock(tmp_path):

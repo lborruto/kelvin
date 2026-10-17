@@ -495,7 +495,7 @@ async def sessions_revoke_others(request: Request) -> dict:
 
 @router.get("/mcp/tokens")
 async def mcp_tokens_list(request: Request) -> dict:
-    """Maison › Compte › Accès MCP: the tokens, never a secret (spec MCP §5.4)."""
+    """Réglages › Compte › Accès MCP: the tokens, never a secret (spec MCP §5.4)."""
     ctx = request.app.state.ctx
     return {
         "enabled": ctx.settings.kelvin_mcp,

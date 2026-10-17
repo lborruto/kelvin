@@ -38,8 +38,8 @@ describe('DeviceRow', () => {
 
   it('shows a generic « IO (serial#n) » label as the role, never the serial', () => {
     const sensor = setupFixture().radiators[0].devices[1]; // label « IO (r1#2) »
-    const { container } = render(DeviceRow, { device: { ...sensor, label: 'IO (8370011#2)' }, now });
-    expect(container.textContent).not.toContain('8370011');
+    const { container } = render(DeviceRow, { device: { ...sensor, label: 'IO (9000011#2)' }, now });
+    expect(container.textContent).not.toContain('9000011');
     expect(screen.getAllByText('Sonde de température')).toHaveLength(2); // role and label
   });
 

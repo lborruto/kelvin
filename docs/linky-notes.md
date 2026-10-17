@@ -69,5 +69,5 @@ customer id 0000000000).
   `red_hc`, `red_hp`, string decimals, €/kWh TTC. Prefill only, never saved by Kelvin.
 - Budget: Kelvin counts these calls in its 10-call MED day (grid ≤ 4: EcoWatt 07:15 and 17:15;
   Tempo only with a Tempo price row, normally once at 11:15).
-- Contract re-read (first sync of the month): to be confirmed after the owner deploys Plan 9
+- Contract re-read (first sync of the month): not yet confirmed on a real installation
   (expected: one call beyond the daily and curve requests).

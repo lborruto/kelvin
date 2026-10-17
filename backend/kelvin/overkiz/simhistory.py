@@ -30,8 +30,8 @@ OFFPEAK = (22, 6)
 SIM_DB_KEY = "sim_db"
 # Invented runs so the room strip shows its bands in demos (spec §10.2): a window opened every
 # morning in Chambre 1, presence every evening in the Salon. (radiator id, from, to) local minutes.
-SIM_WINDOW = ("8370011", 7 * 60 + 30, 7 * 60 + 50)
-SIM_PRESENCE = ("14172536", 18 * 60, 22 * 60 + 30)
+SIM_WINDOW = ("9000011", 7 * 60 + 30, 7 * 60 + 50)
+SIM_PRESENCE = ("10000001", 18 * 60, 22 * 60 + 30)
 
 
 def _minutes(hhmm: str) -> int:

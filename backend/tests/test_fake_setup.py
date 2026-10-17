@@ -11,7 +11,7 @@ from kelvin.overkiz.sample import ROOM_TYPE, SAMPLE_GATEWAY
 from kelvin.setup.client import SetupNotAllowed
 from tests.conftest import ManualClock
 
-HEATER = f"{SAMPLE_GATEWAY}/9312063#1"
+HEATER = f"{SAMPLE_GATEWAY}/9500003#1"
 
 
 def _gw() -> tuple[FakeGateway, ManualClock]:
@@ -100,8 +100,8 @@ async def test_failures_and_refusals_are_injected_and_nothing_is_recorded():
     gw.refuse_relocate[HEATER] = GatewayError("refused")
     with pytest.raises(GatewayError):
         await gw.relocate_device(HEATER, "p-ch1")
-    await gw.relocate_device(f"{SAMPLE_GATEWAY}/9312063#2", "p-ch1")
-    assert gw.setup_writes == [("relocate_device", f"{SAMPLE_GATEWAY}/9312063#2", "p-ch1")]
+    await gw.relocate_device(f"{SAMPLE_GATEWAY}/9500003#2", "p-ch1")
+    assert gw.setup_writes == [("relocate_device", f"{SAMPLE_GATEWAY}/9500003#2", "p-ch1")]
 
 
 def test_setup_failures_rejects_unknown_operations():
@@ -158,8 +158,8 @@ def test_make_gateway_injects_the_setup_failures(tmp_path):
 async def test_a_device_removed_before_its_write_applies_is_skipped():
     gw, clock = _gw()
     await gw.relocate_device(HEATER, "p-ch1")
-    await gw.rename_device(f"{SAMPLE_GATEWAY}/9312063#2", "Sonde")
+    await gw.rename_device(f"{SAMPLE_GATEWAY}/9500003#2", "Sonde")
     del gw.devices[HEATER]
-    del gw.devices[f"{SAMPLE_GATEWAY}/9312063#2"]
+    del gw.devices[f"{SAMPLE_GATEWAY}/9500003#2"]
     clock.advance(2.0)
     assert await gw.fetch_events() == []

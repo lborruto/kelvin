@@ -25,12 +25,12 @@ def test_salon_groups_two_radiators(house):
 
 
 def test_bridge_is_not_a_radiator(house):
-    assert "1698997" not in house.radiators
+    assert "1900001" not in house.radiators
     assert len(house.radiators) == 4
 
 
 def test_radiator_reads_roles(house):
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     assert set(r.urls) == {"heater", "temperature", "window", "occupancy", "energy", "light"}
     assert r.temperature == 20.2
     assert r.mode == "program"
@@ -80,9 +80,9 @@ def test_mixed_mode_room(house):
 
 def test_radiator_without_light_or_energy_still_renders():
     root, devices = sample_house()
-    devices = [d for d in devices if not d.device_url.endswith(("8370011#5", "8370011#6"))]
+    devices = [d for d in devices if not d.device_url.endswith(("9000011#5", "9000011#6"))]
     house = build_house(root, devices)
-    r = house.radiators["8370011"]
+    r = house.radiators["9000011"]
     assert r.energy_wh is None and r.light_on is None
     v = r.view()
     assert v["light"] is None and v["energy_wh"] is None
@@ -92,9 +92,9 @@ def test_radiator_without_light_or_energy_still_renders():
 def test_an_absent_register_is_none_not_zero():
     """Audit H1 case E: an absent T1/T2 state must not read as a 0 Wh counter."""
     root, devices = sample_house()
-    meter = next(d for d in devices if d.device_url.endswith("9312063#5"))
+    meter = next(d for d in devices if d.device_url.endswith("9500003#5"))
     del meter.states["core:ConsumptionTariff1State"]
-    r = build_house(root, devices).radiators["9312063"]
+    r = build_house(root, devices).radiators["9500003"]
     assert r.energy_wh == {"total": 2_400_000, "t1": None, "t2": 1_900_000}
 
 
@@ -129,9 +129,9 @@ def test_home_dump_fixture_is_generated_from_the_simulator():
     ],
 )
 def test_malformed_program_state_does_not_break_view(house, value, expected, locked):
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     r.states[r.heater_url]["core:TimeProgramState"] = value
-    view = next(x for x in house.view()["radiators"] if x["id"] == "9312063")
+    view = next(x for x in house.view()["radiators"] if x["id"] == "9500003")
     assert (view["program"], view["program_locked"]) == (expected, locked)
 
 

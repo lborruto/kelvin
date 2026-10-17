@@ -91,16 +91,16 @@ describe('deviceLabel (ruling: never a serial-like id on screen)', () => {
     last_event_at: null, details: {}
   });
   it('a Cozytouch generic label or one holding a device serial reads as the role', () => {
-    expect(deviceLabel(d('IO (8370011#2)'))).toBe('Sonde de température');
-    expect(deviceLabel(d('IO (1698997)', 'bridge'))).toBe('Pont Cozytouch');
-    expect(deviceLabel(d('Sonde 14172536#2'))).toBe('Sonde de température');
+    expect(deviceLabel(d('IO (9000011#2)'))).toBe('Sonde de température');
+    expect(deviceLabel(d('IO (1900001)', 'bridge'))).toBe('Pont Cozytouch');
+    expect(deviceLabel(d('Sonde 10000001#2'))).toBe('Sonde de température');
     expect(deviceLabel(d('io://1234-5678-9012/1#2'))).toBe('Sonde de température');
   });
   it('a label someone chose is kept', () => {
     expect(deviceLabel(d('Radiateur fenêtre', 'heater'))).toBe('Radiateur fenêtre');
     expect(deviceLabel(d('Chambre 2'))).toBe('Chambre 2');
     applyLocale('en');
-    expect(deviceLabel(d('IO (8370011#2)'))).toBe('Temperature sensor');
+    expect(deviceLabel(d('IO (9000011#2)'))).toBe('Temperature sensor');
   });
 });
 

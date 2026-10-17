@@ -27,8 +27,8 @@ from kelvin.setup.client import (
     subplaces_path,
 )
 
-URL = "io://1234-5678-9012/14172536#1"
-ENC = "io%3A%2F%2F1234-5678-9012%2F14172536%231"
+URL = "io://1234-5678-9012/10000001#1"
+ENC = "io%3A%2F%2F1234-5678-9012%2F10000001%231"
 ROOT = "https://stub.example/enduser-mobile-web/enduserAPI/"
 
 

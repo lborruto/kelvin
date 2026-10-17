@@ -19421,7 +19421,7 @@
     "hp_kwh": 6.589,
     "interpolated": true,
     "kwh": 6.855,
-    "radiator_id": "14172536",
+    "radiator_id": "10000001",
     "room_id": "p-salon",
     "setpoint_avg": 17.8,
     "temp_avg": 18.3
@@ -19436,7 +19436,7 @@
     "hp_kwh": 3.579,
     "interpolated": true,
     "kwh": 3.72,
-    "radiator_id": "8370011",
+    "radiator_id": "9000011",
     "room_id": "p-ch1",
     "setpoint_avg": 16.5,
     "temp_avg": 17.2
@@ -19451,7 +19451,7 @@
     "hp_kwh": 3.294,
     "interpolated": true,
     "kwh": 3.427,
-    "radiator_id": "8370022",
+    "radiator_id": "9000022",
     "room_id": "p-ch2",
     "setpoint_avg": 15.5,
     "temp_avg": 16.3
@@ -19466,7 +19466,7 @@
     "hp_kwh": 4.942,
     "interpolated": true,
     "kwh": 5.141,
-    "radiator_id": "9312063",
+    "radiator_id": "9500003",
     "room_id": "p-salon",
     "setpoint_avg": 17.8,
     "temp_avg": 18.3
@@ -20280,7 +20280,7 @@
     "hp_kwh": 38.274,
     "interpolated": true,
     "kwh": 41.799,
-    "radiator_id": "14172536",
+    "radiator_id": "10000001",
     "room_id": "p-salon",
     "setpoint_avg": null,
     "temp_avg": null
@@ -20295,7 +20295,7 @@
     "hp_kwh": 18.656,
     "interpolated": true,
     "kwh": 19.935,
-    "radiator_id": "8370011",
+    "radiator_id": "9000011",
     "room_id": "p-ch1",
     "setpoint_avg": null,
     "temp_avg": null
@@ -20310,7 +20310,7 @@
     "hp_kwh": 19.414,
     "interpolated": true,
     "kwh": 21.184,
-    "radiator_id": "8370022",
+    "radiator_id": "9000022",
     "room_id": "p-ch2",
     "setpoint_avg": null,
     "temp_avg": null
@@ -20325,7 +20325,7 @@
     "hp_kwh": 28.705,
     "interpolated": true,
     "kwh": 31.349,
-    "radiator_id": "9312063",
+    "radiator_id": "9500003",
     "room_id": "p-salon",
     "setpoint_avg": null,
     "temp_avg": null
@@ -22615,7 +22615,7 @@
     "hp_kwh": 19.467,
     "interpolated": true,
     "kwh": 20.265,
-    "radiator_id": "14172536",
+    "radiator_id": "10000001",
     "room_id": "p-salon",
     "setpoint_avg": 17.8,
     "temp_avg": 18.3
@@ -22630,7 +22630,7 @@
     "hp_kwh": 10.614,
     "interpolated": true,
     "kwh": 11.04,
-    "radiator_id": "8370011",
+    "radiator_id": "9000011",
     "room_id": "p-ch1",
     "setpoint_avg": 16.5,
     "temp_avg": 17.2
@@ -22645,7 +22645,7 @@
     "hp_kwh": 9.734,
     "interpolated": true,
     "kwh": 10.133,
-    "radiator_id": "8370022",
+    "radiator_id": "9000022",
     "room_id": "p-ch2",
     "setpoint_avg": 15.5,
     "temp_avg": 16.3
@@ -22660,7 +22660,7 @@
     "hp_kwh": 14.601,
     "interpolated": true,
     "kwh": 15.199,
-    "radiator_id": "9312063",
+    "radiator_id": "9500003",
     "room_id": "p-salon",
     "setpoint_avg": 17.8,
     "temp_avg": 18.3

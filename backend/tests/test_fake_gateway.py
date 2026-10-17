@@ -6,7 +6,7 @@ from kelvin.overkiz.models import DeviceCommand, ExecUpdate, StateChange
 from kelvin.overkiz.sample import SAMPLE_GATEWAY
 from tests.conftest import ManualClock
 
-H = f"{SAMPLE_GATEWAY}/9312063#1"
+H = f"{SAMPLE_GATEWAY}/9500003#1"
 
 
 async def test_command_applies_after_delay():
@@ -100,9 +100,9 @@ async def test_failures_and_external_changes():
     with pytest.raises(QuotaError):
         await gw.fetch_events()
     gw.fail_fetch = None
-    gw.push_state(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 21.0)
+    gw.push_state(f"{SAMPLE_GATEWAY}/9500003#2", "core:TemperatureState", 21.0)
     assert await gw.fetch_events() == [
-        StateChange(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 21.0)
+        StateChange(f"{SAMPLE_GATEWAY}/9500003#2", "core:TemperatureState", 21.0)
     ]
     await gw.login()
     assert gw.logins == 1

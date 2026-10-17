@@ -150,11 +150,11 @@ async def test_a_create_refused_for_quota_releases_its_label_at_once(env):
 async def test_a_place_that_answers_404_is_not_looked_up_again_and_again(env):
     clock, gw, _, svc, _ = env
     for n in (2, 3, 4, 5, 6):
-        gw.outside_move(f"{SAMPLE_GATEWAY}/8370011#{n}", "p-ghost")
+        gw.outside_move(f"{SAMPLE_GATEWAY}/9000011#{n}", "p-ghost")
         await pump(clock, gw, svc, 1)
     assert gw.place_reads == 1
     svc.reconciled()  # a full read: the next unknown-place event may look again
-    gw.outside_move(f"{SAMPLE_GATEWAY}/8370011#2", "p-ghost")
+    gw.outside_move(f"{SAMPLE_GATEWAY}/9000011#2", "p-ghost")
     await pump(clock, gw, svc, 1)
     assert gw.place_reads == 2
 
@@ -290,7 +290,7 @@ def test_device_labels_refuse_operation_words(raw):
 
 
 S = SAMPLE_GATEWAY
-RAD = "8370011"  # alone in « Chambre 1 »
+RAD = "9000011"  # alone in « Chambre 1 »
 HEATER = f"{S}/{RAD}#1"
 
 
@@ -388,16 +388,16 @@ async def test_a_room_being_moved_into_cannot_be_deleted(env):
 
 async def test_rename_radiator_sets_the_cozytouch_label_only(env):
     clock, gw, house, svc, _ = env
-    heater = f"{S}/9312063#1"
-    p = await svc.rename_radiator("9312063", " Radiateur fenêtre ")
+    heater = f"{S}/9500003#1"
+    p = await svc.rename_radiator("9500003", " Radiateur fenêtre ")
     assert gw.setup_writes == [("rename_device", heater, "Radiateur fenêtre")]
     await pump(clock, gw, svc, 2)
-    assert p.status == "confirmed" and house.radiators["9312063"].name == "Radiateur fenêtre"
+    assert p.status == "confirmed" and house.radiators["9500003"].name == "Radiateur fenêtre"
     assert gw.devices[heater].states["core:NameState"] == "Radiateur"
     assert gw.executed == []  # no device command (setName is no longer used)
     for raw in ("metadata", "..", ""):
         with pytest.raises(UserError) as e:
-            await svc.rename_radiator("9312063", raw)
+            await svc.rename_radiator("9500003", raw)
         assert e.value.code == "device_label_invalid"
 
 
@@ -445,17 +445,17 @@ async def test_a_device_moved_to_an_unknown_place_reads_that_place_only(env):
 
 async def test_rename_radiator_compares_with_the_cozytouch_label(env):
     _, gw, house, svc, _ = env
-    heater = f"{S}/9312063#1"
-    house.apply_device_update(DeviceUpdate(heater, None, "IO (9312063#1)"))
-    assert house.radiators["9312063"].name == "Radiateur"  # the generic label falls back
-    await svc.rename_radiator("9312063", "Radiateur")  # the Cozytouch label does change
+    heater = f"{S}/9500003#1"
+    house.apply_device_update(DeviceUpdate(heater, None, "IO (9500003#1)"))
+    assert house.radiators["9500003"].name == "Radiateur"  # the generic label falls back
+    await svc.rename_radiator("9500003", "Radiateur")  # the Cozytouch label does change
     assert gw.setup_writes == [("rename_device", heater, "Radiateur")]
 
 
 async def test_rename_radiator_to_its_current_label_changes_nothing(env):
     _, gw, _, svc, _ = env
     with pytest.raises(UserError) as e:
-        await svc.rename_radiator("9312063", "Radiateur")
+        await svc.rename_radiator("9500003", "Radiateur")
     assert e.value.code == "nothing_to_change" and gw.setup_writes == []
 
 

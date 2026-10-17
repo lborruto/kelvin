@@ -1,5 +1,8 @@
 import asyncio
+import base64
+import hashlib
 
+import pytest
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
@@ -118,6 +121,39 @@ async def test_without_allowed_hosts_any_host_is_served(tmp_path):
             transport=ASGITransport(app=app), base_url="http://whatever.example"
         ) as c:
             assert (await c.get("/api/health")).status_code == 200
+
+
+async def test_a_non_loopback_host_without_an_allowlist_warns_once(tmp_path, caplog):
+    app = _app(tmp_path, with_web=False)
+    async with LifespanManager(app):
+        for host in ("localhost:8070", "127.0.0.1", "[::1]:8070"):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url=f"http://{host}"
+            ) as c:
+                await c.get("/api/health")
+        assert "KELVIN_ALLOWED_HOSTS" not in caplog.text
+        for host in ("kelvin.lan:8070", "192.168.1.10"):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url=f"http://{host}"
+            ) as c:
+                assert (await c.get("/api/health")).status_code == 200
+    warnings = [r for r in caplog.records if "KELVIN_ALLOWED_HOSTS" in r.getMessage()]
+    assert len(warnings) == 1 and warnings[0].levelname == "WARNING"
+    assert "claim the home" in warnings[0].getMessage()
+
+
+async def test_an_allowlist_never_warns_about_exposure(tmp_path, caplog):
+    settings = Settings(
+        _env_file=None,
+        kelvin_data=tmp_path / "data",
+        kelvin_fake=True,
+        kelvin_allowed_hosts="kelvin.lan",
+    )
+    app = create_app(settings, FakeGateway(), start_tasks=False)
+    async with LifespanManager(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://kelvin.lan") as c:
+            await c.get("/api/health")
+    assert "claim the home" not in caplog.text
 
 
 def _assert_headers(r, label):
@@ -253,3 +289,42 @@ async def test_accept_encoding_q_values_and_packed_files(tmp_path):
                 r = await c.get("/_app/immutable/app.js", headers={"Accept-Encoding": refused})
                 assert "content-encoding" not in r.headers, refused
             assert (await c.get("/_app/immutable/app.js.br")).status_code == 404
+
+
+async def test_the_page_carries_a_csp_with_the_hash_of_each_inline_script(tmp_path):
+    web = tmp_path / "web"
+    web.mkdir()
+    inline = "\n      (function () { document.documentElement.lang = 'fr'; })();\n    "
+    (web / "index.html").write_text(
+        f'<html><head><script>{inline}</script><script src="/_app/x.js"></script>'
+        f'<script type="application/json">{{"a":1}}</script></head><body>kelvin</body></html>'
+    )
+    (web / "manifest.webmanifest").write_text("{}")
+    settings = Settings(
+        _env_file=None, kelvin_data=tmp_path / "data", kelvin_fake=True, kelvin_web=web
+    )
+    app = create_app(settings, FakeGateway(), start_tasks=False)
+    digest = base64.b64encode(hashlib.sha256(inline.encode()).digest()).decode()
+    async with LifespanManager(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as c:
+            for path in ("/", "/energy", "/index.html"):
+                csp = (await c.get(path)).headers["content-security-policy"]
+                directives = dict(d.split(" ", 1) for d in csp.split("; "))
+                assert directives["script-src"] == f"'self' 'sha256-{digest}'", path
+                assert directives["frame-ancestors"] == "'none'"
+                assert directives["object-src"] == "'none'"
+                assert directives["connect-src"] == "'self'"
+                assert "unsafe-inline" not in directives["script-src"]
+                assert "unsafe-eval" not in csp
+            assert "content-security-policy" not in (await c.get("/manifest.webmanifest")).headers
+
+
+def test_a_page_with_an_inline_event_handler_is_refused(tmp_path):
+    web = tmp_path / "web"
+    web.mkdir()
+    (web / "index.html").write_text('<html><button onclick="location.reload()">x</button></html>')
+    settings = Settings(
+        _env_file=None, kelvin_data=tmp_path / "data", kelvin_fake=True, kelvin_web=web
+    )
+    with pytest.raises(RuntimeError, match="inline event handler"):
+        create_app(settings, FakeGateway(), start_tasks=False)

@@ -42,12 +42,12 @@ def env():
 async def test_idle_and_busy_intervals(env):
     clock, gw, house, svc, pump, changed, _ = env
     assert await pump.run_once() == 30.0
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     assert await pump.run_once() == 2.0
     clock.advance(2)
     assert await pump.run_once() == 30.0
-    assert changed == [{"9312063"}]
+    assert changed == [{"9500003"}]
     assert r.mode == "manual"
 
 
@@ -74,14 +74,14 @@ async def test_auth_error_triggers_login(env):
 
 async def test_state_reads_in_turn_catch_missed_changes_without_a_full_setup_read(env):
     clock, gw, house, _, pump, changed, _ = env
-    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
+    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9500003#2", "core:TemperatureState", 22.0)
     await pump.run_once()
-    assert house.radiators["9312063"].temperature == 20.2
+    assert house.radiators["9500003"].temperature == 20.2
     for _ in house.radiators:  # one radiator per 600 s, in turn
         clock.advance(600)
         await pump.run_once()
-    assert house.radiators["9312063"].temperature == 22.0
-    assert {"9312063"} in changed
+    assert house.radiators["9500003"].temperature == 22.0
+    assert {"9500003"} in changed
     assert gw.snapshots == 0
 
 
@@ -101,7 +101,7 @@ async def test_resync_beyond_the_daily_budget_reads_device_by_device(env):
     _, gw, house, _, pump, changed, _ = env
     for _ in range(pump.guard.limit):
         pump.guard.record()
-    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
+    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9500003#2", "core:TemperatureState", 22.0)
     pauses: list[float] = []
 
     async def record_pause(seconds: float) -> None:
@@ -113,8 +113,8 @@ async def test_resync_beyond_the_daily_budget_reads_device_by_device(env):
     assert gw.snapshots == 0
     assert gw.state_reads == len(house.device_urls())
     assert pauses == [pump.device_pause] * (len(house.device_urls()) - 1)  # paced
-    assert house.radiators["9312063"].temperature == 22.0
-    assert {"9312063"} in changed
+    assert house.radiators["9500003"].temperature == 22.0
+    assert {"9500003"} in changed
 
 
 async def test_a_failed_state_read_backs_off_and_retries_the_resync(env):
@@ -156,7 +156,7 @@ async def test_a_quota_answer_to_a_state_read_does_not_arm_a_resync(env):
 async def test_a_device_whose_state_read_always_fails_never_stalls_the_pump(env):
     clock, gw, house, svc, pump, _, statuses = env
     gw.broken_devices.update(house.device_urls())
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     clock.advance(600)  # the rotation is due in the same poll as the confirmation
     await pump.run_once()
@@ -174,7 +174,7 @@ async def test_a_device_whose_state_read_always_fails_never_stalls_the_pump(env)
 
 async def test_outage_longer_than_timeout_fails_pending(env):
     clock, gw, house, svc, pump, _, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     gw.fail_fetch = QuotaError("quota")
     clock.advance(91)
@@ -205,7 +205,7 @@ async def test_wake_interrupts_sleep(env):
 
 async def test_raising_on_changed_keeps_cadence(env):
     _, gw, house, svc, pump, _, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
 
     def boom(ids):
         raise RuntimeError("cb")
@@ -214,7 +214,7 @@ async def test_raising_on_changed_keeps_cadence(env):
     await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
 
     async def fetch():
-        return [StateChange(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 21.0)]
+        return [StateChange(f"{SAMPLE_GATEWAY}/9500003#2", "core:TemperatureState", 21.0)]
 
     gw.fetch_events = fetch
     assert await pump.run_once() == 2.0  # on_changed raised, command still pending
@@ -224,7 +224,7 @@ async def test_raising_on_changed_keeps_cadence(env):
 
 async def test_event_exception_does_not_skip_batch(env):
     _, gw, house, svc, pump, changed, _ = env
-    url = f"{SAMPLE_GATEWAY}/9312063#2"
+    url = f"{SAMPLE_GATEWAY}/9500003#2"
     events = [
         StateChange(url, "core:TemperatureState", 20.0),
         StateChange(url, "core:TemperatureState", 21.0),
@@ -247,16 +247,16 @@ async def test_event_exception_does_not_skip_batch(env):
     svc.on_state = flaky
     await pump.run_once()
     assert n == 2
-    assert house.radiators["9312063"].temperature == 21.0
+    assert house.radiators["9500003"].temperature == 21.0
 
 
 async def test_event_changes_emitted_when_a_state_read_fails(env):
     clock, gw, _, _, pump, changed, _ = env
-    gw.push_state(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
+    gw.push_state(f"{SAMPLE_GATEWAY}/9500003#2", "core:TemperatureState", 22.0)
     clock.advance(600)
     gw.fail_states = QuotaError("quota")
     await pump.run_once()
-    assert {"9312063"} in changed and pump.connected is False
+    assert {"9500003"} in changed and pump.connected is False
 
 
 async def test_backoff_exponent_capped(env):
@@ -271,12 +271,12 @@ async def test_reconnect_forces_one_full_setup_read(env):
     gw.fail_fetch = QuotaError("quota")
     await pump.run_once()
     await pump.run_once()
-    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9312063#2", "core:TemperatureState", 22.0)
+    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9500003#2", "core:TemperatureState", 22.0)
     gw.fail_fetch = None
     await pump.run_once()  # reconnect: events, then the one full read, no 600 s wait
     await pump.run_once()
-    assert house.radiators["9312063"].temperature == 22.0
-    assert {"9312063"} in changed
+    assert house.radiators["9500003"].temperature == 22.0
+    assert {"9500003"} in changed
     assert gw.snapshots == 1 and pump.status()["setup_reads_24h"] == 1
 
 

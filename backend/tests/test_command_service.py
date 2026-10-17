@@ -33,7 +33,7 @@ async def drain(gw, house, svc):
 
 async def test_confirmed_by_state(env):
     clock, gw, house, svc, updates = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     assert p.status == "pending" and svc.has_active
     clock.advance(2)
@@ -44,7 +44,7 @@ async def test_confirmed_by_state(env):
 
 async def test_overridemode_failure_with_applied_state_is_success(env):
     clock, gw, house, svc, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Confort", (r.id,), plan_setpoint(r, "comfort", 20.5))
     clock.advance(2)
     events = await gw.fetch_events()
@@ -63,7 +63,7 @@ async def test_overridemode_failure_with_applied_state_is_success(env):
 async def test_failed_exec_without_state_fails_after_grace(env):
     clock, gw, house, svc, _ = env
     gw.unresponsive = True
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     clock.advance(2)
     await drain(gw, house, svc)
@@ -77,7 +77,7 @@ async def test_failed_exec_without_state_fails_after_grace(env):
 async def test_timeout_without_any_event(env):
     clock, gw, house, svc, _ = env
     gw.silent = True
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     clock.advance(CONFIRM_TIMEOUT)
     svc.tick()
@@ -87,7 +87,7 @@ async def test_timeout_without_any_event(env):
 
 async def test_newer_command_supersedes_older(env):
     clock, gw, house, svc, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     first = await svc.submit("A", (r.id,), plan_setpoint(r, "manual", 19.0))
     second = await svc.submit("B", (r.id,), plan_setpoint(r, "manual", 21.0))
     assert first.status == "superseded"
@@ -98,7 +98,7 @@ async def test_newer_command_supersedes_older(env):
 
 async def test_noop_confirms_immediately(env):
     _, _, house, svc, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "program"))
     assert p.status == "confirmed"
 
@@ -106,7 +106,7 @@ async def test_noop_confirms_immediately(env):
 async def test_send_error_fails_immediately(env):
     _, gw, house, svc, _ = env
     gw.fail_next_execute = GatewayError("réseau")
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     assert p.status == "failed" and p.error == "Envoi impossible : réseau."
     assert (p.error_code, p.error_params, p.reason_code) == (
@@ -119,7 +119,7 @@ async def test_send_error_fails_immediately(env):
 
 async def test_command_without_expectation_confirms_on_completion(env):
     clock, gw, house, svc, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Identifier", (r.id,), plan_identify(r))
     assert p.status == "pending"
     clock.advance(2)
@@ -131,14 +131,14 @@ async def test_on_sent_is_called(env):
     _, _, house, svc, _ = env
     calls = []
     svc.on_sent = lambda: calls.append(1)
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     assert calls == [1]
 
 
 async def test_view_shape(env):
     _, _, house, svc, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     assert set(p.view()) == {
         "id",
@@ -169,7 +169,7 @@ async def test_supersede_during_send_is_not_resurrected(env):
     gw.execute = slow
     seen: dict[str, list[str]] = {"A": [], "B": []}
     svc.on_update = lambda p: seen[p.label].append(p.status)
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     ta = asyncio.create_task(svc.submit("A", (r.id,), plan_setpoint(r, "manual", 19.0)))
     await asyncio.sleep(0)
     tb = asyncio.create_task(svc.submit("B", (r.id,), plan_setpoint(r, "manual", 21.0)))
@@ -188,7 +188,7 @@ async def test_unexpected_execute_error_fails_and_propagates(env):
         raise RuntimeError("bug")
 
     gw.execute = boom
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     with pytest.raises(RuntimeError):
         await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     assert not svc.has_active
@@ -196,7 +196,7 @@ async def test_unexpected_execute_error_fails_and_propagates(env):
 
 async def test_tick_times_out_stuck_sending(env):
     clock, _, house, svc, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     from kelvin.commands.service import Pending
 
     p = Pending("x", "Mode", (r.id,), plan_mode(r, "manual"), clock(), 0.0)
@@ -210,7 +210,7 @@ async def test_superseding_waits_for_the_older_execution(env):
     """A superseded command still runs on the device: the newer one must not be judged
     on the state from before it, or it 'confirms' a value the older command then overwrites."""
     clock, gw, house, svc, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     assert r.mode == "program"
     first = await svc.submit("A", (r.id,), plan_mode(r, "manual"))
     clock.advance(1)
@@ -227,7 +227,7 @@ async def test_superseding_waits_for_the_older_execution(env):
 
 async def test_superseded_execution_that_never_reports_stops_blocking(env):
     clock, gw, house, svc, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     gw.silent = True
     await svc.submit("A", (r.id,), plan_mode(r, "manual"))
     gw.silent = False
@@ -241,7 +241,7 @@ async def test_superseded_execution_that_never_reports_stops_blocking(env):
 async def test_superseded_execution_blocks_until_a_terminal_state(env):
     clock, gw, house, svc, _ = env
     gw.silent = True  # events are fed by hand below
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     assert r.mode == "program"
     a = await svc.submit("A", (r.id,), plan_mode(r, "manual"))
     b = await svc.submit("B", (r.id,), plan_mode(r, "program"))
@@ -272,7 +272,7 @@ async def test_superseded_send_error_releases_newer_commands(env):
         return await real(commands, label)
 
     gw.execute = slow
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     ta = asyncio.create_task(svc.submit("A", (r.id,), plan_mode(r, "manual")))
     await asyncio.sleep(0)
     b = await svc.submit("B", (r.id,), plan_mode(r, "program"))
@@ -287,7 +287,7 @@ async def test_settled_commands_stay_in_recent_for_a_while(env):
     from kelvin.commands.service import RECENT_KEEP
 
     clock, gw, house, svc, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p1 = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     p2 = await svc.submit("Mode", (r.id,), plan_mode(r, "off"))
     assert p1.status == "superseded"
@@ -304,7 +304,7 @@ async def test_a_label_gives_the_pending_its_code_and_french_text(env):
     from kelvin.labels import Label
 
     _, gw, house, svc, _ = env
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     labels = []
     execute = gw.execute
 
@@ -330,7 +330,7 @@ async def test_gateway_text_reaches_the_french_error_scrubbed_and_never_the_para
     gw.fail_next_execute = GatewayError(
         "connect to [2001:db8::1]:443; serial 1234-5678-9012 token=x"
     )
-    r = house.radiators["9312063"]
+    r = house.radiators["9500003"]
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     v = p.view()
     assert v["error"] == "Envoi impossible : connect to …; serial … …."
