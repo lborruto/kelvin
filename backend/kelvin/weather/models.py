@@ -16,6 +16,7 @@ ERA5_LAND = "era5_land"
 BEST_MATCH = "best_match"
 SIMULATOR = "simulator"
 MIXED = "mixed"
+VARIABLE_COUNT = 3  # temperature, apparent temperature, humidity
 HistoryKind = Literal["arome_hd", "era5_land", "best_match"]
 
 

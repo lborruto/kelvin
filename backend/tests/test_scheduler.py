@@ -152,3 +152,18 @@ async def test_a_run_that_called_nothing_keeps_the_last_fetch_time():
     assert await s.run_due() == ["ecowatt"]
     st = s.status("ecowatt")
     assert st["state"] == "ok" and st["last_ok"] == at(7, 18)
+
+
+async def test_reset_forgets_a_job(tmp_path):
+    db = Database(tmp_path / "k.db")
+    clock = ManualClock(1_000_000.0)
+
+    async def ok():
+        return True
+
+    s = Scheduler(db, [Job("x", (time(4, 0),), ok)], wall=clock)
+    await s.run_due()
+    assert s.status("x")["last_ok"] is not None
+    s.reset("x")
+    assert s.status("x")["last_ok"] is None
+    assert Scheduler(db, [Job("x", (time(4, 0),), ok)], wall=clock).status("x")["last_ok"] is None

@@ -39,6 +39,12 @@ TEMPLATES: dict[str, str] = {
     "mcp_token_limit": "{max} jetons MCP au plus : révoquez-en un d’abord.",
     "mcp_token_unknown": "Ce jeton MCP n’existe plus.",
     "mcp_disabled": "L’accès MCP est désactivé sur ce serveur (KELVIN_MCP).",
+    # Weather (Plan 14): never a coordinate in params
+    "weather_location_invalid": "Lieu invalide : latitude de −90 à 90, longitude de −180 à 180.",
+    "weather_elevation_invalid": "Altitude invalide : de −50 à 4 900 m.",
+    "weather_search_invalid": "Tapez de 2 à 60 caractères.",
+    "weather_search_busy": "Trop de recherches : réessayez dans quelques minutes.",
+    "weather_unavailable": "Open-Meteo ne répond pas : réessayez plus tard.",
     "alert_unknown": "Alerte introuvable.",
     "header_missing": "En-tête X-Kelvin manquant.",
     "bad_credentials": "Cozytouch refuse cet email ou ce mot de passe.",
