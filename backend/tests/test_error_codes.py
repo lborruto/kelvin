@@ -94,8 +94,9 @@ FRENCH = re.compile(
     re.IGNORECASE,
 )
 CATALOGUE_FILES = {"errors.py", "labels.py"}
-# Simulator data (invented room and device labels, as a Cozytouch setup reports them): not copy.
-SIMULATOR_DATA = {"overkiz/houses.py"}
+# Simulator data (invented room and device labels, as a Cozytouch setup reports them; public town
+# names as the geocoder returns them): not copy.
+SIMULATOR_DATA = {"overkiz/houses.py", "weather/fake.py"}
 # Files that define the codes (and the catalogue built from them): a use elsewhere is a real use.
 DEFINING_FILES = {"errors.py", "labels.py", "catalogue.py"}
 # Param names that would carry an identifier or a secret into an API body or a log.
