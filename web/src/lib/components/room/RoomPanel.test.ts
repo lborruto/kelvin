@@ -1,6 +1,6 @@
 import { flushSync } from 'svelte';
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import { house } from '$lib/stores/house.svelte';
 import RoomPanel from './RoomPanel.svelte';
@@ -449,6 +449,10 @@ describe('« Détails techniques » on the room panel (direction-2 §1.3)', () =
 describe('RoomPanel: the outdoor line (Plan 14)', () => {
   afterEach(() => weather.reset());
   it('with a weather place: asks the hours of the window once, and the legend says « Dehors » with the Open-Meteo link', async () => {
+    // Today's chart needs two past hours: pin the clock to the afternoon (at 00:30 there are none).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-20T14:30:00+01:00'));
+    onTestFinished(() => void vi.useRealTimers());
     const h = Math.floor(Date.now() / 3_600_000) * 3600;
     vi.mocked(api.weatherHourly).mockResolvedValue({ step: 3600, points: [{ ts: h - 7200, t: 5.1, model: 'arome_hd' }, { ts: h - 3600, t: 5.6, model: 'arome_hd' }] });
     weather.apply(VIEW);
