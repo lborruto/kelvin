@@ -58,7 +58,7 @@ def aggregate(day: date, hours: Iterable[Hour], tz: ZoneInfo, now: float) -> Day
     mine = sorted((h for h in hours if a <= h.ts < b), key=lambda h: h.ts)
     if not mine:
         return None
-    expected = (b - a) // 3600
+    expected = expected_hours(day, tz)
     models = {h.model for h in mine}
     model = models.pop() if len(models) == 1 else MIXED
     complete = len(mine) >= expected - MISSING_HOURS_OK

@@ -233,3 +233,23 @@ async def test_the_backfill_finalises_days_the_forecast_filled(tmp_path):
     clock.advance(4 * 86400)
     await svc.backfill_job()
     assert svc.store.daily(day, day + timedelta(days=1))[day].final
+
+
+async def test_the_history_is_pending_until_every_range_was_asked(tmp_path):
+    class NoOldDays(FakeWeatherSource):
+        async def history(self, loc, start, end, kind):
+            hours = await super().history(loc, start, end, kind)
+            first = datetime(2026, 11, 5, tzinfo=PARIS).timestamp()
+            return [h for h in hours if h.ts >= first]  # nothing older from any source
+
+    svc, *_ = make(
+        tmp_path,
+        first=[date(2026, 10, 1)],
+        source=NoOldDays(wall=ManualClock(at(2026, 11, 20, 14))),
+    )
+    svc.set_location(lat=45.76, lon=4.84, origin="manual")
+    assert svc.settings_view()["coverage"]["pending"] is True
+    await svc.backfill_job()
+    cov = svc.settings_view()["coverage"]
+    assert cov["pending"] is False  # asked once per source: the history ends where the data ends
+    assert cov["first_day"] == "2026-11-05" and cov["from"] == "2026-10-01"

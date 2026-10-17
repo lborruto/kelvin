@@ -24,8 +24,8 @@ class RedactWeatherQueries(logging.Filter):
 
 
 def install() -> None:
-    """Idempotent: one filter on uvicorn's access logger (and its handlers, which a record
-    propagated from a child logger would reach without the logger's own filters)."""
+    """Idempotent: one filter on uvicorn's access logger (uvicorn logs its access lines on that
+    logger itself, so the logger's filter sees every one)."""
     logger = logging.getLogger(ACCESS_LOGGER)
     if not any(isinstance(f, RedactWeatherQueries) for f in logger.filters):
         logger.addFilter(RedactWeatherQueries())

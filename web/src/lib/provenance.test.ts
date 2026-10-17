@@ -44,7 +44,8 @@ describe('provenance', () => {
     const p = provenance('weather', { at: now - 20 * 60_000, model: 'era5_land' }, now);
     expect(p.nature).toBe('published');
     expect(flat(p.rows)).toEqual(['Source: ERA5-Land (réanalyse Copernicus) via Open-Meteo', 'Relevé: il y a 20 min', 'Nature: publié']);
-    expect(sourceName('weather')).toBe('Météo-France AROME HD via Open-Meteo');
+    expect(sourceName('weather')).toBe('source en attente'); // no model known: never a guessed AROME HD
+    expect(sourceName('weather', 'best_match')).toBe('Open-Meteo (meilleur modèle disponible)');
   });
   it('reads in English', () => {
     applyLocale('en');

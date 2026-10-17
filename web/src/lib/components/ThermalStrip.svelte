@@ -345,7 +345,7 @@
         <svg viewBox="0 0 {W} {LANE_H}" preserveAspectRatio="none" aria-hidden="true" style:height="{LANE_H}px">
           <path class="outdoor" d={outdoorPath} vector-effect="non-scaling-stroke" />
         </svg>
-      {:else if !outdoorPending}<p class="lane-none">{m.weather.noData}</p>{/if}
+      {:else if !outdoorPending}<p class="lane-none">{outdoorPts.length === 1 ? m.weather.onePoint : m.weather.noData}</p>{/if}
     </div>
   {/if}
   {#if inspect && moments.length}

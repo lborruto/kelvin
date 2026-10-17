@@ -221,7 +221,7 @@ export interface Snapshot {
 // — Weather (Plan 14, spec §4, §7): the API contract of `GET /api/weather*` and `/api/settings/weather` —
 
 /** The model behind an hour: Kelvin's codes (`arpege` is Météo-France seamless beyond AROME's horizon). */
-export type WeatherModel = 'arome_hd' | 'arpege' | 'era5_land' | 'best_match' | 'simulator' | 'mixed';
+export type WeatherModel = 'arome_hd' | 'arpege' | 'era5_land' | 'best_match' | 'mixed';
 /** `GET /api/weather`, the snapshot's and the SSE event's `weather`: never the place or its coordinates. */
 export interface WeatherView {
   /** The current hour (epoch s `at`), or null before the first reading. */
@@ -254,7 +254,8 @@ export interface WeatherLocation extends Omit<WeatherPlace, 'name'> {
 export interface WeatherSettings {
   location: WeatherLocation | null;
   /** Days stored (ISO); `from` is the first day the backfill aims for. */
-  coverage: { first_day?: string; last_day?: string; complete_days?: number; from: string } | null;
+  /** `pending`: a range is still to be asked of a source (« en cours »); false once every source was asked. */
+  coverage: { first_day?: string; last_day?: string; complete_days?: number; from: string; pending?: boolean } | null;
   calls_today: number;
   budget: number;
   attribution: { url: string; licence: string };

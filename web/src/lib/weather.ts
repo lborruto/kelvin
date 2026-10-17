@@ -11,9 +11,19 @@ import { provenance, stamp, type Provenance } from './provenance';
 export const ATTRIBUTION_URL = 'https://open-meteo.com/'; // i18n-ignore: URL
 export const GEONAMES_URL = 'https://www.geonames.org/'; // i18n-ignore: URL
 
-/** The model's name with its route (« Météo-France AROME HD via Open-Meteo »); an unknown code reads as several. */
+/** The model behind a view: the current hour's, else the one the place's mode asks for (AROME HD in France, the
+ *  best match elsewhere); null when neither is known. Never AROME HD for a home it does not serve. */
+export function viewModel(v: Pick<WeatherView, 'now' | 'mode'> | null | undefined): string | null {
+  if (v?.now?.model) return v.now.model;
+  if (v?.mode === 'best_match') return 'best_match';
+  if (v?.mode === 'meteofrance') return 'arome_hd';
+  return null;
+}
+
+/** The model's name with its route (« Météo-France AROME HD via Open-Meteo »); an unknown code reads as several,
+ *  no code at all as « source en attente ». */
 export function modelName(model: WeatherModel | string | null | undefined): string {
-  return m.prov.weather[model ?? 'arome_hd'] ?? m.prov.weather.mixed;
+  return model ? (m.prov.weather[model] ?? m.prov.weather.mixed) : m.prov.weather.pending;
 }
 
 /** The chip's value: the current hour, 1 decimal, or « — » (its reason in the Fiche). */
@@ -54,7 +64,7 @@ export function weatherFiche(v: WeatherView, now: number): WeatherFiche {
     title: m.weather.ficheTitle,
     rows,
     notes: [m.weather.notStation],
-    provenance: provenance('weather', { at: v.fetched_at ? v.fetched_at * 1000 : null, model: v.now?.model ?? null }, now),
+    provenance: provenance('weather', { at: v.fetched_at ? v.fetched_at * 1000 : null, model: viewModel(v) }, now),
     link: { label: m.weather.attributionShort, href: ATTRIBUTION_URL }
   };
 }
@@ -116,7 +126,7 @@ export function weatherSource(
   const at = v.fetched_at ? v.fetched_at * 1000 : null;
   const state = weatherFresh(v, now);
   const rows: FicheRow[] = [
-    { label: m.weather.modelRow, value: modelName(v.now?.model) },
+    { label: m.weather.modelRow, value: modelName(viewModel(v)) },
     { label: m.weather.lastRead, value: at ? stamp(at, now) : '—', note: at ? null : chipReason({ ...v, now: null }, now) }
   ];
   if (outdoor) rows.push({ label: m.weather.daysRow, value: m.weather.callsValue(fmtInt(outdoor.days), fmtInt(outdoor.of)) });
@@ -127,7 +137,7 @@ export function weatherSource(
     title: m.weather.ficheTitle,
     rows,
     notes: [m.weather.notStation],
-    provenance: provenance('weather', { at, model: v.now?.model ?? null }, now),
+    provenance: provenance('weather', { at, model: viewModel(v) }, now),
     link: { label: m.weather.attributionShort, href: ATTRIBUTION_URL }
   };
 }

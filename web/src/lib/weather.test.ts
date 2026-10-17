@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { WeatherView } from './api/types';
 import { setLocale } from './i18n';
 import { at, NOW, VIEW } from './weather.fixture';
-import { chipReason, chipValue, modelName, normalisedLine, outdoorRows, placeLine, weatherFiche, weatherSource, whyText } from './weather';
+import { chipReason, chipValue, modelName, normalisedLine, outdoorRows, placeLine, viewModel, weatherFiche, weatherSource, whyText } from './weather';
 
 const NB = ' ';
 const view = (over: Partial<WeatherView> = {}): WeatherView => ({ ...VIEW, ...over });
@@ -48,8 +48,21 @@ describe('weather words', () => {
 
   it('model names, unknown ones read as several models', () => {
     expect(modelName('era5_land')).toBe('ERA5-Land (réanalyse Copernicus) via Open-Meteo');
-    expect(modelName(null)).toBe('Météo-France AROME HD via Open-Meteo');
+    expect(modelName(null)).toBe('source en attente');
     expect(modelName('something_new')).toBe('Plusieurs modèles via Open-Meteo');
+  });
+
+  it('a place outside France before its first reading never claims AROME HD (Genève, best match)', () => {
+    const geneva = view({ mode: 'best_match', now: null, today: null, fetched_at: null, fetch: { state: 'never', next: null, error_since: null } });
+    expect(viewModel(geneva)).toBe('best_match');
+    const src = weatherSource(geneva, null, NOW);
+    expect(src.rows[0]).toMatchObject({ label: 'Modèle', value: 'Open-Meteo (meilleur modèle disponible)' });
+    expect(src.provenance.rows[0].value).toBe('Open-Meteo (meilleur modèle disponible)');
+    expect(weatherFiche(geneva, NOW).provenance.rows[0].value).toBe('Open-Meteo (meilleur modèle disponible)');
+    expect(JSON.stringify(src)).not.toContain('AROME');
+    expect(viewModel(view({ mode: 'meteofrance', now: null }))).toBe('arome_hd'); // the model a French place asks for
+    expect(viewModel(view({ now: { ...VIEW.now!, model: 'arpege' } }))).toBe('arpege'); // the hour's own model wins
+    expect(viewModel(null)).toBeNull();
   });
 
   it('a place line and the inspector rows', () => {

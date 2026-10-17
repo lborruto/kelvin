@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 from kelvin.errors import UserError
 from kelvin.linky.models import day_bounds
 from kelvin.scheduler import Job
-from kelvin.weather.client import printable
+from kelvin.weather.client import LABEL_MAX, printable
 from kelvin.weather.dju import AROME_HD_SINCE, mode_for, round_coord, weight
 from kelvin.weather.fake import DEMO_PLACE
 from kelvin.weather.models import (
@@ -56,7 +56,6 @@ BACKFILL_RUN_CAP = 300.0
 SEARCHES_PER_HOUR = 30
 SEARCHES_PER_DAY = 200
 ELEVATION_MIN, ELEVATION_MAX = -50, 4900
-LABEL_MAX = 80
 ATTRIBUTION_URL = "https://open-meteo.com/"
 KINDS: tuple[HistoryKind, ...] = ("arome_hd", "era5_land", "best_match")
 
@@ -298,6 +297,9 @@ class WeatherService:
         loc = self.location()
         if loc is None:
             return False
+        # Days the forecast job filled are complete but were built while recent: now final (first,
+        # so a run that meets a spent budget still finalises).
+        self.store.finalise(self.wall())
         did = False
         spent = 0.0
         # Planned again after each step: a range asked is recorded, so AROME HD's gaps become
@@ -318,8 +320,6 @@ class WeatherService:
             self._record(kind, a, b)
             spent += w
             did = True
-        # Days the forecast job filled are complete but were built while recent: now final.
-        self.store.finalise(self.wall())
         self.store.prune(self.wall())
         if did:
             self.on_change()
@@ -404,7 +404,13 @@ class WeatherService:
             else {k: v for k, v in asdict(loc).items() if k != "set_at"},
             "coverage": None
             if loc is None
-            else {**(self.store.coverage() or {}), "from": self.backfill_start(today).isoformat()},
+            else {
+                **(self.store.coverage() or {}),
+                "from": self.backfill_start(today).isoformat(),
+                # A range is still to be asked: « en cours ». False once every source was asked,
+                # even when some old days never came (the history then starts at first_day).
+                "pending": bool(self.backfill_plan()),
+            },
             "calls_today": self.calls_today(),
             "budget": DAILY_WEIGHT_CAP,
             "attribution": {"url": ATTRIBUTION_URL, "licence": "CC BY 4.0"},

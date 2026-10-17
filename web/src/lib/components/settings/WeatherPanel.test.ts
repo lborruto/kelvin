@@ -120,6 +120,18 @@ describe('WeatherPanel', () => {
     expect(row('Historique')).toBe('en cours de récupération');
   });
 
+  it('the history ends: once every source was asked, it says where it starts and why', async () => {
+    vi.mocked(api.weatherSettings).mockResolvedValue({ ...LYON, coverage: { first_day: '2025-12-01', complete_days: 350, from: '2025-11-03', pending: false } });
+    const { unmount } = render(WeatherPanel);
+    await screen.findByText('Lieu', { selector: 'dt' });
+    expect(row('Historique')).toBe('depuis le 1er décembre 2025 (plus ancien non publié par Open-Meteo)');
+    unmount();
+    vi.mocked(api.weatherSettings).mockResolvedValue({ ...LYON, coverage: { from: '2025-11-03', pending: false } });
+    render(WeatherPanel);
+    await screen.findByText('Lieu', { selector: 'dt' });
+    expect(row('Historique')).toBe('aucun jour publié par Open-Meteo');
+  });
+
   it('« Changer de lieu » shows the search; a pick saves the place', async () => {
     vi.mocked(api.weatherSettings).mockResolvedValue(LYON);
     vi.mocked(api.putWeather).mockResolvedValue(LYON);

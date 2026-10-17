@@ -149,8 +149,8 @@ export const en: Messages = {
       arpege: 'Météo-France ARPEGE via Open-Meteo',
       era5_land: 'ERA5-Land (Copernicus reanalysis) via Open-Meteo',
       best_match: 'Open-Meteo (best available model)',
-      simulator: 'Simulator',
-      mixed: 'Several models via Open-Meteo'
+      mixed: 'Several models via Open-Meteo',
+      pending: 'source pending'
     } as Record<string, string>
   },
   fiche: {
@@ -1678,6 +1678,7 @@ export const en: Messages = {
     djuLabel: `HDD (base 18${NB}°C)`,
     partialDays: (n: number, of: number) => `weather incomplete: ${n} of ${of} days`,
     noData: 'no weather for this period',
+    onePoint: 'only one hour published so far',
     heroLine: (mean: string, dju: string | null) => (dju ? `Outside: avg. ${mean} · ${dju} HDD` : `Outside: avg. ${mean}`),
     heroNone: 'Outside: — (no weather for this period)',
     atEqualWeather: (change: string) => `${change} weather-adjusted`,
@@ -1725,6 +1726,8 @@ export const en: Messages = {
     history: 'History',
     historySince: (day: string) => `since ${day}`,
     historyRunning: 'being fetched',
+    historyPartial: (day: string) => `since ${day} (older days not published by Open-Meteo)`,
+    historyNone: 'no day published by Open-Meteo',
     calls: 'Calls today',
     callsValue: (n: string, of: string) => `${n} of ${of}`,
     daysRow: 'Days with weather',

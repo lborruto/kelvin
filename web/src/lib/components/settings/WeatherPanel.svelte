@@ -62,7 +62,11 @@
   let fetchedAt = $derived(weather.view?.fetched_at ? weather.view.fetched_at * 1000 : null);
   let history = $derived.by(() => {
     const c = settings?.coverage;
-    return c?.first_day && c.first_day <= c.from ? m.weather.historySince(fmtDateLong(c.first_day)) : m.weather.historyRunning;
+    if (!c) return m.weather.historyRunning;
+    if (c.first_day && c.first_day <= c.from) return m.weather.historySince(fmtDateLong(c.first_day));
+    // Every source was asked and the oldest days never came: say where the history starts, and why.
+    if (c.pending === false) return c.first_day ? m.weather.historyPartial(fmtDateLong(c.first_day)) : m.weather.historyNone;
+    return m.weather.historyRunning;
   });
   let stateLine = $derived(
     settings === undefined ? null : !loc || !placeName ? m.weather.off : m.weather.state(placeName, fetchedAt ? fmtTime(fetchedAt) : null)

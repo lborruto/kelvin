@@ -158,8 +158,8 @@ export const fr = {
       arpege: 'Météo-France ARPEGE via Open-Meteo',
       era5_land: 'ERA5-Land (réanalyse Copernicus) via Open-Meteo',
       best_match: 'Open-Meteo (meilleur modèle disponible)',
-      simulator: 'Simulateur',
-      mixed: 'Plusieurs modèles via Open-Meteo'
+      mixed: 'Plusieurs modèles via Open-Meteo',
+      pending: 'source en attente'
     } as Record<string, string>
   },
   fiche: {
@@ -1731,6 +1731,7 @@ export const fr = {
     djuLabel: `DJU (base 18${NB}°C)`,
     partialDays: (n: number, of: number) => `météo incomplète${NB}: ${n} jours sur ${of}`,
     noData: 'pas de météo pour cette période',
+    onePoint: 'une seule heure publiée pour l’instant',
     heroLine: (mean: string, dju: string | null) => (dju ? `Dehors${NB}: moy. ${mean} · ${dju} DJU` : `Dehors${NB}: moy. ${mean}`),
     heroNone: `Dehors${NB}: — (pas de météo pour cette période)`,
     atEqualWeather: (change: string) => `${change} à météo égale`,
@@ -1778,6 +1779,8 @@ export const fr = {
     history: 'Historique',
     historySince: (day: string) => `depuis le ${day}`,
     historyRunning: 'en cours de récupération',
+    historyPartial: (day: string) => `depuis le ${day} (plus ancien non publié par Open-Meteo)`,
+    historyNone: 'aucun jour publié par Open-Meteo',
     calls: 'Appels aujourd’hui',
     callsValue: (n: string, of: string) => `${n} sur ${of}`,
     daysRow: 'Jours avec météo',

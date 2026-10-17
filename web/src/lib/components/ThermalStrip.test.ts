@@ -323,6 +323,9 @@ describe('ThermalStrip: the outdoor lane (Plan 14)', () => {
     const empty = render(ThermalStrip, { props: { ...props, outdoor: [] } });
     expect(empty.container.querySelector('.lane')).toHaveTextContent('pas de météo pour cette période');
     expect(empty.container.querySelector('.lane path')).toBeNull();
+    // One published hour (24 h just after midnight): no line yet, and the lane says why, not « no weather ».
+    const one = render(ThermalStrip, { props: { ...props, outdoor: [{ t: start, v: 4 }] } });
+    expect(one.container.querySelector('.lane')).toHaveTextContent('une seule heure publiée pour l’instant');
     const pending = render(ThermalStrip, { props: { ...props, outdoor: [], outdoorPending: true } });
     expect(pending.container.querySelector('.lane')!.textContent!.trim()).toBe('');
   });

@@ -83,7 +83,7 @@ export function sourceName(kind: ProvKind, name?: string | null): string {
     case 'kelvin-calc':
       return m.prov.kelvin;
     case 'weather':
-      return m.prov.weather[name ?? 'arome_hd'] ?? m.prov.weather.mixed;
+      return name ? (m.prov.weather[name] ?? m.prov.weather.mixed) : m.prov.weather.pending;
   }
 }
 
