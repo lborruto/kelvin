@@ -417,7 +417,8 @@ The week as an agenda, the day as a form; nothing is sent before « Envoyer ».
   periods at heat 45 %); no drag ever reaches them. Pending: dashed muted outlines. Each day's header is a button named as a
   sentence (periods, comfort total, today, edited, lock reason); beside the editor it is `aria-pressed`, a roving tab stop, and
   arrows/Home/End move and select. Desktop drag (pointer only; the header and the editor are the keyboard path): a block moves,
-  its top or bottom edge resizes, in 15-minute steps through `$lib/program` (23:45 at the latest, never over a neighbour), with
+  its top or bottom edge resizes, in the room's programme step through `$lib/program` (30 min on Sauter; one step before
+  midnight at the latest, 23:30, never over a neighbour), with
   an ink time bubble (« fin 23:30 »); a drag on an empty area of a day under 3 periods draws out a 1 h period; any drag selects
   the day in the editor. The phone agenda is a picture: a tap on a day opens `?day=`. Under it on a phone: « Touchez un jour
   pour l’éditer. » and each locked day's reason (`data-lock`). An offline room's agenda is read-only (no buttons, sentences
@@ -428,7 +429,7 @@ The week as an agenda, the day as a form; nothing is sent before « Envoyer ».
   and an ink edge; a drag shows the time bubble above, leaning inwards near the ends; labels 00 · 06 · 12 · 18 · 24, gridlines
   every 3 h). « PLAGES CONFORT · N SUR 3 » over a grouped list of rows « ■ Plage 1 [06:00] › [07:30] (×) » (36 px s2 time pills,
   600 text, no clock glyph; the phone shows the number only). Desktop: « + Ajouter une plage » and « Copier vers… » (.btn-sm),
-  « 3 plages au maximum · pas de 15 min »; the phone has « Glissez une plage ou ses bords · pas de 15 min » under the bar and
+  « 3 plages au maximum · pas de 30 min » (the room's step); the phone has « Glissez une plage ou ses bords · pas de 30 min » under the bar and
   Ajouter / Copier vers… as list rows (the add row says « 3 plages au maximum » when full). Then « **Confort 8 h 30** · éco le
   reste du temps ». A locked day: the hatched bar, the lock line with its reason, and a neutral Notice « Ce jour reste tel que
   le radiateur l’a. » (Kelvin sends it back unchanged; no copy lands on it); the phone header says « 🔒 verrouillé » and the

@@ -5,6 +5,12 @@ test.describe.configure({ mode: 'serial' });
 
 /** A command was sent: it shows as pending, then the radiator confirms it.
  * Waiting for "Envoi…" first matters: a previous "Confirmé" lingers a few seconds. */
+/** A programme send: once out, it says it waits for the radiators, then « Confirmé ». */
+async function programmeConfirmed(page: Page) {
+  await expect(page.getByText(/^En attente d(u radiateur|es radiateurs)…$/).first()).toBeVisible();
+  await expect(page.getByText('Confirmé').first()).toBeVisible();
+}
+
 async function confirmed(page: Page) {
   await expect(page.getByText('Envoi…').first()).toBeVisible();
   await expect(page.getByText('Confirmé').first()).toBeVisible();
@@ -79,10 +85,10 @@ test('programme edit round-trips', async ({ page }) => {
   await page.getByRole('button', { name: 'Supprimer la plage 2 du Lundi' }).click();
   await expect(page.locator('.sendbar')).toContainText('1 jour modifié');
   await page.getByRole('button', { name: 'Envoyer', exact: true }).click();
-  await confirmed(page);
+  await programmeConfirmed(page);
   await page.getByRole('button', { name: 'Ajouter une plage le Lundi' }).click();
   await page.getByRole('button', { name: 'Envoyer', exact: true }).click();
-  await confirmed(page);
+  await programmeConfirmed(page);
 });
 
 test('Chauffe temporaire: a sentence, then the room says it until « Arrêter »', async ({ page, isMobile }) => {

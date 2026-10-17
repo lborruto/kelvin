@@ -27,6 +27,7 @@ class Capabilities:
     eco: tuple[float, float] | None = None
     levels: tuple[str, ...] = ()
     program: bool = False
+    program_step_minutes: int | None = None  # with `program`: the times the device keeps
     dryer: tuple[str, ...] = ()
     window_detection: bool = False
     presence_detection: bool = False
@@ -68,6 +69,7 @@ class Capabilities:
             "eco": pair(self.eco),
             "levels": list(self.levels),
             "program": self.program,
+            "program_step_minutes": self.program_step_minutes,
             "dryer": list(self.dryer),
             "window_detection": self.window_detection,
             "presence_detection": self.presence_detection,
@@ -119,6 +121,9 @@ def capabilities(r: Radiator) -> Capabilities:
         eco=eco,
         levels=levels,
         program=p.program and C.SET_TIME_PROGRAM.value in heater,
+        program_step_minutes=(
+            p.program_step if p.program and C.SET_TIME_PROGRAM.value in heater else None
+        ),
         dryer=dryer,
         window_detection=C.SET_OPEN_WINDOW_DETECTION_ACTIVATION.value in heater,
         presence_detection=C.SET_OCCUPANCY_ACTIVATION.value in heater,

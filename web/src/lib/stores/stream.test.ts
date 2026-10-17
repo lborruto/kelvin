@@ -110,7 +110,7 @@ describe('connectStream', () => {
     expect(store.connection).toBe('open');
   });
 
-  it.each([[11_000, 2], [5_000, 1]])('hidden for %i ms while open -> %i sources', (ms, n) => {
+  it.each([[25_000, 2], [5_000, 1]])('hidden for %i ms while open and silent -> %i sources', (ms, n) => {
     const { doc, tick } = setup();
     FakeES.all[0].emit('snapshot', snapshot);
     doc.visibilityState = 'hidden';
@@ -120,6 +120,24 @@ describe('connectStream', () => {
     doc.dispatchEvent(new Event('visibilitychange'));
     expect(FakeES.all).toHaveLength(n);
     if (n === 2) expect(FakeES.all[0].closed).toBe(true);
+  });
+
+  it('a tab hidden a while whose stream kept pinging keeps it (no reconnect churn when switching windows)', () => {
+    // Owner's install, 2026-10-17: switching between Kelvin and another window every few
+    // seconds reopened the stream each time (17:36–17:41), mid-send.
+    const { doc, tick } = setup();
+    FakeES.all[0].emit('snapshot', snapshot);
+    doc.visibilityState = 'hidden';
+    doc.dispatchEvent(new Event('visibilitychange'));
+    for (let i = 0; i < 4; i++) {
+      tick(15_000);
+      FakeES.all[0].emit('ping', {});
+    }
+    tick(3_000);
+    doc.visibilityState = 'visible';
+    doc.dispatchEvent(new Event('visibilitychange'));
+    expect(FakeES.all).toHaveLength(1);
+    expect(FakeES.all[0].closed).toBe(false);
   });
 
   it('tells the app about every failure, before reconnecting', () => {

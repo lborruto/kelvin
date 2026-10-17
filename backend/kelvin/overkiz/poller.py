@@ -159,6 +159,9 @@ class EventPump:
             for ev in await self.gateway.fetch_events():
                 self._handle(ev, changed)
             events_ok = True
+            # A command about to fail reads its radiators once first (device state is the truth).
+            self.commands.tick()
+            changed |= await self.commands.verify()
             if self._resync_due:
                 if await self._resync(changed):
                     self._resync_due = False
@@ -186,7 +189,8 @@ class EventPump:
                 self._resync_due = True
             if isinstance(e, QuotaError):
                 self._quota_hold_until = self.clock() + self.state_interval
-            self._safe(self.commands.tick)
+            # No targeted read can confirm a command during an outage: judge without it.
+            self._safe(lambda: self.commands.tick(can_read=False))
             self._notify_status()
             self._publish_layout()
             if changed:

@@ -24,6 +24,8 @@ export interface StreamOptions {
 }
 
 const MAX_DELAY_MS = 30_000;
+/** The server pings every 15 s: a stream heard from within this is alive, whatever the tab did. */
+const ALIVE_MS = 20_000;
 
 export function connectStream(store: HouseStore, opts: StreamOptions = {}): () => void {
   const url = opts.url ?? '/api/stream';
@@ -38,6 +40,8 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
   const now = opts.now ?? (() => Date.now());
   const staleAfterMs = opts.staleAfterMs ?? 10_000;
   let hiddenAt: number | null = null;
+  /** When the current stream last delivered anything (a ping included). */
+  let heardAt: number | null = null;
   let es: EventSource | null = null;
   let attempts = 0;
   let timer: unknown = null;
@@ -63,7 +67,10 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
 
   function listen(source: EventSource, name: string, apply: (data: never) => void) {
     source.addEventListener(name, (e) => {
-      if (es === source) arm(source);
+      if (es === source) {
+        arm(source);
+        heardAt = now();
+      }
       store.heard();
       apply(JSON.parse((e as MessageEvent).data) as never);
     });
@@ -90,6 +97,7 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
     es?.close();
     const source = new ES(url);
     es = source;
+    heardAt = null;
     store.connection = attempts === 0 ? 'connecting' : 'reconnecting';
     listen(source, 'snapshot', (d: { alerts?: AlertSummary; grid?: GridView | null }) => {
       store.applySnapshot(d as never);
@@ -119,8 +127,11 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
     if (doc?.visibilityState !== 'visible') return;
     const wasHiddenFor = hiddenAt === null ? 0 : now() - hiddenAt;
     hiddenAt = null;
-    // Mobile browsers kill SSE silently: after a long background, always take a fresh snapshot.
-    const stale = wasHiddenFor >= staleAfterMs;
+    // Mobile browsers kill SSE silently: after a long background, take a fresh snapshot, unless
+    // the stream kept talking meanwhile (a desktop tab behind another window): reopening it then
+    // is churn, every time the owner switches windows (2026-10-17).
+    const alive = heardAt !== null && now() - heardAt < ALIVE_MS;
+    const stale = wasHiddenFor >= staleAfterMs && !alive;
     if (store.connection === 'open' && !stale) return;
     if (timer) cancel(timer);
     attempts = 0;

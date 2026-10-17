@@ -15,6 +15,8 @@ import {
   shiftDay,
   slotTimes,
   EDIT_MAX,
+  lastEnd,
+  roomStep,
   fromMin,
   fromWeekProgram,
   isComfortAt,
@@ -44,7 +46,10 @@ describe('program basics', () => {
     expect(fromMin(1110)).toBe('18:30');
     expect(fromMin(1439)).toBe('23:59');
     expect(snap(1112)).toBe(1110);
-    expect(snap(1440)).toBe(1425);
+    expect(snap(1440)).toBe(1410); // 30-minute step by default: 23:30 at the latest
+    expect(snap(1065)).toBe(1080); // 17:45 is not a time a Sauter radiator keeps
+    expect(snap(1112, 15)).toBe(1110);
+    expect(snap(1440, 15)).toBe(1425);
     expect(snap(-5)).toBe(0);
   });
   it('day segments are sorted and parsed', () => {
@@ -115,14 +120,18 @@ describe('editing', () => {
     expect(addSlot([...segs, { start: 600, end: 700 }], 800)).toBeNull();
   });
   it('moves within neighbours and the day', () => {
-    expect(moveSlot(segs, 0, 60)).toEqual([{ start: 435, end: 540 }, segs[1]]);
-    expect(moveSlot(segs, 0, -1000)).toEqual([{ start: 0, end: 105 }, segs[1]]);
-    expect(moveSlot(segs, 0, 2000)).toEqual([{ start: 945, end: 1050 }, segs[1]]);
+    expect(moveSlot(segs, 0, 60, 15)).toEqual([{ start: 435, end: 540 }, segs[1]]);
+    expect(moveSlot(segs, 0, -1000, 15)).toEqual([{ start: 0, end: 105 }, segs[1]]);
+    expect(moveSlot(segs, 0, 2000, 15)).toEqual([{ start: 945, end: 1050 }, segs[1]]);
+    // A 06:15 period (held by a radiator) moved on a 30-minute step lands on the step.
+    expect(moveSlot(segs, 0, 60)).toEqual([{ start: 450, end: 555 }, segs[1]]);
   });
-  it('resizes with a 15-minute minimum', () => {
-    expect(resizeSlot(segs, 1, 'end', 1380)).toEqual([segs[0], { start: 1050, end: 1380 }]);
-    expect(resizeSlot(segs, 1, 'start', 1400)).toEqual([segs[0], { start: 1335, end: 1350 }]);
-    expect(resizeSlot(segs, 1, 'start', 100)).toEqual([segs[0], { start: 480, end: 1350 }]);
+  it('resizes with a one-step minimum', () => {
+    expect(resizeSlot(segs, 1, 'end', 1380, 15)).toEqual([segs[0], { start: 1050, end: 1380 }]);
+    expect(resizeSlot(segs, 1, 'start', 1400, 15)).toEqual([segs[0], { start: 1335, end: 1350 }]);
+    expect(resizeSlot(segs, 1, 'start', 100, 15)).toEqual([segs[0], { start: 480, end: 1350 }]);
+    expect(resizeSlot(segs, 1, 'start', 1400)).toEqual([segs[0], { start: 1320, end: 1350 }]);
+    expect(resizeSlot(segs, 1, 'start', 1065)).toEqual([segs[0], { start: 1080, end: 1350 }]); // 17:45 → 18:00
   });
   it('removes', () => {
     expect(removeSlot(segs, 0)).toEqual([segs[1]]);
@@ -169,13 +178,17 @@ describe('adjacent slots', () => {
 
 
 describe('midnight and locked days (QW8)', () => {
-  it('24:00 reads and formats; the editor never makes an end after 23:45', () => {
+  it('24:00 reads and formats; the editor never makes an end after the last step (23:30 at 30 min)', () => {
     expect(toMin('24:00')).toBe(1440);
     expect(fromMin(1440)).toBe('24:00');
-    expect(EDIT_MAX).toBe(1425);
-    expect(resizeSlot([{ start: 1300, end: 1380 }], 0, 'end', 1440)).toEqual([{ start: 1300, end: 1425 }]);
-    expect(addSlot([], 1410)).toEqual([{ start: 1410, end: 1425 }]); // 23:30–23:45: the last period that fits
-    expect(addSlot([], 1420)).toBeNull(); // 23:40 snaps to 23:45: no room left for a 15 min period
+    expect(EDIT_MAX).toBe(1410);
+    expect(lastEnd(15)).toBe(1425);
+    expect(resizeSlot([{ start: 1290, end: 1380 }], 0, 'end', 1440)).toEqual([{ start: 1290, end: 1410 }]);
+    expect(addSlot([], 1380)).toEqual([{ start: 1380, end: 1410 }]); // 23:00–23:30: the last period that fits
+    expect(addSlot([], 1400)).toBeNull(); // 23:20 snaps to 23:30: no room left for a 30 min period
+    expect(resizeSlot([{ start: 1300, end: 1380 }], 0, 'end', 1440, 15)).toEqual([{ start: 1300, end: 1425 }]);
+    expect(addSlot([], 1410, 120, 15)).toEqual([{ start: 1410, end: 1425 }]);
+    expect(addSlot([], 1420, 120, 15)).toBeNull();
     expect(daySegs({ sunday: [{ start: '20:00', end: '24:00' }] }, 'sunday')).toEqual([{ start: 1200, end: 1440 }]);
   });
   it('a locked day is never in the payload', () => {
@@ -252,20 +265,33 @@ describe('Programme page helpers', () => {
   });
 });
 
+describe('the programme step (Sauter keeps 30-minute times, 2026-10-17)', () => {
+  it('a room takes the coarsest step of its radiators; none named is 30', () => {
+    const r = (step: number | null | undefined) => ({ capabilities: step === undefined ? undefined : { program_step_minutes: step } }) as never;
+    expect(roomStep([])).toBe(30);
+    expect(roomStep([r(undefined), r(null)])).toBe(30);
+    expect(roomStep([r(30), r(60)])).toBe(60);
+  });
+});
+
 describe('drawSlot (the agenda draws a period)', () => {
   const day = [{ start: 390, end: 480 }, { start: 1020, end: 1380 }];
   it('down: from the origin, an hour at least, snapped', () => {
     expect(drawSlot(day, 721, 730)).toEqual([day[0], { start: 720, end: 780 }, day[1]]);
+    expect(drawSlot(day, 720, 868, 60, 15)).toEqual([day[0], { start: 720, end: 870 }, day[1]]);
     expect(drawSlot(day, 720, 868)).toEqual([day[0], { start: 720, end: 870 }, day[1]]);
+    expect(drawSlot(day, 720, 856)).toEqual([day[0], { start: 720, end: 870 }, day[1]]); // 14:16 → 14:30
   });
   it('up: from the pointer to the origin, an hour at least', () => {
-    expect(drawSlot(day, 720, 700)).toEqual([day[0], { start: 705, end: 765 }, day[1]]);
-    expect(drawSlot(day, 720, 557)).toEqual([day[0], { start: 555, end: 720 }, day[1]]);
+    expect(drawSlot(day, 720, 700, 60, 15)).toEqual([day[0], { start: 705, end: 765 }, day[1]]);
+    expect(drawSlot(day, 720, 557, 60, 15)).toEqual([day[0], { start: 555, end: 720 }, day[1]]);
+    expect(drawSlot(day, 720, 557)).toEqual([day[0], { start: 570, end: 720 }, day[1]]);
   });
-  it('stays in its gap and never ends after 23:45', () => {
+  it('stays in its gap and never ends after the last step', () => {
     expect(drawSlot(day, 720, 0)).toEqual([day[0], { start: 480, end: 720 }, day[1]]);
     expect(drawSlot(day, 720, 1439)).toEqual([day[0], { start: 720, end: 1020 }, day[1]]);
-    expect(drawSlot([], 1400, 1439)).toEqual([{ start: 1395, end: 1425 }]);
+    expect(drawSlot([], 1400, 1439, 60, 15)).toEqual([{ start: 1395, end: 1425 }]);
+    expect(drawSlot([], 1390, 1439)).toEqual([{ start: 1380, end: 1410 }]);
   });
   it('refuses a full day, an origin inside a period, a gap under 15 min', () => {
     expect(drawSlot([...day, { start: 600, end: 660 }].sort((a, b) => a.start - b.start), 900, 960)).toBeNull();

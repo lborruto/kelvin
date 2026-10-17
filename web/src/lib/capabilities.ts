@@ -17,6 +17,7 @@ export function capsOf(r: Radiator): Capabilities {
       eco: [1, 8],
       levels: [],
       program: true,
+      program_step_minutes: 30,
       dryer: [],
       window_detection: true,
       presence_detection: true,

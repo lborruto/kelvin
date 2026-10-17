@@ -134,8 +134,15 @@ def test_check_week():
     }
     codes = {(p["day"], p["code"]) for p in check_week(week, {"saturday": "unrecognised"})}
     assert ("monday", "program_overlap") in codes
-    assert ("tuesday", "not_quarter_hour") in codes
-    assert ("tuesday", "editor_end_after_2345") in codes
+    assert ("tuesday", "not_on_step") in codes
+    assert ("tuesday", "end_after_last") in codes
+    # The step is the room's: 17:45 and an end at 23:45 pass at 15 min, not at 30 (Sauter).
+    late = {"monday": [{"start": "17:45", "end": "23:45"}]}
+    assert check_week(late, {}, 15) == []
+    assert check_week(late, {}) == [
+        {"day": "monday", "code": "not_on_step", "step_minutes": 30},
+        {"day": "monday", "code": "end_after_last", "last": "23:30"},
+    ]
     assert ("funday", "day_unknown") in codes
     assert ("saturday", "day_locked") in codes
 

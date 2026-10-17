@@ -331,3 +331,63 @@ async def test_gateway_text_in_status_and_logs_is_scrubbed(env, caplog):
         await pump.run_once()
     assert pump.status()["last_error"] == "connect to … failed for …"
     assert "192.168" not in caplog.text and "1234-5678" not in caplog.text
+
+
+async def test_pump_reads_once_then_confirms_a_programme_no_event_announced(env):
+    """The owner's Salon (2026-10-17): no state event in time. Before failing, the pump reads
+    each unconfirmed radiator once (never a full setup read) and confirms from what it holds."""
+    import copy
+
+    from kelvin.commands.service import CONFIRM_TIMEOUT
+    from kelvin.commands.translate import plan_program
+
+    clock, gw, house, svc, pump, changed, _ = env
+    rads = [house.radiators[i] for i in house.rooms["p-salon"].radiator_ids]
+    week = {"monday": [{"start": "17:30", "end": "22:00"}]}
+    planned = plan_program(rads[0], week) + plan_program(rads[1], week)
+    gw.silent = True
+    p = await svc.submit("Salon : programme", tuple(r.id for r in rads), planned)
+    for c in gw.executed[-1]:
+        gw.set_state_silently(c.device_url, "core:TimeProgramState", copy.deepcopy(c.parameters[0]))
+    t = 0.0
+    while p.active and t <= CONFIRM_TIMEOUT + 10:
+        clock.advance(2)
+        t += 2
+        await pump.run_once()
+    assert p.status == "confirmed"
+    assert gw.state_reads == 2 and gw.snapshots == 0
+    assert {r.id for r in rads} <= set().union(*changed)  # the read reached the clients
+
+
+async def test_pump_says_when_the_radiators_kept_other_times(env):
+    from kelvin.commands.translate import plan_program
+
+    clock, gw, house, svc, pump, _, _ = env
+
+    def snapped(value):
+        return [
+            {d: [{k: "17:00" if v == "17:30" else v for k, v in s.items()} for s in slots]}
+            for e in value
+            for d, slots in e.items()
+        ]
+
+    gw.program_rewrite = snapped
+    rads = [house.radiators[i] for i in house.rooms["p-salon"].radiator_ids]
+    week = {"monday": [{"start": "17:30", "end": "22:00"}]}
+    planned = plan_program(rads[0], week) + plan_program(rads[1], week)
+    p = await svc.submit("Salon : programme", tuple(r.id for r in rads), planned)
+    for _ in range(20):
+        clock.advance(2)
+        await pump.run_once()
+    assert (p.status, p.error_code, p.error_params) == (
+        "failed",
+        "program_differs",
+        {
+            # The kept weekdays held 17:30 too (the simulator's): the radiator moved them all.
+            "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+            "day": "monday",
+            "sent": "17:30",
+            "kept": "17:00",
+        },
+    )
+    assert house.radiators[rads[0].id].program["monday"] == [{"start": "17:00", "end": "22:00"}]

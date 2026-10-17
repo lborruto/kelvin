@@ -29,6 +29,7 @@ async def drain(gw, house, svc):
         else:
             svc.on_exec(ev)
     svc.tick()
+    await svc.verify()  # a due failure reads the radiators once first (EventPump.run_once)
 
 
 async def test_confirmed_by_state(env):
@@ -81,6 +82,9 @@ async def test_timeout_without_any_event(env):
     p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
     clock.advance(CONFIRM_TIMEOUT)
     svc.tick()
+    assert p.status == "pending"  # one targeted read first
+    await svc.verify()
+    assert gw.state_reads == 1 and gw.snapshots == 0
     assert p.status == "failed" and p.error == "Le radiateur n’a pas confirmé la commande."
     assert p.error_code == "no_confirmation"
 
@@ -203,6 +207,7 @@ async def test_tick_times_out_stuck_sending(env):
     svc._pending["x"] = p
     clock.advance(CONFIRM_TIMEOUT)
     svc.tick()
+    await svc.verify()
     assert p.status == "failed" and not svc.has_active
 
 

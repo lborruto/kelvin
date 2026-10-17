@@ -116,7 +116,7 @@ def test_normalize_program_errors_name_the_day_in_french():
 
 
 def test_plan_program_expects_same_payload(r):
-    p = plan_program(r, {"monday": [{"start": "06:15", "end": "08:00"}]})
+    p = plan_program(r, {"monday": [{"start": "06:30", "end": "08:00"}]})
     payload = p.commands[0].parameters[0]
     assert p.commands[0].name == "setTimeProgram"
     assert p.expectations[0] == Expectation(r.heater_url, "core:TimeProgramState", payload)
@@ -226,3 +226,59 @@ def test_command_errors_carry_codes_and_key_params(r):
     with pytest.raises(CommandError) as e:
         plan_mode(r, "turbo")
     assert (e.value.code, e.value.params) == ("mode_unknown", {"mode": "turbo"})
+
+
+def test_programme_expectation_reads_what_the_radiator_holds():
+    from kelvin.commands.translate import program_diff
+
+    sent = [
+        {"monday": [{"start": "06:15", "end": "08:00"}, {"start": "00:00", "end": "00:00"}]},
+        {"tuesday": [{"start": "00:00", "end": "00:00"}]},
+    ]
+    e = Expectation("u", "core:TimeProgramState", sent)
+    assert e.matches(sent)
+    # Days in another order, seconds, no empty markers, keys in another order: the same week.
+    assert e.matches([{"tuesday": []}, {"monday": [{"end": "08:00:00", "start": "06:15:00"}]}])
+    # Another time, a missing day, unreadable values: not the same.
+    assert not e.matches([{"monday": [{"start": "06:00", "end": "08:00"}]}, {"tuesday": []}])
+    assert not e.matches([{"monday": [{"start": "06:15", "end": "08:00"}]}])
+    assert not e.matches(None) and not e.matches("x")
+    assert not e.matches([{"monday": [{"start": "6h15", "end": "8h"}]}, {"tuesday": []}])
+    assert program_diff(sent, [{"monday": []}, {"tuesday": []}]) == ["monday"]
+    assert program_diff(sent, "x") is None
+
+
+def test_plan_program_refuses_a_time_off_the_radiators_step(r):
+    """Owner's Sauter radiators (2026-10-17): 17:45 sent, 17:00 kept. A time the radiator cannot
+    hold is refused before anything is sent."""
+    assert r.capabilities.program_step_minutes == 30
+    with pytest.raises(CommandError) as e:
+        plan_program(r, {"monday": [{"start": "17:45", "end": "22:00"}]})
+    assert (e.value.code, e.value.params) == (
+        "program_step",
+        {"day": "monday", "value": "17:45", "minutes": 30},
+    )
+    nb = "\xa0"
+    assert str(e.value) == (
+        f"lundi{nb}: 17:45 n’est pas possible, le radiateur ne garde que des heures"
+        f" par pas de 30{nb}min."
+    )
+    plan_program(r, {"monday": [{"start": "17:30", "end": "22:00"}]})  # on the step: fine
+
+
+def test_plan_program_accepts_a_time_the_radiator_already_holds(r):
+    # The simulator's weekdays hold 06:15 (off the step): a time the radiator holds is one it
+    # keeps, so a day re-sent as held, or edited around it, or copied elsewhere, still goes.
+    held = r.program["tuesday"]
+    assert any(s["start"].endswith(":15") for s in held)
+    p = plan_program(
+        r,
+        {
+            "tuesday": held,
+            "monday": [{"start": "06:15", "end": "08:00"}],
+            "sunday": [{"start": "06:15", "end": "09:00"}],
+        },
+    )
+    assert p.commands[0].name == "setTimeProgram"
+    with pytest.raises(CommandError, match="06:20"):
+        plan_program(r, {"monday": [{"start": "06:20", "end": "08:00"}]})

@@ -76,6 +76,10 @@ TEMPLATES: dict[str, str] = {
     "mode_unknown": "Mode inconnu : {mode}.",
     "setpoint_kind_unknown": "Type de consigne inconnu : {kind}.",
     "program_time_invalid": "{day_fr} : heure invalide « {value} » (format HH:MM).",
+    "program_step": (
+        "{day_fr} : {value} n’est pas possible, le radiateur ne garde que des heures"
+        " par pas de {minutes} min."
+    ),
     "day_unknown": "Jour inconnu : {day}.",
     "program_too_many": "{day_fr} : 3 plages confort au maximum.",
     "program_day_unknown": (
@@ -176,6 +180,7 @@ TEMPLATES: dict[str, str] = {
     "send_internal": "Envoi impossible : erreur interne.",
     "radiator_refused": "Le radiateur a refusé la commande.",
     "no_confirmation": "Le radiateur n’a pas confirmé la commande.",
+    "program_differs": "{day_fr} : le radiateur a gardé {kept} au lieu de {sent}.",
 }
 
 # Sample params, for the catalogue exported to the web and its tests.
@@ -195,6 +200,8 @@ SAMPLES: dict[str, dict[str, Any]] = {
     "program_slot_invalid": {"day": "monday", "start": "10:00", "end": "09:00"},
     "program_overlap": {"day": "tuesday"},
     "program_changed_elsewhere": {"days": ["monday"]},
+    "program_differs": {"days": ["monday"], "day": "monday", "sent": "17:45", "kept": "17:00"},
+    "program_step": {"day": "monday", "value": "17:45", "minutes": 30},
     "feature_unknown": {"feature": "turbo"},
     "slot_time_invalid": {"value": "24:00"},
     "tariff_dates_duplicate": {"date": "2026-11-01"},

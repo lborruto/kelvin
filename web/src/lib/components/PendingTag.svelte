@@ -7,10 +7,12 @@
 
   interface Props {
     pending?: Pending;
+    /** Shown once the request is out and the radiators' answer is awaited (status `pending`). */
+    waiting?: string;
     onretry: (id: string) => void;
     ondismiss: (id: string) => void;
   }
-  let { pending, onretry, ondismiss }: Props = $props();
+  let { pending, waiting, onretry, ondismiss }: Props = $props();
   // Sending and pending read the same: one state, so the tag does not blink between them.
   let phase = $derived(
     !pending ? null : pending.status === 'sending' || pending.status === 'pending' ? 'sending' : pending.status
@@ -23,7 +25,7 @@
   {#key phase}
     {#if pending && phase === 'sending'}
       <span class="tag" aria-hidden="true" in:fade={{ duration: dur(T.state) }} out:fade={{ duration: dur(T.exit) }}><span
-          class="dot"></span>{m.pending.sending}</span>
+          class="dot"></span>{waiting && pending.status === 'pending' ? waiting : m.pending.sending}</span>
     {:else if pending && phase === 'confirmed'}
       <span class="tag ok" aria-hidden="true" in:fade={{ duration: dur(T.state) }} out:fade={{ duration: dur(T.move) }}><svg
           class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"

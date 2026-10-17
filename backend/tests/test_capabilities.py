@@ -77,6 +77,7 @@ def test_the_sauter_radiators_keep_every_control():
             "eco": [1.0, 8.0],
             "levels": [],
             "program": True,
+            "program_step_minutes": 30,
             "dryer": [],
             "window_detection": True,
             "presence_detection": True,

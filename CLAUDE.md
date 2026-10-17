@@ -67,7 +67,10 @@ depends on.
   is bound to its server: switching server is a fresh install. On experimental servers Kelvin
   never writes the setup (`setup_experimental`) and never calls Atlantic's own APIs.
 - **Device state is the source of truth.** A command is done when the expected state arrives.
-  Overkiz often reports `FAILED OVERRIDEMODE_ERROR` for commands that did apply.
+  Overkiz often reports `FAILED OVERRIDEMODE_ERROR` for commands that did apply. A command is never
+  failed without one targeted `device_states(url)` read of each unconfirmed device first
+  (`CommandService.verify`, run by the poller); a programme matches by meaning (`program_days`),
+  never byte for byte; a failure whose states arrive later turns confirmed (5 min window).
 - **Overkiz quota:** never call `Gateway.snapshot()` (`GET /setup/places` + `/setup/devices`,
   documented as one call a day) on a timer. Full setup reads go through the one stored
   `SetupReadGuard` (`overkiz/budget.py`, at most 3 per 24 h, kept across restarts); reconcile
@@ -189,8 +192,12 @@ depends on.
   does not write: unsorted, not three entries) are locked: `plan_program` re-sends them exactly
   as the radiator reported them, whatever the payload says. Only the days a programme body names
   are written (`[]` clears one); a day it leaves out or lists in `keep` is re-sent as read on
-  every radiator it reaches, so « Aussi pour… » (sending to other rooms) or a mixed room never empties a day. The
-  editor never makes an end after 23:45. Every editor send carries `base` (each radiator's
+  every radiator it reaches, so « Aussi pour… » (sending to other rooms) or a mixed room never empties a day.
+  **Programme times are on the device's step** (`Profile.program_step`, `capabilities.program_step_minutes`:
+  30 min on Sauter, verified; 30 for every kind until a finer step is verified; a room uses the
+  coarsest of its radiators): `plan_program` refuses a time off the step (`program_step`) before
+  anything is sent, unless the radiator already holds that time, and the editor makes only those times, its last end one step before midnight
+  (23:30 at 30 min). Every editor send carries `base` (each radiator's
   programme when the editor loaded); the backend answers `409 program_changed_elsewhere`
   (`params.days` only) instead of overwriting a change made elsewhere, unless `force`; the editor
   stops a multi-room send at the first 409.

@@ -42,7 +42,7 @@ describe('DayBar (the day bar)', () => {
     await fireEvent.pointerDown(block, { clientX: 400, pointerId: 1 });
     await fireEvent.pointerMove(block, { clientX: 460, pointerId: 1 });
     await fireEvent.pointerUp(block, { pointerId: 1 });
-    expect(onchange).toHaveBeenLastCalledWith([{ start: 435, end: 540 }, segs[1]]);
+    expect(onchange).toHaveBeenLastCalledWith([{ start: 420, end: 525 }, segs[1]]); // on the 30-min step (07:00)
   });
 
   it('dragging an edge resizes the slot', async () => {
@@ -71,14 +71,17 @@ describe('DayBar (the day bar)', () => {
     expect(onchange).toHaveBeenCalledWith([segs[0], { start: 600, end: 720 }, segs[1]]);
   });
 
-  it('keyboard: arrows move a period by 15 min, Delete removes it', async () => {
+  it('keyboard: arrows move a period by the room’s step, Delete removes it', async () => {
     const onchange = vi.fn();
-    render(DayBar, { day: 'monday', segs, onchange });
+    const { rerender } = render(DayBar, { day: 'monday', segs, onchange, slotStep: 15 });
     const block = screen.getByRole('button', { name: 'Lundi 06:15–08:00' });
     await fireEvent.keyDown(block, { key: 'ArrowRight' });
     expect(onchange).toHaveBeenLastCalledWith([{ start: 390, end: 495 }, segs[1]]);
     await fireEvent.keyDown(block, { key: 'ArrowLeft' });
     expect(onchange).toHaveBeenLastCalledWith([{ start: 360, end: 465 }, segs[1]]);
+    await rerender({ day: 'monday', segs, onchange, slotStep: 30 });
+    await fireEvent.keyDown(block, { key: 'ArrowRight' });
+    expect(onchange).toHaveBeenLastCalledWith([{ start: 420, end: 525 }, segs[1]]); // 06:15 + 30 → 07:00 on the step
     await fireEvent.keyDown(block, { key: 'Delete' });
     expect(onchange).toHaveBeenLastCalledWith([segs[1]]);
   });

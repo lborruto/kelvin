@@ -30,6 +30,7 @@
     fromMin,
     fromWeekProgram,
     lockedDays,
+    roomStep,
     shiftDay,
     toWeekProgram,
     validateDay,
@@ -126,6 +127,8 @@
   let offline = $derived(!!roomId && isOffline(roomId));
   // Days no radiator of the room may have edited (QW8): shown read-only, never in the payload.
   let dayLocks = $derived(lockedDays(radiators));
+  // The times the room's radiators keep (30 min on Sauter): the editor makes no other.
+  let slotStep = $derived(roomStep(radiators));
   let lockedList = $derived(Object.keys(dayLocks) as Day[]);
   let mismatch = $derived(radiators.some((r) => JSON.stringify(r.program) !== JSON.stringify(radiators[0]?.program)));
   let dirty = $derived(!!draft && !!baseline && changedDays(baseline, draft).length > 0);
@@ -175,7 +178,12 @@
     }
     lock = null;
     if (l.roomId !== roomId) return;
-    if (p?.status === 'failed') draft = l.week; // unsent edits, still dirty against the baseline
+    if (p?.status === 'failed' && p.error_code === 'program_differs') {
+      // The radiators kept other times: show what they hold now (the message names what changed).
+      draft = fromWeekProgram(source);
+      baseline = draft;
+      base = baseOf(radiators);
+    } else if (p?.status === 'failed') draft = l.week; // unsent edits, still dirty against the baseline
     else {
       draft = l.week;
       baseline = l.week;
@@ -221,8 +229,17 @@
   let phoneDay = $derived(!desktop.matches && dayView && !offline);
   // The sticky send bar: there is something to send, or a send is on its way.
   let bar = $derived(changes.length > 0 || alsoTargets.length > 0 || busy);
+  // The request out (« Envoi en cours… »), then the radiators' answer awaited, said as such: a
+  // bounded wait (Kelvin reads the radiators once before any verdict), never a frozen « Envoi ».
+  let waitingFor = $derived(
+    lock && lock.roomId === roomId ? (house.pending[lock.pendingId]?.radiator_ids.length ?? 0) : 0
+  );
   let barText = $derived(
-    busy
+    sending
+      ? m.program.sending
+      : locked
+        ? m.program.waiting(waitingFor)
+        : busy
       ? m.program.sending
       : unsentRooms
         ? m.program.sendStopped
@@ -382,7 +399,7 @@
 {/snippet}
 
 {#snippet editor(compact: boolean)}
-  <DayEditor day={selected} segs={shown![selected]} {today} {nowMinute} {compact} room={roomId ? roomTitle(roomId) : ''}
+  <DayEditor day={selected} segs={shown![selected]} {today} {nowMinute} {compact} {slotStep} room={roomId ? roomTitle(roomId) : ''}
     edited={changes.includes(selected)} pending={busy} locked={dayLocks[selected] ?? null} locks={dayLocks}
     onchange={(segs) => setDay(selected, segs)} onprev={() => step(-1)} onnext={() => step(1)} oncopy={applyCopy}
     back={compact ? back : undefined} below={compact && !dayLocks[selected] ? phoneTemps : undefined} />
@@ -449,7 +466,7 @@
             <span class="stale"><Icon name="alert" size={14} /> {pendingError(pending!)} {m.program.staleHint}
               <button type="button" class="btn btn-icon" aria-label={m.common.dismiss} onclick={() => house.dismiss(e.pendingId)}><Icon name="x" size={16} /></button></span>
           {:else}
-            <PendingTag {pending} onretry={retryEntry} ondismiss={(id) => house.dismiss(id)} />
+            <PendingTag {pending} waiting={m.program.waiting(pending!.radiator_ids.length)} onretry={retryEntry} ondismiss={(id) => house.dismiss(id)} />
           {/if}
         </li>
       {/each}
@@ -530,7 +547,7 @@
 
     <div class="grid" class:solo={offline || !desktop.matches}>
       <div class="calw" class:compact={!desktop.matches}>
-        <WeekCalendar week={shown} {today} {nowMinute} selected={desktop.matches && !offline ? selected : null} changed={changes}
+        <WeekCalendar week={shown} {today} {nowMinute} {slotStep} selected={desktop.matches && !offline ? selected : null} changed={changes}
           locks={dayLocks} {pulse} pending={busy} interactive={!offline} compact={!desktop.matches} onselect={openDay}
           onedit={desktop.matches && !offline ? dragDay : undefined} />
       </div>

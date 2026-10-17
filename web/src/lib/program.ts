@@ -9,11 +9,19 @@ export interface Seg {
 }
 export type Week = Record<Day, Seg[]>;
 
-export const SNAP = 15;
-export const MIN_LEN = 15;
-/** The latest end the editor makes (QW8, ruling 3): a midnight end was never verified on a device. */
-export const EDIT_MAX = 23 * 60 + 45;
+/** The programme step when a radiator names none: 30 min, what Sauter radiators keep (a 17:45 sent
+ * was kept as 17:00, 2026-10-17). Every time the editor makes is on the room's step. */
+export const DEFAULT_STEP = 30;
 const DAY_END = 1440;
+/** The latest end the editor makes (QW8, ruling 3: a midnight end was never verified on a device):
+ * one step before midnight. */
+export const lastEnd = (step: number = DEFAULT_STEP): number => DAY_END - step;
+export const EDIT_MAX = lastEnd();
+
+/** A room's step: the coarsest of its radiators that take a programme (a time must suit them all). */
+export function roomStep(radiators: Radiator[]): number {
+  return Math.max(DEFAULT_STEP, ...radiators.map((r) => r.capabilities?.program_step_minutes ?? DEFAULT_STEP));
+}
 
 export function toMin(hhmm: string): number {
   const [h, min] = hhmm.split(':').map(Number);
@@ -25,8 +33,8 @@ export function fromMin(mins: number): string {
   return `${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}`;
 }
 
-export function snap(mins: number): number {
-  return Math.max(0, Math.min(EDIT_MAX, Math.round(mins / SNAP) * SNAP));
+export function snap(mins: number, step: number = DEFAULT_STEP): number {
+  return Math.max(0, Math.min(lastEnd(step), Math.round(mins / step) * step));
 }
 
 export function daySegs(program: WeekProgram, day: Day): Seg[] {
@@ -128,60 +136,60 @@ export function validateDay(segs: Seg[]): DayError | null {
   return null;
 }
 
-export function addSlot(segs: Seg[], at: number, len = 120): Seg[] | null {
+export function addSlot(segs: Seg[], at: number, len = 120, step: number = DEFAULT_STEP): Seg[] | null {
   if (segs.length >= 3) return null;
-  const start = snap(at);
+  const start = snap(at, step);
   if (segs.some((s) => start >= s.start && start < s.end)) return null;
   const next = segs.filter((s) => s.start > start).sort((a, b) => a.start - b.start)[0];
-  const end = Math.min(start + len, next ? next.start : EDIT_MAX);
-  if (end - start < MIN_LEN) return null;
+  const end = Math.min(start + len, next ? next.start : lastEnd(step));
+  if (end - start < step) return null;
   return [...segs, { start, end }].sort((a, b) => a.start - b.start);
 }
 
 /**
  * A period drawn from `from` towards `to` (down or up) in the free gap holding `from`: snapped, at least `min`
- * long while the gap allows, never over a neighbour or past EDIT_MAX; null when the day is full, `from` sits in a
- * period, or the gap is shorter than MIN_LEN.
+ * long while the gap allows, never over a neighbour or past the last end; null when the day is full, `from` sits in
+ * a period, or the gap is shorter than one step.
  */
-export function drawSlot(segs: Seg[], from: number, to: number, min = 60): Seg[] | null {
+export function drawSlot(segs: Seg[], from: number, to: number, min = 60, step: number = DEFAULT_STEP): Seg[] | null {
   if (segs.length >= 3) return null;
-  const o = snap(from);
+  const o = snap(from, step);
   if (segs.some((s) => o >= s.start && o < s.end)) return null;
   const lo = Math.max(0, ...segs.filter((s) => s.end <= o).map((s) => s.end));
-  const hi = Math.min(EDIT_MAX, ...segs.filter((s) => s.start > o).map((s) => s.start));
+  const hi = Math.min(lastEnd(step), ...segs.filter((s) => s.start > o).map((s) => s.start));
   let start: number;
   let end: number;
   if (to >= from) {
     start = o;
-    end = Math.max(snap(to), o + min);
+    end = Math.max(snap(to, step), o + min);
   } else {
-    start = snap(to);
+    start = snap(to, step);
     end = Math.max(o, start + min);
   }
   start = Math.max(start, lo);
   end = Math.min(end, hi);
-  if (end - start < MIN_LEN) return null;
+  if (end - start < step) return null;
   return [...segs, { start, end }].sort((a, b) => a.start - b.start);
 }
 
-export function moveSlot(segs: Seg[], i: number, delta: number): Seg[] {
+export function moveSlot(segs: Seg[], i: number, delta: number, step: number = DEFAULT_STEP): Seg[] {
   const s = segs[i];
   const len = s.end - s.start;
   const lo = i > 0 ? segs[i - 1].end : 0;
-  const hi = i < segs.length - 1 ? segs[i + 1].start : EDIT_MAX;
-  const start = Math.max(lo, Math.min(hi - len, snap(s.start + delta)));
+  const hi = i < segs.length - 1 ? segs[i + 1].start : lastEnd(step);
+  const start = Math.max(lo, Math.min(hi - len, snap(s.start + delta, step)));
   return segs.map((x, j) => (j === i ? { start, end: start + len } : x));
 }
 
-export function resizeSlot(segs: Seg[], i: number, edge: 'start' | 'end', to: number): Seg[] {
+export function resizeSlot(segs: Seg[], i: number, edge: 'start' | 'end', to: number, step: number = DEFAULT_STEP): Seg[] {
   const s = segs[i];
   const lo = i > 0 ? segs[i - 1].end : 0;
-  const hi = i < segs.length - 1 ? segs[i + 1].start : EDIT_MAX;
-  const v = snap(to);
+  const hi = i < segs.length - 1 ? segs[i + 1].start : lastEnd(step);
+  const v = snap(to, step);
   const next =
     edge === 'start'
-      ? { start: Math.max(lo, Math.min(s.end - MIN_LEN, v)), end: s.end }
-      : { start: s.start, end: Math.min(hi, Math.max(s.start + MIN_LEN, v)) };
+      ? { start: Math.max(lo, Math.min(s.end - step, v)), end: s.end }
+      : { start: s.start, end: Math.min(hi, Math.max(s.start + step, v)) };
   return segs.map((x, j) => (j === i ? next : x));
 }
 

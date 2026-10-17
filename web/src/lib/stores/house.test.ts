@@ -182,6 +182,24 @@ describe('HouseStore', () => {
     expect(s.pending.ok).toBeUndefined();
   });
 
+  it('a programme failure the radiators confirm later turns confirmed, live or after a reconnect', () => {
+    const later: (() => void)[] = [];
+    const s = new HouseStore((fn) => later.push(fn));
+    s.applySnapshot(snap());
+    const prog = { label: 'Salon : programme', expected: {} };
+    s.applyPending(pending('live', { ...prog, status: 'failed', error_code: 'no_confirmation' }));
+    s.applyPending(pending('live', { ...prog, status: 'confirmed' }));
+    expect(s.pending.live?.status).toBe('confirmed');
+    // The stream dropped while the server flipped it: the reconnect's snapshot carries it.
+    s.applyPending(pending('missed', { ...prog, status: 'failed', error_code: 'no_confirmation' }));
+    s.applySnapshot({ ...snap(), recent: [pending('missed', { ...prog, status: 'confirmed' })] });
+    expect(s.pending.missed?.status).toBe('confirmed');
+    // Still in flight on the server: the reconnect keeps it waiting, never guesses.
+    s.applyPending(pending('wait', { ...prog, status: 'pending' }));
+    s.applySnapshot({ ...snap(), pending: [pending('wait', { ...prog, status: 'pending' })] });
+    expect(s.pending.wait?.status).toBe('pending');
+  });
+
   it('ignores an active update after a terminal status', () => {
     const s = new HouseStore();
     s.applyPending(pending('p1', { status: 'failed', error: 'x' }));

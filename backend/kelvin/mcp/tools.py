@@ -620,7 +620,8 @@ async def evaluate(ctx: Any, room_id: str, week: dict[str, list[dict[str, str]]]
     if not progs:
         raise tool_error("invalid_argument")
     locked = {d: why for r in progs for d, why in r.program_locked.items()}
-    problems = pr.check_week(week, locked)
+    step = max(r.capabilities.program_step_minutes or pr.DEFAULT_STEP for r in progs)
+    problems = pr.check_week(week, locked, step)
     tariff = rt.linky.tariffs.get() if rt.linky else None
     today = _today(ctx)
     monday = today - timedelta(days=today.weekday())
@@ -876,7 +877,8 @@ def register_tools(server: MCPServer, run: Runner) -> None:
         annotations=READ_ONLY,
         description=(
             "Check a draft weekly programme for a room without sending it: Kelvin's rules (at most"
-            " 3 comfort periods a day, no overlap, quarter hours, ends by 23:45, locked days), the"
+            " 3 comfort periods a day, no overlap, times on the radiators' step (30 min on Sauter),"
+            " ends one step before midnight, locked days), the"
             " comfort time in peak hours before and after, and an estimate of the cost moved."
             ' week: {"monday": [{"start": "06:30", "end": "08:00"}], …}; days left out'
             " stay as they are."

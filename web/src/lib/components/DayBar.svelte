@@ -1,7 +1,7 @@
 <!-- The one day bar (DESIGN « DayBar »): the --in well with its field edge, gridlines every 3 h, the comfort
      periods as heat blocks (decision 2), Éco the empty well, the ink now marker.
      Editable (`day` + `onchange`: Programme's day editor): blocks are focusable, draggable and resizable in
-     15-minute steps, a tap on the well adds a period, the block being adjusted keeps two ink handles and a drag
+     the room's steps, a tap on the well adds a period, the block being adjusted keeps two ink handles and a drag
      shows the time it lands on; `pending` / `locked` make it inert (locked: hatched, an unrecognised day a
      labelled picture).
      Read-only (no `onchange`: Maison's « Programme d’aujourd’hui », the room sheet): one picture named by `label`;
@@ -10,7 +10,7 @@
 <script lang="ts">
   import type { Day, DayLock } from '$lib/api/types';
   import { m } from '$lib/i18n';
-  import { addSlot, fromMin, moveSlot, removeSlot, resizeSlot, type Seg } from '$lib/program';
+  import { addSlot, DEFAULT_STEP, fromMin, moveSlot, removeSlot, resizeSlot, type Seg } from '$lib/program';
 
   interface Props {
     segs: Seg[];
@@ -22,6 +22,8 @@
     pending?: boolean;
     /** Hour gridlines and the labels under the bar (3 h on desktop, 6 h on a phone). */
     step?: 3 | 6;
+    /** The room's programme step in minutes (drag, tap and arrow keys move by it). */
+    slotStep?: number;
     /** QW8: shown, never edited (re-sent as read). */
     locked?: DayLock | null;
     /** The well's height (40 beside the agenda, 44 in the phone day view; 14–26 read-only). */
@@ -42,6 +44,7 @@
     now = null,
     pending = false,
     step,
+    slotStep = DEFAULT_STEP,
     locked = null,
     height = 40,
     label: name = '',
@@ -90,7 +93,10 @@
     if (!drag || inert) return;
     const at = minuteAt(e.clientX);
     moved = true;
-    const next = drag.kind === 'move' ? moveSlot(drag.base, drag.i, at - drag.origin) : resizeSlot(drag.base, drag.i, drag.kind, at);
+    const next =
+      drag.kind === 'move'
+        ? moveSlot(drag.base, drag.i, at - drag.origin, slotStep)
+        : resizeSlot(drag.base, drag.i, drag.kind, at, slotStep);
     const s = next[drag.i];
     if (s)
       bubble =
@@ -119,15 +125,15 @@
       moved = false;
       return;
     }
-    const next = addSlot(segs, minuteAt(e.clientX));
+    const next = addSlot(segs, minuteAt(e.clientX), 120, slotStep);
     if (next) onchange?.(next);
   }
   function key(e: KeyboardEvent, i: number) {
     if (inert) return;
-    const delta = e.key === 'ArrowRight' ? 15 : e.key === 'ArrowLeft' ? -15 : 0;
+    const delta = e.key === 'ArrowRight' ? slotStep : e.key === 'ArrowLeft' ? -slotStep : 0;
     if (delta) {
       e.preventDefault();
-      onchange?.(moveSlot(segs, i, delta));
+      onchange?.(moveSlot(segs, i, delta, slotStep));
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
       onchange?.(removeSlot(segs, i));
