@@ -63,9 +63,10 @@ test('schedule: Chambre 1 shows its locked days read-only', async ({ page, isMob
   await page.goto('/schedule');
   await page.getByRole('radio', { name: 'Chambre 1' }).click();
   // The agenda hatches them and says why: in the day's name, in its column (desktop) or the notes under it (phone).
+  // Today's day says « aujourd’hui » after its name (whatever day the suite runs on).
   const sunday = page.locator('[data-day="sunday"]');
-  await expect(sunday.getByRole('button')).toHaveAccessibleName(/^Dimanche, 20:00–24:00, .*Fin à minuit\s:\smodifiez ce jour/);
-  await expect(page.getByRole('button', { name: /^Samedi, Plage non reconnue/ })).toBeVisible();
+  await expect(sunday.getByRole('button')).toHaveAccessibleName(/^Dimanche, (aujourd’hui, )?20:00–24:00, .*Fin à minuit\s:\smodifiez ce jour/);
+  await expect(page.getByRole('button', { name: /^Samedi, (aujourd’hui, )?Plage non reconnue/ })).toBeVisible();
   if (isMobile) {
     await expect(page.locator('[data-lock="sunday"]')).toContainText(/Fin à minuit\s:\smodifiez ce jour/);
     await expect(page.locator('[data-lock="saturday"]')).toContainText('Plage non reconnue');
