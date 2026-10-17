@@ -14,15 +14,6 @@
   <img src="docs/screenshots/home.webp" alt="Kelvin's home screen on a desktop: each room with its temperature, alerts, this month's cost and today's schedule" width="900">
 </p>
 
-| Weekly schedule | Energy and cost |
-|---|---|
-| <img src="docs/screenshots/schedule.webp" alt="The weekly schedule as an agenda, with one day being edited" width="440"> | <img src="docs/screenshots/energy.webp" alt="The month's electricity: cost, off-peak and peak hours, where the energy goes" width="440"> |
-
-<p align="center">
-  <img src="docs/screenshots/phone.webp" alt="Kelvin on a phone: the home screen and one room's controls" width="520"><br>
-  <sub>On a phone it installs like an app. All screenshots come from the built-in simulator (invented home, demo data).</sub>
-</p>
-
 ## What it does
 
 - **Every room at a glance.** Temperature, what the radiator is doing and until when, and −/+ to
@@ -46,8 +37,9 @@
 
 ## Get started
 
-**You need:** Docker with Compose v2 (amd64 or arm64), the email and password of your Cozytouch
-app, and, for energy, an optional free [MyElectricalData](https://www.myelectricaldata.fr) account.
+**You need:** Docker with Compose v2 (amd64 or arm64) and the email and password of your
+Cozytouch app. For energy and costs, also a free [MyElectricalData](https://www.myelectricaldata.fr)
+account (optional).
 
 ```bash
 git clone https://github.com/lborruto/kelvin.git && cd kelvin
@@ -55,26 +47,70 @@ cp .env.example .env          # set KELVIN_ALLOWED_HOSTS (see below); the rest c
 docker compose up -d --build
 ```
 
-1. Open `http://<your-server>:8070`.
+1. **Open Kelvin:** `http://127.0.0.1:8070` on the server itself, or `http://<your-server>:8070`
+   from another device on your network.
 2. **Log in with your Cozytouch account** (the one the Cozytouch app uses). The first login makes
    it this Kelvin's home; everyone in the household uses the same account. Not on Sauter? Choose
    **Changer** under the server name to pick Atlantic or Thermor before that first login.
-3. **Add Linky (optional):** in **Réglages › Linky**, enter your meter number (PDL, 14 digits on
-   your contract) and your MyElectricalData token. Then set your prices in **Réglages › Tarif**.
-   The first data arrives at the next sync (08:00 or 14:00).
+3. **Add Linky (optional):**
+   - on [myelectricaldata.fr](https://www.myelectricaldata.fr), enter your meter number (PDL: the
+     14 digits on your electricity bill) and accept the Enedis consent; the site then gives you a
+     token;
+   - in Kelvin, open **Réglages › Linky** and enter the PDL and the token, then set your prices in
+     **Réglages › Tarif**. The first data arrives at the next sync (08:00 or 14:00).
 
 **Host allowlist (recommended):** put the names and addresses you type to reach Kelvin in
 `KELVIN_ALLOWED_HOSTS` (for example `kelvin.lan,192.168.1.10`) before the first login. Kelvin then
 refuses any other host name, which blocks DNS rebinding attacks from web pages you visit.
 
-**Just looking?** Try the simulator, no account needed:
+**A folder instead of the Docker volume?** On Linux, a bind-mounted data folder must belong to
+Kelvin's user (uid 10001): `sudo chown -R 10001:10001 ./data`.
+
+**On your phone:** open Kelvin in the browser and choose **Install app** or **Add to Home Screen**
+in the browser menu. Installing and the offline shell need HTTPS (or `localhost`), so put Kelvin
+behind a reverse proxy first (below).
+
+**Just looking?** Try the simulator, no account needed. It is a throwaway container with an
+invented home; never point it at your real data volume:
 
 ```bash
 docker build -t kelvin .
-docker run --rm -p 8070:8080 -e KELVIN_FAKE=1 kelvin
+docker run --rm -p 127.0.0.1:8071:8080 -e KELVIN_FAKE=1 kelvin
 ```
 
-Open http://localhost:8070 and log in with `demo@kelvin.local` / `kelvin`.
+Open http://127.0.0.1:8071 and log in with `demo@kelvin.local` / `kelvin`.
+
+### HTTPS with a reverse proxy
+
+Kelvin itself speaks plain HTTP. For HTTPS on your network, put a reverse proxy in front of it,
+for example [Caddy](https://caddyserver.com) on the same host:
+
+```caddyfile
+kelvin.example.lan {
+    tls internal                 # Caddy's own certificate for a LAN-only name
+    reverse_proxy 127.0.0.1:8070
+}
+```
+
+Then tell Kelvin about it:
+- `KELVIN_ALLOWED_HOSTS=kelvin.example.lan` in `.env`;
+- `KELVIN_TRUSTED_PROXIES` set to the proxy's address as Kelvin sees it, added under
+  `environment:` in `docker-compose.yml`. With Caddy on the host, that is the Docker network's
+  gateway: `docker network inspect kelvin_default --format '{{(index .IPAM.Config 0).Gateway}}'`.
+  Without it, every client looks like the proxy and shares its login throttle.
+
+Keep the proxy on your network or VPN too: Kelvin is not made to face the internet.
+
+## Screens
+
+| Weekly schedule | Energy and cost |
+|---|---|
+| <img src="docs/screenshots/schedule.webp" alt="The weekly schedule as an agenda, with one day being edited" width="440"> | <img src="docs/screenshots/energy.webp" alt="The month's electricity: cost, off-peak and peak hours, where the energy goes" width="440"> |
+
+<p align="center">
+  <img src="docs/screenshots/phone.webp" alt="Kelvin on a phone: the home screen and one room's controls" width="520"><br>
+  <sub>On a phone it installs like an app. All screenshots come from the built-in simulator (invented home, demo data).</sub>
+</p>
 
 ## Use it from Claude (MCP)
 

@@ -230,10 +230,10 @@ plain words.
 ## Project status
 
 Early (0.x). Kelvin is developed against one installation: Sauter IPALA H and HEKLA radiators
-on io-homecontrol, with a Cozytouch bridge. Multi-brand (Plan 12): servers and device kinds beyond
+on io-homecontrol, with a Cozytouch bridge. Multi-brand: servers and device kinds beyond
 Sauter are « expected to work » or « experimental » and untested on real hardware (see
 [backend/README.md › Device compatibility](backend/README.md#device-compatibility)); messages that name Cozytouch keep that word on every server. The
 UI is in French and English (French by default; switch in Settings › Display, or on the sign-in
 screen). The Linky bill estimate supports the Base, HC/HP and Tempo options; Tempo and EcoWatt
 are shown on Maison and Energy and raise alerts. AI assistants can read Kelvin's data through a
-read-only MCP endpoint (Plan 13), with its tokens in Settings › Account.
+read-only MCP endpoint, with its tokens in Settings › Account.
