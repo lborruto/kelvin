@@ -20,6 +20,7 @@ const ROUTES = [
   '/home/tariff',
   '/home/linky',
   '/home/sources',
+  '/home/weather',
   '/home/account',
   '/home/devices',
   '/no-such-page'

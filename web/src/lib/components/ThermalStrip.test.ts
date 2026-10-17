@@ -278,3 +278,64 @@ describe('the room chart: a fitted scale and the inspector', () => {
     expect(screen.queryByRole('slider')).toBeNull();
   });
 });
+
+describe('ThermalStrip: the outdoor lane (Plan 14)', () => {
+  const NB = '\u00a0';
+  const H = 3_600_000;
+  const now = start + 14 * H;
+  const room = [
+    { t: start + 10 * H, v: 19.4, s: 20, rate: 0, modes: ['program'], levels: ['comfort'], rads: [] },
+    { t: start + 13 * H, v: 20.2, s: 20, rate: 0, modes: ['program'], levels: ['comfort'], rads: [] }
+  ];
+  const props = { points: room, start, end, now, mode: 'manual' as const, target: 20, label: 'Salon, 24 h', yAxis: true, height: 96 };
+  const coords = (d: string) => [...d.matchAll(/(-?[\d.e]+),(-?[\d.e]+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  const roomTicks = (c: HTMLElement) => [...c.querySelectorAll('.yaxis .ytick')].map((e) => e.textContent);
+
+  it('a winter day (room 19–21 °C, outside −5..5 °C): the line is drawn whole in its own lane; the room keeps its scale', () => {
+    const { container } = render(ThermalStrip, { props });
+    const alone = roomTicks(container);
+    const outdoor = Array.from({ length: 15 }, (_, i) => ({ t: start + i * H, v: -5 + (10 * i) / 14 }));
+    const { container: c } = render(ThermalStrip, { props: { ...props, outdoor } });
+    expect(roomTicks(c)).toEqual(alone); // never on the room's scale
+    const lane = c.querySelector('.lane')!;
+    const path = lane.querySelector('path.outdoor')!;
+    const pts = coords(path.getAttribute('d')!);
+    expect(pts.length).toBeGreaterThan(1);
+    const LANE_H = Number(lane.querySelector('svg')!.getAttribute('viewBox')!.split(' ')[3]);
+    expect(LANE_H).toBeGreaterThanOrEqual(48);
+    expect(LANE_H).toBeLessThanOrEqual(64);
+    for (const [, y] of pts) expect(y >= 0 && y <= LANE_H).toBe(true); // all of it visible inside the lane
+    expect(Math.max(...pts.map(([x]) => x))).toBeLessThanOrEqual(300 * (14 / 24) + 0.01); // nothing after now
+    expect([...c.querySelectorAll('.lane-axis .ltick')].map((e) => e.textContent)).toEqual(['5°', '−5°']);
+    expect(c.querySelector('p.visually-hidden')!.textContent).toMatch(new RegExp(`Dehors de −5,0${NB}°C à 5,0${NB}°C`));
+  });
+
+  it('a gap over 2 h breaks the line', () => {
+    const outdoor = [0, 1, 2, 6, 7].map((h) => ({ t: start + h * H, v: 15 }));
+    const { container } = render(ThermalStrip, { props: { ...props, outdoor } });
+    expect(container.querySelector('.lane path.outdoor')!.getAttribute('d')!.match(/M/g)).toHaveLength(2);
+  });
+
+  it('no lane without a weather place; an empty lane says so (its height held)', () => {
+    const { container } = render(ThermalStrip, { props });
+    expect(container.querySelector('.lane')).toBeNull();
+    expect(container.querySelector('p.visually-hidden')!.textContent).not.toMatch(/Dehors/);
+    const empty = render(ThermalStrip, { props: { ...props, outdoor: [] } });
+    expect(empty.container.querySelector('.lane')).toHaveTextContent('pas de météo pour cette période');
+    expect(empty.container.querySelector('.lane path')).toBeNull();
+    const pending = render(ThermalStrip, { props: { ...props, outdoor: [], outdoorPending: true } });
+    expect(pending.container.querySelector('.lane')!.textContent!.trim()).toBe('');
+  });
+
+  it('the guide crosses the lane and the inspector card reads « Dehors x,x °C »', async () => {
+    desktop.matches = true;
+    const outdoor = Array.from({ length: 15 }, (_, i) => ({ t: start + i * H, v: 15 + i * 0.1 }));
+    const inspect = { kind: 'day' as const, stepMs: 900_000, names: { a: 'Salon' }, several: false, presence: false, window: false };
+    const { container } = render(ThermalStrip, { props: { ...props, outdoor, inspect } });
+    await fireEvent.pointerMove(screen.getByRole('slider'), { clientX: 125, pointerType: 'mouse' });
+    expect(screen.getByRole('group', { name: '10:00–10:15' })).toHaveTextContent(/Dehors\s*16,0\s°C/);
+    expect(parseFloat((container.querySelector('.guide') as HTMLElement).style.height)).toBeGreaterThan(96 + 48);
+    expect(container.querySelector('.lane-dot')).not.toBeNull();
+    desktop.matches = false;
+  });
+});

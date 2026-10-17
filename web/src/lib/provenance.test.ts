@@ -40,6 +40,12 @@ describe('provenance', () => {
     expect(when(now - 3 * 3_600_000, now)).toBe('18:11');
     expect(when(now - 30 * 3_600_000, now)).toMatch(/14 oct\.?,? 15:11/);
   });
+  it('weather: published, the model as its Source', () => {
+    const p = provenance('weather', { at: now - 20 * 60_000, model: 'era5_land' }, now);
+    expect(p.nature).toBe('published');
+    expect(flat(p.rows)).toEqual(['Source: ERA5-Land (réanalyse Copernicus) via Open-Meteo', 'Relevé: il y a 20 min', 'Nature: publié']);
+    expect(sourceName('weather')).toBe('Météo-France AROME HD via Open-Meteo');
+  });
   it('reads in English', () => {
     applyLocale('en');
     const p = provenance('linky-curve', { day: '2026-10-14' }, now);

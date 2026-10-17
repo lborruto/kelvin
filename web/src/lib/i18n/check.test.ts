@@ -167,7 +167,11 @@ export const DYNAMIC = [
   'tariff.rate',
   'tariff.rateShort',
   // UX foundation: read by index (m.prov.natures[nature])
-  'prov.natures'
+  'prov.natures',
+  // Plan 14: read by index (m.prov.weather[model], m.weather.why[why])
+  'prov.weather',
+  'weather.why',
+  'weather.elevationFrom'
 ];
 
 const SRC = resolve(process.cwd(), 'src');

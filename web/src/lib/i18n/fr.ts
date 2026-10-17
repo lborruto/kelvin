@@ -152,7 +152,15 @@ export const fr = {
     cozytouch: 'Cozytouch',
     until: (day: string) => `jusqu’au ${day}`,
     curveUntil: (day: string) => `courbe jusqu’au ${day}`,
-    sync: (time: string) => `synchro ${time}`
+    sync: (time: string) => `synchro ${time}`,
+    weather: {
+      arome_hd: 'Météo-France AROME HD via Open-Meteo',
+      arpege: 'Météo-France ARPEGE via Open-Meteo',
+      era5_land: 'ERA5-Land (réanalyse Copernicus) via Open-Meteo',
+      best_match: 'Open-Meteo (meilleur modèle disponible)',
+      simulator: 'Simulateur',
+      mixed: 'Plusieurs modèles via Open-Meteo'
+    } as Record<string, string>
   },
   fiche: {
     close: 'Fermer',
@@ -399,7 +407,9 @@ export const fr = {
     methodRooms: (span: string) => `moyenne des radiateurs en ligne sur ${span}`,
     part: (label: string, value: string) => `${label} ${value}`,
     partWhy: (value: string, why: string) => `${value} (${why})`,
-    spoken: (title: string, parts: string[]) => `${title}${NB}: ${parts.join(', ')}`
+    spoken: (title: string, parts: string[]) => `${title}${NB}: ${parts.join(', ')}`,
+    noOutdoor: 'pas de météo pour ce moment',
+    outdoorNote: `Dehors${NB}: température publiée par un modèle météo (Open-Meteo), pas mesurée à la maison.`
   },
   strip: {
     windowRun: (a: string, b: string) => `Fenêtre ouverte (signalée par le radiateur) ${a}–${b}`,
@@ -420,7 +430,9 @@ export const fr = {
     pendingSetpoint: (t: string) => `consigne demandée ${t}, en attente`,
     pendingComfort: (t: string) => `confort demandé ${t}, en attente`,
     summary: (parts: string[]) => `${parts.join(`${NB}; `)}.`,
-    since: (t: string) => `Mesures depuis ${t}`
+    since: (t: string) => `Mesures depuis ${t}`,
+    legendOutdoor: 'Dehors',
+    outdoorRange: (lo: string, hi: string) => `Dehors de ${lo} à ${hi}`
   },
   energy: {
     views: { day: 'Jour', week: 'Semaine', month: 'Mois', year: 'Année' },
@@ -1353,6 +1365,7 @@ export const fr = {
     never: 'pas encore interrogé',
     error: (time: string) => `indisponible depuis ${time}`,
     quota: 'quota du jour atteint, reprise demain',
+    weatherOff: 'Désactivée',
     med: (calls: number, budget: number, grid: number) =>
       `Appels MyElectricalData aujourd’hui${NB}: ${calls} sur ${budget} (dont ${grid} pour Tempo et EcoWatt)`,
     via: 'Tempo et EcoWatt viennent de MyElectricalData, sans jeton ni PDL.',
@@ -1406,6 +1419,7 @@ export const fr = {
     mcp_token_limit: (p: ApiParams) => `${p.max} jetons MCP au plus${NB}: révoquez-en un d’abord.`,
     mcp_token_unknown: () => 'Ce jeton MCP n’existe plus.',
     mcp_disabled: () => 'L’accès MCP est désactivé sur ce serveur (KELVIN_MCP).',
+    // Plan 14: weather (never a coordinate in params)
     weather_location_invalid: () => `Lieu invalide${NB}: latitude de −90 à 90, longitude de −180 à 180.`,
     weather_elevation_invalid: () => `Altitude invalide${NB}: de −50 à 4${NB}900${NB}m.`,
     weather_search_invalid: () => 'Tapez de 2 à 60 caractères.',
@@ -1695,6 +1709,83 @@ export const fr = {
     experimental: 'Expérimental — chauffage seulement',
     loadFailed: 'Impossible de lire la liste des serveurs.',
     experimentalNote: `Expérimental${NB}: Kelvin n’affiche que le chauffage, ne modifie pas les pièces, et certains appareils restent en lecture seule.`
+  },
+  weather: {
+    // Plan 14: the outdoor temperature (« Dehors »), Réglages › Météo, Énergie's outdoor rows
+    chip: 'Dehors',
+    ficheTitle: 'Température extérieure',
+    now: 'Maintenant',
+    feelsLike: 'Ressenti',
+    humidity: 'Humidité',
+    min: 'Minimum',
+    max: 'Maximum',
+    atTime: (v: string, time: string, ahead: boolean) => (ahead ? `${v}, prévu vers ${time}` : `${v} à ${time}`),
+    notStation: 'Valeur calculée par un modèle météo pour votre commune, pas mesurée par une station.',
+    attributionShort: `Données météo${NB}: Météo-France via Open-Meteo.com (CC BY 4.0)`,
+    attribution: `Données météo${NB}: Météo-France (AROME) et Copernicus (ERA5-Land) via Open-Meteo.com, licence CC BY 4.0. Recherche de lieux${NB}: GeoNames.`,
+    reasonFirst: 'premier relevé en cours',
+    reasonRetry: (time: string) => `Open-Meteo injoignable, nouvel essai à ${time}`,
+    reasonError: 'Open-Meteo injoignable',
+    reasonQuota: 'limite d’appels du jour atteinte, reprise demain',
+    meanOutside: 'Dehors moy.',
+    djuLabel: `DJU (base 18${NB}°C)`,
+    partialDays: (n: number, of: number) => `météo incomplète${NB}: ${n} jours sur ${of}`,
+    noData: 'pas de météo pour cette période',
+    heroLine: (mean: string, dju: string | null) => (dju ? `Dehors${NB}: moy. ${mean} · ${dju} DJU` : `Dehors${NB}: moy. ${mean}`),
+    heroNone: `Dehors${NB}: — (pas de météo pour cette période)`,
+    atEqualWeather: (change: string) => `${change} à météo égale`,
+    model: (base: string, slope: string, days: number, r2: string, cur: string, ref: string) =>
+      `Consommation de fond ≈ ${base}${NB}kWh/j, chauffage ≈ ${slope}${NB}kWh par DJU (ajusté sur ${days} jours, R² ${r2})${NB}; DJU${NB}: ${cur} contre ${ref}.`,
+    unavailable: (why: string) => `Comparaison à météo égale indisponible${NB}: ${why}.`,
+    why: {
+      not_comparable: 'pas assez de jours comparables',
+      weather_missing: 'météo manquante pour certains jours',
+      mild_period: 'presque pas de chauffage sur ces périodes',
+      few_days: 'moins de 28 jours mesurés autour de la période de référence',
+      few_heating_days: 'pas assez de jours froids autour de la période de référence',
+      poor_fit: 'la consommation ne suit pas assez le froid pour la corriger'
+    } as Record<string, string>,
+    method: `Kelvin compare chaque période à ce que la maison aurait consommé au même froid, d’après la consommation de la période de référence et des 45 jours autour (consommation de fond + kWh par degré-jour). DJU base 18${NB}°C, méthode météo, jour civil à Paris.`,
+    source: 'Météo',
+    // Réglages › Météo
+    title: 'Météo',
+    off: 'Désactivée',
+    lead: 'Kelvin peut afficher la température extérieure de votre commune pour expliquer le chauffage.',
+    privacyTitle: 'Ce que Kelvin envoie',
+    privacy: `Seules les coordonnées et l’altitude du lieu sont envoyées à Open-Meteo${NB}; le nom tapé l’est pendant la recherche. Rien n’est enregistré ailleurs que dans Kelvin.`,
+    searchLabel: 'Rechercher une commune',
+    searchHint: 'Au moins 2 lettres',
+    results: (n: number) => (n === 0 ? 'Aucun lieu trouvé' : n === 1 ? '1 lieu' : `${n} lieux`),
+    useCoords: 'Utiliser des coordonnées',
+    lat: 'Latitude',
+    lon: 'Longitude',
+    elevation: 'Altitude (m, optionnelle)',
+    coordsInvalid: 'Tapez une latitude et une longitude en degrés décimaux, par exemple 45,77 et 4,89.',
+    save: 'Enregistrer',
+    change: 'Changer de lieu',
+    remove: 'Supprimer',
+    removeTitle: `Supprimer le lieu et l’historique météo${NB}?`,
+    removeBody: 'Les températures extérieures enregistrées seront effacées.',
+    place: 'Lieu',
+    coords: 'Coordonnées',
+    coordsValue: (lat: string, lon: string) => `${lat} · ${lon}`,
+    elevationRow: 'Altitude',
+    elevationValue: (alt: string, from: string) => `${alt} · ${from}`,
+    elevationFrom: { geocoder: 'commune', owner: 'saisie', none: 'non fournie' } as Record<string, string>,
+    modelRow: 'Modèle',
+    modelMf: `Météo-France AROME HD, 1,5${NB}km`,
+    modelBest: 'Open-Meteo, meilleur modèle (hors France)',
+    history: 'Historique',
+    historySince: (day: string) => `depuis le ${day}`,
+    historyRunning: 'en cours de récupération',
+    calls: 'Appels aujourd’hui',
+    callsValue: (n: string, of: string) => `${n} sur ${of}`,
+    daysRow: 'Jours avec météo',
+    lastRead: 'Dernier relevé',
+    state: (place: string, time: string | null) => (time ? `${place} · relevé ${time}` : place),
+    manualName: (lat: string, lon: string) => `Coordonnées ${lat} · ${lon}`,
+    saved: 'Lieu enregistré.',
+    loadFailed: 'Réglages météo indisponibles.'
   }
 };
 

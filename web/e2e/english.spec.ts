@@ -127,9 +127,9 @@ test.describe('key flows in English', () => {
     expect(dl.suggestedFilename()).toMatch(/^energie_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}_day\.csv$/);
     const rows = readFileSync((await dl.path())!, 'utf8').slice(1).split('\r\n');
     expect(rows[0]).toBe(
-      'periode,debut,fin,maison_kwh,hc_kwh,hp_kwh,split_estime,radiateurs_kwh,radiateurs_interp,reste_kwh,energie_eur,abonnement_eur,total_eur,prix,jours_manquants,radiateurs_jusqu_au,radiateurs_couverture'
+      'periode,debut,fin,maison_kwh,hc_kwh,hp_kwh,split_estime,radiateurs_kwh,radiateurs_interp,reste_kwh,energie_eur,abonnement_eur,total_eur,prix,jours_manquants,radiateurs_jusqu_au,radiateurs_couverture,dehors_moy_c,dju_base18,meteo_jours'
     );
-    for (const r of rows.filter(Boolean)) expect(r.split(',')).toHaveLength(17); // no text cell of this file holds a comma
+    for (const r of rows.filter(Boolean)) expect(r.split(',')).toHaveLength(20); // no text cell of this file holds a comma
     const total = rows.find((r) => r.startsWith('total,'))!;
     expect(total.split(',')[3]).toMatch(/^\d+\.\d{3}$/); // maison_kwh: a decimal point, 3 decimals
   });

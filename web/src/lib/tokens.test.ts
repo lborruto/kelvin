@@ -179,3 +179,11 @@ describe('scale', () => {
     expect(body('\nbody {')).toContain("font-feature-settings: 'tnum' 1;");
   });
 });
+
+describe('the outdoor line (Plan 14)', () => {
+  it('--outdoor reads at 3:1 on every surface the room chart sits on, and is none of heat, cool or the tariff blues', () => {
+    expect(t['--outdoor']).toBe('#8ec5b8');
+    for (const bg of ['--modal', '--sheet', '--s1', '--bg']) expect(contrast(t['--outdoor'], t[bg]), bg).toBeGreaterThanOrEqual(3);
+    for (const other of ['--heat', '--cool', '--hc', '--hp']) expect(t['--outdoor']).not.toBe(t[other]);
+  });
+});

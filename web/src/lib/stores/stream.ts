@@ -1,7 +1,8 @@
-import type { AlertSummary, GridView } from '$lib/api/types';
+import type { AlertSummary, GridView, WeatherView } from '$lib/api/types';
 import { alerts } from './alerts.svelte';
 import { grid } from './grid.svelte';
 import type { HouseStore } from './house.svelte';
+import { weather } from './weather.svelte';
 
 export interface StreamOptions {
   /** Called on every stream failure (the session may have ended: the app re-checks /api/auth/me). */
@@ -21,6 +22,8 @@ export interface StreamOptions {
   onAlerts?: (s: AlertSummary) => void;
   /** Tempo and EcoWatt (snapshot and `grid` event). */
   onGrid?: (v: GridView | null) => void;
+  /** The outdoor temperature (snapshot and `weather` event; Plan 14). */
+  onWeather?: (v: WeatherView | null) => void;
 }
 
 const MAX_DELAY_MS = 30_000;
@@ -37,6 +40,7 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
 
   const onAlerts = opts.onAlerts ?? ((s: AlertSummary) => alerts.applySummary(s));
   const onGrid = opts.onGrid ?? ((v: GridView | null) => grid.apply(v));
+  const onWeather = opts.onWeather ?? ((v: WeatherView | null) => weather.apply(v));
   const now = opts.now ?? (() => Date.now());
   const staleAfterMs = opts.staleAfterMs ?? 10_000;
   let hiddenAt: number | null = null;
@@ -99,14 +103,16 @@ export function connectStream(store: HouseStore, opts: StreamOptions = {}): () =
     es = source;
     heardAt = null;
     store.connection = attempts === 0 ? 'connecting' : 'reconnecting';
-    listen(source, 'snapshot', (d: { alerts?: AlertSummary; grid?: GridView | null }) => {
+    listen(source, 'snapshot', (d: { alerts?: AlertSummary; grid?: GridView | null; weather?: WeatherView | null }) => {
       store.applySnapshot(d as never);
       if (d.alerts) onAlerts(d.alerts);
       if ('grid' in d) onGrid(d.grid ?? null);
+      if ('weather' in d) onWeather(d.weather ?? null);
       store.connection = 'open';
       attempts = 0;
     });
     listen(source, 'grid', (d: GridView) => onGrid(d));
+    listen(source, 'weather', (d: WeatherView | null) => onWeather(d));
     listen(source, 'house', (d) => store.applyHouse(d));
     listen(source, 'pending', (d) => store.applyPending(d));
     listen(source, 'layout', (d) => store.applyLayout(d));

@@ -36,7 +36,7 @@
   import { portal } from '$lib/portal';
   import type { Provenance } from '$lib/provenance';
   import ChoiceSheet from './ChoiceSheet.svelte';
-  import FicheBody, { type FicheAction, type FicheRow } from './FicheBody.svelte';
+  import FicheBody, { type FicheAction, type FicheLink, type FicheRow } from './FicheBody.svelte';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -52,6 +52,7 @@
     notes?: string[];
     provenance?: Provenance | null;
     action?: FicheAction | null;
+    link?: FicheLink | null;
     /** Move focus into the card when it opens pinned from the keyboard. */
     focusOnOpen?: boolean;
     /** Esc, the close button, a click outside or the sheet closing. */
@@ -61,7 +62,7 @@
     onleave?: () => void;
   }
   let {
-    open, pinned = false, anchor = null, id, title, rows = [], empty = null, notes = [], provenance = null, action = null,
+    open, pinned = false, anchor = null, id, title, rows = [], empty = null, notes = [], provenance = null, action = null, link = null,
     focusOnOpen = false, onclose, onenter, onleave
   }: Props = $props();
 
@@ -78,7 +79,7 @@
   $effect(() => {
     if (!open || mode !== 'card' || !card) return;
     // Placed again whenever the content (and so the card's height) changes.
-    void [title, rows, empty, notes, provenance, action, pinned];
+    void [title, rows, empty, notes, provenance, action, link, pinned];
     place();
     const on = () => place();
     addEventListener('scroll', on, true);
@@ -144,13 +145,13 @@
         <button type="button" class="btn btn-icon x" aria-label={m.fiche.close}
           onclick={() => { anchor?.focus(); onclose(); }}><Icon name="x" size={16} /></button>
       {/if}
-      <FicheBody {title} titleId="{id}-title" {rows} {empty} {notes} {provenance} {action} />
+      <FicheBody {title} titleId="{id}-title" {rows} {empty} {notes} {provenance} {action} {link} />
     </div>
   {/if}
 {:else}
   <ChoiceSheet {title} {open} trigger={anchor} {onclose}>
     <div class="sheet-body" {id}>
-      <FicheBody {rows} {empty} {notes} {provenance} {action} />
+      <FicheBody {rows} {empty} {notes} {provenance} {action} {link} />
     </div>
   </ChoiceSheet>
 {/if}

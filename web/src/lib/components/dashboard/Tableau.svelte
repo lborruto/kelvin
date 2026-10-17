@@ -1,5 +1,5 @@
 <!-- Maison, the dashboard at « / » (Tableau spec §4, fixed layout). Desktop: the title with the date and the house
-     actions, the summary chips (Climat, the month, Réseau, Absence), the alerts / « Tout est éteint » / absence
+     actions, the summary chips (Climat, Dehors with a weather place, the month, Réseau, Absence), the alerts / « Tout est éteint » / absence
      widgets, then one column per room that answers (rows of two), the offline rooms' column, the « Énergie et
      réseau » column (month, Maintenant, Demain, Hier) and « Programme d’aujourd’hui » under the rooms. Phone: one
      column with two-column room tiles. Skeletons at the final shapes until the house, the alerts and the energy
@@ -20,6 +20,8 @@
   import { grid } from '$lib/stores/grid.svelte';
   import { history } from '$lib/stores/history.svelte';
   import { house } from '$lib/stores/house.svelte';
+  import { weather } from '$lib/stores/weather.svelte';
+  import { chipValue, weatherFiche } from '$lib/weather';
   import { dashboardEnergy as energy } from '$lib/stores/dashboardEnergy.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
   import { today } from '$lib/today.svelte';
@@ -95,6 +97,8 @@
 {#snippet chips(compact: boolean)}
   <div class="chip-row chips" role="group" aria-label={m.maison.chips}>
     <SummaryChip icon="flame" label={m.maison.climate} value={climateText(c, compact)} />
+    <!-- Plan 14: only with a place; its words are built here so a language switch rewords the Fiche. -->
+    {#if weather.view}<SummaryChip icon="weather" label={m.weather.chip} value={chipValue(weather.view)} fiche={weatherFiche(weather.view, now)} />{/if}
     {#if month}<SummaryChip icon="euro" label={monthTitle(span.from)} value={monthValue} href={ROUTES.energy} />{/if}
     <SummaryChip icon="alert" label={m.maison.grid} value={gridNextText(gridNext(grid.view, today.iso))} href={ROUTES.energy} />
     <SummaryChip icon="away" label={m.maison.away} value={away ? m.maison.awayUntil(awayUntil) : m.nav.away} tone={away ? 'cool' : null}
@@ -137,7 +141,7 @@
 
   {#if !ready}
     <div class="sk" aria-hidden="true">
-      <div class="sk-chips">{#each [180, 120, 200, 120] as w, i (i)}<Skeleton h={46} w={w} shape="pill" />{/each}</div>
+      <div class="sk-chips">{#each weather.on ? [180, 120, 120, 200, 120] : [180, 120, 200, 120] as w, i (i)}<Skeleton h={46} w={w} shape="pill" />{/each}</div>
       {#if desktop.matches}
         <div class="board">
           <div class="left">

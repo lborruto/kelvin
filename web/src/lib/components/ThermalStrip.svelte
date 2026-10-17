@@ -12,7 +12,7 @@
   import { desktop } from '$lib/media.svelte';
   import { comfortBands } from '$lib/program';
   import {
-    inspectMoment, MOMENT_ORDER, momentProvenance, pointAt, slots, yRange, type MomentCtx, type RangeKind
+    inspectMoment, laneRange, MOMENT_ORDER, momentProvenance, outdoorAt, pointAt, slots, yRange, type MomentCtx, type OutdoorPoint, type RangeKind
   } from '$lib/roomchart';
   import { announcer } from '$lib/stores/announcer.svelte';
   import type { StripPoint } from '$lib/stores/history.svelte';
@@ -54,11 +54,16 @@
       presence?: boolean;
       window?: boolean;
     } | null;
+    /** Plan 14: past hourly outdoor temperatures (epoch ms, °C), drawn as a dashed `--outdoor` line up to now in
+     *  their own lane under the plot, on their own scale (`laneRange`), never on the room's. Null or absent: no lane. */
+    outdoor?: OutdoorPoint[] | null;
+    /** The outdoor hours are being asked: the lane holds its height, empty. */
+    outdoorPending?: boolean;
   }
   let {
     points, start, end, now, program = {}, mode = null, comfort = null, eco = null,
     target = null, pendingTarget = null, pendingComfort = null, axis = false, height = 36, label, activity = null,
-    events = false, yAxis = false, inspect = null
+    events = false, yAxis = false, inspect = null, outdoor = null, outdoorPending = false
   }: Props = $props();
 
   const W = 300;
@@ -102,6 +107,15 @@
   let shownComfort = $derived(pendingComfort ?? (held?.kind === 'comfort' ? held.v : null));
 
   let x = $derived(scaleLinear().domain([start, end]).range([0, W]));
+  // The outdoor hours already past (never a forecast on a history chart), in their own lane under the plot.
+  const LANE_H = 56;
+  const LANE_GAP = 8;
+  let laneOn = $derived(outdoor != null);
+  let outdoorPts = $derived((outdoor ?? []).filter((p) => p.t >= start && p.t <= Math.min(end, now)));
+  let lane = $derived(laneRange(outdoorPts.map((p) => p.v)));
+  let yo = $derived(scaleLinear().domain(lane ? [lane.lo, lane.hi] : [0, 1]).range([LANE_H - 3, 3]));
+  /** The plot and its lane: the guide line crosses both. */
+  let fullH = $derived(height + (laneOn ? LANE_GAP + LANE_H : 0));
   let known = $derived(
     [...points.flatMap((p) => [p.v, p.s]), comfort, eco, target, shownTarget, shownComfort].filter(
       (v): v is number => v != null && !Number.isNaN(v)
@@ -140,6 +154,23 @@
       .y((p) => y(p.v as number))
       .curve(curveMonotoneX)(points.filter((p) => p.t <= now)) ?? ''
   );
+
+  // A gap over 2 h breaks the outdoor line (a missing hour is absent, never bridged across a long stretch).
+  let outdoorPath = $derived.by(() => {
+    if (outdoorPts.length < 2) return null;
+    const withBreaks: { t: number; v: number | null }[] = [];
+    for (const [i, p] of outdoorPts.entries()) {
+      if (i && p.t - outdoorPts[i - 1].t > 2 * 3_600_000) withBreaks.push({ t: p.t, v: null });
+      withBreaks.push(p);
+    }
+    return (
+      line<{ t: number; v: number | null }>()
+        .defined((p) => p.v != null)
+        .x((p) => x(p.t))
+        .y((p) => yo(p.v as number))
+        .curve(curveMonotoneX)(withBreaks) ?? null
+    );
+  });
 
   const step = $derived(line<[number, number]>().x((d) => x(d[0])).y((d) => y(d[1])).curve(curveStepAfter));
   function programPath(c: number, e: number): string {
@@ -180,6 +211,10 @@
     else if (shownComfort != null) parts.push(m.strip.pendingComfort(fmtTemp(shownComfort)));
     if (windowRuns.length) parts.push(m.strip.windowCount(windowRuns.length));
     if (presenceRuns.length) parts.push(m.strip.presenceCount(presenceRuns.length));
+    if (outdoorPts.length) {
+      const vs = outdoorPts.map((p) => p.v);
+      parts.push(m.strip.outdoorRange(fmtTemp(Math.min(...vs)), fmtTemp(Math.max(...vs))));
+    }
     return m.strip.summary(parts);
   });
 
@@ -196,7 +231,7 @@
   let centers = $derived(moments.map((t) => x(Math.max(start, t))));
   let ctx = $derived<MomentCtx | null>(
     inspect
-      ? { ...inspect, now, activity, plan: { mode, program, comfort, eco, target } }
+      ? { ...inspect, now, activity, plan: { mode, program, comfort, eco, target }, outdoor: outdoorPts.length ? outdoorPts : null }
       : null
   );
   // Another range: nothing stays chosen.
@@ -217,9 +252,11 @@
   let plotW = $derived(pw > 0 ? pw : W);
   let guideX = $derived(at != null ? (centers[at] / W) * plotW : null);
   let dotY = $derived(chosen?.p?.v != null && chosen.t <= now ? y(chosen.p.v) : null);
+  let laneV = $derived(chosen && lane && inspect && chosen.t <= now ? outdoorAt(outdoorPts, chosen.t, inspect.stepMs) : null);
+  let laneDotY = $derived(laneV != null ? height + LANE_GAP + yo(laneV) : null);
   let sheet = $derived(!desktop.matches);
   // Beside the guide line, else under the plot and its time row: never over the point read.
-  let card = $derived(guideX != null ? guideCard(guideX, plotW, height + (axis ? 28 : 8), CARD_W) : null);
+  let card = $derived(guideX != null ? guideCard(guideX, plotW, fullH + (axis ? 28 : 8), CARD_W) : null);
   function choose(i: number | null, via?: 'key' | 'hover' | 'press') {
     index = i;
     // A tap or a click does not move focus: the live region says what was chosen. Keys use the slider's text.
@@ -253,6 +290,11 @@
     <div class="yaxis" aria-hidden="true" style:height="{height}px">
       {#each yTicks as t (t.v)}<span class="ytick" style:top="{t.at}px">{fmtTempTick(t.v)}°</span>{/each}
     </div>
+    {#if laneOn && lane}
+      <div class="lane-axis" aria-hidden="true" style:top="{height + LANE_GAP}px" style:height="{LANE_H}px">
+        <span class="ltick" style:top="3px">{fmtTempTick(lane.hi)}°</span><span class="ltick" style:top="{LANE_H - 3}px">{fmtTempTick(lane.lo)}°</span>
+      </div>
+    {/if}
   {/if}
   {#if sparseSince != null}<p class="since" aria-hidden="true">{m.strip.since(fmtTime(sparseSince))}</p>{/if}
   <div class="plot" bind:clientWidth={pw}>
@@ -296,13 +338,24 @@
     <path class="temp" d={tempPath} stroke="url(#{uid})" vector-effect="non-scaling-stroke" />
     <line class="now" x1={nowX} x2={nowX} y1="0" y2={height} vector-effect="non-scaling-stroke" />
   </svg>
+  {#if laneOn}
+    <!-- Outside, on its own scale (labelled in the gutter): never squeezes the room's line, never clipped. -->
+    <div class="lane" style:height="{LANE_H}px" style:margin-top="{LANE_GAP}px">
+      {#if outdoorPath}
+        <svg viewBox="0 0 {W} {LANE_H}" preserveAspectRatio="none" aria-hidden="true" style:height="{LANE_H}px">
+          <path class="outdoor" d={outdoorPath} vector-effect="non-scaling-stroke" />
+        </svg>
+      {:else if !outdoorPending}<p class="lane-none">{m.weather.noData}</p>{/if}
+    </div>
+  {/if}
   {#if inspect && moments.length}
     <Scrubber centers={centers} {W} index={at} label={m.roomChart.slider(label)} idle={m.roomChart.idle} start={nowIndex} leave
       toggle={sheet} valuetext={(i) => read(i).ins.spoken} onchange={choose} />
     {#if guideX != null}
       <!-- The moment read: a 1 px ink guide and, where a temperature was read, a dot on the line. -->
-      <span class="guide" aria-hidden="true" style:left="{guideX}px" style:height="{height}px"></span>
+      <span class="guide" aria-hidden="true" style:left="{guideX}px" style:height="{fullH}px"></span>
       {#if dotY != null}<span class="dot" aria-hidden="true" style:left="{guideX}px" style:top="{dotY}px"></span>{/if}
+      {#if laneDotY != null}<span class="dot lane-dot" aria-hidden="true" style:left="{guideX}px" style:top="{laneDotY}px"></span>{/if}
     {/if}
     {#if !sheet && chosen && card}
       <ChartInspector ins={chosen.ins} mode="card" id="{uid}-inspector" left={card.left} top={card.top} provenance={chosenProv} />
@@ -449,6 +502,42 @@
     .confirmed {
       animation: kv-solidify-rm var(--t-exit) linear forwards;
     }
+  }
+  /* The outdoor lane (Plan 14): its own band under the plot, a hairline above it, the line dashed in its colour. */
+  .lane {
+    position: relative;
+    border-top: 1px solid var(--line);
+  }
+  .lane svg {
+    display: block;
+    width: 100%;
+    overflow: visible;
+  }
+  .lane-none {
+    margin: 0;
+    padding-top: 18px;
+    font-size: 12px;
+    color: var(--mu);
+  }
+  .lane-axis {
+    position: absolute;
+    left: 0;
+    width: 24px;
+  }
+  .ltick {
+    position: absolute;
+    right: 0;
+    transform: translateY(-50%);
+    font-size: 11px;
+    line-height: 14px;
+    color: var(--outdoor);
+    font-variant-numeric: tabular-nums;
+  }
+  .outdoor {
+    fill: none;
+    stroke: var(--outdoor);
+    stroke-width: 1.25;
+    stroke-dasharray: 4 3;
   }
   .temp {
     fill: none;

@@ -7,6 +7,8 @@ import RoomPanel from './RoomPanel.svelte';
 import { applyLocale } from '$lib/i18n';
 import { alerts } from '$lib/stores/alerts.svelte';
 import { detail } from '$lib/stores/detail.svelte';
+import { weather } from '$lib/stores/weather.svelte';
+import { VIEW } from '$lib/weather.fixture';
 
 vi.mock('$lib/api/client', () => ({
   api: { roomMode: vi.fn(), roomSetpoint: vi.fn(), roomBoost: vi.fn(), cancelOverride: vi.fn(), history: vi.fn().mockResolvedValue([]),
@@ -14,7 +16,7 @@ vi.mock('$lib/api/client', () => ({
     roomActivity: vi.fn().mockResolvedValue({ step: 300, window: [], presence: [] }),
     roomsDuty: vi.fn().mockResolvedValue({ from: 0, to: 86400, rooms: { salon: { duty: 0.38, coverage: 1 } } }),
     radiatorLevel: vi.fn(), radiatorDryer: vi.fn(), radiatorMode: vi.fn(), radiatorSetpoint: vi.fn(), radiatorFeatures: vi.fn(),
-    radiatorLight: vi.fn(), identify: vi.fn() },
+    radiatorLight: vi.fn(), identify: vi.fn(), weatherHourly: vi.fn() },
   ApiError: class extends Error {}
 }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
@@ -441,5 +443,30 @@ describe('« Détails techniques » on the room panel (direction-2 §1.3)', () =
     expect(screen.getByText(/calculé · taux de chauffe Cozytouch × puissance du radiateur/)).toBeInTheDocument();
     expect(screen.getByText(/RSSI 100/)).toBeInTheDocument();
     expect(screen.getByText(/RSSI 62/)).toBeInTheDocument();
+  });
+});
+
+describe('RoomPanel: the outdoor line (Plan 14)', () => {
+  afterEach(() => weather.reset());
+  it('with a weather place: asks the hours of the window once, and the legend says « Dehors » with the Open-Meteo link', async () => {
+    const h = Math.floor(Date.now() / 3_600_000) * 3600;
+    vi.mocked(api.weatherHourly).mockResolvedValue({ step: 3600, points: [{ ts: h - 7200, t: 5.1, model: 'arome_hd' }, { ts: h - 3600, t: 5.6, model: 'arome_hd' }] });
+    weather.apply(VIEW);
+    const { container } = render(RoomPanel, { roomId: 'salon' });
+    await vi.waitFor(() => expect(container.querySelector('.legend')).toHaveTextContent('Dehors'));
+    expect(api.weatherHourly).toHaveBeenCalledTimes(1);
+    const legend = container.querySelector('.legend') as HTMLElement;
+    expect(legend.querySelector('.sw.outdoor')).not.toBeNull();
+    expect(within(legend).getByRole('link', { name: 'Open-Meteo' })).toHaveAttribute('href', 'https://open-meteo.com/');
+    expect(container.querySelector('.lane path.outdoor')!.getAttribute('d')).toMatch(/^M/);
+  });
+
+  it('without a place: no request, no legend entry, no line', () => {
+    vi.mocked(api.weatherHourly).mockClear();
+    weather.apply(null);
+    const { container } = render(RoomPanel, { roomId: 'salon' });
+    expect(api.weatherHourly).not.toHaveBeenCalled();
+    expect(container.querySelector('.legend')).not.toHaveTextContent('Dehors');
+    expect(container.querySelector('.lane')).toBeNull();
   });
 });

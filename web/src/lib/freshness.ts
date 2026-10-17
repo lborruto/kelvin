@@ -7,13 +7,15 @@ import { parisParts } from './time';
 /** `fresh`: within its cadence · `late`: waiting or behind (first sync, quota, next read pending,
  * stale) · `bad`: failed (only what DESIGN already makes red) · `none`: nothing to say. */
 export type Fresh = 'fresh' | 'late' | 'bad' | 'none';
-export type FreshSource = 'cozytouch' | 'linky-day' | 'linky-curve' | 'rte-ecowatt' | 'tempo';
+export type FreshSource = 'cozytouch' | 'linky-day' | 'linky-curve' | 'rte-ecowatt' | 'tempo' | 'weather';
 
 /** Expected cadences of the time-based sources (the Linky ones go by day, see `freshness`). */
 export const CADENCE_MS = {
   cozytouch: 15 * 60_000,
   'rte-ecowatt': 6 * 3_600_000,
-  tempo: 24 * 3_600_000
+  tempo: 24 * 3_600_000,
+  /** Plan 14: the forecast job runs every hour at :17; two hours without a fetch is late. */
+  weather: 2 * 3_600_000
 } as const;
 /** Linky's daily reading of day D is expected by 12:00 (Paris) on D + 1. */
 export const LINKY_READY_HOUR = 12;
