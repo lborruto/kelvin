@@ -571,6 +571,8 @@ async def start_runtime(
             first_days=weather_first_days,
             on_change=on_weather,
         )
+        linky_service.outdoor = weather.store.daily
+        linky_service.weather_on = weather.enabled
         if settings.kelvin_fake and is_sim and gateway.server == "sauter_cozytouch":
             weather.seed_demo()  # decision 10: the default demo house only
         scheduler = Scheduler(db, grid.jobs() + weather.jobs(), tz=settings.tz, wall=wall)

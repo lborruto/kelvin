@@ -43,6 +43,8 @@ from kelvin.linky.sync import DAILY_BACKFILL_DAYS, DAILY_BUDGET, BudgetExceeded,
 from kelvin.recorder.db import Database
 from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
+from kelvin.weather.models import DayWeather
+from kelvin.weather.normalise import FIT_MARGIN_DAYS
 
 log = logging.getLogger(__name__)
 
@@ -88,6 +90,9 @@ class LinkyService:
         self.tariffs = TariffStore(db)
         # Tempo colour per Tempo day for [start, end): the grid store's, set by the runtime.
         self.colours: Callable[[date, date], dict[date, str]] = lambda start, end: {}
+        # Plan 14: complete weather days and whether a place is set (WeatherService, runtime).
+        self.outdoor: Callable[[date, date], dict[date, DayWeather]] = lambda start, end: {}
+        self.weather_on: Callable[[], bool] = lambda: False
         self.make_source = make_source
         self.simulator = simulator
         self.prm = credentials[0] if credentials else None
@@ -243,7 +248,12 @@ class LinkyService:
         # The year view's mean of the four previous years reaches four years back (kWh only:
         # daily rows; their curves are not needed).
         daily_lo = min(load_lo, minus_years(min(start, p_lo), AVG4_YEARS))
-        daily = self.store.daily(daily_lo if group == "year" else load_lo, load_hi)
+        weather_on = self.weather_on()
+        # Spec §6.3: the weather fit reaches 45 days before last year's reference (daily rows only).
+        fit_lo = load_lo - timedelta(days=FIT_MARGIN_DAYS + 1) if weather_on else load_lo
+        rows_lo = min(daily_lo, fit_lo) if group == "year" else fit_lo
+        daily = self.store.daily(rows_lo, load_hi)
+        outdoor = self.outdoor(rows_lo, load_hi) if weather_on else {}
         curve = self.store.curve(load_lo, load_hi)
         colours = self.colours(load_lo, load_hi)  # Tempo colour per Tempo day
         if period is None:  # the same rule and data as the report's own default
@@ -284,6 +294,8 @@ class LinkyService:
             linky_since=self.store.first_day(first_day),
             curve_since=self.store.first_curve_day(),
             colours=colours,
+            outdoor=outdoor,
+            weather_on=weather_on,
         )
         return build_report(start, end, group, inputs, period)
 

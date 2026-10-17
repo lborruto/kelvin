@@ -16,6 +16,7 @@ from kelvin.config import Settings
 from kelvin.linky.fake import FakeLinkySource
 from kelvin.linky.models import DailyReading, LinkyAuthError, LinkyError, day_bounds
 from kelvin.overkiz.fake import FakeGateway
+from kelvin.weather.normalise import FIT_MARGIN_DAYS
 from tests.conftest import ManualClock, err, login
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -529,7 +530,8 @@ async def test_by_radiator_covers_the_selected_period_with_rooms_and_room_stats(
 
 
 async def test_the_report_loads_only_the_linky_rows_it_needs(api, monkeypatch):
-    """No unbounded query: the window, the period and 400 days of look-back at most."""
+    """No unbounded query: the window, the period and 400 days of look-back at most (daily rows
+    46 more with a weather place, for the weather fit: Plan 14 decision 13)."""
     c, _, rt, _ = api
     calls = []
     for name in ("daily", "curve"):
@@ -543,7 +545,11 @@ async def test_the_report_loads_only_the_linky_rows_it_needs(api, monkeypatch):
     start = today() - timedelta(days=7)
     await c.get("/api/energy", params={"from": str(start), "to": str(today())})
     assert len(calls) == 2
-    assert all(a is not None and b is not None and (b - a).days <= 7 + 400 + 1 for a, b in calls)
+    assert rt.weather.enabled()  # the Sauter simulator's demo place
+    (da, db), (ca, cb) = calls
+    assert None not in (da, db, ca, cb)
+    assert (db - da).days <= 7 + 400 + 1 + FIT_MARGIN_DAYS + 1
+    assert (cb - ca).days <= 7 + 400 + 1
 
 
 @pytest.mark.parametrize(
