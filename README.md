@@ -1,7 +1,7 @@
 <h1 align="center">Kelvin</h1>
 
 <p align="center">
-  <strong>Your electric radiators and your electricity bill, in one calm app you host yourself.</strong><br>
+  <strong>Control your electric radiators and track your electricity cost. Self-hosted.</strong><br>
   Control Sauter, Atlantic and Thermor radiators on Cozytouch, and see what your Linky meter says it costs.
 </p>
 
@@ -16,23 +16,23 @@
 
 ## What it does
 
-- **Every room at a glance.** Temperature, what the radiator is doing and until when, and −/+ to
+- **Rooms.** Temperature, what the radiator is doing and until when, and −/+ to
   change it. A room with two radiators acts as one.
 - **Weekly schedule.** See the week, drag the comfort periods, copy a day to others. Nothing is
   sent until you press « Envoyer ».
 - **Temporary heat.** Warm one room for a couple of hours (« Chauffer à 22 °C pendant 2 h »);
   it goes back to what it was doing afterwards.
 - **Away mode.** Turn the whole house down until you come back, from wherever you are.
-- **Honest status.** A change counts as done only when the radiator confirms it. Pending and
+- **Confirmed changes.** A change counts as done only when the radiator confirms it. Pending and
   failed are shown as such.
 - **Energy and euros.** Your home's consumption from Linky by day, week, month or year, priced
   with your own tariff: Base, off-peak/peak (HC/HP) or Tempo. See how much goes to the radiators,
   room by room, and export it as CSV.
-- **Alerts that matter.** A red Tempo day tomorrow, an EcoWatt warning, a radiator that went
+- **Alerts.** A red Tempo day tomorrow, an EcoWatt warning, a radiator that went
   offline, new regulated prices, a Linky consent about to expire.
 - **French or English**, switched in Settings without a reload.
 - **Works on your phone like an app** (installable, one dark theme, big touch targets).
-- **Ask your AI assistant.** Claude and other MCP clients can read your data and suggest ways to
+- **MCP server.** Claude and other MCP clients can read your data and suggest ways to
   pay less. Read-only: they can never change a setting.
 
 ## Get started
