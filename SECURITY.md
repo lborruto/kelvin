@@ -4,8 +4,8 @@
 
 Please report privately through GitHub: **Security › Report a vulnerability**
 (https://github.com/lborruto/kelvin/security/advisories/new). Do not open a public issue.
-Include the version (Maison › Version or the image tag), what an attacker needs (network
-position, an account, a session), and the steps. Kelvin is maintained in spare time: reports are handled on a best-effort basis, with no guaranteed response time.
+Include the version (at the bottom of « Réglages », or the image tag), what an attacker
+needs (network position, an account, a session), and the steps. Kelvin is maintained in spare time: reports are handled on a best-effort basis, with no guaranteed response time.
 
 ## Supported versions
 

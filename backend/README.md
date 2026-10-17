@@ -46,7 +46,7 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 | KELVIN_FAKE_SETUP_FAIL | — | Simulator only: comma-separated setup operations that always fail (`create_place`, `update_place`, `delete_place`, `relocate_device`, `rename_device`), for trying the error paths |
 | KELVIN_FAKE_HOUSE | — | Simulator only: `sauter`, `atlantic`, `thermor` or `experimental`. Empty: the house of the server chosen at login (Sauter unless another is chosen). A `fake_home.json` in `KELVIN_DATA` still wins |
 | KELVIN_DEBUG | false | `1` serves the API docs (`/docs`, `/redoc`, `/openapi.json`), off otherwise |
-| KELVIN_MCP | true | The read-only MCP endpoint at `/mcp` (Plan 13). Nothing is reachable without a token created in Maison › Compte; `false` removes the endpoint |
+| KELVIN_MCP | true | The read-only MCP endpoint at `/mcp` (Plan 13). Nothing is reachable without a token created in Réglages › Compte; `false` removes the endpoint |
 | KELVIN_HOST / KELVIN_PORT | 127.0.0.1 / 8000 | Bind address of `python -m kelvin` |
 | KELVIN_ALLOWED_HOSTS | — | Comma-separated Host allowlist (localhost always passes) |
 | KELVIN_TRUSTED_PROXIES | — | Only behind a trusted reverse proxy: its addresses; `*` is refused |
@@ -177,7 +177,7 @@ lists them. SDK-side refusals (an unknown tool, invalid arguments) are not audit
 
 ## Linky (MyElectricalData)
 
-Enter the PDL and the MyElectricalData token in Maison › Linky (or set `MED_PRM`/`MED_TOKEN`). Kelvin
+Enter the PDL and the MyElectricalData token in Réglages › Linky (or set `MED_PRM`/`MED_TOKEN`). Kelvin
 syncs at 08:00 and 14:00 (Europe/Paris), backfills a year of daily data and 30 days of 30-min
 curve, then extends the curve back to the contract start (at most 24 months) with spare calls,
 and never spends more than 10 calls a day (MyElectricalData allows 50), the PDL/token checks

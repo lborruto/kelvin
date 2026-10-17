@@ -1,4 +1,4 @@
-"""Maison › Compte › Accès MCP (spec MCP §5.4)."""
+"""Réglages › Compte › Accès MCP (spec MCP §5.4)."""
 
 import pytest
 from asgi_lifespan import LifespanManager

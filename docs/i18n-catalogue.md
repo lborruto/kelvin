@@ -42,7 +42,7 @@ the UI language. Nothing about device behaviour changes.
 | Library | **A hand-rolled, fully typed dictionary** (`web/src/lib/i18n/`): zero new dependencies, with `Intl.PluralRules` for plurals. Call sites read `m.area.key(…)`, the same shape as Paraglide JS, so moving to Paraglide later is a mechanical change. |
 | English variant | **en-GB** (24 h clock, day/month order, `13 October 2026`), with metric units and € kept. |
 | Default locale | **French, always**, unless the user picks English. A first visit with `navigator.language` not starting with `fr` gets English, and that is only a starting value until the user chooses. |
-| Switch | Maison › Réglages, under « Langue » next to « Thème »; also a small FR / EN switch on the login screen. Stored in `localStorage['kelvin-locale']`; an inline script in `app.html` sets `<html lang>` before the app boots. |
+| Switch | Réglages, under « Langue » next to « Thème »; also a small FR / EN switch on the login screen. Stored in `localStorage['kelvin-locale']`; an inline script in `app.html` sets `<html lang>` before the app boots. |
 | Backend messages | **(b) Codes plus parameters, translated by the web app.** The backend keeps its French `detail` as a fallback for curl, logs and older clients. Accept-Language is not used. |
 | URL paths | English: `/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/login`. Old French paths redirect on the client, keeping query and hash. This is phase 1 of the plan. |
 | Tests | vitest runs in both locales where copy matters. Type checking guarantees no missing keys; a script finds unused keys and leftover hard-coded French; Playwright runs a smoke test per locale. |
@@ -332,7 +332,7 @@ locale = stored ?? (navigator.languages?.some(l => /^fr\b/i.test(l)) ? 'fr'
 
 ### 4.2 Where to switch
 
-- **Maison › Réglages**: a row « Langue » / “Language” with a `Segmented` of **« Français » | « English »**. Each
+- **Réglages**: a row « Langue » / “Language” with a `Segmented` of **« Français » | « English »**. Each
   label is written in its own language and never translated, so someone who does not read the current language
   can still find theirs. Set `lang="fr"` / `lang="en"` on each option for screen readers. It sits directly under
   « Thème », with the same geometry.
@@ -806,7 +806,7 @@ token”) and contractions (“can’t”, “isn’t”) in sentences, but not 
   (the type check forces it), check the glossary (link to a new `docs/glossary.md` holding §6), run the i18n
   check, and never hard-code text in a component.
 - **README.md**: “a fast, clear web app in French” → “in French and English”; Project status “The UI is French
-  only” → “The UI is in French and English (French by default; switch in Maison › Réglages).” Update screenshot
+  only” → “The UI is in French and English (French by default; switch in Réglages).” Update screenshot
   references if file names change with paths.
 - **web/README.md**: the i18n folder, how to add a message, the `kelvin-locale` key, the manifest limitation,
   and the paths table.
