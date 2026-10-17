@@ -19,10 +19,10 @@ describe('ROUTES', () => {
 
 describe('Maison sub-pages (UX batch 8)', () => {
   it('English sub-paths under /home', () => {
-    expect([ROUTES.devices, ROUTES.tariff, ROUTES.linky, ROUTES.sources, ROUTES.account]).toEqual([
-      '/home/devices', '/home/tariff', '/home/linky', '/home/sources', '/home/account'
+    expect([ROUTES.devices, ROUTES.tariff, ROUTES.linky, ROUTES.sources, ROUTES.weather, ROUTES.account]).toEqual([
+      '/home/devices', '/home/tariff', '/home/linky', '/home/sources', '/home/weather', '/home/account'
     ]);
-    for (const r of [ROUTES.tariff, ROUTES.linky, ROUTES.sources, ROUTES.account]) expect(isActive(r, ROUTES.home)).toBe(true);
+    for (const r of [ROUTES.tariff, ROUTES.linky, ROUTES.sources, ROUTES.weather, ROUTES.account]) expect(isActive(r, ROUTES.home)).toBe(true);
   });
   it('the old Maison anchors reach their new place', () => {
     expect(homeAnchor('#tariff')).toBe('/home/tariff');

@@ -1361,6 +1361,7 @@ export const fr = {
     never: 'pas encore interrogé',
     error: (time: string) => `indisponible depuis ${time}`,
     quota: 'quota du jour atteint, reprise demain',
+    weatherOff: 'Désactivée',
     med: (calls: number, budget: number, grid: number) =>
       `Appels MyElectricalData aujourd’hui${NB}: ${calls} sur ${budget} (dont ${grid} pour Tempo et EcoWatt)`,
     via: 'Tempo et EcoWatt viennent de MyElectricalData, sans jeton ni PDL.',
@@ -1745,6 +1746,7 @@ export const fr = {
     title: 'Météo',
     off: 'Désactivée',
     lead: 'Kelvin peut afficher la température extérieure de votre commune pour expliquer le chauffage.',
+    privacyTitle: 'Ce que Kelvin envoie',
     privacy: `Seules les coordonnées et l’altitude du lieu sont envoyées à Open-Meteo${NB}; le nom tapé l’est pendant la recherche. Rien n’est enregistré ailleurs que dans Kelvin.`,
     searchLabel: 'Rechercher une commune',
     searchHint: 'Au moins 2 lettres',
@@ -1759,7 +1761,6 @@ export const fr = {
     remove: 'Supprimer',
     removeTitle: `Supprimer le lieu et l’historique météo${NB}?`,
     removeBody: 'Les températures extérieures enregistrées seront effacées.',
-    cancel: 'Annuler',
     place: 'Lieu',
     coords: 'Coordonnées',
     coordsValue: (lat: string, lon: string) => `${lat} · ${lon}`,

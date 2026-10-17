@@ -1323,6 +1323,7 @@ export const en: Messages = {
     never: 'not asked yet',
     error: (time: string) => `unavailable since ${time}`,
     quota: 'today’s quota used up, back tomorrow',
+    weatherOff: 'Off',
     med: (calls: number, budget: number, grid: number) =>
       `MyElectricalData calls today: ${calls} of ${budget} (${grid} for Tempo and EcoWatt)`,
     via: 'Tempo and EcoWatt come from MyElectricalData, with no token and no PDL.',
@@ -1692,6 +1693,7 @@ export const en: Messages = {
     title: 'Weather',
     off: 'Off',
     lead: 'Kelvin can show the outdoor temperature where you live, to explain your heating.',
+    privacyTitle: 'What Kelvin sends',
     privacy: 'Only the place’s coordinates and altitude are sent to Open-Meteo; the name you type is sent while you search. Nothing is stored anywhere but in Kelvin.',
     searchLabel: 'Search for a town',
     searchHint: 'At least 2 letters',
@@ -1706,7 +1708,6 @@ export const en: Messages = {
     remove: 'Remove',
     removeTitle: 'Remove the place and the weather history?',
     removeBody: 'Stored outdoor temperatures will be deleted.',
-    cancel: 'Cancel',
     place: 'Place',
     coords: 'Coordinates',
     coordsValue: (lat: string, lon: string) => `${lat}, ${lon}`,

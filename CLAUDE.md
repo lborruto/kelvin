@@ -175,7 +175,7 @@ depends on.
   third-party text (a gateway's message) goes through `errors.scrub` before any API body, SSE
   or log.
 - **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/home/devices`,
-  `/home/tariff`, `/home/linky`, `/home/sources`, `/home/account`; anchors `#away`, `#tariff`, `#linky`,
+  `/home/tariff`, `/home/linky`, `/home/sources`, `/home/weather`, `/home/account`; anchors `#away`, `#tariff`, `#linky`,
   `#quality`, `#curve`, `#alerts`, `#sessions`, `#mcp`) and come from `web/src/lib/paths.ts`. Maison's old
   section anchors land on their sub-page (`homeAnchor`: `/home#tariff` → `/home/tariff`, `#sessions` →
   `/home/account#sessions`, `#mcp` → `/home/account#mcp`, `#away` → `/` with the Absence sheet open over Maison). Old

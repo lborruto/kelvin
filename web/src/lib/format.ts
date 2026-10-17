@@ -89,6 +89,12 @@ export function fmtMetres(n: number | null | undefined): string {
   return `${signed(whole(), n)}${NB}m`;
 }
 
+/** A whole count with the locale's grouping: « 31 », « 1 200 », “1,200”. */
+export function fmtInt(n: number | null | undefined): string {
+  if (bad(n)) return '—';
+  return signed(whole(), n);
+}
+
 /** Degree days, 1 decimal, no unit (the label says « DJU »): « 11,7 », “312.0”. */
 export function fmtDju(v: number | null | undefined): string {
   if (bad(v)) return '—';

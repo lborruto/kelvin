@@ -10,6 +10,8 @@ import { awaySheet } from '$lib/stores/away.svelte';
 import { detail } from '$lib/stores/detail.svelte';
 import { house } from '$lib/stores/house.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
+import { weather } from '$lib/stores/weather.svelte';
+import { VIEW } from '$lib/weather.fixture';
 import Page from './+page.svelte';
 
 const LINKY_OFF = {
@@ -42,7 +44,8 @@ vi.mock('$lib/api/client', () => ({
       { id: 't1', name: 'Claude', hint: '7f3a', scope: 'read', created: 1, last_used: null, revoked_at: null },
       { id: 't2', name: 'Bureau', hint: 'c21b', scope: 'read', created: 1, last_used: null, revoked_at: 2 }
     ] }),
-    me: vi.fn().mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true })
+    me: vi.fn().mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true }),
+    weatherSettings: vi.fn().mockResolvedValue({ location: null, coverage: null, calls_today: 0, budget: 400, attribution: { url: 'https://open-meteo.com/', licence: 'CC BY 4.0' } })
   },
   ApiError: class extends Error {}
 }));
@@ -98,7 +101,7 @@ describe('Réglages overview', () => {
     const { container } = render(Page);
     expect(screen.getByRole('heading', { level: 1, name: 'Réglages' })).toBeInTheDocument();
     const order = [...container.querySelectorAll('h2, h3')].filter((h) => !h.closest('dialog')).map((h) => h.textContent?.trim());
-    expect(order).toEqual([m.devices.title, m.tariff.title, 'Linky', m.sources.title, m.account.title, m.home.display]);
+    expect(order).toEqual([m.devices.title, m.tariff.title, 'Linky', m.sources.title, m.weather.title, m.account.title, m.home.display]);
     expect(screen.getByText(/^Kelvin \d/)).toBeInTheDocument();
   });
 
@@ -159,6 +162,24 @@ describe('Réglages overview', () => {
     expect(await screen.findByText('Sauter Cozytouch · 2 appareils connectés · 1 jeton MCP')).toBeInTheDocument();
   });
 
+  it('Météo card: « Désactivée » without a place; the place and its source line with one (Plan 14)', async () => {
+    const { unmount } = render(Page);
+    expect(await screen.findByRole('link', { name: 'Météo, Désactivée' })).toHaveAttribute('href', '/home/weather');
+    unmount();
+    vi.mocked(api.weatherSettings).mockResolvedValueOnce({
+      location: { name: 'Lyon', admin1: 'Auvergne-Rhône-Alpes', admin2: 'Rhône', country_code: 'FR', lat: 45.76, lon: 4.84, elevation_m: 173,
+        elevation_source: 'geocoder', origin: 'search', mode: 'meteofrance' },
+      coverage: null, calls_today: 3, budget: 400, attribution: { url: 'https://open-meteo.com/', licence: 'CC BY 4.0' }
+    });
+    weather.apply({ ...VIEW, fetched_at: Math.floor(Date.now() / 1000) - 120 });
+    const { container } = render(Page);
+    const link = await screen.findByRole('link', { name: /^Météo, Lyon · Rhône · 173\sm$/ });
+    const card = link.closest('article')!;
+    expect(within(card as HTMLElement).getByText(/^Météo-France AROME HD via Open-Meteo · il y a 2\smin$/)).toBeInTheDocument();
+    weather.reset();
+    expect(container).toBeTruthy();
+  });
+
   it('Tarif card under Tempo: the Tempo colours and hours, never the HC/HP blue band', async () => {
     const tempo = { ...TARIFF, prices: [{ valid_from: '2025-01-15', option: 'tempo', subscription_eur_month: 15, rates: {
       blue_hc: 0.13, blue_hp: 0.16, white_hc: 0.15, white_hp: 0.18, red_hc: 0.16, red_hp: 0.7 } }] };
@@ -191,7 +212,7 @@ describe('Réglages overview', () => {
     house.reset();
     alerts.reset();
     const { container } = render(Page);
-    expect(container.querySelectorAll('.card-sk')).toHaveLength(6);
+    expect(container.querySelectorAll('.card-sk')).toHaveLength(7);
     expect(screen.queryByText('Tout va bien')).toBeNull();
   });
 
