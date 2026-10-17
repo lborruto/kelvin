@@ -1668,7 +1668,7 @@ export const en: Messages = {
     max: 'Maximum',
     atTime: (v: string, time: string, ahead: boolean) => (ahead ? `${v}, expected around ${time}` : `${v} at ${time}`),
     notStation: 'Calculated by a weather model for your area, not measured by a station.',
-    attributionShort: 'Weather data by Open-Meteo.com',
+    attributionShort: 'Weather data by Open-Meteo.com (Météo-France AROME, CC BY 4.0)',
     attribution: 'Weather data: Météo-France (AROME) and Copernicus (ERA5-Land) via Open-Meteo.com, CC BY 4.0 licence. Place search: GeoNames.',
     reasonFirst: 'first reading in progress',
     reasonRetry: (time: string) => `Open-Meteo unreachable, next try at ${time}`,

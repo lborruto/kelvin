@@ -97,6 +97,15 @@ export function whyText(why: string | null | undefined): string | null {
   return why ? (m.weather.why[why] ?? null) : null;
 }
 
+/** The weather source's freshness from the view (the forecast job's state, as the Sources row reads it): failed
+ *  is bad, quota or not yet fetched is late, else the 2 h cadence. */
+export function weatherFresh(v: WeatherView | null | undefined, now: number): Fresh {
+  if (!v) return 'none';
+  const at = v.fetched_at ? v.fetched_at * 1000 : null;
+  const f = v.fetch;
+  return freshness('weather', { at, failed: f?.state === 'error', waiting: f?.state === 'quota' || f?.state === 'never' }, now);
+}
+
 /** Énergie's context row (Plan 14): « Météo · Open-Meteo » with its freshness, and a Fiche with the model, the last
  *  reading, the selected period's days with weather, the Provenance and the attribution link. */
 export function weatherSource(
@@ -105,8 +114,7 @@ export function weatherSource(
   now: number
 ): { source: string; text: string; state: Fresh; title: string; rows: FicheRow[]; notes: string[]; provenance: Provenance; link: FicheLink } {
   const at = v.fetched_at ? v.fetched_at * 1000 : null;
-  const f = v.fetch;
-  const state = freshness('weather', { at, failed: f?.state === 'error', waiting: f?.state === 'quota' || (f?.state === 'never' && !at) }, now);
+  const state = weatherFresh(v, now);
   const rows: FicheRow[] = [
     { label: m.weather.modelRow, value: modelName(v.now?.model) },
     { label: m.weather.lastRead, value: at ? stamp(at, now) : '—', note: at ? null : chipReason({ ...v, now: null }, now) }

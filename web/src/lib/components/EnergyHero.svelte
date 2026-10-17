@@ -14,6 +14,7 @@
   import { provenance } from '$lib/provenance';
   import { goToSection } from '$lib/sections';
   import { today } from '$lib/today.svelte';
+  import { weather } from '$lib/stores/weather.svelte';
   import Fig from './Fig.svelte';
   import Icon from './Icon.svelte';
   import SplitBar from './SplitBar.svelte';
@@ -177,7 +178,9 @@
             hc={split ? parts.parts[0] : null} hp={split ? parts.parts[1] : null} />
         {/if}
         {#if change && prev}<p class="muted delta">{m.hero.compare(change, prevName, prev.pairs)}</p>{/if}
-        {#if outdoorLine}<p class="muted outdoor num">{outdoorLine}</p>{/if}
+        <!-- With a weather place the line's height is held (no shift when a period without figures steps in). -->
+        {#if outdoorLine}<p class="muted outdoor num">{outdoorLine}</p>
+        {:else if weather.on}<p class="muted outdoor" aria-hidden="true">&nbsp;</p>{/if}
         {#each meaning as n (n)}<p class="muted note"><Icon name="info" size={14} /><span>{n}</span></p>{/each}
         {#if report.linky && !report.tariff}
           <p class="muted note tariff">{m.energyUi.noTariff} <a class="link" href="{ROUTES.tariff}">{m.energyUi.noTariffCta}</a></p>
@@ -257,8 +260,10 @@
     color: var(--mu);
   }
   .outdoor {
+    min-height: 1.45em;
     margin: 6px 0 0;
     font-size: 13px;
+    line-height: 1.45;
   }
   .line,
   .delta {

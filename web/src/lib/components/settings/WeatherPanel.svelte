@@ -10,11 +10,10 @@
   import { api } from '$lib/api/client';
   import type { WeatherLocationBody, WeatherPlace, WeatherSettings } from '$lib/api/types';
   import { fmtCoord, fmtDateLong, fmtInt, fmtMetres, fmtTime, parseDecimal } from '$lib/format';
-  import { freshness } from '$lib/freshness';
   import { errorText, locale, m } from '$lib/i18n';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { weather } from '$lib/stores/weather.svelte';
-  import { ATTRIBUTION_URL, GEONAMES_URL, placeLine } from '$lib/weather';
+  import { ATTRIBUTION_URL, GEONAMES_URL, placeLine, weatherFresh } from '$lib/weather';
   import Disclosure from '../Disclosure.svelte';
   import Freshness from '../Freshness.svelte';
   import GroupedList from '../GroupedList.svelte';
@@ -194,7 +193,7 @@
       <div class="li"><dt>{m.weather.calls}</dt><dd class="num">{m.weather.callsValue(fmtInt(settings.calls_today), fmtInt(settings.budget))}</dd></div>
       <div class="li">
         <dt>{m.weather.lastRead}</dt>
-        <dd class="num"><Freshness state={freshness('weather', { at: fetchedAt }, now)} />{fetchedAt ? fmtTime(fetchedAt) : '—'}</dd>
+        <dd class="num"><Freshness state={weatherFresh(weather.view, now)} />{fetchedAt ? fmtTime(fetchedAt) : '—'}</dd>
       </div>
     </GroupedList>
     {#if formError}<p class="error" role="alert">{formError()}</p>{/if}

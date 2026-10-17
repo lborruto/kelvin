@@ -158,7 +158,8 @@
       {/each}
     </ul>
   </div>
-  {#if error}<p class="error" id={errId}>{error}</p>{/if}
+  <!-- Always there, so the error is announced when it appears (a polite live region). -->
+  <p class="error" id={errId} aria-live="polite">{error ?? ''}</p>
   <p role="status" class="visually-hidden">{announce}</p>
 </div>
 
@@ -209,6 +210,10 @@
   li[aria-selected='true'],
   li:hover {
     background: var(--s2);
+  }
+  /* Empty, it takes no room (the grid's gap is cancelled), yet stays in the accessibility tree. */
+  .error:empty {
+    margin-top: -4px;
   }
   .error {
     margin: 0;

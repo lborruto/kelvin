@@ -1721,7 +1721,7 @@ export const fr = {
     max: 'Maximum',
     atTime: (v: string, time: string, ahead: boolean) => (ahead ? `${v}, prévu vers ${time}` : `${v} à ${time}`),
     notStation: 'Valeur calculée par un modèle météo pour votre commune, pas mesurée par une station.',
-    attributionShort: 'Données météo Open-Meteo.com',
+    attributionShort: `Données météo${NB}: Météo-France via Open-Meteo.com (CC BY 4.0)`,
     attribution: `Données météo${NB}: Météo-France (AROME) et Copernicus (ERA5-Land) via Open-Meteo.com, licence CC BY 4.0. Recherche de lieux${NB}: GeoNames.`,
     reasonFirst: 'premier relevé en cours',
     reasonRetry: (time: string) => `Open-Meteo injoignable, nouvel essai à ${time}`,

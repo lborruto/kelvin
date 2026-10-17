@@ -3,6 +3,8 @@ import { render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import type { EnergyReport, EnergySummary, Outdoor } from '$lib/api/types';
 import { applyLocale } from '$lib/i18n';
+import { weather } from '$lib/stores/weather.svelte';
+import { VIEW } from '$lib/weather.fixture';
 import EnergyHero from './EnergyHero.svelte';
 
 vi.mock('$lib/today.svelte', () => ({ today: { iso: '2026-11-20' } }));
@@ -49,5 +51,16 @@ describe('EnergyHero: the outdoor line (Plan 14)', () => {
     const { container } = render(EnergyHero, { report: report(OUT), view: 'month', last: '2026-10-31' });
     expect(container.querySelector('.outdoor')!.textContent!.replace(/\s/g, ' ')).toBe('Outside: avg. 7.9 °C · 312.0 HDD');
     applyLocale('fr');
+  });
+});
+
+describe('EnergyHero: the outdoor line holds its height (no CLS)', () => {
+  it('with a weather place but no figures for the period yet, an empty line keeps the room', () => {
+    weather.apply(VIEW);
+    const { container } = render(EnergyHero, { report: report(), view: 'month', last: '2026-10-31' });
+    const line = container.querySelector('.outdoor')!;
+    expect(line).toHaveAttribute('aria-hidden', 'true');
+    expect(line.textContent!.trim()).toBe('');
+    weather.reset();
   });
 });

@@ -28,8 +28,7 @@
   import { navAlerts } from '$lib/navAlerts';
   import { ANCHORS, homeAnchor, ROUTES } from '$lib/paths';
   import { lateCount, sourceRows } from '$lib/sources';
-  import { freshness } from '$lib/freshness';
-  import { modelName, placeLine } from '$lib/weather';
+  import { modelName, placeLine, weatherFresh } from '$lib/weather';
   import { weather } from '$lib/stores/weather.svelte';
   import { alerts } from '$lib/stores/alerts.svelte';
   import { auth } from '$lib/stores/auth.svelte';
@@ -209,7 +208,7 @@
           <HomeCard href={ROUTES.weather} icon="weather" title={m.weather.title} summary={weatherSummary} vt="home-weather">
             {#snippet foot()}
               {#if weatherLoc && weather.view}<SourceLine source={modelName(weather.view.now?.model)} text={weatherAt ? fmtAgo(weatherAt, now) : '—'}
-                  state={freshness('weather', { at: weatherAt }, now)} />{/if}
+                  state={weatherFresh(weather.view, now)} />{/if}
             {/snippet}
           </HomeCard>
           <HomeCard href={ROUTES.account} icon="user" title={m.account.title} summary={accountSummary} vt="home-account">

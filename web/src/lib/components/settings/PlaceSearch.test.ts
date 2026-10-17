@@ -95,6 +95,7 @@ describe('PlaceSearch', () => {
     await vi.advanceTimersByTimeAsync(350);
     const err = screen.getByText(/Trop de recherches/);
     expect(box().getAttribute('aria-describedby')).toContain(err.id);
+    expect(err).toHaveAttribute('aria-live', 'polite');
   });
 
   it('reads in English', async () => {

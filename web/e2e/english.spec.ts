@@ -129,7 +129,7 @@ test.describe('key flows in English', () => {
     expect(rows[0]).toBe(
       'periode,debut,fin,maison_kwh,hc_kwh,hp_kwh,split_estime,radiateurs_kwh,radiateurs_interp,reste_kwh,energie_eur,abonnement_eur,total_eur,prix,jours_manquants,radiateurs_jusqu_au,radiateurs_couverture,dehors_moy_c,dju_base18,meteo_jours'
     );
-    for (const r of rows.filter(Boolean)) expect(r.split(',')).toHaveLength(17); // no text cell of this file holds a comma
+    for (const r of rows.filter(Boolean)) expect(r.split(',')).toHaveLength(20); // no text cell of this file holds a comma
     const total = rows.find((r) => r.startsWith('total,'))!;
     expect(total.split(',')[3]).toMatch(/^\d+\.\d{3}$/); // maison_kwh: a decimal point, 3 decimals
   });
