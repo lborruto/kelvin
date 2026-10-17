@@ -1,13 +1,13 @@
 <!-- The week as an agenda (Programme, Tableau §4): days are columns, the hours run down, comfort blocks are
      heat. Each day's header is a button named as a sentence (its periods, comfort total, today, edited, lock).
-     Desktop (`onedit`): drag a block, or its top or bottom edge, in 15-minute steps with a time bubble; a click
+     Desktop (`onedit`): drag a block, or its top or bottom edge, in the room's steps (30 minutes on Sauter) with a time bubble; a click
      selects it; dragging on an empty area of a day with fewer than 3 periods draws out a 1 h period. Every
-     change goes through `$lib/program` (snap, 23:45 at the latest, neighbours never overlap). The compact
+     change goes through `$lib/program` (snap, one step before midnight at the latest, neighbours never overlap). The compact
      agenda (a phone) is a picture: a tap opens the day. Locked days are hatched and never take an edit. -->
 <script lang="ts">
   import { DAYS, type Day, type DayLock } from '$lib/api/types';
   import { m } from '$lib/i18n';
-  import { comfortMinutes, drawSlot, fmtDuration, fromMin, moveSlot, resizeSlot, slotTimes, type Seg, type Week } from '$lib/program';
+  import { comfortMinutes, DEFAULT_STEP, drawSlot, fmtDuration, fromMin, moveSlot, resizeSlot, slotTimes, type Seg, type Week } from '$lib/program';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -25,13 +25,15 @@
     interactive?: boolean;
     /** The phone agenda: letters, a 6 h scale, no labels in the blocks, no drag. */
     compact?: boolean;
+    /** The room's programme step in minutes: drags move by it. */
+    slotStep?: number;
     onselect?: (day: Day) => void;
     /** Desktop drag edits; absent, the agenda only selects. */
     onedit?: (day: Day, segs: Seg[]) => void;
   }
   let {
     week, today, nowMinute, selected = null, changed = [], locks = {}, pulse = null, pending = false, interactive = true,
-    compact = false, onselect, onedit
+    compact = false, slotStep = DEFAULT_STEP, onselect, onedit
   }: Props = $props();
 
   type Kind = 'move' | 'start' | 'end' | 'new';
@@ -103,7 +105,7 @@
     const at = minuteAt(d, e.clientY);
     if (g.kind === 'new') {
       // A period drawn from where the drag began, down or up (1 h at least while the gap allows).
-      const made = drawSlot(g.base, g.origin, at, 60);
+      const made = drawSlot(g.base, g.origin, at, 60, slotStep);
       if (!made) {
         if (g.i < 0) drag = null;
         return;
@@ -116,7 +118,8 @@
       onedit?.(d, made);
       return;
     }
-    const next = g.kind === 'move' ? moveSlot(g.base, g.i, at - g.origin) : resizeSlot(g.base, g.i, g.kind, at);
+    const next =
+      g.kind === 'move' ? moveSlot(g.base, g.i, at - g.origin, slotStep) : resizeSlot(g.base, g.i, g.kind, at, slotStep);
     show(d, next[g.i], g.kind);
     onedit?.(d, next);
   }

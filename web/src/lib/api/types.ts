@@ -17,6 +17,8 @@ export interface Capabilities {
   eco: [number, number] | null;
   levels: PilotLevel[];
   program: boolean;
+  /** With `program`: the programme times the radiator keeps, in minutes (30 on Sauter). */
+  program_step_minutes?: number | null;
   dryer: DryerState[];
   window_detection: boolean;
   presence_detection: boolean;

@@ -15,7 +15,7 @@ from kelvin.house.model import DAY_ORDER
 
 SAME = "same_consumption"
 PROMISE_WORDS = re.compile(r"\b(will save|you save|guarantee[ds]?|savings of)\b", re.I)
-EDITOR_LAST_END = 23 * 60 + 45
+DEFAULT_STEP = 30  # the programme step when a room names none (kelvin.devices.registry)
 _HHMM = re.compile(r"^([01]\d|2[0-4]):([0-5]\d)$")
 
 
@@ -293,10 +293,13 @@ def _minutes(hhmm: str) -> int | None:
 
 
 def check_week(
-    week: dict[str, list[dict[str, str]]], locked: dict[str, str]
+    week: dict[str, list[dict[str, str]]], locked: dict[str, str], step: int = DEFAULT_STEP
 ) -> list[dict[str, Any]]:
-    """Kelvin's programme rules and the editor's (spec MCP §6.3). Nothing is sent."""
+    """Kelvin's programme rules and the editor's (spec MCP §6.3). Nothing is sent. `step`: the
+    room's programme step in minutes (the coarsest of its radiators): every time on it, the
+    last end one step before midnight."""
     problems: list[dict[str, Any]] = []
+    last_end = 24 * 60 - step
     for day, slots in week.items():
         if day not in DAY_ORDER:
             problems.append({"day": day, "code": "day_unknown"})
@@ -307,10 +310,11 @@ def check_week(
             problems.append({"day": day, "code": e.code})
         for s in slots:
             edges = [_minutes(s.get("start", "")), _minutes(s.get("end", ""))]
-            if any(m is not None and m % 15 for m in edges):
-                problems.append({"day": day, "code": "not_quarter_hour"})
-            if edges[1] is not None and edges[1] > EDITOR_LAST_END:
-                problems.append({"day": day, "code": "editor_end_after_2345"})
+            if any(m is not None and m % step for m in edges):
+                problems.append({"day": day, "code": "not_on_step", "step_minutes": step})
+            if edges[1] is not None and edges[1] > last_end:
+                last = f"{last_end // 60:02d}:{last_end % 60:02d}"
+                problems.append({"day": day, "code": "end_after_last", "last": last})
         if day in locked:
             problems.append({"day": day, "code": "day_locked", "reason": locked[day]})
     seen, out = set(), []

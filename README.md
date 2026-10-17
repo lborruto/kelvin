@@ -15,7 +15,9 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   the detail shows each radiator.
 - **Truthful commands.** A change counts as done only when the radiator reports the new state.
   Pending, confirmed and failed are shown as such, including Overkiz's misleading
-  `OVERRIDEMODE_ERROR` on commands that did apply.
+  `OVERRIDEMODE_ERROR` on commands that did apply. Before calling a command failed, Kelvin reads
+  the radiators once; a programme the radiators hold with other times says so, and a failure the
+  radiator confirms later turns confirmed.
 - **One dark « Tableau »:** Maison (Home, `/`) is the house at a glance: summary chips, what is happening
   now (away, boosts) with the house actions, the alerts, one tile per room with its −/+, the energy and the
   tariff of the moment, tomorrow's grid signals and today's schedule. Four places in the sidebar and the phone
@@ -45,7 +47,7 @@ devices and services it works with (see [the note at the end](#not-affiliated)).
   radiator.
 - **Control:** off, manual, schedule; setpoint; the weekly schedule (the radiators' own three
   comfort periods a day): the week as an agenda (on a desktop its comfort blocks can be
-  dragged and resized in 15-minute steps), the comfort and eco temperatures and what happens next, and one
+  dragged and resized in the radiators' steps: 30 minutes on Sauter, the only times they keep), the comfort and eco temperatures and what happens next, and one
   day edited at a time (drag or type the periods, « Copier vers… » weekdays, the weekend or every day; nothing is sent before « Envoyer »;
   an offline room's schedule is shown read-only); boost a room for a few hours (« Chauffe temporaire »); away for the whole house from wherever you are (« Partir en absence » with
   « Demain 18:00 » / « Dimanche 18:00 » presets and the consequence written before sending). Boost and away

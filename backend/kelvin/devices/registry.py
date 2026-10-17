@@ -58,6 +58,10 @@ class Profile:
     setpoint_state: str | None = None
     setbacks: bool = False  # comfort temperature and eco setback (verified on Sauter only)
     program: bool = False  # the weekly programme Kelvin edits (core:TimeProgramState)
+    # The programme times the device keeps, in minutes. 30 on Sauter radiators (verified
+    # 2026-10-17: 17:45 sent, 17:00 kept; every held time is on :00 or :30). 30 for every
+    # other kind too until a finer step is verified (docs/overkiz-notes.md).
+    program_step: int = 30
     manual_min: float = 7.0
 
     def mode_of(self, value: Any) -> str:

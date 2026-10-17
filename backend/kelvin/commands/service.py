@@ -2,22 +2,33 @@
 
 from __future__ import annotations
 
+import copy
+import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 from uuid import uuid4
 
-from kelvin.commands.translate import Planned
+from kelvin.commands.translate import PROGRAM_STATE, Planned, day_difference, program_diff
 from kelvin.errors import french, gateway_error_code, safe_reason
-from kelvin.house.model import House
+from kelvin.house.model import DAY_ORDER, House
 from kelvin.labels import Label
 from kelvin.overkiz.errors import GatewayError
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import ExecUpdate, StateChange
 
+log = logging.getLogger(__name__)
+
 EXEC_FAILURE_GRACE = 15.0
 CONFIRM_TIMEOUT = 90.0
+# After the device reported its execution COMPLETED (the states come before it), how long a
+# command whose states do not match yet waits before Kelvin reads them once to judge it.
+SETTLE_AFTER_COMPLETED = 10.0
+# A due targeted read that never happens (Overkiz unreachable) stops holding the verdict back.
+VERIFY_WAIT = 30.0
+# Failures a later state can still turn into a confirmation (the radiator was only slow).
+FLIPPABLE = frozenset({"no_confirmation", "program_differs", "radiator_refused"})
 # How long a superseded command that never reports its execution may hold back newer ones.
 SUPERSEDED_WAIT = 30.0
 # How long a settled command stays in the snapshot, so a client that slept learns its real outcome.
@@ -48,6 +59,15 @@ class Pending:
     error_code: str | None = None
     error_params: dict[str, Any] = field(default_factory=dict)
     reason_code: str | None = None  # send_failed: quota, auth, network or unknown
+    exec_completed_at: float | None = None
+    # Each expected state as the house held it when the command was sent.
+    before: dict[tuple[str, str], Any] = field(default_factory=dict)
+    # A verdict is due: the failure code it gets unless one targeted read shows the states.
+    verify_code: str | None = None
+    verify_since: float | None = None
+    verified: bool = False
+    # A failure a later matching state may still turn into a confirmation.
+    flippable: bool = False
 
     @property
     def active(self) -> bool:
@@ -162,6 +182,13 @@ class CommandService:
             label_params=dict(label.params) if coded else {},
         )
         p.expected = expected_by_radiator(self.house, planned)
+        p.before = {
+            (e.device_url, e.name): copy.deepcopy(self.house.device_state(e.device_url, e.name))
+            for e in planned.expectations
+        }
+        for _, q in self._recent.values():
+            if q.keys & p.keys:
+                q.flippable = False  # a newer command owns these states now
         for other in self.active():
             if other.keys & p.keys:
                 self._resolve(other, "superseded")
@@ -199,9 +226,13 @@ class CommandService:
         return p
 
     def on_state(self, change: StateChange) -> None:
+        key = (change.device_url, change.name)
         for p in self.active():
-            if (change.device_url, change.name) in p.keys:
+            if key in p.keys:
                 self._evaluate(p)
+        for p in self._flippable():
+            if key in p.keys:
+                self._flip(p)
 
     def on_exec(self, update: ExecUpdate) -> None:
         done = None
@@ -213,6 +244,7 @@ class CommandService:
             if p.exec_id != update.exec_id:
                 continue
             if update.state == "COMPLETED":
+                p.exec_completed_at = self.clock()
                 if not p.planned.expectations:
                     self._resolve(p, "confirmed")
                 else:
@@ -232,8 +264,12 @@ class CommandService:
     def evaluate_all(self) -> None:
         for p in self.active():
             self._evaluate(p)
+        for p in self._flippable():
+            self._flip(p)
 
-    def tick(self) -> None:
+    def tick(self, *, can_read: bool = True) -> None:
+        """Time-outs. `can_read=False` (Overkiz unreachable this poll): a due failure is decided
+        without the targeted read, as no read could happen."""
         now = self.clock()
         released = False
         for exec_id, q in list(self._running.items()):
@@ -244,14 +280,120 @@ class CommandService:
         if released:
             self.evaluate_all()
         for p in self.active():
+            if p.verify_code is not None:
+                # The targeted read never came (Overkiz unreachable): judge without it.
+                if now - (p.verify_since or now) >= VERIFY_WAIT:
+                    self._fail(p, p.verify_code, how="no read")
+                continue
             if p.status == "pending" and (
                 p.exec_failed_at is not None and now - p.exec_failed_at >= EXEC_FAILURE_GRACE
             ):
-                self._resolve(p, "failed", "radiator_refused")
+                self._due(p, code="radiator_refused", can_read=can_read)
+            elif (
+                p.status == "pending"
+                and p.exec_completed_at is not None
+                and now - p.exec_completed_at >= SETTLE_AFTER_COMPLETED
+                and not any(not o.exec_done for o in p.after)
+            ):
+                self._due(p, code="no_confirmation", can_read=can_read)
             elif now - p.created_at >= CONFIRM_TIMEOUT:
-                self._resolve(p, "failed", "no_confirmation")
+                self._due(p, code="no_confirmation", can_read=can_read)
 
-    def _evaluate(self, p: Pending) -> None:
+    def _due(self, p: Pending, *, code: str, can_read: bool) -> None:
+        """A failure is due: first read the unconfirmed devices once (`verify`)."""
+        if p.verified or not can_read:
+            self._fail(p, code, how="read" if p.verified else "no read")
+            return
+        p.verify_code = code
+        p.verify_since = self.clock()
+        log.info(
+            "command '%s': no matching state after %.0f s; reading its radiators once",
+            p.label,
+            self.clock() - p.created_at,
+        )
+
+    async def verify(self) -> set[str]:
+        """One targeted state read (`GET /setup/devices/{url}/states`, no quota printed; never
+        a full setup read nor states/refresh) per device whose expected state is still missing,
+        for each command whose failure is due; then its verdict. Returns the radiators whose
+        states changed, for the house event."""
+        due = [p for p in self.active() if p.verify_code is not None and not p.verified]
+        if not due:
+            return set()
+        urls: list[str] = []
+        for p in due:
+            p.verified = True
+            for e in p.planned.expectations:
+                if e.device_url not in urls and not e.matches(
+                    self.house.device_state(e.device_url, e.name)
+                ):
+                    urls.append(e.device_url)
+        changed: set[str] = set()
+        for url in urls:
+            try:
+                states = await self.gateway.device_states(url)
+            except GatewayError as e:
+                log.warning("state read to confirm a command failed (%s)", type(e).__name__)
+                continue
+            changed |= self.house.reload_device(url, states)
+        for p in due:
+            if not p.active:
+                continue
+            self._evaluate(p, how="read")
+            if p.active and p.verify_code is not None:
+                self._fail(p, p.verify_code, how="read")
+        return changed
+
+    def _fail(self, p: Pending, code: str, *, how: str) -> None:
+        """The verdict once the states were read (or could not be): a programme the radiators
+        changed to something else says so, with the days that differ."""
+        days: list[str] = []
+        first: tuple[str, str] | None = None  # the first day's (sent, kept), for the message
+        for e in p.planned.expectations:
+            if e.name != PROGRAM_STATE:
+                continue
+            actual = self.house.device_state(e.device_url, e.name)
+            if e.matches(actual) or actual == p.before.get((e.device_url, e.name)):
+                continue  # unchanged: the radiator did not take it (not « other times »)
+            diff = program_diff(e.value, actual) or []
+            if diff and (not days or DAY_ORDER.index(diff[0]) < DAY_ORDER.index(days[0])):
+                first = day_difference(e.value, actual, diff[0])
+            days = [d for d in DAY_ORDER if d in days or d in diff]
+        if days and first is not None:
+            sent, kept = first
+            self._resolve(
+                p, "failed", "program_differs", days=days, day=days[0], sent=sent, kept=kept
+            )
+        else:
+            self._resolve(p, "failed", code)
+        p.flippable = p.error_code in FLIPPABLE and bool(p.planned.expectations)
+        log.warning(
+            "command '%s' failed after %.0f s (%s, %s)%s",
+            p.label,
+            self.clock() - p.created_at,
+            p.error_code,
+            how,
+            f": radiators hold other slots on {', '.join(days)}" if days else "",
+        )
+
+    def _flippable(self) -> list[Pending]:
+        self._prune_recent()
+        return [p for _, p in self._recent.values() if p.flippable and p.status == "failed"]
+
+    def _flip(self, p: Pending) -> None:
+        """A failed command whose states all arrived after all: it is done."""
+        if all(
+            e.matches(self.house.device_state(e.device_url, e.name)) for e in p.planned.expectations
+        ):
+            p.flippable = False
+            self._resolve(p, "confirmed")
+            log.info(
+                "command '%s' confirmed late, %.0f s after it was sent",
+                p.label,
+                self.clock() - p.created_at,
+            )
+
+    def _evaluate(self, p: Pending, *, how: str = "event") -> None:
         if p.status != "pending" or not p.planned.expectations:
             return
         if any(not o.exec_done for o in p.after):
@@ -260,6 +402,12 @@ class CommandService:
             e.matches(self.house.device_state(e.device_url, e.name)) for e in p.planned.expectations
         ):
             self._resolve(p, "confirmed")
+            log.info(
+                "command '%s' confirmed in %.0f s (%s)",
+                p.label,
+                self.clock() - p.created_at,
+                how,
+            )
 
     def _resolve(
         self,

@@ -8,7 +8,7 @@
   import type { Day, DayLock } from '$lib/api/types';
   import { m } from '$lib/i18n';
   import {
-    addSlot, comfortMinutes, fmtDuration, fromMin, removeSlot, resizeSlot, slotTimes, toMin, validateDay, type Seg
+    addSlot, DEFAULT_STEP, comfortMinutes, fmtDuration, fromMin, removeSlot, resizeSlot, slotTimes, toMin, validateDay, type Seg
   } from '$lib/program';
   import CopyDays from './CopyDays.svelte';
   import Icon from './Icon.svelte';
@@ -29,6 +29,8 @@
     locks?: Partial<Record<Day, DayLock>>;
     /** Phone: the day view (an h1, list rows for the actions). */
     compact?: boolean;
+    /** The room's programme step in minutes: every time it makes is on it. */
+    slotStep?: number;
     onchange: (segs: Seg[]) => void;
     onprev: () => void;
     onnext: () => void;
@@ -40,7 +42,7 @@
   }
   let {
     day, segs, today, nowMinute, room = '', edited = false, pending = false, locked = null, locks = {}, compact = false,
-    onchange, onprev, onnext, oncopy, back, below
+    slotStep = DEFAULT_STEP, onchange, onprev, onnext, oncopy, back, below
   }: Props = $props();
   const uid = $props.id();
   let label = $derived(m.days[day]);
@@ -51,7 +53,7 @@
   function addFirstFree() {
     if (pending || full) return;
     for (const at of [420, 1080, 720, 0, 60, 180, 300, 540, 840, 960, 1200, 1320]) {
-      const next = addSlot(segs, at);
+      const next = addSlot(segs, at, 120, slotStep);
       if (next) return onchange(next);
     }
   }
@@ -59,7 +61,7 @@
     if (!segs[i]) return;
     let shown = segs[i][edge];
     if (!pending && /^\d{2}:\d{2}$/.test(el.value)) {
-      const next = resizeSlot(segs, i, edge, toMin(el.value));
+      const next = resizeSlot(segs, i, edge, toMin(el.value), slotStep);
       shown = next[i]?.[edge] ?? shown;
       onchange(next);
     }
@@ -102,7 +104,7 @@
   {@render below?.()}
 
   <div class="barwrap">
-    <DayBar {day} {segs} now={day === today ? nowMinute : null} {pending} {locked} step={6} height={compact ? 44 : 40} {onchange} />
+    <DayBar {day} {segs} now={day === today ? nowMinute : null} {pending} {locked} {slotStep} step={6} height={compact ? 44 : 40} {onchange} />
   </div>
 
   {#if locked}
@@ -110,17 +112,17 @@
     <p class="lock"><Icon name="lock" size={16} />{lockText(locked)}</p>
     <Notice title={m.program.lockedKeepTitle} role={null}>{m.program.lockedKeepBody}</Notice>
   {:else}
-    {#if compact}<p class="note hint">{m.program.dragHint}</p>{/if}
+    {#if compact}<p class="note hint">{m.program.dragHint(slotStep)}</p>{/if}
     {#if segs.length}
       <GroupedList label={m.program.slotsHead(segs.length)} level="p" tag="ul" class="slots">
         {#each segs as s, i (i)}
           <li class="li">
             <span class="sw" aria-hidden="true"></span>
             <span class="lab" aria-hidden="true">{compact ? i + 1 : m.program.slot(i + 1)}</span>
-            <input type="time" step="900" readonly={pending} aria-disabled={pending} aria-label={m.program.slotStart(label, i + 1)}
+            <input type="time" step={slotStep * 60} readonly={pending} aria-disabled={pending} aria-label={m.program.slotStart(label, i + 1)}
               value={fromMin(s.start)} onchange={(e) => setTime(e.currentTarget, i, 'start')} />
             <span class="arr" aria-hidden="true"><Icon name="chevron" size={14} /></span>
-            <input type="time" step="900" readonly={pending} aria-disabled={pending} aria-label={m.program.slotEnd(label, i + 1)}
+            <input type="time" step={slotStep * 60} readonly={pending} aria-disabled={pending} aria-label={m.program.slotEnd(label, i + 1)}
               value={fromMin(s.end)} onchange={(e) => setTime(e.currentTarget, i, 'end')} />
             <button type="button" class="btn btn-icon rm" aria-disabled={pending} aria-label={m.program.removeSlot(i + 1, label)}
               onclick={() => remove(i)}><Icon name="x" size={15} /></button>
@@ -144,7 +146,7 @@
           aria-describedby={full ? `${uid}-max` : undefined} onclick={addFirstFree}><Icon name="plus" size={15} />{m.program.addPeriod}</button>
         <CopyDays source={day} {locks} disabled={pending} {oncopy} />
       </div>
-      <p class="note"><span id="{uid}-max">{m.program.maxPeriods}</span> · {m.program.stepNote}</p>
+      <p class="note"><span id="{uid}-max">{m.program.maxPeriods}</span> · {m.program.stepNote(slotStep)}</p>
     {/if}
     <p class="summary">
       {#if segs.length}<b class="num">{m.program.summary(fmtDuration(comfortMinutes(segs)))}</b> · {m.program.summaryRest}

@@ -242,6 +242,17 @@
         "day": "sunday"
       }
     },
+    "program_differs": {
+      "fr": "lundi : le radiateur a gardé 17:00 au lieu de 17:45.",
+      "params": {
+        "day": "monday",
+        "days": [
+          "monday"
+        ],
+        "kept": "17:00",
+        "sent": "17:45"
+      }
+    },
     "program_overlap": {
       "fr": "mardi : des plages se chevauchent.",
       "params": {
@@ -254,6 +265,14 @@
         "day": "monday",
         "end": "09:00",
         "start": "10:00"
+      }
+    },
+    "program_step": {
+      "fr": "lundi : 17:45 n’est pas possible, le radiateur ne garde que des heures par pas de 30 min.",
+      "params": {
+        "day": "monday",
+        "minutes": 30,
+        "value": "17:45"
       }
     },
     "program_time_invalid": {

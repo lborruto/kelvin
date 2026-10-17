@@ -145,7 +145,8 @@ ends as « Pas de confirmation du radiateur ». Record the observed behaviour he
 Every real heater's `core:TimeProgramState` was read (no write): each day has three slots and
 the third is the empty marker `00:00–00:00`; no slot ends at midnight. So the device encoding of
 a midnight end is unverified. Kelvin reads `X–00:00` (X ≠ 00:00) as « until midnight » (24:00),
-locks that day, and never writes such a slot; the editor's latest end is 23:45. A day Kelvin
+locks that day, and never writes such a slot; the editor's latest end is one step before
+midnight (23:30 on Sauter, see « Programme times » below). A day Kelvin
 cannot parse is locked the same way and re-sent exactly as read.
 
 ## Reachability and last signal (read-only)
@@ -163,6 +164,40 @@ and echoed back (see the `setTimeProgram` payloads above). A day in any other sh
 ending at midnight, unsorted slots, another entry count, other keys or key order, anything
 unreadable — is shown locked and re-sent exactly as read on every programme send. Whether the
 device ever reports another shape is not verified; record it here if seen.
+
+## Programme times the radiators keep (2026-10-17, owner's report; read-only check)
+
+Two room-level `setTimeProgram` sends to a room of two HEKLA radiators, a few minutes apart, each one
+action with one command per radiator (Kelvin's `command_log` and the house state Kelvin held
+afterwards; nothing was sent for this check):
+
+| Send | Times in the payload | What both radiators then held | Kelvin's verdict then |
+|---|---|---|---|
+| 1 | every time on the hour or half hour | the payload, day for day | confirmed by the state event within seconds |
+| 2 | the same, but the weekday evening slot starting at **17:45** | the weekday evening slot starting at **17:00**; every other time as sent | `no_confirmation` after 90 s |
+
+- **Sauter radiators keep programme times in 30-minute steps** (the owner's statement, consistent with
+  everything observed): a `:45` start was **not kept**, every time any real heater of the house holds
+  (all rooms, read-only) is on `:00` or `:30`, and the Cozytouch app offers 30-minute steps. The
+  `06:15` / `22:45` in the `setTimeProgram` payloads above are the simulator's, never the radiator's.
+- **What the radiator does with a time off its step:** `17:45` sent, `17:00` kept on both radiators,
+  every other time unchanged. Not « nearest half hour » (18:00), not « floor to the half hour »
+  (17:30), and not a plain floor to the hour either (`05:30`, `06:30` were kept as sent). So a time on
+  `:00`/`:30` is kept as is and a time off the step loses its minutes (back to the hour). Whether `:15`
+  does the same (17:15 → 17:00) is not verified; Kelvin no longer sends either.
+- Kelvin now holds the step per device kind (`Profile.program_step`, 30 everywhere until a finer one
+  is verified), refuses a new time off it before sending (`program_step`), and the editor only makes
+  times on the room's step (the coarsest of its radiators), the last end at 23:30. A time the radiator
+  already holds (the simulator's 06:15) is still accepted: it evidently keeps it.
+- If the radiators still keep something else, Kelvin says so as soon as the execution is reported:
+  it reads the radiators once and fails the command with `program_differs`, naming the first day and
+  the time kept instead of the one sent (« lundi : le radiateur a gardé 17:00 au lieu de 17:45 »), and
+  the editor shows what the radiators hold.
+- The state that did arrive was a full `core:TimeProgramState`; Kelvin compares it by meaning (days
+  in any order, slots sorted, empty markers dropped, `HH:MM:SS` read as `HH:MM`), never byte for
+  byte. A different shape from these radiators has still not been seen.
+- The server logs of that time held only the access log (no command timing); Kelvin now logs each
+  command's label, how it settled (event or read) and after how long, and the differing days.
 
 ## Multi-brand (2026-10-14) — UNVERIFIED
 

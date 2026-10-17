@@ -267,6 +267,7 @@ async def test_unconfirmed_restore_is_retried_after_timeout(env):
     assert await mgr.tick() == []  # in flight: no duplicate
     clock.advance(91)
     svc.tick()
+    await svc.verify()  # the one targeted read finds the old state
     assert p.status == "failed" and mgr.active()[0]["restoring"] is True
     gw.silent = False
     assert await mgr.tick() == []
@@ -303,6 +304,7 @@ async def test_cancel_while_restoring_returns_in_flight_or_resubmits(env):
     gw2_fail = GatewayError("QUOTA")
     clock.advance(91)
     svc.tick()  # p times out
+    await svc.verify()
     gw.fail_next_execute = gw2_fail
     p2 = await mgr.cancel(o.id)
     assert p2 is not p and p2.status == "failed"

@@ -98,22 +98,49 @@ describe('/schedule', () => {
   it('shows the sent week as pending until the radiator confirms', async () => {
     vi.mocked(api.roomProgram).mockResolvedValue({ pending: pending('pending') as never });
     await editAndSend();
-    expect(await screen.findByText('Envoi en cours…')).toBeInTheDocument();
+    await waitFor(() => expect(sendBar()).toHaveTextContent('En attente du radiateur…'));
     expect(screen.getByLabelText('Lundi, plage 1, début')).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText('Salon', { selector: 'li span' })).toBeInTheDocument();
     // The radiator reports the new programme, then the command is confirmed.
     house.applyHouse({ rooms: [], radiators: [{ ...rad, program: { monday: [{ start: '07:00', end: '09:00' }] } }] } as never);
     house.applyPending(pending('confirmed') as never);
-    await waitFor(() => expect(screen.queryByText('Envoi en cours…')).toBeNull());
+    await waitFor(() => expect(screen.queryAllByText('En attente du radiateur…')).toHaveLength(0));
     expect(screen.getByLabelText('Lundi, plage 1, début')).toHaveAttribute('aria-disabled', 'false');
+  });
+
+  it('says « Envoi en cours… » while the request is out, then that it waits for the radiators', async () => {
+    let answer: (v: unknown) => void = () => {};
+    vi.mocked(api.roomProgram).mockReturnValue(new Promise((r) => (answer = r)) as never);
+    await editAndSend();
+    expect(await screen.findByText('Envoi en cours…')).toBeInTheDocument();
+    answer({ pending: pending('pending') });
+    await waitFor(() => expect(sendBar()).toHaveTextContent('En attente du radiateur…'));
+    expect(screen.queryByText('Envoi en cours…')).toBeNull();
+    // The room line says the same, not a bare « Envoi… » for the whole wait.
+    expect(screen.getByText('En attente du radiateur…', { selector: 'li .tag' })).toBeInTheDocument();
+  });
+
+  it('when the radiator kept other times, says which and shows what it holds', async () => {
+    vi.mocked(api.roomProgram).mockResolvedValue({ pending: pending('pending') as never });
+    await editAndSend();
+    await screen.findAllByText('En attente du radiateur…');
+    // The radiator stored another start than the one sent (Sauter keeps 30-minute times).
+    house.applyHouse({ rooms: [], radiators: [{ ...rad, program: { monday: [{ start: '06:00', end: '09:00' }] } }] } as never);
+    house.applyPending({
+      ...pending('failed', 'x'), error_code: 'program_differs',
+      error_params: { days: ['monday'], day: 'monday', sent: '07:00', kept: '06:00' }
+    } as never);
+    await waitFor(() => expect(document.querySelector('ul.status')?.textContent ?? '').toMatch(/lundi\s: le radiateur a gardé 06:00 au lieu de 07:00\./));
+    expect(screen.getByLabelText('Lundi, plage 1, début')).toHaveValue('06:00');
+    expect(sendBar()?.textContent ?? '').not.toMatch(/jour modifié/);
   });
 
   it('restores the edits as unsent when the radiator reports a failure', async () => {
     vi.mocked(api.roomProgram).mockResolvedValue({ pending: pending('pending') as never });
     await editAndSend();
-    await screen.findByText('Envoi en cours…');
+    await screen.findAllByText('En attente du radiateur…');
     house.applyPending(pending('failed', 'Échec radiateur') as never);
-    await waitFor(() => expect(screen.queryByText('Envoi en cours…')).toBeNull());
+    await waitFor(() => expect(screen.queryAllByText('En attente du radiateur…')).toHaveLength(0));
     expect(sendBar()).toHaveTextContent('1 jour modifié');
     expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument();
   });
@@ -127,20 +154,20 @@ describe('/schedule', () => {
     await fireEvent.click(await screen.findByRole('radio', { name: 'Chambre 2' }));
     await editMonday();
     await fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
-    await screen.findByText('Envoi en cours…');
+    await screen.findAllByText('En attente du radiateur…');
     await fireEvent.click(screen.getByRole('radio', { name: 'Salon' }));
     expect(await screen.findByLabelText('Lundi, plage 1, début')).toHaveValue('07:00');
     expect(screen.getByLabelText('Lundi, plage 1, début')).toHaveAttribute('aria-disabled', 'false');
     expect(screen.queryByLabelText('Lundi, plage 2, début')).toBeNull();
     await fireEvent.click(screen.getByRole('radio', { name: 'Chambre 2' }));
     expect(screen.getByLabelText('Lundi, plage 2, début')).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByText('Envoi en cours…')).toBeInTheDocument();
+    expect(screen.getAllByText('En attente du radiateur…').length).toBeGreaterThan(0);
   });
 
   it('keeps the sent week visible when the confirmation arrives before the radiator update', async () => {
     vi.mocked(api.roomProgram).mockResolvedValue({ pending: pending('pending') as never });
     await editAndSend();
-    await screen.findByText('Envoi en cours…');
+    await screen.findAllByText('En attente du radiateur…');
     house.applyPending(pending('confirmed') as never);
     await new Promise((r) => setTimeout(r, 20));
     expect(screen.getByLabelText('Lundi, plage 1, début')).toHaveAttribute('aria-disabled', 'true');
@@ -152,7 +179,7 @@ describe('/schedule', () => {
   it('does not offer Réessayer once the draft has diverged from the failed week', async () => {
     vi.mocked(api.roomProgram).mockResolvedValue({ pending: pending('pending') as never });
     await editAndSend();
-    await screen.findByText('Envoi en cours…');
+    await screen.findAllByText('En attente du radiateur…');
     house.applyPending(pending('failed', 'Échec radiateur') as never);
     await screen.findByRole('button', { name: 'Réessayer' });
     await fireEvent.click(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' }));
@@ -211,16 +238,16 @@ describe('/schedule', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
     expect(api.roomProgram).toHaveBeenCalledTimes(1);
     resolve({ pending: pending('pending') });
-    await screen.findByText('Envoi en cours…');
+    await screen.findAllByText('En attente du radiateur…');
   });
 
   it('an unknown outcome after a reconnect keeps the edits instead of reloading the device week', async () => {
     vi.mocked(api.roomProgram).mockResolvedValue({ pending: pending('pending') as never });
     await editAndSend();
-    await screen.findByText('Envoi en cours…');
+    await screen.findAllByText('En attente du radiateur…');
     // The phone slept: the fresh snapshot no longer lists the command, the device week is unchanged.
     snapshot(house.rooms, [rad]);
-    await waitFor(() => expect(screen.queryByText('Envoi en cours…')).toBeNull());
+    await waitFor(() => expect(screen.queryAllByText('En attente du radiateur…')).toHaveLength(0));
     await new Promise((r) => setTimeout(r, 20));
     expect(sendBar()).toHaveTextContent('1 jour modifié');
     expect(screen.getByText(/résultat inconnu/i)).toBeInTheDocument();

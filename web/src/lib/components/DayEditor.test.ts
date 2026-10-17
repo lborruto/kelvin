@@ -45,7 +45,7 @@ describe('DayEditor', () => {
     expect(screen.getByText(/^Confort 6\sh\s45$/)).toBeInTheDocument();
     expect(screen.getByText(/éco le reste du temps/)).toBeInTheDocument();
     expect(screen.getByText('Plages Confort · 2 sur 3')).toBeInTheDocument();
-    expect(document.querySelector('.actions + .note')).toHaveTextContent(/^3 plages au maximum · pas de 15\smin$/);
+    expect(document.querySelector('.actions + .note')).toHaveTextContent(/^3 plages au maximum · pas de 30\smin$/);
   });
 
   it('adds, edits and removes through the list', async () => {
@@ -54,7 +54,9 @@ describe('DayEditor', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' }));
     expect(p.onchange.mock.calls[0][0]).toHaveLength(3);
     await fireEvent.change(screen.getByLabelText('Lundi, plage 2, fin'), { target: { value: '23:15' } });
-    expect(p.onchange.mock.calls[1][0][1]).toEqual({ start: 1050, end: 1395 });
+    // 23:15 is not a time the radiator keeps: the field takes the step's (23:30).
+    expect(p.onchange.mock.calls[1][0][1]).toEqual({ start: 1050, end: 1410 });
+    expect(screen.getByLabelText('Lundi, plage 2, fin')).toHaveAttribute('step', '1800');
     await fireEvent.click(screen.getByRole('button', { name: 'Supprimer la plage 1 du Lundi' }));
     expect(p.onchange.mock.calls[2][0]).toEqual([segs[1]]);
   });
@@ -122,7 +124,7 @@ describe('DayEditor', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Lundi' })).toBeInTheDocument();
     expect(screen.queryByText('Plage 1')).toBeNull();
     expect(container.querySelectorAll('.hours span')).toHaveLength(5);
-    expect(screen.getByText(/^Glissez une plage ou ses bords · pas de 15\smin$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Glissez une plage ou ses bords · pas de 30\smin$/)).toBeInTheDocument();
     expect(container.querySelector('.acts .row.add')).toHaveAccessibleName('Ajouter une plage le Lundi');
     expect(container.querySelector('.acts .row[aria-haspopup="dialog"]')).toHaveTextContent('Copier vers…');
     expect(screen.getByRole('button', { name: 'Jour précédent' })).toBeInTheDocument();

@@ -29,6 +29,68 @@ class CommandError(UserError):
     (kelvin/errors.py)."""
 
 
+PROGRAM_STATE = "core:TimeProgramState"
+_HHMMSS = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)(?::00)?$")
+EMPTY_TIMES = ("00:00", "00:00")
+
+
+def _time(v: Any) -> str | None:
+    m = _HHMMSS.match(v) if isinstance(v, str) else None
+    return f"{m.group(1)}:{m.group(2)}" if m else None
+
+
+def program_days(value: Any) -> dict[str, tuple[tuple[str, str], ...]] | None:
+    """A `core:TimeProgramState` value as what it means: per day, its comfort slots sorted, the
+    empty `00:00–00:00` markers dropped, `HH:MM:SS` read as `HH:MM`, days in any order (a day
+    listed twice: the last wins, as the house reads it). None when it cannot be read whole."""
+    if not isinstance(value, list):
+        return None
+    out: dict[str, tuple[tuple[str, str], ...]] = {}
+    for entry in value:
+        if not isinstance(entry, dict):
+            return None
+        for day, slots in entry.items():
+            if not isinstance(slots, list):
+                return None
+            times = []
+            for s in slots:
+                if not isinstance(s, dict) or set(s) != {"start", "end"}:
+                    return None
+                t = (_time(s["start"]), _time(s["end"]))
+                if t[0] is None or t[1] is None:
+                    return None
+                if t != EMPTY_TIMES:
+                    times.append(t)
+            out[day] = tuple(sorted(times))  # type: ignore[arg-type]
+    return out
+
+
+def program_diff(expected: Any, actual: Any) -> list[str] | None:
+    """The days (in week order) where `actual` holds other slots than `expected`; None when
+    either cannot be read."""
+    a, b = program_days(expected), program_days(actual)
+    if a is None or b is None:
+        return None
+    return [d for d in DAY_ORDER if a.get(d) != b.get(d)]
+
+
+def day_difference(expected: Any, actual: Any, day: str) -> tuple[str, str]:
+    """What was sent and what the radiator kept on `day`, as the message names them: the first
+    time that differs (« 17:45 », « 17:00 ») when both hold as many slots, else the day's slots
+    (« 06:00–08:00, 17:45–22:00 », « — » for none)."""
+    a = (program_days(expected) or {}).get(day) or ()
+    b = (program_days(actual) or {}).get(day) or ()
+    if len(a) == len(b):
+        for x, y in zip([t for s in a for t in s], [t for s in b for t in s], strict=True):
+            if x != y:
+                return x, y
+
+    def slots(v: tuple[tuple[str, str], ...]) -> str:
+        return ", ".join(f"{s}–{e}" for s, e in v) or "—"
+
+    return slots(a), slots(b)
+
+
 @dataclass(frozen=True)
 class Expectation:
     device_url: str
@@ -36,6 +98,9 @@ class Expectation:
     value: Any
 
     def matches(self, actual: Any) -> bool:
+        if self.name == PROGRAM_STATE and actual != self.value:
+            # The radiator holds the programme asked for, whatever benign shape it reports.
+            return program_diff(self.value, actual) == []
         if isinstance(self.value, int | float) and not isinstance(self.value, bool):
             try:
                 return abs(float(actual) - float(self.value)) < 0.01
@@ -153,6 +218,27 @@ def normalize_program(week: Week) -> list[Week]:
     return out
 
 
+def _check_step(r: Radiator, payload: list[Week], kept: set[str]) -> None:
+    """Never send a time the radiator cannot keep (it stores another one and reports that): every
+    time of a written day is on the device's step, unless the radiator already holds that time
+    somewhere in its week (it evidently keeps it: re-sending it is no new time)."""
+    step = r.capabilities.program_step_minutes or r.profile.program_step
+    held = {
+        t
+        for slots in (program_days(r.get("heater", PROGRAM_STATE)) or {}).values()
+        for slot in slots
+        for t in slot
+    }
+    for entry in payload:
+        ((day, slots),) = entry.items()
+        if day in kept:
+            continue
+        for s in slots:
+            for v in (s["start"], s["end"]):
+                if _minutes(v, day) % step and v not in held:
+                    raise CommandError("program_step", day=day, value=v, minutes=step)
+
+
 def plan_program(
     r: Radiator, week: dict[str, list[dict[str, str]]], *, keep: Iterable[str] = ()
 ) -> Planned:
@@ -166,6 +252,7 @@ def plan_program(
     _require(r, r.heater_url, "setTimeProgram")
     kept = set(r.program_locked) | set(keep) | {d for d in DAY_ORDER if d not in week}
     payload = normalize_program({d: v for d, v in week.items() if d not in kept})
+    _check_step(r, payload, kept)
     out = []
     for entry in payload:
         day = next(iter(entry))
@@ -176,7 +263,7 @@ def plan_program(
             entry = raw
         out.append(entry)
     payload = out
-    return _one(r.heater_url, "setTimeProgram", (payload,), "core:TimeProgramState", payload)
+    return _one(r.heater_url, "setTimeProgram", (payload,), PROGRAM_STATE, payload)
 
 
 def plan_feature(r: Radiator, feature: str, on: bool) -> Planned:

@@ -134,6 +134,8 @@ class FakeGateway:
         self.broken_devices: set[str] = set()  # their state reads always fail
         self.silent = False
         self.unresponsive = False
+        # Tests: what the radiator stores of a setTimeProgram payload (None: the payload as sent).
+        self.program_rewrite: Callable[[Any], Any] | None = None
         self.snapshots = 0  # full setup reads served (quota guard tests)
         self.state_reads = 0  # per-device state reads served
         self.quota_reads = 0
@@ -398,6 +400,8 @@ class FakeGateway:
             quirk_hit = False
             for c in commands:
                 for name, value in EFFECTS.get(c.name, lambda p: [])(c.parameters):
+                    if c.name == "setTimeProgram" and self.program_rewrite is not None:
+                        value = self.program_rewrite(value)
                     self._set(c.device_url, name, value, emit=True)
                 quirk_hit |= self.quirk and c.name in QUIRK_COMMANDS
             self._events.append(

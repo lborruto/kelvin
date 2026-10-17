@@ -402,6 +402,13 @@ async def test_route_errors_answer_with_code_and_params(ctx):
     r = await c.put(f"/api/rooms/{salon_id(rt)}/program", json=week)
     assert r.status_code == 422 and r.json() == err("program_too_many", day="monday")
     assert r.json()["detail"] == "lundi : 3 plages confort au maximum."
+    # A time the Sauter radiators cannot keep (owner's Salon, 2026-10-17): refused, nothing sent.
+    sent = len(rt.gateway.executed)
+    week = {"monday": [{"start": "17:45", "end": "22:00"}]}
+    r = await c.put(f"/api/rooms/{salon_id(rt)}/program", json=week)
+    assert r.status_code == 422
+    assert r.json() == err("program_step", day="monday", value="17:45", minutes=30)
+    assert len(rt.gateway.executed) == sent
     r = await c.delete("/api/overrides/nope")
     assert r.status_code == 404 and r.json() == err("override_not_found")
     rt.quotas = None

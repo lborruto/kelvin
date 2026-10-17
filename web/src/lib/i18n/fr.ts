@@ -297,6 +297,7 @@ export const fr = {
     slot: (n: number) => `Plage ${int(n)}`,
     discard: `Abandonner les modifications non envoyées${NB}?`,
     sending: 'Envoi en cours…',
+    waiting: (n: number) => plural(n, { one: 'En attente du radiateur…', other: 'En attente des radiateurs…' }),
     daysChanged: (n: number) => `${int(n)} ${plural(n, { one: 'jour modifié', other: 'jours modifiés' })}`,
     noDaysChanged: 'Aucun jour modifié',
     noSlots: 'aucune plage (éco)',
@@ -348,8 +349,8 @@ export const fr = {
     undo: 'Annuler',
     send: 'Envoyer',
     slotsHead: (n: number) => `Plages Confort · ${int(n)} sur 3`,
-    stepNote: `pas de 15${NB}min`,
-    dragHint: `Glissez une plage ou ses bords · pas de 15${NB}min`,
+    stepNote: (n: number) => `pas de ${int(n)}${NB}min`,
+    dragHint: (n: number) => `Glissez une plage ou ses bords · pas de ${int(n)}${NB}min`,
     bubbleStart: (t: string) => `début ${t}`,
     bubbleEnd: (t: string) => `fin ${t}`,
     lockedTag: 'verrouillé',
@@ -1394,6 +1395,8 @@ export const fr = {
     setpoint_kind_unknown: (p: ApiParams) => `Type de consigne inconnu${NB}: ${p.kind}.`,
     program_time_invalid: (p: ApiParams) =>
       `${dayLower(p.day)}${NB}: heure invalide «${NB}${p.value}${NB}» (format HH:MM).`,
+    program_step: (p: ApiParams) =>
+      `${dayLower(p.day)}${NB}: ${p.value} n’est pas possible, le radiateur ne garde que des heures par pas de ${p.minutes}${NB}min.`,
     day_unknown: (p: ApiParams) => `Jour inconnu${NB}: ${p.day}.`,
     program_too_many: (p: ApiParams) => `${dayLower(p.day)}${NB}: 3 plages confort au maximum.`,
     program_day_unknown: (p: ApiParams) =>
@@ -1464,6 +1467,7 @@ export const fr = {
     send_internal: () => `Envoi impossible${NB}: erreur interne.`,
     radiator_refused: () => 'Le radiateur a refusé la commande.',
     no_confirmation: () => 'Le radiateur n’a pas confirmé la commande.',
+    program_differs: (p: ApiParams) => `${dayLower(p.day)}${NB}: le radiateur a gardé ${p.kept} au lieu de ${p.sent}.`,
     // Plan 12
     server_unknown: () => 'Serveur inconnu.',
     server_mismatch: (p: ApiParams) =>

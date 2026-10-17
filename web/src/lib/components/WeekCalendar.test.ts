@@ -157,21 +157,21 @@ describe('WeekCalendar: drag (desktop)', () => {
     expect(bar.querySelectorAll('.blk.sel .hdl')).toHaveLength(2);
   });
 
-  it('dragging an edge resizes; an end never goes past 23:45', async () => {
+  it('dragging an edge resizes on the 30-min step; an end never goes past 23:30', async () => {
     const onedit = vi.fn();
     const { container } = render(WeekCalendar, { ...base, selected: 'monday', onedit });
     const bar = stubDay(container, 'monday');
     const end = bar.querySelectorAll('.edge.bottom')[1]!;
     await fireEvent.pointerDown(end, { clientY: 1380, button: 0, pointerId: 1 });
     await fireEvent.pointerMove(end, { clientY: 1439, pointerId: 1 });
-    expect(onedit).toHaveBeenLastCalledWith('monday', [{ start: 390, end: 480 }, { start: 1020, end: 1425 }]);
-    expect(bar.querySelector('.bubble')).toHaveTextContent('fin 23:45');
+    expect(onedit).toHaveBeenLastCalledWith('monday', [{ start: 390, end: 480 }, { start: 1020, end: 1410 }]);
+    expect(bar.querySelector('.bubble')).toHaveTextContent('fin 23:30');
     const start = bar.querySelectorAll('.edge.top')[0]!;
     await fireEvent.pointerUp(end, { pointerId: 1 });
     await fireEvent.pointerDown(start, { clientY: 390, button: 0, pointerId: 1 });
     await fireEvent.pointerMove(start, { clientY: 352, pointerId: 1 });
-    expect(onedit).toHaveBeenLastCalledWith('monday', [{ start: 345, end: 480 }, { start: 1020, end: 1380 }]);
-    expect(bar.querySelector('.bubble')).toHaveTextContent('début 05:45');
+    expect(onedit).toHaveBeenLastCalledWith('monday', [{ start: 360, end: 480 }, { start: 1020, end: 1380 }]);
+    expect(bar.querySelector('.bubble')).toHaveTextContent('début 06:00');
   });
 
   it('dragging on an empty area of a day with fewer than 3 periods draws out a 1 h period', async () => {
@@ -187,7 +187,8 @@ describe('WeekCalendar: drag (desktop)', () => {
 
   it('drawing upward extends the new period upward from where the drag began, snapped and within its gap', async () => {
     const onedit = vi.fn();
-    const { container } = render(WeekCalendar, { ...base, selected: 'monday', onedit });
+    // A room whose radiators keep quarter hours (none verified yet): 15-minute steps.
+    const { container } = render(WeekCalendar, { ...base, selected: 'monday', onedit, slotStep: 15 });
     const bar = stubDay(container, 'monday');
     await fireEvent.pointerDown(bar, { clientY: 720, button: 0, pointerId: 1 });
     await fireEvent.pointerMove(bar, { clientY: 700, pointerId: 1 });
