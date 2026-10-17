@@ -161,7 +161,8 @@
   // Plan 14: the outdoor hours of the chart's window (one request per window, like the history); none without a place.
   let wkey = $derived(`out|${range}|${range === 'day' ? start : Math.floor(now / 3_600_000)}`);
   $effect(() => {
-    if (weather.on) weather.hourly(wkey, start, Math.min(end, now));
+    // Read again each minute (`now`): a window older than 10 min is asked again, up to now.
+    if (weather.on) weather.hourly(wkey, start, Math.min(end, now), undefined, now);
   });
   let outdoorPoints = $derived(weather.on ? (weather.entries[wkey]?.points ?? []) : []);
   // Offline: the chart stops when the radiators went offline (a value read after that is not a reading).

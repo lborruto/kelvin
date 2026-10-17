@@ -75,6 +75,7 @@
     formError = null;
     try {
       settings = await api.putWeather(body);
+      weather.placeChanged(); // the room charts' cached hours were another place's
       changing = false;
       coordsOpen = false;
       lat = lon = alt = '';
@@ -124,6 +125,7 @@
     try {
       await api.deleteWeather();
       weather.apply(null); // the SSE says the same a moment later
+      weather.placeChanged();
       settings = settings ? { ...settings, location: null, coverage: null } : settings;
       changing = false;
     } catch (e) {

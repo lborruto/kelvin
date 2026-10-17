@@ -128,6 +128,22 @@ describe('WeatherPanel', () => {
     expect(screen.getByRole('combobox', { name: 'Rechercher une commune' })).toBeTruthy();
   });
 
+  it('a new place forgets the cached outdoor hours (the room charts ask again)', async () => {
+    vi.mocked(api.weatherSettings).mockResolvedValue(OFF);
+    vi.mocked(api.putWeather).mockResolvedValue(LYON);
+    weather.apply(VIEW);
+    weather.entries = { k: { status: 'ok', points: [{ t: 0, v: 3 }], at: Date.now() } };
+    const spy = vi.spyOn(weather, 'placeChanged');
+    render(WeatherPanel);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Utiliser des coordonnées' }));
+    await fireEvent.input(screen.getByLabelText('Latitude'), { target: { value: '45,76' } });
+    await fireEvent.input(screen.getByLabelText('Longitude'), { target: { value: '4,84' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    expect(weather.entries).toEqual({});
+    spy.mockRestore();
+  });
+
   it('« Supprimer » asks in a sheet, Annuler focused; confirming removes once and shows the off state', async () => {
     vi.mocked(api.weatherSettings).mockResolvedValue(LYON);
     render(WeatherPanel);
