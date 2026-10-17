@@ -167,7 +167,12 @@ export const DYNAMIC = [
   'tariff.rate',
   'tariff.rateShort',
   // UX foundation: read by index (m.prov.natures[nature])
-  'prov.natures'
+  'prov.natures',
+  // Plan 14: read by index (m.prov.weather[model], m.weather.why[why])
+  'prov.weather',
+  'weather.why',
+  // Plan 14 (temporary, Task 9): the Réglages and Énergie words are read from Tasks 10–13; removed in Task 13
+  'weather'
 ];
 
 const SRC = resolve(process.cwd(), 'src');

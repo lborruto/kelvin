@@ -1,7 +1,7 @@
 <!-- The one row renderer behind every exact value (DESIGN « Fiche »): a 13 px 600 title, label / value rows
      (muted label left, tabular value right, « dont » rows indented 10 px, « est. » after an estimate, the
      reason under a « — »), the notes, then the Provenance block (Source, Relevé, Nature) under a hairline,
-     and one optional action. ChartInspector and Fiche both draw through it, so a chart's card and a
+     one optional action and one optional outside link (an attribution). ChartInspector and Fiche both draw through it, so a chart's card and a
      figure's card read alike. -->
 <script lang="ts" module>
   /** A Fiche row. `key` is optional (charts key their rows); `sub` indents a « dont » part. */
@@ -16,6 +16,11 @@
   export interface FicheAction {
     label: string;
     run: () => void;
+  }
+  /** An outside link after the action (an attribution: « Données météo Open-Meteo.com »), new tab, no opener. */
+  export interface FicheLink {
+    label: string;
+    href: string;
   }
 </script>
 
@@ -36,8 +41,9 @@
     /** An estimate links its « est. » to Qualité des données (Énergie only). */
     estLink?: boolean;
     action?: FicheAction | null;
+    link?: FicheLink | null;
   }
-  let { title = null, titleId, rows = [], empty = null, notes = [], provenance = null, estLink = false, action = null }: Props = $props();
+  let { title = null, titleId, rows = [], empty = null, notes = [], provenance = null, estLink = false, action = null, link = null }: Props = $props();
   let hasEst = $derived(rows.some((r) => r.est));
 </script>
 
@@ -68,6 +74,7 @@
 {/if}
 {#if estLink && hasEst}<p class="foot">{m.chartInspector.estNote} <a href="#{ANCHORS.quality}">{m.chartInspector.quality}</a>.</p>{/if}
 {#if action}<button type="button" class="btn btn-sm act" onclick={action.run}>{action.label}</button>{/if}
+{#if link}<a class="btn btn-sm act" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>{/if}
 
 <style>
   .title {

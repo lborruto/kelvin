@@ -511,6 +511,26 @@
       "fr": "Aucun des radiateurs concernés ne prend en charge cette commande.",
       "params": {}
     },
+    "weather_elevation_invalid": {
+      "fr": "Altitude invalide : de −50 à 4 900 m.",
+      "params": {}
+    },
+    "weather_location_invalid": {
+      "fr": "Lieu invalide : latitude de −90 à 90, longitude de −180 à 180.",
+      "params": {}
+    },
+    "weather_search_busy": {
+      "fr": "Trop de recherches : réessayez dans quelques minutes.",
+      "params": {}
+    },
+    "weather_search_invalid": {
+      "fr": "Tapez de 2 à 60 caractères.",
+      "params": {}
+    },
+    "weather_unavailable": {
+      "fr": "Open-Meteo ne répond pas : réessayez plus tard.",
+      "params": {}
+    },
     "wrong_account": {
       "fr": "Ce compte Cozytouch n’est pas celui de cette maison.",
       "params": {}

@@ -104,6 +104,23 @@ describe('Fig + Fiche (desktop card)', () => {
   });
 });
 
+describe('Fig + Fiche: a link (the attribution)', () => {
+  it('a pinned Fiche shows the link, opened in a new tab without the opener', async () => {
+    render(Fig, { ...props, link: { label: 'Données météo Open-Meteo.com', href: 'https://open-meteo.com/' } });
+    await fireEvent.click(fig());
+    const a = screen.getByRole('link', { name: 'Données météo Open-Meteo.com' });
+    expect(a).toHaveAttribute('href', 'https://open-meteo.com/');
+    expect(a).toHaveAttribute('target', '_blank');
+    expect(a).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(card()!.contains(a)).toBe(true);
+  });
+  it('no link by default', async () => {
+    render(Fig, props);
+    await fireEvent.click(fig());
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+});
+
 describe('Fig + Fiche (phone sheet)', () => {
   it('below 1024 px a tap opens the bottom sheet, titled, with the same rows', async () => {
     media.desktop.matches = false;

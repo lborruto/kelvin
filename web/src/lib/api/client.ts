@@ -28,6 +28,11 @@ import type {
   SyncStatus,
   TariffDoc,
   TempoPrices,
+  WeatherHourly,
+  WeatherLocationBody,
+  WeatherPlace,
+  WeatherSettings,
+  WeatherView,
   WeekProgram
 } from './types';
 import type { ApiParams } from '$lib/i18n';
@@ -191,5 +196,14 @@ export const api = {
   tempoPrices: () => call<TempoPrices>('POST', '/grid/tempo-prices'),
   linkyStatus: () => call<LinkyStatus>('GET', '/settings/linky'),
   putLinky: (prm: string, token?: string) =>
-    call<LinkyStatus>('PUT', '/settings/linky', token ? { prm, token } : { prm })
+    call<LinkyStatus>('PUT', '/settings/linky', token ? { prm, token } : { prm }),
+
+  // Weather (Plan 14): the outdoor temperature; null without a place. Times are epoch s.
+  weather: () => call<WeatherView | null>('GET', '/weather'),
+  weatherHourly: (start: number, end: number) => call<WeatherHourly>('GET', `/weather/hourly?start=${start}&end=${end}`),
+  weatherSearch: (q: string, lang: 'fr' | 'en') =>
+    call<{ results: WeatherPlace[] }>('GET', `/weather/search?q=${enc(q)}&lang=${lang}`),
+  weatherSettings: () => call<WeatherSettings>('GET', '/settings/weather'),
+  putWeather: (body: WeatherLocationBody) => call<WeatherSettings>('PUT', '/settings/weather', body),
+  deleteWeather: () => call<void>('DELETE', '/settings/weather')
 };

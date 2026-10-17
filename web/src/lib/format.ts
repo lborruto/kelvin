@@ -77,6 +77,24 @@ export function fmtTempTick(v: number): string {
   return signed(whole(), v);
 }
 
+/** A coordinate, 2 decimals, the active decimal mark, no grouping: « 45,77 », “45.77”, « −1,55 ». */
+export function fmtCoord(v: number | null | undefined): string {
+  if (bad(v)) return '—';
+  return signed(two(), v);
+}
+
+/** An altitude: « 173 m », « 1 035 m » (the locale's grouping, no-break space before the unit). */
+export function fmtMetres(n: number | null | undefined): string {
+  if (bad(n)) return '—';
+  return `${signed(whole(), n)}${NB}m`;
+}
+
+/** Degree days, 1 decimal, no unit (the label says « DJU »): « 11,7 », “312.0”. */
+export function fmtDju(v: number | null | undefined): string {
+  if (bad(v)) return '—';
+  return signed(one(), v);
+}
+
 /** "2 050 kWh", "12,5 kWh" (en "2,050 kWh"); `unit: false` for a column whose header carries the unit. */
 export function fmtKwh(v: number | null | undefined, unit = true): string {
   if (bad(v)) return '—';

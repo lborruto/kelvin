@@ -101,7 +101,11 @@ export const ARGS: Record<string, unknown[]> = {
   'banner.kelvinDown': [3, '21:14'],
   'prov.withMethod': ['A', 'B'],
   // Batch 12: the day before « vers »
-  'boost.thenProgram': ['00:19', 'tomorrow']
+  'boost.thenProgram': ['00:19', 'tomorrow'],
+  // Plan 14: a temperature, a time and whether it is still ahead; an optional DJU figure
+  'weather.atTime': ['1,9\u00a0°C', '06:00', false],
+  'weather.heroLine': ['7,9\u00a0°C', null],
+  'weather.model': ['9,8', '1,9', 118, '0,81', '312', '268']
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
@@ -130,7 +134,10 @@ export const SAME = new Set<string>([
   // Plan 13: product names and a token's last four characters
   'mcp.defaultName', 'mcp.claudeCode', 'mcp.hint',
   // The room chart's inspector: times, a date and a time, a label and its value, « Minimum » / « Maximum »
-  'roomChart.span', 'roomChart.dated', 'roomChart.part', 'roomChart.partWhy', 'roomChart.min', 'roomChart.max'
+  'roomChart.span', 'roomChart.dated', 'roomChart.part', 'roomChart.partWhy', 'roomChart.min', 'roomChart.max',
+  // Plan 14: model names (proper nouns), « Minimum », « Latitude », « Altitude », a figure and its origin
+  'prov.weather.arome_hd', 'prov.weather.arpege', 'weather.min', 'weather.max', 'weather.lat', 'weather.lon',
+  'weather.elevationRow', 'weather.elevationValue'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
@@ -269,8 +276,15 @@ const SCANNER_BLIND = new Set([
   // UX foundation: short labels (« Adresse », « Nature », « Calcul Kelvin », « Moyenne », « Période »)
   'page.route', 'prov.nature', 'prov.kelvin', 'nav.alerts',
   // Tableau: « Maintenant », « par kWh », « Ensuite »
-  'now.title', 'now.perKwh', 'now.nextLabel'
+  'now.title', 'now.perKwh', 'now.nextLabel',
+  // Plan 14: « Dehors », « Ressenti », « 2 lieux », « Lieu », « commune », « saisie », « DJU (base 18 °C) », two figures
+  'weather.chip', 'weather.now', 'weather.feelsLike', 'weather.djuLabel', 'weather.results', 'weather.elevation',
+  'weather.change', 'weather.place', 'weather.coordsValue', 'weather.elevationFrom.geocoder', 'weather.elevationFrom.owner',
+  'weather.elevationFrom.none'
 ]);
+
+/** French proper nouns English copy keeps (docs/glossary.md): removed before the English scan. */
+const PROPER_NOUNS = /Météo-France/g;
 
 describe('the strict scanner against the real copy (Task 17)', () => {
   it('reads every French message as French', () => {
@@ -278,7 +292,8 @@ describe('the strict scanner against the real copy (Task 17)', () => {
     expect(missed).toEqual([]);
   });
   it('never reads an English message as French', () => {
-    const flagged = [...EN].filter(([, t]) => isFrench(t)).map(([p, t]) => `${p}: ${t}`);
+    // Proper nouns English keeps as they are (glossary): « Météo-France » is a name, never translated (Plan 14).
+    const flagged = [...EN].filter(([, t]) => isFrench(t.replace(PROPER_NOUNS, ''))).map(([p, t]) => `${p}: ${t}`);
     expect(flagged).toEqual([]);
   });
   it('the blind list holds only messages the scanner really misses', () => {

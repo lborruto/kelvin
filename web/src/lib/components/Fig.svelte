@@ -9,7 +9,7 @@
   import { desktop } from '$lib/media.svelte';
   import type { Provenance } from '$lib/provenance';
   import Fiche from './Fiche.svelte';
-  import type { FicheAction, FicheRow } from './FicheBody.svelte';
+  import type { FicheAction, FicheLink, FicheRow } from './FicheBody.svelte';
 
   interface Props {
     /** The figure as shown (L0): the visible text unless `children` draws it, and the start of its name. */
@@ -23,6 +23,8 @@
     notes?: string[];
     provenance?: Provenance | null;
     action?: FicheAction | null;
+    /** An outside link in the Fiche (an attribution). */
+    link?: FicheLink | null;
     /** Extra classes on the button (the host's text style). */
     class?: string;
     /** Draws the figure (a value with its unit in smaller type, a tag…); defaults to `value`. */
@@ -32,7 +34,7 @@
     closeDelay?: number;
   }
   let {
-    value, label, title, rows = [], empty = null, notes = [], provenance = null, action = null, class: cls = '',
+    value, label, title, rows = [], empty = null, notes = [], provenance = null, action = null, link = null, class: cls = '',
     children, openDelay = 120, closeDelay = 200
   }: Props = $props();
   const uid = $props.id();
@@ -103,6 +105,7 @@
   {notes}
   {provenance}
   {action}
+  {link}
   focusOnOpen={byKeyboard}
   onclose={close}
   onenter={() => clearTimeout(closeTimer)}
