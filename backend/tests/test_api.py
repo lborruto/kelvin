@@ -538,18 +538,31 @@ async def test_duty_route_gives_every_room_over_24h(ctx):
         assert v["coverage"] >= 0.5 and 0.0 <= v["duty"] <= 1.0
 
 
-async def test_duty_route_can_start_at_local_midnight(ctx):
+async def test_duty_route_can_start_at_local_midnight(tmp_path):
     """The room panel's « Aujourd’hui » block asks the share since midnight, the window of its kWh,
-    € and heating hours; `since` is clamped to 25 h (a DST day) and must be before now."""
-    c, rt, _ = ctx
-    now = int(rt.recorder.wall())
-    body = (await c.get("/api/rooms/duty", params={"since": now - 5 * 3600})).json()
-    assert body["to"] - body["from"] == 5 * 3600
-    assert set(body["rooms"]) == set(rt.house.rooms)
-    body = (await c.get("/api/rooms/duty", params={"since": now - 3 * 86400})).json()
-    assert body["to"] - body["from"] == 25 * 3600
-    r = await c.get("/api/rooms/duty", params={"since": now + 60})
-    assert (r.status_code, r.json()["code"]) == (422, "period_invalid")
+    € and heating hours; `since` is clamped to 25 h (a DST day) and must be before now. The clock is
+    pinned: with the host's clock, a second ticking between the test's read and the route's made the
+    window one second longer (CLAUDE.md « Time in tests »)."""
+    now = 1_760_000_000
+    app = create_app(
+        Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
+        FakeGateway(clock=ManualClock()),
+        start_tasks=False,
+        wall=lambda: float(now),
+    )
+    async with LifespanManager(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://t", headers={"X-Kelvin": "1"}
+        ) as c:
+            await login(c)
+            rt = app.state.ctx.rt
+            body = (await c.get("/api/rooms/duty", params={"since": now - 5 * 3600})).json()
+            assert (body["from"], body["to"]) == (now - 5 * 3600, now)
+            assert set(body["rooms"]) == set(rt.house.rooms)
+            body = (await c.get("/api/rooms/duty", params={"since": now - 3 * 86400})).json()
+            assert body["to"] - body["from"] == 25 * 3600
+            r = await c.get("/api/rooms/duty", params={"since": now + 60})
+            assert (r.status_code, r.json()["code"]) == (422, "period_invalid")
 
 
 async def test_activity_and_duty_read_the_runtime_clock(tmp_path):

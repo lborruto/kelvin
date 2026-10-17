@@ -129,9 +129,14 @@ test('phone and desktop widths never scroll sideways with the Tempo form open', 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `width ${width}`).toBeLessThanOrEqual(0);
     await page.goto('/');
+    // Measure Maison once it has drawn (not mid-load), so the check means something.
+    await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
     const overflowRooms = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflowRooms, `rooms at ${width}`).toBeLessThanOrEqual(0);
   }
+  // Leave Maison before teardown: its live stream and the loads it starts were still open when the context
+  // closed, and on CI that teardown overran the test timeout (« Target page, context or browser has been closed »).
+  await page.goto('about:blank');
 });
 
 test('in English', async ({ page }) => {
