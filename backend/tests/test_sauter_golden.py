@@ -1,10 +1,11 @@
-"""Sauter commands, byte for byte (Plan 12). The fixture was recorded before the multi-brand
-command layer existed (scripts/sauter_golden.py); never regenerate it to make this test pass.
-A justified re-record is its own commit and updates FIXTURE_SHA256 here. Re-recorded once after
-the Plan 8 merge (programme keep semantics, night-light intensity label): the multi-brand branch
-and Plan 8 alone produce the same bytes. Re-recorded once more after the Plan 8b merge (a
-radiator's name is its Cozytouch label, a setup write: no device command, and a name never
-travels with other fields): again identical to main + this harness alone."""
+"""Sauter commands, byte for byte. The fixture was recorded before the multi-brand command layer
+existed (scripts/sauter_golden.py); never regenerate it to make this test pass. A justified
+re-record is its own commit and updates FIXTURE_SHA256 here. Re-recorded after the programme
+`keep` semantics and night-light intensity label change, then after radiator names became
+their Cozytouch labels (a setup write, no device command; a name never travels with other
+fields): each time identical to main + this harness alone. Re-recorded once more when the
+simulator's device serials were replaced by clearly invented ones: the new fixture equals the
+old one with that substitution applied, byte for byte."""
 
 import hashlib
 import json
@@ -19,7 +20,7 @@ from kelvin.overkiz.fake import FakeGateway
 from tests.conftest import ManualClock, login
 from tests.sauter_script import FIXTURE, WALL_START, dump, run_script
 
-FIXTURE_SHA256 = "b94568adcd6b1e9677b33c2d03d34e1122c49b7f0492b28537047d3c42edadb3"
+FIXTURE_SHA256 = "fb8ab0d0d0de88a438320628c2fa969a69ec14fc808d77fcd7e07ade0d3cdbad"
 REQUESTS = 27
 
 
@@ -51,7 +52,7 @@ def test_the_fixture_is_the_one_recorded_in_task_1():
 def test_the_fixture_covers_every_command_route():
     recorded = json.loads(FIXTURE.read_text(encoding="utf-8"))
     assert len(recorded) == REQUESTS
-    # Plan 8b: a rename is a Cozytouch setup write (the label), not a device command, and a
+    # A rename is a Cozytouch setup write (the label), not a device command, and a
     # name sent with other fields is refused (`rename_alone`): neither sends a command.
     rename, rename_mixed = _requests(recorded, "PATCH", "/api/radiators/9500003/features")[2:]
     assert (rename["status"], rename["commands"], rename["label"]) == (202, [], None)
