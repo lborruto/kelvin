@@ -59,6 +59,7 @@ export const ARGS: Record<string, unknown[]> = {
   'linky.throttledLater': ['12/10'],
   'linky.calls': [3, 10],
   'strip.summary': [['a', 'b']],
+  'roomChart.spoken': ['14:00–14:15', ['a', 'b']],
   'status.someOffline': [1, 2],
   'radiator.facts': ['HEKLA P', 1500],
   'program.whenOn': ['monday', '06:15'],
@@ -127,7 +128,9 @@ export const SAME = new Set<string>([
   // UX foundation: source names (products), « Code », « Source », « est. »
   'page.code', 'prov.source', 'prov.linky', 'prov.rte', 'prov.tempo', 'prov.cozytouch', 'prov.withMethod', 'fiche.est',
   // Plan 13: product names and a token's last four characters
-  'mcp.defaultName', 'mcp.claudeCode', 'mcp.hint'
+  'mcp.defaultName', 'mcp.claudeCode', 'mcp.hint',
+  // The room chart's inspector: times, a date and a time, a label and its value, « Minimum » / « Maximum »
+  'roomChart.span', 'roomChart.dated', 'roomChart.part', 'roomChart.partWhy', 'roomChart.min', 'roomChart.max'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
@@ -249,6 +252,8 @@ const SCANNER_BLIND = new Set([
   'inspector.rates', 'inspector.rateLabels.base',
   'roomInfo.title', 'roomInfo.lastSignal', 'program.reload', 'alerts.title',
   'tariff.option', 'tariff.tempoEnd', 'tariff.season',
+  // The room chart's inspector: « Moment », « non »
+  'roomChart.when', 'roomChart.heatingNo',
   // Login (Batch 11): « Changer » alone
   'login.change',
   // Batch 12: « En ligne », « Ouvrir Linky »

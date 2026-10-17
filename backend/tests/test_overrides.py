@@ -463,6 +463,7 @@ async def test_corrupt_override_rows_are_skipped(tmp_path):
         db.execute("INSERT INTO overrides (id, payload) VALUES (?, ?)", row)
     mgr = OverrideManager(db, house, svc, wall=clock)
     assert [o["id"] for o in mgr.active()] == ["good"]
+    assert mgr.active()[0]["created_at"] == clock()  # the room chart names the span from it
 
 
 def test_restore_retry_delay_doubles_up_to_half_an_hour():

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardLeft, nearestIndex, stepIndex, swipeDirection } from './chart';
+import { cardLeft, guideCard, nearestIndex, stepIndex, swipeDirection } from './chart';
 
 describe('chart pointer and keyboard math', () => {
   it('the nearest bar to the pointer wins (ties go left)', () => {
@@ -33,5 +33,15 @@ describe('chart pointer and keyboard math', () => {
     expect(swipeDirection(60, 5)).toBe(-1);
     expect(swipeDirection(30, 0)).toBeNull();
     expect(swipeDirection(60, 40)).toBeNull();
+  });
+
+  it('guideCard sits beside the guide line, else under the plot, and never covers the point read', () => {
+    expect(guideCard(40, 600, 120)).toEqual({ left: 52, top: 0 }); // right of it
+    expect(guideCard(560, 600, 120)).toEqual({ left: 288, top: 0 }); // left of it
+    const under = guideCard(200, 400, 120); // neither side fits: under the plot, clamped
+    expect(under).toEqual({ left: 70, top: 120 });
+    expect(guideCard(10, 300, 120)).toEqual({ left: 22, top: 0 });
+    expect(guideCard(150, 300, 120).top).toBe(120);
+    expect(guideCard(150, 300, 120).left).toBe(20);
   });
 });

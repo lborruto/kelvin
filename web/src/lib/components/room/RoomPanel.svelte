@@ -193,6 +193,22 @@
     return m.room.lastKnown(d ? `${modeLabel(room.mode)} · ${d}` : modeLabel(room.mode));
   });
 
+  // The chart reads any moment (hover, tap, ←/→): each radiator by name when the room has several, the running
+  // override's span by its name, presence and window rows where a radiator detects them or reported a run.
+  let inspect = $derived.by(() => {
+    const names = Object.fromEntries(radiators.map((r) => [r.id, radiatorTitle(r)]));
+    const ran = (k: 'window' | 'presence') => !!activity?.[k].length;
+    return {
+      kind: range,
+      stepMs: RANGES[range].step * 1000,
+      names,
+      several: radiators.length > 1,
+      override: override ?? null,
+      presence: radiators.some((r) => r.presence_detection) || ran('presence'),
+      window: radiators.some((r) => r.window_detection) || ran('window')
+    };
+  });
+
   // The legend lists only what the chart draws.
   let legend = $derived.by(() => {
     if (!room) return [];
@@ -472,7 +488,7 @@
       <ThermalStrip {points} {start} {end} {now} program={first?.program} mode={room!.mode} comfort={room!.comfort} eco={room!.eco}
         target={room!.target} height={96} yAxis events pendingTarget={range === 'day' ? (expected.target ?? null) : null}
         pendingComfort={range === 'day' ? (expected.comfort ?? null) : null} axis={range === 'day'}
-        label={m.room.historyLabel(name, m.range[range])} {activity} />
+        label={m.room.historyLabel(name, m.range[range])} {activity} inspect={readonly ? null : inspect} />
       {#if range === 'day' && program && rc.program > 0}<div class="daybar"><DayBar {segs} label={dayLabel} ghost={mode !== 'program'} height={14} /></div>{/if}
         <!-- Always there (one line held): the legend's words arrive with the history, below it nothing moves. -->
         <p class="legend">
@@ -998,8 +1014,11 @@
   .sw.window {
     background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--mu) 45%, transparent) 0 1.5px, transparent 1.5px 4px);
   }
+  /* The presence lane: a thin bar, as drawn along the chart's bottom. */
   .sw.presence {
-    background: color-mix(in srgb, var(--mu) 14%, transparent);
+    height: 4px;
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--mu) 55%, transparent);
   }
   .figs {
     margin-top: 12px;

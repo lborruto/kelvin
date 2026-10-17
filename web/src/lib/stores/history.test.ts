@@ -10,10 +10,21 @@ describe('history', () => {
         { radiator_id: 'b', ts: 100, temperature: 22, setpoint: 17, target: 20 },
         { radiator_id: 'a', ts: 200, temperature: null, setpoint: null, target: null }
       ])
-    ).toEqual([
+    ).toMatchObject([
       { t: 100_000, v: 21, s: 17 },
       { t: 200_000, v: null, s: null }
     ]);
+  });
+
+  it('keeps the bucket range, the rate, the levels and each radiator, and no setpoint for a radiator that was off', () => {
+    const [p] = averageByTs([
+      { radiator_id: 'a', ts: 100, temperature: 19, setpoint: 20, target: 20, temperature_min: 18.5, temperature_max: 19.5,
+        working_rate: 60, modes: ['program'], levels: ['comfort'] },
+      { radiator_id: 'b', ts: 100, temperature: 21, setpoint: 0, target: null, temperature_min: 20, temperature_max: 22,
+        working_rate: null, modes: ['off'], levels: [] }
+    ]);
+    expect(p).toMatchObject({ v: 20, s: 20, lo: 18.5, hi: 22, rate: 60, modes: ['off', 'program'], levels: ['comfort'] });
+    expect(p.rads!.map((r) => [r.id, r.v, r.s])).toEqual([['a', 19, 20], ['b', 21, null]]);
   });
 
   it('caches per key and dedupes in-flight loads', async () => {
