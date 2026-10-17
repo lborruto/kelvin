@@ -458,7 +458,7 @@ describe('RoomPanel: the outdoor line (Plan 14)', () => {
     const legend = container.querySelector('.legend') as HTMLElement;
     expect(legend.querySelector('.sw.outdoor')).not.toBeNull();
     expect(within(legend).getByRole('link', { name: 'Open-Meteo' })).toHaveAttribute('href', 'https://open-meteo.com/');
-    expect(container.querySelector('path.outdoor')).not.toBeNull();
+    expect(container.querySelector('.lane path.outdoor')!.getAttribute('d')).toMatch(/^M/);
   });
 
   it('without a place: no request, no legend entry, no line', () => {
@@ -467,6 +467,6 @@ describe('RoomPanel: the outdoor line (Plan 14)', () => {
     const { container } = render(RoomPanel, { roomId: 'salon' });
     expect(api.weatherHourly).not.toHaveBeenCalled();
     expect(container.querySelector('.legend')).not.toHaveTextContent('Dehors');
-    expect(container.querySelector('path.outdoor')).toBeNull();
+    expect(container.querySelector('.lane')).toBeNull();
   });
 });

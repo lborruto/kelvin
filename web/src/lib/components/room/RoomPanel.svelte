@@ -164,7 +164,10 @@
     // Read again each minute (`now`): a window older than 10 min is asked again, up to now.
     if (weather.on) weather.hourly(wkey, start, Math.min(end, now), undefined, now);
   });
-  let outdoorPoints = $derived(weather.on ? (weather.entries[wkey]?.points ?? []) : []);
+  let outdoorEntry = $derived(weather.on ? weather.entries[wkey] : undefined);
+  let outdoorPoints = $derived(outdoorEntry?.points ?? []);
+  // The lane draws a line from two published hours of the window on; the legend names it only then.
+  let outdoorDrawn = $derived(outdoorPoints.filter((p) => p.t >= start && p.t <= Math.min(end, now)).length >= 2);
   // Offline: the chart stops when the radiators went offline (a value read after that is not a reading).
   let points = $derived.by(() => {
     const all = history.data[key] ?? [];
@@ -223,7 +226,7 @@
     if (!room) return [];
     const out: { k: string; label: string }[] = [];
     if (points.some((x) => x.v != null)) out.push({ k: 'temp', label: m.strip.legendTemp });
-    if (outdoorPoints.some((p) => p.t >= start && p.t <= now)) out.push({ k: 'outdoor', label: m.strip.legendOutdoor });
+    if (outdoorDrawn) out.push({ k: 'outdoor', label: m.strip.legendOutdoor });
     const prog = room.mode === 'program' && room.comfort != null && room.eco != null;
     if ((room.mode === 'manual' && room.target != null) || prog) out.push({ k: 'setpoint', label: m.strip.legendSetpoint });
     if (room.mode === 'program' && comfortBands(first?.program ?? {}, start, end).length) out.push({ k: 'comfort', label: m.strip.legendComfort });
@@ -498,7 +501,8 @@
       <ThermalStrip {points} {start} {end} {now} program={first?.program} mode={room!.mode} comfort={room!.comfort} eco={room!.eco}
         target={room!.target} height={96} yAxis events pendingTarget={range === 'day' ? (expected.target ?? null) : null}
         pendingComfort={range === 'day' ? (expected.comfort ?? null) : null} axis={range === 'day'}
-        label={m.room.historyLabel(name, m.range[range])} {activity} inspect={readonly ? null : inspect} outdoor={outdoorPoints} />
+        label={m.room.historyLabel(name, m.range[range])} {activity} inspect={readonly ? null : inspect}
+        outdoor={weather.on ? outdoorPoints : null} outdoorPending={!outdoorEntry || (outdoorEntry.status === 'loading' && !outdoorPoints.length)} />
       {#if range === 'day' && program && rc.program > 0}<div class="daybar"><DayBar {segs} label={dayLabel} ghost={mode !== 'program'} height={14} /></div>{/if}
         <!-- Always there (one line held): the legend's words arrive with the history, below it nothing moves. -->
         <p class="legend">

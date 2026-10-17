@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { applyLocale } from './i18n';
 import {
-  inspectMoment, levelWords, momentProvenance, momentTitle, outdoorAt, outdoorDomain, overrideAt, planAt, pointAt, runShare, slots, yRange,
+  inspectMoment, levelWords, momentProvenance, momentTitle, laneRange, outdoorAt, overrideAt, planAt, pointAt, runShare, slots, yRange,
   type MomentCtx
 } from './roomchart';
 import type { StripPoint } from './stores/history.svelte';
@@ -222,10 +222,10 @@ describe('the outdoor temperature on the room chart (Plan 14)', () => {
     const ins = inspectMoment(at(12), pt(at(12), 19.5), ctx({ kind: 'month', stepMs: 6 * H, outdoor: out }));
     expect(row(ins, 'outdoor')).toMatchObject({ label: 'Dehors moy.', value: `6,8${NB}°C` });
   });
-  it('outdoorDomain: the outdoor values join the scale, clamped to 5 °C beyond the room\'s', () => {
-    expect(outdoorDomain([19, 21], [16.5, 17])).toEqual([16.5, 17]);
-    expect(outdoorDomain([19, 21], [2, 30])).toEqual([14, 26]);
-    expect(outdoorDomain([], [2, 4])).toEqual([2, 4]);
-    expect(outdoorDomain([19, 21], [])).toEqual([]);
+  it('laneRange: the outdoor lane’s own scale, whole degrees, at least 2 °C tall', () => {
+    expect(laneRange([-5, 5])).toEqual({ lo: -5, hi: 5 });
+    expect(laneRange([6.1, 7.4])).toEqual({ lo: 6, hi: 8 });
+    expect(laneRange([6.2, 6.3])).toEqual({ lo: 6, hi: 8 });
+    expect(laneRange([])).toBeNull();
   });
 });

@@ -160,22 +160,22 @@ export function outdoorAt(points: OutdoorPoint[], t: number, stepMs: number): nu
   return vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null;
 }
 
-/** How far the scale may reach beyond the room's own values to take in the outdoor line (°C). */
-export const OUTDOOR_REACH = 5;
-
 /**
- * The outdoor values the temperature scale takes in (Plan 14): the outdoor line shares the room's °C scale (one
- * axis, an honest gap between inside and outside), but only within `OUTDOOR_REACH` °C of the room's own values, so
- * a cold day never squeezes the room's line flat on a 96 px chart. Beyond, the value is clamped to that bound (the
- * line runs off the plot, clipped; the words and the inspector keep the real values).
+ * The outdoor lane's own scale (Plan 14, review ruling): the outdoor temperature is drawn in its own band under the
+ * room's plot, never on the room's scale (a winter day's 0 °C would flatten the room's 19–21 °C, or be clipped away).
+ * Whole degrees around the values, at least 2 °C tall so a flat day does not read as a wild one.
  */
-export function outdoorDomain(indoor: number[], outdoor: number[]): number[] {
-  if (!outdoor.length) return [];
-  if (!indoor.length) return [Math.min(...outdoor), Math.max(...outdoor)];
-  const lo = Math.min(...indoor) - OUTDOOR_REACH;
-  const hi = Math.max(...indoor) + OUTDOOR_REACH;
-  const clamp = (v: number) => Math.min(hi, Math.max(lo, v));
-  return [clamp(Math.min(...outdoor)), clamp(Math.max(...outdoor))];
+export function laneRange(values: number[]): { lo: number; hi: number } | null {
+  const vs = values.filter((v) => Number.isFinite(v));
+  if (!vs.length) return null;
+  let lo = Math.floor(Math.min(...vs));
+  let hi = Math.ceil(Math.max(...vs));
+  if (hi - lo < 2) {
+    const mid = Math.round((lo + hi) / 2);
+    lo = mid - 1;
+    hi = mid + 1;
+  }
+  return { lo, hi };
 }
 
 /** « 14:00–14:15 » on the day, « 14 oct., 13:00–19:00 » over 7 or 30 days. */
