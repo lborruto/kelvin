@@ -17,6 +17,15 @@ files (WOFF2, plus WOFF fallbacks for JetBrains Mono) into the build unmodified.
 files from both packages ship in the image under `/usr/share/licenses/kelvin/fonts/`. The
 full licence text: https://openfontlicense.org/open-font-license-official-text/
 
+## Data (outdoor weather, only when the owner sets a place)
+
+| Source | Licence and terms |
+|---|---|
+| [Open-Meteo](https://open-meteo.com/) API data | CC BY 4.0 (https://open-meteo.com/en/license); the free API is for non-commercial use (https://open-meteo.com/en/terms). Kelvin shows « Weather data by Open-Meteo.com » with a link next to every weather figure. |
+| Météo-France (AROME France HD, ARPEGE model data, through Open-Meteo) | Météo-France open-data licence, https://donneespubliques.meteofrance.fr |
+| Copernicus Climate Change Service (ERA5-Land, through Open-Meteo) | Contains modified Copernicus Climate Change Service information; Copernicus licence, https://cds.climate.copernicus.eu |
+| GeoNames (place search, through Open-Meteo's geocoder) | CC BY 4.0, https://www.geonames.org |
+
 ## Runtime dependencies (summary)
 
 Backend (Python): FastAPI (MIT), Starlette (BSD-3-Clause), uvicorn (BSD-3-Clause),

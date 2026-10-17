@@ -3,6 +3,19 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## 0.2.0
+
+- Outdoor temperature (optional, off until you pick a place in Réglages › Météo): a « Dehors » chip
+  on Maison with its exact value, feels-like, humidity and today's range; the outdoor temperature
+  under each room's chart; in Énergie, each bar's mean outdoor temperature and degree days, and
+  how your use changed at equal weather next to the plain comparison. It uses Météo-France's AROME
+  model through Open-Meteo; only your place's position (to about 1 km) and altitude leave Kelvin,
+  and « Supprimer » removes the place and its history.
+- The Énergie CSV gets three columns at the end: `dehors_moy_c`, `dju_base18`, `meteo_jours`
+  (empty without a place).
+- AI assistants (MCP): a read-only `get_weather` tool; `get_energy` gives the outdoor figures too.
+  The place itself is never given.
+
 ## 0.1.1
 
 - Room chart: hover, tap or use the arrow keys to read any moment (temperature per radiator, setpoint and level, heating, presence, window; min, mean and max over 7 and 30 days).

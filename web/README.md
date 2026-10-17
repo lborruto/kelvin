@@ -46,6 +46,11 @@ document logic is in `src/lib/tariff.ts`), `TempoRows` (the six colour rows unde
 `HcHpPanel` (Base, HC/HP or Tempo). Under Base the Énergie bars draw one « Consommation » series and
 the Heures creuses card says there are none.
 
+Weather pieces (Plan 14): `settings/PlaceSearch` (an APG combobox over `POST /api/weather/search`),
+`settings/WeatherPanel` (Réglages › Météo: the place, the coordinates form, « Supprimer »), the store
+`$lib/stores/weather.svelte.ts` (the snapshot's and SSE's `weather`, the hourly cache per window and
+place) and the words in `$lib/weather.ts`. Nothing about weather shows without a place.
+
 ## Languages and paths
 
 - Messages live in `src/lib/i18n/fr.ts` (the source) and `en.ts` (typed from it); components read
@@ -90,7 +95,8 @@ the Heures creuses card says there are none.
 | Pièces et appareils | `/home/devices` | Rooms, radiators and box devices as Cozytouch holds them, with their actions and the sync line |
 | Tarif / Tariff | `/home/tariff` | The tariff in force as a summary, the price history read in place, « Nouveau prix… » with inline validation |
 | Linky | `/home/linky` | The connection, the MyElectricalData calls, « Modifier la connexion » |
-| Sources de données | `/home/sources` | When Cozytouch, Linky, RTE EcoWatt (and Tempo) were last read |
+| Sources de données | `/home/sources` | When Cozytouch, Linky, RTE EcoWatt (and Tempo) and Open-Meteo were last read |
+| Météo / Weather | `/home/weather` | Off by default: find a town or type coordinates; on: the place, the model, the history, today's calls, « Supprimer » |
 | Compte / Account | `/home/account` | The home's account, its server, signed-in devices, MCP access tokens |
 | Absence / Away | any « Partir… » (`/home#away` too) | A sheet over the current page: until when, the temperature, what happens to each room |
 | Connexion / Sign in | `/login` | The home's Cozytouch account, the server in one line |
