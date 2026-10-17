@@ -175,7 +175,8 @@ def test_compose_says_who_must_own_the_data_volume():
 
 def test_readme_backup_is_private_and_outside_the_checkout():
     text = _read("README.md")
-    section = text[text.index("### Upgrade, back up and restore") :]
+    section = text[text.index("## Update and back up") :]
+    section = section[len("## Update and back up") :]
     section = section[: section.index("\n## ")]
     assert '"$PWD"' not in section and "$PWD/" not in section
     assert '-v "$HOME":/backup' in section and "kelvin_data:/data:ro" in section
@@ -195,7 +196,8 @@ def test_readme_backup_is_private_and_outside_the_checkout():
 
 
 def test_docs_warn_that_compose_interpolates_dollar_signs():
-    for name in (".env.example", "README.md"):
+    # The README sends self-hosters to backend/README.md for the variables (COZY_USER/COZY_PASS).
+    for name in (".env.example", "backend/README.md"):
         text = _read(name)
         assert "$$" in text and "interpolat" in text, name
 

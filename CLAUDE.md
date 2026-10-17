@@ -18,7 +18,8 @@ depends on.
   lists what is only expected for other kinds). Read it before adding
   or changing any device command, and record every new verification there (no ids or serials).
 - `docs/linky-notes.md`: MyElectricalData behaviour and quotas.
-- `backend/README.md` (API, environment) and `web/README.md` (web development).
+- `backend/README.md` (Docker configuration, device compatibility, API, MCP, environment) and
+  `web/README.md` (web development, screens, CSV export); `SECURITY.md` holds the security model.
 
 ## The simulator, always
 

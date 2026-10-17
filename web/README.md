@@ -78,6 +78,30 @@ the Heures creuses card says there are none.
   `// i18n-ignore: <why>`); `node scripts/check-paths.mjs` lists French paths; both also run
   inside `npx vitest run`.
 
+## Screens
+
+| Screen | Path | What it answers |
+|---|---|---|
+| Maison / Home | `/` | The « Tableau » dashboard: summary chips (climate, the month's €, grid signals, away), alerts, each room with its reading, state and −/+ for the setpoint in force, the month, the tariff right now, tomorrow and yesterday, today's schedule; offline rooms calm and last |
+| Room | `/rooms/<id>` | The room sheet over the dashboard: the large setpoint with −/+ and a slider, the modes, Chauffe temporaire, today's chart and energy, the schedule's temperatures, each radiator, this month's kWh and € |
+| Programme / Schedule | `/schedule` | The week as an agenda (drag on a desktop) beside the day being edited, copy to other days, locked days kept; nothing is sent before « Envoyer » |
+| Énergie / Energy | `/energy` | A board: the period's cost and kWh beside the bars (the half-hour curve first in Day and Week), the off-peak split or the Tempo days, where the energy goes, then the full sections, analysis and data quality |
+| Réglages / Settings | `/home` | Alerts while there are some, one card per section, language and « Détails techniques » (no house actions: they are on Maison) |
+| Pièces et appareils | `/home/devices` | Rooms, radiators and box devices as Cozytouch holds them, with their actions and the sync line |
+| Tarif / Tariff | `/home/tariff` | The tariff in force as a summary, the price history read in place, « Nouveau prix… » with inline validation |
+| Linky | `/home/linky` | The connection, the MyElectricalData calls, « Modifier la connexion » |
+| Sources de données | `/home/sources` | When Cozytouch, Linky, RTE EcoWatt (and Tempo) were last read |
+| Compte / Account | `/home/account` | The home's account, its server, signed-in devices, MCP access tokens |
+| Absence / Away | any « Partir… » (`/home#away` too) | A sheet over the current page: until when, the temperature, what happens to each room |
+| Connexion / Sign in | `/login` | The home's Cozytouch account, the server in one line |
+
+`cd web && SCREENS=1 npx playwright test screens.spec.ts` renders them from the simulator into
+`test-results/screens/` (`SCREENS_DIR` writes elsewhere, `SCREENS_LOCALE=fr|en`).
+
+The README's images in `docs/screenshots/` (`home.webp`, `schedule.webp`, `energy.webp`,
+`phone.webp`) are picked from such a simulator run and compressed to WebP; replace them from a
+simulator run only, never from a live installation.
+
 ## Serve the build from the backend
 
     npm run build
