@@ -456,6 +456,9 @@ test.describe('Énergie', () => {
       const title = (await card.locator('.title').textContent())!;
       const action = card.getByRole('button', { name: /^Voir la courbe du / });
       const label = (await action.textContent())!;
+      // With a weather place the card holds two more rows (Dehors moy., DJU): at 1024 × 900 its action can sit
+      // below the fold; the page scrolls to it, as a reader would.
+      await action.scrollIntoViewIfNeeded();
       const a = (await action.boundingBox())!;
       await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2, { steps: 12 });
       await expect(card.locator('.title')).toHaveText(title);

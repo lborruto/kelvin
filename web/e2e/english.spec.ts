@@ -161,4 +161,12 @@ test.describe('key flows in English', () => {
     await expect(page).toHaveURL(/\/home\/tariff$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tariff');
   });
+
+  test('Weather in English: the Outside chip on Home and the Weather settings page', async ({ page }) => {
+    // The main simulator (the Sauter house) has its demo place: the chip shows once the forecast job ran.
+    await page.goto('/');
+    await expect(page.getByRole('button', { name: /^Outside -?\d+\.\d\s?°C, details$/ })).toBeVisible({ timeout: 30_000 });
+    await page.goto('/home/weather');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Weather');
+  });
 });
