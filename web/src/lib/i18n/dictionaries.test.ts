@@ -278,7 +278,7 @@ const SCANNER_BLIND = new Set([
   // Tableau: « Maintenant », « par kWh », « Ensuite »
   'now.title', 'now.perKwh', 'now.nextLabel',
   // Plan 14: « Dehors », « Ressenti », « 2 lieux », « Lieu », « commune », « saisie », « DJU (base 18 °C) », two figures
-  'weather.chip', 'weather.now', 'weather.feelsLike', 'weather.djuLabel', 'weather.results', 'weather.elevation',
+  'weather.chip', 'strip.legendOutdoor', 'weather.now', 'weather.feelsLike', 'weather.djuLabel', 'weather.results', 'weather.elevation',
   'weather.change', 'weather.place', 'weather.coordsValue', 'weather.elevationFrom.geocoder', 'weather.elevationFrom.owner',
   'weather.elevationFrom.none'
 ]);

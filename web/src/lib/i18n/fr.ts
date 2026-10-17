@@ -407,7 +407,9 @@ export const fr = {
     methodRooms: (span: string) => `moyenne des radiateurs en ligne sur ${span}`,
     part: (label: string, value: string) => `${label} ${value}`,
     partWhy: (value: string, why: string) => `${value} (${why})`,
-    spoken: (title: string, parts: string[]) => `${title}${NB}: ${parts.join(', ')}`
+    spoken: (title: string, parts: string[]) => `${title}${NB}: ${parts.join(', ')}`,
+    noOutdoor: 'pas de météo pour ce moment',
+    outdoorNote: `Dehors${NB}: température publiée par un modèle météo (Open-Meteo), pas mesurée à la maison.`
   },
   strip: {
     windowRun: (a: string, b: string) => `Fenêtre ouverte (signalée par le radiateur) ${a}–${b}`,
@@ -428,7 +430,9 @@ export const fr = {
     pendingSetpoint: (t: string) => `consigne demandée ${t}, en attente`,
     pendingComfort: (t: string) => `confort demandé ${t}, en attente`,
     summary: (parts: string[]) => `${parts.join(`${NB}; `)}.`,
-    since: (t: string) => `Mesures depuis ${t}`
+    since: (t: string) => `Mesures depuis ${t}`,
+    legendOutdoor: 'Dehors',
+    outdoorRange: (lo: string, hi: string) => `Dehors de ${lo} à ${hi}`
   },
   energy: {
     views: { day: 'Jour', week: 'Semaine', month: 'Mois', year: 'Année' },

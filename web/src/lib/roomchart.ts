@@ -137,6 +137,45 @@ export interface MomentCtx {
   /** The rows apply (a radiator detects it, or a run was reported). */
   presence?: boolean;
   window?: boolean;
+  /** Plan 14: past hourly outdoor temperatures (epoch ms, °C) over the range; null or absent without a weather place. */
+  outdoor?: OutdoorPoint[] | null;
+}
+
+/** An outdoor hour as the room chart draws it: the hour's start (epoch ms) and its °C. */
+export interface OutdoorPoint {
+  t: number;
+  v: number;
+}
+
+const HOUR_MS = 3_600_000;
+
+/** The outdoor °C at the moment starting at `t`: the hour that holds it (a day's 15-minute moment), or the mean of
+ *  the hours inside [t, t + stepMs) (7 j, 30 j). Null when none was published for it. */
+export function outdoorAt(points: OutdoorPoint[], t: number, stepMs: number): number | null {
+  if (stepMs <= HOUR_MS) {
+    const p = points.find((x) => x.t <= t && t < x.t + HOUR_MS);
+    return p ? p.v : null;
+  }
+  const vs = points.filter((x) => x.t >= t && x.t < t + stepMs).map((x) => x.v);
+  return vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null;
+}
+
+/** How far the scale may reach beyond the room's own values to take in the outdoor line (°C). */
+export const OUTDOOR_REACH = 5;
+
+/**
+ * The outdoor values the temperature scale takes in (Plan 14): the outdoor line shares the room's °C scale (one
+ * axis, an honest gap between inside and outside), but only within `OUTDOOR_REACH` °C of the room's own values, so
+ * a cold day never squeezes the room's line flat on a 96 px chart. Beyond, the value is clamped to that bound (the
+ * line runs off the plot, clipped; the words and the inspector keep the real values).
+ */
+export function outdoorDomain(indoor: number[], outdoor: number[]): number[] {
+  if (!outdoor.length) return [];
+  if (!indoor.length) return [Math.min(...outdoor), Math.max(...outdoor)];
+  const lo = Math.min(...indoor) - OUTDOOR_REACH;
+  const hi = Math.max(...indoor) + OUTDOOR_REACH;
+  const clamp = (v: number) => Math.min(hi, Math.max(lo, v));
+  return [clamp(Math.min(...outdoor)), clamp(Math.max(...outdoor))];
 }
 
 /** « 14:00–14:15 » on the day, « 14 oct., 13:00–19:00 » over 7 or 30 days. */
@@ -146,7 +185,7 @@ export function momentTitle(t: number, ctx: Pick<MomentCtx, 'kind' | 'stepMs'>):
 }
 
 /** The base row order of the inspector and of the hidden table's columns (each radiator after `max`). */
-export const MOMENT_ORDER = ['temp', 'min', 'max', 'setpoint', 'level', 'heating', 'presence', 'window'] as const;
+export const MOMENT_ORDER = ['temp', 'min', 'max', 'outdoor', 'setpoint', 'level', 'heating', 'presence', 'window'] as const;
 
 /** What the chart reads at the moment starting at `t`, given its recorded bucket (null: nothing recorded then). */
 export function inspectMoment(t: number, point: StripPoint | null, ctx: MomentCtx): Inspection {
@@ -174,6 +213,14 @@ export function inspectMoment(t: number, point: StripPoint | null, ctx: MomentCt
       const label = ctx.names[id];
       rows.push(r?.v != null ? { key: `rad:${id}`, label, value: fmtTemp(r.v), sub: true } : { ...dash(`rad:${id}`, label, point ? m.roomChart.notRecorded : why), sub: true });
     }
+  }
+
+  // Plan 14: the outdoor temperature (published hours only: never a forecast on a history chart).
+  if (ctx.outdoor) {
+    const label = ctx.kind === 'month' ? m.weather.meanOutside : m.weather.chip;
+    const v = ahead ? null : outdoorAt(ctx.outdoor, t, ctx.stepMs);
+    rows.push(v != null ? { key: 'outdoor', label, value: fmtTemp(v) } : dash('outdoor', label, ahead ? m.roomChart.ahead : m.roomChart.noOutdoor));
+    notes.push(m.roomChart.outdoorNote);
   }
 
   // The setpoint in force and its level: recorded, or planned for the rest of the day.

@@ -394,7 +394,9 @@ export const en: Messages = {
     methodRooms: (span: string) => `mean of the online radiators over ${span}`,
     part: (label: string, value: string) => `${label} ${value}`,
     partWhy: (value: string, why: string) => `${value} (${why})`,
-    spoken: (title: string, parts: string[]) => `${title}: ${parts.join(', ')}`
+    spoken: (title: string, parts: string[]) => `${title}: ${parts.join(', ')}`,
+    noOutdoor: 'no weather for this moment',
+    outdoorNote: 'Outside: temperature published by a weather model (Open-Meteo), not measured at home.'
   },
   strip: {
     windowRun: (a: string, b: string) => `Window open (reported by the radiator) ${a}–${b}`,
@@ -415,7 +417,9 @@ export const en: Messages = {
     pendingSetpoint: (t: string) => `setpoint ${t} requested, pending`,
     pendingComfort: (t: string) => `comfort ${t} requested, pending`,
     summary: (parts: string[]) => `${parts.join('; ')}.`,
-    since: (t: string) => `Readings since ${t}`
+    since: (t: string) => `Readings since ${t}`,
+    legendOutdoor: 'Outside',
+    outdoorRange: (lo: string, hi: string) => `Outside from ${lo} to ${hi}`
   },
   energy: {
     views: { day: 'Day', week: 'Week', month: 'Month', year: 'Year' },

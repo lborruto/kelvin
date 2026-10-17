@@ -278,3 +278,58 @@ describe('the room chart: a fitted scale and the inspector', () => {
     expect(screen.queryByRole('slider')).toBeNull();
   });
 });
+
+describe('ThermalStrip: the outdoor line (Plan 14)', () => {
+  const NB = '\u00a0';
+  const H = 3_600_000;
+  const now = start + 14 * H;
+  const room = [
+    { t: start + 10 * H, v: 19.4, s: 20, rate: 0, modes: ['program'], levels: ['comfort'], rads: [] },
+    { t: start + 13 * H, v: 20.2, s: 20, rate: 0, modes: ['program'], levels: ['comfort'], rads: [] }
+  ];
+  const props = { points: room, start, end, now, mode: 'manual' as const, target: 20, label: 'Salon, 24 h', yAxis: true, height: 96 };
+  const xs = (d: string) => [...d.matchAll(/[ML]([\d.]+),/g)].map((m) => Number(m[1]));
+
+  it('draws a dashed line on the same scale, up to now only, and says its range', () => {
+    const outdoor = Array.from({ length: 20 }, (_, i) => ({ t: start + i * H, v: 15 + i * 0.1 }));
+    const { container } = render(ThermalStrip, { props: { ...props, outdoor } });
+    const path = container.querySelector('path.outdoor')!;
+    expect(path).toBeTruthy();
+    expect(Math.max(...xs(path.getAttribute('d')!))).toBeLessThanOrEqual(300 * (14 / 24) + 0.01); // nothing after now
+    // The scale reaches the outdoor values (15,0 °C at midnight): one scale, an honest gap between in and out.
+    expect(container.querySelector('.ytick')!.textContent).toBe('14°');
+    expect(container.querySelector('p.visually-hidden')!.textContent).toMatch(new RegExp(`Dehors de 15,0${NB}°C à 16,4${NB}°C`));
+  });
+
+  it('a cold day: the scale stops 5 °C below the room, so the room keeps its detail; the line is clipped there', () => {
+    const outdoor = Array.from({ length: 15 }, (_, i) => ({ t: start + i * H, v: -3 + i * 0.2 }));
+    const { container } = render(ThermalStrip, { props: { ...props, outdoor } });
+    const ticks = [...container.querySelectorAll('.ytick')].map((e) => e.textContent);
+    expect(ticks[0]).toBe('12°'); // 19,4 − 5 = 14,4, padded by 1 °C (13,4), down to the 2 °C step
+    expect(container.querySelector('path.outdoor')!.getAttribute('clip-path')).toMatch(/^url\(#/);
+    // The words keep the real values.
+    expect(container.querySelector('p.visually-hidden')!.textContent).toMatch(new RegExp(`Dehors de −3,0${NB}°C à −0,2${NB}°C`));
+  });
+
+  it('a gap over 2 h breaks the line', () => {
+    const outdoor = [0, 1, 2, 6, 7].map((h) => ({ t: start + h * H, v: 15 }));
+    const { container } = render(ThermalStrip, { props: { ...props, outdoor } });
+    expect(container.querySelector('path.outdoor')!.getAttribute('d')!.match(/M/g)).toHaveLength(2);
+  });
+
+  it('draws no outdoor line without data', () => {
+    const { container } = render(ThermalStrip, { props });
+    expect(container.querySelector('path.outdoor')).toBeNull();
+    expect(container.querySelector('p.visually-hidden')!.textContent).not.toMatch(/Dehors/);
+  });
+
+  it('the inspector card reads « Dehors x,x °C » at the moment chosen', async () => {
+    desktop.matches = true;
+    const outdoor = Array.from({ length: 15 }, (_, i) => ({ t: start + i * H, v: 15 + i * 0.1 }));
+    const inspect = { kind: 'day' as const, stepMs: 900_000, names: { a: 'Salon' }, several: false, presence: false, window: false };
+    render(ThermalStrip, { props: { ...props, outdoor, inspect } });
+    await fireEvent.pointerMove(screen.getByRole('slider'), { clientX: 125, pointerType: 'mouse' });
+    expect(screen.getByRole('group', { name: '10:00–10:15' })).toHaveTextContent(/Dehors\s*16,0\s°C/);
+    desktop.matches = false;
+  });
+});

@@ -12,7 +12,7 @@
   import { desktop } from '$lib/media.svelte';
   import { comfortBands } from '$lib/program';
   import {
-    inspectMoment, MOMENT_ORDER, momentProvenance, pointAt, slots, yRange, type MomentCtx, type RangeKind
+    inspectMoment, MOMENT_ORDER, momentProvenance, outdoorDomain, pointAt, slots, yRange, type MomentCtx, type OutdoorPoint, type RangeKind
   } from '$lib/roomchart';
   import { announcer } from '$lib/stores/announcer.svelte';
   import type { StripPoint } from '$lib/stores/history.svelte';
@@ -54,11 +54,14 @@
       presence?: boolean;
       window?: boolean;
     } | null;
+    /** Plan 14: past hourly outdoor temperatures (epoch ms, °C), drawn as a dashed `--outdoor` line up to now on the
+     *  same °C scale (`outdoorDomain`: within 5 °C of the room's values; beyond, the line is clipped at the edge). */
+    outdoor?: OutdoorPoint[];
   }
   let {
     points, start, end, now, program = {}, mode = null, comfort = null, eco = null,
     target = null, pendingTarget = null, pendingComfort = null, axis = false, height = 36, label, activity = null,
-    events = false, yAxis = false, inspect = null
+    events = false, yAxis = false, inspect = null, outdoor = []
   }: Props = $props();
 
   const W = 300;
@@ -102,6 +105,8 @@
   let shownComfort = $derived(pendingComfort ?? (held?.kind === 'comfort' ? held.v : null));
 
   let x = $derived(scaleLinear().domain([start, end]).range([0, W]));
+  // The outdoor hours already past (never a forecast on a history chart).
+  let outdoorPts = $derived(outdoor.filter((p) => p.t >= start && p.t <= Math.min(end, now)));
   let known = $derived(
     [...points.flatMap((p) => [p.v, p.s]), comfort, eco, target, shownTarget, shownComfort].filter(
       (v): v is number => v != null && !Number.isNaN(v)
@@ -118,10 +123,17 @@
       ...(mode === 'program' && shownComfort != null && eco != null ? [shownComfort, eco + (shownComfort - (comfort ?? shownComfort))] : [])
     ].filter((v): v is number => v != null && !Number.isNaN(v))
   );
-  let scale = $derived(yAxis ? yRange(drawn) : null);
+  // The outdoor line joins the scale, clamped near the room's values (one scale, the room still readable); with it,
+  // up to 6 tick intervals keep the 2 °C step on a 12 °C span.
+  let outdoorReach = $derived(outdoorDomain(yAxis ? drawn : known, outdoorPts.map((p) => p.v)));
+  let scale = $derived(yAxis ? yRange([...drawn, ...outdoorReach], 1, outdoorReach.length ? 6 : 5) : null);
   let y = $derived(
     scaleLinear()
-      .domain(scale ? [scale.lo, scale.hi] : [Math.min(15, ...known) - 0.5, Math.max(23, ...known) + 0.5])
+      .domain(
+        scale
+          ? [scale.lo, scale.hi]
+          : [Math.min(15, ...known, ...outdoorReach) - 0.5, Math.max(23, ...known, ...outdoorReach) + 0.5]
+      )
       .range([height - 2, 2])
   );
   let bands = $derived(mode === 'program' ? comfortBands(program, start, end) : []);
@@ -140,6 +152,23 @@
       .y((p) => y(p.v as number))
       .curve(curveMonotoneX)(points.filter((p) => p.t <= now)) ?? ''
   );
+
+  // A gap over 2 h breaks the outdoor line (a missing hour is absent, never bridged across a long stretch).
+  let outdoorPath = $derived.by(() => {
+    if (outdoorPts.length < 2) return null;
+    const withBreaks: { t: number; v: number | null }[] = [];
+    for (const [i, p] of outdoorPts.entries()) {
+      if (i && p.t - outdoorPts[i - 1].t > 2 * 3_600_000) withBreaks.push({ t: p.t, v: null });
+      withBreaks.push(p);
+    }
+    return (
+      line<{ t: number; v: number | null }>()
+        .defined((p) => p.v != null)
+        .x((p) => x(p.t))
+        .y((p) => y(p.v as number))
+        .curve(curveMonotoneX)(withBreaks) ?? null
+    );
+  });
 
   const step = $derived(line<[number, number]>().x((d) => x(d[0])).y((d) => y(d[1])).curve(curveStepAfter));
   function programPath(c: number, e: number): string {
@@ -180,6 +209,10 @@
     else if (shownComfort != null) parts.push(m.strip.pendingComfort(fmtTemp(shownComfort)));
     if (windowRuns.length) parts.push(m.strip.windowCount(windowRuns.length));
     if (presenceRuns.length) parts.push(m.strip.presenceCount(presenceRuns.length));
+    if (outdoorPts.length) {
+      const vs = outdoorPts.map((p) => p.v);
+      parts.push(m.strip.outdoorRange(fmtTemp(Math.min(...vs)), fmtTemp(Math.max(...vs))));
+    }
     return m.strip.summary(parts);
   });
 
@@ -196,7 +229,7 @@
   let centers = $derived(moments.map((t) => x(Math.max(start, t))));
   let ctx = $derived<MomentCtx | null>(
     inspect
-      ? { ...inspect, now, activity, plan: { mode, program, comfort, eco, target } }
+      ? { ...inspect, now, activity, plan: { mode, program, comfort, eco, target }, outdoor: outdoorPts.length ? outdoorPts : null }
       : null
   );
   // Another range: nothing stays chosen.
@@ -265,6 +298,7 @@
         <stop offset="1" style:stop-color={heatColor(15)} />
       </linearGradient>
       <clipPath id="{uid}f"><rect x={nowX} y="-4" width={W - nowX} height={height + 8} /></clipPath>
+      <clipPath id="{uid}o"><rect x="0" y="0" width={W} {height} /></clipPath>
       <pattern id="{uid}h" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
         <line x1="0" y1="0" x2="0" y2="4" class="hatch" />
       </pattern>
@@ -293,6 +327,7 @@
     {#if pendingPath}
       <path class="pending-target" class:confirmed={held?.kind === 'target' && confirmed} d={pendingPath} vector-effect="non-scaling-stroke" />
     {/if}
+    {#if outdoorPath}<path class="outdoor" d={outdoorPath} clip-path="url(#{uid}o)" vector-effect="non-scaling-stroke" />{/if}
     <path class="temp" d={tempPath} stroke="url(#{uid})" vector-effect="non-scaling-stroke" />
     <line class="now" x1={nowX} x2={nowX} y1="0" y2={height} vector-effect="non-scaling-stroke" />
   </svg>
@@ -449,6 +484,13 @@
     .confirmed {
       animation: kv-solidify-rm var(--t-exit) linear forwards;
     }
+  }
+  /* The outdoor temperature (Plan 14): a thin dashed line in its own colour, under the room's line. */
+  .outdoor {
+    fill: none;
+    stroke: var(--outdoor);
+    stroke-width: 1.25;
+    stroke-dasharray: 4 3;
   }
   .temp {
     fill: none;
