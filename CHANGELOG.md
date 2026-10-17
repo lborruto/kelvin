@@ -3,6 +3,12 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## 0.1.1
+
+- Room chart: hover, tap or use the arrow keys to read any moment (temperature per radiator, setpoint and level, heating, presence, window; min, mean and max over 7 and 30 days).
+- Room chart: the scale fits the data instead of starting at 0°; presence is a thin strip at the bottom.
+- README: plain wording.
+
 ## 0.1.0 — first public release
 
 The first version anyone can install.
