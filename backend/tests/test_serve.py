@@ -9,6 +9,7 @@ from kelvin import serve
 from kelvin.account import Account, AccountStore
 from kelvin.api.runtime import SERVER_KEY
 from kelvin.config import Settings
+from kelvin.overkiz.simhistory import SIM_DB_KEY
 from kelvin.recorder.db import Database
 
 
@@ -208,3 +209,47 @@ def test_preflight_accepts_a_matching_server_and_a_home_not_claimed_yet(tmp_path
     serve.preflight(_settings(tmp_path))  # no account yet: the login decides (data_other_server)
     AccountStore(data).save(Account("me@example.fr", "Sup3r-1", server="thermor_cozytouch"))
     serve.preflight(_settings(tmp_path))
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "localhost", "::1", "127.0.0.2"])
+def test_no_exposure_warning_on_loopback(tmp_path, host):
+    assert serve.exposure_warning(_settings(tmp_path, kelvin_host=host)) is None
+
+
+def test_listening_beyond_loopback_without_allowed_hosts_warns(tmp_path):
+    warning = serve.exposure_warning(_settings(tmp_path, kelvin_host="0.0.0.0"))
+    assert warning and warning.startswith("WARNING:")
+    assert "claim the home" in warning and "KELVIN_ALLOWED_HOSTS" in warning
+    assert (
+        serve.exposure_warning(
+            _settings(tmp_path, kelvin_host="0.0.0.0", kelvin_allowed_hosts="kelvin.lan")
+        )
+        is None
+    )
+
+
+def test_main_prints_the_exposure_warning_and_still_starts(app_env, monkeypatch, capsys):
+    monkeypatch.setenv("KELVIN_HOST", "0.0.0.0")
+    called = []
+    monkeypatch.setattr(serve.uvicorn, "run", lambda **kw: called.append(kw))
+    assert serve.main() == 0
+    assert called and called[0]["host"] == "0.0.0.0"
+    err = capsys.readouterr().err
+    assert err.startswith("kelvin: WARNING:") and "KELVIN_ALLOWED_HOSTS" in err
+
+
+def test_preflight_refuses_the_simulator_on_a_real_homes_data(tmp_path):
+    data = tmp_path / "data"
+    data.mkdir()
+    db = Database(data / "kelvin.db")
+    db.conn.execute("INSERT INTO energy VALUES (?,?,?,?,?)", (1_700_000_000, "r1", 1.0, None, None))
+    db.conn.commit()
+    db.close()
+    with pytest.raises(serve.ConfigError) as e:
+        serve.preflight(_settings(tmp_path))
+    assert "simulator" in str(e.value) and "KELVIN_VOLUME" in str(e.value)
+    serve.preflight(Settings(_env_file=None, kelvin_data=data))  # a real start: fine
+    db = Database(data / "kelvin.db")
+    db.set_setting(SIM_DB_KEY, True)
+    db.close()
+    serve.preflight(_settings(tmp_path))  # the simulator's own data: fine

@@ -120,6 +120,39 @@ async def test_without_allowed_hosts_any_host_is_served(tmp_path):
             assert (await c.get("/api/health")).status_code == 200
 
 
+async def test_a_non_loopback_host_without_an_allowlist_warns_once(tmp_path, caplog):
+    app = _app(tmp_path, with_web=False)
+    async with LifespanManager(app):
+        for host in ("localhost:8070", "127.0.0.1", "[::1]:8070"):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url=f"http://{host}"
+            ) as c:
+                await c.get("/api/health")
+        assert "KELVIN_ALLOWED_HOSTS" not in caplog.text
+        for host in ("kelvin.lan:8070", "192.168.1.10"):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url=f"http://{host}"
+            ) as c:
+                assert (await c.get("/api/health")).status_code == 200
+    warnings = [r for r in caplog.records if "KELVIN_ALLOWED_HOSTS" in r.getMessage()]
+    assert len(warnings) == 1 and warnings[0].levelname == "WARNING"
+    assert "claim the home" in warnings[0].getMessage()
+
+
+async def test_an_allowlist_never_warns_about_exposure(tmp_path, caplog):
+    settings = Settings(
+        _env_file=None,
+        kelvin_data=tmp_path / "data",
+        kelvin_fake=True,
+        kelvin_allowed_hosts="kelvin.lan",
+    )
+    app = create_app(settings, FakeGateway(), start_tasks=False)
+    async with LifespanManager(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://kelvin.lan") as c:
+            await c.get("/api/health")
+    assert "claim the home" not in caplog.text
+
+
 def _assert_headers(r, label):
     for name, value in SECURITY_HEADERS:
         assert r.headers[name.decode()] == value.decode(), (label, name)

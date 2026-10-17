@@ -131,9 +131,40 @@ def test_compose_carries_no_credentials():
 def test_compose_builds_locally_and_keeps_data_in_a_volume():
     text = _read("docker-compose.yml")
     assert re.search(r"^    build: \.$", text, re.M)
-    assert '"8070:8080"' in text and "- data:/data" in text
+    assert "- data:/data" in text
     assert "read_only: true" in text and "no-new-privileges:true" in text
     assert "- ALL" in text and "privileged" not in text
+
+
+def test_compose_publishes_on_loopback_by_default():
+    """An unclaimed Kelvin is claimed by its first login: by default only this machine can
+    reach it. KELVIN_BIND and KELVIN_PORT override the address and the port."""
+    text = _read("docker-compose.yml")
+    ports = re.findall(r'^      - "(.*)"$', text[text.index("    ports:") :], re.M)
+    assert ports[0] == "${KELVIN_BIND:-127.0.0.1}:${KELVIN_PORT:-8070}:8080"
+    assert len(re.findall(r"^    ports:", text, re.M)) == 1
+
+
+def test_compose_volume_name_and_simulator_are_overridable():
+    text = _read("docker-compose.yml")
+    assert re.search(r"^    name: \$\{KELVIN_VOLUME:-kelvin_data\}$", text, re.M)
+    # KELVIN_FAKE=1 docker compose up runs the simulator; an empty value would not parse as a bool
+    assert re.search(r"^      KELVIN_FAKE: \$\{KELVIN_FAKE:-0\}$", text, re.M)
+    assert re.search(r"^      KELVIN_FAKE_HOUSE: \$\{KELVIN_FAKE_HOUSE:-\}$", text, re.M)
+
+
+def test_env_example_documents_the_compose_variables():
+    text = _read(".env.example")
+    for line in (
+        "KELVIN_BIND=127.0.0.1",
+        "KELVIN_PORT=8070",
+        "KELVIN_VOLUME=kelvin_data",
+        "KELVIN_FAKE=0",
+        "KELVIN_FAKE_HOUSE=",
+        "KELVIN_ALLOWED_HOSTS=",
+    ):
+        assert re.search(rf"^{re.escape(line)}$", text, re.M), line
+    assert "COMPOSE_PROJECT_NAME" in text
 
 
 def test_compose_says_who_must_own_the_data_volume():
