@@ -148,6 +148,22 @@ describe('small pieces', () => {
     expect(sk.container.querySelector('.skeleton')).toHaveStyle({ width: '120px', height: '46px' });
     expect(container).toBeTruthy();
   });
+  it('SummaryChip with a Fiche: one button styled as the pill, named « label value, détails », pinned on click', async () => {
+    const fiche = { title: 'Température extérieure', rows: [{ label: 'Maintenant', value: '4,2\u00a0°C' }], link: { label: 'Open-Meteo', href: 'https://open-meteo.com/' } };
+    const { container } = render(SummaryChip, { icon: 'weather', label: 'Dehors', value: '4,2\u00a0°C', fiche });
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(1);
+    const chip = buttons[0];
+    expect(chip).toHaveAccessibleName('Dehors 4,2\u00a0°C, détails');
+    expect(chip).toHaveClass('fig', 'cat');
+    expect(chip.querySelector('b')).toHaveTextContent('Dehors');
+    expect(container.querySelector('a')).toBeNull();
+    await fireEvent.click(chip);
+    expect(chip).toHaveAttribute('aria-expanded', 'true');
+    expect(document.body).toHaveTextContent('Température extérieure');
+    expect(screen.getByRole('link', { name: 'Open-Meteo', hidden: true })).toHaveAttribute('href', 'https://open-meteo.com/');
+  });
+
   it('IconTile: heat disc only with tone heat; inert keeps focus (aria-disabled) and ignores clicks', async () => {
     const onclick = vi.fn();
     const { container } = render(IconTile, { icon: 'bolt', title: 'Chauffe temp.', sub: 'Lancer…', onclick, inert: true });

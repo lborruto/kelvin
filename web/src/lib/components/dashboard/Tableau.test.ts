@@ -6,6 +6,8 @@ import { alerts } from '$lib/stores/alerts.svelte';
 import { grid } from '$lib/stores/grid.svelte';
 import { house } from '$lib/stores/house.svelte';
 import { dashboardEnergy } from '$lib/stores/dashboardEnergy.svelte';
+import { weather } from '$lib/stores/weather.svelte';
+import { VIEW } from '$lib/weather.fixture';
 import Tableau from './Tableau.svelte';
 
 const NB = ' ';
@@ -86,6 +88,7 @@ beforeEach(() => {
   dashboardEnergy.reset();
   alerts.reset();
   grid.reset();
+  weather.reset();
   house.reset();
   house.connection = 'open';
 });
@@ -356,5 +359,67 @@ describe('a tile and its commands', () => {
     await settle();
     expect(screen.getByRole('link', { name: /^Salon, 21,0\s°C, .*1 radiateur sur 2 hors ligne$/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /^Radiateurs · Salon · .*1 radiateur sur 2 hors ligne$/ })).toBeInTheDocument();
+  });
+});
+
+describe('Maison: the outdoor temperature (Plan 14)', () => {
+  it('shows the Dehors chip right after Climat, with its Fiche: model, publié, attribution link', async () => {
+    media.desktop.matches = true;
+    standard();
+    weather.apply(VIEW);
+    render(Tableau);
+    await settle();
+    const chips = screen.getAllByRole('group', { name: 'Résumés' })[0];
+    const chip = within(chips).getByRole('button', { name: `Dehors 4,2${NB}°C, détails` });
+    const pills = [...chips.querySelectorAll('.cat')];
+    expect(pills.indexOf(chip)).toBe(1);
+    expect(pills[0]).toHaveTextContent('Climat');
+    await fireEvent.click(chip);
+    const card = await screen.findByRole('dialog', { name: 'Température extérieure' });
+    expect(within(card).getByText('Météo-France AROME HD via Open-Meteo')).toBeInTheDocument();
+    expect(within(card).getByText('publié')).toBeInTheDocument();
+    expect(within(card).getByText(/9,8.*prévu vers 15:00/)).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: /Open-Meteo/ })).toHaveAttribute('href', 'https://open-meteo.com/');
+  });
+
+  it('hides the chip without weather (no empty widget) and keeps four skeleton chips', async () => {
+    const { container, unmount } = render(Tableau);
+    expect(container.querySelectorAll('.sk-chips > *')).toHaveLength(4);
+    unmount();
+    weather.apply(VIEW);
+    const sk = render(Tableau);
+    expect(sk.container.querySelectorAll('.sk-chips > *')).toHaveLength(5);
+    sk.unmount();
+    weather.apply(null);
+    standard();
+    render(Tableau);
+    await settle();
+    expect(screen.queryByText('Dehors')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Dehors/ })).toBeNull();
+  });
+
+  it('says « — » with its reason before the first reading', async () => {
+    media.desktop.matches = true;
+    standard();
+    weather.apply({ ...VIEW, now: null, fetch: { state: 'never', next: null, error_since: null } });
+    render(Tableau);
+    await settle();
+    await fireEvent.click(screen.getAllByRole('button', { name: /^Dehors —, détails$/ })[0]);
+    expect(await screen.findByText(/premier relevé en cours/)).toBeInTheDocument();
+  });
+
+  it('the chip goes when the place is removed (SSE weather: null), and reads in English', async () => {
+    standard();
+    weather.apply(VIEW);
+    render(Tableau);
+    await settle();
+    expect(screen.getAllByRole('button', { name: /^Dehors/ }).length).toBeGreaterThan(0);
+    weather.apply(null);
+    flushSync();
+    expect(screen.queryByRole('button', { name: /^Dehors/ })).toBeNull();
+    weather.apply(VIEW);
+    applyLocale('en');
+    flushSync();
+    expect(screen.getAllByRole('button', { name: `Outside 4.2${NB}°C, details` }).length).toBeGreaterThan(0);
   });
 });
