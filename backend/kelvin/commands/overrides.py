@@ -55,6 +55,9 @@ class Override:
             "temperature": self.temperature,
             "ends_at": self.ends_at,
             "restoring": self.restoring,
+            # When it started (epoch s; None for a row stored before it was kept): the room chart
+            # names that span « Chauffe temporaire » or « Absence ».
+            "created_at": self.created_at or None,
         }
 
     @classmethod

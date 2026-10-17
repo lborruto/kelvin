@@ -328,7 +328,7 @@ describe('the room panel, in order', () => {
     const { container } = render(RoomPanel, { roomId: 'salon' });
     expect(container.querySelector('.display.off')).toHaveTextContent('Arrêt');
     expect(screen.queryByRole('group', { name: /^Consigne/ })).toBeNull();
-    expect(screen.getByRole('slider')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('slider', { name: 'Consigne' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText('Pas de consigne à l’arrêt')).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Remettre en programme' }));
     expect(api.roomMode).toHaveBeenCalledWith('salon', 'program');

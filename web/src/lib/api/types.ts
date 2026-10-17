@@ -154,6 +154,8 @@ export interface Override {
   temperature: number;
   ends_at: number;
   restoring: boolean;
+  /** When it started (epoch s); null for one stored before Kelvin kept it, absent from older backends. */
+  created_at?: number | null;
 }
 
 export interface Status {
@@ -217,6 +219,13 @@ export interface HistoryPoint {
   temperature: number | null;
   setpoint: number | null;
   target: number | null;
+  /** The bucket's lowest and highest reading, its mean working rate (% of full power), and the modes and
+   * heating levels seen in it (sorted). Absent from older backends. */
+  temperature_min?: number | null;
+  temperature_max?: number | null;
+  working_rate?: number | null;
+  modes?: string[];
+  levels?: string[];
 }
 
 export interface EnergyBucket {

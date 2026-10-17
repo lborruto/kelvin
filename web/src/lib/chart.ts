@@ -46,3 +46,14 @@ export function swipeDirection(dx: number, dy: number, min = 48): -1 | 1 | null 
   if (Math.abs(dx) < min || Math.abs(dx) < 2 * Math.abs(dy)) return null;
   return dx < 0 ? 1 : -1;
 }
+
+/**
+ * The inspector card beside a guide line at `x` (px from the plot's left edge): right of it, else left of it,
+ * else under the plot (`below` px from its top), centred on the line and clamped inside the container. Beside
+ * or under, it never covers the point being read.
+ */
+export function guideCard(x: number, containerW: number, below: number, cardW = CARD_W, gap = 12): { left: number; top: number } {
+  if (x + gap + cardW <= containerW) return { left: x + gap, top: 0 };
+  if (x - gap - cardW >= 0) return { left: x - gap - cardW, top: 0 };
+  return { left: Math.max(0, Math.min(containerW - cardW, x - cardW / 2)), top: below };
+}

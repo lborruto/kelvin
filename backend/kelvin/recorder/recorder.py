@@ -207,10 +207,17 @@ class Recorder:
     ) -> list[dict[str, Any]]:
         if not radiator_ids:
             return []
+        """Each radiator's samples per `step` bucket: the mean temperature, effective setpoint and
+        target, the lowest and highest temperature, the mean working rate (% of full power),
+        and the modes and heating levels seen in the bucket (sorted; empty when none was
+        recorded). The room chart's inspector reads them; a missing value is None."""
         marks = ",".join("?" * len(radiator_ids))
         rows = self.db.query(
             f"SELECT radiator_id, (ts / ?) * ? AS bucket, AVG(temperature) AS temperature,"
-            f" AVG(effective_setpoint) AS setpoint, AVG(target) AS target FROM samples"
+            f" AVG(effective_setpoint) AS setpoint, AVG(target) AS target,"
+            f" MIN(temperature) AS tmin, MAX(temperature) AS tmax, AVG(working_rate) AS rate,"
+            f" GROUP_CONCAT(DISTINCT mode) AS modes,"
+            f" GROUP_CONCAT(DISTINCT heating_level) AS levels FROM samples"
             f" WHERE radiator_id IN ({marks}) AND ts >= ? AND ts <= ?"
             f" GROUP BY radiator_id, bucket ORDER BY bucket, radiator_id",
             (step, step, *radiator_ids, int(start), int(end)),
@@ -222,6 +229,11 @@ class Recorder:
                 "temperature": _r(r["temperature"]),
                 "setpoint": _r(r["setpoint"]),
                 "target": _r(r["target"]),
+                "temperature_min": _r(r["tmin"]),
+                "temperature_max": _r(r["tmax"]),
+                "working_rate": _r(r["rate"]),
+                "modes": _names(r["modes"]),
+                "levels": _names(r["levels"]),
             }
             for r in rows
         ]
@@ -613,3 +625,8 @@ def _merge(a: Bucket, b: Bucket) -> Bucket:
 
 def _r(v: float | None) -> float | None:
     return None if v is None else round(v, 2)
+
+
+def _names(v: str | None) -> list[str]:
+    """A GROUP_CONCAT(DISTINCT …) of mode or level names, as a sorted list."""
+    return sorted({x for x in v.split(",") if x}) if v else []

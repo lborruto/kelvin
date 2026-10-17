@@ -58,6 +58,26 @@ def test_history_averages_buckets(env):
     assert rows[0]["setpoint"] == pytest.approx(17.0)
 
 
+def test_history_gives_the_bucket_range_rate_and_levels(env):
+    db, _, clock, rec = env
+    t0 = int(clock()) // 3600 * 3600
+    rows = [
+        (t0, "9500003", 19.0, 20.0, 20.0, "program", "comfort", 80.0, 0, 1),
+        (t0 + 300, "9500003", 20.5, 20.0, 17.0, "program", "eco", 0.0, 0, 0),
+        (t0 + 600, "9500003", None, None, None, None, None, None, None, None),
+        (t0 + 3600, "9500003", 18.0, 16.0, 16.0, "off", None, None, None, None),
+    ]
+    db.executemany("INSERT INTO samples VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+    out = rec.history(["9500003"], t0, t0 + 3600, 3600)
+    assert len(out) == 2
+    a, b = out
+    assert a["temperature"] == pytest.approx(19.75)
+    assert (a["temperature_min"], a["temperature_max"]) == (19.0, 20.5)
+    assert a["working_rate"] == pytest.approx(40.0)  # a missing rate is not a zero
+    assert a["modes"] == ["program"] and a["levels"] == ["comfort", "eco"]
+    assert b["modes"] == ["off"] and b["levels"] == [] and b["working_rate"] is None
+
+
 def record(house, clock, rec, readings, url=ENERGY):
     for t, total in readings:
         clock.t = t
