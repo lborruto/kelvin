@@ -4,6 +4,7 @@ import { applyLocale } from '$lib/i18n';
 import type { ByRadiator, Heating, RadiatorSum } from '$lib/api/types';
 import { house } from '$lib/stores/house.svelte';
 import EnergyWhere from './EnergyWhere.svelte';
+import { OK } from '$lib/weatherModel.fixture';
 
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
 vi.mock('$lib/media.svelte', () => media);
@@ -229,4 +230,23 @@ it('in English: the heading, the share sentence, the cost, a partial room', () =
   expect(t).toContain('65% of the home’s consumption comes from the radiators (11 of 13 days).');
   expect(t).toContain('Heating cost ≈ €61.02 est. · energy only');
   expect(container.querySelector('.foot')).toHaveTextContent('¹ partial: 1 of 1 radiator recorded from 8/10');
+});
+
+describe('EnergyWhere: each room’s sensitivity to the cold (Plan 15)', () => {
+  const items = [{ ...OK.rooms.items[0], room_id: 'salon' }, { ...OK.rooms.items[0], room_id: 'ch1', kwh_per_c: 0.52, eur_per_c: 0.1 }];
+  const rows = [row('a', 'salon'), row('c', 'ch1')];
+  it('one line above the list, ranked; a room’s detail holds its own line', async () => {
+    const { container } = render(EnergyWhere, base({ rows, sensitivity: items, sensitivityOn: true }));
+    expect(text(container.querySelector('.sens')!)).toBe('Par °C plus froid : Salon +0,8 kWh · Chambre 1 +0,5 kWh');
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button[data-room="salon"]')!);
+    expect(text(container.querySelector('.sens-room')!)).toBe('Par °C plus froid +0,8 kWh/jour (≈ +0,17 €) · 41 jours sur 60');
+  });
+  it('while it loads the line keeps its place; without the prop nothing changes', () => {
+    const loading = render(EnergyWhere, base({ rows, sensitivity: undefined, sensitivityOn: true }));
+    expect(loading.container.querySelector('.sens')).not.toBeNull();
+    loading.unmount();
+    const { container } = render(EnergyWhere, base({ rows }));
+    expect(container.querySelector('.sens')).toBeNull();
+    expect(container.querySelector('.sens-room')).toBeNull();
+  });
 });

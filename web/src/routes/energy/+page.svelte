@@ -27,6 +27,7 @@
   import SourceLine from '$lib/components/SourceLine.svelte';
   import Swatch from '$lib/components/Swatch.svelte';
   import TempoRows from '$lib/components/TempoRows.svelte';
+  import WeatherCostPanel from '$lib/components/WeatherCostPanel.svelte';
   import WhereTop from '$lib/components/WhereTop.svelte';
   import type { TempoColour, TempoCounts } from '$lib/api/types';
   import { addDays, bucketLabel, spanLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
@@ -44,6 +45,7 @@
   import { announcer } from '$lib/stores/announcer.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { weather } from '$lib/stores/weather.svelte';
+  import { weatherModel } from '$lib/stores/weatherModel.svelte';
   import { weatherSource } from '$lib/weather';
   import { today } from '$lib/today.svelte';
   import { EnergieData } from './energie.svelte';
@@ -231,7 +233,7 @@
 
   // Arriving with a section's hash (the room sheet's « Énergie de la pièce » → #energy-where, Maison's month-end
   // estimate → #projection): once the first report is drawn, the section opens, then the page scrolls to it.
-  const LANDING: string[] = [ENERGY_ANCHORS.where, ENERGY_ANCHORS.offpeak, ENERGY_ANCHORS.projection, ANCHORS.curve];
+  const LANDING: string[] = [ENERGY_ANCHORS.where, ENERGY_ANCHORS.offpeak, ENERGY_ANCHORS.projection, ENERGY_ANCHORS.weather, ANCHORS.curve];
   let landed = false;
   $effect(() => {
     if (landed || !loaded) return;
@@ -241,6 +243,28 @@
     untrack(() => reveal(id));
     void tick().then(() => document.getElementById(id)?.scrollIntoView?.({ block: 'start', behavior: 'auto' }));
   });
+
+  // Plan 15: « Météo et coût » for the selected period (`to` exclusive, as the report), with a place: the panel with
+  // Linky, the rooms' sensitivity to the cold in « Où part l’énergie » with or without it.
+  let weatherPeriod = $derived(loaded && weather.on ? { from: loaded.period.from, to: loaded.period.to } : null);
+  $effect(() => {
+    const p = weatherPeriod;
+    if (p) untrack(() => weatherModel.load(p));
+  });
+  $effect(() => {
+    const at = weather.view?.fetched_at ?? null;
+    untrack(() => weatherModel.onWeather(at, weatherPeriod));
+  });
+  // Another place (or none): every answer was about the previous one.
+  let shownPlace = untrack(() => weather.place);
+  $effect(() => {
+    const p = weather.place;
+    if (p === shownPlace) return;
+    shownPlace = p;
+    untrack(() => weatherModel.reset());
+  });
+  let weatherCost = $derived(weatherModel.get(weatherPeriod));
+  let sensitivity = $derived(weatherCost === undefined ? undefined : (weatherCost?.rooms.items ?? null));
 
   // Analyse: Comparaisons and Projection (and Heures creuses / pleines when the Tempo rows took its place in the board).
   let cards = $derived(!loaded || !loaded.main.linky ? 0 : tempoLens ? 3 : 2);
@@ -321,7 +345,9 @@
       roomSpan: elapsed ?? loaded.period,
       day: data.day,
       today: today.iso,
-      house: { loaded: house.loaded, rooms: house.rooms, radiators: house.radiators }
+      house: { loaded: house.loaded, rooms: house.rooms, radiators: house.radiators },
+      weather: weatherCost,
+      weatherOn: !!weatherPeriod
     }).map((a) => ({ label: a.label, icon: 'download', disabled: a.disabled, onselect: a.run }));
   });
   let canExport = $derived(ready && exportItems.length > 0);
@@ -528,7 +554,8 @@
   {#if !main.linky}
     <!-- Without Linky the rooms are the evidence: the full section, open. -->
     <EnergyWhere heating={main.heating} radiators={main.period.radiators} restKwh={main.period.rest_kwh} {running} linky={false}
-      rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} split={main.option !== 'base'} class="wide" />
+      rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} split={main.option !== 'base'} class="wide"
+      {sensitivity} sensitivityOn={!!weatherPeriod} />
   {:else}
     <!-- The full per-room table (footnotes, rooms that open, lifetime counters): collapsed and findable until « Tout voir › »
          or a link to #energy-where (fragment navigation reveals it) opens it; the board's widget is its summary. -->
@@ -543,9 +570,17 @@
         span={elapsed ?? loaded.period}
         tariff={main.tariff}
         split={main.option !== 'base'}
+        {sensitivity}
+        sensitivityOn={!!weatherPeriod}
         onroom={(id) => roomDay && data.setRoom(id)} />
       {#if whereOpen}<button type="button" class="btn btn-ghost btn-sm fold" onclick={() => (whereOpen = false)}>{m.energyBoard.whereClose}</button>{/if}
     </div>
+  {/if}
+
+  {#if main.linky && weatherPeriod}
+    <!-- Plan 15: « Météo et coût », the last 12 months against the outdoor temperature (full width, before Analyse). -->
+    <WeatherCostPanel model={weatherCost} periodName={periodTitle(loaded.view, loaded.period)} tariff={main.tariff}
+      onretry={() => weatherPeriod && weatherModel.load(weatherPeriod, true)} />
   {/if}
 
   {#if main.linky}

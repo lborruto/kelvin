@@ -1,8 +1,8 @@
 // Énergie's three CSV files as menu actions (direction-2 §2: the « Exporter » header menu, the phone « ⋯ » sheet and
 // the bottom ghost button all list the same items). The files themselves are `$lib/csv` (the machine contract in
 // web/README.md); this module only says which files the page on screen offers and when one must wait.
-import type { EnergyDay, EnergyReport, Radiator, Room } from './api/types';
-import { curveCsv, download, energyCsv, roomsCsv } from './csv';
+import type { EnergyDay, EnergyReport, Radiator, Room, WeatherCost } from './api/types';
+import { curveCsv, download, energyCsv, meteoCsv, roomsCsv } from './csv';
 import type { Span } from './energy';
 import { fmtDay } from './format';
 import { m } from './i18n';
@@ -19,10 +19,13 @@ export interface ExportInput {
   today: string;
   /** The house (rooms and radiator names): the rooms file waits for it. */
   house: { loaded: boolean; rooms: Room[]; radiators: Record<string, Radiator> };
+  /** Plan 15: « Météo et coût » (`undefined` while it loads) and whether a weather place is set (its file then). */
+  weather?: WeatherCost | null;
+  weatherOn?: boolean;
 }
 
 export interface ExportAction {
-  key: 'period' | 'curve' | 'rooms';
+  key: 'period' | 'curve' | 'rooms' | 'meteo';
   label: string;
   /** Why it cannot run yet (the menu keeps it focusable with this reason). */
   disabled: string | null;
@@ -45,6 +48,18 @@ export function exportActions(x: ExportInput): ExportAction[] {
       run: () => {
         if (!x.house.loaded) return;
         download(roomsCsv(roomEnergy(x.main.by_radiator, x.house.rooms, x.house.radiators, x.roomSpan), x.roomSpan));
+      }
+    });
+  }
+  // Plan 15: the days behind « Météo et coût », once its answer is in (it waits with its reason, never disabled).
+  const w = x.weather;
+  if (x.weatherOn && w !== null && (w === undefined || w.house.points.length > 0)) {
+    out.push({
+      key: 'meteo',
+      label: m.exportPanel.meteo,
+      disabled: w ? null : m.exportPanel.meteoWait,
+      run: () => {
+        if (w) download(meteoCsv(w));
       }
     });
   }

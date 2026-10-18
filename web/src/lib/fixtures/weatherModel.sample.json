@@ -1,0 +1,59 @@
+{
+  "computed_at": 1792310400,
+  "window": {"from": "2025-10-18", "to": "2026-10-18"},
+  "period": {"from": "2026-10-01", "to": "2026-10-19"},
+  "level": 0.8,
+  "price": {"eur_kwh": 0.2016, "option": "hchp"},
+  "house": {
+    "state": "ok",
+    "why": null,
+    "thin": [],
+    "balance_point_c": 15.5,
+    "balance_point_source": "estimated",
+    "baseload_kwh_day": 9.62,
+    "baseload_kwh_day_range": [9.31, 9.93],
+    "baseload_eur_day": 1.94,
+    "kwh_per_c": 2.31,
+    "kwh_per_c_range": [2.24, 2.38],
+    "eur_per_c": 0.47,
+    "r2": 0.861,
+    "residual_sd_kwh": 2.104,
+    "fit_days": 301,
+    "heating_days": 170,
+    "excluded": {"no_energy": 12, "no_weather": 3, "away": 9, "outlier": 4},
+    "period_share": {"weather_kwh": 210.4, "kwh": 402.0, "share": 0.5234, "degrees": 91.0, "mild": false, "days": 17, "of": 18},
+    "line": [
+      {"t_c": -4.0, "kwh": 54.67, "kwh_lo": 53.9, "kwh_hi": 55.44, "eur": 11.02, "eur_lo": 10.87, "eur_hi": 11.18}
+    ],
+    "points": [
+      {"date": "2026-10-12", "t_c": 8.4, "degrees_c": 7.1, "kwh": 27.31, "energy_eur": 5.48,
+       "parts": [{"key": "hc", "kwh": 9.1}, {"key": "hp", "kwh": 18.21}], "split_estimated": false,
+       "colour": null, "used": true, "excluded": null, "in_period": true, "expected_kwh": 26.02}
+    ]
+  },
+  "rooms": {
+    "balance_point_c": 15.5,
+    "balance_point_source": "house",
+    "items": [
+      {"room_id": "a1b2", "state": "ok", "why": null, "thin": ["short_history"],
+       "kwh_per_c": 0.84, "kwh_per_c_range": [0.71, 0.97], "eur_per_c": 0.17, "baseload_kwh_day": 0.12,
+       "r2": 0.712, "fit_days": 41, "heating_days": 30,
+       "coverage": {"days": 41, "of": 60, "share": 0.6833},
+       "excluded": {"incomplete": 19, "no_weather": 0, "away": 0, "outlier": 1}}
+    ]
+  },
+  "forecast": {
+    "state": "ok",
+    "why": null,
+    "fetched_at": 1792309020,
+    "days": [
+      {"date": "2026-10-19", "lead": 1, "t_c": 2.0, "tmin_c": -1.2, "tmax_c": 5.2, "degrees_c": 13.5,
+       "model": "arome_hd", "complete": true,
+       "kwh": 40.81, "kwh_lo": 36.12, "kwh_hi": 45.5, "heating_kwh": 31.19, "heating_kwh_lo": 26.5, "heating_kwh_hi": 35.88,
+       "eur": 8.21, "eur_lo": 7.27, "eur_hi": 9.16, "heating_eur": 6.28, "eur_why": null,
+       "colour": null, "parts": [{"key": "hc", "kwh": 13.88}, {"key": "hp", "kwh": 26.93}], "sigma_c": 1.0}
+    ],
+    "week": {"kwh": 152.3, "heating_kwh": 80.1, "eur": 30.71, "heating_eur": 16.2, "days": 7, "priced_days": 7}
+  },
+  "normals": {"years": 5, "first_day": "2021-10-17", "window_days": 7}
+}

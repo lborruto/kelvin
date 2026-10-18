@@ -22,13 +22,15 @@
     span?: 1 | 2;
     pad?: 'md' | 'sm';
     class?: string;
+    /** The region's id (an anchor may target it: Énergie's `#weather-cost`). */
+    id?: string;
     children: Snippet;
   }
-  let { title, level = 'h3', strong = false, aside, link = null, meta, tone = null, span = 1, pad = 'md', class: cls = '', children }: Props = $props();
+  let { title, level = 'h3', strong = false, aside, link = null, meta, tone = null, span = 1, pad = 'md', class: cls = '', id, children }: Props = $props();
   const uid = $props.id();
 </script>
 
-<section class="w {pad} {tone ?? ''} {cls}" class:span2={span === 2} aria-labelledby={title ? `${uid}-t` : undefined}>
+<section {id} class="w {pad} {tone ?? ''} {cls}" class:span2={span === 2} aria-labelledby={title ? `${uid}-t` : undefined}>
   {#if title}
     <div class="head">
       <svelte:element this={level} id="{uid}-t" class="lbl" class:strong>{title}</svelte:element>

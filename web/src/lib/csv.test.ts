@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { applyLocale } from '$lib/i18n';
 import type { EnergyDay, EnergyInterval, EnergyReport, EnergySummary } from './api/types';
-import { BOM, csvNum, csvSeparator, csvText, curveCsv, ENERGY_HEADER, energyCsv, pricesCsv, ROOMS_HEADER, roomsCsv } from './csv';
+import { BOM, csvNum, csvSeparator, csvText, curveCsv, ENERGY_HEADER, energyCsv, METEO_HEADER, meteoCsv, meteoFileName, pricesCsv, ROOMS_HEADER, roomsCsv } from './csv';
+import { HIDDEN, OK } from './weatherModel.fixture';
 import type { RoomRow } from './roomEnergy';
 import { parisDayStart } from './time';
 
@@ -288,4 +289,34 @@ it('couleur_tempo carries the Tempo colour in French, empty when unknown or not 
   const lines = curveCsv({ date: '2026-12-02', intervals } as unknown as EnergyDay).text.split('\r\n');
   expect(lines[1].split(';')[6]).toBe('blanc');
   expect(lines[2].split(';')[6]).toBe('');
+});
+
+describe('meteo CSV (Plan 15, spec §7.6)', () => {
+  it('French headers in every locale, one row per point, under the window’s name', () => {
+    applyLocale('fr');
+    const fr = lines(meteoCsv(OK).text);
+    expect(fr[0]).toBe('date;dehors_moy_c;degres_sous_equilibre_c;kwh;energie_eur;retenu;motif;attendu_kwh');
+    expect(fr).toHaveLength(OK.house.points.length + 1);
+    expect(fr[1].split(';')).toHaveLength(8);
+    const p = OK.house.points[0];
+    expect(fr[1]).toBe(`${p.date};${csvNum(p.t_c, 1)};${csvNum(p.degrees_c, 1)};${csvNum(p.kwh, 3)};${csvNum(p.energy_eur, 2)};1;;${csvNum(p.expected_kwh, 3)}`);
+    expect(meteoCsv(OK).text.startsWith(BOM)).toBe(true);
+    applyLocale('en');
+    const en = lines(meteoCsv(OK).text);
+    expect(en[0]).toBe(METEO_HEADER.join(','));
+    expect(en[1]).toContain('.');
+    applyLocale('fr');
+    expect(meteoFileName(OK)).toBe(`meteo_${OK.window.from}_${OK.window.to}.csv`);
+    expect(meteoCsv(OK).name).toBe('meteo_2025-10-18_2026-10-18.csv');
+  });
+  it('reasons, and empty model cells while it is hidden; an unknown € is empty, never 0', () => {
+    applyLocale('fr');
+    const away = OK.house.points.find((p) => p.excluded === 'away')!;
+    expect(lines(meteoCsv(OK).text).find((l) => l.startsWith(away.date))).toMatch(/;0;absence;/);
+    const outlier = { ...OK, house: { ...OK.house, points: [{ ...OK.house.points[0], used: false, excluded: 'outlier' as const, energy_eur: null }] } };
+    expect(lines(meteoCsv(outlier).text)[1]).toMatch(/;;0;atypique;/);
+    const hidden = lines(meteoCsv(HIDDEN).text)[1].split(';');
+    expect(hidden[2]).toBe('');
+    expect(hidden[7]).toBe('');
+  });
 });

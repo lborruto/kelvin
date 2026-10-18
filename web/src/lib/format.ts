@@ -137,6 +137,19 @@ export function fmtDayShort(ms: number): string {
   return premier(f().dayShort.format(new Date(ms)));
 }
 
+// A weekday and the day of the month (Plan 15, the 7-day strip): « lun. 19 », “Mon 19”, an ISO day.
+const weekdayDay = new Map<Locale, Intl.DateTimeFormat>();
+export function fmtWeekdayDay(iso: string): string {
+  const l = locale.current;
+  let x = weekdayDay.get(l);
+  if (!x) {
+    x = new Intl.DateTimeFormat(INTL[l], { timeZone: 'UTC', weekday: 'short', day: 'numeric' });
+    weekdayDay.set(l, x);
+  }
+  const s = x.format(isoNoon(iso)).replace(',', '');
+  return l === 'fr' ? s.replace(/(^|\s)1$/, '$1' + '1er') : s;
+}
+
 // A weekday and a time, Paris (UX batch 8, the Absence end in one short line): « dim. 18:00 », “Sun 18:00”.
 const weekdayClock = new Map<Locale, Intl.DateTimeFormat>();
 export function fmtWeekdayTime(ms: number): string {

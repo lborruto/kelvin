@@ -17,7 +17,10 @@ export type ProvKind =
   | 'tempo'
   | 'cozytouch'
   | 'kelvin-calc'
-  | 'weather';
+  | 'weather'
+  // Plan 15: Kelvin's weather model of measured data (calculé) and its forecasts (projection)
+  | 'weather-model'
+  | 'weather-forecast';
 
 export interface ProvRow {
   label: string;
@@ -61,7 +64,9 @@ const DEFAULT_NATURE: Record<ProvKind, Nature> = {
   tempo: 'published',
   cozytouch: 'measured',
   'kelvin-calc': 'computed',
-  weather: 'published'
+  weather: 'published',
+  'weather-model': 'computed',
+  'weather-forecast': 'projected'
 };
 
 /** The source's name in words (`name`: the radiator for `radiator-meter`, the model for `weather`). */
@@ -84,6 +89,10 @@ export function sourceName(kind: ProvKind, name?: string | null): string {
       return m.prov.kelvin;
     case 'weather':
       return name ? (m.prov.weather[name] ?? m.prov.weather.mixed) : m.prov.weather.pending;
+    case 'weather-model':
+      return m.prov.weatherModel;
+    case 'weather-forecast':
+      return m.prov.weatherForecast;
   }
 }
 

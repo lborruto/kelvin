@@ -8,6 +8,7 @@ import { house } from '$lib/stores/house.svelte';
 import { dashboardEnergy } from '$lib/stores/dashboardEnergy.svelte';
 import { weather } from '$lib/stores/weather.svelte';
 import { VIEW } from '$lib/weather.fixture';
+import { FORECAST, HIDDEN, forecastView } from '$lib/weatherModel.fixture';
 import Tableau from './Tableau.svelte';
 
 const NB = ' ';
@@ -35,7 +36,8 @@ const api = vi.hoisted(() => ({
   roomBoost: vi.fn(),
   houseProgram: vi.fn(),
   houseOff: vi.fn(),
-  cancelOverride: vi.fn()
+  cancelOverride: vi.fn(),
+  weatherCostForecast: vi.fn()
 }));
 vi.mock('$lib/api/client', () => ({ api, ApiError: class extends Error {} }));
 
@@ -85,6 +87,7 @@ beforeEach(() => {
   api.roomMode.mockResolvedValue({ pending: null });
   api.houseProgram.mockResolvedValue({ pending: null });
   api.cancelOverride.mockResolvedValue({ pending: null });
+  api.weatherCostForecast.mockResolvedValue(FORECAST);
   dashboardEnergy.reset();
   alerts.reset();
   grid.reset();
@@ -292,6 +295,20 @@ describe('Maison on desktop', () => {
     expect(screen.getByRole('heading', { name: 'Hier' })).toBeInTheDocument();
   });
 
+  it('a month end from the weather says its method in the bill Fiche (Plan 15)', async () => {
+    media.desktop.matches = true;
+    api.energyReport.mockResolvedValue({ ...report, projection: { month: { ...report.projection.month, method: 'weather' } } });
+    standard();
+    const { container } = render(Tableau);
+    await settle();
+    const fig = container.querySelector<HTMLButtonElement>('.bill button.fig')!;
+    await fireEvent.click(fig);
+    flushSync();
+    const fiche = document.querySelector('.fiche')!;
+    expect(fiche).toHaveTextContent('Méthode');
+    expect(fiche).toHaveTextContent('selon la météo');
+  });
+
   it('a running boost: the tile in heat with its end; a window open shows on its tile', async () => {
     const boost = { id: 'b1', kind: 'boost', room_id: 'salon', radiator_ids: ['a', 'b'], temperature: 22, ends_at: Date.parse('2026-10-13T18:42:00Z') / 1000, restoring: false };
     load(
@@ -421,5 +438,49 @@ describe('Maison: the outdoor temperature (Plan 14)', () => {
     applyLocale('en');
     flushSync();
     expect(screen.getAllByRole('button', { name: `Outside 4.2${NB}°C, details` }).length).toBeGreaterThan(0);
+  });
+});
+
+describe('Maison « Demain »: tomorrow’s heating cost (Plan 15)', () => {
+  const tomorrow = () => screen.getByRole('region', { name: 'Demain' });
+  it('the line, and its Fiche with the forecast kWh, range and €', async () => {
+    media.desktop.matches = true;
+    standard();
+    weather.apply(VIEW);
+    render(Tableau);
+    await settle();
+    const fig = within(tomorrow()).getByRole('button', { name: /de chauffage, détails$/ });
+    expect(fig.textContent!.replace(/[\u00a0\u202f]/g, ' ')).toBe('2,0 °C → ~6,28 € de chauffage');
+    await fireEvent.click(fig);
+    const card = await screen.findByRole('dialog');
+    for (const t of ['Consommation prévue', 'Fourchette', 'Coût prévu (énergie)', 'projection']) expect(within(card).getAllByText(t).length).toBeGreaterThan(0);
+  });
+  it('while the forecast loads, a skeleton line holds its place', async () => {
+    api.weatherCostForecast.mockReturnValue(new Promise(() => {}));
+    standard();
+    weather.apply(VIEW);
+    const { container } = render(Tableau);
+    await settle();
+    const line = within(tomorrow()).getByText((_, el) => !!el?.classList.contains('wline'));
+    expect(line.querySelector('.skeleton')).not.toBeNull();
+    expect(container.querySelector('.wline .fig')).toBeNull();
+  });
+  it('without a place: no line and no skeleton, no call', async () => {
+    standard();
+    const { container } = render(Tableau);
+    await settle();
+    expect(container.querySelector('.wline')).toBeNull();
+    expect(api.weatherCostForecast).not.toHaveBeenCalled();
+  });
+  it('a hidden model: « — » and the reason in its Fiche', async () => {
+    media.desktop.matches = true;
+    api.weatherCostForecast.mockResolvedValue(forecastView({ ...HIDDEN, house: { ...HIDDEN.house, why: 'few_heating_days' } }));
+    standard();
+    weather.apply(VIEW);
+    render(Tableau);
+    await settle();
+    const fig = within(tomorrow()).getByRole('button', { name: '—, détails' });
+    await fireEvent.click(fig);
+    expect(await screen.findByText('pas assez de jours de chauffage pour l’instant')).toBeInTheDocument();
   });
 });

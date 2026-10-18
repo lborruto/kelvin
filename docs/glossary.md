@@ -153,6 +153,15 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Prévu (température) | Expected | « max. prévu 9,8 °C vers 15:00 » → “max expected 9.8 °C around 15:00” |
 | Lieu | Place | Réglages › Météo |
 | Modèle (météo) | Model | « Météo-France AROME HD » is a proper name, never translated |
+| Météo et coût | Weather and cost | Plan 15: Énergie's panel (`#weather-cost`) |
+| point d’équilibre | balance point | The outdoor mean below which the home heats; « par convention (DJU) » → “by convention (HDD)” |
+| Par °C plus froid | Per °C colder | « +2,3 kWh/jour » → “+2.3 kWh/day”; the room sheet's « Froid » row → “Cold” |
+| Part due au froid | Share due to the cold | « presque pas de chauffage sur la période » → “hardly any heating in the period” |
+| normales de saison | seasonal normals | The same days (± 3) of the last 5 years |
+| prévision | forecast | « 7 prochains jours » → “Next 7 days”; « Demain : 2 °C → ~2,40 € de chauffage » → “Tomorrow: 2 °C → ~€2.40 of heating” |
+| 8 chances sur 10 | 8 in 10 chance | Every model range (80 % interval) |
+| journée atypique | unusual day | A day the model leaves out (3-sigma outlier) |
+| selon la météo | from the weather | The month-end projection's weather method |
 | Appareils | Devices |
 | Pont Cozytouch | Cozytouch bridge |
 | Sessions | Signed-in devices |

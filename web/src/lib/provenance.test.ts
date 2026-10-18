@@ -47,6 +47,12 @@ describe('provenance', () => {
     expect(sourceName('weather')).toBe('source en attente'); // no model known: never a guessed AROME HD
     expect(sourceName('weather', 'best_match')).toBe('Open-Meteo (meilleur modèle disponible)');
   });
+  it('weather model: calculé; its forecast: projection (Plan 15)', () => {
+    expect(provenance('weather-model', {}, now).nature).toBe('computed');
+    expect(flat(provenance('weather-forecast', {}, now).rows)).toEqual(['Source: Prévision Kelvin (modèle et météo prévue)', 'Nature: projection']);
+    expect(sourceName('weather-model')).toBe('Modèle Kelvin (Linky et météo)');
+    expect(sourceName('weather', 'ecmwf')).toBe('ECMWF IFS via Open-Meteo');
+  });
   it('reads in English', () => {
     applyLocale('en');
     const p = provenance('linky-curve', { day: '2026-10-14' }, now);

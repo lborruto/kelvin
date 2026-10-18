@@ -105,7 +105,18 @@ export const ARGS: Record<string, unknown[]> = {
   // Plan 14: a temperature, a time and whether it is still ahead; an optional DJU figure
   'weather.atTime': ['1,9\u00a0°C', '06:00', false],
   'weather.heroLine': ['7,9\u00a0°C', null],
-  'weather.model': ['9,8', '1,9', 118, '0,81', '312', '268']
+  'weather.model': ['9,8', '1,9', 118, '0,81', '312', '268'],
+  // Plan 15: an optional €; a figure and whether it was estimated
+  'weatherCost.why.few_days': [12, 28],
+  'weatherCost.shareSub': ['octobre', 17],
+  'weatherCost.fitDays': [301, 9, 4, 15],
+  'weatherCost.week': ['€57.60', '€44.01', 7],
+  'weatherCost.coverage': [41, 60],
+  'weatherCost.projDetail': ['398\u00a0kWh', '427\u00a0kWh', 2, 7, 9],
+  'weatherCost.baseloadSub': [null],
+  'weatherCost.perDegreeSub': [null],
+  'weatherCost.balanceValue': ['15,5\u00a0°C', true],
+  'weatherCost.whereDetail': ['0,8\u00a0kWh', null, 41, 60]
 };
 
 /** Messages allowed to read the same in both languages (proper nouns, symbols, brand). */
@@ -137,7 +148,9 @@ export const SAME = new Set<string>([
   'roomChart.span', 'roomChart.dated', 'roomChart.part', 'roomChart.partWhy', 'roomChart.min', 'roomChart.max',
   // Plan 14: model names (proper nouns), « Minimum », « Latitude », « Altitude », a figure and its origin
   'prov.weather.arome_hd', 'prov.weather.arpege', 'weather.min', 'weather.max', 'weather.lat', 'weather.lon',
-  'weather.elevationRow', 'weather.elevationValue'
+  'weather.elevationRow', 'weather.elevationValue',
+  // Plan 15: a model name (proper noun), « ~6,28 € », « Salon +0,8 kWh »
+  'prov.weather.ecmwf', 'weatherCost.cell', 'weatherCost.whereItem', 'weatherCost.unitKwh', 'weatherCost.unitEur'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {
@@ -239,6 +252,9 @@ describe('English messages take the same parameters as French', () => {
 /** French the strict scanner cannot tell from English or code, so a hard-coded copy of it would
  * slip through: short forms that are English words or names, a bare figure. Kept small on purpose. */
 const SCANNER_BLIND = new Set([
+  // Plan 15: « Par °C plus froid », « Dehors », « absence », « Fourchette » read as English or symbols
+  'weatherCost.perDegree', 'weatherCost.perDegreeSub', 'weatherCost.rowOutside', 'weatherCost.rowPerDegreeEur',
+  'weatherCost.excluded.away', 'weatherCost.dayRange', 'weatherCost.roomValue', 'weatherCost.roomRow', 'weatherCost.dayColour',
   // Réglages (Tableau settings batch): « 2 jetons MCP », « brouillon »
   'home.cardMcp',
   'tariff.draft',
