@@ -49,6 +49,8 @@
   let card = $derived(dot ? guideCard(dot.cx, w, height + 8, CARD_W) : null);
   let tbX = $derived(tb != null ? Math.round(L.x(tb) * 100) / 100 : null);
   let plotBottom = $derived(height - MARGIN.bottom);
+  /** The balance label (≈ 100 px) goes left of its rule when the right side has no room for it. */
+  let tbLeft = $derived(tbX != null && tbX + 110 > w);
 
   function choose(i: number | null, say: boolean) {
     const d = i == null ? null : L.dots[i];
@@ -114,13 +116,15 @@
       {#each L.ticksX as t (t.v)}
         <text class="tick" x={t.at} y={plotBottom + 14} text-anchor="middle">{fmtTempTick(t.v)}</text>
       {/each}
-      <text class="unit" x={MARGIN.left - 6} y="0" text-anchor="end" dominant-baseline="hanging"
+      <text class="unit" x={MARGIN.left - 6} y="2" text-anchor="end" dominant-baseline="hanging"
         >{mode === 'kwh' ? m.weatherCost.unitKwh : m.weatherCost.unitEur}</text>
       {#if L.band}<path class="band" d={L.band} />{/if}
       {#if L.path}<path class="model" d={L.path} />{/if}
       {#if tbX != null}
         <line class="tb" x1={tbX} x2={tbX} y1={MARGIN.top} y2={plotBottom} />
-        <text class="tb-label" x={tbX + 4} y={MARGIN.top + 2} dominant-baseline="hanging">{m.weatherCost.equilibrium(fmtTemp(tb))}</text>
+        <!-- Right of the rule, or left of it near the right edge: never past the plot (no page scroll). -->
+        <text class="tb-label" x={tbLeft ? tbX - 4 : tbX + 4} y="2" text-anchor={tbLeft ? 'end' : 'start'} dominant-baseline="hanging"
+          >{m.weatherCost.equilibrium(fmtTemp(tb))}</text>
       {/if}
       {#each L.dots as d (d.p.date)}
         {#if d.kind === 'used'}<circle class="dot used" cx={d.cx} cy={d.cy} r="3" />{/if}

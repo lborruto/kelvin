@@ -45,7 +45,7 @@
     height: 64px;
     box-sizing: border-box;
     min-width: 0;
-    padding: 6px 4px;
+    padding: 5px 4px;
     border-radius: var(--radius);
     background: var(--s2);
     display: flex;
@@ -56,17 +56,21 @@
   }
   .day {
     font-size: 12.5px;
+    line-height: 15px;
     font-weight: 600;
     color: var(--mu);
     white-space: nowrap;
   }
   .temp {
     font-size: 15px;
+    line-height: 19px;
     font-weight: 600;
     white-space: nowrap;
   }
   .cell :global(.val) {
     font-size: 12.5px;
+    line-height: 17px;
+    padding-bottom: 2px;
     color: var(--mu);
     white-space: nowrap;
     max-width: 100%;

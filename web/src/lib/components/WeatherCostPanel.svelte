@@ -84,7 +84,7 @@
     {#if figs}
       <div class="figs">
         {#each figs as f (f.key)}
-          <div class="fig">
+          <div class="figure">
             <span class="flbl">{f.label}</span>
             <Fig class="fval num" value={f.value} label="{f.label} {f.value}" title={f.label} rows={f.rows} provenance={prov}
               empty={f.rows.length ? null : f.sub} />
@@ -163,7 +163,7 @@
     gap: 12px;
     margin: 14px 0;
   }
-  .fig {
+  .figure {
     min-height: 72px;
     display: flex;
     flex-direction: column;
@@ -175,7 +175,7 @@
     font-weight: 600;
     color: var(--mu);
   }
-  .fig :global(.fval) {
+  .figure :global(.fval) {
     font-size: 20px;
     font-weight: 600;
     text-align: left;
@@ -252,7 +252,7 @@
       grid-template-columns: minmax(0, 1fr);
       gap: 8px;
     }
-    .fig {
+    .figure {
       min-height: 0;
     }
   }

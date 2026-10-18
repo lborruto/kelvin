@@ -26,7 +26,7 @@ export interface ScatterLayout {
   band: string;
 }
 
-export const MARGIN = { left: 40, right: 8, top: 8, bottom: 28 } as const;
+export const MARGIN = { left: 40, right: 8, top: 18, bottom: 28 } as const;
 
 /** The dot's value in the mode shown; null when it has none (a day without € in € mode). */
 export function dotValue(p: ModelPoint, mode: ScatterMode): number | null {
