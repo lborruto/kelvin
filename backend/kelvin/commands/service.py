@@ -20,6 +20,8 @@ from kelvin.overkiz.models import ExecUpdate, StateChange
 
 log = logging.getLogger(__name__)
 
+STATUS_STATE = "core:StatusState"
+
 EXEC_FAILURE_GRACE = 15.0
 CONFIRM_TIMEOUT = 90.0
 # After the device reported its execution COMPLETED (the states come before it), how long a
@@ -236,6 +238,9 @@ class CommandService:
         for p in self.active():
             if key in p.keys:
                 self._evaluate(p)
+            elif change.name == STATUS_STATE and any(u == change.device_url for u, _ in p.keys):
+                # A radiator went offline (or came back): the per-radiator verdict may be due.
+                self._evaluate(p)
         for p in self._flippable():
             if key in p.keys:
                 self._flip(p)
@@ -353,6 +358,10 @@ class CommandService:
     def _fail(self, p: Pending, code: str, *, how: str) -> None:
         """The verdict once the states were read (or could not be): a programme the radiators
         changed to something else says so, with the days that differ."""
+        # Judged radiator by radiator first: offline radiators never fail what others took.
+        self._evaluate(p, how=how)
+        if not p.active:
+            return
         days: list[str] = []
         first: tuple[str, str] | None = None  # the first day's (sent, kept), for the message
         for e in p.planned.expectations:

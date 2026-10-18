@@ -608,3 +608,25 @@ async def test_restore_keeps_an_offline_radiator_for_a_later_try(env):
     assert again.status == "confirmed" and again.offline == ()
     assert house.radiators["9000022"].mode == "off"
     assert mgr.active() == []
+
+
+async def test_an_offline_radiator_changed_by_hand_before_the_retry_is_left_alone(env):
+    clock, gw, house, svc, _, mgr = env
+    ids = [*SALON, "9000022"]
+    await mgr.start("away", ids, 18.0, clock() + 60, label="a")
+    await settle(clock, gw, house, svc)
+    _unplug(gw, house, "9000022")
+    clock.advance(60)
+    await mgr.tick()
+    await settle(clock, gw, house, svc)
+    assert mgr.active()[0]["radiator_ids"] == ["9000022"]
+    # Back online, set to programme on the panel before Kelvin's retry.
+    url = house.radiators["9000022"].heater_url
+    for name, value in (("core:StatusState", "available"), ("core:OperatingModeState", "internal")):
+        gw.devices[url].states[name] = value
+        house.apply(StateChange(url, name, value), event=False)
+    sent = len(gw.executed)
+    clock.advance(RESTORE_RETRY_FIRST_S)
+    assert await mgr.tick() == []
+    assert len(gw.executed) == sent and house.radiators["9000022"].mode == "program"
+    assert mgr.active() == []

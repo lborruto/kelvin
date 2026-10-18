@@ -224,7 +224,9 @@ Since then a command is judged radiator by radiator (`CommandService._outcome`):
 as soon as every radiator holds its expected states, **or every one that does not is
 `unavailable` while at least one took it** (« Confirmé · 2 hors ligne », `offline` in the pending).
 A command none of its radiators could take because all are offline fails with `radiator_offline`;
-a reachable radiator that does not take it still fails the command as before. Kelvin keeps
+a reachable radiator that does not take it still fails the command as before. A `core:StatusState`
+change re-judges the commands in flight on that device, and every failure verdict (with or without
+the targeted read) is judged radiator by radiator first. Kelvin keeps
 sending to offline radiators (harmless: the others apply; the Absence sheet already warns that
 an offline room may not get the setting). An away's restore confirmed for the reachable radiators
 keeps the offline ones in the override and retries them with the restore backoff, so a radiator

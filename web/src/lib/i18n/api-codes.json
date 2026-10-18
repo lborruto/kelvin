@@ -297,7 +297,7 @@
       "params": {}
     },
     "radiator_offline": {
-      "fr": "Radiateur hors ligne : la consigne n’a pas pu lui parvenir.",
+      "fr": "Hors ligne : la consigne n’a pas pu être transmise.",
       "params": {}
     },
     "radiator_refused": {

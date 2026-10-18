@@ -3,6 +3,7 @@
   import type { Pending } from '$lib/api/types';
   import { m, pendingError } from '$lib/i18n';
   import { dur, T } from '$lib/motion';
+  import { house } from '$lib/stores/house.svelte';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -19,6 +20,8 @@
   let offline = $derived(
     pending?.status === 'confirmed' ? (pending.offline ?? []).filter((i) => !radiators || radiators.includes(i)) : []
   );
+  // The room is back online since: it still did not get the setting, it was offline when sent.
+  let backOnline = $derived(offline.length > 0 && offline.every((i) => house.radiators[i]?.reachable === true));
   // Sending and pending read the same: one state, so the tag does not blink between them.
   let phase = $derived(
     !pending
@@ -48,7 +51,7 @@
            error (no Réessayer: the room is offline), it stays until dismissed or re-sent. -->
       <span class="tag wait" in:fade={{ duration: dur(T.state) }}>
         <span class="dot still"></span>
-        <span>{radiators ? m.pending.offlineHere : m.pending.confirmedOffline(offline.length)}</span>
+        <span>{radiators ? (backOnline ? m.pending.missedWhileOffline : m.pending.offlineHere) : m.pending.confirmedOffline(offline.length)}</span>
         <button type="button" class="btn btn-icon x" aria-label={m.common.dismiss} onclick={() => ondismiss(p.id)}><Icon name="x" size={16} /></button>
       </span>
     {:else if pending && phase === 'unconfirmed'}

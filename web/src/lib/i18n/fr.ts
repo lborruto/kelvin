@@ -77,6 +77,7 @@ export const fr = {
     unknownToast: (label: string) => `${label}${NB}: résultat inconnu, vérifiez la pièce.`,
     confirmedOffline: (k: number) => `Confirmé · ${int(k)} hors ligne`,
     offlineHere: `Hors ligne${NB}: consigne non reçue`,
+    missedWhileOffline: 'Consigne non reçue (hors ligne à l’envoi)',
     partial: (label: string, n: number, k: number) =>
       `${label} — confirmé pour ${int(n)} ${plural(n, { one: 'radiateur', other: 'radiateurs' })}, ${int(k)} hors ligne (consigne non reçue).`,
     cannotRetry: `Impossible de réessayer ici${NB}: refaites l’action.`
@@ -1526,7 +1527,7 @@ export const fr = {
     },
     send_internal: () => `Envoi impossible${NB}: erreur interne.`,
     radiator_refused: () => 'Le radiateur a refusé la commande.',
-    radiator_offline: () => `Radiateur hors ligne${NB}: la consigne n’a pas pu lui parvenir.`,
+    radiator_offline: () => `Hors ligne${NB}: la consigne n’a pas pu être transmise.`,
     no_confirmation: () => 'Le radiateur n’a pas confirmé la commande.',
     program_differs: (p: ApiParams) => `${dayLower(p.day)}${NB}: le radiateur a gardé ${p.kept} au lieu de ${p.sent}.`,
     // Plan 12

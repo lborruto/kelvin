@@ -85,6 +85,20 @@ describe('HouseStore', () => {
     expect(s.pending.aw).toBeUndefined();
   });
 
+  it('a newer command for one of the offline rooms takes it out, the other room keeps its tag', () => {
+    const timers: Array<() => void> = [];
+    const s = new HouseStore((fn) => { timers.push(fn); return 0; });
+    s.applySnapshot(snap());
+    s.applyPending(pending('aw', { radiator_ids: ['a', 'b', 'c'], status: 'confirmed', offline: ['b', 'c'] }));
+    timers.forEach((f) => f());
+    s.applyPending(pending('room', { radiator_ids: ['c'], created_at: 2 }));
+    expect(s.pending.aw).toMatchObject({ offline: ['b'], radiator_ids: ['b'] });
+    s.applyPending(pending('room', { radiator_ids: ['c'], created_at: 2, status: 'confirmed' }));
+    timers.forEach((f) => f());
+    expect(s.pendingFor(['c'])).toBeUndefined();
+    expect(s.pendingFor(['b'])?.id).toBe('aw');
+  });
+
   it('a resync snapshot keeps local failures', () => {
     const s = new HouseStore();
     s.applySnapshot(snap());

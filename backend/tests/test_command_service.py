@@ -386,3 +386,55 @@ async def test_a_reachable_radiator_that_refuses_still_fails_the_command(env):
         clock.advance(10)
         await drain(gw, house, svc)
     assert p.status == "failed" and p.error_code == "radiator_refused"
+
+
+async def test_a_radiator_going_offline_after_the_others_took_it_confirms_the_command(env):
+    """Review of #27: the Salon took it, then a bedroom turned unavailable with no further state
+    event for the command: the status change itself settles it, confirmed with one offline."""
+    clock, gw, house, svc, _ = env
+    a, b = house.radiators["9500003"], house.radiators["9000022"]
+    gw.silent = True  # b never reports; a's state arrives by hand below
+    p = await svc.submit("Tout", (a.id, b.id), plan_mode(a, "manual") + plan_mode(b, "manual"))
+    ev = StateChange(a.heater_url, "core:OperatingModeState", "basic")
+    house.apply(ev)
+    svc.on_state(ev)
+    assert p.status == "pending"
+    off = StateChange(b.heater_url, "core:StatusState", "unavailable")
+    house.apply(off)
+    svc.on_state(off)
+    assert p.status == "confirmed" and p.offline == (b.id,)
+
+
+async def test_a_verdict_without_a_read_is_still_per_radiator(env):
+    """Same, but the status arrives silently and the verdict comes from a tick that cannot read
+    (Overkiz unreachable): never failed radiator_offline when another radiator took it."""
+    clock, gw, house, svc, _ = env
+    a, b = house.radiators["9500003"], house.radiators["9000022"]
+    gw.silent = True
+    p = await svc.submit("Tout", (a.id, b.id), plan_mode(a, "manual") + plan_mode(b, "manual"))
+    ev = StateChange(a.heater_url, "core:OperatingModeState", "basic")
+    house.apply(ev)
+    svc.on_state(ev)
+    svc.on_exec(ExecUpdate(p.exec_id, "FAILED", "ACTUATORNOANSWER"))
+    assert p.status == "pending"
+    house.apply(StateChange(b.heater_url, "core:StatusState", "unavailable"), event=False)
+    clock.advance(15)
+    svc.tick(can_read=False)
+    assert p.status == "confirmed" and p.offline == (b.id,) and gw.state_reads == 0
+
+
+async def test_one_took_one_refused_one_offline_fails(env):
+    clock, gw, house, svc, _ = env
+    _unplug(gw, house, "9000022")
+    took, refused, off = (house.radiators[i] for i in ("10000001", "9500003", "9000022"))
+    gw.silent = True
+    planned = plan_mode(took, "manual") + plan_mode(refused, "manual") + plan_mode(off, "manual")
+    p = await svc.submit("Tout", (took.id, refused.id, off.id), planned)
+    ev = StateChange(took.heater_url, "core:OperatingModeState", "basic")
+    house.apply(ev)
+    svc.on_state(ev)
+    clock.advance(CONFIRM_TIMEOUT)
+    svc.tick()
+    await svc.verify()
+    assert p.status == "failed" and p.error_code == "no_confirmation"
+    assert p.offline == (off.id,)

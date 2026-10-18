@@ -185,15 +185,19 @@ export class HouseStore {
     );
   }
 
-  /** A newer command re-sending what a failed one tried makes that failure history: drop it. So does a
-   * newer command reaching every radiator a partly confirmed one could not reach. */
+  /** A newer command re-sending what a failed one tried makes that failure history: drop it. A newer
+   * command reaching some radiators a partly confirmed one could not reach takes them out of it (and
+   * drops it once none is left), so those rooms stop saying the setting did not reach them. */
   private retireCovered(map: Record<string, Pending>, p: Pending): void {
     const ids = new Set(p.radiator_ids);
     for (const f of Object.values(map)) {
       if (f.id === p.id) continue;
       if (f.status === 'failed' && covers(p, f)) delete map[f.id];
-      else if (f.status === 'confirmed' && f.offline?.length && p.created_at >= f.created_at && f.offline.every((i) => ids.has(i)))
-        delete map[f.id];
+      else if (f.status === 'confirmed' && f.offline?.some((i) => ids.has(i)) && p.created_at >= f.created_at) {
+        const offline = f.offline.filter((i) => !ids.has(i));
+        if (!offline.length) delete map[f.id];
+        else map[f.id] = { ...f, offline, radiator_ids: f.radiator_ids.filter((i) => !ids.has(i)) };
+      }
     }
   }
 
