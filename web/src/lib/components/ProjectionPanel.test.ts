@@ -129,6 +129,14 @@ describe('ProjectionPanel: the month end from the weather (Plan 15)', () => {
     expect(d).toContain('Mois en cours');
     expect(d).toContain('normales de saison pas encore disponibles');
   });
+  it('a month measured whole (2 November, Linky through 31 October): v0.2’s words, no weather line', async () => {
+    const p = { ...projection, month: { ...projection.month, method: 'seasonal' as const, weather: null } };
+    const { container } = render(ProjectionPanel, { projection: p, last: '2026-10-31', today: '2026-11-02' });
+    expect(text(container.querySelectorAll('.row')[0])).not.toContain('selon la météo');
+    await fireEvent.click(screen.getByRole('button', { name: /^Comment c’est calculé/ }));
+    const d = text(container.querySelector('.disclosure')!);
+    expect(d).not.toMatch(/entre .* \(8 chances sur 10\)|jours de prévision|normales de saison/);
+  });
   it('without a place: v0.2’s words only', async () => {
     const p = { ...projection, month: { ...projection.month, weather: null } };
     const { container } = render(ProjectionPanel, { projection: p, last: '2026-10-14', today: '2026-10-15' });

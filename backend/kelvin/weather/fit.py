@@ -172,8 +172,9 @@ def assess(days: Iterable[Day], *, tb: float | None = None, room: bool = False) 
             pool = [d for d in pool if d.key not in gone]
             if len(pool) < MIN_FIT_DAYS:
                 return Assessment(None, "few_days", (), outliers, tuple(pool))
-            fixed = tb if tb is not None else (TB_CONVENTION if src == "convention" else None)
-            sel = _select(pool, fixed, src if fixed is not None else "estimated")
+            # §5.2-4: steps 2–3 again on the remaining days (a given Tb stays given; an estimated or
+            # conventional one is searched again: the outliers may have hidden the mild days).
+            sel = _select(pool, tb, "given")
             if isinstance(sel, str):
                 return Assessment(None, sel, (), outliers, tuple(pool))
             c, src, ln = sel

@@ -346,6 +346,7 @@ class LinkyService:
             int(self.wall() // 3600),
             recorder.energy_epoch,
             self.store.signature(),
+            self.weather_on(),
             self.weather_signature(),
             repr(tariff),
             self.away_signature(),

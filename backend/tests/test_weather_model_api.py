@@ -96,3 +96,12 @@ async def test_the_model_is_memoised(tmp_path, monkeypatch):
         await client.get("/api/energy/weather?from=2026-11-01&to=2026-12-01")
         await client.get("/api/energy/weather/forecast")
         assert len(calls) == 1  # one core, three periods and views
+
+
+async def test_a_place_change_reaches_the_model_at_once(tmp_path):
+    """Review: the memo key holds weather_on(), so removing (or setting) a place takes effect
+    without waiting for the next hour."""
+    async with demo(tmp_path, coupled=False, fetched=False) as (client, rt):
+        assert (await client.get("/api/energy/weather")).json()["house"]["why"] != "weather_off"
+        rt.weather.clear_location()
+        assert (await client.get("/api/energy/weather")).json()["house"]["why"] == "weather_off"

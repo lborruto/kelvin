@@ -241,3 +241,16 @@ def test_weather_off_has_no_weather_block():
     )
     m = build_report(date(2026, 1, 1), date(2026, 2, 1), "month", inp)["projection"]["month"]
     assert m["weather"] is None
+
+
+def test_a_finished_month_is_never_a_weather_projection():
+    """Review ruling: on 2 November with Linky through 31 October the projected month is October,
+    measured whole: no day to predict, so v0.2's method and no weather block."""
+    today = date(2026, 11, 2)
+    daily = {date(2026, 10, 31) - timedelta(days=i): 30_000 for i in range(60)}
+    mo = _outlook(today, date(2026, 10, 1), date(2026, 12, 1))
+    inp = inputs(daily=daily, tariff=hchp_tariff(), today=today, weather_on=True, month_outlook=mo)
+    m = build_report(date(2026, 10, 1), date(2026, 11, 1), "month", inp)["projection"]["month"]
+    assert m["key"] == "2026-10" and m["method"] in ("seasonal", "linear")
+    assert m["weather"] is None
+    assert m["kwh"] == pytest.approx(31 * 30.0, abs=1e-3)

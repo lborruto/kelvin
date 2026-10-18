@@ -234,3 +234,18 @@ def test_a_room_never_counts_an_incomplete_day(gaps):
     r = v["rooms"]["items"][0]
     assert r["excluded"]["incomplete"] == len(inc)
     assert r["coverage"]["days"] == 60 - len(inc)
+
+
+def test_month_outlook_without_the_exact_day_in_three_years():
+    """Normals exist (±3 days, 5 years) but only 2 years hold the exact calendar day: the range
+    leaves the weather spread out and says so."""
+    d9 = TODAY + 9 * ONE
+    w = {
+        d: x
+        for d, x in inputs().weather.items()
+        if not ((d.month, d.day) == (d9.month, d9.day) and d.year in (2021, 2022, 2023))
+    }
+    _, mo = C.build(inputs(weather=w))
+    assert mo.days[d9][1] == "normal"
+    assert mo.interval([d9])[2] == "no_normals_spread"
+    assert mo.interval([TODAY + 3 * ONE])[2] == "full"  # no normal day asked: nothing left out

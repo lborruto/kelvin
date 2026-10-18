@@ -879,10 +879,11 @@ def _weather_month(
     anchor: date,
     actual: dict[str, Any],
     price: float | None,
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     """Spec 2026-10-18 §5.6 / §8.4: the month's days without Linky data (counted elapsed days, and
     every day after the last Linky day) predicted from the weather: observed, today, forecast,
-    normals. `_kwh` (popped by the caller) is the predicted sum when the path holds."""
+    normals. `_kwh` (popped by the caller) is the predicted sum when the path holds. None when no
+    day of the month is left to predict (a finished month never reads « selon la météo »)."""
     blank: dict[str, Any] = {
         "why": None,
         "observed_days": 0,
@@ -895,15 +896,17 @@ def _weather_month(
         "eur_hi": None,
         "spread": None,
     }
-    mo = inp.month_outlook
-    if mo is None or mo.why is not None:
-        return {**blank, "why": mo.why if mo is not None else "model_hidden"}
     end = next_unit(first, "month")
     need = [
         d
         for d in _days(first, end)
         if d > anchor or (en.first is not None and d >= en.first and en.day(d) is None)
     ]
+    if not need:
+        return None  # the month is measured whole: nothing to predict, v0.2's figures stand
+    mo = inp.month_outlook
+    if mo is None or mo.why is not None:
+        return {**blank, "why": mo.why if mo is not None else "model_hidden"}
     for d in need:
         if d not in mo.days:
             return {**blank, "why": mo.missing.get(d, "weather_missing")}
