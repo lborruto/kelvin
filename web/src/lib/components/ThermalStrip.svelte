@@ -234,9 +234,11 @@
       ? { ...inspect, now, activity, plan: { mode, program, comfort, eco, target }, outdoor: outdoorPts.length ? outdoorPts : null }
       : null
   );
-  // Another range: nothing stays chosen.
+  // Another range: nothing stays chosen. Only the range: the room sheet derives a new `inspect` whenever its
+  // activity or radiators change (every house update), and that must not drop the moment being read.
+  let kind = $derived(inspect?.kind);
   $effect(() => {
-    void inspect?.kind;
+    void kind;
     untrack(() => (index = null));
   });
   let nowIndex = $derived(Math.max(0, moments.findLastIndex((t) => t <= now)));

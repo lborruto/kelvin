@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { addDays, parisDay } from './clock';
 
 // Layout guards, run once (desktop project; widths are set per check).
 const WIDTHS = [320, 360, 390, 768, 1024, 1280, 1440];
@@ -275,7 +276,7 @@ test.describe('layout of / with the grid signals', () => {
   test.describe.configure({ mode: 'serial' });
   const H = { 'X-Kelvin': '1' };
   const TEMPO = { blue_hc: 0.1296, blue_hp: 0.1609, white_hc: 0.1486, white_hp: 0.1894, red_hc: 0.1568, red_hp: 0.7562 };
-  const daysAgo = (n: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(Date.now() - n * 86_400_000));
+  const daysAgo = (n: number) => addDays(parisDay(Date.now()), -n);
   type Row = { valid_from: string; option: string; subscription_eur_month: number; rates: Record<string, number> };
   type View = { kva: number; prices: Row[]; hc_schedules: unknown[]; tempo_hours: { hc_start: string; hc_end: string } };
   const doc = (t: View, prices: Row[]) => ({

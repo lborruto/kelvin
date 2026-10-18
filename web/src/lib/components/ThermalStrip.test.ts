@@ -265,6 +265,18 @@ describe('the room chart: a fitted scale and the inspector', () => {
     say.mockRestore();
   });
 
+  it('a moment stays chosen when the room’s facts update (activity, a house update); another range clears it', async () => {
+    const r = render(ThermalStrip, { props });
+    const slider = screen.getByRole('slider');
+    await fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    expect(screen.getByRole('group', { name: '14:00–14:15' })).toBeInTheDocument();
+    // The room sheet derives a new `inspect` whenever its activity or radiators change: same range, same choice.
+    await r.rerender({ inspect: { ...inspect, presence: true } });
+    expect(screen.getByRole('group', { name: '14:00–14:15' })).toBeInTheDocument();
+    await r.rerender({ inspect: { ...inspect, kind: 'week' as never, stepMs: 3_600_000 } });
+    expect(screen.queryByRole('group')).toBeNull();
+  });
+
   it('a hidden table holds every recorded moment in the inspector’s words', () => {
     const { container } = render(ThermalStrip, { props });
     const rows = [...container.querySelectorAll('.visually-hidden table tbody tr')];
