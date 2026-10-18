@@ -26,9 +26,15 @@
   import Toggle from '$lib/components/Toggle.svelte';
   import VSlider from '$lib/components/VSlider.svelte';
   import Widget from '$lib/components/Widget.svelte';
-  import { fmtTemp } from '$lib/format';
+  import ForecastStrip from '$lib/components/ForecastStrip.svelte';
+  import TomorrowWidget from '$lib/components/dashboard/TomorrowWidget.svelte';
+  import WeatherCostPanel from '$lib/components/WeatherCostPanel.svelte';
+  import WeatherScatter from '$lib/components/WeatherScatter.svelte';
+  import { fmtTemp, monthName } from '$lib/format';
   import { m } from '$lib/i18n';
   import { provenance } from '$lib/provenance';
+  import { roomRows, roomValue, roomWhy } from '$lib/weatherCost';
+  import { FORECAST, HIDDEN, OK, ROOM, THIN, forecastView, week } from '$lib/weatherModel.fixture';
 
   const NOW = Date.parse('2026-10-16T18:42:00+02:00');
   const START = Date.parse('2026-10-16T00:00:00+02:00');
@@ -71,6 +77,12 @@
   let sheetBtn = $state<HTMLButtonElement>();
   let modalBtn = $state<HTMLButtonElement>();
   let disclosure = $state(false);
+  // Plan 15 « Météo et coût »: the contract's sample widened (weatherModel.fixture), in its states.
+  const tempoWeek = { ...OK.forecast, week: null, days: week().map((d, i) => (i > 0 ? { ...d, eur: null, eur_lo: null, eur_hi: null, heating_eur: null, eur_why: 'tempo_colour_unknown' as const } : d)) };
+  const holes = { ...OK.forecast, week: null, days: week().map((d, i) => (i > 3 ? { ...d, complete: false, t_c: null, kwh: null, heating_kwh: null, eur: null, heating_eur: null } : d)) };
+  const warm = forecastView({ ...OK, forecast: { ...OK.forecast, days: [{ ...OK.forecast.days[0], t_c: 17.5, heating_kwh: 0, heating_eur: 0 }] } });
+  const unknown = forecastView({ ...OK, forecast: tempoWeek });
+  const roomHidden = { ...ROOM, state: 'hidden' as const, why: 'few_days' as const, kwh_per_c: null, kwh_per_c_range: null, eur_per_c: null, coverage: { days: 12, of: 60, share: 0.2 } };
 </script>
 
 <svelte:head><title>Kit · Kelvin</title></svelte:head>
@@ -228,6 +240,39 @@
   <div class="cols">
     <div class="col"><Skeleton shape="line" h={22} w="60%" /><Skeleton shape="widget" h={232} /><div class="two"><Skeleton shape="tile" h={110} /><Skeleton shape="tile" h={110} /></div></div>
     <div class="col"><Skeleton shape="line" h={22} w="50%" /><Skeleton shape="widget" h={128} /><Skeleton shape="widget" h={150} /></div>
+  </div>
+
+  <h2 class="areah"><span>WeatherScatter · kWh · € · a day read</span></h2>
+  <div class="cols">
+    <div class="col"><WeatherScatter points={OK.house.points} line={OK.house.line} tb={15.5} mode="kwh" height={260} /></div>
+    <div class="col"><WeatherScatter points={OK.house.points} line={OK.house.line} tb={15.5} mode="eur" height={260} selected={OK.house.points[3].date} /></div>
+  </div>
+
+  <h2 class="areah"><span>ForecastStrip · priced · Tempo unknown · incomplete · no model</span></h2>
+  <ForecastStrip forecast={OK.forecast} />
+  <ForecastStrip forecast={tempoWeek} />
+  <ForecastStrip forecast={holes} />
+  <ForecastStrip forecast={HIDDEN.forecast} />
+
+  <h2 class="areah"><span>WeatherCostPanel · ok · thin · hidden · loading</span></h2>
+  <WeatherCostPanel model={OK} periodName={monthName('2026-10-01')} tariff />
+  <WeatherCostPanel model={THIN} periodName={monthName('2026-10-01')} tariff />
+  <WeatherCostPanel model={HIDDEN} periodName={monthName('2026-10-01')} tariff />
+  <WeatherCostPanel model={undefined} periodName={monthName('2026-10-01')} tariff />
+
+  <h2 class="areah"><span>Tomorrow · heating · none · Tempo unknown · loading</span></h2>
+  <div class="grid4">
+    <TomorrowWidget grid={grid} todayIso="2026-10-16" forecast={FORECAST} weatherOn />
+    <TomorrowWidget grid={grid} todayIso="2026-10-16" forecast={warm} weatherOn />
+    <TomorrowWidget grid={grid} todayIso="2026-10-16" forecast={unknown} weatherOn />
+    <TomorrowWidget grid={grid} todayIso="2026-10-16" forecast={undefined} weatherOn />
+  </div>
+
+  <h2 class="areah"><span>Room sheet cold row · ok · hidden</span></h2>
+  <div class="row">
+    <Fig value={roomValue(ROOM)} title={m.weatherCost.roomRow} rows={roomRows(ROOM)} provenance={provenance('weather-model', {}, NOW)} />
+    <Fig value={roomValue(roomHidden)} title={m.weatherCost.roomRow} rows={roomRows(roomHidden)} empty={roomWhy(roomHidden)}
+      provenance={provenance('weather-model', {}, NOW)} />
   </div>
 </div>
 
