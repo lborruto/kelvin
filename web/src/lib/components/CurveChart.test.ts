@@ -202,3 +202,40 @@ it('a language switch re-stacks the readout’s texts: every field’s variants 
     'Time', 'Mean power', 'Energy', 'Rate', 'Price', 'Cost'
   ]);
 });
+
+describe('CurveChart: the outdoor line (hourly, its own °C axis)', () => {
+  const outdoor = [
+    { t: t0 * 1000, v: 4.2 },
+    { t: (t0 + 3600) * 1000, v: 3.1 }
+  ];
+  it('draws the hours on their own right-hand axis, Wh on the left in ink; the readout and the table say « Dehors »', async () => {
+    localStorage.clear();
+    const { outdoorLine } = await import('$lib/stores/outdoorLine.svelte');
+    outdoorLine.set(true);
+    const { container } = render(CurveChart, { intervals: four, label: 'Courbe', outdoor });
+    expect(container.querySelector('path.t-line')!.getAttribute('d')).toMatch(/^M[\d.]+,[\d.]+L[\d.]+,[\d.]+$/);
+    expect([...container.querySelectorAll('text.tl')].length).toBeGreaterThanOrEqual(2);
+    expect(container.querySelector('text.unit.t')?.textContent).toBe('°C');
+    expect([...container.querySelectorAll('text.yl')].map((t) => t.textContent)[0]).toBe('0');
+    expect(container.querySelector('svg')!.getAttribute('aria-label')).toBe(`Courbe. Température extérieure de 3,1${NB}°C à 4,2${NB}°C`);
+    const head = [...container.querySelectorAll('.visually-hidden thead th')].map((t) => t.textContent);
+    expect(head.at(-1)).toBe('Dehors');
+    expect(container.querySelector('.visually-hidden tbody tr:nth-of-type(2) td:last-of-type')?.textContent).toBe(`4,2${NB}°C`);
+    const toggle = screen.getByRole('button', { name: 'Température extérieure' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(container.querySelector('path.t-line')).toBeNull();
+    expect(container.querySelector('text.tl')).toBeNull();
+    // The readout keeps « Dehors » (it is data, not the line).
+    expect(container.querySelector('.readout')!.textContent).toContain('Dehors');
+    outdoorLine.set(true);
+  });
+  it('without a place: no line, no °C axis, no legend key, no « Dehors »', () => {
+    const { container } = render(CurveChart, { intervals: four, label: 'Courbe' });
+    expect(container.querySelector('path.t-line')).toBeNull();
+    expect(container.querySelector('text.tl')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Température extérieure' })).toBeNull();
+    expect(container.querySelector('.readout')!.textContent).not.toContain('Dehors');
+  });
+});

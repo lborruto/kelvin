@@ -594,6 +594,19 @@ export const fr = {
   },
   periodNav: { group: 'Période affichée', prev: 'Période précédente', next: 'Période suivante', latest: 'Dernier jour' },
   bars: { empty: 'Pas encore de données.', period: 'Période', bars: (label: string) => `Barres du graphique${NB}: ${label}` },
+  outdoorLine: {
+    // The outdoor-temperature line over Énergie's consumption charts (its own °C axis on the right).
+    legend: 'Température extérieure',
+    forecast: 'prévision',
+    unitTemp: '°C',
+    unitWh: 'Wh',
+    tick: (t: string) => `${t}°`,
+    outside: 'Dehors',
+    noHour: 'pas de météo pour cette heure',
+    spoken: (t: string) => `dehors ${t}`,
+    range: (lo: string, hi: string) => `Température extérieure de ${lo} à ${hi}`,
+    rangeForecast: (lo: string, hi: string) => `Température extérieure de ${lo} à ${hi}, prévision comprise`
+  },
   chartInspector: { estNote: `est.${NB}: valeur estimée, détail dans`, quality: 'Qualité des données' },
   compare: {
     title: 'Comparaisons',

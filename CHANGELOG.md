@@ -3,7 +3,17 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
-## 0.3.0
+## Unreleased
+
+- Énergie draws the outdoor temperature over the consumption chart in every view (with a place set in
+  Réglages › Météo): each day's mean over the day bars (Semaine, Mois, the 7 days of Jour), each month's
+  mean in Année, and the published hours over the Courbe. It has its own °C scale on the right, in its
+  colour; the kWh scale on the left now has its figures. Days to come that the 7-day forecast covers are
+  drawn dashed and lighter (« prévision »); a missing day or hour is a gap, never filled in.
+- « Température extérieure » in the chart's legend shows or hides the line, remembered on the device.
+- The day's inspector, the Courbe's readout (« Dehors » for each half-hour), the hidden tables and the
+  spoken bar names carry the outdoor temperature.
+
 
 - « Météo et coût » in Énergie (with a place set in Réglages › Météo): how much your home uses whatever
   the weather, how much more each degree colder adds in kWh and euros, the share of the period due to

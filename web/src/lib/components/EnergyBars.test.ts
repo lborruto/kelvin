@@ -16,7 +16,7 @@ const ins = (title: string, value: string): Inspection => ({
   empty: null,
   spoken: `${title}, ${value}`
 });
-// At the default 600 px: step 200, bars of 150 px at x = 25, 225, 425 (centres 100, 300, 500).
+// At the default 600 px, after the 34 px kWh gutter: step 188.67, bars of 141.5 px from x = 57.58 (centres 128.3, 317, 505.6).
 const three = {
   groups: [
     { label: '11/10', parts: [{ key: 'home', value: 10 }] },
@@ -228,9 +228,11 @@ describe('EnergyBars', () => {
     const plot = container.querySelector('.plot')!;
     await fireEvent.pointerMove(plot, { clientX: 100, pointerType: 'mouse' });
     expect(container.querySelector('.inspector.card .title')).toHaveTextContent('11 octobre');
-    expect(container.querySelector<HTMLElement>('.inspector.card')!.style.left).toBe('183px');
+    // 600 px with the 34 px kWh gutter: bands of 188.67 px, bars of 141.5 px from 57.58 px.
+    const left = () => parseFloat(container.querySelector<HTMLElement>('.inspector.card')!.style.left);
+    expect(left()).toBeCloseTo(207.08, 1);
     await fireEvent.pointerMove(plot, { clientX: 500, pointerType: 'mouse' });
-    expect(container.querySelector<HTMLElement>('.inspector.card')!.style.left).toBe('157px');
+    expect(left()).toBeCloseTo(166.92, 1);
     expect(container.querySelector('.inspector.sheet')).toBeNull();
     await fireEvent.pointerLeave(plot);
     expect(container.querySelector('.inspector')).toBeNull();
@@ -361,4 +363,64 @@ it('in English: the empty state and the bars’ group name', () => {
   empty.unmount();
   render(EnergyBars, three);
   expect(screen.getByRole('group', { name: `Chart bars: ${three.label}` })).toBeInTheDocument();
+});
+
+describe('EnergyBars: the outdoor line', () => {
+  const NB = ' ';
+  it('labels the kWh axis on the left; without a line, no °C axis and no right gutter', () => {
+    const { container } = render(EnergyBars, three);
+    const left = [...container.querySelectorAll('text.yl')].map((t) => t.textContent);
+    expect(left[0]).toBe('0');
+    expect(left.length).toBeGreaterThanOrEqual(3);
+    expect(container.querySelector('text.unit')?.textContent).toBe('kWh');
+    expect(container.querySelector('text.tl')).toBeNull();
+    expect(container.querySelector<HTMLElement>('.axis')!.style.paddingRight).toBe('0px');
+  });
+
+  it('one point per bar centre on its own °C axis, the forecast dashed, a gap never bridged', () => {
+    const five = {
+      ...three,
+      groups: ['1', '2', '3', '4', '5'].map((d) => ({ label: `${d}/10`, parts: [{ key: 'home', value: 10 }] })),
+      details: null,
+      overlay: { label: 'Radiateurs', values: [5, 5, 5, 5, 5], color: 'var(--series-3)' },
+      line: [
+        { v: 6, kind: 'obs' as const },
+        { v: 4, kind: 'obs' as const },
+        { v: null, kind: 'obs' as const },
+        { v: 3, kind: 'obs' as const },
+        { v: 1, kind: 'fc' as const }
+      ]
+    };
+    const { container } = render(EnergyBars, five);
+    const solid = container.querySelector('path.t-line:not(.fc)')!.getAttribute('d')!;
+    const dashed = container.querySelector('path.t-line.fc')!.getAttribute('d')!;
+    expect(solid.match(/M/g)).toHaveLength(1); // days 1–2 only: day 3 is a gap
+    expect(dashed.match(/M/g)).toHaveLength(1); // day 4 → day 5 (forecast)
+    // The points sit on the bar centres (the axis' grid cells, after the 34 px gutter).
+    const xs = solid.slice(1).split('L').map((p) => Number(p.split(',')[0]));
+    const rects = [...container.querySelectorAll('rect.part')];
+    const centre = (r: Element) => Number(r.getAttribute('x')) + Number(r.getAttribute('width')) / 2;
+    expect(xs[0]).toBeCloseTo(centre(rects[0]), 0);
+    expect(xs[1]).toBeCloseTo(centre(rects[1]), 0);
+    // Few bars: a dot on every point (the forecast one lighter).
+    expect(container.querySelectorAll('circle.t-dot')).toHaveLength(4);
+    expect(container.querySelectorAll('circle.t-dot.fc')).toHaveLength(1);
+    expect([...container.querySelectorAll('text.tl')].map((t) => t.textContent)).toContain('0°');
+    expect(container.querySelector<HTMLElement>('.axis')!.style.paddingRight).toBe('30px');
+    expect(container.querySelector('svg')!.getAttribute('aria-label')).toBe(
+      `Consommation de la maison par jour. Température extérieure de 1,0${NB}°C à 6,0${NB}°C, prévision comprise`
+    );
+    // The radiator marks are drawn after the line, so their knockout cuts it.
+    const temp = container.querySelector('g.temp')!;
+    expect(temp.compareDocumentPosition(container.querySelector('line.knock')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelector('rect.part')!.compareDocumentPosition(temp) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('rings the inspected bar’s point', async () => {
+    media.desktop.matches = true;
+    const { container } = render(EnergyBars, { ...three, line: [{ v: 6, kind: 'obs' as const }, { v: 4, kind: 'obs' as const }, { v: 2, kind: 'obs' as const }] });
+    expect(container.querySelector('circle.t-sel')).toBeNull();
+    await fireEvent.pointerMove(container.querySelector('.plot')!, { clientX: 300, pointerType: 'mouse' });
+    expect(container.querySelector('circle.t-sel')).not.toBeNull();
+  });
 });

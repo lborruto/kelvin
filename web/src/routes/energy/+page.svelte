@@ -13,6 +13,7 @@
   import type { FicheRow } from '$lib/components/FicheBody.svelte';
   import GridChips from '$lib/components/GridChips.svelte';
   import HcHpPanel from '$lib/components/HcHpPanel.svelte';
+  import OutdoorToggle from '$lib/components/OutdoorToggle.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Menu, { type MenuItem } from '$lib/components/Menu.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -37,6 +38,8 @@
   import { apiMessage, m } from '$lib/i18n';
   import { inspectBucket } from '$lib/inspector';
   import { desktop } from '$lib/media.svelte';
+  import { bucketTemps } from '$lib/outdoorLine';
+  import { outdoorLine } from '$lib/stores/outdoorLine.svelte';
   import { reducedMotion } from '$lib/motion';
   import { ANCHORS, ENERGY_ANCHORS, ROUTES } from '$lib/paths';
   import { provenance, when } from '$lib/provenance';
@@ -156,7 +159,7 @@
   );
   let details = $derived(
     loaded
-      ? bars.map((b) =>
+      ? bars.map((b, i) =>
           inspectBucket(b, {
             group,
             span: bucketSpan(b.key, group),
@@ -164,7 +167,8 @@
             linky: loaded.main.linky,
             // A null radiator sum reads « — » with its reason (today counts once it is over).
             radiators: loaded.main.quality.radiators_since != null,
-            today: today.iso
+            today: today.iso,
+            forecast: temps?.[i]?.kind === 'fc' ? temps[i].v : null
           })
         )
       : []
@@ -265,6 +269,16 @@
   });
   let weatherCost = $derived(weatherModel.get(weatherPeriod));
   let sensitivity = $derived(weatherCost === undefined ? undefined : (weatherCost?.rooms.items ?? null));
+  // The outdoor temperature over the bars: on when the report carries weather (a place is set; known in the same frame
+  // as the bars, so the °C gutter never arrives late) and the place was not removed since. Today and the days to come
+  // take the 7-day forecast, when « Météo et coût » brought it.
+  let weatherOn = $derived(
+    weather.view !== null && !!main && (main.period.outdoor != null || (chart?.buckets ?? []).some((b) => b.outdoor != null))
+  );
+  let temps = $derived(weatherOn ? bucketTemps(bars, group, today.iso, weatherCost?.forecast.days) : null);
+  let tempLine = $derived(temps && outdoorLine.on ? temps : null);
+  let forecastShown = $derived(!!tempLine?.some((t) => t.kind === 'fc' && t.v != null));
+  let forecastSlot = $derived(!!tempLine && group === 'day' && bars.some((b) => b.key >= today.iso));
 
   // Analyse: Comparaisons and Projection (and Heures creuses / pleines when the Tempo rows took its place in the board).
   let cards = $derived(!loaded || !loaded.main.linky ? 0 : tempoLens ? 3 : 2);
@@ -419,7 +433,10 @@
         {/if}
         <li><Swatch series="radiators" line />{m.energyPage.radiators}</li>
         {#if tempoDots}<li>{m.energyBoard.tempoTitle}</li>{/if}
+        {#if weatherOn}<OutdoorToggle forecast={forecastShown} {forecastSlot} />{/if}
       </ul>
+      {:else if weatherOn}
+      <ul class="legend"><OutdoorToggle forecast={forecastShown} {forecastSlot} /></ul>
       {/if}
     </div>
     {#if chart?.linky}
@@ -434,6 +451,7 @@
         height={barsHeight}
         tempo={tempoDots}
         ghost={ghost ? { index: ghost.index, value: ghost.value } : null}
+        line={tempLine}
         bind:selected={selectedBar}
         ondrill={drill}
         {drillLabel}
@@ -449,6 +467,7 @@
         unit="kWh"
         label={m.energyPage.radChart(unitWord)}
         height={barsHeight}
+        line={tempLine}
         bind:selected={selectedBar}
         ondrill={drill}
         {drillLabel}
@@ -511,6 +530,7 @@
       quota={linky?.state === 'quota'}
       bar={dayBar}
       chartHeight={desktop.matches ? 320 : 170}
+      outdoorOn={weatherOn}
       bind:index={scrub} />
   {/if}
 
@@ -620,6 +640,7 @@
       quota={linky?.state === 'quota'}
       bar={dayBar}
       chartHeight={desktop.matches ? 260 : 170}
+      outdoorOn={weatherOn}
       bind:index={scrub} />
   </Sheet>
 {/if}

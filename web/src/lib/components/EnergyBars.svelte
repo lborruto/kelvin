@@ -12,10 +12,11 @@
   import { cardLeft, nearestIndex, stepIndex, swipeDirection } from '$lib/chart';
   import type { TempoColour } from '$lib/api/types';
   import { SERIES_HATCH } from '$lib/energy';
-  import { fmtKwh } from '$lib/format';
+  import { fmtFixed, fmtKwh, fmtTemp, fmtTempTick } from '$lib/format';
   import { m } from '$lib/i18n';
   import { inspectionTable, type Inspection } from '$lib/inspector';
   import { desktop } from '$lib/media.svelte';
+  import { linePaths, maxTicks, tempScale, type Pt, type TempValue } from '$lib/outdoorLine';
   import { announcer } from '$lib/stores/announcer.svelte';
   import TempoDot from './TempoDot.svelte';
 
@@ -52,6 +53,9 @@
     tempo?: (TempoColour | null | undefined)[] | null;
     /** A projection drawn as a dashed outline on one bar (Année: the running month to its estimate). */
     ghost?: { index: number; value: number } | null;
+    /** The outdoor temperature, one value per group (same order), on its own °C axis at the right; null hides the
+     *  line and its axis. A forecast value is drawn dashed and lighter. */
+    line?: TempValue[] | null;
   }
   let {
     groups,
@@ -67,7 +71,8 @@
     onswipe = null,
     height = 160,
     tempo = null,
-    ghost = null
+    ghost = null,
+    line = null
   }: Props = $props();
 
   const uid = $props.id();
@@ -75,17 +80,40 @@
   let width = $state(0);
   let W = $derived(width > 0 ? width : 600);
   let H = $derived(height);
-  const PAD = { top: 8, right: 0, bottom: 2, left: 0 };
+  // The kWh labels in the left gutter (ink), the °C labels in the right one (the line's colour) while the line is on.
+  let PAD = $derived({ top: 18, right: line ? 30 : 0, bottom: 2, left: 34 });
 
   let x = $derived(scaleBand<string>().domain(groups.map((g) => g.label)).range([PAD.left, W - PAD.right]).paddingInner(0.25).paddingOuter(0.125));
   let overlayMax = $derived(Math.max(0, ...(overlay?.values ?? []).map((v) => v ?? 0)));
   const total = (g: Group) => g.parts.reduce((a, p) => a + (p.value ?? 0), 0);
   let max = $derived(Math.max(0.1, overlayMax, ghost?.value ?? 0, ...groups.map(total)));
   let y = $derived(scaleLinear().domain([0, max]).nice().range([H - PAD.bottom, PAD.top]));
+  let nTicks = $derived(maxTicks(W));
+  let yTicks = $derived(y.ticks(nTicks));
+  let yDigits = $derived.by(() => {
+    const step = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
+    return Math.min(2, Math.max(0, -Math.floor(Math.log10(step) + 1e-9))) as 0 | 1 | 2;
+  });
+  // The outdoor line: its own scale (whole degrees, padded), never the kWh one.
+  let tScale = $derived(line ? tempScale(line.map((p) => p.v), nTicks) : null);
+  let tY = $derived(tScale ? scaleLinear().domain([tScale.lo, tScale.hi]).range([H - PAD.bottom, PAD.top]) : null);
   let axisWidth = $state(0);
   let every = $derived(labelEvery(groups.length, axisWidth));
   let keys = $derived([...new Set(groups.flatMap((g) => g.parts.map((p) => p.key)))]);
   let centers = $derived(groups.map((g) => (x(g.label) ?? 0) + x.bandwidth() / 2));
+  let tPts = $derived<(Pt | null)[]>(
+    line && tY ? line.map((p, i) => (p.v != null && i < centers.length ? { x: centers[i], y: tY(p.v), kind: p.kind } : null)) : []
+  );
+  let tPaths = $derived(linePaths(tPts));
+  /** A dot on every point while the bars are few (a week, a year); on a month, only where a day stands alone. */
+  let tDots = $derived(groups.length <= 12 ? tPts.filter((p): p is Pt => !!p) : tPaths.dots);
+  let lineSentence = $derived.by(() => {
+    const vs = (line ?? []).filter((p) => p.v != null);
+    if (!vs.length) return null;
+    const lo = fmtTemp(Math.min(...vs.map((p) => p.v!)));
+    const hi = fmtTemp(Math.max(...vs.map((p) => p.v!)));
+    return vs.some((p) => p.kind === 'fc') ? m.outdoorLine.rangeForecast(lo, hi) : m.outdoorLine.range(lo, hi);
+  });
 
   function stacks(g: Group) {
     let acc = 0;
@@ -268,10 +296,19 @@
     {onpointerup}
     {onfocusin}
     {onfocusout}>
-    <svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={label}>
-      {#each y.ticks(4) as t (t)}
+    <svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={lineSentence ? `${label}. ${lineSentence}` : label}>
+      {#each yTicks as t (t)}
         <line class="grid" x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} />
+        <text class="yl" x={PAD.left - 6} y={y(t) + 3.5} text-anchor="end">{fmtFixed(t, yDigits)}</text>
       {/each}
+      <text class="unit" x={PAD.left - 6} y="9" text-anchor="end">{unit}</text>
+      {#if tScale && tY}
+        <!-- The °C axis: its own ticks, labelled at the right in the line's colour (no grid of its own). -->
+        {#each tScale.ticks as t (t)}
+          <text class="tl" x={W - PAD.right + 6} y={tY(t) + 3.5}>{m.outdoorLine.tick(fmtTempTick(t))}</text>
+        {/each}
+        <text class="unit t" x={W - PAD.right + 6} y="9">{m.outdoorLine.unitTemp}</text>
+      {/if}
       {#each groups as g, gi (g.label)}
         {#each stacks(g) as s (s.key)}
           <!-- A part above another leaves a 1 px knockout (the panel shows through) between them. -->
@@ -292,6 +329,17 @@
       {#each gaps as g (g.label)}
         <line class="gap" x1={x(g.label)} x2={(x(g.label) ?? 0) + x.bandwidth()} y1={H - PAD.bottom - 1} y2={H - PAD.bottom - 1} />
       {/each}
+      {#if line && (tPaths.solid || tPaths.dashed || tDots.length)}
+        <!-- The outdoor line above the bars, on a subtle halo; the radiator marks come after, so their knockout cuts it
+             and the two never merge. -->
+        <g class="temp" aria-hidden="true">
+          {#if tPaths.solid}<path class="t-halo" d={tPaths.solid} /><path class="t-line" d={tPaths.solid} />{/if}
+          {#if tPaths.dashed}<path class="t-halo" d={tPaths.dashed} /><path class="t-line fc" d={tPaths.dashed} />{/if}
+          {#each tDots as p (p.x)}
+            <circle class="t-dot-halo" cx={p.x} cy={p.y} r="4" /><circle class="t-dot" class:fc={p.kind === 'fc'} cx={p.x} cy={p.y} r="2.5" />
+          {/each}
+        </g>
+      {/if}
       {#if overlay}
         {#each groups as g, i (g.label)}
           {@const v = overlay.values[i]}
@@ -305,6 +353,11 @@
       {#if active != null && groups[active]}
         <!-- The inspected (pinned, hovered or focused) bar: a 1 px ink outline; a missing bar outlines its baseline. -->
         {@render outline(active, 'sel')}
+        {#if tPts[active]}
+          {@const p = tPts[active]}
+          <!-- Its outdoor point, ringed in ink: the value the inspector reads. -->
+          <circle class="t-sel" cx={p.x} cy={p.y} r="4" />
+        {/if}
       {/if}
       {#if details && hover != null && hover !== active && groups[hover]}
         <!-- While a bar is pinned, the hovered one is only highlighted (muted outline); the card stays. -->
@@ -340,13 +393,15 @@
       {/if}
     {/if}
   </div>
-  <div class="axis" bind:clientWidth={axisWidth} style:grid-template-columns="repeat({groups.length}, 1fr)" aria-hidden="true">
+  <div class="axis" bind:clientWidth={axisWidth} style:grid-template-columns="repeat({groups.length}, 1fr)"
+    style:padding-left="{PAD.left}px" style:padding-right="{PAD.right}px" aria-hidden="true">
     {#each groups as g, gi (g.label)}
       <span class="cell">{#if gi % every === 0}<span class="tick">{g.label}</span>{/if}</span>
     {/each}
   </div>
   {#if tempo}
-    <div class="dots" style:grid-template-columns="repeat({groups.length}, 1fr)" aria-hidden="true">
+    <div class="dots" style:grid-template-columns="repeat({groups.length}, 1fr)" style:padding-left="{PAD.left}px"
+      style:padding-right="{PAD.right}px" aria-hidden="true">
       {#each groups as g, gi (g.label)}<span class="cell">{#if tempo[gi] !== undefined}<TempoDot colour={tempo[gi] ?? null} />{/if}</span>{/each}
     </div>
   {/if}
@@ -494,6 +549,71 @@
   .mark {
     stroke-width: 2.5;
     stroke-linecap: round;
+  }
+  /* Axis labels: kWh in ink on the left, °C in the outdoor line's colour on the right (DESIGN « EnergyBars »). */
+  .yl,
+  .tl,
+  .unit {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .yl {
+    fill: var(--tx);
+  }
+  .unit {
+    font-size: 10px;
+    fill: var(--mu);
+  }
+  .tl,
+  .unit.t {
+    fill: var(--outdoor);
+  }
+  .temp {
+    pointer-events: none;
+    animation: kv-fade-in var(--t-state) ease both;
+    animation-delay: 200ms;
+  }
+  .t-halo {
+    fill: none;
+    stroke: var(--s1);
+    stroke-width: 5;
+    stroke-opacity: 0.85;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .t-line {
+    fill: none;
+    stroke: var(--outdoor);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  /* « prévision »: dashed and lighter, never read as a measurement. */
+  .t-line.fc {
+    stroke-dasharray: 4 3;
+    stroke-linecap: butt;
+    opacity: 0.6;
+  }
+  .t-dot-halo {
+    fill: var(--s1);
+    opacity: 0.85;
+  }
+  .t-dot {
+    fill: var(--outdoor);
+  }
+  .t-dot.fc {
+    opacity: 0.6;
+  }
+  .t-sel {
+    fill: var(--outdoor);
+    stroke: var(--tx);
+    stroke-width: 1.5;
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .temp {
+      animation: none;
+    }
   }
   .empty {
     font-size: 13px;

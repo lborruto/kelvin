@@ -573,6 +573,18 @@ export const en: Messages = {
   },
   periodNav: { group: 'Period shown', prev: 'Previous period', next: 'Next period', latest: 'Latest day' },
   bars: { empty: 'No data yet.', period: 'Period', bars: (label: string) => `Chart bars: ${label}` },
+  outdoorLine: {
+    legend: 'Outdoor temperature',
+    forecast: 'forecast',
+    unitTemp: '°C',
+    unitWh: 'Wh',
+    tick: (t: string) => `${t}°`,
+    outside: 'Outside',
+    noHour: 'no weather for this hour',
+    spoken: (t: string) => `outside ${t}`,
+    range: (lo: string, hi: string) => `Outdoor temperature from ${lo} to ${hi}`,
+    rangeForecast: (lo: string, hi: string) => `Outdoor temperature from ${lo} to ${hi}, forecast included`
+  },
   chartInspector: { estNote: 'est.: estimated value, details in', quality: 'Data quality' },
   compare: {
     title: 'Comparisons',
