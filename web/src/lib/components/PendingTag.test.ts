@@ -26,6 +26,18 @@ describe('PendingTag', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(onretry).toHaveBeenCalledWith('p1');
   });
+  it('a command confirmed with offline radiators says so, for the house and for a room', () => {
+    const p = { ...base, radiator_ids: ['a', 'b', 'c'], status: 'confirmed' as const, offline: ['b', 'c'] };
+    const house = render(PendingTag, { pending: p, onretry: vi.fn(), ondismiss: vi.fn() });
+    expect(house.container).toHaveTextContent('Confirmé · 2 hors ligne');
+    house.unmount();
+    const off = render(PendingTag, { pending: p, radiators: ['c'], onretry: vi.fn(), ondismiss: vi.fn() });
+    expect(off.container).toHaveTextContent('Hors ligne : consigne non reçue');
+    expect(screen.queryByRole('button', { name: 'Réessayer' })).toBeNull();
+    off.unmount();
+    render(PendingTag, { pending: p, radiators: ['a'], onretry: vi.fn(), ondismiss: vi.fn() });
+    expect(screen.getByText('Confirmé')).toBeInTheDocument();
+  });
   it('shows confirmed', () => {
     render(PendingTag, { pending: { ...base, status: 'confirmed' }, onretry: vi.fn(), ondismiss: vi.fn() });
     expect(screen.getByText('Confirmé')).toBeInTheDocument();

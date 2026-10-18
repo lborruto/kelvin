@@ -3,6 +3,14 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## Unreleased
+
+- A house or room command no longer reads « failed » because some radiators are offline: it is
+  confirmed for the radiators that took it, says how many were offline (« Confirmé · 2 hors
+  ligne »), and each offline room shows that the setting did not reach it. A command for offline
+  radiators only says so (« Radiateur hors ligne »). An absence ending while a radiator is offline
+  restores it once it is back.
+
 ## 0.2.0
 
 - Outdoor temperature (optional, off until you pick a place in Réglages › Météo): a « Dehors » chip

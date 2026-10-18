@@ -28,7 +28,9 @@ SETTLE_AFTER_COMPLETED = 10.0
 # A due targeted read that never happens (Overkiz unreachable) stops holding the verdict back.
 VERIFY_WAIT = 30.0
 # Failures a later state can still turn into a confirmation (the radiator was only slow).
-FLIPPABLE = frozenset({"no_confirmation", "program_differs", "radiator_refused"})
+FLIPPABLE = frozenset(
+    {"no_confirmation", "program_differs", "radiator_refused", "radiator_offline"}
+)
 # How long a superseded command that never reports its execution may hold back newer ones.
 SUPERSEDED_WAIT = 30.0
 # How long a settled command stays in the snapshot, so a client that slept learns its real outcome.
@@ -68,6 +70,9 @@ class Pending:
     verified: bool = False
     # A failure a later matching state may still turn into a confirmation.
     flippable: bool = False
+    # Radiators unreachable (core:StatusState) that did not take it: they never fail a command
+    # the reachable ones took; « confirmé, N hors ligne ».
+    offline: tuple[str, ...] = ()
 
     @property
     def active(self) -> bool:
@@ -91,6 +96,7 @@ class Pending:
             "reason_code": self.reason_code,
             "created_at": self.created_wall,
             "expected": self.expected,
+            "offline": list(self.offline),
         }
 
 
@@ -359,11 +365,16 @@ class CommandService:
             if diff and (not days or DAY_ORDER.index(diff[0]) < DAY_ORDER.index(days[0])):
                 first = day_difference(e.value, actual, diff[0])
             days = [d for d in DAY_ORDER if d in days or d in diff]
+        missing = self._missing(p)
+        p.offline = self._offline(missing)
         if days and first is not None:
             sent, kept = first
             self._resolve(
                 p, "failed", "program_differs", days=days, day=days[0], sent=sent, kept=kept
             )
+        elif p.offline and len(p.offline) == len(missing):
+            # Nothing reached a radiator because every one it was for is unreachable.
+            self._resolve(p, "failed", "radiator_offline")
         else:
             self._resolve(p, "failed", code)
         p.flippable = p.error_code in FLIPPABLE and bool(p.planned.expectations)
@@ -382,10 +393,10 @@ class CommandService:
 
     def _flip(self, p: Pending) -> None:
         """A failed command whose states all arrived after all: it is done."""
-        if all(
-            e.matches(self.house.device_state(e.device_url, e.name)) for e in p.planned.expectations
-        ):
+        done, offline = self._outcome(p)
+        if done:
             p.flippable = False
+            p.offline = offline
             self._resolve(p, "confirmed")
             log.info(
                 "command '%s' confirmed late, %.0f s after it was sent",
@@ -398,16 +409,53 @@ class CommandService:
             return
         if any(not o.exec_done for o in p.after):
             return
-        if all(
-            e.matches(self.house.device_state(e.device_url, e.name)) for e in p.planned.expectations
-        ):
+        done, offline = self._outcome(p)
+        if done:
+            p.offline = offline
             self._resolve(p, "confirmed")
             log.info(
-                "command '%s' confirmed in %.0f s (%s)",
+                "command '%s' confirmed in %.0f s (%s)%s",
                 p.label,
                 self.clock() - p.created_at,
                 how,
+                f" for {len(p.radiator_ids) - len(offline)} radiators, {len(offline)} offline"
+                if offline
+                else "",
             )
+
+    def _outcome(self, p: Pending) -> tuple[bool, tuple[str, ...]]:
+        """The verdict radiator by radiator: done when every radiator holds its expected states,
+        or every one that does not is unreachable (core:StatusState) while at least one took
+        it. Returns (done, the offline radiators that did not take it)."""
+        missing = self._missing(p)
+        if not missing:
+            return True, ()
+        offline = self._offline(missing)
+        took = any(
+            self.house.radiator_for_url(e.device_url) not in missing for e in p.planned.expectations
+        )
+        if len(offline) == len(missing) and took:
+            return True, offline
+        return False, offline
+
+    def _missing(self, p: Pending) -> list[str | None]:
+        """The radiators (None: a device of no radiator) still missing an expected state."""
+        out: list[str | None] = []
+        for e in p.planned.expectations:
+            if not e.matches(self.house.device_state(e.device_url, e.name)):
+                rid = self.house.radiator_for_url(e.device_url)
+                if rid not in out:
+                    out.append(rid)
+        return out
+
+    def _offline(self, rids: list[str | None]) -> tuple[str, ...]:
+        return tuple(
+            r
+            for r in rids
+            if r is not None
+            and r in self.house.radiators
+            and self.house.radiators[r].reachable is False
+        )
 
     def _resolve(
         self,

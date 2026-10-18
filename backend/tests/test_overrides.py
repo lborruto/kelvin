@@ -557,3 +557,54 @@ async def test_third_failure_warning_names_the_reason(env, caplog):
         await mgr.tick()
         clock.advance(delay)
     assert any("QUOTA" in r.getMessage() for r in caplog.records if r.levelname == "WARNING")
+
+
+def _unplug(gw, house, rid):
+    """The radiator's heater is unreachable (powered off at the breaker): core:StatusState."""
+    url = house.radiators[rid].heater_url
+    gw.devices[url].states["core:StatusState"] = "unavailable"
+    house.apply(StateChange(url, "core:StatusState", "unavailable"), event=False)
+
+
+async def test_away_with_an_offline_radiator_is_confirmed_for_the_others(env):
+    """2026-10-18 on a real house: the Salon took « Absence », two unreachable bedrooms did not,
+    and the whole command read « failed ». Offline radiators never fail what the others took."""
+    clock, gw, house, svc, _, mgr = env
+    _unplug(gw, house, "9000022")
+    ids = [*SALON, "9000022"]
+    _, p = await mgr.start("away", ids, 18.0, clock() + 3600, label="a")
+    await settle(clock, gw, house, svc)
+    for _ in range(3):  # past the FAILED grace and the targeted read
+        clock.advance(10)
+        svc.tick()
+        await svc.verify()
+    assert all(house.radiators[i].target == 18.0 for i in SALON)
+    assert p.status == "confirmed" and p.error_code is None
+    assert p.offline == ("9000022",)
+    assert p.view()["offline"] == ["9000022"]
+
+
+async def test_restore_keeps_an_offline_radiator_for_a_later_try(env):
+    """A radiator that took the away and went offline before its end is not dropped by a
+    restore the others confirmed: it is retried, so it does not stay at the away setpoint."""
+    clock, gw, house, svc, _, mgr = env
+    ids = [*SALON, "9000022"]
+    await mgr.start("away", ids, 18.0, clock() + 60, label="a")
+    await settle(clock, gw, house, svc)
+    _unplug(gw, house, "9000022")
+    clock.advance(60)
+    [r] = await mgr.tick()
+    await settle(clock, gw, house, svc)
+    assert r.status == "confirmed" and r.offline == ("9000022",)
+    [o] = mgr.active()
+    assert o["radiator_ids"] == ["9000022"]
+    # Back online: the next try restores it and the override ends.
+    url = house.radiators["9000022"].heater_url
+    gw.devices[url].states["core:StatusState"] = "available"
+    house.apply(StateChange(url, "core:StatusState", "available"), event=False)
+    clock.advance(RESTORE_RETRY_FIRST_S)
+    [again] = await mgr.tick()
+    await settle(clock, gw, house, svc)
+    assert again.status == "confirmed" and again.offline == ()
+    assert house.radiators["9000022"].mode == "off"
+    assert mgr.active() == []

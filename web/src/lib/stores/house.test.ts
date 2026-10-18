@@ -64,6 +64,27 @@ describe('HouseStore', () => {
     expect(s.pendingFor(['a'])).toBeUndefined();
   });
 
+  it('a command confirmed with offline radiators toasts it and stays on their rooms only', () => {
+    const timers: Array<() => void> = [];
+    const s = new HouseStore((fn) => { timers.push(fn); return 0; });
+    s.applySnapshot(snap());
+    const away = { label: 'Absence à 18 °C', label_code: 'away', label_params: { temperature: 18 }, radiator_ids: ['a', 'b', 'c'] };
+    s.applyPending(pending('aw', { ...away }));
+    s.watch('aw');
+    toasts.items = [];
+    s.applyPending(pending('aw', { ...away, status: 'confirmed', offline: ['c'] }));
+    expect(toasts.items.map((t) => t.text())).toEqual([expect.stringMatching(/confirmé pour 2\sradiateurs, 1\shors ligne/)]);
+    timers.forEach((f) => f());
+    // Salon took it: nothing left there; the offline bedroom keeps saying it did not get it.
+    expect(s.pendingFor(['a', 'b'])).toBeUndefined();
+    expect(s.pendingFor(['c'])).toMatchObject({ status: 'confirmed', offline: ['c'] });
+    // A reconnect keeps it; a newer command reaching that radiator retires it.
+    s.applySnapshot(snap());
+    expect(s.pendingFor(['c'])?.id).toBe('aw');
+    s.applyPending(pending('next', { radiator_ids: ['c'], created_at: 2 }));
+    expect(s.pending.aw).toBeUndefined();
+  });
+
   it('a resync snapshot keeps local failures', () => {
     const s = new HouseStore();
     s.applySnapshot(snap());

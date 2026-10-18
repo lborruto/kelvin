@@ -112,7 +112,11 @@ export class HouseStore {
     const now = ACTIVE.has(next.status) ? 'active' : next.status;
     if (was === now) return;
     if (now === 'active') announcer.say(m.pending.announceSending(pendingLabel(next)));
-    else if (now === 'confirmed') announcer.say(m.pending.announceConfirmed(pendingLabel(next)));
+    else if (now === 'confirmed' && next.offline?.length) {
+      // Confirmed for the reachable radiators only: a toast (a live region) says how many did not get it.
+      const k = next.offline.length;
+      toasts.push(() => m.pending.partial(pendingLabel(next), next.radiator_ids.length - k, k), 'info');
+    } else if (now === 'confirmed') announcer.say(m.pending.announceConfirmed(pendingLabel(next)));
     else if (now === 'failed') announcer.say(`${pendingLabel(next)} — ${pendingError(next)}`, true);
     else if (now === 'unconfirmed') announcer.say(m.pending.announceUnconfirmed(pendingLabel(next)));
     if (now !== 'active') this.watched.delete(next.id);
@@ -125,7 +129,7 @@ export class HouseStore {
     const next: Record<string, Pending> = {};
     const unknown: Pending[] = [];
     for (const p of local) {
-      if (p.status === 'failed' || p.status === 'unconfirmed') {
+      if (p.status === 'failed' || p.status === 'unconfirmed' || (p.status === 'confirmed' && p.offline?.length)) {
         // The server may have learnt more since (an unconfirmed write seen applied): prefer that.
         const r = recent.get(p.id);
         if (r && r.status !== p.status) {
@@ -181,16 +185,26 @@ export class HouseStore {
     );
   }
 
-  /** A newer command re-sending what a failed one tried makes that failure history: drop it. */
+  /** A newer command re-sending what a failed one tried makes that failure history: drop it. So does a
+   * newer command reaching every radiator a partly confirmed one could not reach. */
   private retireCovered(map: Record<string, Pending>, p: Pending): void {
+    const ids = new Set(p.radiator_ids);
     for (const f of Object.values(map)) {
-      if (f.id !== p.id && f.status === 'failed' && covers(p, f)) delete map[f.id];
+      if (f.id === p.id) continue;
+      if (f.status === 'failed' && covers(p, f)) delete map[f.id];
+      else if (f.status === 'confirmed' && f.offline?.length && p.created_at >= f.created_at && f.offline.every((i) => ids.has(i)))
+        delete map[f.id];
     }
   }
 
+  /** A confirmed command leaves after a moment. One confirmed with offline radiators stays, narrowed to
+   * them, until dismissed: their rooms keep saying the setting did not reach them. */
   private lingerThenDrop(id: string): void {
     this.schedule(() => {
-      if (this.pending[id]?.status === 'confirmed') delete this.pending[id];
+      const p = this.pending[id];
+      if (p?.status !== 'confirmed') return;
+      if (p.offline?.length) this.pending[id] = { ...p, radiator_ids: [...p.offline], expected: {} };
+      else delete this.pending[id];
     }, CONFIRMED_LINGER_MS);
   }
 

@@ -186,6 +186,7 @@ TEMPLATES: dict[str, str] = {
     "send_internal": "Envoi impossible : erreur interne.",
     "radiator_refused": "Le radiateur a refusé la commande.",
     "no_confirmation": "Le radiateur n’a pas confirmé la commande.",
+    "radiator_offline": "Radiateur hors ligne : la consigne n’a pas pu lui parvenir.",
     "program_differs": "{day_fr} : le radiateur a gardé {kept} au lieu de {sent}.",
 }
 

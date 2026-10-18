@@ -71,6 +71,10 @@ export const en: Messages = {
     announceSending: (label: string) => `${label} — sending…`,
     announceConfirmed: (label: string) => `${label} — confirmed`,
     unknownToast: (label: string) => `${label}: result unknown, check the room.`,
+    confirmedOffline: (k: number) => `Confirmed · ${int(k)} offline`,
+    offlineHere: 'Offline: setting not received',
+    partial: (label: string, n: number, k: number) =>
+      `${label} — confirmed for ${int(n)} ${plural(n, { one: 'radiator', other: 'radiators' })}, ${int(k)} offline (setting not received).`,
     cannotRetry: 'Can’t retry from here: try the action again.'
   },
   banner: {
@@ -1473,6 +1477,7 @@ export const en: Messages = {
     },
     send_internal: () => 'Couldn’t send: internal error.',
     radiator_refused: () => 'The radiator rejected the command.',
+    radiator_offline: () => 'Radiator offline: the setting couldn’t reach it.',
     no_confirmation: () => 'The radiator hasn’t confirmed the command.',
     program_differs: (p: ApiParams) => `${day(p.day)}: the radiator kept ${p.kept} instead of ${p.sent}.`,
     // Plan 12

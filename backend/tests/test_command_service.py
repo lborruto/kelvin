@@ -157,6 +157,7 @@ async def test_view_shape(env):
         "error_code",
         "error_params",
         "reason_code",
+        "offline",
     }
 
 
@@ -340,3 +341,48 @@ async def test_gateway_text_reaches_the_french_error_scrubbed_and_never_the_para
     v = p.view()
     assert v["error"] == "Envoi impossible : connect to …; serial … …."
     assert (v["error_code"], v["error_params"], v["reason_code"]) == ("send_failed", {}, "network")
+
+
+def _unplug(gw, house, rid):
+    url = house.radiators[rid].heater_url
+    gw.devices[url].states["core:StatusState"] = "unavailable"
+    house.apply(StateChange(url, "core:StatusState", "unavailable"), event=False)
+
+
+async def test_offline_radiator_never_fails_what_the_reachable_ones_took(env):
+    clock, gw, house, svc, updates = env
+    _unplug(gw, house, "9000022")
+    rads = [house.radiators[i] for i in ("10000001", "9500003", "9000022")]
+    planned = plan_mode(rads[0], "manual")
+    for r in rads[1:]:
+        planned = planned + plan_mode(r, "manual")
+    p = await svc.submit("Tout", tuple(r.id for r in rads), planned)
+    clock.advance(2)
+    await drain(gw, house, svc)
+    assert p.status == "confirmed" and p.offline == ("9000022",)
+    assert updates[-1] == "confirmed" and gw.state_reads == 0
+
+
+async def test_a_command_only_offline_radiators_got_fails_as_offline(env):
+    clock, gw, house, svc, _ = env
+    _unplug(gw, house, "9000022")
+    r = house.radiators["9000022"]
+    p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
+    for _ in range(3):
+        clock.advance(10)
+        await drain(gw, house, svc)
+    assert p.status == "failed" and p.error_code == "radiator_offline"
+    assert p.offline == ("9000022",)
+
+
+async def test_a_reachable_radiator_that_refuses_still_fails_the_command(env):
+    clock, gw, house, svc, _ = env
+    _unplug(gw, house, "9000022")
+    a, off = house.radiators["9500003"], house.radiators["9000022"]
+    planned = plan_mode(a, "manual") + plan_mode(off, "manual")
+    gw.unresponsive = True  # the reachable one never answers either
+    p = await svc.submit("Tout", (a.id, off.id), planned)
+    for _ in range(3):
+        clock.advance(10)
+        await drain(gw, house, svc)
+    assert p.status == "failed" and p.error_code == "radiator_refused"

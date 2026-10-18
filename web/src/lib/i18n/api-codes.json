@@ -296,6 +296,10 @@
       "fr": "Le radiateur est déjà dans cette pièce.",
       "params": {}
     },
+    "radiator_offline": {
+      "fr": "Radiateur hors ligne : la consigne n’a pas pu lui parvenir.",
+      "params": {}
+    },
     "radiator_refused": {
       "fr": "Le radiateur a refusé la commande.",
       "params": {}

@@ -433,7 +433,7 @@
         </p>
       {/if}
     {/if}
-    {#if pending}<div class="pend"><PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} /></div>{/if}
+    {#if pending}<div class="pend"><PendingTag {pending} radiators={room?.radiator_ids} onretry={retry} ondismiss={(id) => house.dismiss(id)} /></div>{/if}
   {/if}
 {/snippet}
 
