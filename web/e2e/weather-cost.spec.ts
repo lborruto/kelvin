@@ -31,7 +31,12 @@ test.describe('Météo et coût', () => {
   test('the room sheet has its cold row', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('link', { name: /Salon/ }).first().click();
-    await expect(page.getByText('Froid', { exact: true })).toBeVisible();
+    // On a phone the figures sit behind « Programme, températures, radiateurs » (as in weather.spec.ts).
+    const more = page.getByRole('button', { name: 'Programme, températures, radiateurs' });
+    const cold = page.getByText('Froid', { exact: true });
+    await expect(more.or(cold).first()).toBeVisible();
+    if ((await more.count()) && (await more.getAttribute('aria-expanded')) === 'false') await more.click();
+    await expect(cold).toBeVisible();
   });
 
   test('the meteo CSV downloads', async ({ page }) => {
