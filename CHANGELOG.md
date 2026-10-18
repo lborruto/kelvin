@@ -3,7 +3,7 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
-## Unreleased
+## 0.3.1
 
 - Énergie draws the outdoor temperature over the consumption chart in every view (with a place set in
   Réglages › Météo): each day's mean over the day bars (Semaine, Mois, the 7 days of Jour), each month's
