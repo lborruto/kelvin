@@ -146,6 +146,8 @@ export const fr = {
     radiator: (name: string) => `Compteur du radiateur (${name})`,
     radiatorAny: 'Compteurs des radiateurs',
     kelvin: 'Calcul Kelvin',
+    weatherModel: 'Modèle Kelvin (Linky et météo)',
+    weatherForecast: 'Prévision Kelvin (modèle et météo prévue)',
     tariff: 'Votre tarif',
     rte: 'RTE EcoWatt via MyElectricalData',
     tempo: 'Tempo (EDF) via MyElectricalData',
@@ -159,6 +161,8 @@ export const fr = {
       era5_land: 'ERA5-Land (réanalyse Copernicus) via Open-Meteo',
       best_match: 'Open-Meteo (meilleur modèle disponible)',
       mixed: 'Plusieurs modèles via Open-Meteo',
+      ecmwf: 'ECMWF IFS via Open-Meteo',
+      simulator: 'Simulateur Kelvin',
       pending: 'source en attente'
     } as Record<string, string>
   },
@@ -1789,6 +1793,82 @@ export const fr = {
     manualName: (lat: string, lon: string) => `Coordonnées ${lat} · ${lon}`,
     saved: 'Lieu enregistré.',
     loadFailed: 'Réglages météo indisponibles.'
+  },
+  weatherCost: {
+    // Plan 15: Énergie › « Météo et coût », Maison « Demain », the room sheet and « Où part l’énergie »
+    thin: {
+      short_history: (n: number) => `ajusté sur ${int(n)}${NB}${plural(n, { one: 'jour', other: 'jours' })} seulement${NB}: l’estimation s’affinera`,
+      few_cold_days: (n: number) => `seulement ${int(n)}${NB}${plural(n, { one: 'jour', other: 'jours' })} de chauffage observés`,
+      no_mild_days: `aucune journée douce observée${NB}: la consommation de fond est extrapolée`
+    },
+    why: {
+      weather_off: 'aucun lieu météo choisi',
+      no_linky: 'pas de relevés Linky',
+      no_radiator: 'aucun radiateur relevé dans cette pièce',
+      few_days: (n: number, min: number) => `pas encore assez de jours mesurés avec la météo${NB}: ${int(n)} sur ${int(min)}`,
+      few_heating_days: 'pas assez de jours de chauffage pour l’instant',
+      poor_fit: 'la consommation ne suit pas assez la température pour en tirer un chiffre fiable',
+      model_hidden: 'modèle pas encore disponible',
+      no_forecast: 'prévision indisponible',
+      outside: 'période hors des 12 derniers mois'
+    },
+    baseload: 'Consommation de fond',
+    baseloadValue: (kwh: string) => `≈ ${kwh}/jour`,
+    baseloadSub: (eur: string | null) => (eur ? `hors chauffage · ≈ ${eur}` : 'hors chauffage'),
+    perDegree: 'Par °C plus froid',
+    perDegreeValue: (kwh: string) => `+${kwh}/jour`,
+    perDegreeSub: (eur: string | null) => (eur ? `≈ +${eur} aux prix d’aujourd’hui` : 'par temps froid'),
+    share: 'Part due au froid',
+    shareSub: (period: string, days: number) => `${period}, ${int(days)}${NB}${plural(days, { one: 'jour', other: 'jours' })}`,
+    shareMild: 'presque pas de chauffage sur la période',
+    range: (lo: string, hi: string) => `entre ${lo} et ${hi} (8 chances sur 10)`,
+    balance: 'Point d’équilibre',
+    balanceValue: (c: string, estimated: boolean) => (estimated ? `${c}, estimé sur vos données` : `${c}, par convention (DJU)`),
+    fitDays: (n: number, away: number, outliers: number, missing: number) =>
+      `${int(n)}${NB}jours retenus · ${int(away)} d’absence · ${int(outliers)} atypiques · ${int(missing)} sans relevé ou sans météo`,
+    r2: 'Qualité de l’ajustement (R²)',
+    residual: 'Écart type d’un jour',
+    method: 'Consommation d’un jour = fond + sensibilité × degrés sous le point d’équilibre (température moyenne du jour).',
+    leftOut: `Les fourchettes supposent le point d’équilibre connu et les jours indépendants${NB}: elles sont un peu optimistes.`,
+    priceRule: (price: string) => `Euros au prix moyen récent, aux tarifs d’aujourd’hui (${price})${NB}; chaque jour passé au prix payé.`,
+    forecastRule: `Prévision${NB}: Météo-France jusqu’à 4${NB}jours, puis ECMWF. Erreur supposée de la température moyenne${NB}: 1,0${NB}°C demain, 2,7${NB}°C à 7${NB}jours.`,
+    normalsRule: (years: number) => `Au-delà, normales de saison${NB}: les mêmes jours (± 3) des ${int(years)}${NB}dernières années.`,
+    otherModel: 'La comparaison à météo égale d’Analyse utilise son propre ajustement autour de la période de référence.',
+    rowOutside: 'Dehors',
+    rowKwh: 'Consommation',
+    rowEur: 'Coût (énergie)',
+    rowPerDegreeEur: 'Par °C plus froid, en euros',
+    rowExpected: 'Attendu par le modèle',
+    rowExcluded: 'Écarté',
+    excluded: { away: 'absence', outlier: 'journée atypique' } as Record<string, string>,
+    week: (eur: string, heat: string, days: number) => `≈ ${eur} sur ${int(days)}${NB}jours, dont ${heat} de chauffage`,
+    cell: (v: string) => `~${v}`,
+    eurWhy: { no_tariff: 'sans tarif', tempo_colour_unknown: 'couleur Tempo inconnue', price_unknown: 'prix inconnu' } as Record<string, string>,
+    dayKwh: 'Consommation prévue',
+    dayHeat: 'dont chauffage',
+    dayEur: 'Coût prévu (énergie)',
+    dayRange: 'Fourchette',
+    dayMinMax: 'Min · max prévus',
+    dayModel: 'Prévision',
+    daySigma: (s: string) => `erreur supposée ± ${s}`,
+    tomorrow: (t: string, eur: string) => `${t} → ~${eur} de chauffage`,
+    tomorrowKwh: (t: string, kwh: string, why: string) => `${t} → ~${kwh} de chauffage · ${why}`,
+    tomorrowNone: (t: string) => `${t}, pas de chauffage prévu`,
+    roomValue: (kwh: string) => `+${kwh} par °C plus froid`,
+    coverage: (n: number, of: number) => `mesuré sur ${int(n)}${NB}jours sur ${int(of)}`,
+    whereLine: (list: string) => `Par °C plus froid${NB}: ${list}`,
+    whereItem: (room: string, kwh: string) => `${room} +${kwh}`,
+    whereDetail: (kwh: string, eur: string | null, n: number, of: number) =>
+      `Par °C plus froid +${kwh}/jour${eur ? ` (≈ +${eur})` : ''} · ${int(n)}${NB}jours sur ${int(of)}`,
+    projDetail: (lo: string, hi: string, observed: number, forecast: number, normal: number) =>
+      `entre ${lo} et ${hi} (8 chances sur 10)${NB}: ${int(observed)}${NB}jours estimés sur la météo observée, ${int(forecast)}${NB}jours de prévision, ${int(normal)}${NB}jours de normales de saison.`,
+    projNoSpread: 'sans la variabilité de la météo (moins de 3 ans d’historique)',
+    projWhy: {
+      model_hidden: 'modèle météo pas encore disponible',
+      no_forecast: 'prévision incomplète',
+      no_normals: 'normales de saison pas encore disponibles',
+      weather_missing: 'météo manquante pour un jour du mois'
+    } as Record<string, string>
   }
 };
 
