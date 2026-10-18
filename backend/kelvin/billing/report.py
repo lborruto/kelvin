@@ -25,6 +25,7 @@ from kelvin.billing.radiators import RadiatorDay
 from kelvin.billing.split import FallbackShares, Profile
 from kelvin.billing.tariff import RATE_KEYS, PriceRow, Tariff
 from kelvin.linky.models import CurvePoint
+from kelvin.weather.costmodel import DayPoint, MonthOutlook
 from kelvin.weather.models import DayWeather
 from kelvin.weather.normalise import normalised_change
 
@@ -62,6 +63,8 @@ class ReportInputs:
     # Plan 14: complete weather days by local day (store rows), and whether a place is set.
     outdoor: dict[date, DayWeather] = field(default_factory=dict)
     weather_on: bool = False
+    # Plan 15: predicted kWh for the month's days without Linky data (the weather path).
+    month_outlook: MonthOutlook | None = None
 
 
 def _days(a: date, b: date) -> Iterator[date]:
@@ -771,13 +774,30 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
 
     first = unit_start(anchor, "month")
     actual = en.summary(first, anchor + ONE)
+    weather = _weather_month(en, inp, first, anchor, actual, price) if inp.weather_on else None
+    weather_kwh = weather.pop("_kwh", None) if weather is not None else None
     months: list[dict[str, Any]] = []
     m = first
     for i in range(12):
         dim = days_in_month(m)
         f = factor(m)
         per_day = avg * (f if f is not None else 1.0)
-        if i == 0:
+        method = "seasonal" if f is not None else "linear"
+        if i == 0 and weather_kwh is not None:
+            # Plan 15: measured so far + each missing day predicted from its weather.
+            kwh = (actual["kwh"] or 0.0) + weather_kwh
+            eur = (
+                (actual["energy_eur"] or 0.0)
+                + weather_kwh * price
+                + sum(
+                    subscription_eur(d, tariff.prices_on(d))
+                    for d in _days(max(first, en.first or first), next_unit(first, "month"))
+                )
+                if price is not None and tariff is not None
+                else None
+            )
+            method = "weather"
+        elif i == 0:
             # M4: elapsed days without Linky data are estimated at the same rate, not 0 kWh.
             filled = actual["missing_days"]
             remaining = (next_unit(first, "month") - (anchor + ONE)).days
@@ -800,7 +820,7 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
                 "key": bucket_key(m, "month"),
                 "kwh": _r(kwh),
                 "eur": _r(eur, 2),
-                "method": "seasonal" if f is not None else "linear",
+                "method": method,
             }
         )
         m = next_unit(m, "month")
@@ -830,6 +850,7 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
             "actual_eur": actual["eur"],
             "actual_energy_eur": actual["energy_eur"],
             "filled_days": actual["missing_days"],
+            "weather": weather,
         },
         "year": {
             "from": months[0]["key"],
@@ -849,6 +870,194 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
             "method": r_methods.pop() if len(r_methods) == 1 else "mixed",
         },
     }
+
+
+def _weather_month(
+    en: _Energy,
+    inp: ReportInputs,
+    first: date,
+    anchor: date,
+    actual: dict[str, Any],
+    price: float | None,
+) -> dict[str, Any]:
+    """Spec 2026-10-18 §5.6 / §8.4: the month's days without Linky data (counted elapsed days, and
+    every day after the last Linky day) predicted from the weather: observed, today, forecast,
+    normals. `_kwh` (popped by the caller) is the predicted sum when the path holds."""
+    blank: dict[str, Any] = {
+        "why": None,
+        "observed_days": 0,
+        "today": False,
+        "forecast_days": 0,
+        "normal_days": 0,
+        "kwh_lo": None,
+        "kwh_hi": None,
+        "eur_lo": None,
+        "eur_hi": None,
+        "spread": None,
+    }
+    mo = inp.month_outlook
+    if mo is None or mo.why is not None:
+        return {**blank, "why": mo.why if mo is not None else "model_hidden"}
+    end = next_unit(first, "month")
+    need = [
+        d
+        for d in _days(first, end)
+        if d > anchor or (en.first is not None and d >= en.first and en.day(d) is None)
+    ]
+    for d in need:
+        if d not in mo.days:
+            return {**blank, "why": mo.missing.get(d, "weather_missing")}
+    kwh = sum(mo.days[d][0] for d in need)
+    lo, hi, spread = mo.interval(need) if mo.interval else (kwh, kwh, "full")
+    base = actual["kwh"] or 0.0
+    src = [mo.days[d][1] for d in need]
+    tariff = inp.tariff
+    subs = (
+        sum(
+            subscription_eur(d, tariff.prices_on(d))
+            for d in _days(max(first, en.first or first), end)
+        )
+        if tariff is not None
+        else 0.0
+    )
+
+    def eur(total: float) -> float | None:
+        if price is None or tariff is None:
+            return None
+        return _r((actual["energy_eur"] or 0.0) + total * price + subs, 2)
+
+    return {
+        "why": None,
+        "observed_days": src.count("observed"),
+        "today": "today" in src,
+        "forecast_days": src.count("forecast"),
+        "normal_days": src.count("normal"),
+        "kwh_lo": _r(base + lo),
+        "kwh_hi": _r(base + hi),
+        "eur_lo": eur(lo),
+        "eur_hi": eur(hi),
+        "spread": spread,
+        "_kwh": kwh,
+    }
+
+
+def daily_points(inp: ReportInputs, start: date, end: date) -> dict[date, DayPoint]:
+    """Spec 2026-10-18 §4: each day of [start, end) with Linky energy, read as its day bar reads
+    it (kWh, the one-day span's energy € from the running sums, the rate parts, whether the split
+    was estimated)."""
+    en = _Energy(inp)
+    out: dict[date, DayPoint] = {}
+    for d in _days(start, end):
+        e = en.day(d)
+        if e is None:
+            continue
+        energy, _ = en.costs(d, d + ONE)
+        tempo = inp.tariff is not None and inp.tariff.option_on(d) == "tempo"
+        out[d] = DayPoint(
+            d,
+            e.kwh,
+            energy,
+            tuple(e.by_rate) if en.pricing is not None else None,
+            e.estimated,
+            inp.colours.get(d) if tempo else None,
+        )
+    return out
+
+
+def trailing_price(inp: ReportInputs) -> float | None:
+    """€/kWh at today's prices from the trailing days' rate mix: the projection's own price."""
+    if inp.tariff is None:
+        return None
+    en = _Energy(inp)
+    anchor = en.last or (inp.today - ONE)
+    trailing = [e for i in range(TRAILING_DAYS) if (e := en.day(anchor - i * ONE)) is not None]
+    if len(trailing) < MIN_TRAILING_DAYS:
+        return None
+    return _projected_price(trailing, inp.tariff.prices_on(inp.today))
+
+
+def _reprice(e: DayEnergy, row: PriceRow) -> float | None:
+    """€/kWh of a day's rate parts at `row`'s rates (today's prices); None when a key has no
+    price."""
+    if e.kwh <= 0 or not e.by_rate:
+        return None
+    total = 0.0
+    for key, kwh in e.by_rate:
+        rate = row.rate(key)
+        if rate is None or key.startswith("unknown_"):
+            return None
+        total += kwh * rate
+    return total / e.kwh
+
+
+def model_euros(view: dict[str, Any], inp: ReportInputs, price: float | None) -> dict[str, Any]:
+    """Spec 2026-10-18 §5.7: every € of « Météo et coût », rounded here once. Per-degree and
+    baseload € and the line at `price` (today's prices, trailing mix); forecast days at today's row
+    on their own split and colour, allocated to cents so the week adds up."""
+
+    def eur(kwh: float | None) -> float | None:
+        return None if kwh is None or price is None else round(kwh * price, 2)
+
+    h = view["house"]
+    h["baseload_eur_day"] = eur(h.get("baseload_kwh_day"))
+    h["eur_per_c"] = eur(h.get("kwh_per_c"))
+    for s in h.get("line", []):
+        s["eur"], s["eur_lo"], s["eur_hi"] = eur(s["kwh"]), eur(s["kwh_lo"]), eur(s["kwh_hi"])
+    for r in view["rooms"]["items"]:
+        r["eur_per_c"] = eur(r.get("kwh_per_c"))
+    _forecast_euros(view["forecast"], inp)
+    view["price"] = (
+        None
+        if price is None or inp.tariff is None
+        else {"eur_kwh": round(price, 4), "option": inp.tariff.option_on(inp.today)}
+    )
+    return view
+
+
+def _forecast_euros(fc: dict[str, Any], inp: ReportInputs) -> None:
+    days = [d for d in fc.get("days", []) if d.get("kwh") is not None]
+    week = fc.get("week")
+    if inp.tariff is None:
+        for d in days:
+            d["eur_why"] = "no_tariff"
+        if week is not None:
+            week.update(eur=None, heating_eur=None, priced_days=0)
+        return
+    en = _Energy(inp)
+    row = inp.tariff.prices_on(inp.today)
+    exact: list[tuple[dict[str, Any], float, float]] = []
+    for d in days:
+        day = date.fromisoformat(d["date"])
+        e = day_energy(
+            day, round(d["kwh"] * 1000), None, en.pricing, inp.tz, en.shares.for_day(day)
+        )
+        if e is None:
+            d["eur_why"] = "price_unknown"
+            continue
+        d["parts"] = [{"key": k, "kwh": round(v, 3)} for k, v in e.by_rate]
+        if inp.tariff.option_on(day) == "tempo":
+            d["colour"] = inp.colours.get(day)
+        if e.colour_missing:
+            d["eur_why"] = "tempo_colour_unknown"
+            continue
+        per = _reprice(e, row)
+        if per is None:
+            d["eur_why"] = "price_unknown"
+            continue
+        d["eur_lo"] = round(d["kwh_lo"] * per, 2)
+        d["eur_hi"] = round(d["kwh_hi"] * per, 2)
+        exact.append((d, d["kwh"] * per, d["heating_kwh"] * per))
+    if exact:
+        for i, key in ((1, "eur"), (2, "heating_eur")):
+            vals = [x[i] for x in exact]
+            for (d, *_), c in zip(exact, _allocate(vals, round(sum(vals) * 100)), strict=True):
+                d[key] = c / 100
+    if week is not None:
+        priced = len(exact)
+        whole = priced == len(days) and priced > 0
+        week["priced_days"] = priced
+        week["eur"] = round(sum(d["eur"] for d, *_ in exact), 2) if whole else None
+        week["heating_eur"] = round(sum(d["heating_eur"] for d, *_ in exact), 2) if whole else None
 
 
 def _weather_row(
