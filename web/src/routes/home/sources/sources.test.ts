@@ -20,6 +20,10 @@ const LINKY = {
 };
 
 beforeEach(() => {
+  // The sources' times are those of 1 December 2026 (Linky's last day the 30 November): read them that
+  // morning, or a later real date would make Linky late too.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(at(9, 0) * 1000));
   vi.clearAllMocks();
   vi.mocked(api.status).mockResolvedValue({ sources: GRID } as never);
   vi.mocked(api.linkyStatus).mockResolvedValue(LINKY as never);
@@ -27,6 +31,7 @@ beforeEach(() => {
   house.connection = 'open';
 });
 afterEach(() => {
+  vi.useRealTimers();
   applyLocale('fr');
   detail.set(false);
 });
