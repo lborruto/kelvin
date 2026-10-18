@@ -35,9 +35,12 @@ test('weather off, on, off', async ({ page }) => {
 
   // The room chart: 7 j, so the lane has published hours whatever the time of day (24 h at 00:15 has one).
   await page.goto('/rooms/p-sejour');
+  // On a phone the chart sits behind « Programme, températures, radiateurs »: wait for the sheet, then open it.
   const more = page.getByRole('button', { name: 'Programme, températures, radiateurs' });
-  if (await more.isVisible()) await more.click();
-  await page.getByRole('radio', { name: '7\u00a0j' }).click();
+  const week = page.getByRole('radio', { name: '7\u00a0j' });
+  await expect(more.or(week).first()).toBeVisible();
+  if ((await more.count()) && (await more.getAttribute('aria-expanded')) === 'false') await more.click();
+  await week.click();
   await expect(page.getByRole('dialog').locator('.legend')).toContainText('Dehors', { timeout: 20_000 });
   await expect(page.getByRole('dialog').getByRole('link', { name: /Open-Meteo/ }).first()).toHaveAttribute('href', 'https://open-meteo.com/');
   await page.keyboard.press('Escape');
