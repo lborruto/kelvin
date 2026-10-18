@@ -27,6 +27,7 @@ What changes from one release to the next, in plain words. Versions follow
   ligne »), and each offline room shows that the setting did not reach it. A command for offline
   radiators only says so (« Radiateur hors ligne »). An absence ending while a radiator is offline
   restores it once it is back.
+- Maison no longer jumps when an alert arrives: the list keeps what it showed and « 1 nouvelle alerte · Afficher » updates it when you tap. The summary chips stay on one line, « Dehors » last.
 
 ## 0.2.0
 
