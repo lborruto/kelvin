@@ -1545,6 +1545,7 @@ export const en: Messages = {
     nextLabel: 'Next'
   },
   maison: {
+    billMethod: 'Method',
     dateLine: (date: string, time: string) => `${date} · ${time}`,
     chips: 'Summary',
     climate: 'Climate',
@@ -1828,6 +1829,7 @@ export const en: Messages = {
     whereItem: (room: string, kwh: string) => `${room} +${kwh}`,
     whereDetail: (kwh: string, eur: string | null, n: number, of: number) =>
       `Per °C colder +${kwh}/day${eur ? ` (≈ +${eur})` : ''} · ${int(n)} of ${int(of)} days`,
+    projWeather: 'from the weather',
     projDetail: (lo: string, hi: string, observed: number, forecast: number, normal: number) =>
       `between ${lo} and ${hi} (8 in 10 chance): ${int(observed)} days estimated from observed weather, ${int(forecast)} forecast days, ${int(normal)} days of seasonal normals.`,
     projNoSpread: 'without weather variability (under 3 years of history)',

@@ -14,11 +14,11 @@ const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({
   days: 30, missing_days: 0, estimated_split: false, split_method: 'curve', prices: [], retro_priced: false, present_days: 30, curve: null,
   radiators: null, rest_kwh: null, tempo: null, by_rate: null, missing_colour_days: 0, retro_scheduled: false, ...o
 });
-const report = (outdoor?: Outdoor | null) =>
+const report = (outdoor?: Outdoor | null, previous: unknown = null) =>
   ({
     group: 'day', linky: true, tariff: true, last_day: '2026-10-31', from: '2026-10-01', to: '2026-11-01',
     period: { from: '2026-10-01', to: '2026-11-01', quality: { estimated_days: 0 }, ...summary(outdoor === undefined ? {} : { outdoor }) },
-    comparison: { basis: 'unit', previous: null, last_year: null, avg4: null },
+    comparison: { basis: 'unit', previous, last_year: null, avg4: null },
     quality: { radiators_since: null },
     heating: { value: null, days: 0, of_days: 0, since: null, inconsistent: false },
     option: 'base',
@@ -51,6 +51,25 @@ describe('EnergyHero: the outdoor line (Plan 14)', () => {
     const { container } = render(EnergyHero, { report: report(OUT), view: 'month', last: '2026-10-31' });
     expect(container.querySelector('.outdoor')!.textContent!.replace(/\s/g, ' ')).toBe('Outside: avg. 7.9 °C · 312.0 HDD');
     applyLocale('fr');
+  });
+});
+
+describe('EnergyHero: « à météo égale » (Plan 15)', () => {
+  const prev = (change: number | null) => ({
+    from: '2026-09-01', to: '2026-10-01', pairs: 30, of: 30, comparable: true, cur_kwh: 310, prev_kwh: 300, cur_energy_eur: null,
+    prev_energy_eur: null, change: 0.03, change_energy_eur: null,
+    weather: { change, why: null, dju_cur: 312, dju_ref: 200, expected_cur_kwh: null, expected_ref_kwh: null, model: null }
+  });
+  const line = (c: HTMLElement) => c.querySelector('.outdoor')!.textContent!.replace(/\s/g, ' ');
+  it('in Mois the line ends with the change at equal weather', () => {
+    const { container } = render(EnergyHero, { report: report(OUT, prev(-0.08)), view: 'month', last: '2026-10-31' });
+    expect(line(container)).toBe('Dehors : moy. 7,9 °C · 312,0 DJU · −8 % à météo égale');
+  });
+  it('no change: the line ends at « DJU »; another view: no suffix', () => {
+    expect(line(render(EnergyHero, { report: report(OUT, prev(null)), view: 'month', last: '2026-10-31' }).container)).toBe(
+      'Dehors : moy. 7,9 °C · 312,0 DJU'
+    );
+    expect(line(render(EnergyHero, { report: report(OUT, prev(-0.08)), view: 'week', last: '2026-10-31' }).container)).not.toContain('météo égale');
   });
 });
 

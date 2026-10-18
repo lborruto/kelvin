@@ -6,6 +6,7 @@
   import { addDays, SERIES } from '$lib/energy';
   import { fmtDateLong, fmtDay, fmtEurHero, fmtKwhExact, fmtKwhHero, fmtPrice, monthName } from '$lib/format';
   import { locale, m } from '$lib/i18n';
+  import { projectionLines } from '$lib/weatherCost';
 
   /** Beyond this many days behind today, the backend gives no projection (report.py `STALE_DAYS`). */
   const STALE_DAYS = 3;
@@ -52,7 +53,8 @@
     {@const actual = pm.eur != null ? (pm.actual_eur != null ? fmtEurHero(pm.actual_eur) : null) : pm.actual_kwh != null ? fmtKwhHero(pm.actual_kwh) : null}
     <div class="row">
       <div class="label">{m.projection.month(monthName(`${pm.key}-01`))}</div>
-      <div class="value num">{m.projection.approx(money(pm.eur, pm.kwh))}</div>
+      <div class="value num">{m.projection.approx(money(pm.eur, pm.kwh))}{#if pm.method === 'weather'}<span class="muted by"
+          >{' '}{m.weatherCost.projWeather}</span>{/if}</div>
       {#if actual || pm.filled_days > 0}
         <div class="muted note num">
           {#if actual}{m.projection.measured(actual)}{/if}{#if actual && pm.filled_days > 0}{' · '}{/if}{#if pm.filled_days > 0}{m.projection.filled(pm.filled_days)}{/if}
@@ -91,7 +93,13 @@
       <ul class="how">
         <li class="num">{m.projection.base(fmtKwhExact(r.per_day_kwh), last ? fmtDay(last) : null)}, {m.projection.method[r.method]}.</li>
         {#if r.price_eur_kwh != null}<li class="num">{m.projection.price(fmtPrice(r.price_eur_kwh), fmtDay(addDays(r.from, -1)))}.</li>{/if}
-        <li>{m.projection.monthHow}.</li>
+        {#if pm.method === 'weather'}
+          <!-- Plan 15: the month end from the weather (observed, forecast, seasonal normals) with its 8-in-10 range. -->
+          {#each projectionLines(pm.weather, pm.eur != null) as l, i (i)}<li class="num">{l}</li>{/each}
+        {:else}
+          <li>{m.projection.monthHow}.</li>
+          {#each projectionLines(pm.weather, pm.eur != null) as l, i (i)}<li class="muted">{l}</li>{/each}
+        {/if}
         {#if r.eur != null}<li>{m.projection.subscription}</li>{/if}
       </ul>
     </Disclosure>
@@ -99,6 +107,10 @@
 </section>
 
 <style>
+  .by {
+    font-size: 13px;
+    font-weight: 400;
+  }
   .covers {
     font-size: 12px;
     margin: -4px 0 10px;

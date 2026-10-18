@@ -292,6 +292,20 @@ describe('Maison on desktop', () => {
     expect(screen.getByRole('heading', { name: 'Hier' })).toBeInTheDocument();
   });
 
+  it('a month end from the weather says its method in the bill Fiche (Plan 15)', async () => {
+    media.desktop.matches = true;
+    api.energyReport.mockResolvedValue({ ...report, projection: { month: { ...report.projection.month, method: 'weather' } } });
+    standard();
+    const { container } = render(Tableau);
+    await settle();
+    const fig = container.querySelector<HTMLButtonElement>('.bill button.fig')!;
+    await fireEvent.click(fig);
+    flushSync();
+    const fiche = document.querySelector('.fiche')!;
+    expect(fiche).toHaveTextContent('Méthode');
+    expect(fiche).toHaveTextContent('selon la météo');
+  });
+
   it('a running boost: the tile in heat with its end; a window open shows on its tile', async () => {
     const boost = { id: 'b1', kind: 'boost', room_id: 'salon', radiator_ids: ['a', 'b'], temperature: 22, ends_at: Date.parse('2026-10-13T18:42:00Z') / 1000, restoring: false };
     load(

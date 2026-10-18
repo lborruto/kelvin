@@ -1597,6 +1597,7 @@ export const fr = {
   },
   // Maison, the dashboard at « / » (Tableau spec §4): its chips, widgets and tiles. A chip label and its value are separate keys.
   maison: {
+    billMethod: 'Méthode',
     dateLine: (date: string, time: string) => `${date} · ${time}`,
     chips: 'Résumés',
     climate: 'Climat',
@@ -1882,6 +1883,7 @@ export const fr = {
     whereItem: (room: string, kwh: string) => `${room} +${kwh}`,
     whereDetail: (kwh: string, eur: string | null, n: number, of: number) =>
       `Par °C plus froid +${kwh}/jour${eur ? ` (≈ +${eur})` : ''} · ${int(n)}${NB}jours sur ${int(of)}`,
+    projWeather: 'selon la météo',
     projDetail: (lo: string, hi: string, observed: number, forecast: number, normal: number) =>
       `entre ${lo} et ${hi} (8 chances sur 10)${NB}: ${int(observed)}${NB}jours estimés sur la météo observée, ${int(forecast)}${NB}jours de prévision, ${int(normal)}${NB}jours de normales de saison.`,
     projNoSpread: 'sans la variabilité de la météo (moins de 3 ans d’historique)',
