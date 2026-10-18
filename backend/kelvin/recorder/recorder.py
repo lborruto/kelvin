@@ -13,6 +13,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from kelvin.house.model import House
+from kelvin.recorder.away import AWAY_KEEP_S
 from kelvin.recorder.db import Database, DatabaseClosed
 from kelvin.recorder.energy import (
     SAMPLE_STEP_S,
@@ -172,6 +173,7 @@ class Recorder:
             for table, column, cutoff in (
                 ("samples", "ts", int(now - SAMPLE_RETENTION_S)),
                 ("command_log", "ts", now - COMMAND_LOG_RETENTION_S),
+                ("away_log", "end", now - AWAY_KEEP_S),
             ):
                 while True:
                     n = self.db.execute(

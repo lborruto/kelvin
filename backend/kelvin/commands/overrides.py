@@ -15,6 +15,7 @@ from kelvin.commands.service import CommandService, Pending
 from kelvin.commands.translate import CommandError, Planned, plan_mode, plan_setpoint
 from kelvin.house.model import House, Radiator
 from kelvin.labels import Label
+from kelvin.recorder import away as away_log
 from kelvin.recorder.db import Database
 
 log = logging.getLogger(__name__)
@@ -320,9 +321,13 @@ class OverrideManager:
                 if same.radiator_ids:
                     self._save(same)
                 else:
+                    if same.kind == "away":
+                        away_log.record_end(self.db, same.id, now)
                     self._delete(same)
         self._items[o.id] = o
         self._save(o)
+        if o.kind == "away":
+            away_log.record_start(self.db, o.id, o.created_at, o.ends_at)
         return o, pending
 
     async def cancel(self, override_id: str) -> Pending | None:
@@ -368,6 +373,8 @@ class OverrideManager:
         """
         now = self.wall()
         o.restoring = True
+        if o.kind == "away":
+            away_log.record_end(self.db, o.id, now)
         planned: Planned | None = None
         rids: list[str] = []
         for rid in list(o.radiator_ids):

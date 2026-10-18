@@ -180,6 +180,23 @@ def _v6_outlook_and_away(conn: sqlite3.Connection) -> None:
         "CREATE TABLE IF NOT EXISTS away_log ("
         " id TEXT PRIMARY KEY, start REAL NOT NULL, end REAL NOT NULL, ended INTEGER NOT NULL)"
     )
+    # Seed from the command log (90 days): a confirmed « Partir… » to the next away_end.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(command_log)")}
+    if "label_code" in cols:
+        rows = conn.execute(
+            "SELECT id, ts, label_code, status FROM command_log"
+            " WHERE label_code IN ('away', 'away_end') ORDER BY ts"
+        ).fetchall()
+        for i, (cid, t, code, status) in enumerate(rows):
+            if code != "away" or status != "confirmed":
+                continue
+            end = next((r[1] for r in rows[i + 1 :] if r[2] == "away_end"), None)
+            if end is not None:
+                _in_transaction(
+                    conn,
+                    "INSERT OR IGNORE INTO away_log (id, start, end, ended) VALUES (?, ?, ?, 1)",
+                    (f"log-{cid}", t, end),
+                )
 
 
 MIGRATIONS = {
