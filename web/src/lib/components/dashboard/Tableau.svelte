@@ -1,16 +1,29 @@
 <!-- Maison, the dashboard at « / » (Tableau spec §4, fixed layout). Desktop: the title with the date and the house
-     actions, the summary chips (Climat, Dehors with a weather place, the month, Réseau, Absence), the alerts / « Tout est éteint » / absence
+     actions, the summary chips (Climat, the month, Réseau, Absence, then Dehors with a weather place), the alerts / « Tout est éteint » / absence
      widgets, then one column per room that answers (rows of two), the offline rooms' column, the « Énergie et
      réseau » column (month, Maintenant, Demain, Hier) and « Programme d’aujourd’hui » under the rooms. Phone: one
      column with two-column room tiles. Skeletons at the final shapes until the house, the alerts and the energy
-     answers are in, then everything in one frame (CLS). The room sheet opens over it (`/rooms/[id]`). -->
+     answers are in, then everything in one frame (CLS). After that frame the alerts the server raises or resolves
+     are announced (a toast, « Mettre à jour » in the widget) and drawn when the owner asks, so a row never pushes
+     the page (DESIGN « Maison »). The room sheet opens over it (`/rooms/[id]`). -->
 <script lang="ts">
   import { untrack } from 'svelte';
   import type { Room } from '$lib/api/types';
+  import { alertText } from '$lib/alerts-text';
   import { roomControls } from '$lib/capabilities';
   import { fmtEurHero, fmtKwhHero, fmtTime, fmtWeekdayDate, fmtWeekdayTime, monthTitle } from '$lib/format';
   import { m } from '$lib/i18n';
-  import { climate, climateText, gridNext, gridNextText, monthSpan, type RoomFacts } from '$lib/dashboard';
+  import {
+    climate,
+    climateText,
+    gridNext,
+    gridNextText,
+    monthSpan,
+    newAlerts,
+    sameAlerts,
+    type AlertsFrame,
+    type RoomFacts
+  } from '$lib/dashboard';
   import { desktop } from '$lib/media.svelte';
   import { ROUTES } from '$lib/paths';
   import { roomName } from '$lib/setup';
@@ -25,6 +38,7 @@
   import { chipValue, weatherFiche } from '$lib/weather';
   import { dashboardEnergy as energy } from '$lib/stores/dashboardEnergy.svelte';
   import { addParisDays, parisMidnight } from '$lib/time';
+  import { toasts } from '$lib/stores/toasts.svelte';
   import { today } from '$lib/today.svelte';
   import HouseActions from '../HouseActions.svelte';
   import Icon from '../Icon.svelte';
@@ -108,6 +122,39 @@
   let monthValue = $derived(
     month ? (month.tariff && month.period.eur != null ? fmtEurHero(month.period.eur) : fmtKwhHero(month.period.kwh)) : ''
   );
+
+  // The alerts on screen (CLS): those of the first frame, then only what the owner asks for (« Mettre à jour »,
+  // the toast's « Afficher », a dismissal, Réessayer) or what changed while the tab was hidden. A row the server
+  // adds or resolves later would push the rooms down or pull them up under the owner's finger (CI 2026-10-17:
+  // an EcoWatt alert raised 1 s after the first frame moved the page 80 px at 320 px, CLS 0.052).
+  const liveAlerts = (): AlertsFrame => ({
+    list: (alerts.list ?? []).filter((a) => alertText(a) !== null),
+    error: alerts.error && alerts.list === null
+  });
+  let drawnAlerts = $state<AlertsFrame | null>(null);
+  let shownAlerts = $derived(drawnAlerts ?? liveAlerts());
+  let alertsChanged = $derived(drawnAlerts !== null && !sameAlerts(drawnAlerts, liveAlerts()));
+  const syncAlerts = () => (drawnAlerts = liveAlerts());
+  $effect(() => {
+    if (ready && drawnAlerts === null) untrack(syncAlerts);
+  });
+  // A new alert is announced once, with « Afficher »; the widget's « Mettre à jour » stays until it is drawn.
+  const announced = new Set<number>();
+  $effect(() => {
+    if (drawnAlerts === null) return;
+    const fresh = newAlerts(drawnAlerts, liveAlerts()).filter((a) => !announced.has(a.id));
+    if (!fresh.length) return;
+    for (const a of fresh) announced.add(a.id);
+    untrack(() => toasts.push(() => m.maison.alertsNew(fresh.length), 'info', undefined, { label: () => m.maison.alertsShow, run: syncAlerts }));
+  });
+  $effect(() => {
+    const hidden = () => {
+      if (document.visibilityState === 'hidden' && drawnAlerts !== null) syncAlerts();
+    };
+    document.addEventListener('visibilitychange', hidden);
+    return () => document.removeEventListener('visibilitychange', hidden);
+  });
+
   let away = $derived(house.away);
   let awayUntil = $derived(away ? fmtWeekdayTime(away.ends_at * 1000) : '');
 </script>
@@ -115,17 +162,19 @@
 {#snippet chips(compact: boolean)}
   <div class="chip-row chips" role="group" aria-label={m.maison.chips}>
     <SummaryChip icon="flame" label={m.maison.climate} value={climateText(c, compact)} />
-    <!-- Plan 14: only with a place; its words are built here so a language switch rewords the Fiche. -->
-    {#if weather.view}<SummaryChip icon="weather" label={m.weather.chip} value={chipValue(weather.view)} fiche={weatherFiche(weather.view, now)} />{/if}
     {#if month}<SummaryChip icon="euro" label={monthTitle(span.from)} value={monthValue} href={ROUTES.energy} />{/if}
     <SummaryChip icon="alert" label={m.maison.grid} value={gridNextText(gridNext(grid.view, today.iso))} href={ROUTES.energy} />
     <SummaryChip icon="away" label={m.maison.away} value={away ? m.maison.awayUntil(awayUntil) : m.nav.away} tone={away ? 'cool' : null}
       onclick={(e) => awaySheet.show(e.currentTarget as HTMLElement)} />
+    <!-- Plan 14: only with a place; its words are built here so a language switch rewords the Fiche. Last: its first
+         reading (« — » → « 4,2 °C ») and a place saved elsewhere arrive over the SSE after the first frame, and a
+         late chip moves no other chip from the end of the row (CLS, DESIGN « Maison »). -->
+    {#if weather.view}<SummaryChip icon="weather" label={m.weather.chip} value={chipValue(weather.view)} fiche={weatherFiche(weather.view, now)} />{/if}
   </div>
 {/snippet}
 
 {#snippet notices(phone: boolean)}
-  {#if alerts.list !== null || alerts.error}<AlertsWidget compact={phone} />{/if}
+  <AlertsWidget compact={phone} list={shownAlerts.list} error={shownAlerts.error} changed={alertsChanged} onsync={syncAlerts} />
   {#if c.allOff}<AllOffBanner offline={offNames} {phone} />{/if}
   {#if house.overrides.length}<NowWidget overrides={house.overrides} offline={offNames} {now} />{/if}
 {/snippet}
@@ -159,7 +208,7 @@
 
   {#if !ready}
     <div class="sk" aria-hidden="true">
-      <div class="sk-chips">{#each weather.on ? [180, 120, 120, 200, 120] : [180, 120, 200, 120] as w, i (i)}<Skeleton h={46} w={w} shape="pill" />{/each}</div>
+      <div class="sk-chips">{#each weather.on ? [180, 120, 200, 120, 120] : [180, 120, 200, 120] as w, i (i)}<Skeleton h={46} w={w} shape="pill" />{/each}</div>
       {#if desktop.matches}
         <div class="board">
           <div class="left">
@@ -257,9 +306,12 @@
   .desk-actions {
     display: none;
   }
+  /* One line of 46 px chips at every width (scrolling inside the page when they overflow), so a chip whose value
+     or presence arrives late never changes the page's height; the 4 px above and below hold the focus ring. */
   .chips {
-    margin-top: 12px;
-    margin-bottom: 16px;
+    margin-top: 8px;
+    margin-bottom: 12px;
+    padding-block: 4px;
   }
   .stack {
     display: grid;
@@ -386,7 +438,10 @@
       grid-area: actions;
     }
     .chips {
-      margin: 18px 0 22px;
+      flex-wrap: nowrap;
+      margin: 14px 0 18px;
+      overflow-x: auto;
+      scrollbar-width: none;
     }
     .sk-chips {
       margin-top: 18px;

@@ -5,6 +5,7 @@ import { applyLocale } from '$lib/i18n';
 import { alerts } from '$lib/stores/alerts.svelte';
 import { grid } from '$lib/stores/grid.svelte';
 import { house } from '$lib/stores/house.svelte';
+import { toasts } from '$lib/stores/toasts.svelte';
 import { dashboardEnergy } from '$lib/stores/dashboardEnergy.svelte';
 import { weather } from '$lib/stores/weather.svelte';
 import { VIEW } from '$lib/weather.fixture';
@@ -208,6 +209,53 @@ describe('Maison on the phone', () => {
     expect(api.dismissAlert).toHaveBeenCalledTimes(2);
   });
 
+  it('an alert the server raises or resolves after the first frame moves nothing until the owner asks (CLS)', async () => {
+    const unreachable = { id: 2, kind: 'radiator_unreachable', severity: 'bad', params: { room_id: 'ch2', radiator_id: 'd', since: null }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false };
+    const price = { id: 1, kind: 'price_change', severity: 'warn', params: { date: '2027-02-01' }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false };
+    api.alerts.mockResolvedValue([unreachable]);
+    standard();
+    alerts.applySummary({ active: 1, highest: 'bad' });
+    render(Tableau);
+    await settle();
+    expect(screen.getByRole('heading', { name: 'Alertes · 1' })).toBeInTheDocument();
+    const before = toasts.items.length;
+    // Raised: announced once, not drawn; « Mettre à jour » takes the place of « Masquer tout ».
+    api.alerts.mockResolvedValue([unreachable, price]);
+    alerts.applySummary({ active: 2, highest: 'bad' });
+    await settle();
+    expect(screen.getByRole('heading', { name: 'Alertes · 1' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Ajouter les prix/ })).toBeNull();
+    expect(toasts.items.slice(before).map((t) => t.text())).toEqual(['1 nouvelle alerte']);
+    expect(screen.queryByRole('button', { name: 'Masquer tout' })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Mettre à jour les alertes' }));
+    expect(screen.getByRole('heading', { name: 'Alertes · 2' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Masquer tout' })).toBeInTheDocument();
+    // Resolved: the row stays until the owner asks, and no toast for a row that leaves.
+    api.alerts.mockResolvedValue([unreachable]);
+    alerts.applySummary({ active: 1, highest: 'bad' });
+    await settle();
+    expect(screen.getByRole('heading', { name: 'Alertes · 2' })).toBeInTheDocument();
+    expect(toasts.items.slice(before)).toHaveLength(1);
+    // The toast's « Afficher » draws the server's list too.
+    toasts.items[before].action!.run();
+    flushSync();
+    expect(screen.getByRole('heading', { name: 'Alertes · 1' })).toBeInTheDocument();
+  });
+
+  it('a dismissal redraws at once (the owner asked)', async () => {
+    const price = { id: 1, kind: 'price_change', severity: 'warn', params: { date: '2027-02-01' }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false };
+    const ecowatt = { id: 3, kind: 'ecowatt', severity: 'warn', params: { date: '2026-10-14', level: 2, hours: [] }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false };
+    api.alerts.mockResolvedValue([price, ecowatt]);
+    api.dismissAlert.mockResolvedValue(undefined);
+    standard();
+    alerts.applySummary({ active: 2, highest: 'warn' });
+    render(Tableau);
+    await settle();
+    expect(screen.getByRole('heading', { name: 'Alertes · 2' })).toBeInTheDocument();
+    await fireEvent.click(screen.getAllByRole('button', { name: /^Masquer/ }).find((b) => b.textContent === '')!);
+    expect(screen.getByRole('heading', { name: 'Alertes · 1' })).toBeInTheDocument();
+  });
+
   it('a running boost is listed with its rooms and « Arrêter »', async () => {
     const boost = { id: 'b1', kind: 'boost', room_id: 'salon', radiator_ids: ['a', 'b'], temperature: 22, ends_at: Date.parse('2026-10-13T18:42:00Z') / 1000, restoring: false };
     standard();
@@ -380,7 +428,7 @@ describe('a tile and its commands', () => {
 });
 
 describe('Maison: the outdoor temperature (Plan 14)', () => {
-  it('shows the Dehors chip right after Climat, with its Fiche: model, publié, attribution link', async () => {
+  it('shows the Dehors chip last in the row (it may answer late: CLS), with its Fiche: model, publié, attribution link', async () => {
     media.desktop.matches = true;
     standard();
     weather.apply(VIEW);
@@ -389,7 +437,7 @@ describe('Maison: the outdoor temperature (Plan 14)', () => {
     const chips = screen.getAllByRole('group', { name: 'Résumés' })[0];
     const chip = within(chips).getByRole('button', { name: `Dehors 4,2${NB}°C, détails` });
     const pills = [...chips.querySelectorAll('.cat')];
-    expect(pills.indexOf(chip)).toBe(1);
+    expect(pills.indexOf(chip)).toBe(pills.length - 1);
     expect(pills[0]).toHaveTextContent('Climat');
     await fireEvent.click(chip);
     const card = await screen.findByRole('dialog', { name: 'Température extérieure' });

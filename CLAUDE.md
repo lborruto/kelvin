@@ -296,7 +296,9 @@ depends on.
   control shows the shared dashed→solid edge; controls that can hold focus are paused with
   `aria-disabled` and a guarded handler, never native `disabled`; every route shows skeletons
   before data, never placeholder values; no horizontal scroll from 320 px and CLS < 0.05
-  (e2e checks both). Buttons use the global `.btn-*` classes. Svelte 5 transitions on an element
+  (e2e checks both). What the server pushes after a screen's first frame never moves it: Maison draws a new or
+  resolved alert on the owner's tap (toast « Afficher », « Mettre à jour »), and its summary chips are one line
+  where a chip that may answer late goes last (DESIGN « Maison »). Buttons use the global `.btn-*` classes. Svelte 5 transitions on an element
   that a parent mounts inside its own `{#if}` (ChartInspector) need `|global`, or they never play.
   `--tempo-*` tokens are used only by `TempoDot` (DESIGN « Tempo day chip »); `--hc` / `--hp` (Tariff
   blues, HC always hatched) only through `SERIES` / `Swatch` / `seriesBackground` on Énergie, the tariff and the

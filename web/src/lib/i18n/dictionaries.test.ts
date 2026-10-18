@@ -283,6 +283,8 @@ const SCANNER_BLIND = new Set([
   'roomInfo.reachable', 'devices.reachable', 'energyPage.settings',
   // Batch 13: « 80 % de 1 500 W », « dernier signal il y a 3 min »
   'room.livePowerRow', 'roomInfo.lastSignalInline',
+  // Maison's late alerts: « 2 nouvelles alertes », « Afficher »
+  'maison.alertsNew', 'maison.alertsShow',
   // Plan 12: no accent and no listed French word
   'support.expected', 'pilot.label', 'dryer.boost',
   // Programme redesign: figures and short words (« 7 h 30 », « … et … », « Week-end », « Raccourcis »)

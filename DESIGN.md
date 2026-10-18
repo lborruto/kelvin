@@ -255,7 +255,8 @@ hint », full width, never red, no temperature). `pending` dashes the status lin
 - **SummaryChip** (`.cat`): a 46 px s1 pill, a 30 px s2 disc, label 14/600 over value 12.5 muted (label and value
   are separate strings); `tone="cool"` for a running absence; `skeleton` keeps its size; `fiche` (Plan 14) makes the
   pill a `Fig` that opens a Fiche (« Dehors 4,2 °C, détails »). A row of them: `.chip-row`
-  (wraps on desktop, scrolls inside the page on a phone, edge to edge).
+  (wraps on desktop, scrolls inside the page on a phone, edge to edge); Maison's row is one line at every width
+  (« Maison » › Summary chips).
 - **Widget** (`.w`): s1, radius 22, 16 × 18; a heading label (12.5/600 muted; `strong` for list widgets) with an
   aside, a « … › » link or a `meta` snippet; `tone="heat"` (heat hairline) or `"bad"` (bad tint); `span={2}`.
 
@@ -340,15 +341,28 @@ tableau stays mounted (links keep scroll and focus: `data-sveltekit-noscroll`, `
   or « tout éteint »; the range only on the phone), the month's € (kWh without a tariff; absent without Linky),
   Réseau (the next signal: EcoWatt orange/red today or tomorrow, else tomorrow's Tempo colour when Tempo is in
   force, else « Rien à signaler »), Absence (« Partir… » opens the sheet; while one runs, « jusqu’à dim. 18:00 »
-  in cool). **Dehors** (Plan 14) after Climat, only with a weather place: the current hour's outdoor °C, « — »
-  with its reason before the first reading (« premier relevé en cours », « Open-Meteo injoignable, nouvel essai à
-  15:22 »); its Fiche « Température extérieure »: Maintenant, Ressenti, Humidité, Minimum, Maximum (« prévu vers
-  17:00 » when later than now), then Provenance (the model, the fetch time, « publié ») and the Open-Meteo link.
-  The skeleton row has a fifth pill only when weather is on (known from the snapshot), so nothing shifts.
+  in cool). **Dehors** (Plan 14) **last in the row**, only with a weather place: the current hour's outdoor °C,
+  « — » with its reason before the first reading (« premier relevé en cours », « Open-Meteo injoignable, nouvel
+  essai à 15:22 »); its Fiche « Température extérieure »: Maintenant, Ressenti, Humidité, Minimum, Maximum (« prévu
+  vers 17:00 » when later than now), then Provenance (the model, the fetch time, « publié ») and the Open-Meteo
+  link. The skeleton row has a fifth pill only when weather is on (known from the snapshot). Its first reading and
+  a place saved elsewhere arrive over the SSE after the first frame, so it goes last: « — » becoming « 4,2 °C »
+  moves no other chip (`e2e/cls.spec.ts` « the weather reading arrives after the first frame »).
+  The row is **one line of 46 px chips at every width** (scrolling inside the page when they overflow;
+  4 px above and below hold the focus ring), so a chip's value or presence can never change the page's height.
+  **A new chip** either joins `ready` (its answer is awaited with the house, the alerts and the energy, and the
+  row draws in one frame) or, when its source may answer after the first frame, goes **last** in the row, so its
+  arrival moves no other chip (at 320 px it lands off screen).
 - **Notices** (stacked, 14 px apart): `AlertsWidget` (« Alertes · n », « Masquer tout », a glyph per kind, the
   words and link from `alertText`, × per row; an offline radiator is never red), `AllOffBanner` (« Tout est
   éteint », the offline rooms named calmly, primary « Tout remettre en programme »; no time: Kelvin does not know
-  when the house went off), `NowWidget` (« En ce moment », moved here from Réglages: « Absence · 12,0 °C jusqu’à dim. 18:00 », the rooms, « Terminer »; each chauffe temporaire with its rooms and end, « Arrêter »).
+  when the house went off). **The alert rows never move the page:** the widget draws the alerts of the first
+  frame; one the server raises or resolves afterwards (an EcoWatt or Tempo signal published, a radiator going
+  offline) is announced (an info toast « 1 nouvelle alerte » with « Afficher »; « Mettre à jour » takes the place of
+  « Masquer tout » on the head line while the server's list differs) and drawn when the owner taps either, dismisses
+  a row or taps « Réessayer », and while the tab is hidden (CI 2026-10-17: an EcoWatt alert raised 1 s after the
+  first frame pushed the rooms 80 px down at 320 px, CLS 0.052; `e2e/cls.spec.ts` « an alert arrives after the
+  first frame »). `NowWidget` (« En ce moment », moved here from Réglages: « Absence · 12,0 °C jusqu’à dim. 18:00 », the rooms, « Terminer »; each chauffe temporaire with its rooms and end, « Arrêter »).
 - **Desktop board:** room columns (2 × 254, rows of two; Cozytouch order), the offline column (200, « Hors ligne ·
   n », the RoomTile `offline` widget), « Énergie et réseau » (the rest, ≥ 320: BillWidget and MaintenantCard span
   2, then Demain and Hier), « Programme d’aujourd’hui » under the rooms. Below 1100 px of content the energy
@@ -701,7 +715,7 @@ Stable props (`web/src/lib/components/` unless noted); every string comes from t
 - **`Swatch`** `{ series: 'hc' | 'hp' | 'home' | 'radiators'; size?: 8 | 10; line? }`; **`ChartDefs`** (mounted once: `url(#hc-hatch)`); `SERIES`, `SERIES_HATCH`, `seriesBackground(key)` in `$lib/energy.ts`.
 - **`$lib/stores/detail.svelte.ts`** `detail.on`, `detail.set(on)`; **`$lib/navAlerts.ts`** `navAlerts(summary, list)`; **`$lib/portal.ts`** `use:portal`.
 - **CSS:** `.fig`, `.hit` (`--hit-y`, `--hit-x`), `.btn-lg`, `.w-time` `.w-price` `.w-date` `.w-kva` `.w-text`; tokens `--ctl-*`, `--w-*`, `--hc`, `--hp`, `--hc-hatch`.
-- **e2e:** `e2e/cls.ts` `measureCls(page, route, { fonts: 'normal' | 'blocked' | 'late' })`, `CLS_WIDTHS`, `FONT_MODES`, `settled(page)`; `e2e/cls.spec.ts` holds the matrix.
+- **e2e:** `e2e/cls.ts` `measureCls(page, route, { fonts: 'normal' | 'blocked' | 'late', slow?, routes? })` (`routes` adds a test's own server behaviour, e.g. an alert that answers late), `CLS_WIDTHS`, `FONT_MODES`, `settled(page)`; `e2e/cls.spec.ts` holds the matrix.
 
 ### Scrubber
 An ARIA slider laid over a half-hour chart (`role="slider"`, `aria-valuetext` « 18:30–19:00, 1,47 kW, 734 Wh »), 12 px past the plot's top and bottom. The whole plot is the target and the nearest interval wins (only x counts); a mouse scrubs on hover, a finger by pressing and dragging (`touch-action: pan-y`, so vertical scroll stays with the page). `←`/`→` move 30 min, `PageUp`/`PageDown` 3 h, `Home`/`End` the ends, `Esc` clears. The Courbe and Température et chauffe share one index, so the same half-hour is marked and read in both. The crosshair and the readout follow it without animation.

@@ -2,7 +2,7 @@
  * Maison, the dashboard at « / » (Tableau spec §4): the words and figures its chips, tiles and widgets show,
  * as pure functions of the house, so the screen only lays them out. Messages are read when called (i18n).
  */
-import type { GridView, Override, Radiator, TempoColour, WeekProgram } from './api/types';
+import type { Alert, GridView, Override, Radiator, TempoColour, WeekProgram } from './api/types';
 import { addDays } from './energy';
 import { fmtTemp, fmtTempShort, fmtTime } from './format';
 import { stripLines } from './grid';
@@ -159,4 +159,23 @@ export function todaySegs(program: WeekProgram | null, now: number): Seg[] {
 /** « 06:30–08:00, 17:00–23:00 ». */
 export function segsText(segs: Seg[]): string {
   return segs.map((s) => `${fromMin(s.start)}–${fromMin(s.end)}`).join(', ');
+}
+
+/** Maison's alerts as one frame draws them (CLS): the rows, and whether the list failed to load. */
+export interface AlertsFrame {
+  list: Alert[];
+  error: boolean;
+}
+
+const alertKey = (a: Alert) => `${a.id}:${a.kind}:${a.severity}:${JSON.stringify(a.params)}`;
+
+/** Both frames draw the same rows in the same words (`last_seen` alone changes nothing on screen). */
+export function sameAlerts(a: AlertsFrame, b: AlertsFrame): boolean {
+  return a.error === b.error && a.list.map(alertKey).join('|') === b.list.map(alertKey).join('|');
+}
+
+/** The alerts `live` has that `drawn` does not show. */
+export function newAlerts(drawn: AlertsFrame, live: AlertsFrame): Alert[] {
+  const seen = new Set(drawn.list.map((a) => a.id));
+  return live.list.filter((a) => !seen.has(a.id));
 }

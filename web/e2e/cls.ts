@@ -27,7 +27,13 @@ export async function settled(page: Page) {
 export async function measureCls(
   page: Page,
   route: string,
-  opts: { fonts?: FontMode; windowMs?: number; slow?: { url: string; ms: number } } = {}
+  opts: {
+    fonts?: FontMode;
+    windowMs?: number;
+    slow?: { url: string; ms: number };
+    /** More routes, set after the API delay so they answer first (a test's own server behaviour). */
+    routes?: (page: Page) => Promise<void>;
+  } = {}
 ): Promise<number> {
   const fonts = opts.fonts ?? 'normal';
   await page.addInitScript(() => {
@@ -58,6 +64,7 @@ export async function measureCls(
       await new Promise((ok) => setTimeout(ok, slow.ms));
       await r.continue().catch(() => {});
     });
+  if (opts.routes) await opts.routes(page);
   const start = Date.now();
   await page.goto(route);
   await settled(page);

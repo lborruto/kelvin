@@ -141,6 +141,7 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Préremplir | Prefill |
 | EcoWatt vert / orange / rouge | EcoWatt green / orange / red |
 | Alertes | Alerts |
+| Nouvelle alerte · Afficher · Mettre à jour (les alertes) | New alert · Show · Update (the alerts) |
 | Budget mensuel | Monthly budget |
 | Rythme | Pace |
 | Degré-jour (DJU) | Degree day (HDD) |
