@@ -9,7 +9,7 @@
  * bucket exports what the page shows for it, and a day's € are the same in whatever period they
  * are exported (the backend anchors them on 1 January).
  */
-import type { EnergyDay, EnergyReport, EnergySummary, PriceRow } from './api/types';
+import type { EnergyDay, EnergyReport, EnergySummary, PriceRow, WeatherCost } from './api/types';
 import { addDays, bucketSpan, firstCounted, type Span } from './energy';
 import { locale } from './i18n';
 import type { RoomRow } from './roomEnergy';
@@ -33,6 +33,9 @@ export const CURVE_HEADER = ['debut', 'fin', 'minutes', 'wh', 'w_moyen', 'part_h
 export const ROOMS_HEADER = [
   'piece', 'radiateur', 'kwh', 'part', 'hc_kwh', 'hp_kwh', 'eur', 'temp_moy', 'consigne_moy', 'heures_chauffe', 'couverture', 'depuis' // i18n-ignore: CSV machine contract, French headers in every locale
 ];
+/** Plan 15: « Météo et coût », one row per day of the fit window (spec §7.6). */
+export const METEO_HEADER = ['date', 'dehors_moy_c', 'degres_sous_equilibre_c', 'kwh', 'energie_eur', 'retenu', 'motif', 'attendu_kwh']; // i18n-ignore: CSV machine contract
+const METEO_REASON: Record<string, string> = { away: 'absence', outlier: 'atypique' }; // i18n-ignore: CSV machine contract
 
 export interface CsvFile {
   name: string;
@@ -172,6 +175,27 @@ export function roomsCsv(rows: RoomRow[], span: Span): CsvFile {
     }
   }
   return file(`pieces_${span.from}_${span.to}.csv`, ROOMS_HEADER, out);
+}
+
+/** « Météo et coût »'s days (Plan 15, spec §7.6): each day of the 12-month window with energy and a complete weather
+ *  day, its outdoor mean, its degrees below the balance point and the model's expected kWh (empty while the model is
+ *  hidden), its kWh and the day bar's own €, whether the model used it and why not. Named after the window. */
+export function meteoCsv(v: WeatherCost): CsvFile {
+  const rows = v.house.points.map((p) => [
+    p.date,
+    csvNum(p.t_c, 1),
+    csvNum(p.degrees_c, 1),
+    csvNum(p.kwh, 3),
+    csvNum(p.energy_eur, 2),
+    bool(p.used),
+    p.excluded ? METEO_REASON[p.excluded] : '',
+    csvNum(p.expected_kwh, 3)
+  ]);
+  return file(meteoFileName(v), METEO_HEADER, rows);
+}
+
+export function meteoFileName(v: Pick<WeatherCost, 'window'>): string {
+  return `meteo_${v.window.from}_${v.window.to}.csv`;
 }
 
 /** Hands the file to the browser as a download (a Blob URL, revoked right after). */

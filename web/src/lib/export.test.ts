@@ -3,6 +3,7 @@ import { applyLocale } from '$lib/i18n';
 import type { EnergyDay, EnergyReport, Radiator, Room } from '$lib/api/types';
 import { download, energyCsv } from '$lib/csv';
 import { exportActions, type ExportInput } from './export';
+import { HIDDEN, OK } from './weatherModel.fixture';
 
 vi.mock('$lib/csv', async (orig) => ({ ...(await orig<typeof import('$lib/csv')>()), download: vi.fn() }));
 
@@ -61,5 +62,24 @@ describe('exportActions', () => {
     a[0].run();
     expect(vi.mocked(download).mock.calls[0][0].name).toBe('energie_2026-10-01_2026-11-01_day.csv');
     expect(vi.mocked(download).mock.calls[0][0].text.split('\r\n')[0]).toContain('periode,debut,fin,');
+  });
+});
+
+describe('exportActions: the meteo file (Plan 15)', () => {
+  it('offered with a weather place: waits (focusable, with its reason) while it loads, then downloads the window', () => {
+    const waiting = exportActions(input({ weatherOn: true, weather: undefined })).at(-1)!;
+    expect(waiting).toMatchObject({ key: 'meteo', label: 'Exporter météo et consommation (CSV)', disabled: 'Disponible une fois la météo chargée' });
+    waiting.run();
+    expect(download).not.toHaveBeenCalled();
+    const ready = exportActions(input({ weatherOn: true, weather: OK })).at(-1)!;
+    expect(ready.disabled).toBeNull();
+    ready.run();
+    expect(vi.mocked(download).mock.calls[0][0].name).toBe('meteo_2025-10-18_2026-10-18.csv');
+  });
+  it('not offered without a place, after a failure, or without points', () => {
+    expect(exportActions(input({ weather: OK })).map((a) => a.key)).not.toContain('meteo');
+    expect(exportActions(input({ weatherOn: true, weather: null })).map((a) => a.key)).not.toContain('meteo');
+    const none = { ...HIDDEN, house: { ...HIDDEN.house, points: [] } };
+    expect(exportActions(input({ weatherOn: true, weather: none })).map((a) => a.key)).not.toContain('meteo');
   });
 });

@@ -340,7 +340,9 @@
       roomSpan: elapsed ?? loaded.period,
       day: data.day,
       today: today.iso,
-      house: { loaded: house.loaded, rooms: house.rooms, radiators: house.radiators }
+      house: { loaded: house.loaded, rooms: house.rooms, radiators: house.radiators },
+      weather: weatherCost,
+      weatherOn: !!weatherPeriod
     }).map((a) => ({ label: a.label, icon: 'download', disabled: a.disabled, onselect: a.run }));
   });
   let canExport = $derived(ready && exportItems.length > 0);

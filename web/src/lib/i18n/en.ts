@@ -770,7 +770,9 @@ export const en: Messages = {
   exportPanel: {
     period: 'Export the period (CSV)',
     curve: (d: string) => `Export the curve of ${d} (CSV)`,
-    rooms: 'Export by room (CSV)'
+    rooms: 'Export by room (CSV)',
+    meteo: 'Export weather and use (CSV)',
+    meteoWait: 'Available once the weather has loaded'
   },
   energyData: { reportFailed: 'Couldn’t load the consumption.', dayFailed: 'Couldn’t load the curve.' },
   energyPage: {

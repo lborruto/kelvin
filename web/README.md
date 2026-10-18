@@ -170,3 +170,15 @@ PDL, token, email or id is exported; rooms and radiators appear by name.
   `part` (rooms) and `couverture` (radiators) are 4-decimal fractions; `eur` is energy only; kWh, HC
   and HP are the API's 3-decimal figures (the table at 2 decimals allocates its rounding so rows add up). A
   room's kWh sums its radiators with a figure: its radiators' `couverture` says whether it is whole.
+- `meteo_<from>_<to>.csv` (Plan 15, « Exporter météo et consommation (CSV) », offered with a weather place once
+  « Météo et coût » has days; `<from>`/`<to>` are the model's 12-month window, `<to>` exclusive) — one row per day
+  of that window with Linky energy and a complete weather day, by date:
+  `date;dehors_moy_c;degres_sous_equilibre_c;kwh;energie_eur;retenu;motif;attendu_kwh`. `date` is the Paris day
+  (`YYYY-MM-DD`); `dehors_moy_c` its outdoor mean (1 decimal); `degres_sous_equilibre_c` (1 decimal) the degrees
+  below the model's balance point; `kwh` (3 decimals) the day's Linky kWh and `energie_eur` (2 decimals) the same
+  energy € as its day bar (empty with an unknown Tempo colour or no tariff); `retenu` `1`/`0` whether the model used
+  the day; `motif` empty, `absence` (a Kelvin absence touched the day) or `atypique` (left out as an outlier);
+  `attendu_kwh` (3 decimals) the model's expected kWh for that day's temperature. `degres_sous_equilibre_c` and
+  `attendu_kwh` are empty while the model is hidden. Every model figure is an estimate (Kelvin's model of measured
+  data); the outdoor figures are Météo-France / Copernicus model output via Open-Meteo (CC BY 4.0). The Énergie
+  file above is unchanged.

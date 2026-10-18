@@ -802,7 +802,9 @@ export const fr = {
   exportPanel: {
     period: 'Exporter la période (CSV)',
     curve: (d: string) => `Exporter la courbe du ${d} (CSV)`,
-    rooms: 'Exporter par pièce (CSV)'
+    rooms: 'Exporter par pièce (CSV)',
+    meteo: 'Exporter météo et consommation (CSV)',
+    meteoWait: 'Disponible une fois la météo chargée'
   },
   energyData: { reportFailed: 'Impossible de charger la consommation.', dayFailed: 'Impossible de charger la courbe.' },
   energyPage: {
