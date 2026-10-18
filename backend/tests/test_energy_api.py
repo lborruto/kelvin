@@ -44,6 +44,12 @@ def wall(request):
 
 # A run just after midnight (the seeded readings then fall on day edges) and one mid-afternoon.
 PINNED = pytest.mark.parametrize("wall", [(0, 27), (14, 0)], indirect=True, ids=["00h27", "14h00"])
+# The same on the latest Wednesday: for a test that needs every radiator measured on the days
+# before. Chambre 1's simulated programme leaves it idle from Friday evening to Sunday 20:00, so
+# its counter does not move and those days stay unknown until it does (never 0).
+PINNED_MIDWEEK = pytest.mark.parametrize(
+    "wall", [(0, 27, "midweek"), (14, 0, "midweek")], indirect=True, ids=["00h27", "14h00"]
+)
 
 
 @pytest.fixture
@@ -507,12 +513,14 @@ async def test_an_invalid_selected_period_is_french(api, params):
     assert r.status_code == 422 and r.json()["detail"] == "Période invalide."
 
 
+@PINNED_MIDWEEK
 async def test_by_radiator_covers_the_selected_period_with_rooms_and_room_stats(api):
     c, _, rt, _ = api
-    day = today() - timedelta(days=2)
+    t = rt.linky.today()
+    day = t - timedelta(days=2)
     r = await c.get(
         "/api/energy",
-        params={"from": str(day - timedelta(days=6)), "to": str(today()), "focus": str(day)},
+        params={"from": str(day - timedelta(days=6)), "to": str(t), "focus": str(day)},
     )
     body = r.json()
     assert (body["period"]["from"], body["period"]["to"]) == (
@@ -817,7 +825,7 @@ async def test_a_days_radiator_euros_read_the_same_in_jour_semaine_and_mois(api)
         assert jour["eur"] is not None and len(set(seen)) == 1, (d, seen)
 
 
-@PINNED
+@PINNED_MIDWEEK
 async def test_a_room_s_day_reads_its_par_piece_row(api):
     """Window invariance (CLAUDE.md « Énergie figures »): a room's elapsed day is the sum of its
     radiators' rows in Énergie's Par pièce for that day (Jour), € to the cent. `days=1` is today
