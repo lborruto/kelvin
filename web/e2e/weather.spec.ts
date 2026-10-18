@@ -56,6 +56,21 @@ test('weather off, on, off', async ({ page }) => {
   await expect(page.getByText('Dehors', { exact: true })).toHaveCount(0);
 });
 
+// Plan 15, spec §7.7: without a place, « Météo et coût » shows nothing anywhere (the brands home, place removed).
+test('weather off shows nothing of « Météo et coût »', async ({ page }) => {
+  await page.goto('/energy');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.locator('.hero').first()).toBeVisible();
+  await expect(page.locator('#weather-cost')).toHaveCount(0);
+  await page.goto('/');
+  await expect(page.locator('.cat').first()).toBeVisible();
+  await expect(page.getByText(/de chauffage$/)).toHaveCount(0);
+  await expect(page.getByText(/pas de chauffage prévu/)).toHaveCount(0);
+  await page.goto('/rooms/p-sejour');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByText('Froid', { exact: true })).toHaveCount(0);
+});
+
 test('the Énergie CSV keeps its weather columns without a place', async ({ page }) => {
   await page.goto('/energy');
   await page.locator('.export button[aria-haspopup="menu"]').filter({ visible: true }).first().click();

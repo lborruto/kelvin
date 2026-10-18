@@ -16,6 +16,8 @@ const ROUTES = [
   '/schedule?room=p-ch1&day=saturday',
   '/schedule?room=p-ch2',
   '/energy',
+  // Plan 15: Énergie scrolled to « Météo et coût » (the demo house has its place).
+  '/energy#weather-cost',
   '/home',
   '/home/tariff',
   '/home/linky',

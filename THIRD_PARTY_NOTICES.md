@@ -23,6 +23,7 @@ full licence text: https://openfontlicense.org/open-font-license-official-text/
 |---|---|
 | [Open-Meteo](https://open-meteo.com/) API data | CC BY 4.0 (https://open-meteo.com/en/license); the free API is for non-commercial use (https://open-meteo.com/en/terms). Kelvin shows « Weather data by Open-Meteo.com » with a link next to every weather figure. |
 | Météo-France (AROME France HD, ARPEGE model data, through Open-Meteo) | Météo-France open-data licence, https://donneespubliques.meteofrance.fr |
+| ECMWF (IFS 0.25° open-data forecasts, days 5–7, through Open-Meteo) | CC BY 4.0; contains modified ECMWF data, https://www.ecmwf.int/en/forecasts/datasets/open-data |
 | Copernicus Climate Change Service (ERA5-Land, through Open-Meteo) | Contains modified Copernicus Climate Change Service information; Copernicus licence, https://cds.climate.copernicus.eu |
 | GeoNames (place search, through Open-Meteo's geocoder) | CC BY 4.0, https://www.geonames.org |
 

@@ -29,7 +29,10 @@
   with your own tariff: Base, off-peak/peak (HC/HP) or Tempo. See how much goes to the radiators,
   room by room, and export it as CSV.
 - **Outdoor temperature (optional).** Pick your town and see the temperature outside next to your
-  rooms and your consumption, and how your use changed at equal weather.
+  rooms and your consumption, and how your use changed at equal weather. « Météo et coût » then
+  estimates, with a range, how much you use whatever the weather, how much more each degree colder
+  costs (for the home and each room), what the next 7 days and the month end should cost
+  (forecasts from Météo-France, then ECMWF).
 - **Alerts.** A red Tempo day tomorrow, an EcoWatt warning, a radiator that went
   offline, new regulated prices, a Linky consent about to expire.
 - **French or English**, switched in Settings without a reload.
@@ -221,7 +224,7 @@ ids or serial numbers.
 
 MIT, see [LICENSE](LICENSE). Bundled fonts (Geist, JetBrains Mono) are under the SIL Open Font
 License 1.1; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Weather data by
-[Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0), from Météo-France and Copernicus (ERA5-Land);
+[Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0), from Météo-France, ECMWF (IFS forecasts) and Copernicus (ERA5-Land);
 place search by GeoNames. Kelvin uses Open-Meteo's free API, which is for non-commercial use.
 
 ## Not affiliated

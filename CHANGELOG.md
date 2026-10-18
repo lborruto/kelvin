@@ -3,6 +3,26 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## 0.3.0
+
+- « Météo et coût » in Énergie (with a place set in Réglages › Météo): how much your home uses whatever
+  the weather, how much more each degree colder adds in kWh and euros, the share of the period due to
+  the cold, a chart of every day of the last 12 months against the outdoor temperature, and the cost of
+  the next 7 days. Every figure is an estimate with its range (8 chances in 10) and says why when it
+  cannot be given; it is never a saving.
+- Each room's sensitivity to the cold, from its radiators' own meters (only days they measured whole),
+  on the room sheet and in « Où part l’énergie ».
+- Maison says what tomorrow should cost to heat (« Demain : 2 °C → ~2,40 € de chauffage »).
+- The month-end projection follows the weather (measured days, the forecast, then seasonal normals)
+  and gives its range; the Résumé shows the month's change « à météo égale ».
+- A new export, `meteo_<from>_<to>.csv` (each day's outdoor mean, kWh, € and the model's expected kWh).
+  The Énergie CSV is unchanged.
+- AI assistants (MCP): a read-only `get_weather_model` tool; `get_room_energy` and `get_energy`'s month
+  projection carry the new figures.
+- Forecasts now reach 7 days (Météo-France for 4 days, then ECMWF), and once a place is set the weather
+  history reaches 5 years back (one-time download) for the seasonal normals. Absences started with
+  « Partir… » are remembered for a year so the model leaves those days out.
+
 ## 0.2.0
 
 - Outdoor temperature (optional, off until you pick a place in Réglages › Météo): a « Dehors » chip

@@ -14,6 +14,8 @@ const outDir = process.env.SCREENS_DIR ?? 'test-results/screens';
 
 const PATHS = ['/', '/rooms/p-salon', '/rooms/p-ch2', '/schedule', '/energy', '/home', '/home/devices', '/home/tariff', '/home/linky'];
 PATHS.push('/home/sources', '/home/weather', '/home/account', '/login', '/no-such-page');
+// Plan 15: « Météo et coût » (390 px phone and 1440 px desktop projects).
+PATHS.push('/energy#weather-cost');
 for (const path of PATHS) {
   test(`screen ${path}`, async ({ browser, page: loggedIn }, info) => {
     // /login sends a logged-in visitor away: capture it from a fresh, logged-out context.
@@ -32,7 +34,7 @@ for (const path of PATHS) {
     await page.getByRole('main').waitFor();
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(1200);
-    const name = `${locale}_${info.project.name}${path === '/' ? '_rooms' : path.replaceAll('/', '_')}.png`;
+    const name = `${locale}_${info.project.name}${path === '/' ? '_rooms' : path.replace(/[/#]/g, '_')}.png`;
     await page.screenshot({ path: `${outDir}/${name}`, fullPage: true });
   });
 }

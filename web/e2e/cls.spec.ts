@@ -13,6 +13,9 @@ ROUTES.push('/rooms/p-salon', '/no-such-page');
 ROUTES.push('/schedule?room=p-ch1&day=tuesday', '/schedule?room=p-ch2');
 // Tableau: the room sheet of an offline room (notice, ghost day) over the tableau.
 ROUTES.push('/rooms/p-ch2');
+// Plan 15 « Météo et coût » with the demo place: Maison's « Demain » (phone Bill + Demain 164 px, desktop Demain +
+// Hier 134 px), the room sheet's « Froid » row (skeleton 136 px) and Énergie scrolled to the panel.
+ROUTES.push('/energy#weather-cost');
 
 test.describe('CLS matrix', () => {
   test.skip(({ isMobile }) => isMobile, 'explicit widths');
