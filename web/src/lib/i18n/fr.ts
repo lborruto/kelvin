@@ -1867,6 +1867,7 @@ export const fr = {
     leftOut: `Les fourchettes supposent le point d’équilibre connu et les jours indépendants${NB}: elles sont un peu optimistes.`,
     priceRule: (price: string) => `Euros au prix moyen récent, aux tarifs d’aujourd’hui (${price})${NB}; chaque jour passé au prix payé.`,
     forecastRule: `Prévision${NB}: Météo-France jusqu’à 4${NB}jours, puis ECMWF. Erreur supposée de la température moyenne${NB}: 1,0${NB}°C demain, 2,7${NB}°C à 7${NB}jours.`,
+    forecastRuleBestMatch: `Prévision${NB}: le meilleur modèle d’Open-Meteo pour le lieu, sur 7${NB}jours. Erreur supposée de la température moyenne${NB}: 1,0${NB}°C demain, 2,7${NB}°C à 7${NB}jours.`,
     normalsRule: (years: number) => `Au-delà, normales de saison${NB}: les mêmes jours (± 3) des ${int(years)}${NB}dernières années.`,
     otherModel: 'La comparaison à météo égale d’Analyse utilise son propre ajustement autour de la période de référence.',
     rowOutside: 'Dehors',

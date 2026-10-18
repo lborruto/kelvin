@@ -31,7 +31,6 @@ def inputs(**kw):
     days = [TODAY - timedelta(days=i) for i in range(1, 366)]
     base = dict(
         today=TODAY,
-        period=(date(2026, 11, 1), TODAY + ONE),
         weather_on=True,
         linky=True,
         points={d: C.DayPoint(d, kwh(temp(d)), None, None, False, None) for d in days},

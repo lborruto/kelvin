@@ -107,7 +107,8 @@ export function methodLines(v: WeatherCost): string[] {
   if (h.r2 != null) out.push(`${m.weatherCost.r2} ${fmtFixed(h.r2, 2)} · ${m.weatherCost.residual} ${fmtKwhExact(h.residual_sd_kwh)}`);
   out.push(m.weatherCost.leftOut);
   if (v.price) out.push(m.weatherCost.priceRule(fmtPrice(v.price.eur_kwh)));
-  out.push(m.weatherCost.forecastRule);
+  // Outside France the forecast is Open-Meteo's best match for all 7 days (no Météo-France, no ECMWF outlook).
+  out.push(v.forecast.days.some((d) => d.model === 'best_match') ? m.weatherCost.forecastRuleBestMatch : m.weatherCost.forecastRule);
   if (v.normals) out.push(m.weatherCost.normalsRule(v.normals.years));
   out.push(m.weatherCost.otherModel);
   return out;

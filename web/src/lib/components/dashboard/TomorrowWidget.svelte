@@ -39,14 +39,6 @@
 </script>
 
 <Widget title={m.maison.tomorrow} pad={compact ? 'sm' : 'md'}>
-  {#if weatherOn}
-    <p class="line wline" class:compact>
-      <Icon name="weather" size={15} />
-      {#if forecast === undefined}<Skeleton h={14} w="70%" shape="line" />
-      {:else}<Fig class="wfig" value={line ?? '—'} {title} rows={day && line ? forecastRows(day) : []} empty={why} provenance={prov}
-          link={{ label: m.weather.attributionShort, href: ATTRIBUTION_URL }} />{/if}
-    </p>
-  {/if}
   {#if tempo !== undefined}
     <p class="line"><TempoDot colour={tempo} /><b>{tempo ? m.maison.tempo(m.grid.colour[tempo]) : m.maison.tempo('—')}</b></p>
     {#if !tempo}<p class="sub">{m.maison.tempoPending(expectedAt)}</p>{/if}
@@ -57,6 +49,15 @@
   {:else}
     <p class="line"><Icon name="alert" size={15} /><b>EcoWatt</b></p><!-- i18n-ignore: brand name -->
     <p class="sub">{m.maison.ecowattUnknown}</p>
+  {/if}
+  <!-- Plan 15: last, so a place saved while Maison is open never moves Tempo and EcoWatt. -->
+  {#if weatherOn}
+    <p class="line wline" class:compact>
+      <Icon name="weather" size={15} />
+      {#if forecast === undefined}<Skeleton h={14} w="70%" shape="line" />
+      {:else}<Fig class="wfig" value={line ?? '—'} {title} rows={day && line ? forecastRows(day) : []} empty={why} provenance={prov}
+          link={{ label: m.weather.attributionShort, href: ATTRIBUTION_URL }} />{/if}
+    </p>
   {/if}
 </Widget>
 

@@ -371,7 +371,6 @@ class LinkyService:
             rooms_of.setdefault(room, []).append(rid)
         mi = ModelInputs(
             today=today,
-            period=(today.replace(day=1), today + timedelta(days=1)),
             weather_on=on,
             linky=self.store.last_day() is not None,
             points=daily_points(inp, w_from, today) if on else {},

@@ -8,7 +8,7 @@ What changes from one release to the next, in plain words. Versions follow
 - « Météo et coût » in Énergie (with a place set in Réglages › Météo): how much your home uses whatever
   the weather, how much more each degree colder adds in kWh and euros, the share of the period due to
   the cold, a chart of every day of the last 12 months against the outdoor temperature, and the cost of
-  the next 7 days. Every figure is an estimate with its range (8 chances in 10) and says why when it
+  the next 7 days. Every figure is an estimate with its range (an 8 in 10 chance) and says why when it
   cannot be given; it is never a saving.
 - Each room's sensitivity to the cold, from its radiators' own meters (only days they measured whole),
   on the room sheet and in « Où part l’énergie ».

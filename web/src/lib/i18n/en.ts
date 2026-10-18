@@ -1813,6 +1813,7 @@ export const en: Messages = {
     leftOut: 'The ranges assume the balance point is known and days are independent: they are a little optimistic.',
     priceRule: (price: string) => `Euros at the recent average price, at today’s rates (${price}); each past day at the price paid.`,
     forecastRule: `Forecast: Météo-France up to 4 days, then ECMWF. Assumed error of the mean temperature: 1.0${NB}°C tomorrow, 2.7${NB}°C at 7 days.`,
+    forecastRuleBestMatch: `Forecast: Open-Meteo’s best model for the place, over 7 days. Assumed error of the mean temperature: 1.0${NB}°C tomorrow, 2.7${NB}°C at 7 days.`,
     normalsRule: (years: number) => `Beyond that, seasonal normals: the same days (± 3) over the last ${int(years)} years.`,
     otherModel: 'Analysis’s weather-adjusted comparison uses its own fit around the reference period.',
     rowOutside: 'Outside',

@@ -254,3 +254,15 @@ def test_a_finished_month_is_never_a_weather_projection():
     assert m["key"] == "2026-10" and m["method"] in ("seasonal", "linear")
     assert m["weather"] is None
     assert m["kwh"] == pytest.approx(31 * 30.0, abs=1e-3)
+
+
+def test_no_stated_price_means_no_forecast_eur():
+    """Final review: a tariff but too few recent Linky days for the trailing price → `price` null,
+    and the forecast days carry no € either (never € without a price stated)."""
+    inp = inputs(daily={D - timedelta(days=30): 30_000}, tariff=hchp_tariff(), today=D)
+    assert trailing_price(inp) is None
+    v = model_euros(_view([_fday(D + timedelta(days=1), 30.0, 20.0)]), inp, trailing_price(inp))
+    assert v["price"] is None and v["house"]["eur_per_c"] is None
+    d = v["forecast"]["days"][0]
+    assert d["eur"] is None and d["heating_eur"] is None and d["eur_why"] == "price_unknown"
+    assert v["forecast"]["week"]["eur"] is None and v["forecast"]["week"]["priced_days"] == 0

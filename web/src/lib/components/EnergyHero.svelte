@@ -137,7 +137,7 @@
     const pm = report.projection?.month;
     const month: Key | null =
       latest && pm
-        ? { id: ENERGY_ANCHORS.projection, label: m.energyUi.keyMonth, value: m.projection.approx(pm.eur != null ? fmtEurHero(pm.eur) : fmtKwhHero(pm.kwh)), sub: null }
+        ? { id: ENERGY_ANCHORS.projection, label: m.energyUi.keyMonth, value: m.projection.approx(pm.eur != null ? fmtEurHero(pm.eur) : fmtKwhHero(pm.kwh)), sub: pm.method === 'weather' ? m.weatherCost.projWeather : null }
         : null;
     const h = report.heating;
     const heating: Key | null =

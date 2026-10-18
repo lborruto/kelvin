@@ -911,7 +911,8 @@ def _weather_month(
         if d not in mo.days:
             return {**blank, "why": mo.missing.get(d, "weather_missing")}
     kwh = sum(mo.days[d][0] for d in need)
-    lo, hi, spread = mo.interval(need) if mo.interval else (kwh, kwh, "full")
+    assert mo.interval is not None  # always set with no `why` (costmodel._month_outlook)
+    lo, hi, spread = mo.interval(need)
     base = actual["kwh"] or 0.0
     src = [mo.days[d][1] for d in need]
     tariff = inp.tariff
@@ -1008,7 +1009,7 @@ def model_euros(view: dict[str, Any], inp: ReportInputs, price: float | None) ->
         s["eur"], s["eur_lo"], s["eur_hi"] = eur(s["kwh"]), eur(s["kwh_lo"]), eur(s["kwh_hi"])
     for r in view["rooms"]["items"]:
         r["eur_per_c"] = eur(r.get("kwh_per_c"))
-    _forecast_euros(view["forecast"], inp)
+    _forecast_euros(view["forecast"], inp, price)
     view["price"] = (
         None
         if price is None or inp.tariff is None
@@ -1017,12 +1018,14 @@ def model_euros(view: dict[str, Any], inp: ReportInputs, price: float | None) ->
     return view
 
 
-def _forecast_euros(fc: dict[str, Any], inp: ReportInputs) -> None:
+def _forecast_euros(fc: dict[str, Any], inp: ReportInputs, price: float | None) -> None:
     days = [d for d in fc.get("days", []) if d.get("kwh") is not None]
     week = fc.get("week")
-    if inp.tariff is None:
+    if inp.tariff is None or price is None:
+        # No tariff, or no price stated (fewer than 7 Linky days in the last 30): no forecast €, so
+        # `price: null` always means every forecast € is null (spec §8.1).
         for d in days:
-            d["eur_why"] = "no_tariff"
+            d["eur_why"] = "no_tariff" if inp.tariff is None else "price_unknown"
         if week is not None:
             week.update(eur=None, heating_eur=None, priced_days=0)
         return

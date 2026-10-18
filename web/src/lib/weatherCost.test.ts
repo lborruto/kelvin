@@ -136,3 +136,11 @@ describe('weatherCost words', () => {
     expect(s(whereLine(OK.rooms.items, () => 'Living room'))).toBe('Per °C colder: Living room +0.8 kWh');
   });
 });
+
+describe('methodLines: the forecast rule names the source (final review)', () => {
+  it('outside France, Open-Meteo’s best match over 7 days', () => {
+    const bm = { ...OK, forecast: { ...OK.forecast, days: OK.forecast.days.map((d) => ({ ...d, model: 'best_match' as const })) } };
+    expect(methodLines(bm).join(' ')).toContain('le meilleur modèle d’Open-Meteo');
+    expect(methodLines(OK).join(' ')).toContain('Météo-France jusqu’à 4');
+  });
+});

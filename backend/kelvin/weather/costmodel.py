@@ -63,7 +63,6 @@ ROOM_EXCLUDED = ("incomplete", "no_weather", "away", "outlier")
 @dataclass
 class ModelInputs:
     today: date
-    period: tuple[date, date]
     weather_on: bool
     linky: bool
     points: dict[date, DayPoint]  # W's measured Linky days (report.daily_points)
@@ -417,8 +416,7 @@ def build(inp: ModelInputs) -> tuple[Core, MonthOutlook | None]:
         "forecast": _forecast(inp, f),
         "normals": normals_info(temps, inp.today) if inp.weather_on else None,
     }
-    counted = {d: v for d, v in raw.items()} if inp.weather_on else {}
-    return Core(view, f, counted), _month_outlook(inp, f)
+    return Core(view, f, raw), _month_outlook(inp, f)
 
 
 def _line(f: F.Fit, raw: dict[date, tuple[float, float, bool]]) -> list[dict[str, Any]]:
