@@ -63,12 +63,17 @@
 <Widget title={m.weatherCost.title} level="h2" aside={m.weatherCost.aside} meta={thin ? estimate : undefined} id="weather-cost"
   class="wide weather-cost">
   {#if model === undefined}
+    <!-- The loaded panel's blocks at their final heights, width by width (CLS on a #weather-cost landing): title,
+         strip, week line, figures, chips, scatter (+ its axis labels), legend, « Comment c’est calculé ». -->
     <div class="sk" aria-hidden="true">
       <Skeleton h={18} w="40%" shape="line" />
-      <Skeleton h={64} />
-      <Skeleton h={72} />
-      <Skeleton h={height + 40} />
-      <Skeleton h={44} />
+      <Skeleton h="var(--sk-strip)" />
+      <Skeleton h="var(--sk-week)" w="60%" shape="line" />
+      <Skeleton h="var(--sk-figs)" />
+      {#if tariff}<Skeleton h={32} w={120} shape="pill" />{/if}
+      <Skeleton h="calc({height}px + var(--sk-axis))" />
+      <Skeleton h="var(--sk-legend)" w="80%" shape="line" />
+      <Skeleton h="var(--sk-more)" />
     </div>
   {:else if model === null}
     <p class="muted failed">{m.weatherCost.failed}
@@ -124,7 +129,32 @@
 <style>
   .sk {
     display: grid;
-    gap: 10px;
+    gap: 8px;
+    --sk-strip: 64px;
+    --sk-week: 19px;
+    --sk-figs: 72px;
+    --sk-legend: 17px;
+    --sk-more: 44px;
+    --sk-axis: 43px; /* the scatter's axis labels under its plot */
+  }
+  @media (max-width: 640px) {
+    .sk {
+      --sk-figs: 224px; /* the three figures stacked */
+    }
+  }
+  @media (max-width: 480px) {
+    .sk {
+      --sk-strip: 134px; /* the strip on two rows */
+      --sk-legend: 39px;
+    }
+  }
+  @media (max-width: 360px) {
+    .sk {
+      --sk-week: 38px;
+      --sk-legend: 60px;
+      --sk-more: 48px;
+      --sk-axis: 60px;
+    }
   }
   .muted {
     color: var(--mu);
