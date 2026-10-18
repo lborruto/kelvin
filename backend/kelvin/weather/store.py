@@ -233,6 +233,34 @@ class WeatherStore:
         ) + self._delete_batches("weather_daily", "day < ?", (horizon,))
 
     def clear(self) -> int:
-        return self._delete_batches("weather_hourly", "1", ()) + self._delete_batches(
-            "weather_daily", "1", ()
+        return (
+            self._delete_batches("weather_hourly", "1", ())
+            + self._delete_batches("weather_daily", "1", ())
+            + self._delete_batches("weather_outlook", "1", ())
         )
+
+    def ingest_outlook(self, hours: list[Hour], now: float) -> int:
+        """Replace the whole outlook with this fetch's hours from the current hour on."""
+        keep = [h for h in hours if h.ts >= now - 3600]
+        self.db.execute("DELETE FROM weather_outlook")
+        if keep:
+            self.db.executemany(
+                "INSERT OR REPLACE INTO weather_outlook (ts, t, model, fetched_at)"
+                " VALUES (?, ?, ?, ?)",
+                [(h.ts, h.t, h.model, now) for h in keep],
+            )
+        return len(keep)
+
+    def outlook(self, start_ts: int, end_ts: int) -> list[Hour]:
+        rows = self.db.rows(
+            "SELECT ts, t, model FROM weather_outlook WHERE ts >= ? AND ts < ? ORDER BY ts",
+            (start_ts, end_ts),
+        )
+        return [Hour(r[0], r[1], None, None, r[2]) for r in rows]
+
+    def signature(self) -> tuple:
+        """Changes whenever a figure the model reads can change (daily rows, forecast, outlook)."""
+        d = self.db.rows("SELECT COUNT(*), MAX(day) FROM weather_daily WHERE tmean IS NOT NULL")[0]
+        h = self.db.rows("SELECT MAX(fetched_at) FROM weather_hourly")[0]
+        o = self.db.rows("SELECT MAX(fetched_at) FROM weather_outlook")[0]
+        return (d[0], d[1], h[0], o[0])

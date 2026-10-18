@@ -169,12 +169,26 @@ def _v5_weather_tables(conn: sqlite3.Connection) -> None:
     )
 
 
+def _v6_outlook_and_away(conn: sqlite3.Connection) -> None:
+    """v6 (Plan 15): the ECMWF outlook hours (future only, replaced at each fetch) and Kelvin's
+    absence log (`away_log`, written by OverrideManager, seeded from command_log). Idempotent."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS weather_outlook ("
+        " ts INTEGER PRIMARY KEY, t REAL NOT NULL, model TEXT NOT NULL, fetched_at REAL NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS away_log ("
+        " id TEXT PRIMARY KEY, start REAL NOT NULL, end REAL NOT NULL, ended INTEGER NOT NULL)"
+    )
+
+
 MIGRATIONS = {
     1: _v1_energy_counters,
     2: _v2_session_ids,
     3: _v3_command_log_codes,
     4: _v4_mcp_tables,
     5: _v5_weather_tables,
+    6: _v6_outlook_and_away,
 }
 SCHEMA_VERSION = max(MIGRATIONS)  # a new migration is the new version
 

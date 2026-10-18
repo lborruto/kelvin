@@ -25,7 +25,7 @@ from kelvin.grid.service import GridService
 from kelvin.grid.store import GridStore
 from kelvin.house.model import House, build_house
 from kelvin.linky.fake import DEMO_PRM, FakeLinkySource
-from kelvin.linky.models import Contract, LinkySource, local_day
+from kelvin.linky.models import Contract, LinkySource
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import DAILY_BUDGET
 from kelvin.overkiz.budget import QuotaReadout, SetupReadGuard
@@ -557,18 +557,12 @@ async def start_runtime(
             if runtime and not runtime[0].closed:
                 bc.publish("weather", weather_view(runtime[0]))
 
-        def weather_first_days() -> list[date | None]:
-            firsts = [a for a, _ in recorder.energy_extent().values()]
-            first_reading = local_day(int(min(firsts)), zone) if firsts else None
-            return [linky_service.store.first_day(), first_reading]
-
         weather = WeatherService(
             WeatherStore(db, settings.tz),
             make_weather_source(settings, is_sim, wall),
             db=db,
             tz=settings.tz,
             wall=wall,
-            first_days=weather_first_days,
             on_change=on_weather,
         )
         linky_service.outdoor = weather.store.daily

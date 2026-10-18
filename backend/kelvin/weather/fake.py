@@ -19,6 +19,7 @@ from kelvin.weather.models import (
     AROME_HD,
     ARPEGE,
     BEST_MATCH,
+    ECMWF,
     ERA5_LAND,
     HistoryKind,
     Hour,
@@ -93,6 +94,23 @@ class FakeWeatherSource:
             first = day_bounds(AROME_HD_SINCE, self.tz)[0]
             hours = [t for t in hours if t >= first]
         return [self._hour(t, code) for t in hours]
+
+    async def outlook(self, loc: Location, days: int) -> list[Hour]:
+        self.calls.append("outlook")
+        self._raise("outlook")
+        now = self.wall()
+        today = datetime.fromtimestamp(now, self.tz).date()
+        return [
+            Hour(t, self.temp_at(t), None, None, ECMWF)
+            for t in self._days(today, today + timedelta(days=days))
+            if t >= now - 3600
+        ]
+
+    def day_mean(self, day: date) -> float:
+        """The day's (Tn + Tx) / 2, as a stored day would read: the simulator's Linky follows it."""
+        a, b = day_bounds(day, self.tz)
+        ts = [self.temp_at(t) for t in range(a, b, 3600)]
+        return (min(ts) + max(ts)) / 2
 
     async def search(self, text: str, language: str) -> list[Place]:
         self.calls.append("search")

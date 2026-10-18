@@ -27,7 +27,7 @@ def at(y, mo, d, h=0, mi=0):
 NOW = at(2026, 11, 20, 14, 10)
 
 
-def make(tmp_path, now=NOW, first=None, source=None):
+def make(tmp_path, now=NOW, source=None):
     clock = ManualClock(now)
     db = Database(tmp_path / "k.db")
     src = source or FakeWeatherSource(wall=clock)
@@ -38,7 +38,6 @@ def make(tmp_path, now=NOW, first=None, source=None):
         db=db,
         tz=PARIS,
         wall=clock,
-        first_days=lambda: list(first or []),
         on_change=lambda: changes.append(1),
     )
     return svc, src, clock, changes
@@ -109,7 +108,7 @@ async def test_forecast_job_fills_the_view(tmp_path):
 
 
 def test_backfill_plan_sources_by_date(tmp_path):
-    svc, *_ = make(tmp_path, first=[date(2021, 1, 1)])
+    svc, *_ = make(tmp_path)
     svc.set_location(lat=45.76, lon=4.84, origin="manual")
     today = date(2026, 11, 20)
     assert svc.backfill_start(today) == today - timedelta(days=ws.MAX_DAYS)
@@ -125,17 +124,15 @@ def test_backfill_plan_sources_by_date(tmp_path):
     assert {k for k, _, _ in svc.backfill_plan()} == {"best_match"}
 
 
-def test_backfill_start_follows_the_data(tmp_path):
+def test_backfill_start_is_five_years(tmp_path):
     today = date(2026, 11, 20)
     svc, *_ = make(tmp_path)
-    assert svc.backfill_start(today) == today - timedelta(days=ws.MIN_DAYS)
-    svc, *_ = make(tmp_path / "b", first=[None, date(2026, 10, 1), date(2025, 11, 1)])
-    assert svc.backfill_start(today) == date(2025, 11, 1)
+    assert svc.backfill_start(today) == today - timedelta(days=ws.MAX_DAYS)  # normals need them
 
 
 async def test_backfill_stops_at_the_run_cap_and_resumes(tmp_path, monkeypatch):
     monkeypatch.setattr(ws, "BACKFILL_RUN_CAP", 10.0)
-    svc, src, *_ = make(tmp_path, first=[date(2025, 11, 1)])
+    svc, src, *_ = make(tmp_path)
     svc.set_location(lat=45.76, lon=4.84, origin="manual")
     assert await svc.backfill_job() is True
     assert len([c for c in src.calls if c.startswith("history")]) == 1  # 6.6 + 6.6 > 10
@@ -155,9 +152,7 @@ async def test_era5_fills_what_arome_lacks_once_old_enough(tmp_path):
             hole = datetime(2026, 11, 5, tzinfo=PARIS).timestamp()
             return [h for h in hours if kind != "arome_hd" or not hole <= h.ts < hole + 6 * 3600]
 
-    svc, src, *_ = make(
-        tmp_path, first=[date(2026, 10, 25)], source=Holey(wall=ManualClock(at(2026, 11, 20, 14)))
-    )
+    svc, src, *_ = make(tmp_path, source=Holey(wall=ManualClock(at(2026, 11, 20, 14))))
     svc.set_location(lat=45.76, lon=4.84, origin="manual")
     await svc.backfill_job()
     assert any(c == "history:era5_land:2026-11-05:2026-11-06" for c in src.calls)
@@ -212,20 +207,28 @@ async def test_search_is_rate_limited_and_failures_are_503(tmp_path):
 
 
 async def test_a_scheduler_day_costs_what_it_should(tmp_path):
-    svc, src, clock, _ = make(tmp_path, now=at(2026, 11, 20, 0, 30), first=[date(2026, 9, 1)])
+    svc, src, clock, _ = make(tmp_path, now=at(2026, 11, 20, 0, 30))
     svc.set_location(lat=45.76, lon=4.84, origin="manual")
     sched = Scheduler(svc.store.db, svc.jobs(), tz=PARIS, wall=clock)
-    for _ in range(25):
+    for _ in range(24):
         await sched.run_due()
         clock.advance(3600)
-    assert src.calls.count("forecast") == 25  # the missed 00:17 at start, then 24 slots
-    assert len([c for c in src.calls if c.startswith("history")]) == 1  # Sept–Nov in one chunk
+    assert src.calls.count("forecast") == 24  # the missed 00:17 at start, then 23 slots
+    assert src.calls.count("outlook") == 4
+    assert len([c for c in src.calls if c.startswith("history")]) > 1  # 5 years, once
     assert svc.calls_today() <= ws.DAILY_WEIGHT_CAP
     assert sched.status("weather_backfill")["state"] == "ok"
+    # A France-mode day after the backfill (22 November, every slot on time): 24 forecasts and
+    # 4 outlooks, weight 1 each.
+    while clock() < at(2026, 11, 22, 23, 55):
+        await sched.run_due()
+        clock.advance(300)
+    await sched.run_due()
+    assert svc.calls_today() == pytest.approx(28.0)
 
 
 async def test_the_backfill_finalises_days_the_forecast_filled(tmp_path):
-    svc, src, clock, _ = make(tmp_path, first=[date(2026, 11, 1)])
+    svc, src, clock, _ = make(tmp_path)
     svc.set_location(lat=45.76, lon=4.84, origin="manual")
     await svc.forecast_job()  # fills 18 and 19 November (past days), not final
     day = date(2026, 11, 18)
@@ -244,7 +247,6 @@ async def test_the_history_is_pending_until_every_range_was_asked(tmp_path):
 
     svc, *_ = make(
         tmp_path,
-        first=[date(2026, 10, 1)],
         source=NoOldDays(wall=ManualClock(at(2026, 11, 20, 14))),
     )
     svc.set_location(lat=45.76, lon=4.84, origin="manual")
@@ -252,4 +254,7 @@ async def test_the_history_is_pending_until_every_range_was_asked(tmp_path):
     await svc.backfill_job()
     cov = svc.settings_view()["coverage"]
     assert cov["pending"] is False  # asked once per source: the history ends where the data ends
-    assert cov["first_day"] == "2026-11-05" and cov["from"] == "2026-10-01"
+    assert (
+        cov["first_day"] == "2026-11-05"
+        and cov["from"] == svc.backfill_start(date(2026, 11, 20)).isoformat()
+    )

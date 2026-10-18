@@ -1,8 +1,9 @@
 """Outdoor weather inside Kelvin (spec §4, §5): the private location, Kelvin's own call budget,
 and the two jobs in the shared Scheduler.
 
-- forecast, hourly at :17: the last 2 days and the next 2, one weighted call;
-- backfill, 04:50 and after a save: every incomplete day from `backfill_start` to yesterday,
+- forecast, hourly at :17: the last 2 days and the next 4 (8 outside France), one weighted call;
+- outlook (France only), 05:40, 11:40, 17:40, 23:40: ECMWF IFS hours to day 7, stored apart;
+- backfill, 04:50 and after a save: every incomplete day of the last 5 years to yesterday,
   AROME HD (historical forecast) from 2022-11-13, ERA5-Land before it and for AROME HD gaps older
   than 6 days; `best_match` outside France. A range is asked once (`weather_backfill`).
 The location is never logged and never leaves this service except through `settings_view()`."""
@@ -46,11 +47,13 @@ DEMO_KEY = "weather_demo_seeded"
 FORECAST_TIMES = tuple(dtime(h, 17) for h in range(24))
 BACKFILL_TIMES = (dtime(4, 50),)
 PAST_DAYS = 2
-FORECAST_DAYS = 2
+FORECAST_DAYS = 4  # /v1/meteofrance accepts 0–4 (verified 2026-10-17); weight stays 1
+BEST_MATCH_FORECAST_DAYS = 8  # /v1/forecast outside France reaches day 7
+OUTLOOK_DAYS = 8
+OUTLOOK_TIMES = (dtime(5, 40), dtime(11, 40), dtime(17, 40), dtime(23, 40))
 CHUNK_DAYS = 92
 ERA5_DELAY_DAYS = 6
 MAX_DAYS = 5 * 366
-MIN_DAYS = 31
 DAILY_WEIGHT_CAP = 400.0
 BACKFILL_RUN_CAP = 300.0
 SEARCHES_PER_HOUR = 30
@@ -126,7 +129,6 @@ class WeatherService:
         db: Any,
         tz: str | ZoneInfo = "Europe/Paris",
         wall: Callable[[], float] = time.time,
-        first_days: Callable[[], list[date | None]] = list,
         on_change: Callable[[], None] = _noop,
     ) -> None:
         self.store = store
@@ -134,7 +136,6 @@ class WeatherService:
         self.db = db
         self.tz = tz if isinstance(tz, ZoneInfo) else ZoneInfo(tz)
         self.wall = wall
-        self.first_days = first_days
         self.on_change = on_change
         self._searches: deque[float] = deque()
 
@@ -247,10 +248,12 @@ class WeatherService:
         loc = self.location()
         if loc is None:
             return False
-        models = 2 if loc.mode == "meteofrance" else 1
-        if not self._spend(weight(VARIABLE_COUNT * models, PAST_DAYS + FORECAST_DAYS)):
+        france = loc.mode == "meteofrance"
+        models = 2 if france else 1
+        days = FORECAST_DAYS if france else BEST_MATCH_FORECAST_DAYS
+        if not self._spend(weight(VARIABLE_COUNT * models, PAST_DAYS + days)):
             raise WeatherBudgetSpent("budget")
-        hours = await self.source.forecast(loc, PAST_DAYS, FORECAST_DAYS)
+        hours = await self.source.forecast(loc, PAST_DAYS, days)
         if (
             self.location() != loc
         ):  # changed while the call was out: these hours are another place's
@@ -259,11 +262,28 @@ class WeatherService:
         self.on_change()
         return True
 
+    def _outlook_enabled(self) -> bool:
+        loc = self.location()
+        return loc is not None and loc.mode == "meteofrance"
+
+    async def outlook_job(self) -> bool:
+        """Days 5–7 in France (ECMWF IFS via Open-Meteo), 4 times a day, weight 1; stored apart."""
+        loc = self.location()
+        if loc is None or loc.mode != "meteofrance":
+            return False
+        if not self._spend(weight(1, OUTLOOK_DAYS)):
+            raise WeatherBudgetSpent("budget")
+        hours = await self.source.outlook(loc, OUTLOOK_DAYS)
+        if self.location() != loc:
+            return False
+        self.store.ingest_outlook(hours, self.wall())
+        self.on_change()
+        return True
+
     def backfill_start(self, today: date) -> date:
-        floor = today - timedelta(days=MAX_DAYS)
-        firsts = [d for d in self.first_days() if d is not None]
-        base = min(firsts) if firsts else today
-        return max(floor, min(base, today - timedelta(days=MIN_DAYS)))
+        """5 years back whenever a place is set: the climate normals need them (spec 2026-10-18
+        §6.3)."""
+        return today - timedelta(days=MAX_DAYS)
 
     def _asked(self) -> dict[str, list[list[str]]]:
         v = self.db.get_setting(BACKFILL_KEY) or {}
@@ -329,6 +349,7 @@ class WeatherService:
         return [
             Job("weather_forecast", FORECAST_TIMES, self.forecast_job, self.enabled),
             Job("weather_backfill", BACKFILL_TIMES, self.backfill_job, self.enabled),
+            Job("weather_outlook", OUTLOOK_TIMES, self.outlook_job, self._outlook_enabled),
         ]
 
     # — search —

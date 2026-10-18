@@ -39,9 +39,18 @@ Findings Kelvin's code relies on:
   than 2 weeks for a single location are considered multiple API calls … fractional counts ». Kelvin counts
   `max(1, series / 10) × max(1, days / 14)` with `series = variables × models`.
 - Licence, quoted: « You must include a link next to any location Open-Meteo data are displayed ».
+- ECMWF outlook (forecast days 5–7 in France, verified live 2026-10-18 by one read-only request at a place in
+  France): `GET api.open-meteo.com/v1/forecast?hourly=temperature_2m&models=ecmwf_ifs025&forecast_days=8
+  &timeformat=unixtime` answers 192 hourly values with no null; `best_match` is the fallback should the model
+  ever be refused (`OUTLOOK_MODEL` in `weather/client.py`). Weight 1 per call (1 series × 8 days), 4 a day.
+- The 5-year backfill (climate normals, Plan 15): about 131 weighted calls once per place, within the 300 a run.
 
 ## Not verified
 
 - Whether `models` multiplies the weight. Kelvin counts each model's series (it can only over-count).
 - The exact domain edge of AROME France HD. Kelvin falls back per hour to `meteofrance_seamless` wherever AROME HD
   is null.
+- Whether one `models=ecmwf_ifs025` answers unsuffixed keys (`temperature_2m`) or suffixed ones
+  (`temperature_2m_ecmwf_ifs025`): Kelvin accepts both.
+- ECMWF open data's licence wording through Open-Meteo (CC BY 4.0, « Contains modified ECMWF data »): to confirm
+  before the README and Third-party notices quote it.
