@@ -27,6 +27,7 @@
   import SourceLine from '$lib/components/SourceLine.svelte';
   import Swatch from '$lib/components/Swatch.svelte';
   import TempoRows from '$lib/components/TempoRows.svelte';
+  import WeatherCostPanel from '$lib/components/WeatherCostPanel.svelte';
   import WhereTop from '$lib/components/WhereTop.svelte';
   import type { TempoColour, TempoCounts } from '$lib/api/types';
   import { addDays, bucketLabel, spanLabel, bucketSpan, dataSpan, firstCounted, periodTitle, SERIES, VIEWS, type View } from '$lib/energy';
@@ -44,6 +45,7 @@
   import { announcer } from '$lib/stores/announcer.svelte';
   import { house } from '$lib/stores/house.svelte';
   import { weather } from '$lib/stores/weather.svelte';
+  import { weatherModel } from '$lib/stores/weatherModel.svelte';
   import { weatherSource } from '$lib/weather';
   import { today } from '$lib/today.svelte';
   import { EnergieData } from './energie.svelte';
@@ -231,7 +233,7 @@
 
   // Arriving with a section's hash (the room sheet's « Énergie de la pièce » → #energy-where, Maison's month-end
   // estimate → #projection): once the first report is drawn, the section opens, then the page scrolls to it.
-  const LANDING: string[] = [ENERGY_ANCHORS.where, ENERGY_ANCHORS.offpeak, ENERGY_ANCHORS.projection, ANCHORS.curve];
+  const LANDING: string[] = [ENERGY_ANCHORS.where, ENERGY_ANCHORS.offpeak, ENERGY_ANCHORS.projection, ENERGY_ANCHORS.weather, ANCHORS.curve];
   let landed = false;
   $effect(() => {
     if (landed || !loaded) return;
@@ -241,6 +243,21 @@
     untrack(() => reveal(id));
     void tick().then(() => document.getElementById(id)?.scrollIntoView?.({ block: 'start', behavior: 'auto' }));
   });
+
+  // Plan 15: « Météo et coût » for the selected period (`to` exclusive, as the report), only with Linky and a place.
+  let weatherPeriod = $derived(loaded && main?.linky && weather.on ? { from: loaded.period.from, to: loaded.period.to } : null);
+  $effect(() => {
+    const p = weatherPeriod;
+    if (p) untrack(() => weatherModel.load(p));
+  });
+  $effect(() => {
+    const at = weather.view?.fetched_at ?? null;
+    untrack(() => weatherModel.onWeather(at, weatherPeriod));
+  });
+  $effect(() => {
+    if (weather.view === null) untrack(() => weatherModel.reset()); // the place went: its answers with it
+  });
+  let weatherCost = $derived(weatherModel.get(weatherPeriod));
 
   // Analyse: Comparaisons and Projection (and Heures creuses / pleines when the Tempo rows took its place in the board).
   let cards = $derived(!loaded || !loaded.main.linky ? 0 : tempoLens ? 3 : 2);
@@ -546,6 +563,12 @@
         onroom={(id) => roomDay && data.setRoom(id)} />
       {#if whereOpen}<button type="button" class="btn btn-ghost btn-sm fold" onclick={() => (whereOpen = false)}>{m.energyBoard.whereClose}</button>{/if}
     </div>
+  {/if}
+
+  {#if main.linky && weatherPeriod}
+    <!-- Plan 15: « Météo et coût », the last 12 months against the outdoor temperature (full width, before Analyse). -->
+    <WeatherCostPanel model={weatherCost} periodName={periodTitle(loaded.view, loaded.period)} tariff={main.tariff}
+      onretry={() => weatherPeriod && weatherModel.load(weatherPeriod, true)} />
   {/if}
 
   {#if main.linky}
