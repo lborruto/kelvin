@@ -171,7 +171,12 @@ export const DYNAMIC = [
   // Plan 14: read by index (m.prov.weather[model], m.weather.why[why])
   'prov.weather',
   'weather.why',
-  'weather.elevationFrom'
+  'weather.elevationFrom',
+  // Plan 15: read by index (m.weatherCost.why[why], …eurWhy[d.eur_why], …excluded[p.excluded], …projWhy[w.why])
+  'weatherCost.why',
+  'weatherCost.eurWhy',
+  'weatherCost.excluded',
+  'weatherCost.projWhy'
 ];
 
 const SRC = resolve(process.cwd(), 'src');

@@ -10,10 +10,12 @@ import json
 import logging
 import math
 import random
-from datetime import datetime
+from collections.abc import Callable
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from kelvin.house.model import DAY_ORDER, House, Radiator
+from kelvin.linky.models import day_bounds
 from kelvin.recorder.db import Database
 
 log = logging.getLogger(__name__)
@@ -32,6 +34,23 @@ SIM_DB_KEY = "sim_db"
 # morning in Chambre 1, presence every evening in the Salon. (radiator id, from, to) local minutes.
 SIM_WINDOW = ("9000011", 7 * 60 + 30, 7 * 60 + 50)
 SIM_PRESENCE = ("10000001", 18 * 60, 22 * 60 + 30)
+# Plan 15 (weather coupling): heat lost per second per °C of room − outdoor; at 8 °C apart, the
+# old constant drift.
+K_LOSS = COOL_PER_S / 8.0
+# The demo's absence, from 23 to 21 days ago (spec 2026-10-18 §9): three local days.
+SIM_AWAY_DAYS = (23, 21)
+
+
+def seed_demo_away(db: Database, now: float, tz: str = "Europe/Paris") -> None:
+    """The demo house's absence (simulator only): three days the weather model leaves out."""
+    zone = ZoneInfo(tz)
+    today = datetime.fromtimestamp(now, zone).date()
+    a = day_bounds(today - timedelta(days=SIM_AWAY_DAYS[0]), zone)[0]
+    b = day_bounds(today - timedelta(days=SIM_AWAY_DAYS[1]), zone)[0] + 12 * 3600
+    if not db.rows("SELECT 1 FROM away_log WHERE id = 'sim-away'"):
+        db.execute(
+            "INSERT INTO away_log (id, start, end, ended) VALUES ('sim-away', ?, ?, 1)", (a, b)
+        )
 
 
 def _minutes(hhmm: str) -> int:
@@ -69,7 +88,13 @@ def _flag(r: Radiator, local: datetime, run: tuple[str, int, int]) -> int:
     return 1 if r.id == run[0] and run[1] <= minute < run[2] else 0
 
 
-def _simulate(r: Radiator, times: list[int], tz: ZoneInfo, current: float | None) -> list[tuple]:
+def _simulate(
+    r: Radiator,
+    times: list[int],
+    tz: ZoneInfo,
+    current: float | None,
+    outdoor: Callable[[int], float] | None = None,
+) -> list[tuple]:
     rng = random.Random(r.id)
     temp = _plan(r, datetime.fromtimestamp(times[0], tz))[0] - 0.5
     rows: list[tuple] = []
@@ -81,9 +106,12 @@ def _simulate(r: Radiator, times: list[int], tz: ZoneInfo, current: float | None
         if temp < setpoint:
             if r.mode != "off":  # proportional: full power far below the setpoint, less near it
                 rate = min(100.0, (setpoint - temp) / FULL_POWER_GAP * 100.0)
+            if outdoor is not None:  # the room loses heat to the outdoor while it heats
+                temp -= K_LOSS * (temp - outdoor(t)) * SAMPLE_STEP
             temp += (setpoint - temp) * (1 - math.exp(-SAMPLE_STEP / TAU_S))
         elif temp > setpoint:
-            temp = max(max(setpoint, COOL_FLOOR), temp - COOL_PER_S * SAMPLE_STEP)
+            drift = COOL_PER_S if outdoor is None else max(0.0, K_LOSS * (temp - outdoor(t)))
+            temp = max(max(setpoint, COOL_FLOOR), temp - drift * SAMPLE_STEP)
         shown = temp
         if current is not None and i >= blend_from:
             w = (i - blend_from + 1) / (len(times) - blend_from)
@@ -107,9 +135,15 @@ def _simulate(r: Radiator, times: list[int], tz: ZoneInfo, current: float | None
 
 
 def seed_history(
-    db: Database, house: House, now: float, days: int = 7, tz: str = "Europe/Paris"
+    db: Database,
+    house: House,
+    now: float,
+    days: int = 7,
+    tz: str = "Europe/Paris",
+    outdoor: Callable[[int], float] | None = None,
 ) -> int:
-    """Insert synthetic samples and energy readings if the samples table is empty."""
+    """Insert synthetic samples and energy readings if the samples table is empty. `outdoor`
+    (Plan 15, the demo house): the rooms lose heat to it, so their energy follows the cold."""
     if db.query("SELECT 1 FROM samples LIMIT 1") or db.query("SELECT 1 FROM energy LIMIT 1"):
         return 0
     zone = ZoneInfo(tz)
@@ -119,7 +153,7 @@ def seed_history(
     sample_rows: list[tuple] = []
     energy_rows: list[tuple] = []
     for r in house.radiators.values():
-        rows = _simulate(r, times, zone, r.temperature)
+        rows = _simulate(r, times, zone, r.temperature, outdoor)
         sample_rows += rows
         energy_rows += _energy_rows(r, rows, hours, zone)
     # One transaction: a crash must not leave samples without energy, nor an unmarked sim DB.

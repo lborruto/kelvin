@@ -107,6 +107,44 @@ describe('ProjectionPanel (M4, M5)', () => {
   });
 });
 
+describe('ProjectionPanel: the month end from the weather (Plan 15)', () => {
+  const weather = { why: null, observed_days: 1, today: true, forecast_days: 7, normal_days: 9, kwh_lo: 398.2, kwh_hi: 426.9, eur_lo: 90.21, eur_hi: 95.99, spread: 'full' as const };
+  it('« selon la météo » after the month, the range and the days in Détails', async () => {
+    const p = { ...projection, month: { ...projection.month, eur: 93.1, method: 'weather' as const, weather } };
+    const { container } = render(ProjectionPanel, { projection: p, last: '2026-10-14', today: '2026-10-15' });
+    expect(text(container.querySelectorAll('.row')[0])).toContain('≈ 93,10 € selon la météo');
+    await fireEvent.click(screen.getByRole('button', { name: /^Comment c’est calculé/ }));
+    const d = text(container.querySelector('.disclosure')!);
+    expect(d).toContain(
+      'entre 90,21 € et 95,99 € (8 chances sur 10) : 2 jours estimés sur la météo observée, 7 jours de prévision, 9 jours de normales de saison.'
+    );
+    expect(d).not.toContain('Mois en cours');
+  });
+  it('a reason keeps v0.2’s words plus one muted line', async () => {
+    const p = { ...projection, month: { ...projection.month, method: 'seasonal' as const, weather: { ...weather, why: 'no_normals' as const } } };
+    const { container } = render(ProjectionPanel, { projection: p, last: '2026-10-14', today: '2026-10-15' });
+    expect(text(container.querySelectorAll('.row')[0])).not.toContain('selon la météo');
+    await fireEvent.click(screen.getByRole('button', { name: /^Comment c’est calculé/ }));
+    const d = text(container.querySelector('.disclosure')!);
+    expect(d).toContain('Mois en cours');
+    expect(d).toContain('normales de saison pas encore disponibles');
+  });
+  it('a month measured whole (2 November, Linky through 31 October): v0.2’s words, no weather line', async () => {
+    const p = { ...projection, month: { ...projection.month, method: 'seasonal' as const, weather: null } };
+    const { container } = render(ProjectionPanel, { projection: p, last: '2026-10-31', today: '2026-11-02' });
+    expect(text(container.querySelectorAll('.row')[0])).not.toContain('selon la météo');
+    await fireEvent.click(screen.getByRole('button', { name: /^Comment c’est calculé/ }));
+    const d = text(container.querySelector('.disclosure')!);
+    expect(d).not.toMatch(/entre .* \(8 chances sur 10\)|jours de prévision|normales de saison/);
+  });
+  it('without a place: v0.2’s words only', async () => {
+    const p = { ...projection, month: { ...projection.month, weather: null } };
+    const { container } = render(ProjectionPanel, { projection: p, last: '2026-10-14', today: '2026-10-15' });
+    await fireEvent.click(screen.getByRole('button', { name: /^Comment c’est calculé/ }));
+    expect(text(container.querySelector('.disclosure')!)).not.toMatch(/météo|normales/);
+  });
+});
+
 it('in English: a late Linky says so', () => {
   applyLocale('en');
   const { container } = render(ProjectionPanel, { projection: null, last: '2026-10-11', today: '2026-10-15' });

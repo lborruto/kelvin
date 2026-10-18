@@ -224,7 +224,7 @@ export interface Snapshot {
 // — Weather (Plan 14, spec §4, §7): the API contract of `GET /api/weather*` and `/api/settings/weather` —
 
 /** The model behind an hour: Kelvin's codes (`arpege` is Météo-France seamless beyond AROME's horizon). */
-export type WeatherModel = 'arome_hd' | 'arpege' | 'era5_land' | 'best_match' | 'mixed';
+export type WeatherModel = 'arome_hd' | 'arpege' | 'era5_land' | 'best_match' | 'mixed' | 'ecmwf' | 'simulator';
 /** `GET /api/weather`, the snapshot's and the SSE event's `weather`: never the place or its coordinates. */
 export interface WeatherView {
   /** The current hour (epoch s `at`), or null before the first reading. */
@@ -560,6 +560,8 @@ export interface Quality {
   retro_scheduled_days: number;
 }
 export type ProjectionMethod = 'seasonal' | 'linear';
+/** The running month's method: `weather` (Plan 15, spec §8.4) only there; the year and rolling keep v0.2's. */
+export type MonthMethod = ProjectionMethod | 'weather';
 export interface Projection {
   month: {
     key: string;
@@ -570,7 +572,9 @@ export interface Projection {
     actual_energy_eur: number | null;
     /** Elapsed days without Linky data, estimated at the same rate (M4). */
     filled_days: number;
-    method: ProjectionMethod;
+    method: MonthMethod;
+    /** Plan 15 (spec 2026-10-18 §8.4): the weather path's figures, or its reason; null without a weather place. */
+    weather?: MonthWeather | null;
   };
   year: {
     from: string;
@@ -578,7 +582,7 @@ export interface Projection {
     kwh: number;
     eur: number | null;
     method: ProjectionMethod | 'mixed';
-    months: { key: string; kwh: number; eur: number | null; method: ProjectionMethod }[];
+    months: { key: string; kwh: number; eur: number | null; method: MonthMethod }[];
   };
   /** The next 365 days from tomorrow (M5), `to` exclusive. */
   rolling: {
@@ -698,6 +702,8 @@ export interface RoomEnergy {
   priced: boolean;
   /** Days with energy but no € (a Tempo colour not published): why `eur` is null. */
   missing_colour_days?: number;
+  /** Plan 15 (spec 2026-10-18 §8.3): the room's 365-day weather model; null without a weather place. */
+  weather?: RoomWeather | null;
 }
 export interface Run {
   start: number;
@@ -844,4 +850,172 @@ export interface SetupView {
 export interface Layout {
   house: HouseView;
   setup: SetupView;
+}
+
+// — « Météo et coût » (Plan 15, spec 2026-10-18 §8): the API contract of `GET /api/energy/weather*` —
+
+export type ModelState = 'ok' | 'hidden';
+export type HouseWhy = 'weather_off' | 'no_linky' | 'few_days' | 'few_heating_days' | 'poor_fit';
+export type RoomWhy = 'weather_off' | 'no_radiator' | 'few_days' | 'few_heating_days' | 'poor_fit';
+export type ThinReason = 'short_history' | 'few_cold_days' | 'no_mild_days';
+export interface RatePart {
+  /** The report's `by_rate` keys: hc, hp, base, blue_hc … unknown_hp. */
+  key: string;
+  kwh: number;
+}
+/** One day of the fit window with energy and a complete weather day. */
+export interface ModelPoint {
+  date: string;
+  t_c: number;
+  /** Degrees below the balance point; null while the model is hidden. */
+  degrees_c: number | null;
+  kwh: number;
+  /** The day bar's own € (energy only); null with an unknown Tempo colour or no tariff. */
+  energy_eur: number | null;
+  parts: RatePart[] | null;
+  split_estimated: boolean;
+  colour: TempoColour | null;
+  used: boolean;
+  excluded: 'away' | 'outlier' | null;
+  in_period: boolean;
+  expected_kwh: number | null;
+}
+/** A sample of the model line with its 80 % band (sorted by `t_c`); € at today's prices. */
+export interface LineSample {
+  t_c: number;
+  kwh: number;
+  kwh_lo: number;
+  kwh_hi: number;
+  eur: number | null;
+  eur_lo: number | null;
+  eur_hi: number | null;
+}
+export interface PeriodShare {
+  weather_kwh: number;
+  kwh: number;
+  share: number | null;
+  degrees: number;
+  mild: boolean;
+  days: number;
+  of: number;
+}
+export interface HouseSummary {
+  state: ModelState;
+  why: HouseWhy | null;
+  thin: ThinReason[];
+  balance_point_c: number | null;
+  balance_point_source: 'estimated' | 'convention' | null;
+  baseload_kwh_day: number | null;
+  baseload_kwh_day_range: [number, number] | null;
+  baseload_eur_day: number | null;
+  kwh_per_c: number | null;
+  kwh_per_c_range: [number, number] | null;
+  eur_per_c: number | null;
+  r2: number | null;
+  residual_sd_kwh: number | null;
+  fit_days: number | null;
+  heating_days: number | null;
+  excluded: { no_energy: number; no_weather: number; away: number; outlier: number };
+}
+export interface HouseModel extends HouseSummary {
+  period_share: PeriodShare | null;
+  line: LineSample[];
+  points: ModelPoint[];
+}
+export interface RoomModel {
+  room_id: string;
+  state: ModelState;
+  why: RoomWhy | null;
+  thin: ThinReason[];
+  kwh_per_c: number | null;
+  kwh_per_c_range: [number, number] | null;
+  eur_per_c: number | null;
+  baseload_kwh_day: number | null;
+  r2: number | null;
+  fit_days: number | null;
+  heating_days: number | null;
+  coverage: { days: number; of: number; share: number | null } | null;
+  excluded: { incomplete: number; no_weather: number; away: number; outlier: number } | null;
+}
+export type RoomsBalance = 'house' | 'radiators' | 'convention';
+/** `GET /api/rooms/{id}/energy` `weather` (spec §8.3). */
+export interface RoomWeather extends RoomModel {
+  balance_point_c: number | null;
+  balance_point_source: RoomsBalance | null;
+}
+export interface ForecastDay {
+  date: string;
+  lead: number;
+  t_c: number | null;
+  tmin_c: number | null;
+  tmax_c: number | null;
+  degrees_c: number | null;
+  model: WeatherModel | null;
+  complete: boolean;
+  kwh: number | null;
+  kwh_lo: number | null;
+  kwh_hi: number | null;
+  heating_kwh: number | null;
+  heating_kwh_lo: number | null;
+  heating_kwh_hi: number | null;
+  eur: number | null;
+  eur_lo: number | null;
+  eur_hi: number | null;
+  heating_eur: number | null;
+  eur_why: 'no_tariff' | 'tempo_colour_unknown' | 'price_unknown' | null;
+  colour: TempoColour | null;
+  parts: RatePart[] | null;
+  /** The assumed error of this day's mean temperature forecast (°C). */
+  sigma_c: number;
+}
+export interface WeatherForecast {
+  state: ModelState;
+  why: 'weather_off' | 'model_hidden' | 'no_forecast' | null;
+  fetched_at: number | null;
+  days: ForecastDay[];
+  week: {
+    kwh: number | null;
+    heating_kwh: number | null;
+    eur: number | null;
+    heating_eur: number | null;
+    days: number;
+    priced_days: number;
+  } | null;
+}
+export interface WeatherCostPrice {
+  eur_kwh: number;
+  option: 'base' | 'hchp' | 'tempo';
+}
+/** `GET /api/energy/weather` (spec §8.1). */
+export interface WeatherCost {
+  computed_at: number;
+  window: { from: string; to: string };
+  period: { from: string; to: string };
+  level: number;
+  price: WeatherCostPrice | null;
+  house: HouseModel;
+  rooms: { balance_point_c: number | null; balance_point_source: RoomsBalance | null; items: RoomModel[] };
+  forecast: WeatherForecast;
+  normals: { years: number; first_day: string; window_days: number } | null;
+}
+/** `GET /api/energy/weather/forecast` (Maison, spec §8.2). */
+export interface WeatherCostForecastView {
+  computed_at: number;
+  level: number;
+  price: WeatherCostPrice | null;
+  house: HouseSummary;
+  forecast: WeatherForecast;
+}
+/** `projection.month.weather` (spec §8.4). */
+export interface MonthWeather {
+  why: 'model_hidden' | 'no_forecast' | 'no_normals' | 'weather_missing' | null;
+  observed_days: number;
+  today: boolean;
+  forecast_days: number;
+  normal_days: number;
+  kwh_lo: number | null;
+  kwh_hi: number | null;
+  eur_lo: number | null;
+  eur_hi: number | null;
+  spread: 'full' | 'no_normals_spread' | null;
 }

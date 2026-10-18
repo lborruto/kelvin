@@ -48,9 +48,14 @@ class FakeLinkySource:
         wall: Callable[[], float] = time.time,
         activation: date = date(2020, 1, 1),
         radiators_halfhours: Callable[[date], list[float | None] | None] | None = None,
+        outdoor: Callable[[date], float] | None = None,
+        away: Callable[[date], bool] | None = None,
     ) -> None:
         self.tz = ZoneInfo(tz)
         self.radiators_halfhours = radiators_halfhours
+        # Plan 15 (the demo house): the day's outdoor mean drives the heating, an absence cuts it.
+        self.outdoor = outdoor
+        self.away = away
         self.wall = wall
         self.activation = activation
         self.calls: list[str] = []
@@ -76,6 +81,11 @@ class FakeLinkySource:
         rng = random.Random(day.toordinal())
         base = 8000 + 3000 * winter + rng.uniform(-700, 700)
         seasonal = 30000 * winter * rng.uniform(0.85, 1.15)
+        if self.outdoor is not None:  # spec 2026-10-18 §9: 9.6 kWh + 2.3 kWh per °C below 15.5
+            base = 9600 + rng.uniform(-500, 500)
+            seasonal = 2300 * max(0.0, 15.5 - self.outdoor(day)) * rng.uniform(0.92, 1.08)
+            if self.away is not None and self.away(day):
+                seasonal *= 0.3
         known = self.radiators_halfhours(day) if self.radiators_halfhours is not None else None
         if known is None:
             return base, None, seasonal

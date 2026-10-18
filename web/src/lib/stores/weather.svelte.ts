@@ -13,6 +13,8 @@ export const HOURLY_MAX_AGE_MS = 10 * 60_000;
 export class WeatherStore {
   view = $state<WeatherView | null | undefined>(undefined);
   entries = $state<Record<string, HourlyEntry>>({});
+  /** Plan 15: bumped (reactively) with each place change, so answers about the previous place can be dropped. */
+  place = $state(0);
   /** Bumped when the place changes or goes: an answer for the previous place is dropped. */
   #generation = 0;
 
@@ -30,6 +32,7 @@ export class WeatherStore {
   /** Another place (Réglages › Météo saved or removed one): every cached window is another place's. */
   placeChanged(): void {
     this.#generation++;
+    this.place++;
     this.entries = {};
   }
 

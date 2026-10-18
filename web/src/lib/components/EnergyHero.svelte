@@ -69,10 +69,14 @@
   let prevName = $derived(prev ? (report.comparison.basis === 'days' ? m.hero.sameLength : previousName(view, prev.from)) : '');
   let noData = $derived(report.linky && p.kwh == null);
   // Plan 14: the period's outdoor mean and degree days, one muted line; nothing without a weather place.
+  // Plan 15 (spec §7.2): in Mois, the change against the previous month at equal weather (v0.2's comparison) closes
+  // the same line, never coloured.
+  let adjusted = $derived(view === 'month' ? fmtChangeShare(prev?.weather?.change) : null);
   let outdoorLine = $derived(
     p.outdoor
       ? p.outdoor.mean_c != null
-        ? m.weather.heroLine(fmtTemp(p.outdoor.mean_c), p.outdoor.dju != null ? fmtDju(p.outdoor.dju) : null)
+        ? m.weather.heroLine(fmtTemp(p.outdoor.mean_c), p.outdoor.dju != null ? fmtDju(p.outdoor.dju) : null) +
+          (adjusted ? ` · ${m.weather.atEqualWeather(adjusted)}` : '')
         : m.weather.heroNone
       : null
   );
@@ -133,7 +137,7 @@
     const pm = report.projection?.month;
     const month: Key | null =
       latest && pm
-        ? { id: ENERGY_ANCHORS.projection, label: m.energyUi.keyMonth, value: m.projection.approx(pm.eur != null ? fmtEurHero(pm.eur) : fmtKwhHero(pm.kwh)), sub: null }
+        ? { id: ENERGY_ANCHORS.projection, label: m.energyUi.keyMonth, value: m.projection.approx(pm.eur != null ? fmtEurHero(pm.eur) : fmtKwhHero(pm.kwh)), sub: pm.method === 'weather' ? m.weatherCost.projWeather : null }
         : null;
     const h = report.heating;
     const heating: Key | null =

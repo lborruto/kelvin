@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     # Optional Host header allowlist, comma-separated; localhost and 127.0.0.1 always pass.
     kelvin_allowed_hosts: str = ""
     tz: str = "Europe/Paris"
+    # Simulator only (Plan 15): radiator history seeded at start and the weather coupling that
+    # makes « Météo et coût » demonstrable; tests turn both down (conftest).
+    kelvin_sim_history_days: int = 45
+    kelvin_sim_weather_coupling: bool = True
 
     @field_validator("cozy_server")
     @classmethod

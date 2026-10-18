@@ -559,6 +559,22 @@ async def test_third_failure_warning_names_the_reason(env, caplog):
     assert any("QUOTA" in r.getMessage() for r in caplog.records if r.levelname == "WARNING")
 
 
+async def test_an_away_is_logged_with_its_real_end(env):
+    clock, gw, house, svc, db, mgr = env
+    o, _ = await mgr.start("away", list(SALON), 12.0, clock() + 3 * 86400, label="a")
+    await settle(clock, gw, house, svc)
+    clock.advance(86400)
+    await mgr.cancel(o.id)
+    rows = db.rows("SELECT id, start, end, ended FROM away_log")
+    assert rows == [(o.id, o.created_at, clock(), 1)]
+
+
+async def test_a_boost_is_not_logged(env):
+    clock, gw, house, svc, db, mgr = env
+    await mgr.start("boost", ["9500003"], 21.0, clock() + 3600, label="b")
+    assert db.rows("SELECT * FROM away_log") == []
+
+
 def _unplug(gw, house, rid):
     """The radiator's heater is unreachable (powered off at the breaker): core:StatusState."""
     url = house.radiators[rid].heater_url

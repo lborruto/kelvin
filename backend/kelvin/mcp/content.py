@@ -56,6 +56,12 @@ without a place; `heating_degree_days` null unless every elapsed day has weather
 `previous` and `last_year` comparisons `weather_normalised`: Kelvin's regression of daily kWh on
 degree days, the change at equal weather (computed, never a saving). The place itself is never
 available: only `location_set`.
+`get_weather_model` gives Kelvin's heating model of the home: a baseload (kWh/day whatever the
+weather), kWh and euros per degree colder below a balance point, each room's sensitivity from its
+radiators (only fully measured days; `coverage_share`), and the next 7 days' cost with 80 %
+ranges. It is an estimate (basis `estimated`), never a saving; `why` says why a figure is
+missing. `get_energy`'s `projection.month` says when the month end follows the weather
+(`method` `weather`, its range in `weather`), and `get_room_energy` carries the room's `weather`.
 
 ## Proposals
 Estimates are upper bounds or proportional estimates with the consumption held equal; they are

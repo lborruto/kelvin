@@ -35,7 +35,10 @@ depends on.
 - Tests never contact Overkiz, MyElectricalData or Open-Meteo: use `FakeGateway`, `FakeLinkySource`,
   `FakeWeatherSource` (`backend/kelvin/weather/fake.py`), `httpx.MockTransport` or a stub client.
   The Sauter demo house seeds a demo weather place (« Lyon (simulateur) »); the other simulator
-  houses start without one, like a real install.
+  houses start without one, like a real install. On that house the fake Linky and the seeded rooms
+  follow the fake outdoor temperature, with a three-day absence (`KELVIN_SIM_WEATHER_COUPLING`,
+  `KELVIN_SIM_HISTORY_DAYS` 45), so « Météo et coût » shows figures; backend tests turn both down
+  (`conftest.py`: off, 7 days) and the weather-model tests turn them back on.
 - `backend/scripts/` talk to a real installation. Run them only when the human asks and is
   watching, on their own installation. Read-only first; revert any write at once and confirm the
   original state. They write only under `backend/captures/` (gitignored).
@@ -267,7 +270,18 @@ depends on.
   weather-normalised comparison is `weather/normalise.py` only. Every displayed weather figure says
   « publié » with its model and links to https://open-meteo.com/ (CC BY 4.0) next to it (Fiche,
   legend, SourceLine, Réglages). On the room chart the outdoor temperature has its own lane and
-  scale under the plot, never the room's °C scale.
+  scale under the plot, never the room's °C scale. **« Météo et coût » (Plan 15):** the heating model
+  is `weather/fit.py` (change-point `kWh = a + b·max(0, Tb − T)`, Tb on a 0.5 °C grid, 80 % intervals,
+  Student t without scipy) built by `weather/costmodel.py` (pure) from `LinkyService.weather_model`
+  (memoised on the day, the hour and the data's signatures); house fits use measured Linky days only,
+  rooms only days every radiator alive measured whole (`RadiatorDay.complete`), absences (`away_log`,
+  schema v6, written by `OverrideManager`) and one 3-sigma outlier pass excluded; today never counts and a
+  forecast never fills a past day; thresholds live in `fit.py`/`normals.py`. Every € of it is rounded in
+  `billing/report.py` (`daily_points`, `model_euros`, `_projection`), never in `costmodel.py` or the web.
+  Forecast: Météo-France 4 days, then the `weather_outlook` job (ECMWF IFS, 4 calls a day, France mode)
+  stored apart in `weather_outlook`, never history; normals from the 5-year stored history (the backfill
+  always reaches 5 years once a place is set). `backend/tests/fixtures/weather_model_sample.json` and
+  `web/src/lib/fixtures/weatherModel.sample.json` are spec §8.1 byte for byte (`test_contract_files.py`).
 - **Network:** `/api/health` is open and says only the status word. Forwarded headers are
   ignored unless `KELVIN_TRUSTED_PROXIES` names the reverse proxy; nothing shipped enables them
   (`backend/tests/test_packaging.py` checks). The example compose file publishes on `127.0.0.1` unless `KELVIN_BIND`
@@ -349,7 +363,9 @@ depends on.
   session write, or an Overkiz or MyElectricalData call; the only writes are MCP's own audit rows
   and a token's `last_used`. `tests/test_mcp_guarantees.py` enforces it (an AST rule on
   `kelvin/mcp/` and a spy + database-diff run of everything on every simulator house): a new tool
-  goes into its `TOOLS` and `calls_for` in the same PR. Every tool is annotated read-only, runs
+  goes into its `TOOLS` and `calls_for` in the same PR. `get_weather_model` reads
+  `LinkyService.weather_model`'s memo and the stores, never a fetch; `weather/costmodel.py`, `fit.py`
+  and `normals.py` never import the weather service or client (an AST test). Every tool is annotated read-only, runs
   through `Runner` (audit, redaction, two at a time) and returns `shape.envelope` with units and a
   `basis` (`measured`, `computed`, `estimated`, `mixed`, `static`, `published`, `unknown`); keys are neutral
   (`offpeak`/`peak`, `shape.neutral`). Tools reuse the services and `api/bounds.py`/`api/views.py`;

@@ -5,6 +5,7 @@ The token is a secret and the PDL is personal data: neither is ever logged.
 
 from __future__ import annotations
 
+import copy
 import logging
 import time
 from collections.abc import Callable
@@ -21,8 +22,11 @@ from kelvin.billing.report import (
     Group,
     ReportInputs,
     build_report,
+    daily_points,
     default_period,
     last_linky_day,
+    model_euros,
+    trailing_price,
     unit_start,
 )
 from kelvin.billing.room_energy import room_energy
@@ -43,7 +47,17 @@ from kelvin.linky.sync import DAILY_BACKFILL_DAYS, DAILY_BUDGET, BudgetExceeded,
 from kelvin.recorder.db import Database
 from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
-from kelvin.weather.models import DayWeather
+from kelvin.weather.costmodel import (
+    FORECAST_DAYS,
+    WINDOW_DAYS,
+    Core,
+    ModelInputs,
+    MonthOutlook,
+    build,
+    period_view,
+)
+from kelvin.weather.dju import day_weather, forecast_days
+from kelvin.weather.models import DayWeather, Hour
 from kelvin.weather.normalise import FIT_MARGIN_DAYS
 
 log = logging.getLogger(__name__)
@@ -93,6 +107,13 @@ class LinkyService:
         # Plan 14: complete weather days and whether a place is set (WeatherService, runtime).
         self.outdoor: Callable[[date, date], dict[date, DayWeather]] = lambda start, end: {}
         self.weather_on: Callable[[], bool] = lambda: False
+        # Plan 15 (runtime): forecast and outlook hours, absence days and the stores' signatures.
+        self.forecast_hours: Callable[[int, int], list[Any]] = lambda a, b: []
+        self.outlook_hours: Callable[[int, int], list[Hour]] = lambda a, b: []
+        self.away_days: Callable[[date, date], set[date]] = lambda a, b: set()
+        self.weather_signature: Callable[[], tuple] = tuple
+        self.away_signature: Callable[[], tuple] = tuple
+        self._core_memo: tuple[tuple, Core, MonthOutlook | None] | None = None
         self.make_source = make_source
         self.simulator = simulator
         self.prm = credentials[0] if credentials else None
@@ -234,6 +255,21 @@ class LinkyService:
     ) -> dict[str, Any]:
         """`rooms`: the radiators in the house now → their room. Every radiator ever recorded
         is reported (L8); those no longer in the house exist up to their last reading."""
+        inputs, period = self._inputs(start, end, group, recorder, rooms, period)
+        if inputs.weather_on:  # Plan 15: the month end's weather path (§5.6)
+            inputs.month_outlook = self._core(recorder, rooms)[1]
+        return build_report(start, end, group, inputs, period)
+
+    def _inputs(
+        self,
+        start: date,
+        end: date,
+        group: Group,
+        recorder: Recorder,
+        rooms: dict[str, str],
+        period: tuple[date, date] | None,
+    ) -> tuple[ReportInputs, tuple[date, date]]:
+        """The report's inputs over the window and the period, and the resolved period."""
         today = self.today()
         tariff = self.tariffs.get()
         # Linky rows are loaded for the window, the period and what the comparisons, the
@@ -297,7 +333,117 @@ class LinkyService:
             outdoor=outdoor,
             weather_on=weather_on,
         )
-        return build_report(start, end, group, inputs, period)
+        return inputs, period
+
+    def _core(self, recorder: Recorder, rooms: dict[str, str]) -> tuple[Core, MonthOutlook | None]:
+        """Spec 2026-10-18 §5: the period-independent model, memoised (decision 10): rebuilt at
+        most hourly, or when the energy, the weather, the tariff, the absences or the rooms
+        change."""
+        today = self.today()
+        tariff = self.tariffs.get()
+        key = (
+            today,
+            int(self.wall() // 3600),
+            recorder.energy_epoch,
+            self.store.signature(),
+            self.weather_on(),
+            self.weather_signature(),
+            repr(tariff),
+            self.away_signature(),
+            tuple(sorted(rooms.items())),
+        )
+        if self._core_memo is not None and self._core_memo[0] == key:
+            return self._core_memo[1], self._core_memo[2]
+        w_from = today - timedelta(days=WINDOW_DAYS)
+        inp, _ = self._inputs(
+            w_from, today + timedelta(days=1), "day", recorder, rooms, (w_from, today)
+        )
+        # Forecast days are priced with tomorrow's and later colours when published.
+        inp.colours.update(self.colours(today, today + timedelta(days=FORECAST_DAYS + 2)))
+        on = self.weather_on()
+        a0 = day_bounds(today, self.tz)[0]
+        b7 = day_bounds(today + timedelta(days=FORECAST_DAYS), self.tz)[1]
+        stored = self.forecast_hours(a0, b7) if on else []
+        hours = [Hour(h.ts, h.t, h.apparent, h.rh, h.model) for h in stored]
+        outlook = self.outlook_hours(a0, b7) if on else []
+        rooms_of: dict[str, list[str]] = {}
+        for rid, room in rooms.items():
+            rooms_of.setdefault(room, []).append(rid)
+        mi = ModelInputs(
+            today=today,
+            weather_on=on,
+            linky=self.store.last_day() is not None,
+            points=daily_points(inp, w_from, today) if on else {},
+            weather=self.outdoor(today - timedelta(days=5 * 366 + 4), today) if on else {},
+            away=self.away_days(w_from, today) if on else set(),
+            rooms={k: sorted(v) for k, v in rooms_of.items()},
+            radiators=inp.radiators,
+            life=inp.radiator_life,
+            forecast=forecast_days(hours, outlook, self.tz, today, FORECAST_DAYS) if on else [],
+            today_weather=day_weather(today, hours, outlook, self.tz) if on else None,
+            fetched_at=max((h.fetched_at for h in stored), default=None),
+        )
+        core, month = build(mi)
+        model_euros(core.view, inp, trailing_price(inp))
+        core.view["computed_at"] = int(self.wall())
+        self._core_memo = (key, core, month)
+        return core, month
+
+    def weather_model(
+        self, recorder: Recorder, rooms: dict[str, str], period: tuple[date, date] | None
+    ) -> dict[str, Any]:
+        """`GET /api/energy/weather` (spec 2026-10-18 §8.1)."""
+        today = self.today()
+        core, _ = self._core(recorder, rooms)
+        return period_view(core, period or (today.replace(day=1), today + timedelta(days=1)), today)
+
+    def weather_forecast(self, recorder: Recorder, rooms: dict[str, str]) -> dict[str, Any]:
+        """`GET /api/energy/weather/forecast` (spec §8.2): the house without its points."""
+        core, _ = self._core(recorder, rooms)
+        v = core.view
+        house = {k: x for k, x in v["house"].items() if k not in ("line", "points", "period_share")}
+        return copy.deepcopy(
+            {
+                "computed_at": v["computed_at"],
+                "level": v["level"],
+                "price": v["price"],
+                "house": house,
+                "forecast": v["forecast"],
+            }
+        )
+
+    def room_weather(
+        self, room_id: str, recorder: Recorder, rooms: dict[str, str]
+    ) -> dict[str, Any] | None:
+        """The `weather` key of `GET /api/rooms/{id}/energy` (spec §8.3); None without a place."""
+        if not self.weather_on():
+            return None
+        core, _ = self._core(recorder, rooms)
+        r = core.view["rooms"]
+        item = next((i for i in r["items"] if i["room_id"] == room_id), None)
+        if item is None:
+            item = {
+                "room_id": room_id,
+                "state": "hidden",
+                "why": "no_radiator",
+                "thin": [],
+                "kwh_per_c": None,
+                "kwh_per_c_range": None,
+                "eur_per_c": None,
+                "baseload_kwh_day": None,
+                "r2": None,
+                "fit_days": None,
+                "heating_days": None,
+                "coverage": None,
+                "excluded": None,
+            }
+        return copy.deepcopy(
+            {
+                **item,
+                "balance_point_c": r["balance_point_c"],
+                "balance_point_source": r["balance_point_source"],
+            }
+        )
 
     def room_energy(
         self, ids: list[str], days: int, recorder: Recorder, in_house: set[str]

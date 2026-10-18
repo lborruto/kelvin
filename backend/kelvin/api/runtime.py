@@ -25,7 +25,7 @@ from kelvin.grid.service import GridService
 from kelvin.grid.store import GridStore
 from kelvin.house.model import House, build_house
 from kelvin.linky.fake import DEMO_PRM, FakeLinkySource
-from kelvin.linky.models import Contract, LinkySource, local_day
+from kelvin.linky.models import Contract, LinkySource
 from kelvin.linky.service import LinkyService
 from kelvin.linky.sync import DAILY_BUDGET
 from kelvin.overkiz.budget import QuotaReadout, SetupReadGuard
@@ -43,7 +43,8 @@ from kelvin.overkiz.models import (
 from kelvin.overkiz.poller import EventPump
 from kelvin.overkiz.sample import DEMO_OUTAGE_RID
 from kelvin.overkiz.servers import DEFAULT_SERVER
-from kelvin.overkiz.simhistory import SIM_DB_KEY, seed_history
+from kelvin.overkiz.simhistory import SIM_DB_KEY, seed_demo_away, seed_history
+from kelvin.recorder import away as away_log
 from kelvin.recorder.db import Database
 from kelvin.recorder.energy import local_edges
 from kelvin.recorder.recorder import Recorder
@@ -205,12 +206,19 @@ def make_linky_source(
     *,
     radiators_halfhours: Callable[[date], list[float | None] | None] | None = None,
     wall: Callable[[], float] = time.time,
+    outdoor: Callable[[date], float] | None = None,
+    away: Callable[[date], bool] | None = None,
 ) -> Callable[[str, str], LinkySource]:
     """`radiators_halfhours` (simulator only): the demo meter includes what the radiators
-    drew, half-hour by half-hour (L15)."""
+    drew, half-hour by half-hour (L15). `outdoor`/`away` (simulator only, Plan 15): the demo
+    meter's heating follows the outdoor temperature and drops during an absence."""
     if settings.kelvin_fake:  # the simulator never calls MyElectricalData
         return lambda prm, token: FakeLinkySource(
-            tz=settings.tz, radiators_halfhours=radiators_halfhours, wall=wall
+            tz=settings.tz,
+            radiators_halfhours=radiators_halfhours,
+            wall=wall,
+            outdoor=outdoor,
+            away=away,
         )
     from kelvin.linky.med import MedSource
 
@@ -412,8 +420,26 @@ async def start_runtime(
             house.backdate_status(gateway.sim_status_since)
         if stored_server is None:
             db.set_setting(SERVER_KEY, gateway.server)
+        # Plan 15: the demo house (the one with the demo weather place) follows the simulator's
+        # outdoor temperature, so « Météo et coût » has something to show.
+        couple = (
+            settings.kelvin_fake
+            and is_sim
+            and gateway.server == "sauter_cozytouch"
+            and settings.kelvin_sim_weather_coupling
+        )
+        sim_weather = FakeWeatherSource(tz=settings.tz) if couple else None
         if settings.kelvin_fake and is_sim:  # simulator only, never a real installation
-            seeded = seed_history(db, house, wall(), tz=settings.tz)
+            seeded = seed_history(
+                db,
+                house,
+                wall(),
+                days=settings.kelvin_sim_history_days if couple else 7,
+                tz=settings.tz,
+                outdoor=sim_weather.temp_at if sim_weather is not None else None,
+            )
+            if couple:
+                seed_demo_away(db, wall(), settings.tz)
             if seeded:
                 log.info("simulator: seeded %d synthetic history rows", seeded)
         bc = Broadcaster()
@@ -521,7 +547,15 @@ async def start_runtime(
             db,
             tz=settings.tz,
             make_source=make_linky_source(
-                settings, radiators_halfhours=_recorded_halfhours(recorder, settings.tz), wall=wall
+                settings,
+                radiators_halfhours=_recorded_halfhours(recorder, settings.tz),
+                wall=wall,
+                outdoor=sim_weather.day_mean if sim_weather is not None else None,
+                away=(
+                    (lambda d: d in away_log.away_days(db, d, d + timedelta(days=1), zone, wall()))
+                    if couple
+                    else None
+                ),
             ),
             credentials=credentials,
             simulator=settings.kelvin_fake,
@@ -557,21 +591,20 @@ async def start_runtime(
             if runtime and not runtime[0].closed:
                 bc.publish("weather", weather_view(runtime[0]))
 
-        def weather_first_days() -> list[date | None]:
-            firsts = [a for a, _ in recorder.energy_extent().values()]
-            first_reading = local_day(int(min(firsts)), zone) if firsts else None
-            return [linky_service.store.first_day(), first_reading]
-
         weather = WeatherService(
             WeatherStore(db, settings.tz),
             make_weather_source(settings, is_sim, wall),
             db=db,
             tz=settings.tz,
             wall=wall,
-            first_days=weather_first_days,
             on_change=on_weather,
         )
         linky_service.outdoor = weather.store.daily
+        linky_service.forecast_hours = weather.store.hours
+        linky_service.outlook_hours = weather.store.outlook
+        linky_service.weather_signature = weather.store.signature
+        linky_service.away_days = lambda a, b: away_log.away_days(db, a, b, zone, wall())
+        linky_service.away_signature = lambda: away_log.signature(db)
         linky_service.weather_on = weather.enabled
         if settings.kelvin_fake and is_sim and gateway.server == "sauter_cozytouch":
             weather.seed_demo()  # decision 10: the default demo house only

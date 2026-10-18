@@ -169,4 +169,13 @@ test.describe('key flows in English', () => {
     await page.goto('/home/weather');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Weather');
   });
+
+  test('Weather and cost in English (Plan 15)', async ({ page }) => {
+    await page.goto('/energy#weather-cost');
+    const panel = page.locator('#weather-cost');
+    await expect(panel.getByRole('heading', { name: 'Weather and cost' })).toBeVisible();
+    const figure = panel.getByText('Per °C colder');
+    const reason = panel.getByText(/not enough|does not follow/i);
+    await expect(figure.first().or(reason.first())).toBeVisible();
+  });
 });

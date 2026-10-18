@@ -28,6 +28,8 @@ import type {
   SyncStatus,
   TariffDoc,
   TempoPrices,
+  WeatherCost,
+  WeatherCostForecastView,
   WeatherHourly,
   WeatherLocationBody,
   WeatherPlace,
@@ -205,5 +207,10 @@ export const api = {
     call<{ results: WeatherPlace[] }>('POST', '/weather/search', { q, lang }),
   weatherSettings: () => call<WeatherSettings>('GET', '/settings/weather'),
   putWeather: (body: WeatherLocationBody) => call<WeatherSettings>('PUT', '/settings/weather', body),
-  deleteWeather: () => call<void>('DELETE', '/settings/weather')
+  deleteWeather: () => call<void>('DELETE', '/settings/weather'),
+
+  // « Météo et coût » (Plan 15, spec 2026-10-18 §8): `period` is the selected one, `to` exclusive.
+  weatherCost: (period?: { from: string; to: string }) =>
+    call<WeatherCost>('GET', period ? `/energy/weather?from=${enc(period.from)}&to=${enc(period.to)}` : '/energy/weather'),
+  weatherCostForecast: () => call<WeatherCostForecastView>('GET', '/energy/weather/forecast')
 };

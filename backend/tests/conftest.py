@@ -19,6 +19,10 @@ def _no_real_credentials(monkeypatch):
     """A developer shell may export real Cozytouch or Linky credentials: hide them from tests."""
     for name in ("COZY_USER", "COZY_PASS", "MED_TOKEN", "MED_PRM"):
         monkeypatch.delenv(name, raising=False)
+    # Plan 15: the simulator's weather coupling and 45-day radiator history are for demos and
+    # e2e; tests that need them set these back (test_weather_model_api.py).
+    monkeypatch.setenv("KELVIN_SIM_HISTORY_DAYS", "7")
+    monkeypatch.setenv("KELVIN_SIM_WEATHER_COUPLING", "0")
 
 
 DEMO = {"email": "demo@kelvin.local", "password": "kelvin"}

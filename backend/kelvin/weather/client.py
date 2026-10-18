@@ -28,6 +28,7 @@ from kelvin.weather.models import (
     AROME_HD,
     ARPEGE,
     BEST_MATCH,
+    ECMWF,
     ERA5_LAND,
     HistoryKind,
     Hour,
@@ -41,6 +42,9 @@ FORECAST_URL = "https://api.open-meteo.com"
 HISTORICAL_URL = "https://historical-forecast-api.open-meteo.com"
 ARCHIVE_URL = "https://archive-api.open-meteo.com"
 GEOCODING_URL = "https://geocoding-api.open-meteo.com"
+OUTLOOK_MODEL = (
+    "ecmwf_ifs025"  # verified live 2026-10-18 (M2); `best_match` is the fallback if refused
+)
 TIMEOUT_S = 10.0
 MAX_BYTES = 2_000_000
 VARIABLES = ("temperature_2m", "apparent_temperature", "relative_humidity_2m")
@@ -254,6 +258,27 @@ class OpenMeteoClient:
             url, extra, code = f"{self._archive}/v1/archive", {}, BEST_MATCH
         params = {**self._base(loc), **extra, **dates, **self._tail()}
         return parse_hours(await self._get(url, params), [(None, code)])
+
+    async def outlook(self, loc: Location, days: int) -> list[Hour]:
+        """Days 5–7 in France: ECMWF IFS 0.25° temperature only (spec 2026-10-18 §6.2)."""
+        params: dict[str, Any] = {
+            "latitude": round_coord(loc.lat),
+            "longitude": round_coord(loc.lon),
+        }
+        if loc.elevation_m is not None:
+            params["elevation"] = int(loc.elevation_m)
+        params.update(
+            {
+                "hourly": "temperature_2m",
+                "models": OUTLOOK_MODEL,
+                "forecast_days": days,
+                **self._tail(),
+            }
+        )
+        payload = await self._get(f"{self._forecast}/v1/forecast", params)
+        # One model asked: Open-Meteo answers unsuffixed keys; a suffixed answer is accepted too.
+        # Apparent temperature and humidity are absent: parse_hours leaves them None.
+        return parse_hours(payload, [(None, ECMWF), (OUTLOOK_MODEL, ECMWF)])
 
     async def search(self, text: str, language: str) -> list[Place]:
         params = {

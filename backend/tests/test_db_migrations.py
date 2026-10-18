@@ -201,3 +201,18 @@ def test_v5_adds_the_weather_tables(tmp_path):
     names = {r["name"] for r in db.query("SELECT name FROM sqlite_master WHERE type = 'table'")}
     assert {"weather_hourly", "weather_daily"} <= names
     assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION >= 5
+
+
+def test_v6_creates_outlook_and_away_tables(tmp_path):
+    import sqlite3
+
+    from kelvin.recorder.db import MIGRATIONS
+
+    db = Database(tmp_path / "k.db")
+    names = {r[0] for r in db.rows("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    assert {"weather_outlook", "away_log"} <= names
+    assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION >= 6
+    db.close()
+    conn = sqlite3.connect(tmp_path / "k.db")
+    MIGRATIONS[6](conn)  # running it again is harmless
+    conn.close()

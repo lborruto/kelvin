@@ -14,6 +14,7 @@ AROME_HD = "arome_hd"
 ARPEGE = "arpege"  # Open-Meteo's `meteofrance_seamless` (ARPEGE beyond AROME's reach)
 ERA5_LAND = "era5_land"
 BEST_MATCH = "best_match"
+ECMWF = "ecmwf"  # ECMWF IFS 0.25° through Open-Meteo: forecast days 5–7 only (spec 2026-10-18 §6.2)
 MIXED = "mixed"
 VARIABLE_COUNT = 3  # temperature, apparent temperature, humidity
 HistoryKind = Literal["arome_hd", "era5_land", "best_match"]
@@ -96,6 +97,11 @@ class WeatherSource(Protocol):
 
     async def history(self, loc: Location, start: date, end: date, kind: HistoryKind) -> list[Hour]:
         """Hours of the Paris days [start, end) from the archive `kind`; missing hours absent."""
+        ...
+
+    async def outlook(self, loc: Location, days: int) -> list[Hour]:
+        """ECMWF IFS hourly temperature from now to `days` days ahead (France mode, days
+        Météo-France does not reach)."""
         ...
 
     async def search(self, text: str, language: str) -> list[Place]: ...

@@ -1,13 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   fmtAgo, fmtAmount, fmtDateLong, fmtDay, fmtKwh, fmtPct, fmtPrice, fmtTemp, fmtTime, fmtWh,
-  fmtDayShort, monthName, monthYear, parseDecimal, premier
+  fmtDayShort, fmtWeekdayDay, monthName, monthYear, parseDecimal, premier
 } from './format';
 import { applyLocale } from '$lib/i18n';
 
 const NB = ' ';
 
 describe('format', () => {
+  it('a weekday and its day, Paris calendar (Plan 15 strip)', () => {
+    applyLocale('fr');
+    expect(fmtWeekdayDay('2026-10-19')).toBe('lun. 19');
+    expect(fmtWeekdayDay('2026-11-01')).toBe('dim. 1er');
+    applyLocale('en');
+    expect(fmtWeekdayDay('2026-10-19')).toBe('Mon 19');
+    applyLocale('fr');
+  });
   it('temperatures in French with a non-breaking space', () => {
     expect(fmtTemp(20.5)).toBe(`20,5${NB}°C`);
     expect(fmtTemp(17)).toBe(`17,0${NB}°C`);

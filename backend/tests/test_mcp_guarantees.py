@@ -40,6 +40,7 @@ TOOLS = {
     "propose_savings",
     "evaluate_programme",
     "get_weather",
+    "get_weather_model",
 }
 FORBIDDEN_MODULES = (
     "kelvin.setup",
@@ -214,6 +215,8 @@ def calls_for(rt) -> list[tuple[str, dict]]:
         ("get_data_status", {}),
         ("get_weather", {"start": "2026-11-01", "end": "2026-11-20"}),
         ("get_weather", {"start": "2026-11-18", "end": "2026-11-20", "granularity": "hourly"}),
+        ("get_weather_model", {}),
+        ("get_weather_model", {"start": "2026-11-01", "end": "2026-11-20", "include_days": True}),
         ("propose_savings", {"days": 30}),
         (
             "evaluate_programme",
@@ -357,3 +360,17 @@ def _keys(x) -> set[str]:
     if isinstance(x, list):
         return {k for v in x for k in _keys(v)}
     return set()
+
+
+def test_the_weather_model_never_reaches_open_meteo():
+    """Plan 15: the model's pure modules import neither the weather service nor its client."""
+    import ast
+    from pathlib import Path
+
+    base = Path(__file__).resolve().parents[1] / "kelvin" / "weather"
+    for name in ("costmodel.py", "fit.py", "normals.py"):
+        tree = ast.parse((base / name).read_text())
+        mods = {n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)} | {
+            a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names
+        }
+        assert not mods & {"kelvin.weather.service", "kelvin.weather.client"}, name

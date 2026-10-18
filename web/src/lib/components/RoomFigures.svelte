@@ -6,6 +6,8 @@
   import { ROUTES } from '$lib/paths';
   import { provenance } from '$lib/provenance';
   import { roomEnergy } from '$lib/stores/roomdata.svelte';
+  import { weather } from '$lib/stores/weather.svelte';
+  import { roomRows, roomValue, roomWhy, thinText } from '$lib/weatherCost';
   import Fig from './Fig.svelte';
   import type { FicheRow } from './FicheBody.svelte';
 
@@ -56,6 +58,12 @@
   let meters = $derived(
     provenance('radiator-meter', est ? { nature: 'estimated', method: m.roomFigures.estMethod } : {}, now)
   );
+  // Plan 15 (spec §7.5): « Froid », the room's 365-day sensitivity to the cold, only with a weather place. Its row is
+  // there (« — » with its reason until the model answers) whenever a place is set, so the sheet never grows (CLS).
+  let cold = $derived(v?.weather ?? null);
+  let coldOn = $derived(weather.on || cold != null);
+  let coldWhy = $derived(cold ? (roomWhy(cold) ?? thinText(cold.thin, cold.fit_days, cold.heating_days)) : m.weatherCost.why.model_hidden);
+  let coldThin = $derived(!!cold && cold.state === 'ok' && cold.thin.length > 0);
   // Every figure unknown (too few readings): one sentence with its reason instead of a row of « — ».
   let notEnough = $derived(!!v && v.kwh == null && v.eur == null && (duty === undefined || duty === null));
 </script>
@@ -63,7 +71,7 @@
 <div class="energy" aria-busy={!entry}>
   <h3>{title}</h3>
   {#if !entry || duty === 'loading'}
-    <div class="skeleton inset" style:height="88px" aria-hidden="true"></div>
+    <div class="skeleton inset" style:height="{weather.on ? 136 : 88}px" aria-hidden="true"></div>
   {:else if notEnough}
     <p class="note">{today ? m.roomFigures.notEnoughToday : m.roomFigures.notEnough(rangeLabel)}</p>
   {:else}
@@ -108,6 +116,18 @@
           </dd>
         </div>
       {/if}
+      {#if coldOn}
+        <div class="cold">
+          <dt>{m.weatherCost.roomRow}</dt>
+          <dd class="num">
+            {#if cold && cold.state === 'ok'}<Fig value={roomValue(cold)} label={coldThin ? `${roomValue(cold)} ${m.weatherCost.estimate}` : undefined}
+                title={m.weatherCost.roomRow} rows={roomRows(cold)} notes={coldThin && coldWhy ? [coldWhy] : []}
+                provenance={provenance('weather-model', {}, now)} />{#if coldThin}<span class="est">{m.weatherCost.estimate}</span>{/if}
+            {:else}<Fig value="—" title={m.weatherCost.roomRow} rows={cold ? roomRows(cold) : []} empty={coldWhy}
+                provenance={provenance('weather-model', {}, now)} />{/if}
+          </dd>
+        </div>
+      {/if}
     </dl>
     {#if v && v.kwh == null}<p class="note">{today ? m.roomFigures.noKwhToday : m.roomFigures.noKwh}</p>{/if}
     {#if v && v.kwh != null && v.coverage != null && v.coverage < 0.999}<p class="note">{m.roomFigures.partial(fmtPct(v.coverage))}</p>{/if}
@@ -138,6 +158,9 @@
   }
   .tiles > div {
     min-width: 0;
+  }
+  .tiles > .cold {
+    grid-column: 1 / -1;
   }
   dt {
     font-size: 12px;

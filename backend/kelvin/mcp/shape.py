@@ -56,6 +56,13 @@ UNITS: dict[str, dict[str, str]] = {
         "baseload_kwh_per_day": "kWh per day that does not scale with cold"
         " (intercept of the reference fit)",
         "r2": "coefficient of determination of the reference fit, 0–1",
+        "kwh_per_degree_c": "kWh per day per °C colder below the balance point (get_weather_model)",
+        "eur_per_degree_c": "euros per day per °C colder below the balance point, today's prices",
+        "baseload_range_kwh_per_day": "80 % interval of baseload_kwh_per_day",
+        "kwh_low": "kWh, low end of the 80 % interval",
+        "kwh_high": "kWh, high end of the 80 % interval",
+        "eur_low": "euros, low end of the 80 % interval",
+        "eur_high": "euros, high end of the 80 % interval",
         "change": "ratio: +0.12 is 12 % more (weather_normalised.change: at equal weather)",
     },
 }

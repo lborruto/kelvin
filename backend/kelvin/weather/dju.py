@@ -7,7 +7,7 @@ day's hourly temperatures. Kelvin uses no other method anywhere."""
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from zoneinfo import ZoneInfo
 
@@ -81,3 +81,29 @@ def aggregate(day: date, hours: Iterable[Hour], tz: ZoneInfo, now: float) -> Day
 
 def local_date(ts: int, tz: ZoneInfo) -> date:
     return datetime.fromtimestamp(ts, tz).date()
+
+
+def day_weather(
+    day: date, hours: Iterable[Hour], outlook: Iterable[Hour], tz: ZoneInfo
+) -> DayWeather | None:
+    """A day's figures from Météo-France's hours (forecast or not), each missing hour filled from
+    the outlook (ECMWF); same completeness rule as a past day (spec 2026-10-18 §4)."""
+    merged = {h.ts: h for h in outlook}
+    merged.update({h.ts: h for h in hours})
+    return aggregate(day, merged.values(), tz, 0.0)
+
+
+def forecast_days(
+    hours: Iterable[Hour], outlook: Iterable[Hour], tz: ZoneInfo, today: date, n: int = 7
+) -> list[DayWeather]:
+    """Tomorrow … today + n, always n entries: a day nothing covers has no figures and `model`
+    "none"."""
+    hs, ol = list(hours), list(outlook)
+    out: list[DayWeather] = []
+    for i in range(1, n + 1):
+        d = today + timedelta(days=i)
+        w = day_weather(d, hs, ol, tz)
+        out.append(
+            w or DayWeather(d, None, None, None, None, 0, expected_hours(d, tz), "none", False)
+        )
+    return out

@@ -6,7 +6,7 @@
      under the rooms (`children`), and opening a room selects it there. Figures are `roomEnergy`'s, unchanged. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { ByRadiator, Heating, Radiator, RadiatorSum } from '$lib/api/types';
+  import type { ByRadiator, Heating, Radiator, RadiatorSum, RoomModel } from '$lib/api/types';
   import { SERIES, spanLabel, type Span } from '$lib/energy';
   import { fmtDateLong, fmtEurExact, fmtHours, fmtKwh, fmtKwhExact, fmtPct, fmtPct1, fmtTemp } from '$lib/format';
   import { m } from '$lib/i18n';
@@ -14,6 +14,7 @@
   import { provenance } from '$lib/provenance';
   import { NO_ROOM, roomEnergy, type Figures, type RoomRow } from '$lib/roomEnergy';
   import { house } from '$lib/stores/house.svelte';
+  import { whereDetail, whereLine } from '$lib/weatherCost';
   import Fig from './Fig.svelte';
   import type { FicheRow } from './FicheBody.svelte';
   import Icon from './Icon.svelte';
@@ -38,9 +39,14 @@
     /** Température et chauffe, under the rooms. */
     children?: Snippet;
     class?: string;
+    /** Plan 15 (spec §7.5): each room's sensitivity to the cold from « Météo et coût » (`undefined` while it loads). */
+    sensitivity?: RoomModel[] | null;
+    /** A weather place is set: the sensitivity line keeps its height while it loads (CLS). */
+    sensitivityOn?: boolean;
   }
   let {
-    heating, radiators, restKwh, running = false, linky = true, rows, span, tariff, split = true, onroom, children, class: cls = ''
+    heating, radiators, restKwh, running = false, linky = true, rows, span, tariff, split = true, onroom, children, class: cls = '',
+    sensitivity = null, sensitivityOn = false
   }: Props = $props();
   const uid = $props.id();
 
@@ -55,6 +61,8 @@
     const rooms = all.filter((r) => r.id !== NO_ROOM).sort((a, b) => rank(b) - rank(a));
     return [...rooms, ...all.filter((r) => r.id === NO_ROOM)];
   });
+  let sensLine = $derived(whereLine(sensitivity, (id) => list.find((x) => x.id === id)?.name ?? '—'));
+  const sensOf = (id: string) => sensitivity?.find((x) => x.room_id === id) ?? null;
   const SUP = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
   // One mark per distinct partial sentence, in row order: the sentence is written once under the list.
   let marks = $derived.by(() => {
@@ -186,6 +194,7 @@
   {:else if !list.length}
     <p class="muted note">{m.roomsEnergy.empty}</p>
   {:else}
+    {#if sensitivityOn || sensLine}<p class="muted sens">{sensLine ?? ''}</p>{/if}
     <ul class="rooms" aria-label={m.roomsEnergy.title}>
       {#each list as r (r.id)}
         {@const mark = r.partial ? marks.get(r.partial) : null}
@@ -211,6 +220,7 @@
           <div id={region} class="detail" hidden={open[r.id] ? undefined : 'until-found'} onbeforematch={() => toggle(r.id)}>
             {#if !r.radiators.length}<p class="why">{m.roomsEnergy.noRadiator}</p>{/if}
             {@render facts(r)}
+            {#if whereDetail(sensOf(r.id))}<p class="sens-room num">{whereDetail(sensOf(r.id))}</p>{/if}
             {#if r.radiators.length}
               <ul class="rads">
                 {#each r.radiators as x (x.id)}
@@ -420,6 +430,17 @@
     .eur {
       color: var(--tx);
     }
+  }
+  /* One line, its height held while « Météo et coût » loads. */
+  .sens {
+    margin: 0 0 6px;
+    min-height: 18px;
+    font-size: 12.5px;
+    line-height: 18px;
+  }
+  .sens-room {
+    margin: 4px 0;
+    font-size: 13px;
   }
   .detail {
     padding: 0 0 12px 18px;

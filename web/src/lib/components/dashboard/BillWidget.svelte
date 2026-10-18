@@ -40,13 +40,15 @@
         ]
       : [{ label: m.maison.billKwh, value: fmtKwhExact(p.kwh) }]
   );
+  // Plan 15 (spec §7.3): the month end « selon la météo » says its method in the Fiche.
+  let allRows = $derived(pm?.method === 'weather' ? [...rows, { label: m.maison.billMethod, value: m.weatherCost.projWeather }] : rows);
   let prov = $derived(provenance('linky-day', { day: report.last_day }, now));
   let pct = $derived(Math.min(100, Math.max(0, (s.day / s.days) * 100)));
 </script>
 
 <Widget {title} aside={compact || !priced ? undefined : m.maison.billSub} {span} pad={compact ? 'sm' : 'md'} class="bill">
   <div class="fig-row">
-    <span class="big num" class:compact><Fig value={figure} {title} {rows} provenance={prov} /></span>
+    <span class="big num" class:compact><Fig value={figure} {title} rows={allRows} provenance={prov} /></span>
     {#if end && !compact}<a class="end muted" href="{ROUTES.energy}#{ENERGY_ANCHORS.projection}">{m.maison.billEnd(end)} <span class="note">{m.fiche.est}</span></a>{/if}
   </div>
   {#if end && compact}<p class="note end-c">{m.maison.billEnd(end)} {m.fiche.est}</p>{/if}

@@ -511,7 +511,12 @@ test.describe('Énergie', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/energy');
     await settled(page);
-    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(1800);
+    // Plan 15: « Météo et coût » (full width, its own chart) comes on top of the board's 1 800 px budget.
+    const weatherCost = await page.evaluate(() => {
+      const el = document.getElementById('weather-cost');
+      return el ? el.getBoundingClientRect().height + (parseFloat(getComputedStyle(el.parentElement!).rowGap) || 0) : 0;
+    });
+    expect(await page.evaluate(() => document.documentElement.scrollHeight) - weatherCost).toBeLessThanOrEqual(1800);
     // Each key figure lands its section's heading fully below the condensed period bar (nested cards included).
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });

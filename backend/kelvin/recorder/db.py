@@ -169,12 +169,43 @@ def _v5_weather_tables(conn: sqlite3.Connection) -> None:
     )
 
 
+def _v6_outlook_and_away(conn: sqlite3.Connection) -> None:
+    """v6 (Plan 15): the ECMWF outlook hours (future only, replaced at each fetch) and Kelvin's
+    absence log (`away_log`, written by OverrideManager, seeded from command_log). Idempotent."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS weather_outlook ("
+        " ts INTEGER PRIMARY KEY, t REAL NOT NULL, model TEXT NOT NULL, fetched_at REAL NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS away_log ("
+        " id TEXT PRIMARY KEY, start REAL NOT NULL, end REAL NOT NULL, ended INTEGER NOT NULL)"
+    )
+    # Seed from the command log (90 days): a confirmed « Partir… » to the next away_end.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(command_log)")}
+    if "label_code" in cols:
+        rows = conn.execute(
+            "SELECT id, ts, label_code, status FROM command_log"
+            " WHERE label_code IN ('away', 'away_end') ORDER BY ts"
+        ).fetchall()
+        for i, (cid, t, code, status) in enumerate(rows):
+            if code != "away" or status != "confirmed":
+                continue
+            end = next((r[1] for r in rows[i + 1 :] if r[2] == "away_end"), None)
+            if end is not None:
+                _in_transaction(
+                    conn,
+                    "INSERT OR IGNORE INTO away_log (id, start, end, ended) VALUES (?, ?, ?, 1)",
+                    (f"log-{cid}", t, end),
+                )
+
+
 MIGRATIONS = {
     1: _v1_energy_counters,
     2: _v2_session_ids,
     3: _v3_command_log_codes,
     4: _v4_mcp_tables,
     5: _v5_weather_tables,
+    6: _v6_outlook_and_away,
 }
 SCHEMA_VERSION = max(MIGRATIONS)  # a new migration is the new version
 
