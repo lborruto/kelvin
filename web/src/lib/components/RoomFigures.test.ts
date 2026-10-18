@@ -1,10 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '$lib/api/client';
 import type { RoomEnergy as RE } from '$lib/api/types';
 import { applyLocale } from '$lib/i18n';
 import { forEachLocale } from '$lib/i18n/testing';
 import { resetRoomData } from '$lib/stores/roomdata.svelte';
+import { weather } from '$lib/stores/weather.svelte';
+import { VIEW } from '$lib/weather.fixture';
+import { ROOM } from '$lib/weatherModel.fixture';
 import RoomFigures from './RoomFigures.svelte';
 
 vi.mock('$lib/api/client', () => ({ api: { roomEnergy: vi.fn() }, ApiError: class extends Error {} }));
@@ -138,5 +141,46 @@ describe('RoomFigures today (one window: since midnight)', () => {
     } finally {
       applyLocale('fr');
     }
+  });
+});
+
+describe('RoomFigures: « Froid » (Plan 15)', () => {
+  const nb = (t: string | null | undefined) => (t ?? '').replace(/[\u00a0\u202f]/g, ' ');
+  beforeEach(() => weather.apply(VIEW));
+  afterEach(() => weather.reset());
+  it('a row « Froid » whose Fiche gives the coverage, R² and the balance point', async () => {
+    vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, weather: ROOM });
+    render(RoomFigures, props);
+    const fig = await screen.findByRole('button', { name: /par °C plus froid estimation, détails$/ }); // thin: « estimation »
+    expect(nb(fig.textContent)).toBe('+0,8 kWh par °C plus froid');
+    expect(fig.nextElementSibling).toHaveTextContent('estimation');
+    await fireEvent.click(fig);
+    const card = nb(document.querySelector('.fiche')!.textContent);
+    expect(card).toContain('mesuré sur 41 jours sur 60');
+    expect(card).toContain('Qualité de l’ajustement (R²)');
+    expect(card).toContain('Point d’équilibre');
+    expect(card).toContain('calculé');
+    expect(card).toContain('ajusté sur 41 jours seulement');
+    document.querySelectorAll('.fiche').forEach((n) => n.remove());
+  });
+  it('a hidden model reads « — » and says why with the room’s own days', async () => {
+    const hidden = { ...ROOM, state: 'hidden' as const, why: 'few_days' as const, kwh_per_c: null, kwh_per_c_range: null, eur_per_c: null, coverage: { days: 12, of: 60, share: 0.2 } };
+    vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, weather: hidden });
+    render(RoomFigures, props);
+    await fireEvent.click(await screen.findByRole('button', { name: '—, détails' }));
+    expect(nb(document.querySelector('.fiche')!.textContent)).toContain('pas encore assez de jours mesurés avec la météo : 12 sur 28');
+    document.querySelectorAll('.fiche').forEach((n) => n.remove());
+  });
+  it('without a place: no row', async () => {
+    weather.apply(null);
+    vi.mocked(api.roomEnergy).mockResolvedValue({ ...full, weather: null });
+    const { container } = render(RoomFigures, props);
+    await screen.findByRole('button', { name: /^4,57\skWh, détails$/ });
+    expect(container.querySelector('.cold')).toBeNull();
+  });
+  it('with a place the skeleton is taller by the row it holds', () => {
+    vi.mocked(api.roomEnergy).mockReturnValue(new Promise(() => {}));
+    const { container } = render(RoomFigures, props);
+    expect((container.querySelector('.skeleton') as HTMLElement).style.height).toBe('136px');
   });
 });

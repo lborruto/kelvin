@@ -1823,6 +1823,7 @@ export const en: Messages = {
     tomorrow: (t: string, eur: string) => `${t} → ~${eur} of heating`,
     tomorrowKwh: (t: string, kwh: string, why: string) => `${t} → ~${kwh} of heating · ${why}`,
     tomorrowNone: (t: string) => `${t}, no heating expected`,
+    roomRow: 'Cold',
     roomValue: (kwh: string) => `+${kwh} per °C colder`,
     coverage: (n: number, of: number) => `measured on ${int(n)} of ${int(of)} days`,
     whereLine: (list: string) => `Per °C colder: ${list}`,

@@ -244,8 +244,9 @@
     void tick().then(() => document.getElementById(id)?.scrollIntoView?.({ block: 'start', behavior: 'auto' }));
   });
 
-  // Plan 15: « Météo et coût » for the selected period (`to` exclusive, as the report), only with Linky and a place.
-  let weatherPeriod = $derived(loaded && main?.linky && weather.on ? { from: loaded.period.from, to: loaded.period.to } : null);
+  // Plan 15: « Météo et coût » for the selected period (`to` exclusive, as the report), with a place: the panel with
+  // Linky, the rooms' sensitivity to the cold in « Où part l’énergie » with or without it.
+  let weatherPeriod = $derived(loaded && weather.on ? { from: loaded.period.from, to: loaded.period.to } : null);
   $effect(() => {
     const p = weatherPeriod;
     if (p) untrack(() => weatherModel.load(p));
@@ -258,6 +259,7 @@
     if (weather.view === null) untrack(() => weatherModel.reset()); // the place went: its answers with it
   });
   let weatherCost = $derived(weatherModel.get(weatherPeriod));
+  let sensitivity = $derived(weatherCost === undefined ? undefined : (weatherCost?.rooms.items ?? null));
 
   // Analyse: Comparaisons and Projection (and Heures creuses / pleines when the Tempo rows took its place in the board).
   let cards = $derived(!loaded || !loaded.main.linky ? 0 : tempoLens ? 3 : 2);
@@ -545,7 +547,8 @@
   {#if !main.linky}
     <!-- Without Linky the rooms are the evidence: the full section, open. -->
     <EnergyWhere heating={main.heating} radiators={main.period.radiators} restKwh={main.period.rest_kwh} {running} linky={false}
-      rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} split={main.option !== 'base'} class="wide" />
+      rows={main.by_radiator} span={elapsed ?? loaded.period} tariff={main.tariff} split={main.option !== 'base'} class="wide"
+      {sensitivity} sensitivityOn={!!weatherPeriod} />
   {:else}
     <!-- The full per-room table (footnotes, rooms that open, lifetime counters): collapsed and findable until « Tout voir › »
          or a link to #energy-where (fragment navigation reveals it) opens it; the board's widget is its summary. -->
@@ -560,6 +563,8 @@
         span={elapsed ?? loaded.period}
         tariff={main.tariff}
         split={main.option !== 'base'}
+        {sensitivity}
+        sensitivityOn={!!weatherPeriod}
         onroom={(id) => roomDay && data.setRoom(id)} />
       {#if whereOpen}<button type="button" class="btn btn-ghost btn-sm fold" onclick={() => (whereOpen = false)}>{m.energyBoard.whereClose}</button>{/if}
     </div>

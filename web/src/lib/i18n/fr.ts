@@ -1877,6 +1877,7 @@ export const fr = {
     tomorrow: (t: string, eur: string) => `${t} → ~${eur} de chauffage`,
     tomorrowKwh: (t: string, kwh: string, why: string) => `${t} → ~${kwh} de chauffage · ${why}`,
     tomorrowNone: (t: string) => `${t}, pas de chauffage prévu`,
+    roomRow: 'Froid',
     roomValue: (kwh: string) => `+${kwh} par °C plus froid`,
     coverage: (n: number, of: number) => `mesuré sur ${int(n)}${NB}jours sur ${int(of)}`,
     whereLine: (list: string) => `Par °C plus froid${NB}: ${list}`,
