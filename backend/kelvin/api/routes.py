@@ -302,10 +302,16 @@ async def room_energy_route(
     _, rads = _room_radiators(rt, room_id)
     linky = _linky(rt)
     ids = [r.id for r in rads]
+    rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
+
+    def body() -> dict:
+        out = linky.room_energy(ids, days, rt.recorder, set(rt.house.radiators))
+        # Spec 2026-10-18 §8.3: the room's heating model, from its own 365 days (not `days`).
+        out["weather"] = linky.room_weather(room_id, rt.recorder, rooms)
+        return out
+
     # Off the event loop: the first request of a year replays the half-hours since 1 January.
-    return await asyncio.to_thread(
-        linky.room_energy, ids, days, rt.recorder, set(rt.house.radiators)
-    )
+    return await asyncio.to_thread(body)
 
 
 def _window(start: float, end: float, now: float) -> tuple[int, int]:
@@ -648,6 +654,37 @@ async def energy(
         period = (first, next_unit(first, group))
     rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
     return await asyncio.to_thread(linky.report, start, end, group, rt.recorder, rooms, period)
+
+
+@router.get("/energy/weather")
+async def energy_weather(
+    request: Request,
+    start: Annotated[date | None, Query(alias="from")] = None,
+    end: Annotated[date | None, Query(alias="to")] = None,
+) -> dict:
+    """« Météo et coût » (spec 2026-10-18 §8.1): the model of the last 365 days; `from`/`to` the
+    selected period (both or neither) for the highlighted days and the share due to the cold."""
+    rt = _rt(request)
+    linky = _linky(rt)
+    period: tuple[date, date] | None = None
+    if (start is None) != (end is None):
+        raise UserError("period_invalid")
+    if start is not None and end is not None:
+        _check_days(linky, start, end)
+        if end <= start or (end - start).days > MAX_REPORT_DAYS:
+            raise UserError("period_invalid")
+        period = (start, end)
+    rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
+    return await asyncio.to_thread(linky.weather_model, rt.recorder, rooms, period)
+
+
+@router.get("/energy/weather/forecast")
+async def energy_weather_forecast(request: Request) -> dict:
+    """Maison's « Demain » (spec 2026-10-18 §8.2): the house summary and the 7 forecast days."""
+    rt = _rt(request)
+    linky = _linky(rt)
+    rooms = {r.id: r.room_id for r in rt.house.radiators.values()}
+    return await asyncio.to_thread(linky.weather_forecast, rt.recorder, rooms)
 
 
 @router.get("/energy/day")

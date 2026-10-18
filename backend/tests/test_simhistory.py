@@ -262,3 +262,30 @@ def test_seeded_samples_have_a_morning_window_run_and_evening_presence(tmp_path)
     others = [r for r in rows if r["radiator_id"] not in (SIM_WINDOW[0], SIM_PRESENCE[0])]
     assert all(r["window_open"] == 0 and r["occupied"] == 0 for r in others)
     db.close()
+
+
+def _drawn(db) -> float:
+    """Total energy drawn over the seeded days, every radiator (Wh)."""
+    rows = db.query(
+        "SELECT radiator_id, MIN(total_wh) AS a, MAX(total_wh) AS b FROM energy"
+        " GROUP BY radiator_id"
+    )
+    return sum(r["b"] - r["a"] for r in rows)
+
+
+def test_a_colder_outdoor_draws_more_energy():
+    """Plan 15: with the weather coupling the rooms lose heat to the outdoor, so a cold week
+    draws more than a mild one; without it nothing changes (the tests above pin that)."""
+    cold, mild = Database(":memory:"), Database(":memory:")
+    seed_history(cold, build_house(*sample_house()), NOW, outdoor=lambda ts: -5.0)
+    seed_history(mild, build_house(*sample_house()), NOW, outdoor=lambda ts: 15.0)
+    assert _drawn(cold) > _drawn(mild) > 0
+
+
+def test_without_outdoor_the_seed_is_unchanged(env):
+    db, house = env
+    other = Database(":memory:")
+    seed_history(db, house, NOW)
+    seed_history(other, build_house(*sample_house()), NOW, outdoor=None)
+    q = "SELECT * FROM samples ORDER BY radiator_id, ts"
+    assert [tuple(r) for r in db.query(q)] == [tuple(r) for r in other.query(q)]

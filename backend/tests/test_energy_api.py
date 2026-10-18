@@ -541,6 +541,8 @@ async def test_the_report_loads_only_the_linky_rows_it_needs(api, monkeypatch):
     """No unbounded query: the window, the period and 400 days of look-back at most (daily rows
     46 more with a weather place, for the weather fit: Plan 14 decision 13)."""
     c, _, rt, _ = api
+    # Plan 15: the weather model (memoised, its own bounded 365-day load) is built once first.
+    await c.get("/api/energy/weather")
     calls = []
     for name in ("daily", "curve"):
         original = getattr(rt.linky.store, name)
@@ -778,6 +780,8 @@ async def test_room_stats_stop_at_the_end_of_yesterday_like_the_radiator_kwh(api
     """Batch 4 review I-4: in a running period, °C, setpoint and heating hours cover the same
     days as the radiator kWh and € beside them (elapsed days up to yesterday), not today."""
     c, _, rt, _ = api
+    # Plan 15: the weather model (memoised, its own bounded 365-day load) is built once first.
+    await c.get("/api/energy/weather")
     calls = []
     original = rt.recorder.sample_stats
 

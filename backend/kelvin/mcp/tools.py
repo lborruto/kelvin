@@ -567,6 +567,10 @@ async def room_energy(ctx: Any, room_id: str, days: int) -> dict[str, Any]:
         linky.room_energy, [r.id for r in rads], days, rt.recorder, set(rt.house.radiators)
     )
     basis, notes = en.room_energy_basis(body)
+    # Spec 2026-10-18 §8.3: the room's heating model (its own 365 days), null without a place.
+    body["weather"] = await asyncio.to_thread(
+        linky.room_weather, room_id, rt.recorder, views.radiator_rooms(rt)
+    )
     return shape.envelope(
         "get_room_energy",
         shape.neutral(body),

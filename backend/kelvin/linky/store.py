@@ -46,6 +46,12 @@ class LinkyStore:
         row = self.db.query("SELECT MAX(day) AS d FROM linky_daily")[0]["d"]
         return date.fromisoformat(row) if row else None
 
+    def signature(self) -> tuple:
+        """Changes whenever a stored reading changes (the weather model's memo, Plan 15)."""
+        d = self.db.rows("SELECT COUNT(*), MAX(day), SUM(wh) FROM linky_daily")[0]
+        c = self.db.rows("SELECT COUNT(*), MAX(ts), SUM(wh) FROM linky_curve")[0]
+        return (*d, *c)
+
     def clear(self) -> None:
         """Forget every reading (another PDL is being configured)."""
         self.db.execute("DELETE FROM linky_daily")
