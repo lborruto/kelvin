@@ -143,7 +143,15 @@ export const en: Messages = {
     cozytouch: 'Cozytouch',
     until: (day: string) => `up to ${day}`,
     curveUntil: (day: string) => `curve up to ${day}`,
-    sync: (time: string) => `synced ${time}`
+    sync: (time: string) => `synced ${time}`,
+    weather: {
+      arome_hd: 'Météo-France AROME HD via Open-Meteo',
+      arpege: 'Météo-France ARPEGE via Open-Meteo',
+      era5_land: 'ERA5-Land (Copernicus reanalysis) via Open-Meteo',
+      best_match: 'Open-Meteo (best available model)',
+      mixed: 'Several models via Open-Meteo',
+      pending: 'source pending'
+    } as Record<string, string>
   },
   fiche: {
     close: 'Close',
@@ -386,7 +394,9 @@ export const en: Messages = {
     methodRooms: (span: string) => `mean of the online radiators over ${span}`,
     part: (label: string, value: string) => `${label} ${value}`,
     partWhy: (value: string, why: string) => `${value} (${why})`,
-    spoken: (title: string, parts: string[]) => `${title}: ${parts.join(', ')}`
+    spoken: (title: string, parts: string[]) => `${title}: ${parts.join(', ')}`,
+    noOutdoor: 'no weather for this moment',
+    outdoorNote: 'Outside: temperature published by a weather model (Open-Meteo), not measured at home.'
   },
   strip: {
     windowRun: (a: string, b: string) => `Window open (reported by the radiator) ${a}–${b}`,
@@ -407,7 +417,9 @@ export const en: Messages = {
     pendingSetpoint: (t: string) => `setpoint ${t} requested, pending`,
     pendingComfort: (t: string) => `comfort ${t} requested, pending`,
     summary: (parts: string[]) => `${parts.join('; ')}.`,
-    since: (t: string) => `Readings since ${t}`
+    since: (t: string) => `Readings since ${t}`,
+    legendOutdoor: 'Outside',
+    outdoorRange: (lo: string, hi: string) => `Outside from ${lo} to ${hi}`
   },
   energy: {
     views: { day: 'Day', week: 'Week', month: 'Month', year: 'Year' },
@@ -1315,6 +1327,7 @@ export const en: Messages = {
     never: 'not asked yet',
     error: (time: string) => `unavailable since ${time}`,
     quota: 'today’s quota used up, back tomorrow',
+    weatherOff: 'Off',
     med: (calls: number, budget: number, grid: number) =>
       `MyElectricalData calls today: ${calls} of ${budget} (${grid} for Tempo and EcoWatt)`,
     via: 'Tempo and EcoWatt come from MyElectricalData, with no token and no PDL.',
@@ -1362,6 +1375,12 @@ export const en: Messages = {
     mcp_token_limit: (p: ApiParams) => `At most ${p.max} MCP tokens: revoke one first.`,
     mcp_token_unknown: () => 'That MCP token no longer exists.',
     mcp_disabled: () => 'MCP access is turned off on this server.',
+    // Plan 14: weather (never a coordinate in params)
+    weather_location_invalid: () => 'Invalid place: latitude from −90 to 90, longitude from −180 to 180.',
+    weather_elevation_invalid: () => 'Invalid altitude: from −50 to 4,900 m.',
+    weather_search_invalid: () => 'Type 2 to 60 characters.',
+    weather_search_busy: () => 'Too many searches: try again in a few minutes.',
+    weather_unavailable: () => 'Open-Meteo is not answering: try again later.',
     alert_unknown: () => 'Alert not found.',
     header_missing: () => 'Missing X-Kelvin header.',
     bad_credentials: () => 'Cozytouch didn’t accept this email or password.',
@@ -1637,5 +1656,85 @@ export const en: Messages = {
     experimental: 'Experimental — heating only',
     loadFailed: 'Can’t read the server list.',
     experimentalNote: 'Experimental: Kelvin shows heating only, doesn’t change rooms, and some devices stay read-only.'
+  },
+  weather: {
+    // Plan 14: the outdoor temperature (“Outside”), Settings › Weather, Énergie's outdoor rows
+    chip: 'Outside',
+    ficheTitle: 'Outdoor temperature',
+    now: 'Now',
+    feelsLike: 'Feels like',
+    humidity: 'Humidity',
+    min: 'Minimum',
+    max: 'Maximum',
+    atTime: (v: string, time: string, ahead: boolean) => (ahead ? `${v}, expected around ${time}` : `${v} at ${time}`),
+    notStation: 'Calculated by a weather model for your area, not measured by a station.',
+    attributionShort: 'Weather data by Open-Meteo.com (Météo-France AROME, CC BY 4.0)',
+    attribution: 'Weather data: Météo-France (AROME) and Copernicus (ERA5-Land) via Open-Meteo.com, CC BY 4.0 licence. Place search: GeoNames.',
+    reasonFirst: 'first reading in progress',
+    reasonRetry: (time: string) => `Open-Meteo unreachable, next try at ${time}`,
+    reasonError: 'Open-Meteo unreachable',
+    reasonQuota: 'today’s call limit reached, back tomorrow',
+    meanOutside: 'Outside avg.',
+    djuLabel: `HDD (base 18${NB}°C)`,
+    partialDays: (n: number, of: number) => `weather incomplete: ${n} of ${of} days`,
+    noData: 'no weather for this period',
+    onePoint: 'only one hour published so far',
+    heroLine: (mean: string, dju: string | null) => (dju ? `Outside: avg. ${mean} · ${dju} HDD` : `Outside: avg. ${mean}`),
+    heroNone: 'Outside: — (no weather for this period)',
+    atEqualWeather: (change: string) => `${change} weather-adjusted`,
+    model: (base: string, slope: string, days: number, r2: string, cur: string, ref: string) =>
+      `Baseload ≈ ${base}${NB}kWh/day, heating ≈ ${slope}${NB}kWh per HDD (fitted on ${days} days, R² ${r2}); HDD: ${cur} vs ${ref}.`,
+    unavailable: (why: string) => `Weather-adjusted comparison unavailable: ${why}.`,
+    why: {
+      not_comparable: 'not enough comparable days',
+      weather_missing: 'weather missing for some days',
+      mild_period: 'hardly any heating in these periods',
+      few_days: 'fewer than 28 measured days around the reference period',
+      few_heating_days: 'not enough cold days around the reference period',
+      poor_fit: 'consumption doesn’t follow the cold closely enough to adjust it'
+    } as Record<string, string>,
+    method: `Kelvin compares each period with what the home would have used in the same cold, from the consumption of the reference period and the 45 days around it (baseload + kWh per degree day). HDD base 18${NB}°C, meteorological method, Paris calendar day.`,
+    source: 'Weather',
+    // Settings › Weather
+    title: 'Weather',
+    off: 'Off',
+    lead: 'Kelvin can show the outdoor temperature where you live, to explain your heating.',
+    privacyTitle: 'What Kelvin sends',
+    privacy: 'Only the place’s coordinates and altitude are sent to Open-Meteo; the name you type is sent while you search. Nothing is stored anywhere but in Kelvin.',
+    searchLabel: 'Search for a town',
+    searchHint: 'At least 2 letters',
+    results: (n: number) => (n === 0 ? 'No place found' : n === 1 ? '1 place' : `${n} places`),
+    useCoords: 'Use coordinates',
+    lat: 'Latitude',
+    lon: 'Longitude',
+    elevation: 'Altitude (m, optional)',
+    coordsInvalid: 'Type a latitude and a longitude in decimal degrees, for example 45.77 and 4.89.',
+    save: 'Save',
+    change: 'Change place',
+    remove: 'Remove',
+    removeTitle: 'Remove the place and the weather history?',
+    removeBody: 'Stored outdoor temperatures will be deleted.',
+    place: 'Place',
+    coords: 'Coordinates',
+    coordsValue: (lat: string, lon: string) => `${lat}, ${lon}`,
+    elevationRow: 'Altitude',
+    elevationValue: (alt: string, from: string) => `${alt} · ${from}`,
+    elevationFrom: { geocoder: 'town', owner: 'entered', none: 'not given' } as Record<string, string>,
+    modelRow: 'Model',
+    modelMf: `Météo-France AROME HD, 1.5${NB}km`,
+    modelBest: 'Open-Meteo, best model (outside France)',
+    history: 'History',
+    historySince: (day: string) => `since ${day}`,
+    historyRunning: 'being fetched',
+    historyPartial: (day: string) => `since ${day} (older days not published by Open-Meteo)`,
+    historyNone: 'no day published by Open-Meteo',
+    calls: 'Calls today',
+    callsValue: (n: string, of: string) => `${n} of ${of}`,
+    daysRow: 'Days with weather',
+    lastRead: 'Last reading',
+    state: (place: string, time: string | null) => (time ? `${place} · read ${time}` : place),
+    manualName: (lat: string, lon: string) => `Coordinates ${lat}, ${lon}`,
+    saved: 'Place saved.',
+    loadFailed: 'Weather settings unavailable.'
   }
 };

@@ -183,8 +183,9 @@ export interface GridView {
   ecowatt: { days: { date: string; level: number; hours: EcowattRun[] | null }[]; fetched_at: number | null };
   source: string;
 }
+export type SourceState = 'off' | 'never' | 'ok' | 'error' | 'quota';
 export interface SourceStatus {
-  state: 'off' | 'never' | 'ok' | 'error' | 'quota';
+  state: SourceState;
   last_ok: number | null;
   error_since: number | null;
   next: number | null;
@@ -194,6 +195,8 @@ export interface Sources {
   tempo: SourceStatus;
   ecowatt: SourceStatus;
   med: { calls_today: number; grid_calls_today: number; budget: number };
+  /** Plan 14: the forecast job's state; null when the backend has no weather service (absent on older backends). */
+  weather?: WeatherSource | null;
 }
 export interface StatusView {
   status: string;
@@ -211,6 +214,94 @@ export interface Snapshot {
   status: Status;
   alerts?: AlertSummary;
   grid?: GridView | null;
+  /** Plan 14: the outdoor temperature (null without a weather place; absent on older backends). */
+  weather?: WeatherView | null;
+}
+
+// — Weather (Plan 14, spec §4, §7): the API contract of `GET /api/weather*` and `/api/settings/weather` —
+
+/** The model behind an hour: Kelvin's codes (`arpege` is Météo-France seamless beyond AROME's horizon). */
+export type WeatherModel = 'arome_hd' | 'arpege' | 'era5_land' | 'best_match' | 'mixed';
+/** `GET /api/weather`, the snapshot's and the SSE event's `weather`: never the place or its coordinates. */
+export interface WeatherView {
+  /** The current hour (epoch s `at`), or null before the first reading. */
+  now: { temperature_c: number; apparent_c: number | null; humidity_pct: number | null; at: number; model: WeatherModel | string } | null;
+  /** Today (Paris civil day): lowest and highest hour, `*_ahead` when that hour is still a forecast. */
+  today: { min_c: number; min_at: number; min_ahead: boolean; max_c: number; max_at: number; max_ahead: boolean; hours: number } | null;
+  /** Epoch s of the newest fetch among today's hours. */
+  fetched_at: number | null;
+  mode: 'meteofrance' | 'best_match';
+  /** The forecast job (the « — » reason): `next` and `error_since` epoch s. */
+  fetch: { state: SourceState; next: number | null; error_since: number | null } | null;
+}
+/** A geocoder result (`POST /api/weather/search`): coordinates already rounded to 0.01°. */
+export interface WeatherPlace {
+  name: string;
+  admin1: string | null;
+  admin2: string | null;
+  country_code: string | null;
+  lat: number;
+  lon: number;
+  elevation_m: number | null;
+}
+export interface WeatherLocation extends Omit<WeatherPlace, 'name'> {
+  name: string | null;
+  elevation_source: 'geocoder' | 'owner' | 'none';
+  origin: 'search' | 'manual';
+  mode: 'meteofrance' | 'best_match';
+}
+/** `GET|PUT /api/settings/weather` (session only: the one place the location is returned). */
+export interface WeatherSettings {
+  location: WeatherLocation | null;
+  /** Days stored (ISO); `from` is the first day the backfill aims for. */
+  /** `pending`: a range is still to be asked of a source (« en cours »); false once every source was asked. */
+  coverage: { first_day?: string; last_day?: string; complete_days?: number; from: string; pending?: boolean } | null;
+  calls_today: number;
+  budget: number;
+  attribution: { url: string; licence: string };
+}
+/** `PUT /api/settings/weather`. */
+export interface WeatherLocationBody {
+  lat: number;
+  lon: number;
+  elevation_m?: number | null;
+  name?: string | null;
+  admin1?: string | null;
+  admin2?: string | null;
+  country_code?: string | null;
+  origin: 'search' | 'manual';
+}
+/** `GET /api/weather/hourly`: past hours only (epoch s `ts`, °C `t`). */
+export interface WeatherHourly {
+  step: number;
+  points: { ts: number; t: number; model: WeatherModel | string }[];
+}
+/** `/api/status` `sources.weather`: the forecast job, plus the backfill job's state and the day's weighted calls. */
+export interface WeatherSource extends SourceStatus {
+  backfill: SourceState;
+  calls_today: number;
+  budget: number;
+}
+/** A summary's outdoor figures over its elapsed days (`of`); `days` those with a complete weather day. */
+export interface Outdoor {
+  mean_c: number | null;
+  min_c: number | null;
+  max_c: number | null;
+  /** DJU base 18 °C; null unless every elapsed day has weather. */
+  dju: number | null;
+  days: number;
+  of: number;
+}
+export type WeatherWhy = 'not_comparable' | 'weather_missing' | 'mild_period' | 'few_days' | 'few_heating_days' | 'poor_fit';
+/** A comparison row's change at equal weather (spec §6.3), or null with `why`. */
+export interface WeatherRow {
+  change: number | null;
+  why: WeatherWhy | string | null;
+  dju_cur: number | null;
+  dju_ref: number | null;
+  expected_cur_kwh: number | null;
+  expected_ref_kwh: number | null;
+  model: { baseload_kwh_day: number; kwh_per_dju: number; r2: number; fit_days: number } | null;
 }
 
 export interface HistoryPoint {
@@ -379,6 +470,8 @@ export interface EnergySummary {
   radiators: RadiatorSum | null;
   /** Linky − radiators, only when every radiator was measured over every day of the span. */
   rest_kwh: number | null;
+  /** Plan 14: outdoor °C and DJU over the span; null without a weather place (absent on older backends). */
+  outdoor?: Outdoor | null;
 }
 export interface EnergyReportBucket extends EnergySummary {
   key: string;
@@ -427,6 +520,8 @@ export interface Comparison {
   prev_energy_eur: number | null;
   change: number | null;
   change_energy_eur: number | null;
+  /** Plan 14 (`previous`, `last_year`): the change at equal weather; null without a weather place. */
+  weather?: WeatherRow | null;
 }
 export interface Average4 {
   units: number;

@@ -6,7 +6,7 @@
   import type { Fresh } from '$lib/freshness';
   import type { Provenance } from '$lib/provenance';
   import Fig from './Fig.svelte';
-  import type { FicheAction, FicheRow } from './FicheBody.svelte';
+  import type { FicheAction, FicheLink, FicheRow } from './FicheBody.svelte';
   import Freshness from './Freshness.svelte';
 
   interface Props {
@@ -21,17 +21,19 @@
     notes?: string[];
     provenance?: Provenance | null;
     action?: FicheAction | null;
+    /** An outside link in its Fiche (an attribution: Open-Meteo, Plan 14). */
+    link?: FicheLink | null;
     /** State in bad text (a failure the user must fix): only with `state` « bad ». */
     class?: string;
   }
-  let { source, text, state, title = null, rows = [], notes = [], provenance = null, action = null, class: cls = '' }: Props = $props();
+  let { source, text, state, title = null, rows = [], notes = [], provenance = null, action = null, link = null, class: cls = '' }: Props = $props();
   let words = $derived(`${source} · ${text}`);
 </script>
 
 <p class="source-line {cls}" class:bad={state === 'bad'}>
   <Freshness {state} />
   {#if title}
-    <Fig value={words} {title} {rows} {notes} {provenance} {action} class="trigger"><span class="words">{words}</span></Fig>
+    <Fig value={words} {title} {rows} {notes} {provenance} {action} {link} class="trigger"><span class="words">{words}</span></Fig>
   {:else}
     <span class="words">{words}</span>
   {/if}

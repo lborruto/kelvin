@@ -144,6 +144,15 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Budget mensuel | Monthly budget |
 | Rythme | Pace |
 | Degré-jour (DJU) | Degree day (HDD) |
+| Dehors | Outside | The outdoor temperature: the Maison chip « Dehors 4,2 °C » → “Outside 4.2 °C”, the chart legend |
+| Météo (Réglages) | Weather | The Réglages page and card; « Météo désactivée » → “Weather off” |
+| Ressenti | Feels like | Apparent temperature |
+| Humidité | Humidity | |
+| à météo égale | weather-adjusted | « −8 % à météo égale » → “−8% weather-adjusted” |
+| DJU (base 18 °C) | HDD (base 18 °C) | Heating degree days; the existing « Degré-jour (DJU) » row stays |
+| Prévu (température) | Expected | « max. prévu 9,8 °C vers 15:00 » → “max expected 9.8 °C around 15:00” |
+| Lieu | Place | Réglages › Météo |
+| Modèle (météo) | Model | « Météo-France AROME HD » is a proper name, never translated |
 | Appareils | Devices |
 | Pont Cozytouch | Cozytouch bridge |
 | Sessions | Signed-in devices |

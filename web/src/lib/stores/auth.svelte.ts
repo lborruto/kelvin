@@ -6,6 +6,7 @@ import { history } from './history.svelte';
 import { house } from './house.svelte';
 import { dashboardEnergy } from './dashboardEnergy.svelte';
 import { resetRoomData } from './roomdata.svelte';
+import { weather } from './weather.svelte';
 
 export class AuthStore {
   email = $state<string | null>(null);
@@ -52,6 +53,7 @@ export class AuthStore {
     resetRoomData();
     alerts.reset();
     grid.reset();
+    weather.reset();
     dashboardEnergy.reset();
   }
 

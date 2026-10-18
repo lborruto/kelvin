@@ -10,7 +10,9 @@
     | 'home' | 'cal' | 'chart' | 'gear' | 'bolt' | 'rad' | 'resume' | 'euro' | 'tag' | 'clock' | 'user' | 'globe'
     | 'box' | 'key' | 'shield' | 'chevron-down' | 'grid'
     // Réglages (Tableau settings batch)
-    | 'meter';
+    | 'meter'
+    // Plan 14: the outdoor temperature (Maison chip, Réglages › Météo)
+    | 'weather';
 </script>
 
 <script lang="ts">
@@ -77,7 +79,9 @@
     'chevron-down': 'M6 9l6 6 6-6',
     grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
     // The Linky meter: a box with its display and a line (Réglages overview).
-    meter: 'M6 3h12v18H6zM9 6.5h6v4H9zM9 14.5h6M9 17.5h3'
+    meter: 'M6 3h12v18H6zM9 6.5h6v4H9zM9 14.5h6M9 17.5h3',
+    // A thermometer: the outdoor temperature (Plan 14).
+    weather: 'M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0zM12 9v7.5M17 6h3M17 10h3'
   };
 </script>
 

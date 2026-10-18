@@ -23,7 +23,8 @@ Every tool returns `{data, meta}`. `meta.units` maps field suffixes to units (`_
 incl. VAT as entered in the tariff, `_c` °C, `_w`, `_share` 0-1, `_at` local date-time).
 `meta.basis`: `measured` (meter or sensor), `computed` (measured × tariff), `estimated`
 (fallback split, interpolated or apportioned spans, projections, proposal estimates), `mixed`,
-`static` (configuration), `unknown`. `meta.notes` lists caveats: repeat them with any figure.
+`static` (configuration), `published` (model data as Meteo-France or ECMWF publish it, not a
+measurement at the home), `unknown`. `meta.notes` lists caveats: repeat them with any figure.
 `null` means unknown, never zero.
 
 ## Two sources of energy
@@ -42,6 +43,19 @@ A Tempo day runs from 06:00 to 06:00 the next day; an unknown colour prices noth
 A programme lists comfort periods per day (up to 3); outside them a radiator heats to eco. A
 slot ending 24:00 runs to midnight. Locked days are kept as the radiator holds them. Check any
 draft with `evaluate_programme` before suggesting it.
+
+## Weather
+With a place chosen by the owner (off by default), `get_weather` gives the outdoor temperature
+of the home's model cell: daily mean, min, max and heating degree days, or hourly temperature,
+feels-like and humidity. Models: `arome_hd` (Meteo-France AROME France HD, 1.5 km), `arpege`
+(Meteo-France seamless, beyond AROME's reach), `era5_land` (Copernicus reanalysis, older days),
+`best_match` (Open-Meteo's best model outside France). Heating degree days (DJU) are base 18 °C,
+Meteo-France's "methode meteo" on the Paris civil day: max(0, 18 − (Tmin + Tmax) / 2); a day
+with more than two hours missing has none. `get_energy` buckets and totals carry `outdoor` (null
+without a place; `heating_degree_days` null unless every elapsed day has weather) and the
+`previous` and `last_year` comparisons `weather_normalised`: Kelvin's regression of daily kWh on
+degree days, the change at equal weather (computed, never a saving). The place itself is never
+available: only `location_set`.
 
 ## Proposals
 Estimates are upper bounds or proportional estimates with the consumption held equal; they are

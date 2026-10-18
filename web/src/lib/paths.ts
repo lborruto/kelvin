@@ -12,6 +12,7 @@ export const ROUTES = {
   tariff: '/home/tariff',
   linky: '/home/linky',
   sources: '/home/sources',
+  weather: '/home/weather',
   account: '/home/account',
   login: '/login'
 } as const;

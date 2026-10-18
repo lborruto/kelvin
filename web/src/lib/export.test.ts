@@ -38,7 +38,7 @@ describe('exportActions', () => {
     const period = { from: '2026-10-01', to: '2026-11-01' };
     exportActions(input())[0].run();
     expect(vi.mocked(download).mock.calls[0][0]).toEqual(energyCsv(chart, main, period, '2026-10-14'));
-    expect(vi.mocked(download).mock.calls[0][0].text.split('\r\n')[1]).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;;;;;;;;;;;;0;;');
+    expect(vi.mocked(download).mock.calls[0][0].text.split('\r\n')[1]).toBe('total;2026-10-01T00:00:00+02:00;2026-11-01T00:00:00+01:00;;;;;;;;;;;;0;;;;;');
   });
 
   it('no curve file without a curve, no rooms file without radiators', () => {

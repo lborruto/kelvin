@@ -6,7 +6,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 // needs every bar to hold data opens the previous month, which is always complete.
 
 const ENERGY_HEADER =
-  'periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_jusqu_au;radiateurs_couverture';
+  'periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_jusqu_au;radiateurs_couverture;dehors_moy_c;dju_base18;meteo_jours';
 const CURVE_HEADER = 'debut;fin;minutes;wh;w_moyen;part_hc;couleur_tempo;prix;eur;radiateurs_wh';
 const ISO_LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00[+-]\d{2}:\d{2}$/;
 const SCRUB = 'Parcourir la courbe, demi-heure par demi-heure';
@@ -276,7 +276,10 @@ test.describe('Énergie', () => {
     expect(period.rows[0]).toBe(ENERGY_HEADER);
     for (const l of period.rows.slice(1)) {
       const c = l.split(';');
-      expect(c).toHaveLength(17);
+      expect(c).toHaveLength(20);
+      // Plan 14: dehors_moy_c and dju_base18 (1 decimal, empty without weather), meteo_jours (an integer or empty).
+      for (const v of c.slice(17, 19)) expect(v).toMatch(/^(-?\d+,\d)?$/);
+      expect(c[19]).toMatch(/^\d*$/);
       expect(c[1]).toMatch(ISO_LOCAL);
       expect(c[2]).toMatch(ISO_LOCAL);
       for (const v of [...c.slice(3, 6), ...c.slice(7, 8), ...c.slice(9, 13), c[16]]) expect(v).toMatch(/^(-?\d+,\d+)?$/); // decimal comma, no grouping
@@ -453,6 +456,9 @@ test.describe('Énergie', () => {
       const title = (await card.locator('.title').textContent())!;
       const action = card.getByRole('button', { name: /^Voir la courbe du / });
       const label = (await action.textContent())!;
+      // With a weather place the card holds two more rows (Dehors moy., DJU): at 1024 × 900 its action can sit
+      // below the fold; the page scrolls to it, as a reader would.
+      await action.scrollIntoViewIfNeeded();
       const a = (await action.boundingBox())!;
       await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2, { steps: 12 });
       await expect(card.locator('.title')).toHaveText(title);

@@ -27,10 +27,10 @@ def test_v4_creates_the_mcp_tables(tmp_path):
         "error_code",
         "duration_ms",
     }
-    assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION == 4
+    assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION >= 4
     db.close()
     again = Database(tmp_path / "k.db")  # idempotent
-    assert again.get_setting(SCHEMA_VERSION_KEY) == 4
+    assert again.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION
     again.close()
 
 

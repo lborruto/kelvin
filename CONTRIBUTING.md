@@ -42,7 +42,8 @@ the container in 3 shards); all must be green.
     cd web && npx vitest run && npm run check && npx playwright test
     bash scripts/docker-smoke.sh   # when you touch the Dockerfile, compose or the launcher
 
-Every automated test uses the simulator (`KELVIN_FAKE=1`) or fakes, and logs in through the
+Every automated test uses the simulator (`KELVIN_FAKE=1`) or fakes (Overkiz, MyElectricalData,
+Open-Meteo), and logs in through the
 real flow with `demo@kelvin.local` / `kelvin`. A test that needs the network, a real account
 or real data will not be merged.
 

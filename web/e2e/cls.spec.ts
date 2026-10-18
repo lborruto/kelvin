@@ -6,7 +6,7 @@ import { CLS_WIDTHS, clsWidths, FONT_MODES, measureCls } from './cls';
 // add their routes here (and run their own interactions through measureCls).
 const ROUTES = ['/', '/schedule', '/energy', '/home'];
 // Maison sub-pages (UX batches 8–10).
-ROUTES.push('/home/tariff', '/home/linky', '/home/sources', '/home/account', '/home/devices');
+ROUTES.push('/home/tariff', '/home/linky', '/home/sources', '/home/weather', '/home/account', '/home/devices');
 // UX batch 13: the phone room page and the 404 (/login has its own matrix in login.spec.ts).
 ROUTES.push('/rooms/p-salon', '/no-such-page');
 // Programme (Tableau): the day view (a phone width) beside the agenda, and an offline room's read-only agenda.

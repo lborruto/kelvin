@@ -20,11 +20,13 @@ from kelvin.billing.overlap import day_ranges, week_overlap
 from kelvin.billing.room_energy import MAX_ROOM_DAYS
 from kelvin.errors import UserError
 from kelvin.house.model import DAY_ORDER
+from kelvin.linky.models import day_bounds
 from kelvin.mcp import energy as en
 from kelvin.mcp import proposals as pr
 from kelvin.mcp import shape
 from kelvin.mcp.errors import tool_error
 from kelvin.mcp.runner import Runner
+from kelvin.weather.dju import DJU_BASE_C, DJU_METHOD
 
 READ_ONLY = ToolAnnotations(
     read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
@@ -47,6 +49,7 @@ async def data_status(ctx: Any) -> dict[str, Any]:
         "cozytouch": None,
         "linky": None,
         "grid_sources": None,
+        "weather": None,
         "radiator_meters": [],
     }
     if rt is not None:
@@ -71,7 +74,20 @@ async def data_status(ctx: Any) -> dict[str, Any]:
             }
         src = sources(rt)
         if src is not None:
-            data["grid_sources"] = {k: _source(v, tz) for k, v in src.items() if k != "med"}
+            data["grid_sources"] = {
+                k: _source(v, tz) for k, v in src.items() if k not in ("med", "weather")
+            }
+        if rt.weather is not None:
+            loc = rt.weather.location()
+            st = rt.scheduler.status("weather_forecast") if rt.scheduler is not None else None
+            data["weather"] = {
+                "location_set": loc is not None,
+                "mode": loc.mode if loc else None,
+                "state": st["state"] if st else None,
+                "last_ok_at": shape.iso(st["last_ok"], tz) if st else None,
+                "next_at": shape.iso(st["next"], tz) if st else None,
+                "weighted_calls_today": rt.weather.calls_today(),
+            }
         extent = await asyncio.to_thread(rt.recorder.energy_extent)
         data["radiator_meters"] = [
             {
@@ -85,7 +101,7 @@ async def data_status(ctx: Any) -> dict[str, Any]:
         "get_data_status",
         data,
         ctx=ctx,
-        sources=["cozytouch", "linky", "grid", "recorder"],
+        sources=["cozytouch", "linky", "grid", "recorder", "weather"],
         basis="measured",
     )
 
@@ -299,6 +315,7 @@ async def programmes(ctx: Any, room_id: str | None) -> dict[str, Any]:
 MAX_MCP_POINTS = 2000  # per radiator: a result an agent can read (Decision 9)
 MAX_MCP_TOTAL_POINTS = 20_000  # per call, all radiators together (review M-6)
 MAX_GRID_DAYS = 366
+MAX_WEATHER_HOURLY_DAYS = 31
 
 
 def _local_ts(value: datetime, tz: str) -> float:
@@ -380,6 +397,75 @@ async def alerts(ctx: Any, state: str) -> dict[str, Any]:
         basis="measured",
         notes=[
             "kinds are stable codes (backend/README.md); params name Kelvin's room and radiator ids"
+        ],
+    )
+
+
+async def weather(ctx: Any, start: date, end: date, granularity: str) -> dict[str, Any]:
+    """Spec §9: the stored outdoor weather (never a fetch, never the place)."""
+    rt, tz = ctx.rt, ctx.settings.tz
+    limit = MAX_WEATHER_HOURLY_DAYS if granularity == "hourly" else bounds.MAX_REPORT_DAYS
+    if not bounds.FIRST_DAY <= start < end or (end - start).days > limit:
+        raise UserError("period_invalid")
+    w = rt.weather
+    loc = w.location() if w is not None else None
+    data: dict[str, Any] = {
+        "location_set": loc is not None,
+        "mode": loc.mode if loc else None,
+        "from_date": start.isoformat(),
+        "to_date_exclusive": end.isoformat(),
+        "dju_base_c": DJU_BASE_C,
+        "dju_method": DJU_METHOD,
+    }
+    if granularity == "hourly":
+        zone = ZoneInfo(tz)
+        a, b = day_bounds(start, zone)[0], day_bounds(end, zone)[0]
+        data["hours"] = (
+            [
+                {
+                    "at": shape.iso(h.ts, tz),
+                    "temperature_c": h.t,
+                    "apparent_c": h.apparent,
+                    "humidity_share": None if h.rh is None else round(h.rh / 100, 3),
+                    "model": h.model,
+                    "forecast": h.forecast,
+                }
+                for h in w.store.hours(a, b)
+            ]
+            if loc is not None
+            else []
+        )
+    else:
+        days = w.store.daily(start, end) if loc is not None else {}
+        data["days"] = [
+            {
+                "date": d.isoformat(),
+                "mean_c": x.tmean,
+                "min_c": x.tmin,
+                "max_c": x.tmax,
+                "heating_degree_days": x.dju,
+                "hours": x.hours,
+                "expected_hours": x.expected,
+                "complete": x.tmean is not None,
+                "final": x.final,
+                "model": x.model,
+            }
+            for d, x in sorted(days.items())
+        ]
+    return shape.envelope(
+        "get_weather",
+        data,
+        ctx=ctx,
+        sources=["weather"],
+        basis="published" if loc is not None else "unknown",
+        notes=[
+            "model data for the home's cell: arome_hd = Meteo-France AROME France HD (1.5 km),"
+            " arpege = Meteo-France seamless beyond AROME's reach, era5_land = ERA5-Land"
+            " reanalysis (Copernicus), best_match = Open-Meteo's best model outside France",
+            "a day's mean_c is (min_c + max_c) / 2 of the Paris civil day; heating_degree_days ="
+            " max(0, 18 − mean_c); null when more than two hours are missing",
+            "forecast: true marks hours that were still ahead when fetched",
+            "Weather data by Open-Meteo.com (CC BY 4.0)",
         ],
     )
 
@@ -799,6 +885,23 @@ def register_tools(server: MCPServer, run: Runner) -> None:
     ) -> dict[str, Any]:
         args = {"start": start and start.isoformat(), "end": end and end.isoformat()}
         return await run("tool", "get_grid_signals", args, lambda c: grid_signals(c, start, end))
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "Outdoor temperature at the home for a period (start inclusive, end exclusive, local"
+            " ISO dates): granularity 'daily' (mean, min, max and heating degree days base 18 °C;"
+            " up to 1464 days) or 'hourly' (temperature, feels-like, humidity; up to 31 days)."
+            " Model data (Meteo-France AROME HD via Open-Meteo; ERA5-Land for older days)."
+            " location_set is false when the owner has chosen no place. Reads Kelvin's store only;"
+            " never returns the place."
+        ),
+    )
+    async def get_weather(
+        start: date, end: date, granularity: Literal["daily", "hourly"] = "daily"
+    ) -> dict[str, Any]:
+        args = {"start": start.isoformat(), "end": end.isoformat(), "granularity": granularity}
+        return await run("tool", "get_weather", args, lambda c: weather(c, start, end, granularity))
 
     @server.tool(
         annotations=READ_ONLY,

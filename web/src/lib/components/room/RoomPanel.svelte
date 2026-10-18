@@ -35,6 +35,8 @@
   import { roomActivity, roomEnergy, roomsDuty } from '$lib/stores/roomdata.svelte';
   import { addParisDays, parisMidnight, parisMinuteOfDay, parisParts } from '$lib/time';
   import { parisTodayIso } from '$lib/format';
+  import { weather } from '$lib/stores/weather.svelte';
+  import { ATTRIBUTION_URL } from '$lib/weather';
   import DayBar from '../DayBar.svelte';
   import GroupedList from '../GroupedList.svelte';
   import ListRow from '../ListRow.svelte';
@@ -156,6 +158,16 @@
   $effect(() => {
     if (room) history.load(key, room.radiator_ids, start, Math.min(end, now), RANGES[range].step);
   });
+  // Plan 14: the outdoor hours of the chart's window (one request per window, like the history); none without a place.
+  let wkey = $derived(`out|${range}|${range === 'day' ? start : Math.floor(now / 3_600_000)}`);
+  $effect(() => {
+    // Read again each minute (`now`): a window older than 10 min is asked again, up to now.
+    if (weather.on) weather.hourly(wkey, start, Math.min(end, now), undefined, now);
+  });
+  let outdoorEntry = $derived(weather.on ? weather.entries[wkey] : undefined);
+  let outdoorPoints = $derived(outdoorEntry?.points ?? []);
+  // The lane draws a line from two published hours of the window on; the legend names it only then.
+  let outdoorDrawn = $derived(outdoorPoints.filter((p) => p.t >= start && p.t <= Math.min(end, now)).length >= 2);
   // Offline: the chart stops when the radiators went offline (a value read after that is not a reading).
   let points = $derived.by(() => {
     const all = history.data[key] ?? [];
@@ -214,6 +226,7 @@
     if (!room) return [];
     const out: { k: string; label: string }[] = [];
     if (points.some((x) => x.v != null)) out.push({ k: 'temp', label: m.strip.legendTemp });
+    if (outdoorDrawn) out.push({ k: 'outdoor', label: m.strip.legendOutdoor });
     const prog = room.mode === 'program' && room.comfort != null && room.eco != null;
     if ((room.mode === 'manual' && room.target != null) || prog) out.push({ k: 'setpoint', label: m.strip.legendSetpoint });
     if (room.mode === 'program' && comfortBands(first?.program ?? {}, start, end).length) out.push({ k: 'comfort', label: m.strip.legendComfort });
@@ -488,13 +501,16 @@
       <ThermalStrip {points} {start} {end} {now} program={first?.program} mode={room!.mode} comfort={room!.comfort} eco={room!.eco}
         target={room!.target} height={96} yAxis events pendingTarget={range === 'day' ? (expected.target ?? null) : null}
         pendingComfort={range === 'day' ? (expected.comfort ?? null) : null} axis={range === 'day'}
-        label={m.room.historyLabel(name, m.range[range])} {activity} inspect={readonly ? null : inspect} />
+        label={m.room.historyLabel(name, m.range[range])} {activity} inspect={readonly ? null : inspect}
+        outdoor={weather.on ? outdoorPoints : null} outdoorPending={!outdoorEntry || (outdoorEntry.status === 'loading' && !outdoorPoints.length)} />
       {#if range === 'day' && program && rc.program > 0}<div class="daybar"><DayBar {segs} label={dayLabel} ghost={mode !== 'program'} height={14} /></div>{/if}
         <!-- Always there (one line held): the legend's words arrive with the history, below it nothing moves. -->
         <p class="legend">
           {#each legend as l (l.k)}<span class="key"><span class="sw {l.k}" aria-hidden="true"></span>{l.label}</span>{/each}
           {#if mode !== 'program' && rc.program > 0}<span>{m.maison.paused}</span>{/if}
           {#if legend.some((l) => l.k === 'window' || l.k === 'presence')}<span class="muted">{m.strip.sampled}</span>{/if}
+          <!-- The licence asks for the source next to the data it serves. -->
+          {#if legend.some((l) => l.k === 'outdoor')}<span>· <a class="attr" href={ATTRIBUTION_URL} target="_blank" rel="noopener noreferrer">Open-Meteo</a></span>{/if}
         </p>
       {#if !readonly}<div class="figs"><RoomFigures {roomId} days={RANGES[range].days} {now} rangeLabel={m.range[range]} {duty} /></div>{/if}
     </div>
@@ -994,6 +1010,19 @@
   .sw.temp {
     height: 2px;
     background: var(--tx);
+  }
+  /* The outdoor line: dashed, in its own colour, as drawn. */
+  .sw.outdoor {
+    height: 0;
+    border-top: 2px dashed var(--outdoor);
+    border-radius: 0;
+  }
+  /* A 44 px tall target around 12 px text, without moving the line. */
+  .attr {
+    padding-block: 13px;
+    color: var(--mu);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .sw.setpoint {
     height: 0;

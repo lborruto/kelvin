@@ -4,7 +4,7 @@ import asyncio
 import re
 import time
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import date
 from functools import reduce
 from operator import add
@@ -28,7 +28,7 @@ from kelvin.api.bounds import (
 from kelvin.api.bounds import check_days as _check_days
 from kelvin.api.bounds import check_span as _check_span
 from kelvin.api.guards import LoginRequired, require_kelvin_header, require_session
-from kelvin.api.runtime import Runtime, sources
+from kelvin.api.runtime import Runtime, sources, weather_view
 from kelvin.api.schemas import (
     AwayBody,
     BoostBody,
@@ -45,6 +45,8 @@ from kelvin.api.schemas import (
     SetpointBody,
     SettingsBody,
     TariffDocBody,
+    WeatherLocationBody,
+    WeatherSearchBody,
 )
 from kelvin.api.sse import event_stream
 from kelvin.api.views import linky_of as _linky
@@ -78,6 +80,7 @@ from kelvin.overkiz.errors import GatewayError
 from kelvin.recorder.activity import DUTY_WINDOW_S, MAX_SPAN_S
 from kelvin.setup.refresh import SyncSpent
 from kelvin.setup.service import SetupPending, SetupService
+from kelvin.weather.service import WeatherService
 
 router = APIRouter(dependencies=[Depends(require_kelvin_header), Depends(require_session)])
 _DEVICE_ID = re.compile(r"[A-Za-z0-9_.-]{1,64}#[0-9]{1,2}|bridge-[0-9]{1,3}")
@@ -131,6 +134,64 @@ async def grid_view(request: Request) -> dict:
             "source": "MyElectricalData",
         }
     return rt.grid.view()
+
+
+MAX_WEATHER_SPAN_S = 31 * 86400
+
+
+def _weather(rt: Runtime) -> WeatherService:
+    if rt.weather is None:
+        raise UserError("weather_unavailable", 503)
+    return rt.weather
+
+
+@router.get("/weather")
+async def weather_now(request: Request) -> dict | None:
+    """The outdoor temperature now and today's range (spec §7.2); null without a place."""
+    return weather_view(_rt(request))
+
+
+@router.get("/weather/hourly")
+async def weather_hourly(request: Request, start: int, end: int) -> dict:
+    """Past hourly outdoor temperatures for a chart window (≤ 31 days; never forecasts)."""
+    w = _weather(_rt(request))
+    if start < FIRST_TS or end <= start or end - start > MAX_WEATHER_SPAN_S:
+        raise UserError("period_invalid")  # the window asked, before it is cut at now
+    return w.hourly(start, min(end, int(w.wall()) + 3600))
+
+
+@router.post("/weather/search")
+async def weather_search(body: WeatherSearchBody, request: Request) -> dict:
+    """Open-Meteo geocoding (GeoNames), French places first; coordinates already rounded. A POST:
+    the typed text stays out of URLs and access logs."""
+    places = await _weather(_rt(request)).search_places(body.q, body.lang)
+    return {"results": [asdict(p) for p in places]}
+
+
+@router.get("/settings/weather")
+async def get_weather_settings(request: Request) -> dict:
+    return _weather(_rt(request)).settings_view()
+
+
+@router.put("/settings/weather")
+async def put_weather_settings(body: WeatherLocationBody, request: Request) -> dict:
+    rt = _rt(request)
+    w = _weather(rt)
+    w.set_location(**body.model_dump())
+    if rt.scheduler is not None:
+        rt.scheduler.request("weather_forecast")
+        rt.scheduler.request("weather_backfill")
+    return w.settings_view()
+
+
+@router.delete("/settings/weather", status_code=204)
+async def delete_weather_settings(request: Request) -> Response:
+    rt = _rt(request)
+    _weather(rt).clear_location()
+    if rt.scheduler is not None:
+        rt.scheduler.reset("weather_forecast")
+        rt.scheduler.reset("weather_backfill")
+    return Response(status_code=204)
 
 
 @router.get("/overkiz/quotas")

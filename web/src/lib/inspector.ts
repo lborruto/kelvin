@@ -10,6 +10,7 @@ import {
 } from './format';
 import { m } from './i18n';
 import { parisOffsetMinutes, parisParts } from './time';
+import { outdoorRows } from './weather';
 
 const NB = '\u00a0';
 
@@ -52,7 +53,7 @@ export interface BucketCtx {
 /** The order of the inspector's rows and of the hidden table's columns. */
 export const ROW_ORDER = [
   'home', 'hc', 'hp', 'hc_share', 'tempo', 'radiators', 'rest', 'rad_share', 'cost', 'energy', 'subscription', 'prices', 'avg_price',
-  'period_share', 'per_day'
+  'period_share', 'per_day', 'outdoor', 'dju'
 ] as const;
 export const READOUT_ORDER = ['power', 'energy', 'rate', 'price', 'cost', 'radiators', 'rest', 'temperature'] as const;
 
@@ -126,6 +127,8 @@ export function inspectBucket(b: EnergySummary, ctx: BucketCtx): Inspection {
     add('period_share', m.inspector.periodShare, fmtPct1(kwh / per.kwh));
   }
   if (ctx.group !== 'day' && kwh != null && b.present_days > 0) add('per_day', m.inspector.perDay, fmtKwhExact(kwh / b.present_days));
+  // Plan 14: the outdoor mean and the degree days, only with a weather place (published figures, Kelvin's day sums).
+  for (const r of outdoorRows(b.outdoor)) add(r.key!, r.label, r.value, { note: r.note ?? undefined });
 
   const notes: string[] = [];
   if (b.missing_days > 0 && kwh != null) notes.push(m.inspector.missing(b.missing_days));

@@ -11,7 +11,7 @@ from datetime import date, timedelta
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from kelvin.billing.compare import average_of_four, compare, mapper, minus_years
+from kelvin.billing.compare import Mapper, average_of_four, compare, mapper, minus_years
 from kelvin.billing.costs import (
     DayEnergy,
     curve_complete,
@@ -25,6 +25,8 @@ from kelvin.billing.radiators import RadiatorDay
 from kelvin.billing.split import FallbackShares, Profile
 from kelvin.billing.tariff import RATE_KEYS, PriceRow, Tariff
 from kelvin.linky.models import CurvePoint
+from kelvin.weather.models import DayWeather
+from kelvin.weather.normalise import normalised_change
 
 Group = Literal["day", "week", "month", "year"]
 TRAILING_DAYS = 30
@@ -57,6 +59,9 @@ class ReportInputs:
     colours: dict[date, str] = field(
         default_factory=dict
     )  # Tempo colour per Tempo day (grid store)
+    # Plan 14: complete weather days by local day (store rows), and whether a place is set.
+    outdoor: dict[date, DayWeather] = field(default_factory=dict)
+    weather_on: bool = False
 
 
 def _days(a: date, b: date) -> Iterator[date]:
@@ -573,6 +578,7 @@ class _Energy:
             # does not, so `energy_eur`/`eur` are the priced days' only (never a whole) — spec §2.2.
             "missing_colour_days": sum(e.colour_missing for e in present),
             "present_days": len(present),
+            "outdoor": self.outdoor(a, b),
             "curve": self._curve(curve_days),
             "radiators_kwh": rad["kwh"] if rad else None,
             "radiators": rad,
@@ -707,6 +713,25 @@ class _Energy:
             ),
         }
 
+    def outdoor(self, a: date, b: date) -> dict[str, Any] | None:
+        """Spec §6.2: over the elapsed days; the DJU sum only when every one has weather."""
+        if not self.inp.weather_on:
+            return None
+        days = [d for d in _days(a, b) if d < self.inp.today]
+        if not days:
+            return None
+        have = [
+            w for d in days if (w := self.inp.outdoor.get(d)) is not None and w.tmean is not None
+        ]
+        return {
+            "mean_c": round(sum(w.tmean for w in have) / len(have), 1) if have else None,
+            "min_c": min(w.tmin for w in have) if have else None,
+            "max_c": max(w.tmax for w in have) if have else None,
+            "dju": round(sum(w.dju for w in have), 1) if have and len(have) == len(days) else None,
+            "days": len(have),
+            "of": len(days),
+        }
+
     def period(self, a: date, b: date) -> dict[str, Any]:
         return {"from": a.isoformat(), "to": b.isoformat(), **self.summary(a, b)}
 
@@ -826,6 +851,25 @@ def _projection(en: _Energy, anchor: date) -> dict[str, Any] | None:
     }
 
 
+def _weather_row(
+    en: _Energy, days: list[date], to: Mapper, row: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """Spec §6.3: the change at equal weather beside a raw comparison row; None when off."""
+    if row is None or not en.inp.weather_on:
+        return None
+    outdoor = en.inp.outdoor
+
+    def kwh(d: date) -> float | None:
+        e = en.day(d)
+        return e.kwh if e is not None else None
+
+    def dju(d: date) -> float | None:
+        w = outdoor.get(d)
+        return w.dju if w is not None else None
+
+    return normalised_change(days, to, kwh, dju, comparable=row.get("change") is not None)
+
+
 def _comparison(en: _Energy, group: Group, p_from: date, p_to: date) -> dict[str, Any]:
     """M3/L4: the selected period's elapsed days against the previous period, the same dates
     last year, and the mean of the four previous periods. A period that is not one unit of
@@ -836,10 +880,17 @@ def _comparison(en: _Energy, group: Group, p_from: date, p_to: date) -> dict[str
     tariff = en.inp.tariff
     unit = p_from == unit_start(p_from, group) and p_to == next_unit(p_from, group)
     length = None if unit else (p_to - p_from).days
+    to_prev = mapper(group, 1, length)
+    to_last: Mapper = lambda d: minus_years(d, 1)  # noqa: E731
+    previous = compare(days, to_prev, en.day, tariff)
+    last_year = compare(days, to_last, en.day, tariff)
+    for row, to in ((previous, to_prev), (last_year, to_last)):
+        if row is not None:
+            row["weather"] = _weather_row(en, days, to, row)
     return {
         "basis": "unit" if unit else "days",
-        "previous": compare(days, mapper(group, 1, length), en.day, tariff),
-        "last_year": compare(days, lambda d: minus_years(d, 1), en.day, tariff),
+        "previous": previous,
+        "last_year": last_year,
         "avg4": average_of_four(days, group, en.day, tariff, period_days=length),
     }
 

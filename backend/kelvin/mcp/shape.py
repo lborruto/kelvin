@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from kelvin.billing.tariff import RATE_KEYS
 
-Basis = Literal["measured", "computed", "estimated", "mixed", "unknown", "static"]
+Basis = Literal["measured", "computed", "estimated", "mixed", "unknown", "static", "published"]
 
 UNITS: dict[str, dict[str, str]] = {
     "suffixes": {
@@ -48,6 +48,15 @@ UNITS: dict[str, dict[str, str]] = {
         "date": "ISO 8601 date",
         "from": "ISO 8601 date (inclusive)",
         "to": "ISO 8601 date (exclusive in reports)",
+        "heating_degree_days": "heating degree days (DJU), base 18 °C:"
+        " max(0, 18 − (Tmin + Tmax) / 2) of each Paris civil day",
+        "heating_degree_days_cur": "heating degree days of the current side's paired days",
+        "heating_degree_days_ref": "heating degree days of the reference side's paired days",
+        "kwh_per_degree_day": "kWh per heating degree day (slope of the reference fit)",
+        "baseload_kwh_per_day": "kWh per day that does not scale with cold"
+        " (intercept of the reference fit)",
+        "r2": "coefficient of determination of the reference fit, 0–1",
+        "change": "ratio: +0.12 is 12 % more (weather_normalised.change: at equal weather)",
     },
 }
 
@@ -75,6 +84,10 @@ def combine(*parts: Basis) -> Basis:
     s = {p for p in parts if p != "unknown"}
     if not s:
         return "unknown"
+    if len(s) == 1:
+        return next(iter(s))
+    # Published model data (weather) beside other figures reads like a measurement.
+    s = {"measured" if p == "published" else p for p in s}
     if len(s) == 1:
         return next(iter(s))
     if "estimated" in s or "mixed" in s:

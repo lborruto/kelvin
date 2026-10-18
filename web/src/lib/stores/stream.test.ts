@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { HouseStore } from './house.svelte';
 import { connectStream } from './stream';
+import { weather } from './weather.svelte';
 
 class FakeES {
   static all: FakeES[] = [];
@@ -59,6 +60,41 @@ describe('connectStream', () => {
     FakeES.all.at(-1)!.emit('grid', { ...g, source: 'x' });
     expect(onGrid).toHaveBeenNthCalledWith(1, g);
     expect(onGrid).toHaveBeenNthCalledWith(2, { ...g, source: 'x' });
+  });
+
+  it('a weather event and the snapshot weather reach the weather store', () => {
+    const onWeather = vi.fn();
+    connectStream(new HouseStore(), {
+      EventSourceImpl: FakeES as unknown as typeof EventSource,
+      schedule: () => 1,
+      cancel: () => {},
+      doc: new EventTarget() as unknown as Document,
+      onWeather
+    });
+    const v = { now: null, today: null, fetched_at: null, mode: 'meteofrance', fetch: null };
+    FakeES.all.at(-1)!.emit('snapshot', snapshot);
+    expect(onWeather).not.toHaveBeenCalled(); // an older backend's snapshot says nothing about weather
+    FakeES.all.at(-1)!.emit('snapshot', { ...snapshot, weather: v });
+    FakeES.all.at(-1)!.emit('weather', null);
+    expect(onWeather).toHaveBeenNthCalledWith(1, v);
+    expect(onWeather).toHaveBeenNthCalledWith(2, null);
+  });
+
+  it('the default weather handler keeps the weather store current', () => {
+    weather.reset();
+    connectStream(new HouseStore(), {
+      EventSourceImpl: FakeES as unknown as typeof EventSource,
+      schedule: () => 1,
+      cancel: () => {},
+      doc: new EventTarget() as unknown as Document
+    });
+    const v = { now: null, today: null, fetched_at: null, mode: 'meteofrance', fetch: null };
+    FakeES.all.at(-1)!.emit('snapshot', { ...snapshot, weather: v });
+    expect(weather.view).toEqual(v);
+    expect(weather.on).toBe(true);
+    FakeES.all.at(-1)!.emit('weather', null);
+    expect(weather.view).toBeNull();
+    expect(weather.on).toBe(false);
   });
 
   it('reconnects with exponential backoff', () => {

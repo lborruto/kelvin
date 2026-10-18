@@ -32,8 +32,10 @@ depends on.
   `tests/test_repo_hygiene.py`: use only the invented `io://…` ids already there. Device serials
   are an allowlist there too (`SIMULATOR_SERIALS`): a new simulator device takes an invented
   serial and adds it.
-- Tests never contact Overkiz or MyElectricalData: use `FakeGateway`, `FakeLinkySource`,
-  `httpx.MockTransport` or a stub client.
+- Tests never contact Overkiz, MyElectricalData or Open-Meteo: use `FakeGateway`, `FakeLinkySource`,
+  `FakeWeatherSource` (`backend/kelvin/weather/fake.py`), `httpx.MockTransport` or a stub client.
+  The Sauter demo house seeds a demo weather place (« Lyon (simulateur) »); the other simulator
+  houses start without one, like a real install.
 - `backend/scripts/` talk to a real installation. Run them only when the human asks and is
   watching, on their own installation. Read-only first; revert any write at once and confirm the
   original state. They write only under `backend/captures/` (gitignored).
@@ -175,7 +177,7 @@ depends on.
   third-party text (a gateway's message) goes through `errors.scrub` before any API body, SSE
   or log.
 - **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/home/devices`,
-  `/home/tariff`, `/home/linky`, `/home/sources`, `/home/account`; anchors `#away`, `#tariff`, `#linky`,
+  `/home/tariff`, `/home/linky`, `/home/sources`, `/home/weather`, `/home/account`; anchors `#away`, `#tariff`, `#linky`,
   `#quality`, `#curve`, `#alerts`, `#sessions`, `#mcp`) and come from `web/src/lib/paths.ts`. Maison's old
   section anchors land on their sub-page (`homeAnchor`: `/home#tariff` → `/home/tariff`, `#sessions` →
   `/home/account#sessions`, `#mcp` → `/home/account#mcp`, `#away` → `/` with the Absence sheet open over Maison). Old
@@ -244,6 +246,25 @@ depends on.
   so a day MED never returns costs nothing (a test runs a scheduler day with one). The `ecowatt`, `tempo_red_tomorrow` and `hc_changed` rules are
   pure functions in `kelvin/alerts/rules.py`; the grid fetch and the monthly contract re-read ask
   the engine for an evaluation.
+- **Weather (`kelvin/weather/`, opt-in):** the place lives only in the `weather_location` setting,
+  rounded to 0.01°: never in a log line (the access log drops the query of `/api/weather*`; the
+  search is a POST), an error's text or params, the snapshot/SSE/`GET /api/weather`, a CSV or any
+  MCP output (only `location_set`); only `GET /api/settings/weather` returns it. Every Open-Meteo
+  call is made by `weather/client.py` from `WeatherService` after `_spend(weight)` (Open-Meteo's
+  weighting; ≤ 400 weighted calls a Paris day, backfill ≤ 300 a run, searches ≤ 30 an hour and
+  200 a day; « Supprimer » keeps the day's ledger); jobs `weather_forecast` (hourly :17) and
+  `weather_backfill` (04:50) in `scheduler.py`. Sources: Météo-France AROME HD first
+  (`/v1/meteofrance`, `meteofrance_seamless` per hour where AROME HD has none; historical forecast
+  from 2022-11-13), ERA5-Land before that and for gaps older than 6 days, `best_match` outside the
+  France box; `docs/weather-notes.md` holds the verified API facts. Days are Paris civil days built
+  from hourly epochs (never Open-Meteo's daily aggregates); DJU base 18 °C méthode météo,
+  `(Tn + Tx) / 2`; a day is complete with at most two missing hours and never counts a forecast
+  value; it is final 72 h after it ends (the backfill finalises days the forecast filled) and is
+  never rebuilt after. A bucket's DJU is null unless every elapsed day has weather. The
+  weather-normalised comparison is `weather/normalise.py` only. Every displayed weather figure says
+  « publié » with its model and links to https://open-meteo.com/ (CC BY 4.0) next to it (Fiche,
+  legend, SourceLine, Réglages). On the room chart the outdoor temperature has its own lane and
+  scale under the plot, never the room's °C scale.
 - **Network:** `/api/health` is open and says only the status word. Forwarded headers are
   ignored unless `KELVIN_TRUSTED_PROXIES` names the reverse proxy; nothing shipped enables them
   (`backend/tests/test_packaging.py` checks). The example compose file publishes on `127.0.0.1` unless `KELVIN_BIND`
@@ -325,7 +346,7 @@ depends on.
   `kelvin/mcp/` and a spy + database-diff run of everything on every simulator house): a new tool
   goes into its `TOOLS` and `calls_for` in the same PR. Every tool is annotated read-only, runs
   through `Runner` (audit, redaction, two at a time) and returns `shape.envelope` with units and a
-  `basis` (`measured`, `computed`, `estimated`, `mixed`, `static`, `unknown`); keys are neutral
+  `basis` (`measured`, `computed`, `estimated`, `mixed`, `static`, `published`, `unknown`); keys are neutral
   (`offpeak`/`peak`, `shape.neutral`). Tools reuse the services and `api/bounds.py`/`api/views.py`;
   no figure is recomputed except proposal estimates, which say `estimated` and their assumptions,
   and none is given for a setpoint change (no thermal model). MCP text (tool errors, prompts, the

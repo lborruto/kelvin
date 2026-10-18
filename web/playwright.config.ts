@@ -32,13 +32,13 @@ export default defineConfig({
     { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'phone',
-      testIgnore: /brands\.spec\.ts/,
+      testIgnore: /(brands|weather)\.spec\.ts/,
       use: { ...devices['Pixel 7'], storageState: 'e2e/.auth/state.json' },
       dependencies: ['setup']
     },
     {
       name: 'desktop',
-      testIgnore: /brands\.spec\.ts/,
+      testIgnore: /(brands|weather)\.spec\.ts/,
       use: { viewport: { width: 1440, height: 900 }, storageState: 'e2e/.auth/state.json' },
       dependencies: ['setup']
     },
@@ -47,7 +47,7 @@ export default defineConfig({
           {
             // Plan 12: a second simulator on a fresh KELVIN_DATA, claimed with « Atlantic Cozytouch ».
             name: 'brands',
-            testMatch: /brands\.spec\.ts/,
+            testMatch: /(brands|weather)\.spec\.ts/,
             use: { baseURL: brandsUrl, viewport: { width: 390, height: 844 }, locale: 'fr-FR' }
           }
         ]

@@ -5,7 +5,8 @@ import { fmtAgo, fmtDateTime, fmtDay, fmtTime, parisTodayIso } from './format';
 import { m } from './i18n';
 
 /** §1.4: measured (no mark), estimated (« est. »), projected (« ≈ »), computed (« ≈ »); `published` is a
- * grid signal as its publisher gave it (Tempo colour, EcoWatt level). */
+ * grid signal as its publisher gave it (Tempo colour, EcoWatt level) or a weather model's output (Plan 14:
+ * neither measured at the home nor Kelvin's estimate). */
 export type Nature = 'measured' | 'estimated' | 'projected' | 'computed' | 'published';
 export type ProvKind =
   | 'linky-day'
@@ -15,7 +16,8 @@ export type ProvKind =
   | 'rte-ecowatt'
   | 'tempo'
   | 'cozytouch'
-  | 'kelvin-calc';
+  | 'kelvin-calc'
+  | 'weather';
 
 export interface ProvRow {
   label: string;
@@ -41,6 +43,8 @@ export interface ProvData {
   syncAt?: number | null;
   /** The radiator whose meter it is (`radiator-meter`). */
   name?: string | null;
+  /** The weather model behind the figure (`weather`): `arome_hd`, `era5_land`… */
+  model?: string | null;
   /** Overrides the kind's own nature (an apportioned radiator kWh is `estimated`). */
   nature?: Nature;
   /** How it was estimated, projected or computed, already worded: « réparti entre deux relevés du radiateur ». */
@@ -56,10 +60,11 @@ const DEFAULT_NATURE: Record<ProvKind, Nature> = {
   'rte-ecowatt': 'published',
   tempo: 'published',
   cozytouch: 'measured',
-  'kelvin-calc': 'computed'
+  'kelvin-calc': 'computed',
+  weather: 'published'
 };
 
-/** The source's name in words. */
+/** The source's name in words (`name`: the radiator for `radiator-meter`, the model for `weather`). */
 export function sourceName(kind: ProvKind, name?: string | null): string {
   switch (kind) {
     case 'linky-day':
@@ -77,6 +82,8 @@ export function sourceName(kind: ProvKind, name?: string | null): string {
       return m.prov.cozytouch;
     case 'kelvin-calc':
       return m.prov.kelvin;
+    case 'weather':
+      return name ? (m.prov.weather[name] ?? m.prov.weather.mixed) : m.prov.weather.pending;
   }
 }
 
@@ -103,7 +110,7 @@ export function provenance(kind: ProvKind, data: ProvData = {}, now: number = Da
   if (data.day) reading.push(kind === 'linky-curve' ? m.prov.curveUntil(fmtDay(data.day)) : m.prov.until(fmtDay(data.day)));
   if (data.at != null) reading.push(when(data.at, now));
   if (data.syncAt != null) reading.push(m.prov.sync(when(data.syncAt, now)));
-  const rows: ProvRow[] = [{ label: m.prov.source, value: sourceName(kind, data.name) }];
+  const rows: ProvRow[] = [{ label: m.prov.source, value: sourceName(kind, kind === 'weather' ? data.model : data.name) }];
   if (reading.length) rows.push({ label: m.prov.reading, value: reading.join(' · ') });
   rows.push({ label: m.prov.nature, value: natureText(nature, data.method) });
   return { kind, nature, rows, notes: data.notes ?? [] };

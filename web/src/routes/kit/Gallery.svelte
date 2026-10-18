@@ -100,6 +100,10 @@
     <SummaryChip icon="alert" label="Réseau" value="EcoWatt orange demain" /><!-- i18n-ignore: demo chip -->
     <SummaryChip icon="away" label="Absence" value={m.nav.away} onclick={() => {}} /><!-- i18n-ignore: demo chip -->
     <SummaryChip icon="away" label="Absence" value="jusqu’à dim. 18:00" tone="cool" /><!-- i18n-ignore: demo chip -->
+    <!-- Plan 14: a chip with its Fiche (the outdoor temperature): hover or click opens the exact values. -->
+    <SummaryChip icon="weather" label={m.weather.chip} value={fmtTemp(4.2)}
+      fiche={{ title: m.weather.ficheTitle, rows: [{ label: m.weather.now, value: fmtTemp(4.2) }], notes: [m.weather.notStation],
+        provenance: provenance('weather', { at: NOW - 25 * 60_000, model: 'arome_hd' }, NOW), link: { label: m.weather.attributionShort, href: 'https://open-meteo.com/' } }} />
     <SummaryChip icon="flame" label="" skeleton width={150} />
   </div>
 

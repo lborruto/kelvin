@@ -154,11 +154,27 @@ def _v4_mcp_tables(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS mcp_audit_ts ON mcp_audit(ts)")
 
 
+def _v5_weather_tables(conn: sqlite3.Connection) -> None:
+    """v5 (Plan 14): outdoor weather, hourly (400 days) and daily (5 years). Idempotent."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS weather_hourly ("
+        " ts INTEGER PRIMARY KEY, t REAL NOT NULL, apparent REAL, rh REAL, model TEXT NOT NULL,"
+        " forecast INTEGER NOT NULL, fetched_at REAL NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS weather_daily ("
+        " day TEXT PRIMARY KEY, tmin REAL, tmax REAL, tmean REAL, dju REAL,"
+        " hours INTEGER NOT NULL, expected INTEGER NOT NULL, model TEXT NOT NULL,"
+        " final INTEGER NOT NULL)"
+    )
+
+
 MIGRATIONS = {
     1: _v1_energy_counters,
     2: _v2_session_ids,
     3: _v3_command_log_codes,
     4: _v4_mcp_tables,
+    5: _v5_weather_tables,
 }
 SCHEMA_VERSION = max(MIGRATIONS)  # a new migration is the new version
 

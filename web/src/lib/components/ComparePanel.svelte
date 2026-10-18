@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type { Average4, Comparison, Comparisons } from '$lib/api/types';
+  import type { Average4, Comparison, Comparisons, WeatherRow } from '$lib/api/types';
   import { addDays, previousName, type View } from '$lib/energy';
-  import { fmtChangeShare, fmtDateLong, fmtKwhExact, fmtSigned } from '$lib/format';
+  import { fmtChangeShare, fmtDateLong, fmtDju, fmtFixed, fmtKwhExact, fmtSigned } from '$lib/format';
   import { m } from '$lib/i18n';
+  import { normalisedLine, whyText } from '$lib/weather';
   import Disclosure from './Disclosure.svelte';
 
   interface Props {
@@ -26,7 +27,18 @@
   }
   const diff = (a: number | null, b: number | null) => (a != null && b != null ? a - b : null);
 
-  type Line = { label: string; basis: string | null; value: string; detail: string | null; why: string | null };
+  /** `weather`: the change at equal weather (Plan 14), a muted line under the days compared, never coloured. */
+  type Line = { label: string; basis: string | null; value: string; detail: string | null; why: string | null; weather?: string | null };
+  /** The Détails sentence of a row's weather adjustment: the fitted model, or why there is none. */
+  function weatherModel(w: WeatherRow | null | undefined): string | null {
+    if (!w) return null;
+    if (w.change != null && w.model) {
+      const x = w.model;
+      return m.weather.model(fmtFixed(x.baseload_kwh_day, 1), fmtFixed(x.kwh_per_dju, 1), x.fit_days, fmtFixed(x.r2, 2), fmtDju(w.dju_cur), fmtDju(w.dju_ref));
+    }
+    const why = whyText(w.why);
+    return why ? m.weather.unavailable(why) : null;
+  }
   /** A paired comparison: its change, the kWh and energy € differences and the days it counts, or « — » and why. */
   function pair(label: string, c: Comparison | null, name: (c: Comparison) => string): Line {
     if (!c) return { label, basis: null, value: '—', detail: null, why: m.compare.nothing };
@@ -36,7 +48,10 @@
     if (change == null) return { label, basis, value: '—', detail: null, why: m.compare.zero(view) };
     const eur = tariff ? diff(c.cur_energy_eur, c.prev_energy_eur) : null;
     const parts = [fmtSigned(diff(c.cur_kwh, c.prev_kwh), 'kWh'), ...(eur != null ? [fmtSigned(eur, '€')] : [])];
-    return { label, basis, value: change, detail: `${parts.join(' · ')} ${m.compare.pairs(c.pairs)}`, why: null };
+    return {
+      label, basis, value: change, detail: `${parts.join(' · ')} ${m.compare.pairs(c.pairs)}`, why: null,
+      weather: normalisedLine(c.weather)
+    };
   }
   function average(a: Average4 | null): Line {
     const label = m.compare.avg4[view];
@@ -52,6 +67,15 @@
     pair(m.compare.lastYear, comparison.last_year, lastYearName),
     average(comparison.avg4)
   ]);
+  // A row whose own change is « — » still says why there is no weather-adjusted one (its pair gave no change).
+  let models = $derived(
+    [
+      [m.compare.previous, comparison.previous] as const,
+      [m.compare.lastYear, comparison.last_year] as const
+    ]
+      .map(([label, c]) => ({ label, text: weatherModel(c?.weather) }))
+      .filter((x): x is { label: string; text: string } => x.text != null)
+  );
 </script>
 
 <!-- Analyse card: the three rows are the answer (L0); only the rule behind them moves to « Détails ». -->
@@ -63,11 +87,16 @@
       <!-- A change is plain text in every direction (DESIGN.md): never red or green. -->
       <div class="value num">{l.value}</div>
       {#if l.detail}<div class="muted note num">{l.detail}</div>{/if}
+      {#if l.weather}<div class="muted note num weather">{l.weather}</div>{/if}
       {#if l.why}<div class="muted note">{l.why}</div>{/if}
     </div>
   {/each}
   <Disclosure title={m.energyUi.details} detail class="more">
     <p class="muted foot">{m.compare.basis}{#if tariff}{m.compare.energyOnly}{/if}</p>
+    {#if models.length}
+      {#each models as x (x.label)}<p class="muted foot">{x.label}{m.common.colon}{x.text}</p>{/each}
+      <p class="muted foot">{m.weather.method}</p>
+    {/if}
   </Disclosure>
 </section>
 

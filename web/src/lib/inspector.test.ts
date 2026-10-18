@@ -442,3 +442,23 @@ describe('readDay (the Courbe at rest)', () => {
     expect(d.rows.find((r) => r.key === 'cost')).toBeUndefined();
   });
 });
+
+describe('Plan 14: the outdoor rows of a bar', () => {
+  it('adds « Dehors moy. » and « DJU (base 18 °C) » after the cost rows when the bucket has weather, nothing otherwise', () => {
+    const b = bucket({ outdoor: { mean_c: 6.3, min_c: 1.2, max_c: 11, dju: 11.7, days: 1, of: 1 } });
+    const rows = inspectBucket(b, day).rows;
+    expect(rows.find((r) => r.key === 'outdoor')).toMatchObject({ label: 'Dehors moy.', value: `6,3${NB}°C` });
+    expect(rows.find((r) => r.key === 'dju')).toMatchObject({ label: `DJU (base 18${NB}°C)`, value: '11,7' });
+    expect(rows.findIndex((r) => r.key === 'outdoor')).toBeGreaterThan(rows.findIndex((r) => r.key === 'cost'));
+    expect(inspectBucket(bucket({ outdoor: null }), day).rows.some((r) => r.key === 'outdoor')).toBe(false);
+    expect(inspectBucket(bucket(), day).rows.some((r) => r.key === 'dju')).toBe(false);
+  });
+  it('a partial bucket: « — » with « météo incomplète » for the DJU; the hidden table gains both columns', () => {
+    const b = bucket({ outdoor: { mean_c: 6.3, min_c: 1.2, max_c: 11, dju: null, days: 12, of: 14 } });
+    const dju = inspectBucket(b, day).rows.find((r) => r.key === 'dju')!;
+    expect(dju).toMatchObject({ value: '—', note: `météo incomplète${NB}: 12 jours sur 14` });
+    const table = inspectionTable([{ head: 'a', ins: inspectBucket(b, day) }, { head: 'b', ins: inspectBucket(bucket(), day) }]);
+    expect(table.columns.slice(-2).map((c) => c.key)).toEqual(['outdoor', 'dju']);
+    expect(table.rows[1].cells.slice(-2)).toEqual(['—', '—']);
+  });
+});

@@ -37,4 +37,9 @@ describe('freshness: the cadence matrix', () => {
     expect(freshness('tempo', { at: afternoon - 3_600_000, tomorrowKnown: true }, afternoon)).toBe('fresh');
     expect(freshness('tempo', { at: afternoon - 25 * 3_600_000, tomorrowKnown: true }, afternoon)).toBe('late');
   });
+  it('weather: 2 h', () => {
+    expect(freshness('weather', { at: afternoon - 30 * 60_000 }, afternoon)).toBe('fresh');
+    expect(freshness('weather', { at: afternoon - 3 * 3_600_000 }, afternoon)).toBe('late');
+    expect(CADENCE_MS.weather).toBe(2 * 3_600_000);
+  });
 });

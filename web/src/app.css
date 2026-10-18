@@ -55,6 +55,7 @@
   /* Ink on a heat fill (a heating tile's glyph, text on a comfort block) */
   --heat-ink: #231200;
   --cool: #7ab8ff;
+  --outdoor: #8ec5b8; /* the outdoor line (Plan 14): never heat, cool or a tariff blue */
   --hc: #a9d3ff;
   --hp: #3f6fd4;
   --bad: #ff6961;

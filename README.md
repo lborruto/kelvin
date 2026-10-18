@@ -28,6 +28,8 @@
 - **Energy and euros.** Your home's consumption from Linky by day, week, month or year, priced
   with your own tariff: Base, off-peak/peak (HC/HP) or Tempo. See how much goes to the radiators,
   room by room, and export it as CSV.
+- **Outdoor temperature (optional).** Pick your town and see the temperature outside next to your
+  rooms and your consumption, and how your use changed at equal weather.
 - **Alerts.** A red Tempo day tomorrow, an EcoWatt warning, a radiator that went
   offline, new regulated prices, a Linky consent about to expire.
 - **French or English**, switched in Settings without a reload.
@@ -148,7 +150,8 @@ Claude Desktop setup, the available prompts and tools, and the security details:
   14:00 and uses at most 10 of MyElectricalData's 50 daily calls. The daily history arrives at
   the first sync; the half-hour detail fills in over the following days.
 - **Your data stays at home.** Everything is stored in Kelvin's own data volume. It only talks to
-  Cozytouch and MyElectricalData (for Tempo and EcoWatt it asks for dates only, nothing about you).
+  Cozytouch and MyElectricalData (for Tempo and EcoWatt it asks for dates only, nothing about you),
+  and, only if you pick a town for the weather, Open-Meteo (your town's position, to about 1 km).
 - **Keep it on your home network or a VPN** (Tailscale, WireGuard…). Never open it to the
   internet. More in [SECURITY.md](SECURITY.md#security-model).
 - **One server per install.** The server (Sauter, Atlantic, Thermor…) is fixed at the first login.
@@ -217,11 +220,13 @@ ids or serial numbers.
 ## Licence
 
 MIT, see [LICENSE](LICENSE). Bundled fonts (Geist, JetBrains Mono) are under the SIL Open Font
-License 1.1; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+License 1.1; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Weather data by
+[Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0), from Météo-France and Copernicus (ERA5-Land);
+place search by GeoNames. Kelvin uses Open-Meteo's free API, which is for non-commercial use.
 
 ## Not affiliated
 
 Kelvin is an independent, unofficial project. It is not made, endorsed or supported by
-Atlantic, Sauter, Thermor, Cozytouch, Overkiz, Enedis or MyElectricalData. Atlantic, Sauter,
+Atlantic, Sauter, Thermor, Cozytouch, Overkiz, Enedis, MyElectricalData, Météo-France or Open-Meteo. Atlantic, Sauter,
 Thermor, Cozytouch, Overkiz, Enedis, Linky and MyElectricalData are trademarks of their
 respective owners; they are named here only to say what Kelvin works with.

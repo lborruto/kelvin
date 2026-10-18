@@ -97,6 +97,11 @@ class Scheduler:
         self._save()
         self.wake()
 
+    def reset(self, name: str) -> None:
+        """Forget a job's history (its source was removed: Réglages › Météo « Supprimer »)."""
+        self.state.pop(name, None)
+        self._save()
+
     async def run_due(self) -> list[str]:
         ran = []
         for job in self.jobs.values():

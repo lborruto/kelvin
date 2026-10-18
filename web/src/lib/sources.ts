@@ -1,14 +1,14 @@
 // The data sources in one list (direction-2 §3 « /home/sources », DESIGN « Sources »): Cozytouch, Linky,
-// RTE EcoWatt and (under a Tempo price) Tempo, each with its Freshness state, a state sentence, its last
+// RTE EcoWatt, (under a Tempo price) Tempo and (Plan 14) Open-Meteo, each with its Freshness state, a state sentence, its last
 // time and its exact rows (L2). The Maison card counts the late ones.
-import type { LinkyStatus, SourceStatus, Sources, Status } from './api/types';
+import type { LinkyStatus, SourceStatus, Sources, Status, WeatherSource } from './api/types';
 import type { FicheRow } from './components/FicheBody.svelte';
-import { fmtAgo, fmtDateLong, fmtDateTime, fmtTime } from './format';
+import { fmtAgo, fmtDateLong, fmtDateTime, fmtInt, fmtTime } from './format';
 import { freshness, type Fresh } from './freshness';
 import { linkyFresh, linkyLine, linkyProblem } from './linky';
 import { m } from './i18n';
 
-export type SourceKey = 'cozytouch' | 'linky' | 'ecowatt' | 'tempo';
+export type SourceKey = 'cozytouch' | 'linky' | 'ecowatt' | 'tempo' | 'weather';
 
 export interface SourceRow {
   key: SourceKey;
@@ -34,18 +34,35 @@ export interface SourcesInput {
 
 const ms = (s: number | null | undefined) => (s == null ? null : s * 1000);
 
-function grid(key: 'ecowatt' | 'tempo', name: string, s: SourceStatus, now: number): SourceRow {
+const FRESH_SOURCE = { ecowatt: 'rte-ecowatt', tempo: 'tempo', weather: 'weather' } as const;
+
+function grid(key: 'ecowatt' | 'tempo' | 'weather', name: string, s: SourceStatus, now: number): SourceRow {
   const at = ms(s.last_ok);
   const state: Fresh =
-    s.state === 'off' ? 'none' : freshness(key === 'tempo' ? 'tempo' : 'rte-ecowatt', { at, failed: s.state === 'error', waiting: s.state === 'quota' || s.state === 'never' }, now);
+    s.state === 'off' ? 'none' : freshness(FRESH_SOURCE[key], { at, failed: s.state === 'error', waiting: s.state === 'quota' || s.state === 'never' }, now);
   const text =
-    s.state === 'ok' && at ? m.sources.ok(fmtTime(at)) : s.state === 'error' && s.error_since ? m.sources.error(fmtTime(s.error_since * 1000)) : s.state === 'quota' ? m.sources.quota : m.sources.never;
+    key === 'weather' && !s.enabled
+      ? m.sources.weatherOff
+      : s.state === 'ok' && at
+        ? m.sources.ok(fmtTime(at))
+        : s.state === 'error' && s.error_since
+          ? m.sources.error(fmtTime(s.error_since * 1000))
+          : s.state === 'quota'
+            ? m.sources.quota
+            : m.sources.never;
   const rows: FicheRow[] = [
     { label: m.sources.lastOk, value: at ? fmtDateTime(at) : '—', note: at ? null : m.sources.never },
     ...(s.error_since ? [{ label: m.sources.errorSince, value: fmtDateTime(s.error_since * 1000) }] : []),
     { label: m.sources.nextRead, value: s.next ? fmtDateTime(s.next * 1000) : '—', note: s.next ? null : m.sources.noNext }
   ];
   return { key, name, state, text, at, rows, bad: s.state === 'error' };
+}
+
+/** Open-Meteo (Plan 14): the forecast job's row, plus the day's weighted calls; « Désactivée » without a place. */
+function weatherRow(s: WeatherSource, now: number): SourceRow {
+  const row = grid('weather', 'Open-Meteo', s, now); // i18n-ignore: a product name
+  if (s.enabled) row.rows.push({ label: m.weather.calls, value: m.weather.callsValue(fmtInt(s.calls_today), fmtInt(s.budget)) });
+  return row;
 }
 
 /** The rows at `now`, in the page's order. Tempo only when its source is enabled (a Tempo price in force). */
@@ -88,6 +105,7 @@ export function sourceRows(input: SourcesInput, now: number): SourceRow[] {
   if (input.grid) {
     out.push(grid('ecowatt', 'RTE EcoWatt', input.grid.ecowatt, now));
     if (input.grid.tempo.enabled) out.push(grid('tempo', 'Tempo', input.grid.tempo, now));
+    if (input.grid.weather) out.push(weatherRow(input.grid.weather, now));
   }
   return out;
 }

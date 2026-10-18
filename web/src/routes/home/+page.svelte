@@ -1,6 +1,6 @@
 <!-- Réglages (Tableau §4 « Réglages », mockups 5 « Vue d’ensemble »; was « Maison » before the Tableau): an
      overview in cards on a wide screen (3 columns), a grouped list on a phone, one per subject (Pièces et
-     appareils, Tarif, Linky, Sources de données, Compte), each with its state in one line and its freshness,
+     appareils, Tarif, Linky, Sources de données, Météo, Compte), each with its state in one line and its freshness,
      then Affichage (Langue, Afficher les détails techniques; no theme: Kelvin is dark only) and the version.
      The alerts sit above the cards while there are some (#alerts). What happens now (absence, temporary
      heating) and the house actions live on the Maison tableau. The old section anchors land on their new place
@@ -8,7 +8,7 @@
 <script lang="ts">
   import { afterNavigate, goto } from '$app/navigation';
   import { api } from '$lib/api/client';
-  import type { LinkyStatus, McpTokenList, SessionInfo, SettingsView, Sources } from '$lib/api/types';
+  import type { LinkyStatus, McpTokenList, SessionInfo, SettingsView, Sources, WeatherSettings } from '$lib/api/types';
   import { alertText } from '$lib/alerts-text';
   import AlertList from '$lib/components/AlertList.svelte';
   import CozytouchStatus from '$lib/components/CozytouchStatus.svelte';
@@ -21,13 +21,15 @@
   import Toggle from '$lib/components/Toggle.svelte';
   import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
   import { canEditSetup } from '$lib/capabilities';
-  import { fmtAgo, fmtEurExact, fmtPrice, fmtWeekdayTime, parisTodayIso } from '$lib/format';
+  import { fmtAgo, fmtCoord, fmtEurExact, fmtPrice, fmtWeekdayTime, parisTodayIso } from '$lib/format';
   import { LOCALE_NAMES, LOCALES, locale, m, setLocale } from '$lib/i18n';
   import { linkyFresh, linkyLine, linkyProblem } from '$lib/linky';
   import { dayBlocks, hcText, offpeakSlots } from '$lib/maintenant';
   import { navAlerts } from '$lib/navAlerts';
   import { ANCHORS, homeAnchor, ROUTES } from '$lib/paths';
   import { lateCount, sourceRows } from '$lib/sources';
+  import { modelName, placeLine, viewModel, weatherFresh } from '$lib/weather';
+  import { weather } from '$lib/stores/weather.svelte';
   import { alerts } from '$lib/stores/alerts.svelte';
   import { auth } from '$lib/stores/auth.svelte';
   import { awaySheet } from '$lib/stores/away.svelte';
@@ -71,6 +73,7 @@
   let grid = $state<Sources | null | undefined>(undefined);
   let sessions = $state<SessionInfo[] | null | undefined>(undefined);
   let mcp = $state<McpTokenList | null | undefined>(undefined);
+  let weatherSettings = $state<WeatherSettings | null | undefined>(undefined);
   $effect(() => {
     api.settings().then((s) => (settings = s), () => (settings = null));
     api.linkyStatus().then((s) => (linky = s), () => (linky = null));
@@ -80,6 +83,10 @@
     Promise.resolve()
       .then(() => api.mcpTokens())
       .then((t) => (mcp = t ?? null), () => (mcp = null));
+    // Plan 14: the place (or « Désactivée »); an older backend without weather says « indisponible ».
+    Promise.resolve()
+      .then(() => api.weatherSettings())
+      .then((w) => (weatherSettings = w ?? null), () => (weatherSettings = null));
   });
 
   // Everything below the header comes in one frame, once the house and the alerts are known: an alert's height
@@ -120,6 +127,19 @@
   );
   let late = $derived(sources ? lateCount(sources) : 0);
   let sourcesSummary = $derived(sources === null ? null : late ? m.home.cardSourcesLate(late) : m.home.cardSourcesOk);
+  let weatherLoc = $derived(weatherSettings?.location ?? null);
+  let weatherSummary = $derived(
+    weatherSettings === undefined
+      ? null
+      : weatherSettings === null
+        ? m.home.unavailable
+        : !weatherLoc
+          ? m.weather.off
+          : weatherLoc.name
+            ? placeLine(weatherLoc)
+            : m.weather.manualName(fmtCoord(weatherLoc.lat), fmtCoord(weatherLoc.lon))
+  );
+  let weatherAt = $derived(weather.view?.fetched_at ? weather.view.fetched_at * 1000 : null);
   let accountSummary = $derived(auth.email ?? '—');
   let activeTokens = $derived(mcp?.enabled ? mcp.tokens.filter((t) => t.revoked_at === null).length : null);
   let accountLine = $derived(
@@ -137,7 +157,7 @@
 
   {#if !ready}
     <div class="cards-wrap" aria-busy="true"><div class="cards">
-      <div class="list">{#each [0, 1, 2, 3, 4] as i (i)}<div class="skeleton sk-widget card-sk" aria-hidden="true"></div>{/each}</div>
+      <div class="list">{#each [0, 1, 2, 3, 4, 5] as i (i)}<div class="skeleton sk-widget card-sk" aria-hidden="true"></div>{/each}</div>
       <div class="skeleton sk-widget card-sk display-sk" aria-hidden="true"></div>
     </div></div>
   {:else}
@@ -184,6 +204,12 @@
           </HomeCard>
           <HomeCard href={ROUTES.sources} icon="sync" title={m.sources.title} summary={sourcesSummary} vt="home-sources">
             {#if sources}<p>{sources.map((s) => s.name).join(', ')}</p>{/if}
+          </HomeCard>
+          <HomeCard href={ROUTES.weather} icon="weather" title={m.weather.title} summary={weatherSummary} vt="home-weather">
+            {#snippet foot()}
+              {#if weatherLoc && weather.view}<SourceLine source={modelName(viewModel(weather.view))} text={weatherAt ? fmtAgo(weatherAt, now) : '—'}
+                  state={weatherFresh(weather.view, now)} />{/if}
+            {/snippet}
           </HomeCard>
           <HomeCard href={ROUTES.account} icon="user" title={m.account.title} summary={accountSummary} vt="home-account">
             {#if accountLine}<p>{accountLine}</p>{/if}

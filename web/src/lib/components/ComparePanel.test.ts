@@ -94,3 +94,53 @@ it('in English: named bases, en-GB figures, € before the figure', () => {
   expect(r[1]).toBe('Same period last year October 2025 — 9 of 13 days comparable: no comparison');
   expect(r[2]).toBe('Average of the last 4 months — no recorded day to compare');
 });
+
+describe('ComparePanel: at equal weather (Plan 14)', () => {
+  const NB = '\u00a0';
+  const W = { change: -0.08, why: null, dju_cur: 312, dju_ref: 268, expected_cur_kwh: 410.5, expected_ref_kwh: 380.2,
+    model: { baseload_kwh_day: 9.8, kwh_per_dju: 1.93, r2: 0.812, fit_days: 118 } };
+  it('a muted second line under the change, never coloured; Détails give the model', () => {
+    const { container } = render(ComparePanel, {
+      comparison: { basis: 'unit', previous: null, last_year: cmp({ from: '2025-10-01', change: 0.12, weather: W }), avg4: null },
+      view: 'month',
+      tariff: false
+    });
+    const row = container.querySelectorAll('.row')[1];
+    expect(row.querySelector('.value')!.textContent).toBe(`+12${NB}%`);
+    const adj = row.querySelector('.weather')!;
+    expect(adj.textContent).toBe(`−8${NB}% à météo égale`);
+    expect(adj).toHaveClass('muted');
+    expect(container.innerHTML).not.toMatch(/--bad|--ok|--heat|--cool/);
+    const details = text(container.querySelector('.more')!);
+    expect(details).toContain('Même période l’an dernier : Consommation de fond ≈ 9,8 kWh/j, chauffage ≈ 1,9 kWh par DJU (ajusté sur 118 jours, R² 0,81) ; DJU : 312,0 contre 268,0.');
+    expect(details).toContain('Kelvin compare chaque période');
+  });
+  it('without a change: no line, the reason in Détails; without weather: neither', () => {
+    const { container } = render(ComparePanel, {
+      comparison: {
+        basis: 'unit',
+        previous: cmp({ weather: null }),
+        last_year: cmp({ from: '2025-10-01', weather: { ...W, change: null, why: 'few_days', model: null } }),
+        avg4: null
+      },
+      view: 'month',
+      tariff: false
+    });
+    expect(container.querySelector('.weather')).toBeNull();
+    const details = text(container.querySelector('.more')!);
+    expect(details).toContain('Comparaison à météo égale indisponible : moins de 28 jours mesurés autour de la période de référence.');
+    expect(details).not.toContain('Période précédente :');
+    const none = render(ComparePanel, { comparison: { basis: 'unit', previous: cmp(), last_year: cmp(), avg4: null }, view: 'month', tariff: false });
+    expect(none.container.textContent).not.toMatch(/météo/);
+  });
+  it('in English', () => {
+    applyLocale('en');
+    const { container } = render(ComparePanel, {
+      comparison: { basis: 'unit', previous: cmp({ weather: W }), last_year: null, avg4: null },
+      view: 'month',
+      tariff: false
+    });
+    expect(container.querySelector('.weather')!.textContent).toBe('−8% weather-adjusted');
+    applyLocale('fr');
+  });
+});

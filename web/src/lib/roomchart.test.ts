@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { applyLocale } from './i18n';
 import {
-  inspectMoment, levelWords, momentProvenance, momentTitle, overrideAt, planAt, pointAt, runShare, slots, yRange, type MomentCtx
+  inspectMoment, levelWords, momentProvenance, momentTitle, laneRange, outdoorAt, overrideAt, planAt, pointAt, runShare, slots, yRange,
+  type MomentCtx
 } from './roomchart';
 import type { StripPoint } from './stores/history.svelte';
 
@@ -194,5 +195,37 @@ describe('inspectMoment', () => {
     expect(row(ins, 'temp')?.label).toBe('Mean temperature');
     expect(row(ins, 'heating')?.value).toBe('0% of full power on average');
     expect(ins.spoken).toMatch(/^14 Oct, 13:00–19:00: Mean temperature 19\.2/);
+  });
+});
+
+describe('the outdoor temperature on the room chart (Plan 14)', () => {
+  const NB = '\u00a0';
+  const out = [{ t: at(12), v: 6.1 }, { t: at(13), v: 6.8 }, { t: at(14), v: 7.4 }];
+  it('outdoorAt: the hour holding a day moment, the mean over a longer bucket, null in a gap', () => {
+    expect(outdoorAt(out, at(13, 30), Q)).toBe(6.8);
+    expect(outdoorAt(out, at(11, 45), Q)).toBeNull();
+    expect(outdoorAt(out, at(12), 6 * H)).toBeCloseTo((6.1 + 6.8 + 7.4) / 3, 6);
+    expect(outdoorAt([], at(12), Q)).toBeNull();
+  });
+  it('a moment reads « Dehors » after the room temperatures; no row without weather', () => {
+    const ins = inspectMoment(at(13, 30), pt(at(13, 30), 19.5), ctx({ outdoor: out }));
+    expect(ins.rows.map((r) => r.key)).toEqual(['temp', 'outdoor', 'setpoint', 'level', 'heating']);
+    expect(row(ins, 'outdoor')).toMatchObject({ label: 'Dehors', value: `6,8${NB}°C` });
+    expect(ins.notes.join(' ')).toMatch(/Open-Meteo/);
+    expect(row(inspectMoment(at(13, 30), pt(at(13, 30), 19.5), ctx()), 'outdoor')).toBeUndefined();
+  });
+  it('« — » with its reason in a gap and later today (no forecast on a history chart)', () => {
+    expect(row(inspectMoment(at(10), pt(at(10), 19), ctx({ outdoor: out })), 'outdoor')).toMatchObject({ value: '—', note: 'pas de météo pour ce moment' });
+    expect(row(inspectMoment(at(18), null, ctx({ outdoor: out })), 'outdoor')).toMatchObject({ value: '—', note: 'à venir' });
+  });
+  it('over 30 days the bucket\'s mean', () => {
+    const ins = inspectMoment(at(12), pt(at(12), 19.5), ctx({ kind: 'month', stepMs: 6 * H, outdoor: out }));
+    expect(row(ins, 'outdoor')).toMatchObject({ label: 'Dehors moy.', value: `6,8${NB}°C` });
+  });
+  it('laneRange: the outdoor lane’s own scale, whole degrees, at least 2 °C tall', () => {
+    expect(laneRange([-5, 5])).toEqual({ lo: -5, hi: 5 });
+    expect(laneRange([6.1, 7.4])).toEqual({ lo: 6, hi: 8 });
+    expect(laneRange([6.2, 6.3])).toEqual({ lo: 6, hi: 8 });
+    expect(laneRange([])).toBeNull();
   });
 });

@@ -87,21 +87,21 @@ describe('energie_<from>_<to>_<group>.csv', () => {
     expect(file.text.endsWith('\r\n')).toBe(true);
     expect(file.text.slice(BOM.length).split('\n').every((l) => l === '' || l.endsWith('\r'))).toBe(true);
     expect(head).toBe(
-      'periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_jusqu_au;radiateurs_couverture'
+      'periode;debut;fin;maison_kwh;hc_kwh;hp_kwh;split_estime;radiateurs_kwh;radiateurs_interp;reste_kwh;energie_eur;abonnement_eur;total_eur;prix;jours_manquants;radiateurs_jusqu_au;radiateurs_couverture;dehors_moy_c;dju_base18;meteo_jours'
     );
     expect(rows).toHaveLength(4);
-    expect(rows[0]).toBe('2026-10-11;2026-10-11T00:00:00+02:00;2026-10-12T00:00:00+02:00;22,041;8,976;13,065;0;14,200;0;7,841;5,31;0,48;5,79;hc=0,2068|hp=0,2700;0;2026-10-11;1,0000');
+    expect(rows[0]).toBe('2026-10-11;2026-10-11T00:00:00+02:00;2026-10-12T00:00:00+02:00;22,041;8,976;13,065;0;14,200;0;7,841;5,31;0,48;5,79;hc=0,2068|hp=0,2700;0;2026-10-11;1,0000;;;');
     for (const r of rows) expect(r.split(';')).toHaveLength(ENERGY_HEADER.length);
   });
 
   it('a missing value is an empty cell, never 0; the subscription a counted day pays stays', () => {
-    expect(rows[1]).toBe('2026-10-12;2026-10-12T00:00:00+02:00;2026-10-13T00:00:00+02:00;;;;;;;;;0,48;;;1;;');
+    expect(rows[1]).toBe('2026-10-12;2026-10-12T00:00:00+02:00;2026-10-13T00:00:00+02:00;;;;;;;;;0,48;;;1;;;;;');
   });
 
-  it('R1: a partial radiator sum carries its coverage (the last column), and estimates say so', () => {
+  it('R1: a partial radiator sum carries its coverage (after its last day), and estimates say so', () => {
     const c = rows[2].split(';');
     expect(c.slice(6, 10)).toEqual(['1', '9,500', '1', '']);
-    expect(c.at(-1)).toBe('0,5000');
+    expect(c[ENERGY_HEADER.indexOf('radiateurs_couverture')]).toBe('0,5000');
   });
 
   it('R1, final review I-3: a running period’s radiator sum names the last day it counts, never reads as whole', () => {
@@ -110,8 +110,8 @@ describe('energie_<from>_<to>_<group>.csv', () => {
     const [h, ...body] = lines(running.text);
     const cols = h.split(';');
     const at = (r: string, name: string) => r.split(';')[cols.indexOf(name)];
-    expect(cols.at(-1)).toBe('radiateurs_couverture');
-    expect(cols.at(-2)).toBe('radiateurs_jusqu_au');
+    // Plan 14 appended the weather columns after these two; readers by name keep working.
+    expect(cols.slice(-5)).toEqual(['radiateurs_jusqu_au', 'radiateurs_couverture', 'dehors_moy_c', 'dju_base18', 'meteo_jours']);
     const total = body.at(-1)!;
     expect(at(total, 'fin')).toBe('2026-10-14T00:00:00+02:00'); // the period
     expect(at(total, 'radiateurs_jusqu_au')).toBe('2026-10-12'); // what the radiator sum counts
@@ -122,9 +122,29 @@ describe('energie_<from>_<to>_<group>.csv', () => {
     expect(at(body.find((r) => r.startsWith('2026-10-11;'))!, 'radiateurs_jusqu_au')).toBe('2026-10-11');
   });
 
+  it('Plan 14: the weather columns are appended, empty without weather (a machine contract never changes shape)', () => {
+    expect(head.endsWith(';radiateurs_couverture;dehors_moy_c;dju_base18;meteo_jours')).toBe(true);
+    for (const r of rows) expect(r.split(';').slice(-3)).toEqual(['', '', '']);
+    const OUT = { mean_c: 6.3, min_c: 1.2, max_c: 11, dju: 11.7, days: 1, of: 1 };
+    const withOutdoor = (r: EnergyReport, period = false) =>
+      (period
+        ? { ...r, period: { ...r.period, outdoor: { ...OUT, mean_c: 6.25, dju: 35.1, days: 3, of: 3 } } }
+        : { ...r, buckets: r.buckets.map((b) => ({ ...b, outdoor: OUT })) }) as EnergyReport;
+    const w = lines(energyCsv(withOutdoor(chart), withOutdoor(main, true), { from: '2026-10-11', to: '2026-10-14' }, TODAY).text);
+    expect(w[1].split(';').slice(-3)).toEqual(['6,3', '11,7', '1']);
+    expect(w.at(-1)!.split(';').slice(-3)).toEqual(['6,3', '35,1', '3']); // the total row is the period's own figures
+    // A partial bucket: the mean of the days with weather, no DJU (never a partial sum as whole).
+    const partial = { ...chart, buckets: chart.buckets.map((b) => ({ ...b, outdoor: { ...OUT, dju: null, days: 0, of: 1, mean_c: null } })) } as EnergyReport;
+    expect(lines(energyCsv(partial, main, { from: '2026-10-11', to: '2026-10-14' }, TODAY).text)[1].split(';').slice(-3)).toEqual(['', '', '0']);
+    applyLocale('en');
+    const en = lines(energyCsv(withOutdoor(chart), withOutdoor(main, true), { from: '2026-10-11', to: '2026-10-14' }, TODAY).text);
+    expect(en[1].split(',').slice(-3)).toEqual(['6.3', '11.7', '1']);
+    applyLocale('fr');
+  });
+
   it('the total row is the hero’s period, its own figures (never a sum recomputed here)', () => {
     expect(rows[3]).toBe(
-      'total;2026-10-11T00:00:00+02:00;2026-10-14T00:00:00+02:00;44,082;8,976;13,065;0;23,700;1;;10,62;1,44;12,06;hc=0,2068|hp=0,2700;1;2026-10-13;0,8333'
+      'total;2026-10-11T00:00:00+02:00;2026-10-14T00:00:00+02:00;44,082;8,976;13,065;0;23,700;1;;10,62;1,44;12,06;hc=0,2068|hp=0,2700;1;2026-10-13;0,8333;;;'
     );
   });
 

@@ -5,7 +5,7 @@ import { addDays, parisDay } from './clock';
 const WIDTHS = [320, 360, 390, 768, 1024, 1280, 1440];
 const ROUTES = ['/', '/rooms/p-salon', '/schedule', '/energy', '/home', '/home/devices'];
 // Maison sub-pages (UX batches 8–10).
-ROUTES.push('/home/tariff', '/home/linky', '/home/sources', '/home/account');
+ROUTES.push('/home/tariff', '/home/linky', '/home/sources', '/home/weather', '/home/account');
 
 /** The page is in its loaded state: a title, no skeleton left. */
 async function settled(page: Page) {

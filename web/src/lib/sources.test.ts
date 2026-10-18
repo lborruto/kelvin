@@ -47,6 +47,21 @@ describe('sourceRows', () => {
     expect(rows[1].state).toBe('bad');
     expect(rows[1].rows.at(-1)).toMatchObject({ label: 'Appels MyElectricalData', value: '6 appels sur 10 aujourd’hui' });
   });
+  it('weather: an Open-Meteo row after the grid ones, its calls, « Désactivée » when off', () => {
+    const weather = { state: 'ok', last_ok: at(8, 17), error_since: null, next: at(9, 17), enabled: true, backfill: 'ok', calls_today: 31, budget: 400 } as const;
+    const rows = sourceRows({ status, live: true, linky: LINKY, grid: { ...GRID, weather } }, NOW);
+    expect(rows.map((r) => r.key)).toEqual(['cozytouch', 'linky', 'ecowatt', 'tempo', 'weather']);
+    const w = rows.at(-1)!;
+    expect(w).toMatchObject({ name: 'Open-Meteo', state: 'fresh', text: 'à jour, relevé à 08:17', at: at(8, 17) * 1000, bad: false });
+    expect(w.rows.map((r) => [r.label, r.value])).toContainEqual(['Appels aujourd’hui', '31 sur 400']);
+    const late = sourceRows({ status, live: true, linky: LINKY, grid: { ...GRID, weather: { ...weather, last_ok: at(6, 17) } } }, NOW).at(-1)!;
+    expect(late.state).toBe('late');
+    const off = sourceRows({ status, live: true, linky: LINKY, grid: { ...GRID, weather: { ...weather, state: 'off', enabled: false, last_ok: null } } }, NOW).at(-1)!;
+    expect(off).toMatchObject({ state: 'none', text: 'Désactivée', bad: false });
+    const failed = sourceRows({ status, live: true, linky: LINKY, grid: { ...GRID, weather: { ...weather, state: 'error', error_since: at(8, 17) } } }, NOW).at(-1)!;
+    expect(failed).toMatchObject({ state: 'bad', text: 'indisponible depuis 08:17', bad: true });
+    expect(sourceRows({ status, live: true, linky: LINKY, grid: { ...GRID, weather: null } }, NOW).map((r) => r.key)).not.toContain('weather');
+  });
   it('in English', () => {
     applyLocale('en');
     const rows = sourceRows({ status, live: true, linky: LINKY, grid: GRID }, NOW);

@@ -42,6 +42,12 @@ Read this before installing.
 - **What leaves your home for grid signals:** Kelvin asks MyElectricalData's public Tempo and
   EcoWatt endpoints for dates only: no token, no PDL, nothing about your consumption. There is no
   other grid source.
+- **What leaves your home for the weather (only if you set a place):** Open-Meteo receives the
+  place's coordinates rounded to 0.01° (about 1 km) and its altitude, about 24 times a day plus a
+  nightly history top-up; the town you type goes to Open-Meteo's geocoder (in a request body)
+  while you search. No account, no token. The place is stored only in Kelvin's database: never in
+  a log line (the access log drops the query of every weather request), an error, the live
+  stream, a CSV or an MCP answer; only Réglages › Météo shows it.
 - The image runs as uid 10001; the example compose file adds a read-only root filesystem, no
   capabilities and `no-new-privileges`.
 - **Session cookie:** a session is a random token in an HttpOnly, SameSite=Lax cookie; only its

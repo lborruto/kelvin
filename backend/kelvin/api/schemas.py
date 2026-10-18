@@ -267,3 +267,27 @@ class McpTokenBody(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=200)  # the store applies the real 1–40 rule and its code
+
+
+class WeatherLocationBody(BaseModel):
+    """Réglages › Météo. Ranges are checked by WeatherService (no pydantic bounds: a bound's error
+    would echo the coordinate in `params`)."""
+
+    model_config = ConfigDict(extra="forbid")
+    lat: float
+    lon: float
+    elevation_m: int | None = None
+    name: str | None = None
+    admin1: str | None = None
+    admin2: str | None = None
+    country_code: str | None = None
+    origin: Literal["search", "manual"] = "manual"
+
+
+class WeatherSearchBody(BaseModel):
+    """`POST /api/weather/search`: the typed text travels in the body, never in a URL (access
+    logs). Its length is checked by WeatherService (`weather_search_invalid`)."""
+
+    model_config = ConfigDict(extra="forbid")
+    q: str = Field(default="", max_length=200)
+    lang: Literal["fr", "en"] = "fr"
