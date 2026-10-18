@@ -1,6 +1,6 @@
 [project]
 name = "kelvin"
-version = "0.3.0"
+version = "0.3.1"
 description = "Kelvin — home heating control for Sauter Cozytouch radiators"
 requires-python = ">=3.13"
 dependencies = [
