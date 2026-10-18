@@ -171,10 +171,18 @@ class OverrideManager:
                             int(delay),
                         )
                 continue
-            self._failures.pop(oid, None)
-            self._retry_at.pop(oid, None)
             for rid in rids:
-                self._drop(o, rid)
+                if rid not in p.offline:
+                    self._drop(o, rid)
+            if p.offline:
+                # Confirmed for the reachable radiators; the offline ones keep the override and
+                # are retried with the same backoff, so none stays at the override's setpoint.
+                n = self._failures.get(oid, 0) + 1
+                self._failures[oid] = n
+                self._retry_at[oid] = self.wall() + restore_retry_delay(n)
+            else:
+                self._failures.pop(oid, None)
+                self._retry_at.pop(oid, None)
             if o.radiator_ids:
                 self._save(o)
             else:

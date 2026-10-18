@@ -397,18 +397,24 @@ class FakeGateway:
             if self.unresponsive:
                 self._events.append(ExecUpdate(exec_id, "FAILED", "ACTUATORNOANSWER"))
                 continue
-            quirk_hit = False
+            quirk_hit = offline_hit = False
             for c in commands:
+                if self.devices[c.device_url].states.get("core:StatusState") == "unavailable":
+                    # An unreachable device takes nothing; the others in the same execution do,
+                    # and the execution reports FAILED (docs/overkiz-notes.md, 2026-10-18).
+                    offline_hit = True
+                    continue
                 for name, value in EFFECTS.get(c.name, lambda p: [])(c.parameters):
                     if c.name == "setTimeProgram" and self.program_rewrite is not None:
                         value = self.program_rewrite(value)
                     self._set(c.device_url, name, value, emit=True)
                 quirk_hit |= self.quirk and c.name in QUIRK_COMMANDS
-            self._events.append(
-                ExecUpdate(exec_id, "FAILED", "OVERRIDEMODE_ERROR")
-                if quirk_hit
-                else ExecUpdate(exec_id, "COMPLETED", None)
-            )
+            if offline_hit:
+                self._events.append(ExecUpdate(exec_id, "FAILED", "ACTUATORNOANSWER"))
+            elif quirk_hit:
+                self._events.append(ExecUpdate(exec_id, "FAILED", "OVERRIDEMODE_ERROR"))
+            else:
+                self._events.append(ExecUpdate(exec_id, "COMPLETED", None))
         out, self._events = self._events, []
         return out
 

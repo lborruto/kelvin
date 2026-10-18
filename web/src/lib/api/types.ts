@@ -140,6 +140,9 @@ export interface Pending {
   error_code?: string | null;
   error_params?: ApiParams;
   reason_code?: string | null;
+  /** Radiators unreachable when the command settled, which did not take it: a `confirmed` command
+   * with some is confirmed for the others only (« Confirmé · 2 hors ligne »). Absent on older servers. */
+  offline?: string[];
   /** Setup writes (rooms and devices) only. */
   kind?: 'setup';
   room_id?: string | null;

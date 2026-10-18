@@ -77,6 +77,9 @@ depends on.
   failed without one targeted `device_states(url)` read of each unconfirmed device first
   (`CommandService.verify`, run by the poller); a programme matches by meaning (`program_days`),
   never byte for byte; a failure whose states arrive later turns confirmed (5 min window).
+  The verdict is per radiator: radiators `unavailable` (`core:StatusState`) never fail a command
+  the reachable ones took (`confirmed` with `offline`; `radiator_offline` only when all are), and a
+  restore keeps its offline radiators in the override for a later try.
 - **Overkiz quota:** never call `Gateway.snapshot()` (`GET /setup/places` + `/setup/devices`,
   documented as one call a day) on a timer. Full setup reads go through the one stored
   `SetupReadGuard` (`overkiz/budget.py`, at most 3 per 24 h, kept across restarts); reconcile

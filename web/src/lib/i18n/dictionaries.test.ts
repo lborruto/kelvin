@@ -13,6 +13,7 @@ const LABELS = codes.labels as Record<string, { params: Record<string, unknown> 
 export const ARGS: Record<string, unknown[]> = {
   'energyUi.linkyCallsValue': [2, 10],
   'away.offline': [['Chambre 2'], 1],
+  'pending.partial': ['B', 2, 1],
   'devices.syncAt': ['14:10'],
   'maison.allOffOffline': [['Chambre 2'], 1],
   'maison.climateHeating': ['19,1–19,6°', 1],

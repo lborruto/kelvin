@@ -88,7 +88,7 @@
     label={`${name} · ${primaryLabel(p.kind)}`} value={p.value} min={p.min} max={p.max} pending={p.pending} disabled={!house.online}
     announce={false} format={layout === 'tile' ? (v) => fmtTempShort(v) : undefined}
     onchange={(v) => run(() => sendPrimary(room.id, p!, v, comfort, Date.now()))} />{/if}{/snippet}
-{#snippet pendingTag()}<PendingTag {pending} onretry={retry} ondismiss={(id) => house.dismiss(id)} />{/snippet}
+{#snippet pendingTag()}<PendingTag {pending} radiators={room.radiator_ids} onretry={retry} ondismiss={(id) => house.dismiss(id)} />{/snippet}
 {#snippet sparkLine()}<MiniSpark points={points.map((x) => ({ t: x.t, v: x.v }))} {setpoint} {bands} {start} {end} {now} dim={variant !== 'normal'} />{/snippet}
 
 <!-- Opening the sheet keeps the tableau's scroll and the tile's focus (the sheet gives it back on close); only the

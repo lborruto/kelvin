@@ -22,6 +22,11 @@ What changes from one release to the next, in plain words. Versions follow
 - Forecasts now reach 7 days (Météo-France for 4 days, then ECMWF), and once a place is set the weather
   history reaches 5 years back (one-time download) for the seasonal normals. Absences started with
   « Partir… » are remembered for a year so the model leaves those days out.
+- A house or room command no longer reads « failed » because some radiators are offline: it is
+  confirmed for the radiators that took it, says how many were offline (« Confirmé · 2 hors
+  ligne »), and each offline room shows that the setting did not reach it. A command for offline
+  radiators only says so (« Radiateur hors ligne »). An absence ending while a radiator is offline
+  restores it once it is back.
 
 ## 0.2.0
 

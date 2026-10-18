@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import PendingTag from './PendingTag.svelte';
 import { forEachLocale } from '$lib/i18n/testing';
+import { house } from '$lib/stores/house.svelte';
+import type { Radiator } from '$lib/api/types';
 
 const base = { id: 'p1', label: 'Salon : Manuel', radiator_ids: ['a'], error: null, created_at: 1, expected: {} };
 
@@ -25,6 +27,25 @@ describe('PendingTag', () => {
     expect(screen.getByRole('button', { name: 'Ignorer' }).querySelector('svg')).not.toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(onretry).toHaveBeenCalledWith('p1');
+  });
+  it('a command confirmed with offline radiators says so, for the house and for a room', () => {
+    const p = { ...base, radiator_ids: ['a', 'b', 'c'], status: 'confirmed' as const, offline: ['b', 'c'] };
+    const house = render(PendingTag, { pending: p, onretry: vi.fn(), ondismiss: vi.fn() });
+    expect(house.container).toHaveTextContent('Confirmé · 2 hors ligne');
+    house.unmount();
+    const off = render(PendingTag, { pending: p, radiators: ['c'], onretry: vi.fn(), ondismiss: vi.fn() });
+    expect(off.container).toHaveTextContent('Hors ligne : consigne non reçue');
+    expect(screen.queryByRole('button', { name: 'Réessayer' })).toBeNull();
+    off.unmount();
+    render(PendingTag, { pending: p, radiators: ['a'], onretry: vi.fn(), ondismiss: vi.fn() });
+    expect(screen.getByText('Confirmé')).toBeInTheDocument();
+  });
+  it('an offline room back online since says it was offline when the setting was sent', () => {
+    house.radiators = { c: { id: 'c', reachable: true } as Radiator };
+    const p = { ...base, radiator_ids: ['c'], status: 'confirmed' as const, offline: ['c'] };
+    const { container } = render(PendingTag, { pending: p, radiators: ['c'], onretry: vi.fn(), ondismiss: vi.fn() });
+    expect(container).toHaveTextContent('Consigne non reçue (hors ligne à l’envoi)');
+    house.radiators = {};
   });
   it('shows confirmed', () => {
     render(PendingTag, { pending: { ...base, status: 'confirmed' }, onretry: vi.fn(), ondismiss: vi.fn() });
