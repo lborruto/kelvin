@@ -339,9 +339,12 @@ depends on.
   the audit's cap prunes the heaviest source first and keeps every source's newest 200 rows. The SDK (`mcp`, exact pin) runs stateless with JSON responses; `/mcp` takes POST only
   (a GET would open an idle SSE stream); its DNS-rebinding check is off on purpose (TrustedHost +
   Origin refusal replace it).
-- **Time in tests:** tests that depend on the time of day use the injected clock
-  (`create_app(wall=…)` / `start_runtime(wall=…)` in the backend, `EnergieData(now)` in the web),
-  never the real hour, so they pass at 00:27 as at 14:00.
+- **Time in tests:** tests that depend on the time of day, the weekday or the date use the injected
+  clock (`create_app(wall=…)` / `start_runtime(wall=…)` in the backend, with the `wall` fixture's
+  `"midweek"` when the simulator's weekend programmes matter; `EnergieData(now)` or
+  `vi.setSystemTime` in the web; `page.clock` with `e2e/clock.ts` in the e2e, placed against the
+  backend's own time), never the real hour, so they pass at 00:05, on a Sunday and at 23:55 on a
+  month end alike. « Tomorrow » and « n days ago » are calendar days, never ± n × 24 h.
 
 ## Checks
 

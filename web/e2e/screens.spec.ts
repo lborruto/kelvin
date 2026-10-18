@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { addDays, parisDay } from './clock';
 
 // SCREENS_LOCALE=en captures the English UI (Plan 7); French is the default.
 const locale = (process.env.SCREENS_LOCALE as 'fr' | 'en' | undefined) ?? 'fr';
@@ -71,7 +72,7 @@ test('screens under a Tempo tariff', async ({ page, request }, info) => {
     hc_schedules: before.hc_schedules,
     tempo_hours: { hc_start: before.tempo_hours.hc_start, hc_end: before.tempo_hours.hc_end }
   });
-  const from = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(Date.now() - 30 * 86_400_000));
+  const from = addDays(parisDay(Date.now()), -30);
   const tempo = {
     valid_from: from,
     option: 'tempo',

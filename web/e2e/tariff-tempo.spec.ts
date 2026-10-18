@@ -1,11 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
+import { addDays, parisAt, parisDay } from './clock';
 
 test.describe.configure({ mode: 'serial' });
 
 const H = { 'X-Kelvin': '1' };
 // Maison says the grid signals in its Réseau chip, « Demain » and the « Maintenant » card (Tempo only when Tempo is in force).
 const chips = (page: Page) => page.getByRole('group', { name: 'Résumés' });
-const daysAgo = (n: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(Date.now() - n * 86_400_000));
+const daysAgo = (n: number) => addDays(parisDay(Date.now()), -n);
 
 interface TariffView {
   kva: number;
@@ -51,6 +52,11 @@ async function openTariffEditor(page: Page) {
 }
 
 test('an HC/HP home sees EcoWatt and no Tempo colour', async ({ page }) => {
+  // The simulator's orange day is « tomorrow » when the backend fetched it: a suite crossing midnight reads it
+  // « aujourd’hui » (rightly). The browser reads the day before it, at noon.
+  const grid = (await (await page.request.get('/api/grid')).json()) as { ecowatt: { days: { date: string; level: number }[] } };
+  const orange = grid.ecowatt.days.find((d) => d.level === 2)!.date;
+  await page.clock.setFixedTime(parisAt(addDays(orange, -1), 12));
   await page.goto('/');
   await expect(chips(page)).toContainText('EcoWatt orange demain');
   await expect(page.getByRole('region', { name: 'Demain' })).toContainText('EcoWatt orange');

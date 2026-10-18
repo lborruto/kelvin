@@ -8,7 +8,8 @@ const media = vi.hoisted(() => ({ desktop: { matches: true } }));
 vi.mock('$lib/media.svelte', () => media);
 
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
-const tomorrow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(Date.now() + 86_400_000));
+// The next calendar day, not now + 24 h: on the eve of the spring change (a 23 h day) that lands two days ahead.
+const tomorrow = new Date(Date.parse(`${today}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
 const fetched = Math.floor(Date.now() / 1000) - 600;
 
 afterEach(() => {

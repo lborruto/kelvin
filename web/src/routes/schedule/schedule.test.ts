@@ -72,6 +72,17 @@ beforeEach(() => {
 
 const row = (day: string) => screen.getByRole('button', { name: new RegExp(`^${day},`) });
 const sendBar = () => document.querySelector('.sendbar');
+/** A Thursday at 12:00 in Paris: the days these tests name (Monday, Tuesday, Friday) are not « aujourd’hui »,
+ *  whose tag would join their row's name. */
+async function onAThursday(run: () => Promise<void>) {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-15T10:00:00Z'));
+  try {
+    await run();
+  } finally {
+    vi.useRealTimers();
+  }
+}
 
 /** Desktop: pick Monday in the week, then add a period to it in the editor. */
 async function editMonday() {
@@ -331,20 +342,18 @@ describe('/schedule: what the page says', () => {
     expect(goto).not.toHaveBeenCalled(); // desktop: the week and the editor share the page
   });
 
-  it('an edited day says « modifié » in the week and in the editor', async () => {
-    render(Page);
-    await editMonday();
-    expect(row('Lundi')).toHaveAccessibleName(/, modifié$/);
-    expect(screen.getByRole('heading', { level: 2, name: 'Lundi' })).toBeInTheDocument();
-    expect(document.querySelector('.editor .sub')).toHaveTextContent(/^Salon·?\s*modifié$/);
-    expect(document.querySelector('[data-day="monday"] .ed')).toHaveTextContent('modifié');
-  });
+  it('an edited day says « modifié » in the week and in the editor', () =>
+    onAThursday(async () => {
+      render(Page);
+      await editMonday();
+      expect(row('Lundi')).toHaveAccessibleName(/, modifié$/);
+      expect(screen.getByRole('heading', { level: 2, name: 'Lundi' })).toBeInTheDocument();
+      expect(document.querySelector('.editor .sub')).toHaveTextContent(/^Salon·?\s*modifié$/);
+      expect(document.querySelector('[data-day="monday"] .ed')).toHaveTextContent('modifié');
+    }));
 
   it('« Copier vers… » copies the day onto the chosen days of the draft only; the copies pulse and are announced', async () => {
-    // A Thursday: Friday's row is not « aujourd’hui » (its name would then carry the today tag).
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-10-15T10:00:00Z')); // Thursday 12:00 in Paris
-    try {
+    await onAThursday(async () => {
       const say = vi.spyOn(announcer, 'say');
       const { container } = render(Page);
       await editMonday();
@@ -359,9 +368,7 @@ describe('/schedule: what the page says', () => {
       expect(container.querySelector<HTMLElement>('[data-day="saturday"] .bar')!.style.animationName).toBe('none');
       expect(say).toHaveBeenCalledWith(expect.stringMatching(/^Copié sur 4 jours\./));
       expect(api.roomProgram).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
+    });
   });
 
   it('a locked day can be viewed in the editor but never edited, and copies skip it', async () => {
@@ -396,21 +403,22 @@ describe('/schedule: offline rooms', () => {
     expect(screen.getByRole('radio', { name: 'Salon' })).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('an offline room shows its last known week read-only, with a calm notice and nothing to send', async () => {
-    two();
-    render(Page);
-    await fireEvent.click(await screen.findByRole('radio', { name: 'Chambre 2 hors ligne' }));
-    const notice = screen.getByRole('status');
-    expect(notice).toHaveTextContent('Chambre 2 est hors ligne');
-    expect(notice).toHaveTextContent('Le programme affiché est le dernier connu.');
-    expect(screen.queryByRole('button', { name: /^Lundi,/ })).toBeNull(); // rows are not buttons
-    expect(screen.getByText(/^Lundi, 06:15–08:00, 1\sh\s45 confort$/)).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 2 })).toBeNull(); // no editor
-    expect(screen.queryByRole('button', { name: /Ajouter une plage/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Envoyer' })).toBeNull();
-    expect(screen.getByText('derniers connus')).toBeInTheDocument();
-    expect(screen.queryByText(/^Maintenant/)).toBeNull();
-  });
+  it('an offline room shows its last known week read-only, with a calm notice and nothing to send', () =>
+    onAThursday(async () => {
+      two();
+      render(Page);
+      await fireEvent.click(await screen.findByRole('radio', { name: 'Chambre 2 hors ligne' }));
+      const notice = screen.getByRole('status');
+      expect(notice).toHaveTextContent('Chambre 2 est hors ligne');
+      expect(notice).toHaveTextContent('Le programme affiché est le dernier connu.');
+      expect(screen.queryByRole('button', { name: /^Lundi,/ })).toBeNull(); // rows are not buttons
+      expect(screen.getByText(/^Lundi, 06:15–08:00, 1\sh\s45 confort$/)).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { level: 2 })).toBeNull(); // no editor
+      expect(screen.queryByRole('button', { name: /Ajouter une plage/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Envoyer' })).toBeNull();
+      expect(screen.getByText('derniers connus')).toBeInTheDocument();
+      expect(screen.queryByText(/^Maintenant/)).toBeNull();
+    }));
 
   it('is never offered under « Aussi pour… »', async () => {
     snapshot(
@@ -537,14 +545,15 @@ describe('changed elsewhere', () => {
     expect(screen.getByLabelText('Lundi, plage 1, début')).toHaveValue('05:00');
   });
 
-  it('an untouched day follows silently', async () => {
-    render(Page);
-    await editMonday();
-    house.applyHouse({ rooms: [], radiators: [{ ...rad, program: { tuesday: [{ start: '18:00', end: '20:00' }] } }] } as never);
-    await waitFor(() => expect(row('Mardi')).toHaveAccessibleName(/^Mardi, 18:00–20:00,/));
-    expect(screen.queryByText('Programme modifié ailleurs')).toBeNull();
-    expect(sendBar()).toHaveTextContent('1 jour modifié');
-  });
+  it('an untouched day follows silently', () =>
+    onAThursday(async () => {
+      render(Page);
+      await editMonday();
+      house.applyHouse({ rooms: [], radiators: [{ ...rad, program: { tuesday: [{ start: '18:00', end: '20:00' }] } }] } as never);
+      await waitFor(() => expect(row('Mardi')).toHaveAccessibleName(/^Mardi, 18:00–20:00,/));
+      expect(screen.queryByText('Programme modifié ailleurs')).toBeNull();
+      expect(sendBar()).toHaveTextContent('1 jour modifié');
+    }));
 
   it('a 409 shows the notice; Remplacer quand même resends with force', async () => {
     vi.mocked(api.roomProgram)

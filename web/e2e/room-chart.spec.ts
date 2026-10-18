@@ -1,12 +1,16 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { pinYesterdayAt } from './clock';
 import { settled } from './cls';
 
 // The room sheet's « Aujourd’hui » chart reads any moment: hover (desktop), tap (phone), ←/→ (keyboard).
 const SLIDER = /^Salon, température sur 24\sh\s: lire moment par moment$/;
 
+// The browser reads yesterday at 14:00 (a whole seeded day), so 06:00 is measured and now sits mid-chart
+// whatever the hour the suite runs at (at 00:05 the chart's now is its first step and 06:00 is « à venir »).
 async function openChart(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await pinYesterdayAt(page, 14);
   await page.goto('/rooms/p-salon');
   await settled(page);
   // On a phone the chart sits behind « Programme, températures, radiateurs ».
@@ -32,7 +36,7 @@ test.describe('room chart inspector', () => {
     test.skip(isMobile, 'hover is the desktop gesture');
     const slider = await openChart(page);
     const box = (await slider.boundingBox())!;
-    // 06:00 on the day: before now, so a reading is there.
+    // 06:00 on the day: before now (14:00), so a reading is there.
     const x = box.x + box.width * 0.25;
     await page.mouse.move(x, box.y + box.height / 2);
     const card = page.locator('.inspector.card');
