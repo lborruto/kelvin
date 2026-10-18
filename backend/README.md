@@ -277,7 +277,7 @@ its name; a wrong value gets a message that lists what is accepted.
 
 Tools: `get_overview`, `get_room`, `get_programmes`, `get_temperature_history`, `get_energy`,
 `get_room_energy`, `get_day_detail`, `get_tariff`, `get_grid_signals`, `get_alerts`,
-`get_data_status`, `get_weather`, `propose_savings`, `evaluate_programme`. Resources: `kelvin://house`,
+`get_data_status`, `get_weather`, `get_weather_model`, `propose_savings`, `evaluate_programme`. Resources: `kelvin://house`,
 `kelvin://tariff`, `kelvin://rooms/{room_id}`, `kelvin://guide`.
 
 Security: a token reads everything in Kelvin except secrets (never the PDL, your email, a
@@ -327,6 +327,7 @@ Tools (all annotated `read_only_hint`, never `destructive`, never `open_world`):
 | `get_day_detail` | `date` | `GET /api/energy/day` without `room` |
 | `get_tariff` | — | The tariff view (neutral keys), the option today, the last contract read (kVA, off-peak hours); never the PDL |
 | `get_grid_signals` | `start?`, `end?` (≤ 366 days) | Stored Tempo colours (only with a Tempo row) and counts, EcoWatt days, today/tomorrow; never a fetch |
+| `get_weather_model` | `start`, `end` (dates, end exclusive, both or neither: the period of `period_share_due_to_cold`), `include_days` | « Météo et coût » (`GET /api/energy/weather`) with neutral keys: baseload, kWh and € per degree colder with 80 % ranges, balance point, fit days and exclusions, each room's sensitivity (`room_name`, `coverage_share`), the next 7 days (kWh, heating kWh, € with ranges, `eur_missing_reason`, model), `location_set`; with `include_days` the daily points; basis `estimated` (`unknown` when nothing is computed); never a fetch, never the place |
 | `get_weather` | `start`, `end` (dates, end exclusive), `granularity` (`daily` ≤ 4 × 366 days, `hourly` ≤ 31) | Stored outdoor weather: daily mean, min, max, heating degree days (base 18 °C), hours, completeness and model, or hourly temperature, feels-like, humidity, model and `forecast`; `location_set` (never the place, its coordinates or altitude); basis `published`; never a fetch |
 | `get_alerts` | `state` (`active`/`all`) | `AlertStore.listing` |
 | `get_data_status` | — | Kelvin's mode, Cozytouch connection, Linky state and MED calls (no `prm`), grid sources, `weather` (`location_set`, `mode`, the forecast job's `state`, `last_ok_at`, `next_at`, `weighted_calls_today`), each radiator meter's first and last reading |

@@ -581,6 +581,47 @@ async def room_energy(ctx: Any, room_id: str, days: int) -> dict[str, Any]:
     )
 
 
+async def weather_model(
+    ctx: Any, start: date | None, end: date | None, include_days: bool
+) -> dict[str, Any]:
+    """Spec 2026-10-18 §8.6: Kelvin's heating model of the home (memory memo + store reads)."""
+    rt = ctx.rt
+    linky = views.linky_of(rt)
+    if (start is None) != (end is None):
+        raise UserError("period_invalid")
+    period = None
+    if start is not None and end is not None:
+        bounds.check_days(linky, start, end)
+        if end <= start or (end - start).days > bounds.MAX_REPORT_DAYS:
+            raise UserError("period_invalid")
+        period = (start, end)
+    view = await asyncio.to_thread(
+        linky.weather_model, rt.recorder, views.radiator_rooms(rt), period
+    )
+    names = {rid: room.name for rid, room in rt.house.rooms.items()}
+    located = rt.weather is not None and rt.weather.location() is not None
+    ok = view["house"]["state"] == "ok" or view["forecast"]["state"] == "ok"
+    return shape.envelope(
+        "get_weather_model",
+        en.weather_model_view(view, names, include_days, located),
+        ctx=ctx,
+        sources=["linky", "radiator_meters", "weather", "tariff"],
+        basis="estimated" if ok else "unknown",
+        notes=[
+            "model: daily kWh = baseload + kwh_per_degree_c x max(0, balance_point_c - daily"
+            " outdoor mean); fitted on the last 365 days of measured Linky days, absences and"
+            " outliers excluded",
+            "rooms: the same model on each room's radiator meters, only days every radiator"
+            " measured whole; the balance point is shared",
+            "ranges are 80% intervals, conditional on the balance point; forecast ranges add an"
+            " assumed forecast error (1.0 C tomorrow to 2.7 C at day 7)",
+            "euros: per degree and forecasts at today's prices; past days as billed by the report",
+            "an estimate, never a saving the owner will get",
+            "Weather data by Open-Meteo.com (CC BY 4.0): Meteo-France AROME, ECMWF IFS",
+        ],
+    )
+
+
 async def day_detail(ctx: Any, day: date) -> dict[str, Any]:
     rt = ctx.rt
     linky = views.linky_of(rt)
@@ -906,6 +947,31 @@ def register_tools(server: MCPServer, run: Runner) -> None:
     ) -> dict[str, Any]:
         args = {"start": start.isoformat(), "end": end.isoformat(), "granularity": granularity}
         return await run("tool", "get_weather", args, lambda c: weather(c, start, end, granularity))
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=(
+            "The home's heating model against the outdoor temperature: baseload, kWh and euros per"
+            " degree colder, each room's sensitivity, the next 7 days' forecast cost with 80%"
+            " ranges, and why a figure is missing. start/end (ISO dates, end exclusive, both or"
+            " neither): the period for period_share_due_to_cold. include_days adds the daily"
+            " points."
+        ),
+    )
+    async def get_weather_model(
+        start: date | None = None, end: date | None = None, include_days: bool = False
+    ) -> dict[str, Any]:
+        args = {
+            "start": start.isoformat() if start else None,
+            "end": end.isoformat() if end else None,
+            "include_days": include_days,
+        }
+        return await run(
+            "tool",
+            "get_weather_model",
+            args,
+            lambda c: weather_model(c, start, end, include_days),
+        )
 
     @server.tool(
         annotations=READ_ONLY,

@@ -184,3 +184,72 @@ def room_energy_basis(body: dict[str, Any]) -> tuple[Basis, list[str]]:
     if body.get("eur") is not None:
         parts.append("computed")
     return combine(*parts), notes
+
+
+def weather_model_view(
+    view: dict[str, Any], names: dict[str, str], include_days: bool, location_set: bool
+) -> dict[str, Any]:
+    """`get_weather_model` (spec 2026-10-18 §8.6): the API view with MCP's neutral,
+    unit-suffixed keys."""
+    h, fc = view["house"], view["forecast"]
+    out: dict[str, Any] = {
+        "location_set": location_set,
+        "state": h["state"],
+        "why": h["why"],
+        "estimate_reasons": h["thin"],
+        "balance_point_c": h["balance_point_c"],
+        "balance_point_source": h["balance_point_source"],
+        "baseload_kwh_per_day": h["baseload_kwh_day"],
+        "baseload_range_kwh_per_day": h["baseload_kwh_day_range"],
+        "kwh_per_degree_c": h["kwh_per_c"],
+        "kwh_per_degree_c_range": h["kwh_per_c_range"],
+        "eur_per_degree_c": h["eur_per_c"],
+        "r2": h["r2"],
+        "fit_days": h["fit_days"],
+        "heating_days": h["heating_days"],
+        "excluded_days": h["excluded"],
+        "window": {"from_date": view["window"]["from"], "to_date_exclusive": view["window"]["to"]},
+        "interval_level_share": view["level"],
+        "period_share_due_to_cold": (h["period_share"] or {}).get("share"),
+        "price_eur_per_kwh": (view["price"] or {}).get("eur_kwh"),
+        "rooms": [
+            {
+                "room_id": r["room_id"],
+                "room_name": names.get(r["room_id"]),
+                "state": r["state"],
+                "why": r["why"],
+                "kwh_per_degree_c": r["kwh_per_c"],
+                "kwh_per_degree_c_range": r["kwh_per_c_range"],
+                "eur_per_degree_c": r["eur_per_c"],
+                "coverage_share": (r["coverage"] or {}).get("share"),
+                "fit_days": r["fit_days"],
+            }
+            for r in view["rooms"]["items"]
+        ],
+        "forecast": {
+            "state": fc["state"],
+            "why": fc["why"],
+            "days": [
+                {
+                    "date": d["date"],
+                    "mean_c": d["t_c"],
+                    "kwh": d["kwh"],
+                    "kwh_low": d["kwh_lo"],
+                    "kwh_high": d["kwh_hi"],
+                    "heating_kwh": d["heating_kwh"],
+                    "eur": d["eur"],
+                    "eur_low": d["eur_lo"],
+                    "eur_high": d["eur_hi"],
+                    "heating_eur": d["heating_eur"],
+                    "eur_missing_reason": d["eur_why"],
+                    "model": d["model"],
+                }
+                for d in fc["days"]
+            ],
+            "week_kwh": (fc["week"] or {}).get("kwh"),
+            "week_eur": (fc["week"] or {}).get("eur"),
+        },
+    }
+    if include_days:
+        out["days"] = neutral(h["points"])
+    return out
