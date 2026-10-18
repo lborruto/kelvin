@@ -16,8 +16,9 @@ export const NO_HEATING_KWH = 0.05;
 export function houseWhy(h: HouseSummary | Pick<HouseModel, 'why' | 'points'>): string | null {
   if (!h.why) return null;
   if (h.why === 'few_days') {
-    const n = 'points' in h ? h.points.filter((p) => p.excluded !== 'away').length : 0;
-    return m.weatherCost.why.few_days(n, MIN_FIT_DAYS);
+    // Maison's light answer has no points (spec §8.2): no count to give, so none is invented.
+    if (!('points' in h)) return m.weatherCost.fewDaysPlain;
+    return m.weatherCost.why.few_days(h.points.filter((p) => p.excluded !== 'away').length, MIN_FIT_DAYS);
   }
   return m.weatherCost.why[h.why];
 }
@@ -168,10 +169,15 @@ export function forecastRows(d: ForecastDay): FicheRow[] {
       rows.push({ key: 'eur-range', label: m.weatherCost.dayRange, value: range([d.eur_lo, d.eur_hi], fmtEurExact), sub: true });
     if (d.heating_eur != null) rows.push({ key: 'heat-eur', label: m.weatherCost.dayHeat, value: fmtEurExact(d.heating_eur), sub: true });
   } else if (d.eur_why) rows.push({ key: 'eur', label: m.weatherCost.dayEur, value: '—', note: m.weatherCost.eurWhy[d.eur_why] });
-  if (d.colour == null && d.parts && d.parts.length > 1) {
-    const shown = matchParts(d.kwh, d.parts.map((x) => x.kwh), 2).parts;
-    d.parts.forEach((x, i) => rows.push({ key: `part-${x.key}`, label: partLabel(x.key), value: fmtKwhExact(shown[i]), sub: true }));
+  // Spec §7.1: HC/HP for an off-peak home, the Tempo colour when it is published (its HC/HP are that colour's).
+  if (d.colour) rows.push({ key: 'colour', label: m.weatherCost.dayColour, value: m.grid.colour[d.colour] });
+  const hchp = d.parts?.filter((x) => x.key === 'hc' || x.key === 'hp') ?? [];
+  if (d.colour == null && hchp.length === 2 && d.parts?.length === 2) {
+    const shown = matchParts(d.kwh, hchp.map((x) => x.kwh), 2).parts;
+    hchp.forEach((x, i) => rows.push({ key: `part-${x.key}`, label: partLabel(x.key), value: fmtKwhExact(shown[i]), sub: true }));
   }
+  // Every forecast € is at today's prices (spec §5.7): said in every Fiche, Énergie's strip and Maison's line alike.
+  rows.push({ key: 'price', label: m.weatherCost.dayPrice, value: m.weatherCost.dayPriceValue });
   return rows;
 }
 

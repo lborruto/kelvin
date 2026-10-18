@@ -254,7 +254,7 @@ describe('English messages take the same parameters as French', () => {
 const SCANNER_BLIND = new Set([
   // Plan 15: « Par °C plus froid », « Dehors », « absence », « Fourchette » read as English or symbols
   'weatherCost.perDegree', 'weatherCost.perDegreeSub', 'weatherCost.rowOutside', 'weatherCost.rowPerDegreeEur',
-  'weatherCost.excluded.away', 'weatherCost.dayRange', 'weatherCost.roomValue', 'weatherCost.roomRow',
+  'weatherCost.excluded.away', 'weatherCost.dayRange', 'weatherCost.roomValue', 'weatherCost.roomRow', 'weatherCost.dayColour',
   // Réglages (Tableau settings batch): « 2 jetons MCP », « brouillon »
   'home.cardMcp',
   'tariff.draft',

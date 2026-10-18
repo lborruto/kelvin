@@ -53,10 +53,17 @@
     if (house.loaded) energy.load(today.iso, untrack(() => weather.on));
   });
   // Plan 15: tomorrow's heating cost with a weather place; asked again on a new forecast (throttled in the store).
+  // Another place (or none): tomorrow's line was the previous place's.
+  let shownPlace = untrack(() => weather.place);
   $effect(() => {
+    const p = weather.place;
     if (!house.loaded) return;
-    if (weather.on) untrack(() => energy.loadForecast());
-    else untrack(() => energy.clearForecast());
+    const moved = p !== shownPlace;
+    shownPlace = p;
+    untrack(() => {
+      if (moved || !weather.on) energy.clearForecast();
+      if (weather.on) energy.loadForecast();
+    });
   });
   $effect(() => {
     const at = weather.view?.fetched_at ?? null;
@@ -163,13 +170,15 @@
             <div class="skcol"><Skeleton h={22} w={120} shape="line" /><Skeleton h={150} shape="tile" /></div>
             <div class="wide"><Skeleton h={150} shape="widget" /></div>
           </div>
+          <!-- With a place, Demain (beside Hier) holds its weather line: the pair is taller by it. -->
           <div class="skcol"><Skeleton h={22} w={196} shape="line" /><Skeleton h={128} shape="widget" /><Skeleton h={150} shape="widget" />
-            <div class="two"><Skeleton h={110} shape="widget" /><Skeleton h={110} shape="widget" /></div></div>
+            <div class="two">{#each [0, 1] as i (i)}<Skeleton h={weather.on ? 134 : 110} shape="widget" />{/each}</div></div>
         </div>
       {:else}
         <div class="skcol"><Skeleton h={22} w={90} shape="line" /><div class="two"><Skeleton h={150} shape="tile" /><Skeleton h={150} shape="tile" /></div>
           <Skeleton h={64} shape="tile" /><Skeleton h={22} w={90} shape="line" /><Skeleton h={170} shape="widget" />
-          <div class="two"><Skeleton h={120} shape="widget" /><Skeleton h={120} shape="widget" /></div></div>
+          <!-- The Bill + Demain pair: with a place, Demain's compact weather line (two lines) makes it taller. -->
+          <div class="two">{#each [0, 1] as i (i)}<Skeleton h={weather.on ? 164 : 120} shape="widget" />{/each}</div></div>
       {/if}
     </div>
   {:else if desktop.matches}

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { FORECAST, OK } from '$lib/weatherModel.fixture';
+import { OK } from '$lib/weatherModel.fixture';
 import { REFRESH_MS, WeatherModelStore } from './weatherModel.svelte';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -7,9 +7,8 @@ const P = { from: '2026-10-01', to: '2026-10-19' };
 
 function store(now = { t: 0 }) {
   const cost = vi.fn().mockResolvedValue(OK);
-  const forecast = vi.fn().mockResolvedValue(FORECAST);
-  const s = new WeatherModelStore(() => now.t, { cost, forecast });
-  return { s, cost, forecast, now };
+  const s = new WeatherModelStore(() => now.t, cost);
+  return { s, cost, now };
 }
 
 describe('WeatherModelStore', () => {
@@ -38,15 +37,13 @@ describe('WeatherModelStore', () => {
     expect(s.get(P)).toEqual(OK);
   });
   it('onWeather ignores the first value, then refetches once per 10 minutes', async () => {
-    const { s, cost, forecast, now } = store({ t: 1_000_000 });
+    const { s, cost, now } = store({ t: 1_000_000 });
     s.load(P);
-    s.loadForecast();
     await flush();
     s.onWeather(100, P);
     expect(cost).toHaveBeenCalledTimes(1);
     s.onWeather(200, P);
     expect(cost).toHaveBeenCalledTimes(2);
-    expect(forecast).toHaveBeenCalledTimes(2);
     now.t += REFRESH_MS - 1;
     s.onWeather(300, P);
     expect(cost).toHaveBeenCalledTimes(2);
@@ -67,6 +64,5 @@ describe('WeatherModelStore', () => {
     late(OK);
     await flush();
     expect(s.byPeriod).toEqual({});
-    expect(s.forecast).toBeUndefined();
   });
 });

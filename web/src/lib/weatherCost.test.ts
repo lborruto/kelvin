@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setLocale } from './i18n';
-import { FORECAST, HIDDEN, OK, ROOM, THIN, week } from './weatherModel.fixture';
+import { FORECAST, forecastView, HIDDEN, OK, ROOM, THIN, week } from './weatherModel.fixture';
 import {
   figures,
   forecastCell,
@@ -45,6 +45,24 @@ describe('weatherCost words', () => {
     expect(s(houseWhy(HIDDEN.house))).toBe('pas encore assez de jours mesurés avec la météo : 12 sur 28');
     expect(houseWhy({ ...HIDDEN.house, why: 'poor_fit' })).toMatch(/ne suit pas assez/);
     expect(houseWhy(OK.house)).toBeNull();
+  });
+  it('Maison’s light answer (no points) says few days without a count it does not have', () => {
+    const house = forecastView(HIDDEN).house;
+    expect(houseWhy(house)).toBe('pas encore assez de jours mesurés avec la météo');
+    expect(tomorrowWhy({ house, forecast: HIDDEN.forecast })).toBe('pas encore assez de jours mesurés avec la météo');
+  });
+  it('a forecast Fiche: HC/HP for an off-peak home, the Tempo colour when published, today’s prices always', () => {
+    const hchp = forecastRows(week()[0]);
+    expect(hchp.filter((r) => r.key?.startsWith('part-')).map((r) => `${r.label} ${s(r.value)}`)).toEqual(['HC 13,88 kWh', 'HP 26,93 kWh']);
+    expect(hchp.find((r) => r.key === 'colour')).toBeUndefined();
+    expect(hchp.at(-1)).toMatchObject({ label: 'Prix', value: 'aux prix d’aujourd’hui' });
+    const red = forecastRows({ ...week()[0], colour: 'red', parts: [{ key: 'red_hc', kwh: 13.88 }, { key: 'red_hp', kwh: 26.93 }] });
+    expect(red.find((r) => r.key === 'colour')).toMatchObject({ label: 'Couleur Tempo', value: 'Rouge' });
+    expect(red.some((r) => r.key?.startsWith('part-'))).toBe(false);
+    expect(red.at(-1)!.key).toBe('price');
+    const base = forecastRows({ ...week()[0], parts: [{ key: 'base', kwh: 40.81 }] });
+    expect(base.some((r) => r.key?.startsWith('part-'))).toBe(false);
+    expect(forecastRows(HIDDEN.forecast.days[0]).at(-1)!.key).toBe('price');
   });
   it('gives the thin reason', () => {
     expect(s(thinText(THIN.house.thin, 41, 30))).toBe('ajusté sur 41 jours seulement : l’estimation s’affinera');

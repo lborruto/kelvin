@@ -255,8 +255,13 @@
     const at = weather.view?.fetched_at ?? null;
     untrack(() => weatherModel.onWeather(at, weatherPeriod));
   });
+  // Another place (or none): every answer was about the previous one.
+  let shownPlace = untrack(() => weather.place);
   $effect(() => {
-    if (weather.view === null) untrack(() => weatherModel.reset()); // the place went: its answers with it
+    const p = weather.place;
+    if (p === shownPlace) return;
+    shownPlace = p;
+    untrack(() => weatherModel.reset());
   });
   let weatherCost = $derived(weatherModel.get(weatherPeriod));
   let sensitivity = $derived(weatherCost === undefined ? undefined : (weatherCost?.rooms.items ?? null));
