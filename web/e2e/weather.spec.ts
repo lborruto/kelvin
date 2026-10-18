@@ -62,6 +62,9 @@ test('weather off shows nothing of « Météo et coût »', async ({ page }) => 
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.locator('.hero').first()).toBeVisible();
   await expect(page.locator('#weather-cost')).toHaveCount(0);
+  // No outdoor line, no °C axis, no legend switch over the consumption chart.
+  await expect(page.getByRole('button', { name: 'Température extérieure' })).toHaveCount(0);
+  await expect(page.locator('path.t-line, text.tl')).toHaveCount(0);
   await page.goto('/');
   await expect(page.locator('.cat').first()).toBeVisible();
   await expect(page.getByText(/de chauffage$/)).toHaveCount(0);

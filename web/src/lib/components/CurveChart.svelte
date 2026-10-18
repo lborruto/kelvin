@@ -1,12 +1,16 @@
 <script lang="ts">
   import { scaleBand, scaleLinear } from 'd3-scale';
   import Scrubber from './Scrubber.svelte';
+  import OutdoorToggle from './OutdoorToggle.svelte';
   import Swatch from './Swatch.svelte';
   import type { EnergyInterval, RoomSample } from '$lib/api/types';
   import { SERIES } from '$lib/energy';
-  import { fmtTime, fmtWh } from '$lib/format';
+  import { fmtFixed, fmtTemp, fmtTempTick, fmtTime, fmtWh } from '$lib/format';
   import { m } from '$lib/i18n';
   import { inspectionTable, intervalLabel, READOUT_ORDER, readInterval, type Inspection, type Row } from '$lib/inspector';
+  import { hourlyLine, linePaths, maxTicks, tempScale, type Pt } from '$lib/outdoorLine';
+  import type { OutdoorPoint } from '$lib/roomchart';
+  import { outdoorLine } from '$lib/stores/outdoorLine.svelte';
 
   interface Props {
     intervals: EnergyInterval[];
@@ -25,20 +29,41 @@
     idle?: Inspection | null;
     /** The plot's height in px (Tableau: taller where the Courbe leads the board). */
     height?: number;
+    /** The day's published outdoor hours (epoch ms, °C; empty while they load): the readout's « Dehors » and the
+     *  hourly line on its own °C axis. Null without a weather place (no field, no line, no legend key). */
+    outdoor?: OutdoorPoint[] | null;
   }
-  let { intervals, label, split = true, kva = null, samples = null, room = null, index = $bindable(null), idle = null, height = 140 }: Props = $props();
+  let {
+    intervals, label, split = true, kva = null, samples = null, room = null, index = $bindable(null), idle = null, height = 140,
+    outdoor = null
+  }: Props = $props();
 
   let width = $state(0);
   let W = $derived(width > 0 ? width : 600);
   let H = $derived(height);
   let BASE = $derived(H - 1);
-  let x = $derived(scaleBand<number>().domain(intervals.map((_, i) => i)).range([0, W]).paddingInner(0.15));
+  /** The line is drawn (a place, and the owner did not hide it): its °C gutter is held from the first frame. */
+  let lineOn = $derived(outdoor != null && outdoorLine.on);
+  // Wh labels in the left gutter (ink), °C in the right one (the line's colour).
+  let PAD = $derived({ top: 16, left: 40, right: lineOn ? 30 : 0 });
+  let x = $derived(scaleBand<number>().domain(intervals.map((_, i) => i)).range([PAD.left, W - PAD.right]).paddingInner(0.15));
   let dataMax = $derived(Math.max(1, ...intervals.map((p) => Math.max(p.wh, p.radiators_wh ?? 0))));
   let kvaWh = $derived(kva != null ? kva * 1000 * 0.5 : null);
   // Drawn only within 2× the data, so a 12 kVA line never flattens a quiet day; otherwise stated.
   let kvaShown = $derived(kvaWh != null && kvaWh <= 2 * dataMax);
-  let y = $derived(scaleLinear().domain([0, kvaShown && kvaWh != null ? Math.max(dataMax, kvaWh) : dataMax]).nice().range([BASE, 6]));
+  let y = $derived(scaleLinear().domain([0, kvaShown && kvaWh != null ? Math.max(dataMax, kvaWh) : dataMax]).nice().range([BASE, PAD.top]));
+  let nTicks = $derived(maxTicks(W));
+  let yTicks = $derived(y.ticks(nTicks));
+  // The outdoor hours: one point per hour on the half-hour that starts it; a missing hour breaks the line.
+  let hours = $derived(lineOn && outdoor ? hourlyLine(intervals, outdoor) : []);
+  let tScale = $derived(lineOn ? tempScale(hours.map((h) => h.v), nTicks) : null);
+  let tY = $derived(tScale ? scaleLinear().domain([tScale.lo, tScale.hi]).range([BASE, PAD.top]) : null);
   let centers = $derived(intervals.map((_, i) => (x(i) ?? 0) + x.bandwidth() / 2));
+  let tPaths = $derived(linePaths(tY ? hours.map((h): Pt | null => (h.v != null ? { x: centers[h.i], y: tY(h.v), kind: 'obs' } : null)) : []));
+  let lineSentence = $derived.by(() => {
+    const vs = hours.map((h) => h.v).filter((v): v is number => v != null);
+    return vs.length ? m.outdoorLine.range(fmtTemp(Math.min(...vs)), fmtTemp(Math.max(...vs))) : null;
+  });
   // Axis: 00, 06, 12, 18 at the matching half hours (positions follow DST days), then 24.
   let ticks = $derived(
     intervals.flatMap((p, i) => {
@@ -64,7 +89,7 @@
   });
   /** HC/HP halves are drawn (a tariff splits the day and some half-hour has its off-peak fraction). */
   let hasSplit = $derived(split && intervals.some((p) => p.offpeak != null));
-  let ctx = $derived({ intervals, samples, room, tariff: split });
+  let ctx = $derived({ intervals, samples, room, tariff: split, outdoor });
   let current = $derived(index != null && intervals[index] ? intervals[index] : null);
   let readout = $derived(readInterval(current, ctx));
   let readings = $derived(intervals.map((p) => readInterval(p, ctx)));
@@ -78,9 +103,25 @@
   let idleRows = $derived(new Map((idle?.rows ?? []).map((r) => [r.key, r])));
   /** The row a field shows: the half-hour's, else the day's (a field with no day value is kept, unseen). */
   const shownRow = (r: Row): Row | null => (current || !idle ? r : (idleRows.get(r.key) ?? null));
+  /** « Dehors » may fill in after the day (the hours arrive on their own): its widest texts are held from the start, so
+   *  the field never grows under the reader. Never shown (never current). */
+  let outdoorSizers = $derived<Inspection | null>(
+    outdoor
+      ? {
+          title: '',
+          notes: [],
+          empty: null,
+          spoken: '',
+          rows: [
+            { key: 'outdoor', label: '', value: m.energyUi.tempAvg(fmtTemp(-10.5)) },
+            { key: 'outdoor', label: '', value: '—', note: m.outdoorLine.noHour }
+          ]
+        }
+      : null
+  );
   let variants = $derived.by(() => {
     const byKey = new Map<string, Map<string, Row>>();
-    for (const r of [idle ?? readInterval(null, ctx), ...readings]) {
+    for (const r of [idle ?? readInterval(null, ctx), ...readings, ...(outdoorSizers ? [outdoorSizers] : [])]) {
       for (const x of r.rows) {
         const vs = byKey.get(x.key) ?? new Map<string, Row>();
         if (!vs.has(variantId(x))) vs.set(variantId(x), x);
@@ -116,7 +157,18 @@
     {/each}
   </dl>
   <div class="plot" bind:clientWidth={width}>
-    <svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={label}>
+    <svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={lineSentence ? `${label}. ${lineSentence}` : label}>
+      {#each yTicks as t (t)}
+        <line class="grid" x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} />
+        <text class="yl" x={PAD.left - 6} y={Math.min(y(t) + 3.5, H - 1)} text-anchor="end">{fmtFixed(t, 0)}</text>
+      {/each}
+      <text class="unit" x={PAD.left - 6} y="9" text-anchor="end">{m.outdoorLine.unitWh}</text>
+      {#if tScale && tY}
+        {#each tScale.ticks as t (t)}
+          <text class="tl" x={W - PAD.right + 6} y={Math.min(tY(t) + 3.5, H - 1)}>{m.outdoorLine.tick(fmtTempTick(t))}</text>
+        {/each}
+        <text class="unit t" x={W - PAD.right + 6} y="9">{m.outdoorLine.unitTemp}</text>
+      {/if}
       {#each intervals as p, i (p.ts)}
         {@const top = y(p.wh)}
         {@const f = split && p.offpeak != null ? p.offpeak : null}
@@ -137,7 +189,14 @@
         </g>
       {/each}
       {#if kvaShown && kvaWh != null}
-        <line class="kva" x1="0" x2={W} y1={y(kvaWh)} y2={y(kvaWh)} />
+        <line class="kva" x1={PAD.left} x2={W - PAD.right} y1={y(kvaWh)} y2={y(kvaWh)} />
+      {/if}
+      {#if tPaths.solid || tPaths.dots.length}
+        <!-- The outdoor hours above the bars on a subtle halo; the radiators' step line comes after, its knockout cutting it. -->
+        <g class="temp" aria-hidden="true">
+          {#if tPaths.solid}<path class="t-halo" d={tPaths.solid} /><path class="t-line" d={tPaths.solid} />{/if}
+          {#each tPaths.dots as p (p.x)}<circle class="t-dot-halo" cx={p.x} cy={p.y} r="4" /><circle class="t-dot" cx={p.x} cy={p.y} r="2.5" />{/each}
+        </g>
       {/if}
       {#if radPath}
         <path class="rad-knock" d={radPath} />
@@ -158,11 +217,11 @@
   </div>
   <div class="curve-axis" aria-hidden="true">
     {#each ticks as t (t.i)}<span class="curve-tick" style:left="{((x(t.i) ?? 0) / W) * 100}%">{t.text}</span>{/each}
-    <span class="curve-tick end">24</span>
+    <span class="curve-tick end" style:right="{PAD.right}px">24</span>
   </div>
   {#if idle}<p class="muted hint">{m.energyUi.scrubHint}</p>{/if}
   <!-- A legend only for what is drawn: no empty list when the subscribed power is only stated. -->
-  {#if radPath || (kvaShown && kva != null) || hasSplit}
+  {#if radPath || (kvaShown && kva != null) || hasSplit || outdoor}
     <ul class="legend">
       {#if hasSplit}
         <li><Swatch series="hc" />{m.energyPage.hc}</li>
@@ -170,6 +229,7 @@
       {/if}
       {#if radPath}<li><Swatch series="radiators" line />{m.curve.radiators}</li>{/if}
       {#if kvaShown && kva != null}<li><span class="dash"></span>{m.curve.kva(kva)}</li>{/if}
+      {#if outdoor}<OutdoorToggle />{/if}
     </ul>
   {/if}
   {#if kva != null && !kvaShown}<p class="muted kva-note">{m.curve.kvaOff(kva, fmtWh(kvaWh))}</p>{/if}
@@ -292,6 +352,60 @@
     stroke: var(--tx);
     stroke-width: 1;
     pointer-events: none;
+  }
+  .grid {
+    stroke: var(--line);
+    stroke-width: 1;
+  }
+  .yl,
+  .tl,
+  .unit {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .yl {
+    fill: var(--tx);
+  }
+  .unit {
+    font-size: 10px;
+    fill: var(--mu);
+  }
+  .tl,
+  .unit.t {
+    fill: var(--outdoor);
+  }
+  /* Not a bar: no growth from the baseline, a fade like the radiators' marks. */
+  .temp {
+    pointer-events: none;
+    transform: none;
+    animation: kv-fade-in var(--t-state) ease both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .temp {
+      animation: none;
+    }
+  }
+  .t-halo {
+    fill: none;
+    stroke: var(--s1);
+    stroke-width: 5;
+    stroke-opacity: 0.85;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .t-line {
+    fill: none;
+    stroke: var(--outdoor);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .t-dot-halo {
+    fill: var(--s1);
+    opacity: 0.85;
+  }
+  .t-dot {
+    fill: var(--outdoor);
   }
   .kva {
     stroke: var(--fa);

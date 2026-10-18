@@ -2,13 +2,15 @@
   import CurveChart from './CurveChart.svelte';
   import Icon from './Icon.svelte';
   import type { EnergyDay } from '$lib/api/types';
-  import { halfHoursIn, type View } from '$lib/energy';
+  import { addDays, halfHoursIn, type View } from '$lib/energy';
   import { fmtDateLong, fmtKwhExact, fmtPct1, matchParts } from '$lib/format';
   import { m } from '$lib/i18n';
   import { readDay, type Inspection } from '$lib/inspector';
   import { roomName } from '$lib/setup';
   import { house } from '$lib/stores/house.svelte';
+  import { weather } from '$lib/stores/weather.svelte';
   import { ANCHORS } from '$lib/paths';
+  import { parisDayStart } from '$lib/time';
 
   interface Props {
     dayIso: string;
@@ -29,11 +31,20 @@
     bar?: Inspection | null;
     /** The chart's height in px (default 140). */
     chartHeight?: number;
+    /** A weather place is set: the day's outdoor hours are asked, for the readout's « Dehors » and the hourly line. */
+    outdoorOn?: boolean;
   }
   let {
     dayIso, day, error, view, split, canPrev, canNext, onstep, onretry, curveSince, quota, index = $bindable(null), bar = null,
-    chartHeight = 140
+    chartHeight = 140, outdoorOn = false
   }: Props = $props();
+
+  // The day's published outdoor hours (one request per day, asked again after 10 min while the day runs).
+  let wkey = $derived(`energy|${dayIso}`);
+  $effect(() => {
+    if (outdoorOn && weather.on) weather.hourly(wkey, parisDayStart(dayIso), parisDayStart(addDays(dayIso, 1)));
+  });
+  let outdoor = $derived(outdoorOn ? (weather.entries[wkey]?.points ?? []) : null);
 
   // Never another day's bars under this heading.
   let shown = $derived(day && day.date === dayIso ? day : null);
@@ -51,7 +62,7 @@
   // The readout at rest: the whole day, from the day bar's own figures.
   let idle = $derived(
     shown && shown.points > 0
-      ? readDay(shown, bar, { intervals: shown.intervals, samples: shown.room?.samples ?? null, room: roomLabel, tariff: split })
+      ? readDay(shown, bar, { intervals: shown.intervals, samples: shown.room?.samples ?? null, room: roomLabel, tariff: split, outdoor })
       : null
   );
   // M7: the curve as measured, against the daily reading that is billed.
@@ -101,6 +112,7 @@
           room={roomLabel}
           label={m.curvePanel.chart(fmtDateLong(shown.date))}
           {idle}
+          {outdoor}
           height={chartHeight}
           bind:index />
         {#if !shown.complete}<p class="muted note">{m.curvePanel.incomplete(shown.points, halfHoursIn(shown.date))}</p>{/if}

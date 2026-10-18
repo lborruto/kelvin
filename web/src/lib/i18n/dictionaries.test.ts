@@ -138,6 +138,8 @@ export const SAME = new Set<string>([
   'roomInfo.watts', 'roomInfo.rssi', 'roomFigures.est',
   'tariff.kvaValue', 'tariff.options.base', 'tariff.options.tempo', 'tariff.rateShort.base',
   'energyTariff.colKwh', 'energyTariff.colEur', 'energyTariff.withColour',
+  // The outdoor line over Énergie's charts: units and a degree tick read the same
+  'outdoorLine.unitTemp', 'outdoorLine.unitWh', 'outdoorLine.tick',
   'sources.title',
   // Plan 12: a product name
   'servers.cozytouch', 'dryer.normal',
@@ -299,7 +301,9 @@ const SCANNER_BLIND = new Set([
   // Plan 14: « Dehors », « Ressenti », « 2 lieux », « Lieu », « commune », « saisie », « DJU (base 18 °C) », two figures
   'weather.chip', 'strip.legendOutdoor', 'weather.now', 'weather.feelsLike', 'weather.djuLabel', 'weather.results', 'weather.elevation',
   'weather.change', 'weather.place', 'weather.coordsValue', 'weather.elevationFrom.geocoder', 'weather.elevationFrom.owner',
-  'weather.elevationFrom.none'
+  'weather.elevationFrom.none',
+  // The outdoor line over Énergie's charts: « Dehors », « dehors 2,0 °C »
+  'outdoorLine.outside', 'outdoorLine.spoken'
 ]);
 
 /** French proper nouns English copy keeps (docs/glossary.md): removed before the English scan. */

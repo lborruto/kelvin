@@ -3,7 +3,7 @@ import { applyLocale } from '$lib/i18n';
 import type { EnergyInterval, EnergySummary, RoomSample } from './api/types';
 import { bucketSpan, periodOf } from './energy';
 import { fmtPrice } from '$lib/format';
-import { inspectBucket, inspectionTable, intervalLabel, pricesText, readDay, readInterval, roomInterval } from './inspector';
+import { inspectBucket, inspectionTable, intervalLabel, pricesText, READOUT_ORDER, readDay, readInterval, roomInterval } from './inspector';
 import { parisDayStart } from './time';
 
 const NB = '\u00a0';
@@ -460,5 +460,53 @@ describe('Plan 14: the outdoor rows of a bar', () => {
     const table = inspectionTable([{ head: 'a', ins: inspectBucket(b, day) }, { head: 'b', ins: inspectBucket(bucket(), day) }]);
     expect(table.columns.slice(-2).map((c) => c.key)).toEqual(['outdoor', 'dju']);
     expect(table.rows[1].cells.slice(-2)).toEqual(['—', '—']);
+  });
+});
+
+describe('the outdoor line: « Dehors » in every inspector, readout, table and spoken line', () => {
+  it('a day over reads its mean in the spoken line; a day to come reads the forecast, said to be one', () => {
+    const b = bucket({ outdoor: { mean_c: 6.3, min_c: 1.2, max_c: 11, dju: 11.7, days: 1, of: 1 } });
+    expect(inspectBucket(b, day).spoken).toBe(`13 octobre, 22,04 kilowattheures, 5,79 euros, dehors 6,3${NB}°C`);
+    const later = bucket({ kwh: null, hc_kwh: null, hp_kwh: null, eur: null, energy_eur: null, radiators: null, rest_kwh: null, outdoor: null });
+    const ins = inspectBucket(later, { ...day, forecast: 2 });
+    expect(ins.rows.find((r) => r.key === 'outdoor')).toMatchObject({ label: 'Dehors moy.', value: `2,0${NB}°C`, note: 'prévision' });
+    expect(ins.rows.some((r) => r.key === 'dju')).toBe(false);
+    expect(ins.spoken).toContain(`dehors 2,0${NB}°C (prévision)`);
+    // A measured mean always wins over a forecast; without either there is no row.
+    expect(inspectBucket(b, { ...day, forecast: 2 }).rows.find((r) => r.key === 'outdoor')!.value).toBe(`6,3${NB}°C`);
+    expect(inspectBucket(later, day).rows.some((r) => r.key === 'outdoor')).toBe(false);
+    const table = inspectionTable([{ head: '20/10', ins }]);
+    expect(table.columns.map((c) => c.key)).toContain('outdoor');
+    expect(table.rows[0].cells[table.columns.findIndex((c) => c.key === 'outdoor')]).toBe(`2,0${NB}°C (prévision)`);
+  });
+
+  it('a half-hour reads the hour holding it, « — » with its reason for an hour not published; no field without a place', () => {
+    const all = dayOf('2026-10-14');
+    const h18 = all[36].ts * 1000;
+    const outdoor = [{ t: h18, v: 4.24 }];
+    const at1800 = readInterval(all[36], { intervals: all, tariff: true, outdoor });
+    const at1830 = readInterval(all[37], { intervals: all, tariff: true, outdoor });
+    expect(at1800.rows.find((r) => r.key === 'outdoor')).toMatchObject({ label: 'Dehors', value: `4,2${NB}°C` });
+    expect(at1830.rows.find((r) => r.key === 'outdoor')!.value).toBe(`4,2${NB}°C`);
+    expect(at1830.spoken).toBe(`18:30–19:00, 1,47${NB}kW, 734${NB}Wh, dehors 4,2${NB}°C`);
+    const at1900 = readInterval(all[38], { intervals: all, tariff: true, outdoor });
+    expect(at1900.rows.find((r) => r.key === 'outdoor')).toMatchObject({ value: '—', note: 'pas de météo pour cette heure' });
+    expect(readInterval(null, { intervals: all, tariff: true, outdoor }).rows.find((r) => r.key === 'outdoor')!.note).toBeUndefined();
+    expect(readInterval(all[36], { intervals: all, tariff: true }).rows.some((r) => r.key === 'outdoor')).toBe(false);
+    // The hidden table keeps the readout's order: « Dehors » last.
+    const table = inspectionTable(all.slice(36, 38).map((iv) => ({ head: 'x', ins: readInterval(iv, { intervals: all, tariff: true, outdoor }) })), READOUT_ORDER);
+    expect(table.columns.at(-1)!.key).toBe('outdoor');
+  });
+
+  it('the Courbe at rest reads the day bar’s outdoor mean as « moy. », and nothing for a day not over', () => {
+    const a = parisDayStart('2026-10-12') / 1000;
+    const power = { peak_w: 5530, peak_ts: a + 6.5 * 3600, base_w_p10: 224, night_min_w: 200, kva: 9 };
+    const totals = { curve_kwh: 29.0, daily_kwh: 29.07, hc_kwh: 9, hp_kwh: 20.07, split_method: 'curve' as const, hc_kwh_curve: 9, hp_kwh_curve: 20 };
+    const bar = inspectBucket(bucket({ outdoor: { mean_c: 6.3, min_c: 1.2, max_c: 11, dju: 11.7, days: 1, of: 1 } }), day);
+    const d = readDay({ power, totals }, bar, { intervals: [], tariff: true, outdoor: [] });
+    expect(d.rows.find((r) => r.key === 'outdoor')).toMatchObject({ label: 'Dehors', value: `moy. 6,3${NB}°C` });
+    expect(readDay({ power, totals }, bar, { intervals: [], tariff: true }).rows.some((r) => r.key === 'outdoor')).toBe(false);
+    const forecastBar = inspectBucket(bucket({ outdoor: null }), { ...day, forecast: 3 });
+    expect(readDay({ power, totals }, forecastBar, { intervals: [], tariff: true, outdoor: [] }).rows.some((r) => r.key === 'outdoor')).toBe(false);
   });
 });

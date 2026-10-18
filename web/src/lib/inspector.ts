@@ -9,6 +9,7 @@ import {
   fmtAmount, fmtDay, fmtEurExact, fmtEurHalfHour, fmtKwhExact, fmtPct1, fmtPrice, fmtTemp, fmtTime, fmtW, fmtWh, matchParts
 } from './format';
 import { m } from './i18n';
+import { outdoorAt, type OutdoorPoint } from './roomchart';
 import { parisOffsetMinutes, parisParts } from './time';
 import { outdoorRows } from './weather';
 
@@ -48,6 +49,8 @@ export interface BucketCtx {
   radiators?: boolean;
   /** Paris today: the report counts radiators up to yesterday, so a bucket holding today says so. */
   today?: string | null;
+  /** Today or a day to come: the 7-day forecast's mean °C, read as « Dehors moy. » with « prévision ». */
+  forecast?: number | null;
 }
 
 /** The order of the inspector's rows and of the hidden table's columns. */
@@ -55,7 +58,7 @@ export const ROW_ORDER = [
   'home', 'hc', 'hp', 'hc_share', 'tempo', 'radiators', 'rest', 'rad_share', 'cost', 'energy', 'subscription', 'prices', 'avg_price',
   'period_share', 'per_day', 'outdoor', 'dju'
 ] as const;
-export const READOUT_ORDER = ['power', 'energy', 'rate', 'price', 'cost', 'radiators', 'rest', 'temperature'] as const;
+export const READOUT_ORDER = ['power', 'energy', 'rate', 'price', 'cost', 'radiators', 'rest', 'temperature', 'outdoor'] as const;
 
 /** The rate keys in display order (written out: a module-level read of `m` would freeze a language). */
 const RATE_ORDER = ['base', 'hc', 'hp', 'blue_hc', 'blue_hp', 'white_hc', 'white_hp', 'red_hc', 'red_hp'];
@@ -129,6 +132,10 @@ export function inspectBucket(b: EnergySummary, ctx: BucketCtx): Inspection {
   if (ctx.group !== 'day' && kwh != null && b.present_days > 0) add('per_day', m.inspector.perDay, fmtKwhExact(kwh / b.present_days));
   // Plan 14: the outdoor mean and the degree days, only with a weather place (published figures, Kelvin's day sums).
   for (const r of outdoorRows(b.outdoor)) add(r.key!, r.label, r.value, { note: r.note ?? undefined });
+  // A day still to come (or today) the forecast covers: its mean, said to be a forecast (never a measurement).
+  if (b.outdoor == null && ctx.forecast != null) {
+    add('outdoor', m.weather.meanOutside, fmtTemp(ctx.forecast), { note: m.outdoorLine.forecast });
+  }
 
   const notes: string[] = [];
   if (b.missing_days > 0 && kwh != null) notes.push(m.inspector.missing(b.missing_days));
@@ -142,12 +149,14 @@ export function inspectBucket(b: EnergySummary, ctx: BucketCtx): Inspection {
 
   const empty = (ctx.linky ?? true) && kwh == null ? (ctx.group === 'day' ? m.inspector.noLinkyDay : m.inspector.noLinkyPeriod) : null;
   const said = spokenTitle(ctx.group, ctx.span);
+  const outside = rows.find((r) => r.key === 'outdoor' && r.value !== '—');
+  const spokenOut = outside ? `, ${m.outdoorLine.spoken(outside.note ? `${outside.value} (${outside.note})` : outside.value)}` : '';
   const spoken =
-    kwh != null
+    (kwh != null
       ? `${said}, ${fmtAmount(kwh, 2)} ${m.inspector.kwhWord}${b.eur != null ? `, ${fmtAmount(b.eur, 2)} ${m.inspector.eurWord}` : ''}`
       : rad
         ? `${said}, ${m.inspector.radiatorsSpoken} ${fmtAmount(rad.kwh, 2)} ${m.inspector.kwhWord}`
-        : `${said}, ${m.inspector.noData}`;
+        : `${said}, ${m.inspector.noData}`) + spokenOut;
   return { title: periodTitle(ctx.group, ctx.span), rows, notes, empty, spoken };
 }
 
@@ -227,6 +236,9 @@ export interface ReadoutCtx {
   /** The room the samples are from. */
   room?: string | null;
   tariff: boolean;
+  /** The published outdoor hours of the day (epoch ms, °C): the « Dehors » field. Null or absent without a weather
+   *  place (no field at all). */
+  outdoor?: OutdoorPoint[] | null;
 }
 
 /** The scrubber readout for one interval. Its rows are fixed for the day, so the row never reflows. */
@@ -282,8 +294,15 @@ export function readInterval(iv: EnergyInterval | null, ctx: ReadoutCtx): Inspec
       value: t.temperature != null ? `${fmtTemp(t.temperature)} · ${m.inspector.setpoint} ${fmtTemp(t.setpoint)}` : '—'
     });
   }
+  // The outdoor temperature of the hour holding the half-hour (published, never measured at home).
+  let outside: number | null = null;
+  if (ctx.outdoor) {
+    outside = iv ? outdoorAt(ctx.outdoor, iv.ts * 1000, 30 * 60_000) : null;
+    rows.push({ key: 'outdoor', label: m.outdoorLine.outside, value: fmtTemp(outside), note: iv && outside == null ? m.outdoorLine.noHour : undefined });
+  }
   const title = iv ? intervalLabel(iv, ctx.intervals) : '—';
-  return { title, rows, notes: [], empty: null, spoken: iv ? `${title}, ${fmtW(iv.w)}, ${fmtWh(iv.wh)}` : '' };
+  const spokenOut = outside != null ? `, ${m.outdoorLine.spoken(fmtTemp(outside))}` : '';
+  return { title, rows, notes: [], empty: null, spoken: iv ? `${title}, ${fmtW(iv.w)}, ${fmtWh(iv.wh)}${spokenOut}` : '' };
 }
 
 /**
@@ -311,6 +330,9 @@ export function readDay(day: Pick<EnergyDay, 'power' | 'totals'>, bar: Inspectio
     const mean = Math.round((temps.reduce((a, b) => a + b, 0) / temps.length) * 100) / 100;
     rows.push({ key: 'temperature', label: m.inspector.temperature(ctx.room ?? null), value: m.energyUi.tempAvg(fmtTemp(mean)) });
   }
+  // The day's outdoor mean, as its bar reads it (« Dehors moy. »); a day not over yet has none.
+  const out = pick('outdoor');
+  if (ctx.outdoor && out && out.value !== '—' && !out.note) rows.push({ key: 'outdoor', label: m.outdoorLine.outside, value: m.energyUi.tempAvg(out.value) });
   const title = m.energyUi.day;
   return { title, rows, notes: [], empty: null, spoken: '' };
 }

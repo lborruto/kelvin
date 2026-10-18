@@ -168,7 +168,8 @@ test.describe('Énergie', () => {
     await expect(bar).toBeFocused();
     await expect(bar).toHaveAttribute('aria-pressed', 'true');
     // The focused bar's name carries its values (one channel: what a screen reader says on the move).
-    await expect(bar).toHaveAttribute('aria-label', /^\d{1,2} \p{Ll}+, \d+,\d\d kilowattheures, \d+,\d\d euros$/u);
+    // With the demo place, the day's outdoor mean ends it (« dehors 6,3 °C »).
+    await expect(bar).toHaveAttribute('aria-label', /^\d{1,2} \p{Ll}+, \d+,\d\d kilowattheures, \d+,\d\d euros(, dehors −?\d+,\d\s°C)?$/u);
     const inspector = page.locator('.inspector').filter({ visible: true }).last();
     await expect(inspector).toBeVisible();
     await expect(inspector.locator('dt', { hasText: /^Maison$/ })).toHaveCount(1);
@@ -536,6 +537,61 @@ test.describe('Énergie', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const analysis = page.locator('.analysis');
     for (const b of await analysis.locator('.dbtn').all()) await expect(b).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+test.describe('Énergie: the outdoor temperature line', () => {
+  test('Mois: the line on its own °C axis, its legend, « Dehors » in the inspector; the switch hides it and is remembered', async ({ page }) => {
+    await page.goto('/energy');
+    await settled(page);
+    await previousMonth(page);
+    const bars = page.locator('.bars-w');
+    const toggle = bars.getByRole('button', { name: 'Température extérieure' });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(bars.locator('path.t-line').first()).toBeVisible();
+    // Both axes are labelled: kWh on the left, °C on the right.
+    await expect(bars.locator('text.yl').first()).toHaveText('0');
+    expect(await bars.locator('text.tl').count()).toBeGreaterThanOrEqual(2);
+    await expect(bars.locator('text.unit.t')).toHaveText('°C');
+    await expect(bars.locator('svg[role="img"]').first()).toHaveAttribute('aria-label', /Température extérieure de −?\d+,\d\s°C à −?\d+,\d\s°C/);
+    // The inspector (card or sheet) and the hidden table read « Dehors moy. » for the day.
+    const keys = houseBars(page).getByRole('button');
+    await page.locator('#period-label').click();
+    await keys.nth(4).focus();
+    await page.keyboard.press('ArrowRight');
+    const inspector = page.locator('.inspector').filter({ visible: true }).last();
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toContainText(/Dehors moy\.\s*−?\d+,\d\s°C/);
+    await expect(bars.locator('.visually-hidden thead th', { hasText: 'Dehors moy.' })).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    // Hidden, then still hidden after a reload (per device), then shown again.
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(bars.locator('path.t-line')).toHaveCount(0);
+    await expect(bars.locator('text.tl')).toHaveCount(0);
+    await page.reload();
+    await settled(page);
+    await expect(page.locator('.bars-w').getByRole('button', { name: 'Température extérieure' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('.bars-w path.t-line')).toHaveCount(0);
+    await page.locator('.bars-w').getByRole('button', { name: 'Température extérieure' }).click();
+    await expect(page.locator('.bars-w path.t-line').first()).toBeVisible();
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test('Jour: the Courbe draws the hours and its readout says « Dehors »', async ({ page }) => {
+    await page.goto('/energy');
+    await settled(page);
+    await page.getByRole('radio', { name: 'Jour' }).click();
+    await settled(page);
+    // Yesterday's Courbe is complete whatever the hour (the newest day may still be filling).
+    await page.getByRole('button', { name: 'Période précédente' }).click();
+    await settled(page);
+    const curve = page.locator('#curve');
+    await expect(curve.locator('path.t-line')).toBeVisible({ timeout: 20_000 });
+    await expect(curve.locator('.readout')).toContainText('Dehors');
+    await expect(curve.getByRole('button', { name: 'Température extérieure' })).toHaveAttribute('aria-pressed', 'true');
+    // The 7 days ending on it carry their daily means.
+    await expect(page.locator('.bars-w path.t-line').first()).toBeVisible();
   });
 });
 
