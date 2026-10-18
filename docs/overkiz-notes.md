@@ -199,6 +199,41 @@ afterwards; nothing was sent for this check):
 - The server logs of that time held only the access log (no command timing); Kelvin now logs each
   command's label, how it settled (event or read) and after how long, and the differing days.
 
+## One action, some radiators offline (2026-10-18, owner's report; read-only check)
+
+« Absence · 18,0 °C » from Maison on a house of four HEKLA radiators: two in one room reachable,
+two (one per bedroom) powered off at the breaker, `core:StatusState` `unavailable` for 1 h 40 before
+(Kelvin's `command_log`, its `samples`, its `radiator_unreachable` alerts and the server log;
+nothing was sent for this check):
+
+- Kelvin sent **one action** with `setOperatingMode basic` + `setTargetTemperature 18` for each of
+  the four heaters (every radiator with a manual setpoint, reachable or not).
+- **The two reachable radiators applied it**: their samples went from programme 20 °C to manual
+  18 °C within 9 s of the send and held it. The states that confirm an away (`core:OperatingModeState`
+  `basic`, `core:TargetTemperatureState` `18.0`) match what Kelvin expects: the matcher was not at fault.
+- **The two unreachable radiators took nothing**: their samples kept their earlier mode and setpoint,
+  and they stayed `unavailable` (still so 5 h later). Whether Overkiz would deliver it once one comes
+  back is not verified; Kelvin does not count on it.
+- **The execution was reported `FAILED`** (Kelvin's verdict came at 23 s = the execution's failure
+  ~8 s + the 15 s grace, code `radiator_refused`), although half of its commands applied.
+- Kelvin then judged the command as a whole: the targeted read of the two offline heaters showed
+  their old states, so the whole command failed, the toast said so and a `command_failed` alert
+  was raised, while the absence was running in the room that could take it.
+
+Since then a command is judged radiator by radiator (`CommandService._outcome`): it is confirmed
+as soon as every radiator holds its expected states, **or every one that does not is
+`unavailable` while at least one took it** (« Confirmé · 2 hors ligne », `offline` in the pending).
+A command none of its radiators could take because all are offline fails with `radiator_offline`;
+a reachable radiator that does not take it still fails the command as before. A `core:StatusState`
+change re-judges the commands in flight on that device, and every failure verdict (with or without
+the targeted read) is judged radiator by radiator first. Kelvin keeps
+sending to offline radiators (harmless: the others apply; the Absence sheet already warns that
+an offline room may not get the setting). An away's restore confirmed for the reachable radiators
+keeps the offline ones in the override and retries them with the restore backoff, so a radiator
+that took the away and went offline before its end is restored once it is back. The simulator
+now behaves the same way (an `unavailable` device takes nothing; the action reports
+`FAILED ACTUATORNOANSWER`); the real failure code for an unreachable device is not recorded yet.
+
 ## Multi-brand (2026-10-14) — UNVERIFIED
 
 Nothing in this section has been tried on a real device. It records what Kelvin sends for device

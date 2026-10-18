@@ -123,6 +123,11 @@ test('absence can be started from Maison and ended from its « Absence » row on
   await sheet.getByRole('button', { name: 'Partir' }).click();
   await expect(sheet).toBeHidden();
   await expect(page.getByText(/^Absence jusqu’à .*\.$/).first()).toBeVisible(); // the toast
+  // The simulator's « Chambre 2 » is offline: the others take it, the command is confirmed for them
+  // and never failed; Chambre 2's tile says the setting did not reach it (2026-10-18).
+  await expect(page.getByText(/— confirmé pour \d+\sradiateurs, 1\shors ligne \(consigne non reçue\)\.$/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('article.rt', { hasText: 'Chambre 2' }).getByText(/^Hors ligne\s: consigne non reçue$/)).toBeVisible();
+  await expect(page.getByText('Le radiateur a refusé la commande.')).toHaveCount(0);
   const end = page.getByRole('button', { name: 'Terminer l’absence' });
   await expect(end).toBeVisible({ timeout: 20_000 });
   await end.click();

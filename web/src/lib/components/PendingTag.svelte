@@ -3,19 +3,34 @@
   import type { Pending } from '$lib/api/types';
   import { m, pendingError } from '$lib/i18n';
   import { dur, T } from '$lib/motion';
+  import { house } from '$lib/stores/house.svelte';
   import Icon from './Icon.svelte';
 
   interface Props {
     pending?: Pending;
     /** Shown once the request is out and the radiators' answer is awaited (status `pending`). */
     waiting?: string;
+    /** The radiators this tag speaks for (a room). Without it the tag speaks for the whole command. */
+    radiators?: string[];
     onretry: (id: string) => void;
     ondismiss: (id: string) => void;
   }
-  let { pending, waiting, onretry, ondismiss }: Props = $props();
+  let { pending, waiting, radiators, onretry, ondismiss }: Props = $props();
+  // Offline radiators that did not take a confirmed command: all of them, or this room's.
+  let offline = $derived(
+    pending?.status === 'confirmed' ? (pending.offline ?? []).filter((i) => !radiators || radiators.includes(i)) : []
+  );
+  // The room is back online since: it still did not get the setting, it was offline when sent.
+  let backOnline = $derived(offline.length > 0 && offline.every((i) => house.radiators[i]?.reachable === true));
   // Sending and pending read the same: one state, so the tag does not blink between them.
   let phase = $derived(
-    !pending ? null : pending.status === 'sending' || pending.status === 'pending' ? 'sending' : pending.status
+    !pending
+      ? null
+      : pending.status === 'sending' || pending.status === 'pending'
+        ? 'sending'
+        : offline.length
+          ? 'offline'
+          : pending.status
   );
 </script>
 
@@ -30,6 +45,15 @@
       <span class="tag ok" aria-hidden="true" in:fade={{ duration: dur(T.state) }} out:fade={{ duration: dur(T.move) }}><svg
           class="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
           stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" /></svg>{m.pending.confirmed}</span>
+    {:else if pending && phase === 'offline'}
+      {@const p = pending}
+      <!-- Confirmed for the reachable radiators; these were offline and did not get it. Not an
+           error (no Réessayer: the room is offline), it stays until dismissed or re-sent. -->
+      <span class="tag wait" in:fade={{ duration: dur(T.state) }}>
+        <span class="dot still"></span>
+        <span>{radiators ? (backOnline ? m.pending.missedWhileOffline : m.pending.offlineHere) : m.pending.confirmedOffline(offline.length)}</span>
+        <button type="button" class="btn btn-icon x" aria-label={m.common.dismiss} onclick={() => ondismiss(p.id)}><Icon name="x" size={16} /></button>
+      </span>
     {:else if pending && phase === 'unconfirmed'}
       {@const p = pending}
       <!-- Accepted by Cozytouch, not confirmed in time: not an error, it may still apply (the
