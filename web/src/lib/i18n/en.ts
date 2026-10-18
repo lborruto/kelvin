@@ -1742,6 +1742,14 @@ export const en: Messages = {
     loadFailed: 'Weather settings unavailable.'
   },
   weatherCost: {
+    chartLabel: 'Use against the outdoor temperature',
+    axisX: 'Outside (daily mean, °C)',
+    unitKwh: 'kWh',
+    unitEur: '€',
+    equilibrium: (c: string) => `balance ${c}`,
+    hint: 'Hover, tap or use ← → to read each day',
+    browse: 'Read the chart day by day',
+    rowDate: 'Day',
     thin: {
       short_history: (n: number) => `fitted on only ${int(n)} ${plural(n, { one: 'day', other: 'days' })}: the estimate will improve`,
       few_cold_days: (n: number) => `only ${int(n)} heating ${plural(n, { one: 'day', other: 'days' })} seen`,

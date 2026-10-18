@@ -150,7 +150,7 @@ export const SAME = new Set<string>([
   'prov.weather.arome_hd', 'prov.weather.arpege', 'weather.min', 'weather.max', 'weather.lat', 'weather.lon',
   'weather.elevationRow', 'weather.elevationValue',
   // Plan 15: a model name (proper noun), « ~6,28 € », « Salon +0,8 kWh »
-  'prov.weather.ecmwf', 'weatherCost.cell', 'weatherCost.whereItem'
+  'prov.weather.ecmwf', 'weatherCost.cell', 'weatherCost.whereItem', 'weatherCost.unitKwh', 'weatherCost.unitEur'
 ]);
 
 function leaves(o: object, prefix = ''): [string, unknown][] {

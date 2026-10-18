@@ -1796,6 +1796,14 @@ export const fr = {
   },
   weatherCost: {
     // Plan 15: Énergie › « Météo et coût », Maison « Demain », the room sheet and « Où part l’énergie »
+    chartLabel: 'Consommation selon la température extérieure',
+    axisX: 'Dehors (moyenne du jour, °C)',
+    unitKwh: 'kWh',
+    unitEur: '€',
+    equilibrium: (c: string) => `équilibre ${c}`,
+    hint: 'Survolez, touchez ou utilisez ← → pour lire chaque jour',
+    browse: 'Lire le graphique jour par jour',
+    rowDate: 'Jour',
     thin: {
       short_history: (n: number) => `ajusté sur ${int(n)}${NB}${plural(n, { one: 'jour', other: 'jours' })} seulement${NB}: l’estimation s’affinera`,
       few_cold_days: (n: number) => `seulement ${int(n)}${NB}${plural(n, { one: 'jour', other: 'jours' })} de chauffage observés`,

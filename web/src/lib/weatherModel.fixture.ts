@@ -1,7 +1,7 @@
 // « Météo et coût » as the contract gives it (spec 2026-10-18 §8.1), widened to a full week and a hundred-odd points
 // for the component tests; dates follow the sample (October 2026).
 import sample from './fixtures/weatherModel.sample.json';
-import type { ForecastDay, ModelPoint, RoomWeather, WeatherCost, WeatherCostForecastView } from './api/types';
+import type { ForecastDay, LineSample, ModelPoint, RoomWeather, WeatherCost, WeatherCostForecastView } from './api/types';
 
 /** The contract's shape with literal unions as strings and tuples as arrays: what a JSON import can be checked
  *  against, so a key missing from the sample (or renamed in the types) fails `npm run check`. */
@@ -50,9 +50,19 @@ export function points(n = 120): ModelPoint[] {
   });
 }
 
+/** The model line from −4 to 24 °C every 0,5 °C with a band of ± 0,4 kWh, € at the sample's price. */
+export function line(): LineSample[] {
+  const r = (v: number) => Math.round(v * 100) / 100;
+  return Array.from({ length: 57 }, (_, i) => {
+    const t = -4 + i / 2;
+    const kwh = 9.62 + 2.31 * Math.max(0, 15.5 - t);
+    return { t_c: t, kwh: r(kwh), kwh_lo: r(kwh - 0.4), kwh_hi: r(kwh + 0.4), eur: r(kwh * 0.2016), eur_lo: r((kwh - 0.4) * 0.2016), eur_hi: r((kwh + 0.4) * 0.2016) };
+  });
+}
+
 export const OK: WeatherCost = {
   ...SAMPLE,
-  house: { ...SAMPLE.house, points: points() },
+  house: { ...SAMPLE.house, points: points(), line: line() },
   forecast: { ...SAMPLE.forecast, days: week(), week: { kwh: 285.7, heating_kwh: 218.3, eur: 57.6, heating_eur: 44.01, days: 7, priced_days: 7 } }
 };
 export const THIN: WeatherCost = { ...OK, house: { ...OK.house, thin: ['short_history'], fit_days: 41 } };
