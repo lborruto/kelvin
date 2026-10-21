@@ -3,7 +3,7 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
-## Unreleased
+## 0.3.2
 
 - « Partir en absence » offers « Jusqu’à mon retour »: an absence with no end date, from now until you
   press « Terminer ». The sheet says « Les 2 pièces passeront à 12,0 °C jusqu’à votre retour, puis
