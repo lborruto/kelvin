@@ -92,8 +92,8 @@ describe('Sidebar (Tableau)', () => {
     expect(screen.getByRole('link', { name: /^Chambre 1,/ })).not.toHaveAttribute('aria-current');
     expect(screen.getByRole('link', { name: 'Énergie' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Maison' })).not.toHaveAttribute('aria-current');
-    // Another row keeps the page's own parameters and swaps the sheet.
-    expect(screen.getByRole('link', { name: /^Chambre 1,/ })).toHaveAttribute('href', '/energy?x=1&sheet=ch1');
+    // Another row swaps the sheet over the same page (a foreign parameter is not echoed).
+    expect(screen.getByRole('link', { name: /^Chambre 1,/ })).toHaveAttribute('href', '/energy?sheet=ch1');
   });
 
   it('on Maison: no « Pièces » rows (the tiles are the rooms), with or without a sheet open', async () => {

@@ -31,6 +31,31 @@ describe('the room sheet in the URL (`?sheet=<id>`, over any page)', () => {
     expect(roomSheetHref('/', 'p-salon', { boost: true })).toBe('/?sheet=p-salon&boost=1');
     expect(roomSheetHref('/', 'a/b c&d')).toBe('/?sheet=a%2Fb+c%26d');
   });
+  it('never echoes a foreign path or parameter: an href is always one of our pages (no open redirect)', () => {
+    // With the SPA fallback these addresses still render Kelvin; the sidebar's links must stay on Kelvin.
+    for (const crafted of ['//evil.example/x', '/\\evil.example', '/%2F%2Fevil.example', '/nowhere', '/energy/x', '/login']) {
+      // What the address bar holds: the crafted path on Kelvin's own origin.
+      const url = new URL(`http://kelvin.test${crafted}`);
+      expect(url.host).toBe('kelvin.test');
+      const to = roomSheetHref(url, 'p-salon');
+      expect(to).toBe('/?sheet=p-salon');
+      expect(withoutRoomSheet(new URL(`http://kelvin.test${crafted}?sheet=p-salon`))).toBe('/');
+    }
+    // A string that is not one of our paths is never resolved against anything.
+    for (const crafted of ['//evil.example/x', '/\\evil.example', 'https://evil.example/', 'javascript:alert(1)']) {
+      expect(roomSheetHref(crafted, 'p-salon')).toBe('/?sheet=p-salon');
+    }
+    // Every href starts with exactly one '/' and resolves on our own origin.
+    for (const path of ['/', '/schedule', '/energy', '/home', '/home/devices', '/home/tariff', '/home/account']) {
+      const to = roomSheetHref(u(path), 'a/b c');
+      expect(to).toMatch(/^\/(?![/\\])/);
+      expect(new URL(to, 'http://kelvin.test').host).toBe('kelvin.test');
+      expect(to.startsWith(`${path}?`)).toBe(true);
+    }
+    // Only the page's own parameters (Programme's room and day) travel; anything else is dropped.
+    expect(roomSheetHref(u('/energy?next=//evil.example&x=1'), 'p-salon')).toBe('/energy?sheet=p-salon');
+    expect(withoutRoomSheet(u('/energy?sheet=p-salon&x=1#javascript:alert(1)'))).toBe('/energy');
+  });
   it('reads the open room back, and the page under it', () => {
     expect(roomSheetOf(u('/energy?sheet=a%2Fb+c%26d'))).toBe('a/b c&d');
     expect(roomSheetOf(u('/energy?sheet='))).toBeNull();
