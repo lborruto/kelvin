@@ -187,9 +187,10 @@ depends on.
   Params hold keys and figures only: never an id, email, PDL, token or other secret, and
   third-party text (a gateway's message) goes through `errors.scrub` before any API body, SSE
   or log.
-- **Paths:** URL paths are English (`/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/home/devices`,
+- **Paths:** URL paths are English (`/schedule`, `/energy`, `/home`, `/home/devices`,
   `/home/tariff`, `/home/linky`, `/home/sources`, `/home/weather`, `/home/account`; anchors `#away`, `#tariff`, `#linky`,
-  `#quality`, `#curve`, `#alerts`, `#sessions`, `#mcp`) and come from `web/src/lib/paths.ts`. Maison's old
+  `#quality`, `#curve`, `#alerts`, `#sessions`, `#mcp`; the room sheet's `?sheet=<id>` on any page, `roomSheetHref`;
+  `/rooms/[id]` redirects to `/?sheet=[id]`) and come from `web/src/lib/paths.ts`. Maison's old
   section anchors land on their sub-page (`homeAnchor`: `/home#tariff` → `/home/tariff`, `#sessions` →
   `/home/account#sessions`, `#mcp` → `/home/account#mcp`, `#away` → `/` with the Absence sheet open over Maison). Old
   French paths are redirected only by its legacy table and the marked block in `app.html` (a test
@@ -319,11 +320,15 @@ depends on.
   orange (`--heat`) only for heating, comfort blocks and a running chauffe temporaire; Tempo colours only when
   the price row in force is Tempo; −/+ is the primary setpoint control and in Programme changes the level running
   now (`$lib/setpoint` `primarySetpoint`). Maison is `lib/components/dashboard/` (words in `$lib/dashboard`, energy
-  answers in `$lib/stores/dashboardEnergy`); `/rooms/[id]` opens the room sheet (`lib/components/room/`) over it, so
-  the tableau stays mounted, and a floating card (Fiche, Menu) opened inside an open modal is portalled into it.
+  answers in `$lib/stores/dashboardEnergy`). The room sheet (`lib/components/room/`) is a shell overlay in the root
+  layout driven by `?sheet=<id>` on any route: it opens over the page the user is on, which stays mounted (scroll and
+  state kept); a reload reopens it, Back closes it, closing returns focus to its opener, and it loads its own data
+  (never through Maison). A floating card (Fiche, Menu) opened inside an open modal is portalled into it.
   **Nav:** sidebar Maison · Programme · Énergie, the « Pièces » rows, « Partir… », Réglages; phone tab bar Maison ·
-  Programme · Énergie · Réglages (`$lib/nav`, labels `m.nav.*`); on `/rooms/[id]` the room's sidebar row is
-  current (not Maison) and the tab bar keeps Maison. The house actions (Partir…, Tout éteindre, Tout remettre en
+  Programme · Énergie · Réglages (`$lib/nav`, labels `m.nav.*`). The « Pièces » rows are a glanceable status
+  whose click opens the room sheet over the current page (never a trip to Maison); they are not drawn on Maison
+  (its tiles are the rooms). While a sheet is open its row is current (`aria-current="true"`) and the page's own
+  nav item stays current underneath; the phone tab bar has no rooms list (tiles on Maison open the sheet). The house actions (Partir…, Tout éteindre, Tout remettre en
   programme) live on Maison (and « Partir… » in the sidebar), never on Réglages. **Kit:** screens are built from
   the kit in DESIGN « Kit components » (Stepper, RoomTile, IconTile, SummaryChip, Widget, Sheet, GroupedList /
   ListRow (every grouped list; rows richer than a ListRow stay the caller's `.li`), Notice, Segmented `track` | `chips`, DayBar, MiniBars / MiniSpark, TariffBand, Skeleton); a screen that

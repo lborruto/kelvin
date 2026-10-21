@@ -345,7 +345,7 @@ describe('Maison on desktop', () => {
     expect(heads).toEqual(['Salon', 'Chambre 1', 'Hors ligne · 1', 'Programme d’aujourd’hui', 'Énergie et réseau']);
     const salon = screen.getByRole('region', { name: 'Salon' });
     expect(within(salon).getByText('2 radiateurs')).toBeInTheDocument();
-    expect(within(salon).getByRole('link', { name: /^Chauffe temporaire · Salon · Lancer…$/ })).toHaveAttribute('href', '/rooms/salon?boost=1');
+    expect(within(salon).getByRole('link', { name: /^Chauffe temporaire · Salon · Lancer…$/ })).toHaveAttribute('href', '/?sheet=salon&boost=1');
     expect(within(salon).getByRole('link', { name: /^Programme · Salon · → Confort 17:30$/ })).toHaveAttribute('href', '/schedule?room=salon');
     expect(within(salon).getByRole('link', { name: /^Radiateurs · Salon · 2 en chauffe · baie 19,7° · entrée 19,5°$/ })).toBeInTheDocument();
     // One radiator that reports windows: the Fenêtre tile instead.

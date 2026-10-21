@@ -191,7 +191,10 @@ Skeleton shimmer 1.4 s × 7, then stops. Reduced motion: nothing travels or scal
 - **Desktop (≥ 1024 px):** `Sidebar` (220 px on `--side`, sticky): the mark (ink disc « K » + « Kelvin »),
   **Maison**, **Programme**, **Énergie**; the « PIÈCES » section (`sidebarRooms` in `$lib/nav`: one row per room in
   Cozytouch order, a heat flame while heating, the reading `fmtTempShort` on the right; offline rooms last, faint,
-  plug glyph, no temperature; each opens `/rooms/[id]` and is `aria-current` there, Maison then is not); then
+  plug glyph, no temperature): a glanceable status whose rows open the room's sheet **over the page the user is on**
+  (`roomSheetHref(page.url, id)` → `/energy?sheet=p-salon`, `data-sveltekit-noscroll` and `-keepfocus`), never a
+  trip to Maison; while it is open its row is current (`aria-current="true"`) and the page's own link stays current
+  (`"page"`) underneath. On Maison (`/`) the section is not drawn: the tiles are the rooms. Then
   **Partir…** (opens the Absence sheet; « Absence · dim. 18:00 » in cool while one runs), **Réglages**, and the
   Cozytouch `SourceLine` footer (dashed ring while reconnecting). Rows 40 px painted, 44 px hit, current = s2.
 - **Phone:** `TabBar` — Maison · Programme · Énergie · Réglages (24 px glyphs over 11 px labels, current ink
@@ -302,7 +305,7 @@ with `tone="modal"`), radius 28, fade + scale from 0.98 in 180 ms. `header`, `fo
 action sheet. `ChoiceSheet` (same API as before) wraps it; the phone `Menu` is an action sheet with « Annuler ».
 The « Tout éteindre » dialog and the setup dialogs (`devices/SetupDialog`: MoveDialog, DeleteRoomDialog) use `--pop`, radius 18, the pop shadow and the scrim; they stay centred on a phone too (the kit `Sheet` is the bottom sheet).
 A floating card portalled out of its place (`$lib/portal`: a Fiche, a Menu popover) goes to the end of the open
-modal dialog it was opened from (the room sheet), never behind it on `<body>`.
+modal dialog it was opened from (the room sheet, over whichever page), never behind it on `<body>`.
 
 ### Lists, notices, small pieces
 - **GroupedList / ListRow** (`.grph` + `.grp` + `.li`): s1, radius 16, rows ≥ 52 px (64 with a second line)
@@ -331,7 +334,7 @@ sheet and Login. Each uses only the tokens, shell and kit above; where a screen 
 was extended (optional props) rather than copied.
 
 ### Maison (`/`, `lib/components/dashboard/`)
-The fixed tableau. `Tableau.svelte` draws it; the room sheet opens over it (`/rooms/[id]`), so the
+The fixed tableau. `Tableau.svelte` draws it; a tile opens the room sheet over it (`/?sheet=<id>`), so the
 tableau stays mounted (links keep scroll and focus: `data-sveltekit-noscroll`, `-keepfocus`).
 - **Header:** h1 « Maison » (`.t-page`) and « vendredi 16 octobre · 18:42 » (`fmtWeekdayDate`, Paris). Desktop:
   `HouseActions maison` (40 px pills in the mockup's order: Partir…, Tout éteindre, Tout remettre en programme;
@@ -397,9 +400,17 @@ tableau stays mounted (links keep scroll and focus: `data-sveltekit-noscroll`, `
 - **Loading:** the skeleton of this layout (chips, columns, energy column, programme) until the house, the alerts
   (when there are some) and the energy answers are in; then everything in one frame.
 
-### Room sheet (`/rooms/[id]`, `lib/components/room/`)
-`RoomSheet` is a `Sheet` (`tone="modal"`, 920 px, ≤ 820 px tall; phone: full height from 56 px); closing it (×,
-Esc, backdrop, drag) goes back to `/` and gives focus back to the tile. `RoomPanel` is its content:
+### Room sheet (`?sheet=<id>` over any page, `lib/components/room/`)
+`RoomSheet` is a `Sheet` (`tone="modal"`, 920 px, ≤ 820 px tall; phone: full height from 56 px), a **shell overlay**
+mounted once in the root layout and driven by the URL: `?sheet=<id>` (`ROOM_SHEET` in `paths.ts`; `&boost=1` opens
+the Chauffe temporaire form) opens it over whatever page is under it (Maison's tiles, the sidebar's « Pièces »
+rows, Programme's « Modifier les températures »), and that page stays mounted, scrolled and in its state (Énergie's
+view and period). A reload or a shared link opens it again; Back closes it; the URL holds one room, so one sheet
+at a time. Closing it (×, Esc, backdrop, drag) steps back to the entry it came from (else replaces the URL
+without the parameter), leaves the page exactly as it was and gives focus back to the row or tile that opened it.
+Opening and closing it is not a page change: no cross-fade, no focus jump to the h1. Its data (history, energy,
+the outdoor lane, the radiators) is its own, whether Maison is mounted or not. `/rooms/[id]` (older links)
+redirects to `/?sheet=[id]`. `RoomPanel` is its content:
 - **Desktop left** (320 px, sticky): × and ⋯ (Modifier les horaires, Énergie de la pièce, Pièces et appareils);
   the name; its state (« En chauffe » in heat, « Fenêtre ouverte » in bad, else the mode) · the reading (a Fig);
   the large figure flanked by 56 px −/+ (`Stepper lg`, « Consigne Confort »), « Confort · actuellement 19,6 °C »;

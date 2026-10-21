@@ -88,18 +88,22 @@ test('the Tableau shell: rooms in the sidebar, Partir… opens the Absence sheet
     return;
   }
   const side = page.locator('.sidebar');
+  // On Maison the tiles are the rooms: the « Pièces » rows show on the other pages.
+  await expect(side.getByRole('group', { name: 'Pièces' })).toHaveCount(0);
+  await side.getByRole('link', { name: 'Programme' }).click();
+  await expect(page.getByRole('heading', { name: 'Programme', level: 1 })).toBeVisible();
   const rooms = side.getByRole('group', { name: 'Pièces' }).getByRole('link');
   await expect(rooms.first()).toHaveAccessibleName(/°C/);
   // Offline rooms come last, without a temperature.
   await expect(rooms.last()).toHaveAccessibleName(/hors ligne$/);
   await rooms.first().click();
-  await expect(page).toHaveURL(/\/rooms\//);
-  await expect(rooms.first()).toHaveAttribute('aria-current', 'page');
-  await expect(side.getByRole('link', { name: 'Maison' })).not.toHaveAttribute('aria-current');
-  // The room opens as a sheet over the tableau: close it before using the sidebar.
+  await expect(page).toHaveURL(/\/schedule\?sheet=/);
+  await expect(rooms.first()).toHaveAttribute('aria-current', 'true');
+  await expect(side.getByRole('link', { name: 'Programme' })).toHaveAttribute('aria-current', 'page');
+  // The room opens as a sheet over the page: close it before using the sidebar.
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/schedule$/);
   await side.getByRole('button', { name: 'Partir…' }).click();
   await expect(page.getByRole('dialog', { name: 'Partir en absence' })).toBeVisible();
   await page.keyboard.press('Escape');

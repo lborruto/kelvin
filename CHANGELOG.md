@@ -3,6 +3,15 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## Unreleased
+
+- A room in the sidebar's « Pièces » list opens over the page you are on (Énergie, Programme, Réglages…)
+  instead of taking you back to Maison. Closing it (×, Échap, a tap beside it, Back) leaves the page exactly
+  as it was: same view, same period, same scroll. The address says which room is open (`?sheet=p-salon`), so a
+  reload or a shared link opens it again. On Maison the « Pièces » list is gone from the sidebar: the tiles
+  are the rooms. « Modifier les températures » in Programme opens the room over Programme too.
+- Older room links (`/rooms/<id>`) still work: they open the room over Maison.
+
 ## 0.3.2
 
 - The Absence sheet no longer jumps when opened straight from `/home#away` during an absence: it waits for the house state, then shows « Absence en cours » once. « Dimanche 18:00 » is gone from the sheet (« Demain 18:00 », « Jusqu’à mon retour », « Date précise… »; « Demain 18:00 » is always the default).

@@ -1,14 +1,16 @@
 <!-- The desktop sidebar (Tableau spec §2): 220 px on --side. Maison, Programme, Énergie; the « PIÈCES » section
      (one row per room: a heat flame while heating and the reading on the right; offline rooms last, faint, a
-     plug, no temperature), each opening its room; then Partir… (the Absence sheet), Réglages and the Cozytouch
-     SourceLine footer (dashed while reconnecting). The alert dot sits on Maison, only for a must-fix alert. -->
+     plug, no temperature), a glanceable status whose rows open the room's sheet over the page the user is on
+     (`?sheet=<id>`, never a trip to Maison), absent on Maison itself (its tiles are the rooms); then Partir… (the
+     Absence sheet), Réglages and the Cozytouch SourceLine footer (dashed while reconnecting). The alert dot sits on
+     Maison, only for a must-fix alert. -->
 <script lang="ts">
   import { page } from '$app/state';
   import { fmtTemp, fmtTempShort, fmtWeekdayTime } from '$lib/format';
   import { m } from '$lib/i18n';
   import { ALERT_KEY, NAV_BOTTOM, NAV_ICON, NAV_TOP, sidebarRooms } from '$lib/nav';
   import { navAlerts } from '$lib/navAlerts';
-  import { isActive, ROUTES } from '$lib/paths';
+  import { isActive, ROUTES, roomSheetHref, roomSheetOf } from '$lib/paths';
   import { roomName } from '$lib/setup';
   import { alerts } from '$lib/stores/alerts.svelte';
   import { awaySheet } from '$lib/stores/away.svelte';
@@ -27,11 +29,13 @@
     house.loaded ? sidebarRooms(house.rooms, (id) => house.roomRadiators(id), (id) => house.roomHeating(id), roomName) : []
   );
   let path = $derived(page.url.pathname);
-  /** The room whose sheet is open: its row is current, Maison is not. */
-  let roomPath = $derived(path.startsWith('/rooms/') ? path : null);
+  /** The room whose sheet is open over the page: its row is current; the page's own link stays current too. */
+  let openRoom = $derived(roomSheetOf(page.url));
+  /** On Maison the tiles are the rooms: no « Pièces » rows there. */
+  let onMaison = $derived(path === ROUTES.rooms);
   let away = $derived(house.away);
   let awayLabel = $derived(away ? (away.ends_at == null ? m.away.shortOpen : m.away.short(fmtWeekdayTime(away.ends_at * 1000))) : m.nav.away);
-  const current = (href: string) => (href === ROUTES.rooms && roomPath ? false : isActive(path, href));
+  const current = (href: string) => isActive(path, href);
 </script>
 
 {#snippet link(l: (typeof NAV_TOP)[number])}
@@ -45,14 +49,15 @@
 <nav class="sidebar" aria-label={m.nav.label}>
   <div class="brand"><Wordmark /></div>
   {#each NAV_TOP as l (l.href)}{@render link(l)}{/each}
-  <div class="rooms" role="group" aria-labelledby="side-rooms">
+  {#if !onMaison}<div class="rooms" role="group" aria-labelledby="side-rooms">
     {#if rooms.length}
       <h2 class="head" id="side-rooms">{m.nav.roomsHead}</h2>
       <ul>
         {#each rooms as r (r.id)}
-          {@const href = ROUTES.room(r.id)}
           <li>
-            <a class="nav room" class:off={r.offline} {href} aria-current={roomPath === href ? 'page' : undefined}
+            <!-- A link (the URL is the sheet's state): the page under it keeps its scroll and its focus. -->
+            <a class="nav room" class:off={r.offline} href={roomSheetHref(page.url, r.id)} data-sveltekit-noscroll data-sveltekit-keepfocus
+              aria-current={openRoom === r.id ? 'true' : undefined}
               aria-label={m.nav.roomRow(r.name, r.reading == null ? null : fmtTemp(r.reading), r.heating, r.offline)}>
               <span class="ic" class:heat={r.heating}><Icon name={r.offline ? 'plug-off' : r.heating ? 'flame' : 'grid'} size={18} /></span>
               <span class="nm">{r.name}</span>
@@ -64,7 +69,7 @@
     {:else}
       <span class="visually-hidden" id="side-rooms">{m.nav.roomsLabel}</span>
     {/if}
-  </div>
+  </div>{/if}
   <div class="foot">
     <button type="button" class="nav" class:cool={!!away} onclick={(e) => awaySheet.show(e.currentTarget)}><span class="ic"><Icon
           name="away" size={20} /></span><span class="nm">{awayLabel}</span></button>
@@ -119,12 +124,12 @@
     inset: -2px 0;
   }
   @media (hover: hover) {
-    .nav:not([aria-current='page']):hover {
+    .nav:not([aria-current]):hover {
       background: color-mix(in srgb, var(--s2) 50%, transparent);
       color: var(--tx);
     }
   }
-  .nav[aria-current='page'] {
+  .nav[aria-current] {
     background: var(--s2);
     color: var(--tx);
   }
@@ -181,8 +186,8 @@
     color: var(--fa);
   }
   /* Faint reads under 4.5:1 on s2: the current row's reading is muted. */
-  .nav[aria-current='page'] .t,
-  .room.off[aria-current='page'] {
+  .nav[aria-current] .t,
+  .room.off[aria-current] {
     color: var(--mu);
   }
   .foot {

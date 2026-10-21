@@ -21,7 +21,7 @@
   import { desktop } from '$lib/media.svelte';
   import { dur, easeOut, T } from '$lib/motion';
   import { m, pendingError } from '$lib/i18n';
-  import { ROUTES } from '$lib/paths';
+  import { ROUTES, roomSheetHref } from '$lib/paths';
   import {
     baseOf,
     changedDays,
@@ -387,7 +387,8 @@
     {#if offline}
       <span class="muted small">{m.program.lastKnown}</span>
     {:else if !compact && roomId}
-      <a class="link" href={ROUTES.room(roomId)}>{m.program.editTemps}<Icon name="chevron" size={14} /></a>
+      <!-- The room sheet opens over Programme (`?sheet=`): the week and its unsent edits stay as they are. -->
+      <a class="link" href={roomSheetHref(page.url, roomId)} data-sveltekit-noscroll data-sveltekit-keepfocus>{m.program.editTemps}<Icon name="chevron" size={14} /></a>
     {/if}
   </div>
 {/snippet}

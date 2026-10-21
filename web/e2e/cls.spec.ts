@@ -8,11 +8,14 @@ const ROUTES = ['/', '/schedule', '/energy', '/home'];
 // Maison sub-pages (UX batches 8–10).
 ROUTES.push('/home/tariff', '/home/linky', '/home/sources', '/home/weather', '/home/account', '/home/devices');
 // UX batch 13: the phone room page and the 404 (/login has its own matrix in login.spec.ts).
-ROUTES.push('/rooms/p-salon', '/no-such-page');
+ROUTES.push('/?sheet=p-salon', '/no-such-page');
 // Programme (Tableau): the day view (a phone width) beside the agenda, and an offline room's read-only agenda.
 ROUTES.push('/schedule?room=p-ch1&day=tuesday', '/schedule?room=p-ch2');
 // Tableau: the room sheet of an offline room (notice, ghost day) over the tableau.
 ROUTES.push('/rooms/p-ch2');
+// The room sheet over Énergie and Programme (`?sheet=`, the sidebar's « Pièces » rows): the page under it and the
+// sheet draw without moving each other.
+ROUTES.push('/energy?sheet=p-salon', '/schedule?sheet=p-salon');
 // Plan 15 « Météo et coût » with the demo place: Maison's « Demain » (phone Bill + Demain 164 px, desktop Demain +
 // Hier 134 px), the room sheet's « Froid » row (skeleton 136 px) and Énergie scrolled to the panel.
 ROUTES.push('/energy#weather-cost');

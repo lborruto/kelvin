@@ -9,7 +9,7 @@
   import { fmtTime, fmtWeekdayTime, parisTodayIso } from '$lib/format';
   import { m } from '$lib/i18n';
   import { nextLevelText, radiatorsText } from '$lib/dashboard';
-  import { ROUTES } from '$lib/paths';
+  import { ROUTES, roomSheetHref } from '$lib/paths';
   import { roomName } from '$lib/setup';
   import { roomStatus, sharedProgram } from '$lib/status';
   import type { StripPoint } from '$lib/stores/history.svelte';
@@ -55,7 +55,7 @@
     <div class="two">
       {#if rc.boost > 0}
         <div class="keep" data-sveltekit-noscroll data-sveltekit-keepfocus><IconTile layout="stack" icon="bolt" tone={boosting ? 'heat' : null} title={m.kit.boostShort}
-          sub={boosting ? m.maison.boostUntil(boostEnd) : m.maison.boostLaunch} href={boosting ? href : `${href}?boost=1`}
+          sub={boosting ? m.maison.boostUntil(boostEnd) : m.maison.boostLaunch} href={boosting ? href : roomSheetHref(ROUTES.rooms, room.id, { boost: true })}
           ariaLabel={`${m.boost.title} · ${name} · ${boosting ? m.maison.boostUntil(boostEnd) : m.maison.boostLaunch}`} inert={!house.online} /></div>
       {/if}
       {#if rc.program > 0}

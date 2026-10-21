@@ -14,7 +14,8 @@
   import Toasts from '$lib/components/Toasts.svelte';
   import { initLocale, m } from '$lib/i18n';
   import { reducedMotion } from '$lib/motion';
-  import { ROUTES } from '$lib/paths';
+  import { ROUTES, sheetOnly } from '$lib/paths';
+  import RoomSheet from '$lib/components/room/RoomSheet.svelte';
   import { alerts } from '$lib/stores/alerts.svelte';
   import { announcer } from '$lib/stores/announcer.svelte';
   import { auth } from '$lib/stores/auth.svelte';
@@ -93,8 +94,10 @@
   });
 
   // Page changes cross-fade under a still sidebar, tab bar and banner (view-transition names below).
+  // Opening or closing the room sheet (`?sheet=`) is not a page change: the sheet has its own motion.
   onNavigate((navigation) => {
     if (!document.startViewTransition || reducedMotion()) return;
+    if (sheetOnly(navigation.from?.url, navigation.to?.url)) return;
     return new Promise((resolve) => {
       document.startViewTransition(async () => {
         resolve();
@@ -105,8 +108,10 @@
 
   // SvelteKit leaves focus on <body> after a navigation: start keyboard users at the new page's
   // title instead of the top of the sidebar. A link that kept focus (a room card) keeps it.
-  afterNavigate(({ type, to }) => {
+  // The room sheet opening or closing over the page is not a page change (the sheet moves focus itself).
+  afterNavigate(({ type, from, to }) => {
     if (type === 'enter' || to?.url.hash) return;
+    if (sheetOnly(from?.url, to?.url)) return;
     if (document.activeElement && document.activeElement !== document.body) return;
     const h1 = document.querySelector<HTMLElement>('main h1');
     if (!h1) return;
@@ -146,6 +151,8 @@
   <div class="tabs"><TabBar /></div>
   <!-- The Absence sheet (UX batch 8): one instance, opened from wherever the user is. -->
   <AwaySheet />
+  <!-- The room sheet (`?sheet=<id>`): one instance, over whatever page is under it. -->
+  <RoomSheet />
   <!-- The charts' shared SVG defs (hatches): every route but Login draws a chart or a swatch. -->
   <ChartDefs />
 {/if}

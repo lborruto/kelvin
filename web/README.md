@@ -65,7 +65,7 @@ place) and the words in `$lib/weather.ts`. Nothing about weather shows without a
   `backend/scripts/export_codes.py`) and are translated by `src/lib/i18n/codes.ts`; the server's
   French `detail` is the fallback for an unknown code.
 - The PWA manifest cannot vary by user: it stays French (`lang: 'fr'`).
-- Paths are English: `/` (rooms), `/rooms/[id]`, `/schedule`, `/energy`, `/home`, `/home/devices` (rooms and
+- Paths are English: `/` (rooms), `?sheet=<id>` on any page (the room sheet; `/rooms/[id]` redirects to `/?sheet=[id]`), `/schedule`, `/energy`, `/home`, `/home/devices` (rooms and
   devices: the device tree reloads from memory every 30 s; setup writes and the sync come through
   SSE `pending` and `layout`, and a confirmed write offers « Annuler » for 10 s), `/login`, with
   the Home anchors `#away`, `#tariff`, `#linky`, `#alerts`, `#sessions` and the Energy anchors `#quality`, `#curve`. The
@@ -88,7 +88,7 @@ place) and the words in `$lib/weather.ts`. Nothing about weather shows without a
 | Screen | Path | What it answers |
 |---|---|---|
 | Maison / Home | `/` | The « Tableau » dashboard: summary chips (climate, the month's €, grid signals, away), alerts, each room with its reading, state and −/+ for the setpoint in force, the month, the tariff right now, tomorrow and yesterday, today's schedule; offline rooms calm and last |
-| Room | `/rooms/<id>` | The room sheet over the dashboard: the large setpoint with −/+ and a slider, the modes, Chauffe temporaire, today's chart and energy, the schedule's temperatures, each radiator, this month's kWh and € |
+| Room | `?sheet=<id>` on any page | The room sheet over the page you are on (Maison's tiles, the sidebar's « Pièces » rows; Back closes it): the large setpoint with −/+ and a slider, the modes, Chauffe temporaire, today's chart and energy, the schedule's temperatures, each radiator, this month's kWh and € |
 | Programme / Schedule | `/schedule` | The week as an agenda (drag on a desktop) beside the day being edited, copy to other days, locked days kept; nothing is sent before « Envoyer » |
 | Énergie / Energy | `/energy` | A board: the period's cost and kWh beside the bars (the half-hour curve first in Day and Week), the off-peak split or the Tempo days, where the energy goes, then the full sections, analysis and data quality |
 | Réglages / Settings | `/home` | Alerts while there are some, one card per section, language and « Détails techniques » (no house actions: they are on Maison) |
