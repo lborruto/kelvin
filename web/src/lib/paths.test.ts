@@ -3,17 +3,52 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { findLegacyPaths, isLegacyPathLine } from '../../scripts/check-paths.mjs';
-import { ANCHORS, canonical, homeAnchor, isActive, LEGACY, LEGACY_HASH, NAV, ROUTES } from './paths';
+import {
+  ANCHORS, canonical, homeAnchor, isActive, LEGACY, LEGACY_HASH, NAV, roomPath, roomSheetHref, roomSheetOf, ROUTES, sheetOnly,
+  withoutRoomSheet
+} from './paths';
 
 describe('ROUTES', () => {
   it('English paths; a room id is encoded', () => {
     expect([ROUTES.rooms, ROUTES.schedule, ROUTES.energy, ROUTES.home, ROUTES.login]).toEqual([
       '/', '/schedule', '/energy', '/home', '/login'
     ]);
-    expect(ROUTES.room('p-salon')).toBe('/rooms/p-salon');
-    expect(ROUTES.room('a/b c')).toBe('/rooms/a%2Fb%20c');
+    expect(ROUTES.room('p-salon')).toBe('/?sheet=p-salon');
+    expect(ROUTES.room('a/b c')).toBe('/?sheet=a%2Fb+c');
+    expect(roomPath('a/b c')).toBe('/rooms/a%2Fb%20c');
     expect(ANCHORS).toEqual({ away: 'away', tariff: 'tariff', linky: 'linky', quality: 'quality', curve: 'curve', alerts: 'alerts', sessions: 'sessions', mcp: 'mcp' });
     expect(NAV.map((n) => n.href)).toEqual(['/', '/schedule', '/energy', '/home']);
+  });
+});
+
+describe('the room sheet in the URL (`?sheet=<id>`, over any page)', () => {
+  const u = (s: string) => new URL(s, 'http://kelvin.test');
+  it('opens over the page the user is on, its parameters kept, the hash dropped, one sheet at a time', () => {
+    expect(roomSheetHref(u('/energy'), 'p-salon')).toBe('/energy?sheet=p-salon');
+    expect(roomSheetHref(u('/schedule?room=p-ch1&day=mon#x'), 'p-salon')).toBe('/schedule?room=p-ch1&day=mon&sheet=p-salon');
+    // A sheet already open (and its boost) is replaced, never stacked.
+    expect(roomSheetHref(u('/energy?sheet=p-ch1&boost=1'), 'p-salon')).toBe('/energy?sheet=p-salon');
+    expect(roomSheetHref('/', 'p-salon', { boost: true })).toBe('/?sheet=p-salon&boost=1');
+    expect(roomSheetHref('/', 'a/b c&d')).toBe('/?sheet=a%2Fb+c%26d');
+  });
+  it('reads the open room back, and the page under it', () => {
+    expect(roomSheetOf(u('/energy?sheet=a%2Fb+c%26d'))).toBe('a/b c&d');
+    expect(roomSheetOf(u('/energy?sheet='))).toBeNull();
+    expect(roomSheetOf(u('/energy'))).toBeNull();
+    expect(roomSheetOf(u(roomSheetHref(u('/home/tariff'), 'p-salon')))).toBe('p-salon');
+    expect(withoutRoomSheet(u('/schedule?room=p-ch1&sheet=p-salon&boost=1#week'))).toBe('/schedule?room=p-ch1#week');
+    expect(withoutRoomSheet(u('/?sheet=p-salon'))).toBe('/');
+    expect(withoutRoomSheet(u('/energy'))).toBe('/energy');
+  });
+  it('tells a sheet opening, closing or switching over the same page from a page change', () => {
+    expect(sheetOnly(u('/energy'), u('/energy?sheet=p-salon'))).toBe(true);
+    expect(sheetOnly(u('/energy?sheet=p-salon'), u('/energy'))).toBe(true);
+    expect(sheetOnly(u('/energy#energy-where'), u('/energy?sheet=p-salon'))).toBe(true);
+    expect(sheetOnly(u('/energy?sheet=p-salon'), u('/energy?sheet=p-ch1'))).toBe(true);
+    expect(sheetOnly(u('/?sheet=p-salon'), u('/?sheet=p-salon&boost=1'))).toBe(false);
+    expect(sheetOnly(u('/energy'), u('/energy'))).toBe(false);
+    expect(sheetOnly(u('/energy?sheet=p-salon'), u('/schedule?room=p-salon'))).toBe(false);
+    expect(sheetOnly(u('/schedule?day=mon'), u('/schedule?day=tue&sheet=p-salon'))).toBe(false);
   });
 });
 

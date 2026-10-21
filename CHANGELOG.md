@@ -3,6 +3,15 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## Unreleased
+
+- A room in the sidebar's « Pièces » list opens over the page you are on (Énergie, Programme, Réglages…)
+  instead of taking you back to Maison. Closing it (×, Échap, a tap beside it, Back) leaves the page exactly
+  as it was: same view, same period, same scroll. The address says which room is open (`?sheet=p-salon`), so a
+  reload or a shared link opens it again. On Maison the « Pièces » list is gone from the sidebar: the tiles
+  are the rooms. « Modifier les températures » in Programme opens the room over Programme too.
+- Older room links (`/rooms/<id>`) still work: they open the room over Maison.
+
 ## 0.3.2
 
 - « Partir en absence » offers « Jusqu’à mon retour »: an absence with no end date, from now until you

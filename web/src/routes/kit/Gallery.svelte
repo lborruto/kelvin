@@ -3,6 +3,7 @@
      marked; every word a component writes still comes from the dictionaries. -->
 <script lang="ts">
   import type { GridView, Pending, Tariff } from '$lib/api/types';
+  import { ROUTES } from '$lib/paths';
   import Banner from '$lib/components/Banner.svelte';
   import Fig from '$lib/components/Fig.svelte';
   import GroupedList from '$lib/components/GroupedList.svelte';
@@ -121,21 +122,21 @@
 
   <h2 class="areah"><span>RoomTile · tile (phone)</span></h2>
   <div class="tiles">
-    <RoomTile name={salon} href="/rooms/p-salon" ariaLabel={salon} reading={19.6} heating lead={m.room.heatingNow} tone="warm" rest="→ 23:00">
+    <RoomTile name={salon} href={ROUTES.room('p-salon')} ariaLabel={salon} reading={19.6} heating lead={m.room.heatingNow} tone="warm" rest="→ 23:00">
       {#snippet control()}<Stepper size="sm" block caption={m.level.comfort} label={m.level.comfort} value={comfort} min={12} max={28}
           onchange={(v) => (comfort = v)} />{/snippet}
     </RoomTile>
-    <RoomTile name={ch1} href="/rooms/p-ch1" ariaLabel={ch1} reading={19.1} lead={m.mode.manual} rest="19,5 °C" pending>
+    <RoomTile name={ch1} href={ROUTES.room('p-ch1')} ariaLabel={ch1} reading={19.1} lead={m.mode.manual} rest="19,5 °C" pending>
       {#snippet control()}<Stepper size="sm" block caption={m.mode.manual} label={m.mode.manual} value={manual} min={7} max={28} pending
           onchange={(v) => (manual = v)} />{/snippet}
     </RoomTile>
-    <RoomTile name={salon} href="/rooms/p-salon" ariaLabel={salon} reading={19.4} variant="off" lead={m.mode.off} note="Ne chauffe pas" /><!-- i18n-ignore: demo note -->
-    <RoomTile name={ch1} href="/rooms/p-ch1" ariaLabel={ch1} reading={19.0} variant="absence" lead={m.status.away} tone="cool" rest="12,0 °C"
+    <RoomTile name={salon} href={ROUTES.room('p-salon')} ariaLabel={salon} reading={19.4} variant="off" lead={m.mode.off} note="Ne chauffe pas" /><!-- i18n-ignore: demo note -->
+    <RoomTile name={ch1} href={ROUTES.room('p-ch1')} ariaLabel={ch1} reading={19.0} variant="absence" lead={m.status.away} tone="cool" rest="12,0 °C"
       note="jusqu’à dim. 18:00" /><!-- i18n-ignore: demo note -->
     <RoomTile name={ch2} href="/rooms/p-ch2" ariaLabel={ch2} reading={null} variant="offline" lead={m.status.offlineSince('04:07')} hint={m.status.offlineHint(1)}
       class="span2" />
     <RoomTile name="Salle de bain" href="/rooms/x" ariaLabel="Salle de bain" reading={21.2} variant="readonly" lead={m.support.readonly} chip={m.support.readonly} /><!-- i18n-ignore: demo room name -->
-    <RoomTile name={salon} href="/rooms/p-salon" ariaLabel={salon} reading={19.6} heating lead={m.room.heatingNow} tone="warm" rest="→ 23:00">
+    <RoomTile name={salon} href={ROUTES.room('p-salon')} ariaLabel={salon} reading={19.6} heating lead={m.room.heatingNow} tone="warm" rest="→ 23:00">
       {#snippet control()}<Stepper size="sm" block caption={m.level.comfort} label={m.level.comfort} value={20} min={12} max={28} disabled onchange={() => {}} />{/snippet}
       {#snippet tag()}<PendingTag pending={sending} onretry={() => {}} ondismiss={() => {}} />{/snippet}
     </RoomTile>
@@ -144,7 +145,7 @@
   <h2 class="areah"><span>RoomTile · widget (desktop) · IconTile</span></h2>
   <div class="cols">
     <div class="col">
-      <RoomTile layout="widget" name={salon} href="/rooms/p-salon" ariaLabel={salon} reading={19.6} heating lead={m.room.heatingNow} tone="warm"
+      <RoomTile layout="widget" name={salon} href={ROUTES.room('p-salon')} ariaLabel={salon} reading={19.6} heating lead={m.room.heatingNow} tone="warm"
         rest={m.status.comfortUntil('23:00')}>
         {#snippet control()}<Stepper block caption={m.level.comfort} label={m.level.comfort} value={comfort} min={12} max={28} onchange={(v) => (comfort = v)} />{/snippet}
         {#snippet spark()}<MiniSpark points={temp} {setpoint} {bands} start={START} end={END} now={NOW} />{/snippet}
@@ -156,7 +157,7 @@
       <IconTile icon="rad" tone="heat" title={m.inspector.radiators} sub="2 en chauffe · baie 19,7° · entrée 19,5°" /><!-- i18n-ignore: demo sub -->
     </div>
     <div class="col">
-      <RoomTile layout="widget" name={ch1} href="/rooms/p-ch1" ariaLabel={ch1} reading={19.1} variant="off" lead={m.mode.off} note="La pièce ne chauffe pas." /><!-- i18n-ignore: demo note -->
+      <RoomTile layout="widget" name={ch1} href={ROUTES.room('p-ch1')} ariaLabel={ch1} reading={19.1} variant="off" lead={m.mode.off} note="La pièce ne chauffe pas." /><!-- i18n-ignore: demo note -->
       <IconTile icon="window" title={m.room.windowOpen} sub="—" />
       <IconTile icon="bolt" title={m.kit.boostShort} sub="—" inert onclick={() => {}} />
     </div>

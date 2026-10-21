@@ -73,7 +73,10 @@ describe('Sidebar (Tableau)', () => {
       'Chambre 1, 19,1 °C',
       'Chambre 2, hors ligne'
     ]);
-    expect(rows[0]).toHaveAttribute('href', '/rooms/salon');
+    // A row opens the room's sheet over the page the user is on (here Programme), never a trip to Maison.
+    expect(rows[0]).toHaveAttribute('href', '/schedule?sheet=salon');
+    expect(rows[0]).toHaveAttribute('data-sveltekit-noscroll');
+    expect(rows[0]).toHaveAttribute('data-sveltekit-keepfocus');
     expect(rows[0].querySelector('.t')).toHaveTextContent('19,6°');
     expect(rows[0].querySelector('.ic')).toHaveClass('heat');
     expect(rows[1].querySelector('.ic')).not.toHaveClass('heat');
@@ -81,12 +84,28 @@ describe('Sidebar (Tableau)', () => {
     expect(rows[2].querySelector('.t')).toBeNull();
   });
 
-  it('a room sheet open: its row is current, Maison is not', async () => {
-    state.url = new URL('http://kelvin.test/rooms/salon');
+  it('a room sheet open over Énergie: its row is current, Énergie stays current underneath', async () => {
+    state.url = new URL('http://kelvin.test/energy?x=1&sheet=salon');
     await seed();
     render(Sidebar);
-    expect(screen.getByRole('link', { name: /^Salon,/ })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: /^Salon,/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('link', { name: /^Chambre 1,/ })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'Énergie' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Maison' })).not.toHaveAttribute('aria-current');
+    // Another row keeps the page's own parameters and swaps the sheet.
+    expect(screen.getByRole('link', { name: /^Chambre 1,/ })).toHaveAttribute('href', '/energy?x=1&sheet=ch1');
+  });
+
+  it('on Maison: no « Pièces » rows (the tiles are the rooms), with or without a sheet open', async () => {
+    await seed();
+    for (const url of ['http://kelvin.test/', 'http://kelvin.test/?sheet=salon']) {
+      state.url = new URL(url);
+      const { unmount } = render(Sidebar);
+      expect(screen.queryByRole('group', { name: /Pièces/ })).toBeNull();
+      expect(screen.queryByRole('link', { name: /^Salon,/ })).toBeNull();
+      expect(screen.getByRole('link', { name: 'Maison' })).toHaveAttribute('aria-current', 'page');
+      unmount();
+    }
   });
 
   it('the alert dot on Maison only for a must-fix alert; the count is in the name', async () => {

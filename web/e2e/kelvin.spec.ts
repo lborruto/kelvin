@@ -217,7 +217,7 @@ test('a room tile opens its sheet over the tableau; Esc closes it back to « / �
   const tile = page.getByRole('main').getByRole('link', { name: /^Salon,/ });
   await tile.focus();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/rooms\/p-salon$/);
+  await expect(page).toHaveURL(/\/\?sheet=p-salon$/);
   const sheet = page.getByRole('dialog', { name: 'Salon' });
   await expect(sheet).toBeVisible();
   // The tableau stays behind it.
@@ -228,8 +228,9 @@ test('a room tile opens its sheet over the tableau; Esc closes it back to « / �
   await expect(tile).toBeFocused();
 });
 
-test('a deep link to a room opens its sheet over Maison; × closes it; another tab focuses its title', async ({ page }) => {
+test('a deep link to a room (the older `/rooms/<id>`) opens its sheet over Maison; × closes it; another tab focuses its title', async ({ page }) => {
   await page.goto('/rooms/p-salon');
+  await expect(page).toHaveURL(/\/\?sheet=p-salon$/);
   const sheet = page.getByRole('dialog', { name: 'Salon' });
   await expect(sheet).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeAttached();
@@ -261,7 +262,7 @@ test('"/" opens no room: a tap on a tile opens its sheet with the modes; −/+ a
   // boost test leaves Salon restoring for a while, without a stepper).
   await expect(page.getByRole('main').getByRole('group', { name: /^Chambre 1 · (Confort|Éco|Manuel)$/ })).toBeVisible();
   await page.getByRole('main').getByRole('link', { name: /^Salon,/ }).click();
-  await expect(page).toHaveURL(/\/rooms\/p-salon$/);
+  await expect(page).toHaveURL(/\/\?sheet=p-salon$/);
   await expect(page.getByRole('dialog', { name: 'Salon' }).getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeVisible();
 });
 

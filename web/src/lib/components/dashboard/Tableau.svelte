@@ -5,7 +5,7 @@
      column with two-column room tiles. Skeletons at the final shapes until the house, the alerts and the energy
      answers are in, then everything in one frame (CLS). After that frame the alerts the server raises or resolves
      are announced (a toast, « Mettre à jour » in the widget) and drawn when the owner asks, so a row never pushes
-     the page (DESIGN « Maison »). The room sheet opens over it (`/rooms/[id]`). -->
+     the page (DESIGN « Maison »). The room sheet opens over it (`?sheet=<id>`, the root layout). -->
 <script lang="ts">
   import { untrack } from 'svelte';
   import type { Room } from '$lib/api/types';

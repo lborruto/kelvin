@@ -14,7 +14,7 @@ test('a bookmarked French page lands on its English page with its anchor', async
   await expect(page).toHaveURL(/\/home\/tariff$/);
   await expect(page.getByRole('heading', { name: 'Tarif', level: 1 })).toBeInViewport();
   await page.goto('/pieces/p-salon?x=1'); // legacy-path-test
-  await expect(page).toHaveURL(/\/rooms\/p-salon\?x=1$/);
+  await expect(page).toHaveURL(/\/\?sheet=p-salon&x=1$/);
   await expect(page.getByRole('heading', { name: 'Salon' }).first()).toBeVisible();
   // replaceState: going back does not return to the French URL.
   await page.goBack();

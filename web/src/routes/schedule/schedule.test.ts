@@ -300,7 +300,7 @@ describe('/schedule: what the page says', () => {
       const { container } = render(Page);
       await screen.findByRole('button', { name: /^Jeudi,/ });
       expect(container.querySelector('.temps')).toHaveTextContent(/Confort\s19,0\s°C\s*Éco\s17,0\s°C/);
-      expect(screen.getByRole('link', { name: 'Modifier les températures' })).toHaveAttribute('href', '/rooms/salon');
+      expect(screen.getByRole('link', { name: 'Modifier les températures' })).toHaveAttribute('href', '/schedule?sheet=salon'); // over Programme, never via Maison
       expect(screen.getByText(/^Maintenant\s:\sConfort · 23:00 → Éco$/)).toBeInTheDocument();
       expect(screen.getByText('Hors des plages Confort, la pièce est en Éco.')).toBeInTheDocument();
       const how = screen.getByRole('button', { name: 'Comment modifier\u00a0?' });
@@ -722,7 +722,7 @@ describe('/schedule: the Tableau agenda', () => {
     expect(container.querySelector('.cal.compact')).not.toBeNull();
     expect(screen.getByText('Touchez un jour pour l’éditer.')).toBeInTheDocument();
     // The temperatures stay one tap away on a phone too.
-    expect(screen.getByRole('link', { name: 'Modifier les températures' })).toHaveAttribute('href', '/rooms/salon');
+    expect(screen.getByRole('link', { name: 'Modifier les températures' })).toHaveAttribute('href', '/schedule?sheet=salon');
     expect(container.querySelector('[data-lock="saturday"]')).toHaveTextContent(/^Samedi · Plage non reconnue/);
     const how = screen.getByRole('button', { name: 'Comment modifier ?' });
     await fireEvent.click(how);

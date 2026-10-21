@@ -7,9 +7,12 @@ import { settled } from './cls';
 // are all checked. The 404 and the login screen are routes too.
 const ROUTES = [
   '/',
-  '/rooms/p-salon',
-  // The room sheet's offline state (calm notice, ghost day, paused modes).
+  '/?sheet=p-salon',
+  // The room sheet's offline state (calm notice, ghost day, paused modes); the older link form redirects to it.
   '/rooms/p-ch2',
+  // The room sheet over the page the user is on (the sidebar's « Pièces » rows).
+  '/energy?sheet=p-salon',
+  '/schedule?sheet=p-salon',
   '/schedule',
   // Programme (Tableau): a day view with three periods' worth of rows, a locked day, an offline room
   '/schedule?room=p-salon&day=monday',
