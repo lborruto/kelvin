@@ -3,7 +3,7 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
-## Unreleased
+## 0.3.3
 
 - A room in the sidebar's « Pièces » list opens over the page you are on (Énergie, Programme, Réglages…)
   instead of taking you back to Maison. Closing it (×, Échap, a tap beside it, Back) leaves the page exactly
