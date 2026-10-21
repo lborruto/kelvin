@@ -81,12 +81,14 @@ afterEach(() => {
 });
 
 describe('AwaySheet presets', () => {
-  it('Thursday afternoon: « Dimanche 18:00 » is chosen, and focused', async () => {
+  it('three chips, in order, « Demain 18:00 » chosen and focused (Thursday afternoon too)', async () => {
     await open(THURSDAY);
-    const sunday = screen.getByRole('button', { name: 'Dimanche 18:00' });
-    expect(sunday).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Demain 18:00' })).toHaveAttribute('aria-pressed', 'false');
-    await waitFor(() => expect(document.activeElement).toBe(sunday));
+    const chips = [...document.querySelectorAll<HTMLElement>('.chips button')];
+    expect(chips.map((c) => c.textContent?.trim())).toEqual(['Demain 18:00', 'Jusqu’à mon retour', 'Date précise…']);
+    expect(screen.queryByRole('button', { name: /Dimanche/ })).toBeNull();
+    const tomorrow = screen.getByRole('button', { name: 'Demain 18:00' });
+    expect(tomorrow).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(document.activeElement).toBe(tomorrow));
   });
   it('Monday morning: « Demain 18:00 » is chosen', async () => {
     await open(MONDAY);
@@ -105,10 +107,8 @@ describe('AwaySheet presets', () => {
 describe('AwaySheet consequence', () => {
   it('counts the rooms, says the end and the offline room', async () => {
     await open(THURSDAY);
-    expect(screen.getByText(/^Les 3 pièces passeront à 12,0\s°C jusqu’à dim\. 18 oct\.,? 18:00, puis reprendront leur réglage\.$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Les 3 pièces passeront à 12,0\s°C jusqu’à ven\. 16 oct\.,? 18:00, puis reprendront leur réglage\.$/)).toBeInTheDocument();
     expect(screen.getByText(/^Chambre 2 est hors ligne\s: elle ne recevra peut-être pas la consigne\.$/)).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole('button', { name: 'Demain 18:00' }));
-    expect(screen.getByText(/jusqu’à ven\. 16 oct\.,? 18:00/)).toBeInTheDocument();
   });
   it('counts only rooms whose radiators take a temperature', async () => {
     snapshot([rad('a', true), rad('b', true, false), rad('c', true, false)]);
@@ -118,8 +118,8 @@ describe('AwaySheet consequence', () => {
   it('in English', async () => {
     applyLocale('en');
     await open(THURSDAY);
-    expect(screen.getByRole('button', { name: 'Sunday 18:00' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText(/^The 3 rooms will go to 12\.0\s°C until Sun 18 Oct,? 18:00, then back to their settings\.$/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tomorrow 18:00' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/^The 3 rooms will go to 12\.0\s°C until Fri 16 Oct,? 18:00, then back to their settings\.$/)).toBeInTheDocument();
     expect(screen.getByText('Chambre 2 is offline: it may not get the setting.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go away' })).toBeInTheDocument();
   });
@@ -130,10 +130,10 @@ describe('AwaySheet send', () => {
     await open(THURSDAY);
     await fireEvent.click(screen.getByRole('button', { name: 'Partir' }));
     await waitFor(() => expect(api.houseAway).toHaveBeenCalled());
-    expect(api.houseAway).toHaveBeenCalledWith('2026-10-18T18:00', 12);
+    expect(api.houseAway).toHaveBeenCalledWith('2026-10-16T18:00', 12);
     await waitFor(() => expect(awaySheet.open).toBe(false));
     const toast = toasts.items.at(-1)!;
-    expect(toast.text()).toMatch(/^Absence jusqu’à dim\. 18 oct\.,? 18:00\.$/);
+    expect(toast.text()).toMatch(/^Absence jusqu’à ven\. 16 oct\.,? 18:00\.$/);
     expect(toast.action?.label()).toBe('Annuler l’absence');
     snapshot(undefined, [{ id: 'o9', kind: 'away', room_id: null, radiator_ids: ['a'], temperature: 12, ends_at: 2e9, restoring: false }]);
     toast.action!.run();
@@ -166,7 +166,7 @@ describe('AwaySheet send', () => {
     await fireEvent.pointerUp(plus);
     expect(await screen.findByText(/passeront à 12,5\s°C/)).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Partir' }));
-    await waitFor(() => expect(api.houseAway).toHaveBeenCalledWith('2026-10-18T18:00', 12.5));
+    await waitFor(() => expect(api.houseAway).toHaveBeenCalledWith('2026-10-16T18:00', 12.5));
   });
   it('a precise date in the past is refused, nothing is sent', async () => {
     await open(MONDAY);
@@ -212,10 +212,10 @@ describe('AwaySheet active', () => {
   it('« Prolonger… » shows the presets again, with the absence’s temperature', async () => {
     await open(THURSDAY);
     await fireEvent.click(screen.getByRole('button', { name: 'Prolonger…' }));
-    expect(screen.getByRole('button', { name: 'Dimanche 18:00' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Demain 18:00' })).toBeInTheDocument();
     expect(screen.getByText(/passeront à 14,0\s°C/)).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Prolonger' }));
-    await waitFor(() => expect(api.houseAway).toHaveBeenCalledWith('2026-10-18T18:00', 14));
+    await waitFor(() => expect(api.houseAway).toHaveBeenCalledWith('2026-10-16T18:00', 14));
   });
 });
 
@@ -275,6 +275,6 @@ describe('AwaySheet « Jusqu’à mon retour »', () => {
     await open(THURSDAY);
     await fireEvent.click(screen.getByRole('button', { name: 'Prolonger…' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Prolonger' }));
-    await waitFor(() => expect(api.houseAway).toHaveBeenCalledWith('2026-10-18T18:00', 12));
+    await waitFor(() => expect(api.houseAway).toHaveBeenCalledWith('2026-10-16T18:00', 12));
   });
 });

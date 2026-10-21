@@ -906,7 +906,6 @@ export const en: Messages = {
     until: 'Until',
     parisTime: '(Paris time)',
     tomorrow: (t: string) => `Tomorrow ${t}`,
-    sunday: (t: string) => `Sunday ${t}`,
     pick: 'Pick a date…',
     untilReturn: 'Until I’m back',
     pickField: 'Return date and time',
