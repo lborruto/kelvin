@@ -1,6 +1,6 @@
 <!-- « Partir en absence » (Tableau §4 « Absence », mockups 6, DESIGN « AwaySheet »): one sheet, mounted once in
      the layout and opened where the user is (sidebar « Partir… », Maison, phone, /home#away). A bottom sheet on a
-     phone with « Partir » under the thumb and « Annuler », a 460 px dialog on desktop (Sheet, --pop). Two stable presets, « Jusqu’à mon
+     phone with « Partir » under the thumb and « Annuler », a 460 px dialog on desktop (Sheet, --pop). Three choices: « Demain 18:00 », « Jusqu’à mon
      retour » (no end date: only « Terminer » ends it) and a precise date, the temperature,
      and the consequence written out before anything is sent. While an absence runs, the same sheet shows it
      with « Prolonger… » and « Terminer maintenant ». The send goes through the house command path (the
@@ -21,6 +21,7 @@
   import { desktop } from '$lib/media.svelte';
   import Icon from './Icon.svelte';
   import Sheet from './Sheet.svelte';
+  import Skeleton from './Skeleton.svelte';
   import Stepper from './Stepper.svelte';
 
   interface Props {
@@ -39,12 +40,34 @@
   let sending = $state(false);
   let body = $state<HTMLDivElement>();
 
+  // The sheet opens once the house state is known, so a direct load of /home#away draws the right form once
+  // (a running absence is not the « Partir » form first). If the snapshot is slow, it opens after 2.5 s on a
+  // skeleton, never on a form that may be the wrong one.
+  const WAIT_MS = 2500;
+  let waited = $state(false);
+  $effect(() => {
+    if (!awaySheet.open || house.loaded) {
+      waited = false;
+      return;
+    }
+    const t = setTimeout(() => (waited = true), WAIT_MS);
+    return () => clearTimeout(t);
+  });
+  // Known stays known while the sheet is open (a dropped stream keeps the form, « En attente de la connexion »).
+  let latched = $state(false);
+  $effect(() => {
+    if (!awaySheet.open) latched = false;
+    else if (house.loaded) latched = true;
+  });
+  let known = $derived(house.loaded || latched);
+  let shown = $derived(awaySheet.open && (known || waited));
+
   let active = $derived(house.away);
   let form = $derived(!active || extending);
 
   // Every opening starts from now: the presets, the default, the field's minimum.
   $effect(() => {
-    if (!awaySheet.open) return;
+    if (!shown) return;
     untrack(() => {
       const now = clock();
       const p = awayPresets(now);
@@ -61,7 +84,7 @@
 
   // « Jusqu’à mon retour »: no end date (the backend keeps the absence until « Terminer »).
   let openEnded = $derived(preset === 'return');
-  let until = $derived(preset === 'tomorrow' ? presets.tomorrow : preset === 'sunday' ? presets.sunday : openEnded ? null : parisLocalMs(picked));
+  let until = $derived(preset === 'tomorrow' ? presets.tomorrow : openEnded ? null : parisLocalMs(picked));
 
   // An away sets a temperature: it reaches the radiators that take one (backend `_capable(…, boost)`).
   const takes = (r: Radiator) => capsOf(r).boost && !isReadOnly(r);
@@ -138,10 +161,12 @@
   }
 </script>
 
-<Sheet title={active && !extending ? m.away.activeTitle : m.away.title} open={awaySheet.open} trigger={awaySheet.trigger} width={460}
+<Sheet title={known && active && !extending ? m.away.activeTitle : m.away.title} open={shown} trigger={awaySheet.trigger} width={460}
   onclose={() => awaySheet.close()}>
   <div class="away" bind:this={body}>
-    {#if !form && active}
+    {#if !known}
+      <Skeleton h={400} shape="block" />
+    {:else if !form && active}
       <p class="state"><span class="glyph" aria-hidden="true"><Icon name="away" size={18} /></span><span
           >{active.ends_at == null
             ? m.away.activeOpen(fmtTemp(active.temperature))
@@ -153,7 +178,6 @@
         <legend>{m.away.until} {m.away.parisTime}</legend>
         <div class="chips">
           <button type="button" class="dchip hit" aria-pressed={preset === 'tomorrow'} onclick={() => choose('tomorrow')}>{m.away.tomorrow(fmtTime(presets.tomorrow))}</button>
-          <button type="button" class="dchip hit" aria-pressed={preset === 'sunday'} onclick={() => choose('sunday')}>{m.away.sunday(fmtTime(presets.sunday))}</button>
           <button type="button" class="dchip hit" aria-pressed={preset === 'return'} onclick={() => choose('return')}>{m.away.untilReturn}</button>
           <button type="button" class="dchip hit" aria-pressed={preset === 'pick'} onclick={() => choose('pick')}>{m.away.pick}</button>
         </div>
@@ -177,7 +201,9 @@
   </div>
   {#snippet footer()}
     <div class="stack">
-      {#if !form && active}
+      {#if !known}
+        <Skeleton h={52} shape="pill" />
+      {:else if !form && active}
         <button type="button" class="btn btn-lg first" onclick={() => (extending = true)}>{m.away.extend}</button>
         <button type="button" class="btn btn-ghost btn-lg" aria-disabled={!house.online} onclick={endNow}>{m.away.endNow}</button>
       {:else}
@@ -244,6 +270,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex: 1 1 auto;
     min-height: 40px;
     padding: 0 12px;
     border: 0;

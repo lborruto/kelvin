@@ -5,6 +5,7 @@ What changes from one release to the next, in plain words. Versions follow
 
 ## 0.3.2
 
+- The Absence sheet no longer jumps when opened straight from `/home#away` during an absence: it waits for the house state, then shows « Absence en cours » once. « Dimanche 18:00 » is gone from the sheet (« Demain 18:00 », « Jusqu’à mon retour », « Date précise… »; « Demain 18:00 » is always the default).
 - « Partir en absence » offers « Jusqu’à mon retour »: an absence with no end date, from now until you
   press « Terminer ». The sheet says « Les 2 pièces passeront à 12,0 °C jusqu’à votre retour, puis
   reprendront leur réglage. » (and which rooms are offline); Maison shows « Absence · 12,0 °C · jusqu’à
