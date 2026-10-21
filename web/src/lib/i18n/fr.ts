@@ -940,7 +940,6 @@ export const fr = {
     until: 'Jusqu’à',
     parisTime: '(heure de Paris)',
     tomorrow: (t: string) => `Demain ${t}`,
-    sunday: (t: string) => `Dimanche ${t}`,
     pick: 'Date précise…',
     untilReturn: 'Jusqu’à mon retour',
     pickField: 'Date et heure du retour',

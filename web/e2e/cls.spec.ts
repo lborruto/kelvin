@@ -151,8 +151,7 @@ test.describe('CLS when the weather reading arrives after the first frame', () =
 
 // « Jusqu’à mon retour » (no end date) running: Maison's « Absence » chip, « En ce moment » row and the sidebar or
 // header button say « jusqu’à votre retour » from the first frame, and the Absence sheet opened from the chip shows
-// it without moving once open. (A cold load of /home#away while any absence runs, dated or not, draws the sheet's
-// form before the snapshot says an absence runs: 0.247 at 320 px on main too; not this test's subject.)
+// it without moving once open. (A cold load of /home#away is the next describe.)
 test.describe('CLS with an open-ended absence running', () => {
   test.skip(({ isMobile }) => isMobile, 'explicit widths');
   test.use({ serviceWorkers: 'block' });
@@ -185,6 +184,80 @@ test.describe('CLS with an open-ended absence running', () => {
       const o = await running();
       if (o) await page.request.delete(`/api/overrides/${o.id}`, { headers: { 'X-Kelvin': '1' } });
       await expect.poll(async () => ((await (await page.request.get('/api/house')).json()).overrides as unknown[]).length, { timeout: 20_000 }).toBe(0);
+    }
+  });
+});
+
+// A cold load of /home#away (redirects to `/` and opens the Absence sheet over Maison) while an absence runs, dated or
+// open-ended: the sheet waits for the house snapshot, then draws « Absence en cours » once, never the « Partir » form
+// first (CLS 0.247 at 320 px before the fix).
+test.describe('CLS on a direct load of /home#away with an absence running', () => {
+  test.skip(({ isMobile }) => isMobile, 'explicit widths');
+  test.use({ serviceWorkers: 'block' });
+  const H = { 'X-Kelvin': '1' };
+  const parisLocal = (ms: number) => {
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+        .formatToParts(ms).map((x) => [x.type, x.value])
+    );
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  };
+  for (const kind of ['dated', 'open-ended'] as const) {
+    for (const fonts of ['normal', 'late'] as const) {
+      test(`/home#away · ${kind} absence · fonts ${fonts} · CLS < 0.05 at 320, 390 and 1440 px`, async ({ page }) => {
+        test.setTimeout(150_000);
+        const awayOverrides = async () =>
+          ((await (await page.request.get('/api/house')).json()).overrides as { id: string; kind: string }[]).filter((o) => o.kind === 'away');
+        const clear = async () => {
+          for (const o of await awayOverrides()) await page.request.delete(`/api/overrides/${o.id}`, { headers: H });
+          await expect.poll(async () => (await awayOverrides()).length, { timeout: 20_000 }).toBe(0);
+        };
+        await clear();
+        try {
+          const until = kind === 'dated' ? parisLocal(Date.now() + 2 * 86_400_000) : null;
+          const started = await page.request.post('/api/house/away', { headers: H, data: { until, temperature: 12 } });
+          expect(started.status()).toBe(202);
+          await expect.poll(async () => (await awayOverrides()).length, { timeout: 20_000 }).toBe(1);
+          for (const width of [320, 390, 1440]) {
+            await page.setViewportSize({ width, height: 900 });
+            const cls = await measureCls(page, '/home#away', { fonts });
+            const sheet = page.getByRole('dialog', { name: 'Absence en cours' });
+            await expect(sheet).toBeVisible();
+            await expect(sheet.getByRole('button', { name: 'Terminer maintenant' })).toBeVisible();
+            await expect(sheet.getByRole('button', { name: 'Partir' })).toHaveCount(0);
+            expect(cls, `/home#away at ${width} px, ${kind} absence, fonts ${fonts}`).toBeLessThan(0.05);
+          }
+        } finally {
+          await page.unrouteAll({ behavior: 'ignoreErrors' });
+          await clear();
+        }
+      });
+    }
+  }
+});
+
+// No absence: /home#away draws the « Partir » form once, with three chips in order that fill their rows (a lone chip on
+// a second row stretches, never an orphan), and nothing moves.
+test.describe('Absence sheet chips and CLS with no absence', () => {
+  test.skip(({ isMobile }) => isMobile, 'explicit widths');
+  test.use({ serviceWorkers: 'block' });
+  test('/home#away · three chips in order · CLS < 0.05 at 320, 390 and 1440 px', async ({ page }) => {
+    test.setTimeout(100_000);
+    for (const width of [320, 390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const cls = await measureCls(page, '/home#away', { fonts: 'normal' });
+      const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
+      await expect(sheet).toBeVisible();
+      const chips = sheet.locator('.chips button');
+      await expect(chips).toHaveText(['Demain 18:00', 'Jusqu’à mon retour', 'Date précise…']);
+      const boxes = await chips.evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
+      const rows = new Set(boxes.map((b) => Math.round(b.top))).size;
+      expect(rows, `chip rows at ${width} px`).toBeLessThanOrEqual(width === 1440 ? 1 : 2);
+      const left = Math.min(...boxes.map((b) => b.left));
+      const right = Math.max(...boxes.map((b) => b.right));
+      for (const b of boxes) expect(b.width, `no chip is cramped at ${width} px`).toBeGreaterThan(90);
+      expect(right - left, 'chips span the row').toBeGreaterThan(Math.min(width - 80, 300));
+      expect(cls, `/home#away at ${width} px, no absence`).toBeLessThan(0.05);
     }
   });
 });

@@ -20,33 +20,16 @@ describe('parisLocal / parisLocalMs', () => {
 });
 
 describe('awayPresets', () => {
-  it('Monday morning: tomorrow by default, the coming Sunday as the other preset', () => {
+  it('tomorrow 18:00 is the default, with the minimum now + 15 min', () => {
     const p = awayPresets(at('2026-10-12T09:30'));
     expect(p.preset).toBe('tomorrow');
     expect(parisLocal(p.tomorrow)).toBe('2026-10-13T18:00');
-    expect(parisLocal(p.sunday)).toBe('2026-10-18T18:00');
     expect(p.min).toBe('2026-10-12T09:45');
   });
-  it('Thursday 14:00 switches the default to Sunday (13:59 does not)', () => {
-    expect(awayPresets(at('2026-10-15T13:59')).preset).toBe('tomorrow');
-    const p = awayPresets(at('2026-10-15T14:00'));
-    expect(p.preset).toBe('sunday');
-    expect(parisLocal(p.sunday)).toBe('2026-10-18T18:00');
-  });
-  it('Friday and Saturday default to Sunday', () => {
-    expect(awayPresets(at('2026-10-16T08:00')).preset).toBe('sunday');
-    expect(awayPresets(at('2026-10-17T22:00')).preset).toBe('sunday');
-  });
-  it('Sunday before noon: today 18:00; from noon, tomorrow by default', () => {
-    const morning = awayPresets(at('2026-10-18T11:59'));
-    expect(morning.preset).toBe('sunday');
-    expect(parisLocal(morning.sunday)).toBe('2026-10-18T18:00');
-    expect(awayPresets(at('2026-10-18T12:00')).preset).toBe('tomorrow');
-  });
-  it('Sunday 17:50: today 18:00 is too close, the Sunday preset is next week', () => {
-    const p = awayPresets(at('2026-10-18T17:50'));
-    expect(parisLocal(p.sunday)).toBe('2026-10-25T18:00');
-    expect(parisLocal(p.tomorrow)).toBe('2026-10-19T18:00');
+  it('the default is tomorrow on every day and hour (Thursday afternoon, the weekend, Sunday evening)', () => {
+    for (const t of ['2026-10-15T13:59', '2026-10-15T14:00', '2026-10-16T08:00', '2026-10-17T22:00', '2026-10-18T11:59', '2026-10-18T17:50'])
+      expect(awayPresets(at(t)).preset).toBe('tomorrow');
+    expect(parisLocal(awayPresets(at('2026-10-18T17:50')).tomorrow)).toBe('2026-10-19T18:00');
   });
   it('crosses the autumn clock change at 18:00 wall time', () => {
     const p = awayPresets(at('2026-10-24T10:00'));

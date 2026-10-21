@@ -1,10 +1,10 @@
-// The Absence sheet's choices (direction-2 §3 « Absence sheet »): three stable presets, « Jusqu’à mon retour »
-// (no end: `until: null`) and a precise date, all in Paris wall time (the backend reads a naive `until` as the
+// The Absence sheet's choices (direction-2 §3 « Absence sheet »): two stable presets (tomorrow 18:00 and « Jusqu’à mon
+// retour », no end: `until: null`) and a precise date, all in Paris wall time (the backend reads a naive `until` as the
 // home's time zone).
-import type { Day, Override } from './api/types';
+import type { Override } from './api/types';
 import { addParisDays, parisAt, parisDayStart, parisMidnight, parisParts } from './time';
 
-export type AwayPreset = 'tomorrow' | 'sunday' | 'return' | 'pick';
+export type AwayPreset = 'tomorrow' | 'return' | 'pick';
 
 /** An absence with no end date: only « Terminer » ends it (`ends_at` null). */
 export const isOpenEnded = (o: Override): boolean => o.ends_at == null;
@@ -14,11 +14,10 @@ export const boostEndMs = (o: Override): number => (o.ends_at ?? 0) * 1000;
 
 /** The minimum lead of a precise date (the `datetime-local` `min`). */
 export const AWAY_MIN_LEAD_MS = 15 * 60_000;
-/** The presets' hour: « Demain 18:00 », « Dimanche 18:00 ». */
+/** The presets' hour: « Demain 18:00 ». */
 export const AWAY_HOUR = 18;
 export const AWAY_TEMP = { min: 7, max: 19, default: 12 } as const;
 
-const WEEK: Day[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Paris wall time « YYYY-MM-DDTHH:MM » (a `datetime-local` value) of an instant. */
@@ -41,10 +40,8 @@ export function parisLocalMs(local: string): number | null {
 export interface AwayPresets {
   /** Tomorrow 18:00. */
   tomorrow: number;
-  /** The coming Sunday 18:00 (today's while it is still ahead by the minimum lead). */
-  sunday: number;
-  /** The default choice: Sunday from Thursday 14:00 to Sunday 12:00, else tomorrow. */
-  preset: 'tomorrow' | 'sunday';
+  /** The default choice: always tomorrow 18:00. */
+  preset: 'tomorrow';
   /** The earliest precise date, as a `datetime-local` value (now + 15 min, Paris). */
   min: string;
 }
@@ -52,13 +49,7 @@ export interface AwayPresets {
 /** The presets at `now` (pure: tests inject the clock). */
 export function awayPresets(now: number): AwayPresets {
   const today = parisMidnight(now);
-  const p = parisParts(now);
-  const wd = WEEK.indexOf(p.weekday);
-  const minute = p.hour * 60 + p.minute;
   const tomorrow = parisAt(addParisDays(today, 1), AWAY_HOUR * 60);
-  let sunday = parisAt(addParisDays(today, 6 - wd), AWAY_HOUR * 60);
-  if (sunday - now < AWAY_MIN_LEAD_MS) sunday = parisAt(addParisDays(today, 13 - wd), AWAY_HOUR * 60);
-  const weekend = (wd === 3 && minute >= 14 * 60) || wd === 4 || wd === 5 || (wd === 6 && minute < 12 * 60);
   // Rounded up to the next minute: the field's `min` is never in the past by a few seconds.
-  return { tomorrow, sunday, preset: weekend ? 'sunday' : 'tomorrow', min: parisLocal(Math.ceil((now + AWAY_MIN_LEAD_MS) / 60_000) * 60_000) };
+  return { tomorrow, preset: 'tomorrow', min: parisLocal(Math.ceil((now + AWAY_MIN_LEAD_MS) / 60_000) * 60_000) };
 }
