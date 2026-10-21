@@ -2,7 +2,7 @@ import type { Alert, EcowattRun, Pending } from '$lib/api/types';
 import { fmtDay, fmtTime } from '$lib/format';
 import { hoursText } from '$lib/grid';
 import { locale, m, pendingError, pendingLabel } from '$lib/i18n';
-import { ROUTES } from '$lib/paths';
+import { ANCHORS, ROUTES } from '$lib/paths';
 import { roomName } from '$lib/setup';
 import { house } from '$lib/stores/house.svelte';
 
@@ -81,6 +81,12 @@ export function alertText(a: Alert): AlertText | null {
         link: { href: ROUTES.tariff, label: m.alerts.hcAdd }
       };
     }
+    case 'away_open_long':
+      // A gentle reminder (« Jusqu’à mon retour » running for a week): the link opens the Absence sheet.
+      return {
+        text: m.alerts.awayOpenLong(num(p.days) ?? 7),
+        link: { href: `${ROUTES.home}#${ANCHORS.away}`, label: m.alerts.awayOpenLink }
+      };
     default:
       return null;
   }

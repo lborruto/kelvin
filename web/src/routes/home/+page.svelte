@@ -97,7 +97,11 @@
 
   let dot = $derived(navAlerts(alerts.summary, alerts.list));
   let stateText = $derived(
-    [dot.count ? m.home.stateAlerts(dot.count) : null, house.away ? m.home.stateAway(fmtWeekdayTime(house.away.ends_at * 1000)) : null]
+    [dot.count ? m.home.stateAlerts(dot.count) : null, house.away
+      ? house.away.ends_at == null
+        ? m.home.stateAwayOpen
+        : m.home.stateAway(fmtWeekdayTime(house.away.ends_at * 1000))
+      : null]
       .filter(Boolean)
       .join(' · ') || m.home.allGood
   );

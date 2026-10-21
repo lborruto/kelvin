@@ -3,6 +3,7 @@
  * as pure functions of the house, so the screen only lays them out. Messages are read when called (i18n).
  */
 import type { Alert, GridView, Override, Radiator, TempoColour, WeekProgram } from './api/types';
+import { boostEndMs } from './away';
 import { addDays } from './energy';
 import { fmtTemp, fmtTempShort, fmtTime } from './format';
 import { stripLines } from './grid';
@@ -73,7 +74,7 @@ export function tileLine(status: RoomStatus, heating: boolean, override: Overrid
     return { lead: status.lead, tone: 'cool', rest: fmtTemp(override.temperature) };
   if (status.kind === 'boost' && override?.kind === 'boost' && !override.restoring)
     return compact
-      ? { lead: m.kit.boostShort, tone: 'warm', rest: m.maison.arrowAt(fmtTime(override.ends_at * 1000)) }
+      ? { lead: m.kit.boostShort, tone: 'warm', rest: m.maison.arrowAt(fmtTime(boostEndMs(override))) }
       : { lead: status.lead, tone: 'warm', rest: status.rest };
   if (prog) {
     const level = status.kind === 'comfort' ? m.level.comfort : m.level.eco;

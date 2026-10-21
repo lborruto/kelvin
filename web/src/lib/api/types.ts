@@ -155,7 +155,10 @@ export interface Override {
   room_id: string | null;
   radiator_ids: string[];
   temperature: number;
-  ends_at: number;
+  /** Epoch s; null for an open-ended away (« Jusqu’à mon retour »), which only « Terminer » ends. */
+  ends_at: number | null;
+  /** True exactly when `ends_at` is null (absent from older backends). */
+  open_ended?: boolean;
   restoring: boolean;
   /** When it started (epoch s); null for one stored before Kelvin kept it, absent from older backends. */
   created_at?: number | null;
@@ -772,7 +775,8 @@ export type AlertKind =
   | 'linky_stalled'
   | 'tempo_red_tomorrow'
   | 'ecowatt'
-  | 'hc_changed';
+  | 'hc_changed'
+  | 'away_open_long';
 export interface Alert {
   id: number;
   /** A kind this bundle does not know (a newer server) is not shown. */

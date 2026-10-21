@@ -59,7 +59,9 @@
         ? m.maison.offNoteShort
         : m.maison.offNote
       : variant === 'absence' && override?.kind === 'away'
-        ? m.maison.awayUntil(fmtWeekdayTime(override.ends_at * 1000))
+        ? override.ends_at == null
+          ? m.maison.awayUntilReturn
+          : m.maison.awayUntil(fmtWeekdayTime(override.ends_at * 1000))
         : undefined
   );
   // One sentence for screen readers (the tile body is one link): name, reading, status, consigne, en chauffe.

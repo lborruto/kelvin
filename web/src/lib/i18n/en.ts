@@ -198,6 +198,7 @@ export const en: Messages = {
     away: 'Away',
     restoring: 'Restoring…',
     until: (temp: string, when: string) => `${temp} until ${when}`,
+    untilReturn: (temp: string) => `${temp} until you’re back`,
     comfortUntil: (when: string) => `Comfort until ${when}`,
     ecoUntil: (when: string) => `Eco until ${when}`,
     steady: (level: string) => `${level} all week`,
@@ -907,6 +908,7 @@ export const en: Messages = {
     tomorrow: (t: string) => `Tomorrow ${t}`,
     sunday: (t: string) => `Sunday ${t}`,
     pick: 'Pick a date…',
+    untilReturn: 'Until I’m back',
     pickField: 'Return date and time',
     temperature: 'Temperature',
     tempLabel: 'Away temperature',
@@ -916,6 +918,10 @@ export const en: Messages = {
       n === 1
         ? `The room will go to ${temp} until ${t}, then back to its settings.`
         : `The ${int(n)} rooms will go to ${temp} until ${t}, then back to their settings.`,
+    consequenceOpen: (n: number, temp: string) =>
+      n === 1
+        ? `The room will go to ${temp} until you’re back, then back to its settings.`
+        : `The ${int(n)} rooms will go to ${temp} until you’re back, then back to their settings.`,
     offline: (names: string[], n: number) =>
       n === 1 ? `${names[0]} is offline: it may not get the setting.` : `${list(names)} are offline: they may not get the setting.`,
     noRoom: 'No radiator takes a temperature: going away would change nothing.',
@@ -924,18 +930,23 @@ export const en: Messages = {
     waiting: 'Waiting for the connection to Kelvin.',
     busy: 'A command for the whole home is already on its way.',
     started: (t: string) => `Away until ${t}.`,
+    startedOpen: 'Away until you’re back.',
     undo: 'Cancel away',
     active: (t: string, temp: string) => `Away until ${t} · ${temp}`,
+    activeOpen: (temp: string) => `Away until you’re back · ${temp}`,
     activeLead: 'Every room goes back to its settings at the end.',
+    activeLeadOpen: 'Every room goes back to its settings when you end it.',
     extend: 'Extend…',
     endNow: 'End now',
-    short: (t: string) => `Away · ${t}`
+    short: (t: string) => `Away · ${t}`,
+    shortOpen: 'Away mode on'
   },
   // Home overview (UX batch 8).
   home: {
     allGood: 'All good',
     stateAlerts: (n: number) => `${int(n)} ${plural(n, { one: 'alert', other: 'alerts' })}`,
     stateAway: (t: string) => `Away until ${t}`,
+    stateAwayOpen: 'Away until you’re back',
     restoring: 'Restoring…',
     cardDevices: (rooms: number, radiators: number) =>
       `${int(rooms)} ${plural(rooms, { one: 'room', other: 'rooms' })} · ${int(radiators)} ${plural(radiators, { one: 'radiator', other: 'radiators' })}`,
@@ -983,7 +994,9 @@ export const en: Messages = {
     ecowatt: (level: number, when: string, hours: string | null) =>
       `EcoWatt ${level >= 3 ? 'red' : 'orange'} on ${when}${hours ? `, ${hours}` : ''}: ${level >= 3 ? 'the power grid is under severe strain; power cuts are possible' : 'the power grid is under strain'}.`,
     hcChanged: (slots: string) => `Enedis lists new off-peak hours: ${slots}.`,
-    hcAdd: 'Add these off-peak hours'
+    hcAdd: 'Add these off-peak hours',
+    awayOpenLong: (days: number) => `Away mode on for ${int(days)} ${plural(days, { one: 'day', other: 'days' })}.`,
+    awayOpenLink: 'View away mode'
   },
   sessions: {
     title: 'Signed-in devices',
@@ -1580,6 +1593,7 @@ export const en: Messages = {
     gridCalm: 'Nothing to report',
     away: 'Away',
     awayUntil: (t: string) => `until ${t}`,
+    awayUntilReturn: 'until you’re back',
     roomsSummary: (heating: number, offline: number, allOff: boolean) =>
       [allOff ? 'everything off' : heating ? `${int(heating)} heating` : 'none heating', offline ? `${int(offline)} offline` : null]
         .filter(Boolean)
@@ -1606,6 +1620,7 @@ export const en: Messages = {
     allOffOffline: (names: string[], n: number) =>
       n === 1 ? `${names[0]} is offline: it may not have received it.` : `${list(names)} are offline: they may not have received it.`,
     awayLine: (temp: string, t: string) => `${temp} until ${t}`,
+    awayLineOpen: (temp: string) => `${temp} · until you’re back`,
     awayEvery: 'every room',
     awayEveryBut: (names: string[]) => `every room · ${list(names)} offline`,
     awayRestoring: 'Restoring…',

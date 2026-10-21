@@ -22,7 +22,8 @@
   sent until you press « Envoyer ».
 - **Temporary heat.** Warm one room for a couple of hours (« Chauffer à 22 °C pendant 2 h »);
   it goes back to what it was doing afterwards.
-- **Away mode.** Turn the whole house down until you come back, from wherever you are.
+- **Away mode.** Turn the whole house down until a date, or « Jusqu’à mon retour » with no end date
+  (ended by « Terminer »), from wherever you are.
 - **Confirmed changes.** A change counts as done only when the radiator confirms it. Pending and
   failed are shown as such.
 - **Energy and euros.** Your home's consumption from Linky by day, week, month or year, priced

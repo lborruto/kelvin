@@ -28,6 +28,17 @@ def test_a_running_away_counts_up_to_now(tmp_path):
     assert got == {date(2026, 1, 10), date(2026, 1, 11), date(2026, 1, 12)}
 
 
+def test_an_open_ended_away_counts_up_to_now_then_to_its_real_end(tmp_path):
+    db = Database(tmp_path / "k.db")
+    away.record_start(db, "o1", ts(2026, 1, 10, 18), None)  # « Jusqu’à mon retour »
+    assert db.rows("SELECT end, ended FROM away_log") == [(away.OPEN_END, 0)]
+    got = away.away_days(db, date(2026, 1, 1), date(2026, 2, 1), TZ, now=ts(2026, 1, 12, 8))
+    assert got == {date(2026, 1, 10), date(2026, 1, 11), date(2026, 1, 12)}
+    away.record_end(db, "o1", ts(2026, 1, 14, 9))
+    got = away.away_days(db, date(2026, 1, 1), date(2026, 2, 1), TZ, now=ts(2026, 1, 30))
+    assert got == {date(2026, 1, d) for d in (10, 11, 12, 13, 14)}
+
+
 def test_end_is_recorded_once(tmp_path):
     db = Database(tmp_path / "k.db")
     away.record_start(db, "o1", ts(2026, 1, 10), ts(2026, 1, 14))

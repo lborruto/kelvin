@@ -156,7 +156,7 @@
   });
 
   let away = $derived(house.away);
-  let awayUntil = $derived(away ? fmtWeekdayTime(away.ends_at * 1000) : '');
+  let awayUntil = $derived(away?.ends_at != null ? m.maison.awayUntil(fmtWeekdayTime(away.ends_at * 1000)) : m.maison.awayUntilReturn);
 </script>
 
 {#snippet chips(compact: boolean)}
@@ -164,7 +164,7 @@
     <SummaryChip icon="flame" label={m.maison.climate} value={climateText(c, compact)} />
     {#if month}<SummaryChip icon="euro" label={monthTitle(span.from)} value={monthValue} href={ROUTES.energy} />{/if}
     <SummaryChip icon="alert" label={m.maison.grid} value={gridNextText(gridNext(grid.view, today.iso))} href={ROUTES.energy} />
-    <SummaryChip icon="away" label={m.maison.away} value={away ? m.maison.awayUntil(awayUntil) : m.nav.away} tone={away ? 'cool' : null}
+    <SummaryChip icon="away" label={m.maison.away} value={away ? awayUntil : m.nav.away} tone={away ? 'cool' : null}
       onclick={(e) => awaySheet.show(e.currentTarget as HTMLElement)} />
     <!-- Plan 14: only with a place; its words are built here so a language switch rewords the Fiche. Last: its first
          reading (« — » → « 4,2 °C ») and a place saved elsewhere arrive over the SSE after the first frame, and a

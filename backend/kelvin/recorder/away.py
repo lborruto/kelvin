@@ -11,12 +11,16 @@ from kelvin.linky.models import day_bounds
 from kelvin.recorder.db import Database
 
 AWAY_KEEP_S = 400 * 86400
+# The planned end stored for an open-ended away (« Jusqu’à mon retour »): far beyond any window
+# asked, so a running one counts up to `now` (`away_days`) and its real end replaces it
+# (`record_end` keeps the earlier of the two). The column stays NOT NULL: no migration.
+OPEN_END = 32503680000.0  # 3000-01-01 UTC
 
 
-def record_start(db: Database, oid: str, start: float, planned_end: float) -> None:
+def record_start(db: Database, oid: str, start: float, planned_end: float | None) -> None:
     db.execute(
         "INSERT OR REPLACE INTO away_log (id, start, end, ended) VALUES (?, ?, ?, 0)",
-        (oid, start, planned_end),
+        (oid, start, OPEN_END if planned_end is None else planned_end),
     )
 
 

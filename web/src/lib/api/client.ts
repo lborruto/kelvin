@@ -171,7 +171,8 @@ export const api = {
 
   houseOff: () => cmd('POST', '/house/off'),
   houseProgram: () => cmd('POST', '/house/program'),
-  houseAway: (untilIso: string, temperature: number) => cmd('POST', '/house/away', { until: untilIso, temperature }),
+  /** `untilIso` null: an open-ended away (« Jusqu’à mon retour »). */
+  houseAway: (untilIso: string | null, temperature: number) => cmd('POST', '/house/away', { until: untilIso, temperature }),
   cancelOverride: (id: string) => cmd('DELETE', `/overrides/${enc(id)}`),
 
   history: (radiatorIds: string[], start: number, end: number, step: number) =>

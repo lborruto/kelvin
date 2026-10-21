@@ -69,7 +69,7 @@ export function primarySetpoint(
     case 'boost': {
       if (!override || override.kind !== 'boost' || override.restoring || !controllable.some((r) => capsOf(r).boost)) return null;
       const range = roomRange(controllable, 'manual') ?? [7, 28];
-      return { kind: 'boost', value: override.temperature, min: range[0], max: range[1], pending: inFlight, endsAt: override.ends_at };
+      return { kind: 'boost', value: override.temperature, min: range[0], max: range[1], pending: inFlight, endsAt: override.ends_at ?? undefined };
     }
     default:
       return null;

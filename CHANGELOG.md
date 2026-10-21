@@ -3,6 +3,17 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## Unreleased
+
+- « Partir en absence » offers « Jusqu’à mon retour »: an absence with no end date, from now until you
+  press « Terminer ». The sheet says « Les 2 pièces passeront à 12,0 °C jusqu’à votre retour, puis
+  reprendront leur réglage. » (and which rooms are offline); Maison shows « Absence · 12,0 °C · jusqu’à
+  votre retour ». Ending it restores every radiator as a dated absence does, an offline one once it is
+  back. After 7 days a gentle reminder says « Absence en cours depuis 7 jours ».
+- API: `POST /api/house/away` takes `"until": null` (the field stays required); overrides in the house
+  view, the SSE and MCP's `get_overview` carry `ends_at: null` and `open_ended: true` for it. New alert
+  kind `away_open_long`.
+
 ## 0.3.1
 
 - Énergie draws the outdoor temperature over the consumption chart in every view (with a place set in

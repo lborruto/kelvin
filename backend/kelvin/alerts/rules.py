@@ -25,6 +25,7 @@ PRICE_BEFORE = timedelta(days=15)
 PRICE_AFTER = timedelta(days=45)
 CONSENT_WARN_DAYS = 30
 CONSENT_BAD_DAYS = 7
+AWAY_OPEN_REMIND_DAYS = 7
 
 
 @dataclass
@@ -38,6 +39,8 @@ class AlertContext:
     tempo: dict[date, str] = field(default_factory=dict)  # today and tomorrow (Tempo days)
     ecowatt: dict[date, EcowattDay] = field(default_factory=dict)  # today and tomorrow
     contract: dict[str, Any] | None = None  # the last contract read (Enedis via MED)
+    # The overrides as `OverrideManager.peek()` lists them (never settles a restore).
+    overrides: list[dict[str, Any]] = field(default_factory=list)
 
 
 def price_change(ctx: AlertContext, now: float) -> list[Candidate]:
@@ -236,6 +239,31 @@ def hc_changed(ctx: AlertContext, now: float) -> list[Candidate]:
     ]
 
 
+def away_open_long(ctx: AlertContext, now: float) -> list[Candidate]:
+    """A gentle reminder: an open-ended absence (« Jusqu’à mon retour ») has run 7 days or more.
+    Keyed on the absence, so a dismissal holds until the owner starts another; resolved when it
+    ends. `days` counts whole days since its start."""
+    out = []
+    for o in ctx.overrides:
+        since = o.get("created_at")
+        if o.get("kind") != "away" or not o.get("open_ended") or o.get("restoring"):
+            continue
+        if not isinstance(since, int | float) or since <= 0:
+            continue
+        days = int((now - since) // 86400)
+        if days < AWAY_OPEN_REMIND_DAYS:
+            continue
+        out.append(
+            Candidate(
+                "away_open_long",
+                f"away_open_long:{o['id']}",
+                "info",
+                {"since": since, "days": days},
+            )
+        )
+    return out
+
+
 RULES: dict[str, Rule] = {
     "price_change": price_change,
     "consent_expiring": consent_expiring,
@@ -245,4 +273,5 @@ RULES: dict[str, Rule] = {
     "tempo_red_tomorrow": tempo_red_tomorrow,
     "ecowatt": ecowatt,
     "hc_changed": hc_changed,
+    "away_open_long": away_open_long,
 }

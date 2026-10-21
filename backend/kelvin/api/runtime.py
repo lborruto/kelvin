@@ -160,6 +160,7 @@ def alert_context(rt: Runtime, now: float) -> AlertContext:
         tempo=rt.grid.store.tempo_colours(today, after) if rt.grid else {},
         ecowatt=rt.grid.store.ecowatt(today, after) if rt.grid else {},
         contract=rt.linky.tariffs.contract_last() if rt.linky else None,
+        overrides=rt.overrides.peek(),
     )
 
 

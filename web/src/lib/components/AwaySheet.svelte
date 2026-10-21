@@ -1,6 +1,7 @@
 <!-- « Partir en absence » (Tableau §4 « Absence », mockups 6, DESIGN « AwaySheet »): one sheet, mounted once in
      the layout and opened where the user is (sidebar « Partir… », Maison, phone, /home#away). A bottom sheet on a
-     phone with « Partir » under the thumb and « Annuler », a 460 px dialog on desktop (Sheet, --pop). Three stable presets and a precise date, the temperature,
+     phone with « Partir » under the thumb and « Annuler », a 460 px dialog on desktop (Sheet, --pop). Two stable presets, « Jusqu’à mon
+     retour » (no end date: only « Terminer » ends it) and a precise date, the temperature,
      and the consequence written out before anything is sent. While an absence runs, the same sheet shows it
      with « Prolonger… » and « Terminer maintenant ». The send goes through the house command path (the
      sidebar's PendingTag shows « Envoi… »); a toast confirms with « Annuler l’absence ». -->
@@ -9,7 +10,7 @@
   import { run, runHouse } from '$lib/actions';
   import { api } from '$lib/api/client';
   import type { Radiator } from '$lib/api/types';
-  import { AWAY_TEMP, awayPresets, parisLocal, parisLocalMs, type AwayPreset } from '$lib/away';
+  import { AWAY_TEMP, awayPresets, isOpenEnded, parisLocal, parisLocalMs, type AwayPreset } from '$lib/away';
   import { capsOf, isReadOnly } from '$lib/capabilities';
   import { fmtDateTime, fmtTemp, fmtTime } from '$lib/format';
   import { apiMessage, m } from '$lib/i18n';
@@ -58,13 +59,23 @@
     void tick().then(() => (body?.closest('dialog') ?? body)?.querySelector<HTMLElement>('[aria-pressed="true"], .first')?.focus());
   });
 
-  let until = $derived(preset === 'tomorrow' ? presets.tomorrow : preset === 'sunday' ? presets.sunday : parisLocalMs(picked));
+  // « Jusqu’à mon retour »: no end date (the backend keeps the absence until « Terminer »).
+  let openEnded = $derived(preset === 'return');
+  let until = $derived(preset === 'tomorrow' ? presets.tomorrow : preset === 'sunday' ? presets.sunday : openEnded ? null : parisLocalMs(picked));
 
   // An away sets a temperature: it reaches the radiators that take one (backend `_capable(…, boost)`).
   const takes = (r: Radiator) => capsOf(r).boost && !isReadOnly(r);
   let rooms = $derived(house.rooms.filter((r) => house.roomRadiators(r.id).some(takes)));
   let offline = $derived(rooms.filter((r) => house.roomRadiators(r.id).filter(takes).every((x) => x.reachable === false)));
-  let consequence = $derived(until === null ? null : rooms.length ? m.away.consequence(rooms.length, fmtTemp(temp), fmtDateTime(until)) : m.away.noRoom);
+  let consequence = $derived(
+    !rooms.length
+      ? m.away.noRoom
+      : openEnded
+        ? m.away.consequenceOpen(rooms.length, fmtTemp(temp))
+        : until === null
+          ? null
+          : m.away.consequence(rooms.length, fmtTemp(temp), fmtDateTime(until))
+  );
   let offlineLine = $derived(offline.length && rooms.length ? m.away.offline(offline.map((r) => roomName(r)), offline.length) : null);
   // Another house-wide command on its way (« Tout éteindre », « Tout remettre en programme »): one at a time.
   let houseBusy = $derived(house.houseCommand?.status === 'sending' || house.houseCommand?.status === 'pending');
@@ -79,16 +90,16 @@
 
   async function go() {
     if (blocked) return;
-    if (until === null || until <= clock()) {
+    if (!openEnded && (until === null || until <= clock())) {
       error = () => apiMessage('end_in_past');
       return;
     }
     error = null;
     sending = true;
-    const end = until;
+    const end = openEnded ? null : until;
     const toastsBefore = toasts.items.length;
     try {
-      const p = await runHouse(() => api.houseAway(parisLocal(end), temp));
+      const p = await runHouse(() => api.houseAway(end === null ? null : parisLocal(end), temp));
       if (!p) {
         // An error is already a toast; no toast means another house command was still on its way.
         if (toasts.items.length === toastsBefore) error = () => m.away.busy;
@@ -96,7 +107,7 @@
       }
       awaySheet.close();
       undoWanted = false;
-      toasts.push(() => m.away.started(fmtDateTime(end)), 'info', undefined, { label: () => m.away.undo, run: undo });
+      toasts.push(() => (end === null ? m.away.startedOpen : m.away.started(fmtDateTime(end))), 'info', undefined, { label: () => m.away.undo, run: undo });
     } finally {
       sending = false;
     }
@@ -132,8 +143,10 @@
   <div class="away" bind:this={body}>
     {#if !form && active}
       <p class="state"><span class="glyph" aria-hidden="true"><Icon name="away" size={18} /></span><span
-          >{m.away.active(fmtDateTime(active.ends_at * 1000), fmtTemp(active.temperature))}</span></p>
-      <p class="lead">{active.restoring ? m.home.restoring : m.away.activeLead}</p>
+          >{active.ends_at == null
+            ? m.away.activeOpen(fmtTemp(active.temperature))
+            : m.away.active(fmtDateTime(active.ends_at * 1000), fmtTemp(active.temperature))}</span></p>
+      <p class="lead">{active.restoring ? m.home.restoring : isOpenEnded(active) ? m.away.activeLeadOpen : m.away.activeLead}</p>
     {:else}
       <p class="lead">{m.away.lead}</p>
       <fieldset>
@@ -141,6 +154,7 @@
         <div class="chips">
           <button type="button" class="dchip hit" aria-pressed={preset === 'tomorrow'} onclick={() => choose('tomorrow')}>{m.away.tomorrow(fmtTime(presets.tomorrow))}</button>
           <button type="button" class="dchip hit" aria-pressed={preset === 'sunday'} onclick={() => choose('sunday')}>{m.away.sunday(fmtTime(presets.sunday))}</button>
+          <button type="button" class="dchip hit" aria-pressed={preset === 'return'} onclick={() => choose('return')}>{m.away.untilReturn}</button>
           <button type="button" class="dchip hit" aria-pressed={preset === 'pick'} onclick={() => choose('pick')}>{m.away.pick}</button>
         </div>
         {#if preset === 'pick'}

@@ -33,7 +33,16 @@ async def test_get_overview(tmp_path):
         env = data(await call(app, "get_overview"))
         (o,) = env["data"]["overrides"]
         assert o["kind"] == "boost" and o["room_id"] == "p-salon" and o["temperature_c"] == 22
-        assert o["ends_at"].startswith("2026-11-20T14:30")
+        assert o["ends_at"].startswith("2026-11-20T14:30") and o["open_ended"] is False
+
+
+async def test_get_overview_open_ended_away(tmp_path):
+    async with kelvin_app(tmp_path, sync=False) as (c, app):
+        r = await c.post("/api/house/away", json={"until": None, "temperature": 12})
+        assert r.status_code == 202
+        env = data(await call(app, "get_overview"))
+        (o,) = env["data"]["overrides"]
+        assert o["kind"] == "away" and o["ends_at"] is None and o["open_ended"] is True
 
 
 async def test_get_room(tmp_path):

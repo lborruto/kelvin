@@ -154,6 +154,51 @@ test('absence from Maison in two taps (desktop sidebar, phone header), ended fro
   await expect(opener).toBeVisible({ timeout: 20_000 });
 });
 
+test('« Jusqu’à mon retour »: an absence with no end date, « Terminer » restores the radiators', async ({ page }) => {
+  const modes = async () =>
+    Object.fromEntries(
+      ((await (await page.request.get('/api/house')).json()).house.radiators as { id: string; mode: string; target: number | null }[]).map((r) => [
+        r.id,
+        `${r.mode}:${r.target}`
+      ])
+    );
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Maison', level: 1 })).toBeVisible();
+  const before = await modes();
+  await page.getByRole('button', { name: 'Partir…' }).filter({ visible: true }).first().click();
+  const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
+  await sheet.getByRole('button', { name: 'Jusqu’à mon retour' }).click();
+  await expect(sheet.getByText(/^Les \d+ pièces passeront à 12,0\s°C jusqu’à votre retour, puis reprendront leur réglage\.$/)).toBeVisible();
+  await expect(sheet.getByText(/hors ligne\s: elle ne recevra peut-être pas la consigne\.$/)).toBeVisible();
+  await sheet.getByRole('button', { name: 'Partir' }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByText('Absence jusqu’à votre retour.').first()).toBeVisible(); // the toast
+  // « En ce moment » on Maison says it has no end.
+  await expect(page.getByText(/^Absence · 12,0\s°C · jusqu’à votre retour$/)).toBeVisible({ timeout: 20_000 });
+  const house = await (await page.request.get('/api/house')).json();
+  const away = (house.overrides as { id: string; kind: string; ends_at: number | null; open_ended?: boolean }[]).find((o) => o.kind === 'away');
+  try {
+    expect(away).toEqual(expect.objectContaining({ ends_at: null, open_ended: true }));
+    const end = page.getByRole('button', { name: 'Terminer l’absence' });
+    await end.click();
+    await expect(end).toBeHidden({ timeout: 20_000 });
+  } finally {
+    // Never leave an absence with no end running for the next tests.
+    const left = ((await (await page.request.get('/api/house')).json()).overrides as { id: string; kind: string; restoring: boolean }[]).find(
+      (o) => o.kind === 'away' && !o.restoring
+    );
+    if (left) await page.request.delete(`/api/overrides/${left.id}`, { headers: { 'X-Kelvin': '1' } });
+  }
+  // Restored as before: every reachable radiator back to its mode and setpoint (the offline one is retried later).
+  const offline = new Set(((house.house.radiators as { id: string; reachable: boolean | null }[]).filter((r) => r.reachable === false)).map((r) => r.id));
+  await expect
+    .poll(async () => {
+      const now = await modes();
+      return Object.keys(before).filter((id) => !offline.has(id) && now[id] !== before[id]);
+    }, { timeout: 20_000 })
+    .toEqual([]);
+});
+
 test('desktop shows the sidebar and the room sheet with every radiator', async ({ page, isMobile }) => {
   test.skip(isMobile, 'desktop layout only');
   await page.goto('/rooms/p-salon');

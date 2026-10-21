@@ -15,6 +15,7 @@
  * the request, dashed, until it is confirmed.
  */
 import type { Day, Expected, Override, Radiator, Room, WeekProgram } from './api/types';
+import { boostEndMs } from './away';
 import { capsOf } from './capabilities';
 import { fmtDayShort, fmtTemp, fmtTime } from './format';
 import { levelLabel, m, modeLabel } from './i18n';
@@ -106,9 +107,17 @@ export function roomStatus(room: Room, rads: Radiator[], override: Override | un
   }
   if (override?.restoring) return make(override.kind === 'away' ? 'away' : 'boost', m.status.restoring, '', 'muted', null);
   if (override?.kind === 'away')
-    return make('away', m.status.away, m.status.until(fmtTemp(override.temperature), whenAhead(override.ends_at * 1000, now)), 'cool', override.temperature);
+    return make(
+      'away',
+      m.status.away,
+      override.ends_at == null
+        ? m.status.untilReturn(fmtTemp(override.temperature))
+        : m.status.until(fmtTemp(override.temperature), whenAhead(override.ends_at * 1000, now)),
+      'cool',
+      override.temperature
+    );
   if (override?.kind === 'boost')
-    return make('boost', m.status.boost, m.status.until(fmtTemp(override.temperature), whenAhead(override.ends_at * 1000, now)), 'warm', override.temperature);
+    return make('boost', m.status.boost, m.status.until(fmtTemp(override.temperature), whenAhead(boostEndMs(override), now)), 'warm', override.temperature);
   if (room.window_open) return make('window', m.room.windowOpen, '', 'bad', null);
 
   const mode = expected.mode ?? room.mode;

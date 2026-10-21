@@ -90,6 +90,17 @@ describe('alert texts', () => {
   });
 });
 
+describe('away_open_long', () => {
+  it('a gentle reminder with a link to the Absence sheet, in both languages', () => {
+    const t = alertText(a('away_open_long', { since: 1_800_000_000, days: 7 }, 'info'))!;
+    expect(t.text).toBe(`Absence en cours depuis 7${NB}jours.`);
+    expect(t.link).toEqual({ href: '/home#away', label: 'Voir l’absence' });
+    applyLocale('en');
+    expect(alertText(a('away_open_long', { since: 1_800_000_000, days: 9 }, 'info'))!.text).toBe('Away mode on for 9 days.');
+    applyLocale('fr');
+  });
+});
+
 describe('fmtDayMonth', () => {
   it('a malformed date reads —, never throws', () => {
     expect(fmtDayMonth('')).toBe('—');
