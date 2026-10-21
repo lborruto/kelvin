@@ -1,5 +1,5 @@
 <!-- What runs now (Tableau §4, « En ce moment » moved from Réglages to Maison): an absence — « Absence · 12,0 °C
-     jusqu’à dim. 18:00 », which rooms (offline ones named), « Terminer » — and each chauffe temporaire — its rooms,
+     jusqu’à dim. 18:00 » (open-ended: « Absence · 12,0 °C · jusqu’à votre retour »), which rooms (offline ones named), « Terminer » — and each chauffe temporaire — its rooms,
      temperature and end, « Arrêter ». « Absence » is cool; a running boost's glyph is heat. A boost whose
      radiators are all offline cannot be stopped (nothing would answer): its button pauses, like the room's. -->
 <script lang="ts">
@@ -18,7 +18,10 @@
     now: number;
   }
   let { overrides, offline, now }: Props = $props();
-  const end = (o: Override) => (parisTodayIso(o.ends_at * 1000) === parisTodayIso(now) ? fmtTime(o.ends_at * 1000) : fmtWeekdayTime(o.ends_at * 1000));
+  const end = (o: Override) => {
+    const at = (o.ends_at ?? 0) * 1000;
+    return parisTodayIso(at) === parisTodayIso(now) ? fmtTime(at) : fmtWeekdayTime(at);
+  };
   const roomsOf = (ids: string[]) =>
     house.rooms.filter((r) => r.radiator_ids.some((i) => ids.includes(i))).map((r) => roomName(r)).join(', ') || m.maison.wholeHome;
   const paused = (o: Override) =>
@@ -31,7 +34,9 @@
       <span class="pm {o.kind}" aria-hidden="true"><Icon name={o.kind === 'away' ? 'away' : 'flame'} size={18} /></span>
       <div class="tx">
         {#if o.kind === 'away'}
-          <b><span class="cool">{m.maison.away}</span> · {m.maison.awayLine(fmtTemp(o.temperature), end(o))}</b>
+          <b><span class="cool">{m.maison.away}</span> · {o.ends_at == null
+              ? m.maison.awayLineOpen(fmtTemp(o.temperature))
+              : m.maison.awayLine(fmtTemp(o.temperature), end(o))}</b>
           <span>{o.restoring ? m.maison.awayRestoring : offline.length ? m.maison.awayEveryBut(offline) : m.maison.awayEvery}</span>
         {:else}
           <b><span class="heat">{m.boost.title}</span> · {m.maison.boostLine(roomsOf(o.radiator_ids), fmtTemp(o.temperature), end(o))}</b>

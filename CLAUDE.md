@@ -155,6 +155,11 @@ depends on.
   that delete or migrate work in fixed batches.
 - **Restore order:** a restore sets the previous target first, then the mode, in one action. In
   programme mode the target is the remembered manual setpoint.
+- **Open-ended away** (« Jusqu’à mon retour »): an away override may have `ends_at = None` (API
+  `until: null`, views `ends_at: null` + `open_ended: true`); only a cancel ends it, then it restores
+  like any other. Away is manual mode at a setpoint, which the radiator keeps with no end of its own,
+  so nothing is re-sent while it runs. Only an away may be open-ended; `away_log` stores
+  `OPEN_END` until the real end. Web code reading `ends_at` handles `null`.
 - **Language:** user-facing strings (errors, labels, UI) exist in French and English and live
   only in `web/src/lib/i18n/fr.ts` and `en.ts` (`en` is typed from `fr`, so a missing key fails
   `npm run check`; `dictionaries.test.ts` checks both take the same parameters); never

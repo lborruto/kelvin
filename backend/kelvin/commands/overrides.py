@@ -40,7 +40,10 @@ class Override:
     kind: Kind
     radiator_ids: list[str]
     temperature: float
-    ends_at: float
+    # None: an open-ended away (« Jusqu’à mon retour »), ended only by the owner. Kelvin's away
+    # is manual mode at a setpoint (docs/overkiz-notes.md), which the radiator holds with no end
+    # of its own: nothing is re-sent while it runs.
+    ends_at: float | None
     previous: dict[str, dict[str, Any]] = field(default_factory=dict)
     room_id: str | None = None
     created_at: float = 0.0
@@ -55,6 +58,7 @@ class Override:
             "radiator_ids": list(self.radiator_ids),
             "temperature": self.temperature,
             "ends_at": self.ends_at,
+            "open_ended": self.ends_at is None,
             "restoring": self.restoring,
             # When it started (epoch s; None for a row stored before it was kept): the room chart
             # names that span « Chauffe temporaire » or « Absence ».
@@ -82,10 +86,18 @@ class Override:
         if o.room_id is not None and not isinstance(o.room_id, str):
             raise ValueError("bad room_id")
         o.temperature = float(o.temperature)
-        o.ends_at = float(o.ends_at)
+        if o.ends_at is not None:
+            o.ends_at = float(o.ends_at)
+        elif o.kind != "away":
+            raise ValueError("only an away may be open-ended")
         o.created_at = float(o.created_at)
         o.restoring = bool(o.restoring)
         return o
+
+
+def _end_order(o: Override) -> tuple[bool, float]:
+    """Soonest end first; an open-ended away after every dated one."""
+    return (o.ends_at is None, o.ends_at or 0.0)
 
 
 class OverrideManager:
@@ -121,12 +133,12 @@ class OverrideManager:
 
     def active(self) -> list[dict[str, Any]]:
         self._reap()
-        return [o.view() for o in sorted(self._items.values(), key=lambda o: o.ends_at)]
+        return [o.view() for o in sorted(self._items.values(), key=_end_order)]
 
     def peek(self) -> list[dict[str, Any]]:
         """The overrides as `active()` lists them, without settling finished restores: for
         readers that must never write (the MCP tools, Plan 13)."""
-        return [o.view() for o in sorted(self._items.values(), key=lambda o: o.ends_at)]
+        return [o.view() for o in sorted(self._items.values(), key=_end_order)]
 
     def _save(self, o: Override) -> None:
         self.db.execute(
@@ -266,7 +278,7 @@ class OverrideManager:
         kind: Kind,
         radiator_ids: list[str],
         temperature: float,
-        ends_at: float,
+        ends_at: float | None,
         *,
         label: Label | str,
         room_id: str | None = None,
@@ -279,7 +291,7 @@ class OverrideManager:
         kind: Kind,
         radiator_ids: list[str],
         temperature: float,
-        ends_at: float,
+        ends_at: float | None,
         label: Label | str,
         room_id: str | None,
     ) -> tuple[Override, Pending]:
@@ -290,7 +302,9 @@ class OverrideManager:
             if rid not in self.house.radiators:
                 raise CommandError("radiator_unknown_id")
         now = self.wall()
-        if ends_at <= now:
+        if ends_at is None and kind != "away":
+            raise ValueError("only an away may be open-ended")  # a boost has its duration
+        if ends_at is not None and ends_at <= now:
             raise CommandError("end_in_past")
         self._reap()
         rads = [self.house.radiators[i] for i in ids]
@@ -345,7 +359,10 @@ class OverrideManager:
             rp = self._restore_pending.get(o.id)
             if rp is not None and rp[0].active:
                 return rp[0]
-            o.ends_at = min(o.ends_at, self.wall())  # due now, so a failed restore is retried
+            now = self.wall()
+            o.ends_at = (
+                now if o.ends_at is None else min(o.ends_at, now)
+            )  # due now, so a failed restore is retried
             return await self._restore(o, force=True)
 
     async def tick(self) -> list[Pending]:
@@ -356,7 +373,7 @@ class OverrideManager:
             for o in sorted(self._items.values(), key=lambda o: o.created_at):
                 if o.id not in self._items:
                     continue  # removed while handling an earlier override
-                if o.ends_at > now and not o.restoring:
+                if (o.ends_at is None or o.ends_at > now) and not o.restoring:
                     if self._abandoned(o):
                         log.info("override %s no longer holds any radiator; dropped", o.id)
                         self._delete(o)
@@ -401,7 +418,7 @@ class OverrideManager:
             if not force:
                 ours = self._ours(o, r)
                 if ours is None:
-                    if now >= o.ends_at + UNLOADED_WAIT:
+                    if o.ends_at is not None and now >= o.ends_at + UNLOADED_WAIT:
                         # no radiator id in a log (CLAUDE.md: log no ids)
                         log.warning(
                             "override %s: a radiator's state still unknown; not restored", o.id

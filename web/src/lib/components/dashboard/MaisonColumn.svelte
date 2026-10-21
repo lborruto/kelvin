@@ -4,6 +4,7 @@
      A tile a room cannot use is absent, never greyed (capability gating). -->
 <script lang="ts">
   import type { Room } from '$lib/api/types';
+  import { boostEndMs } from '$lib/away';
   import { roomControls } from '$lib/capabilities';
   import { fmtTime, fmtWeekdayTime, parisTodayIso } from '$lib/format';
   import { m } from '$lib/i18n';
@@ -35,9 +36,9 @@
   let boosting = $derived(override?.kind === 'boost' && !override.restoring);
   let boostEnd = $derived(
     override?.kind === 'boost'
-      ? parisTodayIso(override.ends_at * 1000) === parisTodayIso(now)
-        ? fmtTime(override.ends_at * 1000)
-        : fmtWeekdayTime(override.ends_at * 1000)
+      ? parisTodayIso(boostEndMs(override)) === parisTodayIso(now)
+        ? fmtTime(boostEndMs(override))
+        : fmtWeekdayTime(boostEndMs(override))
       : ''
   );
   let program = $derived(sharedProgram(rads) ?? rads[0]?.program ?? null);

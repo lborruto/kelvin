@@ -145,3 +145,43 @@ test.describe('CLS when the weather reading arrives after the first frame', () =
     });
   }
 });
+
+// « Jusqu’à mon retour » (no end date) running: Maison's « Absence » chip, « En ce moment » row and the sidebar or
+// header button say « jusqu’à votre retour » from the first frame, and the Absence sheet opened from the chip shows
+// it without moving once open. (A cold load of /home#away while any absence runs, dated or not, draws the sheet's
+// form before the snapshot says an absence runs: 0.247 at 320 px on main too; not this test's subject.)
+test.describe('CLS with an open-ended absence running', () => {
+  test.skip(({ isMobile }) => isMobile, 'explicit widths');
+  test.use({ serviceWorkers: 'block' });
+  test('/ and its Absence sheet · open-ended absence · CLS < 0.05 at 320, 390 and 1440 px', async ({ page }) => {
+    test.setTimeout(120_000);
+    const started = await page.request.post('/api/house/away', { headers: { 'X-Kelvin': '1' }, data: { until: null, temperature: 12 } });
+    expect(started.status()).toBe(202);
+    const running = async () =>
+      ((await (await page.request.get('/api/house')).json()).overrides as { id: string; open_ended?: boolean }[]).find((o) => o.open_ended);
+    await expect.poll(async () => (await running()) ?? null, { timeout: 20_000 }).not.toBeNull();
+    try {
+      for (const width of [320, 390, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        const cls = await measureCls(page, '/', { fonts: 'blocked' });
+        expect(cls, `/ at ${width} px, open-ended absence`).toBeLessThan(0.05);
+        const chip = page.getByRole('group', { name: 'Résumés' }).getByRole('button', { name: /jusqu’à votre retour/ });
+        await expect(chip).toBeVisible();
+        // The sheet, opened by a tap: nothing in it moves once it is open (shifts after the tap's 500 ms).
+        await chip.click();
+        const sheet = page.getByRole('dialog', { name: 'Absence en cours' });
+        await expect(sheet.getByText(/^Absence jusqu’à votre retour · 12,0\s°C$/)).toBeVisible();
+        const before = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+        await page.waitForTimeout(1500);
+        const after = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+        expect(after - before, `the open sheet at ${width} px`).toBeLessThan(0.05);
+        await sheet.getByRole('button', { name: 'Fermer' }).click();
+      }
+    } finally {
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      const o = await running();
+      if (o) await page.request.delete(`/api/overrides/${o.id}`, { headers: { 'X-Kelvin': '1' } });
+      await expect.poll(async () => ((await (await page.request.get('/api/house')).json()).overrides as unknown[]).length, { timeout: 20_000 }).toBe(0);
+    }
+  });
+});

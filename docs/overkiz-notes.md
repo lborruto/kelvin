@@ -234,6 +234,21 @@ that took the away and went offline before its end is restored once it is back. 
 now behaves the same way (an `unavailable` device takes nothing; the action reports
 `FAILED ACTUATORNOANSWER`); the real failure code for an unreachable device is not recorded yet.
 
+## Open-ended away « Jusqu’à mon retour » (2026-10-21) — no new command
+
+Kelvin's away has never used a device-side derogation with a duration or an end date: it is the
+action verified above (« Mode and manual target », « One action, some radiators offline »),
+`setOperatingMode basic` + `setTargetTemperature <away °C>` per radiator, and its end is Kelvin's
+own restore (`setTargetTemperature <previous>` then `setOperatingMode <previous>`, one action). In
+`basic` the radiator holds its manual setpoint until told otherwise; the end time lives only in
+Kelvin's override. So an open-ended away is that same action with no end in Kelvin (`ends_at`
+null), restored when the owner presses « Terminer »: no new command shape, nothing re-armed or
+re-sent while it runs (no Overkiz execution beyond today's away), and the Sauter golden fixture is
+unchanged. How long a real radiator stays in `basic` with no command for weeks has not been
+observed; nothing in the verified behaviour suggests a time-out. Record here if one is seen (the
+override would then be judged « changed by hand » and dropped without a restore, as for any manual
+change, and the `away_open_long` reminder would stop).
+
 ## Multi-brand (2026-10-14) — UNVERIFIED
 
 Nothing in this section has been tried on a real device. It records what Kelvin sends for device

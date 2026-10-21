@@ -30,7 +30,7 @@
   /** The room whose sheet is open: its row is current, Maison is not. */
   let roomPath = $derived(path.startsWith('/rooms/') ? path : null);
   let away = $derived(house.away);
-  let awayLabel = $derived(away ? m.away.short(fmtWeekdayTime(away.ends_at * 1000)) : m.nav.away);
+  let awayLabel = $derived(away ? (away.ends_at == null ? m.away.shortOpen : m.away.short(fmtWeekdayTime(away.ends_at * 1000))) : m.nav.away);
   const current = (href: string) => (href === ROUTES.rooms && roomPath ? false : isActive(path, href));
 </script>
 

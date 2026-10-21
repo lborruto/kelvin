@@ -1,9 +1,16 @@
-// The Absence sheet's choices (direction-2 §3 « Absence sheet »): three stable presets and a precise date,
-// all in Paris wall time (the backend reads a naive `until` as the home's time zone).
-import type { Day } from './api/types';
+// The Absence sheet's choices (direction-2 §3 « Absence sheet »): three stable presets, « Jusqu’à mon retour »
+// (no end: `until: null`) and a precise date, all in Paris wall time (the backend reads a naive `until` as the
+// home's time zone).
+import type { Day, Override } from './api/types';
 import { addParisDays, parisAt, parisDayStart, parisMidnight, parisParts } from './time';
 
-export type AwayPreset = 'tomorrow' | 'sunday' | 'pick';
+export type AwayPreset = 'tomorrow' | 'sunday' | 'return' | 'pick';
+
+/** An absence with no end date: only « Terminer » ends it (`ends_at` null). */
+export const isOpenEnded = (o: Override): boolean => o.ends_at == null;
+
+/** A boost's end in ms: a boost always has one (only an away may be open-ended). */
+export const boostEndMs = (o: Override): number => (o.ends_at ?? 0) * 1000;
 
 /** The minimum lead of a precise date (the `datetime-local` `min`). */
 export const AWAY_MIN_LEAD_MS = 15 * 60_000;

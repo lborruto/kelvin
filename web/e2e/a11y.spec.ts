@@ -94,6 +94,31 @@ test.describe('accessibility (axe)', () => {
       await expect(page.getByRole('dialog', { name: 'Partir en absence' })).toBeVisible();
       expect(await violations(page)).toEqual([]);
     });
+
+    test(`« Jusqu’à mon retour »: the sheet and Maison while it runs · no serious or critical axe violation`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/home#away');
+      const sheet = page.getByRole('dialog', { name: 'Partir en absence' });
+      await sheet.getByRole('button', { name: 'Jusqu’à mon retour' }).click();
+      await expect(sheet.getByText(/jusqu’à votre retour, puis/)).toBeVisible();
+      expect(await violations(page)).toEqual([]);
+      await sheet.getByRole('button', { name: 'Partir' }).click();
+      await expect(sheet).toBeHidden();
+      const end = page.getByRole('button', { name: 'Terminer l’absence' });
+      try {
+        await expect(end).toBeVisible({ timeout: 20_000 });
+        await settled(page);
+        expect(await violations(page)).toEqual([]);
+        await end.click();
+        await expect(end).toBeHidden({ timeout: 20_000 });
+      } finally {
+        // Never leave an absence with no end running for the next tests.
+        const left = ((await (await page.request.get('/api/house')).json()).overrides as { id: string; kind: string; restoring: boolean }[]).find(
+          (o) => o.kind === 'away' && !o.restoring
+        );
+        if (left) await page.request.delete(`/api/overrides/${left.id}`, { headers: { 'X-Kelvin': '1' } });
+      }
+    });
   }
 });
 

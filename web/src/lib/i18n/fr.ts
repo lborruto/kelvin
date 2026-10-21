@@ -207,6 +207,7 @@ export const fr = {
     away: 'Absence',
     restoring: 'Rétablissement…',
     until: (temp: string, when: string) => `${temp} jusqu’à ${when}`,
+    untilReturn: (temp: string) => `${temp} jusqu’à votre retour`,
     comfortUntil: (when: string) => `Confort jusqu’à ${when}`,
     ecoUntil: (when: string) => `Éco jusqu’à ${when}`,
     steady: (level: string) => `${level} toute la semaine`,
@@ -941,6 +942,7 @@ export const fr = {
     tomorrow: (t: string) => `Demain ${t}`,
     sunday: (t: string) => `Dimanche ${t}`,
     pick: 'Date précise…',
+    untilReturn: 'Jusqu’à mon retour',
     pickField: 'Date et heure du retour',
     temperature: 'Température',
     tempLabel: 'Température d’absence',
@@ -950,6 +952,10 @@ export const fr = {
       n === 1
         ? `La pièce passera à ${temp} jusqu’à ${t}, puis reprendra son réglage.`
         : `Les ${int(n)} pièces passeront à ${temp} jusqu’à ${t}, puis reprendront leur réglage.`,
+    consequenceOpen: (n: number, temp: string) =>
+      n === 1
+        ? `La pièce passera à ${temp} jusqu’à votre retour, puis reprendra son réglage.`
+        : `Les ${int(n)} pièces passeront à ${temp} jusqu’à votre retour, puis reprendront leur réglage.`,
     offline: (names: string[], n: number) =>
       n === 1
         ? `${names[0]} est hors ligne${NB}: elle ne recevra peut-être pas la consigne.`
@@ -960,18 +966,23 @@ export const fr = {
     waiting: 'En attente de la connexion à Kelvin.',
     busy: 'Une commande pour toute la maison est déjà en cours.',
     started: (t: string) => `Absence jusqu’à ${t}.`,
+    startedOpen: 'Absence jusqu’à votre retour.',
     undo: 'Annuler l’absence',
     active: (t: string, temp: string) => `Absence jusqu’à ${t} · ${temp}`,
+    activeOpen: (temp: string) => `Absence jusqu’à votre retour · ${temp}`,
     activeLead: 'Toutes les pièces reprendront leur réglage à la fin.',
+    activeLeadOpen: 'Toutes les pièces reprendront leur réglage quand vous la terminerez.',
     extend: 'Prolonger…',
     endNow: 'Terminer maintenant',
-    short: (t: string) => `Absence · ${t}`
+    short: (t: string) => `Absence · ${t}`,
+    shortOpen: 'Absence en cours'
   },
   // Maison overview (UX batch 8).
   home: {
     allGood: 'Tout va bien',
     stateAlerts: (n: number) => `${int(n)} ${plural(n, { one: 'alerte', other: 'alertes' })}`,
     stateAway: (t: string) => `Absence jusqu’à ${t}`,
+    stateAwayOpen: 'Absence jusqu’à votre retour',
     restoring: 'Rétablissement en cours…',
     cardDevices: (rooms: number, radiators: number) =>
       `${int(rooms)} ${plural(rooms, { one: 'pièce', other: 'pièces' })} · ${int(radiators)} ${plural(radiators, { one: 'radiateur', other: 'radiateurs' })}`,
@@ -1019,7 +1030,9 @@ export const fr = {
     ecowatt: (level: number, when: string, hours: string | null) =>
       `EcoWatt ${level >= 3 ? 'rouge' : 'orange'} le ${when}${hours ? `, ${hours}` : ''}${NB}: ${level >= 3 ? 'système électrique très tendu, coupures possibles' : 'système électrique tendu'}.`,
     hcChanged: (slots: string) => `Enedis indique de nouvelles heures creuses${NB}: ${slots}.`,
-    hcAdd: 'Ajouter ces heures creuses'
+    hcAdd: 'Ajouter ces heures creuses',
+    awayOpenLong: (days: number) => `Absence en cours depuis ${int(days)}${NB}${plural(days, { one: 'jour', other: 'jours' })}.`,
+    awayOpenLink: 'Voir l’absence'
   },
   sessions: {
     title: 'Appareils connectés',
@@ -1633,6 +1646,7 @@ export const fr = {
     gridCalm: 'Rien à signaler',
     away: 'Absence',
     awayUntil: (t: string) => `jusqu’à ${t}`,
+    awayUntilReturn: 'jusqu’à votre retour',
     roomsSummary: (heating: number, offline: number, allOff: boolean) =>
       [allOff ? 'tout éteint' : heating ? `${int(heating)} en chauffe` : 'aucune en chauffe', offline ? `${int(offline)} hors ligne` : null]
         .filter(Boolean)
@@ -1659,6 +1673,7 @@ export const fr = {
     allOffOffline: (names: string[], n: number) =>
       n === 1 ? `${names[0]} est hors ligne${NB}: elle ne l’a peut-être pas reçu.` : `${list(names)} sont hors ligne${NB}: elles ne l’ont peut-être pas reçu.`,
     awayLine: (temp: string, t: string) => `${temp} jusqu’à ${t}`,
+    awayLineOpen: (temp: string) => `${temp} · jusqu’à votre retour`,
     awayEvery: 'toutes les pièces',
     awayEveryBut: (names: string[]) => `toutes les pièces · ${list(names)} hors ligne`,
     awayRestoring: 'Rétablissement en cours…',

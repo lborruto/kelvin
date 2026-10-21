@@ -111,6 +111,34 @@ async def test_away_and_house_off(ctx):
     assert all(r.mode == "off" for r in rt.house.radiators.values())
 
 
+async def test_open_ended_away_and_terminer(ctx):
+    """« Jusqu’à mon retour »: `until: null` starts an away with no end; the house view says so;
+    « Terminer » (DELETE) restores it. A body without `until` is still refused."""
+    c, rt, clock = ctx
+    assert (await c.post("/api/house/away", json={"temperature": 12.0})).status_code == 422
+    r = await c.post("/api/house/away", json={"until": None, "temperature": 12.0})
+    assert r.status_code == 202
+    await settle(rt, clock)
+    [o] = (await c.get("/api/house")).json()["overrides"]
+    assert o["kind"] == "away" and o["ends_at"] is None and o["open_ended"] is True
+    assert rt.published_overrides[0]["open_ended"] is True  # what the SSE `overrides` carried
+    assert all(r.target == 12.0 for r in rt.house.radiators.values() if r.mode == "manual")
+    assert (await c.delete(f"/api/overrides/{o['id']}")).status_code == 202
+    await settle(rt, clock)
+    rt.overrides.active()  # settles the confirmed restore
+    assert (await c.get("/api/house")).json()["overrides"] == []
+    assert rt.house.radiators["9500003"].mode == "program"
+
+
+async def test_dated_away_says_it_is_not_open_ended(ctx):
+    c, rt, clock = ctx
+    until = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    assert (await c.post("/api/house/away", json={"until": until})).status_code == 202
+    await settle(rt, clock)
+    [o] = (await c.get("/api/house")).json()["overrides"]
+    assert isinstance(o["ends_at"], float) and o["open_ended"] is False
+
+
 async def test_history(ctx):
     c, rt, _ = ctx
     rt.recorder.sample()

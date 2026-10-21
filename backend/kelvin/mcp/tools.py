@@ -185,6 +185,7 @@ async def overview(ctx: Any) -> dict[str, Any]:
             "radiator_ids": o["radiator_ids"],
             "temperature_c": o["temperature"],
             "ends_at": shape.iso(o["ends_at"], tz),
+            "open_ended": o["open_ended"],
             "restoring": o["restoring"],
         }
         for o in rt.overrides.peek()

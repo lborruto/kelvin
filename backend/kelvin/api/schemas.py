@@ -122,7 +122,10 @@ class BoostBody(BaseModel):
 
 
 class AwayBody(BaseModel):
-    until: datetime
+    # Required, and `null` on purpose: an open-ended away (« Jusqu’à mon retour »), ended only
+    # by « Terminer ». A body without `until` stays a 422, so a client that forgets the end
+    # never starts an absence without one by accident.
+    until: datetime | None
     temperature: float = 12.0
 
 

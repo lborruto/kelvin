@@ -8,6 +8,7 @@ import pytest
 from kelvin.alerts.rules import (
     RULES,
     AlertContext,
+    away_open_long,
     command_failed,
     consent_expiring,
     ecowatt,
@@ -356,7 +357,61 @@ def test_rules_table_names_the_plan_8_and_9_kinds():
         "tempo_red_tomorrow",
         "ecowatt",
         "hc_changed",
+        "away_open_long",
     }
+
+
+def _away(created_at, *, open_ended=True, restoring=False, oid="a1", kind="away"):
+    return {
+        "id": oid,
+        "kind": kind,
+        "room_id": None,
+        "radiator_ids": ["9500003"],
+        "temperature": 12.0,
+        "ends_at": None if open_ended else created_at + 30 * 86400,
+        "open_ended": open_ended,
+        "restoring": restoring,
+        "created_at": created_at,
+    }
+
+
+def test_away_open_long_reminds_after_seven_days_of_an_open_ended_away():
+    start = 1_800_000_000.0
+    c = actx()
+    c.overrides = [_away(start)]
+    assert away_open_long(c, start + 7 * 86400 - 1) == []
+    [got] = away_open_long(c, start + 7 * 86400)
+    assert (got.kind, got.key, got.severity) == ("away_open_long", "away_open_long:a1", "info")
+    assert got.params == {"since": start, "days": 7}
+    # The key stays the absence's: a dismissal holds while it runs; days follow in the params.
+    [later] = away_open_long(c, start + 10.5 * 86400)
+    assert later.key == got.key and later.params["days"] == 10
+
+
+def test_away_open_long_ignores_dated_ending_and_other_overrides():
+    start = 1_800_000_000.0
+    c = actx()
+    c.overrides = [
+        _away(start, open_ended=False, oid="d"),
+        _away(start, restoring=True, oid="r"),
+        _away(start, kind="boost", oid="b"),
+        {**_away(start, oid="old"), "created_at": None},
+    ]
+    assert away_open_long(c, start + 30 * 86400) == []
+
+
+def test_away_open_long_resolves_when_the_away_ends():
+    svc, store, clock, _ = make()
+    c = actx()
+    c.overrides = [_away(clock() - 8 * 86400)]
+    svc.rules = {"away_open_long": away_open_long}
+    svc.context = lambda: c
+    svc.evaluate()
+    [a] = store.listing("active")
+    assert a["kind"] == "away_open_long" and a["params"]["days"] == 8
+    c.overrides = []
+    svc.evaluate()
+    assert store.listing("active") == []
 
 
 def test_linky_stalled_ignores_a_malformed_last_day():

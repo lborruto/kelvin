@@ -32,7 +32,8 @@
     radiator_unreachable: 'plug-off',
     linky_stalled: 'clock',
     consent_expiring: 'key',
-    command_failed: 'alert'
+    command_failed: 'alert',
+    away_open_long: 'away'
   };
   const glyph = (a: Alert): IconName => GLYPH[a.kind] ?? 'alert';
   const bad = (a: Alert) => a.severity === 'bad' && a.kind !== 'radiator_unreachable';

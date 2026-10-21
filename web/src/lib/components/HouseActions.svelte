@@ -30,7 +30,9 @@
   let { stacked = false, program = false, away = true, awayText, icons = false, maison = false, menu = false, allOff: everythingOff = false }: Props = $props();
   // While an absence runs, the button says so in cool (« Absence · dim. 18:00 ») and opens it.
   let awayOn = $derived(house.away);
-  let awayLabel = $derived(awayOn ? m.away.short(fmtWeekdayTime(awayOn.ends_at * 1000)) : (awayText ?? m.nav.away));
+  let awayLabel = $derived(
+    awayOn ? (awayOn.ends_at == null ? m.away.shortOpen : m.away.short(fmtWeekdayTime(awayOn.ends_at * 1000))) : (awayText ?? m.nav.away)
+  );
   const openAway = (e: MouseEvent) => awaySheet.show(e.currentTarget as HTMLElement);
   // Mounted twice on Maison (desktop header, phone menu row): ids must be unique.
   const uid = $props.id();

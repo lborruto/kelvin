@@ -445,7 +445,7 @@ async def room_boost(room_id: str, body: BoostBody, request: Request):
 async def house_away(body: AwayBody, request: Request):
     rt = _rt(request)
     until = body.until
-    if until.tzinfo is None:
+    if until is not None and until.tzinfo is None:
         until = until.replace(tzinfo=ZoneInfo(rt.settings.tz))
     _, p = await rt.overrides.start(
         "away",
@@ -453,7 +453,7 @@ async def house_away(body: AwayBody, request: Request):
         # they are.
         [r.id for r in _capable(list(rt.house.radiators.values()), lambda c: c.boost)],
         body.temperature,
-        until.timestamp(),
+        None if until is None else until.timestamp(),  # None: until the owner's return
         label=Label.of("away", temperature=body.temperature),
     )
     rt.publish_overrides()
@@ -715,6 +715,7 @@ async def energy_day(
                     "kind": o["kind"],
                     "temperature": o["temperature"],
                     "ends_at": o["ends_at"],
+                    "open_ended": o["open_ended"],
                 }
                 for o in rt.overrides.active()
                 if set(o["radiator_ids"]) & set(ids)

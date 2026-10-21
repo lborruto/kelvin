@@ -14,6 +14,7 @@
   import { retry, run } from '$lib/actions';
   import { api } from '$lib/api/client';
   import { activityKey } from '$lib/activity';
+  import { boostEndMs } from '$lib/away';
   import { capsOf, isReadOnly, roomControls, roomRange } from '$lib/capabilities';
   import { fmtDayShort, fmtEurExact, fmtKwhExact, fmtPct, fmtTemp, fmtTempShort, fmtTime, fmtW } from '$lib/format';
   import { levelLabel, m, modeLabel } from '$lib/i18n';
@@ -444,8 +445,8 @@
         <span class="hd" aria-hidden="true"><Icon name="flame" size={18} /></span>
         <div class="bt">
           <h3 id="{uid}-boost-h"><span>{m.boost.title}</span>{' · '}<span class="num">{m.roomSheet.boostRunning(fmtTemp(override.temperature),
-              whenAhead(override.ends_at * 1000, now))}</span></h3>
-          <p>{override.restoring ? m.status.restoring : thenAt(override.ends_at * 1000)}</p>
+              whenAhead(boostEndMs(override), now))}</span></h3>
+          <p>{override.restoring ? m.status.restoring : thenAt(boostEndMs(override))}</p>
         </div>
         <button type="button" class="btn btn-sm" aria-disabled={paused || override.restoring}
           onclick={() => !paused && !override!.restoring && run(() => api.cancelOverride(override!.id))}>{m.boost.stop}</button>

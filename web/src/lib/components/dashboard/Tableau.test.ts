@@ -192,6 +192,21 @@ describe('Maison on the phone', () => {
     expect(api.cancelOverride).toHaveBeenCalledWith('o');
   });
 
+  it('an open-ended absence: « Absence · 12,0 °C · jusqu’à votre retour » with « Terminer »', async () => {
+    const away = { id: 'o', kind: 'away', room_id: null, radiator_ids: ['a', 'd'], temperature: 12, ends_at: null, open_ended: true, restoring: false };
+    load([room('salon', 'Salon', ['a']), room('ch2', 'Chambre 2', ['d'])], [rad('a', 'salon'), rad('d', 'ch2', { reachable: false })], [away]);
+    const { container } = render(Tableau);
+    await settle();
+    expect(screen.getByRole('group', { name: 'Résumés' })).toHaveTextContent('Absencejusqu’à votre retour');
+    const line = [...container.querySelectorAll('.tx b')].find((b) => b.textContent!.includes(' · '));
+    expect(line?.textContent).toMatch(/^Absence · 12,0\s°C · jusqu’à votre retour$/);
+    expect(container.querySelector('.rt.absence')).toHaveTextContent(`Absence · 12,0 °C`);
+    expect(screen.getByText('toutes les pièces · Chambre 2 hors ligne')).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/NaN|1970|Invalid/);
+    await fireEvent.click(screen.getByRole('button', { name: 'Terminer l’absence' }));
+    expect(api.cancelOverride).toHaveBeenCalledWith('o');
+  });
+
   it('alerts: a widget with its count, each row dismissable, « Masquer tout »; an offline radiator is never red', async () => {
     api.alerts.mockResolvedValue([
       { id: 1, kind: 'price_change', severity: 'warn', params: { date: '2027-02-01' }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false },

@@ -119,7 +119,7 @@ export function planAt(plan: Plan, t: number): { s: number | null; level: string
 /** The running override's name when it covers part of [t, t + step): « Chauffe temporaire », « Absence ». */
 export function overrideAt(o: Override | null | undefined, t: number, stepMs: number): string | null {
   if (!o || o.created_at == null) return null;
-  if (t >= o.ends_at * 1000 || t + stepMs <= o.created_at * 1000) return null;
+  if ((o.ends_at != null && t >= o.ends_at * 1000) || t + stepMs <= o.created_at * 1000) return null;
   return o.kind === 'boost' ? m.status.boost : m.status.away;
 }
 

@@ -645,12 +645,16 @@ seule sur ce serveur ». The page renders once the setup and `/auth/me` are know
 One Sheet (460 px `--pop` dialog with « Partir en absence » and ×; phone bottom sheet), mounted in the layout and
 opened from the sidebar « Partir… », Maison, the phone and `/home#away`; focus starts on the chosen chip. Lead 13.5
 muted; « Jusqu’à (heure de Paris) » (13 faint) over day chips (40 px, radius 12, s2; the chosen one ink,
-`aria-pressed`): « Demain 18:00 », « Dimanche 18:00 », « Date précise… » (a `datetime-local`); « Température » over a
+`aria-pressed`): « Demain 18:00 », « Dimanche 18:00 », « Jusqu’à mon retour » (no end date: the consequence reads
+« … jusqu’à votre retour, puis reprendront leur réglage. »), « Date précise… » (a `datetime-local`); « Température » over a
 block Stepper captioned « pendant l’absence » (7–19, 12,0 °C) and « hors-gel à partir de 7 °C »; the consequence in an
 s1 group (14.5 px, `aria-live`), each offline room on its own line with the plug-off glyph (« Chambre 2 est hors
 ligne : elle ne recevra peut-être pas la consigne. »). Footer: « Partir » (`.btn-lg` primary, away glyph, full width;
 paused with its reason while Kelvin is not connected or another house command is on its way), and « Annuler » on a
-phone. Running: « Absence en cours », the state in cool glyph, « Prolonger… » and « Terminer maintenant ».
+phone. Running: « Absence en cours », the state in cool glyph, « Prolonger… » and « Terminer maintenant ». An open-ended
+absence reads « Absence jusqu’à votre retour · 12,0 °C » here, « Absence · 12,0 °C · jusqu’à votre retour » with
+« Terminer » in Maison's « En ce moment », « jusqu’à votre retour » in the chip and « Absence en cours » on the sidebar
+button.
 
 ### Login
 Outside the shell, one 360 px column (full width with 16 px gutters on a phone): `Wordmark size="lg"` (ink K disc),

@@ -230,3 +230,51 @@ describe('AwaySheet focus', () => {
     opener.remove();
   });
 });
+
+describe('AwaySheet « Jusqu’à mon retour »', () => {
+  it('is a preset next to the others; its consequence has no date and keeps the offline note', async () => {
+    await open(THURSDAY);
+    const ret = screen.getByRole('button', { name: 'Jusqu’à mon retour' });
+    expect(ret).toHaveAttribute('aria-pressed', 'false');
+    await fireEvent.click(ret);
+    expect(ret).toHaveAttribute('aria-pressed', 'true');
+    expect(document.querySelector('input[type="datetime-local"]')).toBeNull();
+    expect(screen.getByText(/^Les 3 pièces passeront à 12,0\s°C jusqu’à votre retour, puis reprendront leur réglage\.$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Chambre 2 est hors ligne\s: elle ne recevra peut-être pas la consigne\.$/)).toBeInTheDocument();
+  });
+  it('one room: the singular sentence', async () => {
+    snapshot([rad('a', true), rad('b', true, false), rad('c', true, false)]);
+    await open(THURSDAY);
+    await fireEvent.click(screen.getByRole('button', { name: 'Jusqu’à mon retour' }));
+    expect(screen.getByText(/^La pièce passera à 12,0\s°C jusqu’à votre retour, puis reprendra son réglage\.$/)).toBeInTheDocument();
+  });
+  it('« Partir » sends `until: null`, closes, and the toast says « jusqu’à votre retour »', async () => {
+    await open(THURSDAY);
+    await fireEvent.click(screen.getByRole('button', { name: 'Jusqu’à mon retour' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Partir' }));
+    await waitFor(() => expect(api.houseAway).toHaveBeenCalledWith(null, 12));
+    await waitFor(() => expect(awaySheet.open).toBe(false));
+    expect(toasts.items.at(-1)!.text()).toBe('Absence jusqu’à votre retour.');
+  });
+  it('in English', async () => {
+    applyLocale('en');
+    await open(THURSDAY);
+    await fireEvent.click(screen.getByRole('button', { name: 'Until I’m back' }));
+    expect(screen.getByText(/^The 3 rooms will go to 12\.0\s°C until you’re back, then back to their settings\.$/)).toBeInTheDocument();
+  });
+  it('running: says it has no end, and « Terminer maintenant » ends it', async () => {
+    snapshot(undefined, [{ id: 'o2', kind: 'away', room_id: null, radiator_ids: ['a', 'b'], temperature: 12, ends_at: null, open_ended: true, restoring: false }]);
+    await open(THURSDAY);
+    expect(screen.getByText(/^Absence jusqu’à votre retour · 12,0\s°C$/)).toBeInTheDocument();
+    expect(screen.getByText('Toutes les pièces reprendront leur réglage quand vous la terminerez.')).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: 'Terminer maintenant' }));
+    expect(api.cancelOverride).toHaveBeenCalledWith('o2');
+  });
+  it('« Prolonger… » on an open-ended absence can set a date', async () => {
+    snapshot(undefined, [{ id: 'o2', kind: 'away', room_id: null, radiator_ids: ['a', 'b'], temperature: 12, ends_at: null, open_ended: true, restoring: false }]);
+    await open(THURSDAY);
+    await fireEvent.click(screen.getByRole('button', { name: 'Prolonger…' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Prolonger' }));
+    await waitFor(() => expect(api.houseAway).toHaveBeenCalledWith('2026-10-18T18:00', 12));
+  });
+});

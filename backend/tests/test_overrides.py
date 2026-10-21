@@ -646,3 +646,150 @@ async def test_an_offline_radiator_changed_by_hand_before_the_retry_is_left_alon
     assert await mgr.tick() == []
     assert len(gw.executed) == sent and house.radiators["9000022"].mode == "program"
     assert mgr.active() == []
+
+
+# « Jusqu’à mon retour »: an open-ended away (ends_at None). Kelvin's away is manual mode at a
+# setpoint, which the radiator holds with no end of its own (docs/overkiz-notes.md): nothing is
+# re-sent while it runs, and « Terminer » restores exactly as a dated away does.
+
+
+async def test_open_ended_away_runs_until_cancelled_and_restores(env):
+    clock, gw, house, svc, db, mgr = env
+    ids = ["9500003", "9000022"]  # programme 20.0 and off 16.5
+    o, p = await mgr.start("away", ids, 12.0, None, label="a")
+    await settle(clock, gw, house, svc)
+    assert p.status == "confirmed"
+    [v] = mgr.active()
+    assert v["ends_at"] is None and v["open_ended"] is True and v["kind"] == "away"
+    sent = len(gw.executed)
+    clock.advance(400 * 86400)  # far beyond any planned end: still running, nothing re-sent
+    assert await mgr.tick() == []
+    assert len(gw.executed) == sent
+    assert all(house.radiators[i].target == 12.0 for i in ids)
+    r = await mgr.cancel(o.id)
+    ended_at = clock()
+    sent_restore = [(c.device_url, c.name, c.parameters) for c in gw.executed[-1]]
+    h = {i: house.radiators[i].heater_url for i in ids}
+    assert sent_restore == [  # the restore order: target, then mode (CLAUDE.md)
+        (h["9500003"], "setTargetTemperature", (20.0,)),
+        (h["9500003"], "setOperatingMode", ("internal",)),
+        (h["9000022"], "setTargetTemperature", (16.5,)),
+        (h["9000022"], "setOperatingMode", ("standby",)),
+    ]
+    await settle(clock, gw, house, svc)
+    assert r.status == "confirmed"
+    assert house.radiators["9500003"].mode == "program"
+    assert house.radiators["9000022"].mode == "off"
+    assert mgr.active() == []
+    assert db.rows("SELECT id, start, end, ended FROM away_log") == [
+        (o.id, o.created_at, ended_at, 1)
+    ]
+
+
+async def test_open_ended_away_sends_what_a_dated_away_sends(env):
+    clock, gw, house, svc, _, mgr = env
+    await mgr.start("away", list(SALON), 12.0, clock() + 3600, label="a")
+    dated = [(c.device_url, c.name, c.parameters) for c in gw.executed[-1]]
+    await settle(clock, gw, house, svc)
+    clock2 = ManualClock(1_000_000.0)
+    gw2 = FakeGateway(clock=clock2)
+    house2 = build_house(gw2.root, list(gw2.devices.values()))
+    svc2 = CommandService(gw2, house2, clock=clock2, wall=clock2)
+    mgr2 = OverrideManager(Database(":memory:"), house2, svc2, wall=clock2)
+    await mgr2.start("away", list(SALON), 12.0, None, label="a")
+    assert [(c.device_url, c.name, c.parameters) for c in gw2.executed[-1]] == dated
+
+
+async def test_open_ended_away_survives_restart(env):
+    clock, gw, house, svc, db, mgr = env
+    o, _ = await mgr.start("away", list(house.radiators), 12.0, None, label="a")
+    await settle(clock, gw, house, svc)
+    mgr2 = OverrideManager(db, house, svc, wall=clock)
+    [v] = mgr2.active()
+    assert v["id"] == o.id and v["ends_at"] is None and v["open_ended"] is True
+    clock.advance(30 * 86400)
+    assert await mgr2.tick() == []
+    await mgr2.cancel(o.id)
+    await settle(clock, gw, house, svc)
+    assert house.radiators["9500003"].mode == "program"
+    assert house.radiators["9000022"].mode == "off"
+    assert mgr2.active() == []
+
+
+async def test_open_ended_away_restore_retries_an_offline_radiator(env):
+    clock, gw, house, svc, _, mgr = env
+    ids = [*SALON, "9000022"]
+    o, _ = await mgr.start("away", ids, 18.0, None, label="a")
+    await settle(clock, gw, house, svc)
+    _unplug(gw, house, "9000022")
+    r = await mgr.cancel(o.id)
+    await settle(clock, gw, house, svc)
+    assert r.status == "confirmed" and r.offline == ("9000022",)
+    [left] = mgr.active()
+    assert left["radiator_ids"] == ["9000022"] and left["restoring"] is True
+    assert left["ends_at"] is not None  # ended: its end is the time « Terminer » was pressed
+    url = house.radiators["9000022"].heater_url
+    gw.devices[url].states["core:StatusState"] = "available"
+    house.apply(StateChange(url, "core:StatusState", "available"), event=False)
+    clock.advance(RESTORE_RETRY_FIRST_S)
+    [again] = await mgr.tick()
+    await settle(clock, gw, house, svc)
+    assert again.status == "confirmed"
+    assert house.radiators["9000022"].mode == "off"
+    assert mgr.active() == []
+
+
+async def test_open_ended_away_sorts_after_dated_overrides(env):
+    clock, gw, house, svc, _, mgr = env
+    await mgr.start("away", list(SALON), 12.0, None, label="a")
+    await settle(clock, gw, house, svc)
+    await mgr.start("boost", ["9000022"], 21.0, clock() + 3600, label="b")
+    await settle(clock, gw, house, svc)
+    assert [o["kind"] for o in mgr.active()] == ["boost", "away"]
+    assert [o["kind"] for o in mgr.peek()] == ["boost", "away"]
+
+
+async def test_a_dated_away_replaces_an_open_ended_one(env):
+    """« Prolonger… » on an open-ended away sets a date: the radiators' saved state carries over."""
+    clock, gw, house, svc, _, mgr = env
+    first, _ = await mgr.start("away", ["9500003"], 12.0, None, label="a")
+    await settle(clock, gw, house, svc)
+    second, _ = await mgr.start("away", ["9500003"], 14.0, clock() + 600, label="a")
+    await settle(clock, gw, house, svc)
+    [v] = mgr.active()
+    assert v["id"] == second.id and v["open_ended"] is False
+    assert second.previous["9500003"] == {"mode": "program", "target": 20.0}
+    clock.advance(600)
+    await mgr.tick()
+    await settle(clock, gw, house, svc)
+    assert house.radiators["9500003"].mode == "program"
+
+
+async def test_only_an_away_may_be_open_ended(env):
+    clock, *_, mgr = env
+    with pytest.raises(ValueError):
+        await mgr.start("boost", ["9500003"], 21.0, None, label="b")
+
+
+async def test_a_stored_open_ended_boost_row_is_skipped(tmp_path):
+    db = Database(tmp_path / "k.db")
+    db.execute(
+        "INSERT INTO overrides (id, payload) VALUES (?, ?)",
+        (
+            "x",
+            json.dumps(
+                {
+                    "id": "x",
+                    "kind": "boost",
+                    "radiator_ids": ["9500003"],
+                    "temperature": 21.0,
+                    "ends_at": None,
+                }
+            ),
+        ),
+    )
+    clock = ManualClock(1_000_000.0)
+    gw = FakeGateway(clock=clock)
+    house = build_house(gw.root, list(gw.devices.values()))
+    svc = CommandService(gw, house, clock=clock, wall=clock)
+    assert OverrideManager(db, house, svc, wall=clock).active() == []
