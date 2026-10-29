@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from kelvin.devices.capabilities import COMFORT_MIN, ECO_RANGE
+from kelvin.devices.capabilities import COMFORT_MIN, eco_range
 from kelvin.devices.registry import DRYER_ACTIONS, PILOT_LEVELS
 from kelvin.errors import UserError
 from kelvin.house.model import DAY_ORDER, OVERKIZ_MODES, Radiator
@@ -172,7 +172,9 @@ def plan_setpoint(r: Radiator, kind: str, value: float) -> Planned:
         _check_temp(value, COMFORT_MIN, r.max_temperature, "comfort")
         cmd, state = "setComfortTemperature", "core:ComfortRoomTemperatureState"
     elif kind == "eco":
-        _check_temp(value, ECO_RANGE[0], ECO_RANGE[1], "eco")
+        # Never send a lowering the radiator refuses (Sauter refuses 1: docs/overkiz-notes.md).
+        lo, hi = eco_range(r)
+        _check_temp(value, lo, hi, "eco")
         cmd, state = "setEcoTemperature", "core:EcoRoomTemperatureState"
     else:
         raise CommandError("setpoint_kind_unknown", kind=kind)

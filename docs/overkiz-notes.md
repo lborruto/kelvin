@@ -63,6 +63,14 @@ device-by-device resync once fewer than two of the day's full setup reads are le
   - **In comfort**: a device dump captured later during a comfort period, shows `io:TargetHeatingLevelState='comfort'` and `io:EffectiveTemperatureSetpointState=20.0`, so effective = comfort.
 
   The device also exposes `io:SetpointLoweringTemperatureInProgModeState=3.0`, the same lowering. `setEcoTemperature(3.5)` set `core:EcoRoomTemperatureState=3.5`.
+- The **eco lowering is at least 2 °C on Sauter** (2026-10-28/29, read-only look at the owner's
+  command log, two HEKLA radiators in one room, comfort 20): `setEcoTemperature(1.0)` (Éco 19 °C)
+  was sent six times and the radiators refused it every time (Kelvin's `radiator_refused`: the
+  state never moved); `setEcoTemperature(2.0)` was confirmed; `setEcoTemperature(2.5)` ended
+  « superseded » (a newer command, not a refusal), and 3.5 was confirmed on 2026-10-13, so half
+  degrees stand. Kelvin's `setpoint_heater` profile therefore allows a lowering of [2, 8] where it
+  is `tested` (Sauter) and refuses anything else before sending (`temp_range`); the other servers
+  keep [1, 8] until verified. The upper bound 8 is not verified.
 - The **programme payload has the same shape as the state**: a list of 7 one-key dicts (monday…sunday), each with exactly 3 slots, unused slots `00:00–00:00`. `io:InternalExternalSchedulingTypeState` stays `internal`.
 - The **identify command is `identify`**; there is no state to expect.
 - **`OVERRIDEMODE_ERROR` is common**: comfort and eco both returned it on the first command although the state was applied. Device state is the only reliable confirmation.
@@ -266,7 +274,8 @@ to a verified section only after a real, reverted test (owner watching).
   houses use is a pyoverkiz 2.2.2 enum value (`tests/test_fake_houses.py` pins them).
 - **Adjustable-setpoint heaters on Atlantic/Thermor** (`AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint`):
   the Sauter profile, unchanged (`setOperatingMode` `standby`/`basic`/`internal`, `setTargetTemperature`,
-  `setComfortTemperature`, `setEcoTemperature`, `setTimeProgram`). Expected to behave as on Sauter.
+  `setComfortTemperature`, `setEcoTemperature`, `setTimeProgram`). Expected to behave as on Sauter,
+  except the eco lowering: Kelvin keeps [1, 8] there (Sauter's verified minimum of 2 is not assumed).
 - **Pilot-wire heaters** (`AtlanticElectricalHeater`): `setHeatingLevel(<level>)` with
   `comfort`, `comfort-1`, `comfort-2`, `eco`, `frostprotection`, `off` (only the values the state
   definition of `io:TargetHeatingLevelState` lists, when it lists any); confirmed by

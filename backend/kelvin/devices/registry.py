@@ -63,6 +63,12 @@ class Profile:
     # other kind too until a finer step is verified (docs/overkiz-notes.md).
     program_step: int = 30
     manual_min: float = 7.0
+    # The eco lowering below comfort (setEcoTemperature), in °C, 0.5 steps. `eco_offset` is what
+    # Kelvin allows where the hardware is not verified; `eco_offset_tested` replaces it where the
+    # profile is `tested`. Sauter setpoint heaters, verified 2026-10-28: 1 refused, 2 and 3.5
+    # accepted (docs/overkiz-notes.md), so [2, 8] there.
+    eco_offset: tuple[float, float] = (1.0, 8.0)
+    eco_offset_tested: tuple[float, float] | None = None
 
     def mode_of(self, value: Any) -> str:
         """Kelvin's mode for a reported value: off, manual, program or other."""
@@ -98,6 +104,7 @@ PROFILES: dict[str, Profile] = {
         modes={"off": P.STANDBY.value, "manual": P.BASIC.value, "program": P.INTERNAL.value},
         setbacks=True,
         program=True,
+        eco_offset_tested=(2.0, 8.0),
         **_MANUAL_SETPOINT,
     ),
     "pilot_wire_heater": Profile(

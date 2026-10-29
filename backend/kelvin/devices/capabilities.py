@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from kelvin.house.model import Radiator
 
 COMFORT_MIN = 12.0
-ECO_RANGE = (1.0, 8.0)
 MODE_ORDER = ("off", "manual", "program")
 
 
@@ -83,6 +82,15 @@ class Capabilities:
         }
 
 
+def eco_range(r: Radiator) -> tuple[float, float]:
+    """The eco lowering below comfort this radiator takes: its profile's verified range where
+    the profile is `tested` (Sauter setpoint heaters: [2, 8]), else the expected one ([1, 8])."""
+    p = PROFILES[r.kind]
+    if r.support == "tested" and p.eco_offset_tested is not None:
+        return p.eco_offset_tested
+    return p.eco_offset
+
+
 def capabilities(r: Radiator) -> Capabilities:
     energy = "energy" in r.urls
     if r.support == "readonly":
@@ -97,7 +105,7 @@ def capabilities(r: Radiator) -> Capabilities:
     comfort = (
         (COMFORT_MIN, hi) if p.setbacks and C.SET_COMFORT_TEMPERATURE.value in heater else None
     )
-    eco = ECO_RANGE if p.setbacks and C.SET_ECO_TEMPERATURE.value in heater else None
+    eco = eco_range(r) if p.setbacks and C.SET_ECO_TEMPERATURE.value in heater else None
     allowed = r.values.get(p.level_state or "")
     levels = (
         tuple(lv for lv in p.levels if not allowed or lv in allowed)

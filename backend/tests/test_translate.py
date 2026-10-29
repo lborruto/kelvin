@@ -51,6 +51,30 @@ def test_comfort_setpoint(r):
     assert p.expectations[0].name == "core:ComfortRoomTemperatureState"
 
 
+def test_sauter_refuses_an_eco_lowering_of_1_before_anything_is_sent(r):
+    # Verified 2026-10-28 on Sauter setpoint heaters: 1 refused by the radiator, 2 and 3.5 taken.
+    assert r.support == "tested"
+    with pytest.raises(CommandError) as e:
+        plan_setpoint(r, "eco", 1.0)
+    assert (e.value.code, e.value.params) == ("temp_range", {"kind": "eco", "min": 2.0, "max": 8.0})
+    with pytest.raises(CommandError):
+        plan_setpoint(r, "eco", 1.5)
+    for v in (2.0, 2.5, 8.0):  # half degrees stay allowed (3.5 verified)
+        assert plan_setpoint(r, "eco", v).commands[0].parameters == (v,)
+
+
+def test_other_servers_keep_the_expected_eco_range():
+    # Not verified elsewhere: an Atlantic adjustable-setpoint heater keeps [1, 8].
+    house = build_house(*sample_house(), server="atlantic_cozytouch")
+    r = house.radiators["9500003"]
+    assert (r.kind, r.support) == ("setpoint_heater", "expected")
+    assert r.capabilities.eco == (1.0, 8.0)
+    assert plan_setpoint(r, "eco", 1.0).commands[0].parameters == (1.0,)
+    with pytest.raises(CommandError) as e:
+        plan_setpoint(r, "eco", 0.5)
+    assert e.value.params == {"kind": "eco", "min": 1.0, "max": 8.0}
+
+
 def test_eco_setpoint_is_a_delta(r):
     p = plan_setpoint(r, "eco", 3.5)
     assert p.commands[0] == DeviceCommand(r.heater_url, "setEcoTemperature", (3.5,))
@@ -221,8 +245,8 @@ def test_command_errors_carry_codes_and_key_params(r):
     assert (e.value.code, e.value.params) == ("program_too_many", {"day": "sunday"})
     with pytest.raises(CommandError) as e:
         plan_setpoint(r, "eco", 9.0)
-    assert (e.value.code, e.value.params) == ("temp_range", {"kind": "eco", "min": 1.0, "max": 8.0})
-    assert str(e.value) == "L’abaissement éco doit être comprise entre 1 et 8 °C."
+    assert (e.value.code, e.value.params) == ("temp_range", {"kind": "eco", "min": 2.0, "max": 8.0})
+    assert str(e.value) == "L’abaissement éco doit être comprise entre 2 et 8 °C."
     with pytest.raises(CommandError) as e:
         plan_mode(r, "turbo")
     assert (e.value.code, e.value.params) == ("mode_unknown", {"mode": "turbo"})

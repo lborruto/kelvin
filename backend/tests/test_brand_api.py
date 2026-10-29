@@ -236,3 +236,38 @@ async def test_an_experimental_server_never_writes_the_setup(client_for):
         assert (r.status_code, r.json()["code"]) == (403, "setup_experimental")
     finally:
         await _close(manager, c)
+
+
+async def test_sauter_refuses_an_eco_lowering_below_2_before_sending(client_for):
+    """Verified on Sauter hardware (docs/overkiz-notes.md): a lowering of 1 is refused by the
+    radiator, 2 is taken. Kelvin refuses it first, with the range, and sends nothing."""
+    manager, c, rt, gw, clock = await client_for("sauter", "sauter_cozytouch")
+    try:
+        house = (await c.get("/api/house")).json()["house"]
+        assert {tuple(r["capabilities"]["eco"]) for r in house["radiators"]} == {(2.0, 8.0)}
+        before = len(gw.executed)
+        r = await c.post("/api/rooms/p-salon/setpoint", json={"kind": "eco", "value": 1.0})
+        assert r.status_code == 422
+        assert (r.json()["code"], r.json()["params"]) == (
+            "temp_range",
+            {"kind": "eco", "min": 2.0, "max": 8.0},
+        )
+        assert len(gw.executed) == before
+        r = await c.post("/api/rooms/p-salon/setpoint", json={"kind": "eco", "value": 2.5})
+        assert r.status_code == 202
+        await _settle(rt, clock)
+        assert {x[1:] for x in _sent(gw, before)} == {("setEcoTemperature", (2.5,))}
+    finally:
+        await _close(manager, c)
+
+
+async def test_atlantic_keeps_the_expected_eco_range(client_for):
+    manager, c, rt, gw, clock = await client_for("atlantic", "atlantic_cozytouch")
+    try:
+        house = (await c.get("/api/house")).json()["house"]
+        ecos = {
+            tuple(r["capabilities"]["eco"]) for r in house["radiators"] if r["capabilities"]["eco"]
+        }
+        assert ecos == {(1.0, 8.0)}
+    finally:
+        await _close(manager, c)
