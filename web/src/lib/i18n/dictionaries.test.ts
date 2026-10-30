@@ -124,6 +124,8 @@ export const ARGS: Record<string, unknown[]> = {
 export const SAME = new Set<string>([
   // Programme (Tableau batch): « S » is Saturday (and Sunday) in both languages
   'daysLetter.saturday', 'program.dayReason',
+  // The room sheet during Éco: « Confort · 20,0 °C » is a level and a figure
+  'roomSheet.levelValue',
   // Maison (Tableau): a date and a time, a range, arrows to a time, « Total », « Tempo Bleu », « ≈ 3,40 € »
   'maison.dateLine', 'maison.climateRange', 'maison.nextAt', 'maison.arrowAt', 'maison.arrowLevel', 'maison.billTotal', 'maison.tempo',
   'maison.yesterdayEur',
@@ -260,6 +262,10 @@ const SCANNER_BLIND = new Set([
   'weatherCost.excluded.away', 'weatherCost.dayRange', 'weatherCost.roomValue', 'weatherCost.roomRow', 'weatherCost.dayColour',
   // Réglages (Tableau settings batch): « 2 jetons MCP », « brouillon »
   'home.cardMcp',
+  // −/+ during an Éco period (2026-10-29): « Chauffer maintenant… »
+  'roomSheet.heatNow',
+  // The slider's reading tag « Actuel 17,6° »
+  'slider.current',
   'tariff.draft',
   // Programme (Tableau batch): day abbreviations and letters
   'daysAbbr.monday', 'daysAbbr.tuesday', 'daysAbbr.wednesday', 'daysAbbr.thursday', 'daysAbbr.friday', 'daysAbbr.saturday',

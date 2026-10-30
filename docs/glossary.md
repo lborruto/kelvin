@@ -66,6 +66,11 @@ English is en-GB: 24 h clock, `13 October 2026`, metric units, €. A new term g
 | Programme, températures, radiateurs | Schedule, temperatures, radiators | The phone room sheet's row that unfolds the rest |
 | Remettre en programme | Back to the schedule | Room sheet, when the room is off |
 | actuellement 19,6 °C | now 19.6 °C | The room sheet's caption under the setpoint (« Confort · actuellement … ») |
+| Pris en compte à la prochaine plage Confort (17:30) | Applies from the next comfort period (17:30) | Under the −/+ in Programme during an Éco period (−/+ always sets Confort); on a tile « Pris en compte à 17:30 » → “Applies at 17:30”. Its link « Chauffer maintenant… » → “Heat now…” opens Chauffe temporaire |
+| Pas encore envoyé | Not sent yet | A −/+ or slider value shown dashed while Kelvin waits 1,5 s for the last tap |
+| Actuel 17,6° | Now 17.6° | The room sheet slider's tag on the reading (muted), apart from the target's bubble « 20,5 °C » |
+| Températures · Salon | Temperatures · Salon | Programme's « Modifier les températures » sheet (Confort and Éco) |
+| Éco ne peut pas dépasser Confort − 2,0 °C | Eco cannot go above Comfort − 2.0 °C | « Températures du programme », at the eco limit; its link « Modifier Confort » → “Change Comfort” |
 | Toute la maison | Whole home | |
 | Réglages | Settings | The page at `/home` and its sub-pages since Tableau (was « Maison »); breadcrumbs « Réglages › Linky » → “Settings › Linky”. Its « Affichage » → “Display” (language, technical details; no theme: dark only); account and server are « Compte » → “Account” |
 | Sources de données | Data sources | Réglages › Sources de données (Cozytouch, Linky, RTE EcoWatt, Tempo) |

@@ -98,6 +98,10 @@ export const fr = {
     pending: (name: string) => `${name} (en attente)`
   },
   level: { comfort: 'Confort', eco: 'Éco', frostprotection: 'Hors-gel', off: 'Repos', mixed: 'Mixte' },
+  // The room sheet's vertical slider: the reading's tag (the target is the bubble).
+  slider: {
+    current: (t: string) => `Actuel ${t}`
+  },
   stepper: {
     decrease: (label: string) => `Diminuer ${label}`,
     increase: (label: string) => `Augmenter ${label}`,
@@ -328,6 +332,7 @@ export const fr = {
     offlineSend: `Pièce hors ligne${NB}: rien ne peut lui être envoyé.`,
     lastKnown: 'derniers connus',
     editTemps: 'Modifier les températures',
+    tempsTitle: (room: string) => `Températures · ${room}`,
     now: (level: string, when: string, next: string) => `Maintenant${NB}: ${level} · ${when} → ${next}`,
     nowSteady: (level: string) => `Maintenant${NB}: ${level}, sans changement cette semaine`,
     whenTomorrow: (time: string) => `demain ${time}`,
@@ -1655,6 +1660,7 @@ export const fr = {
     energyLink: 'Énergie',
     offNote: 'La pièce ne chauffe pas.',
     offNoteShort: 'Ne chauffe pas',
+    waitShort: (time: string | null) => (time ? `Pris en compte à ${time}` : 'À la prochaine plage Confort'),
     nextAt: (level: string, time: string) => `${level} → ${time}`,
     arrowAt: (time: string) => `→ ${time}`,
     arrowLevel: (level: string, time: string) => `→ ${level} ${time}`,
@@ -1723,6 +1729,7 @@ export const fr = {
     caption: (level: string, temp: string) => `${level} · actuellement ${temp}`,
     captionPaused: (level: string, temp: string) => `${level} · en pause · actuellement ${temp}`,
     now: (temp: string) => `actuellement ${temp}`,
+    levelValue: (level: string, temp: string) => `${level} · ${temp}`,
     sliderNote: `−/+ par 0,5${NB}°C · on peut aussi glisser le curseur`,
     offNote: 'Pas de consigne à l’arrêt',
     noReading: (when: string, n: number) =>
@@ -1737,6 +1744,11 @@ export const fr = {
     readSetpoint: 'Consigne lue',
     measured: 'Température mesurée',
     thenLevel: (level: string, temp: string) => `puis ${level} ${temp}`,
+    // −/+ always sets Confort in Programme (owner, 2026-10-29): during an Éco period it applies at the next comfort slot.
+    waitComfort: (time: string | null) => (time ? `Pris en compte à la prochaine plage Confort (${time})` : 'Pris en compte à la prochaine plage Confort'),
+    heatNow: 'Chauffer maintenant…',
+    ecoLimit: (delta: string) => `Éco ne peut pas dépasser Confort − ${delta}`,
+    editComfort: 'Modifier Confort',
     backToProgram: 'Remettre en programme',
     boostRunning: (temp: string, until: string) => `${temp} jusqu’à ${until}`,
     programTemps: 'Températures du programme',

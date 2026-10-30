@@ -218,16 +218,19 @@ describe('the room panel, in order', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it('left: name, state and reading, the large setpoint in force (Éco now) with −/+ and the slider; right: modes, status, then the sections in order', () => {
+  it('left: name, state and reading, the large Confort (Éco now) with −/+, the « prochaine plage » line and the slider; right: modes, status, then the sections in order', () => {
     load(one());
     const { container } = render(RoomPanel, { roomId: 'salon' });
     expect(container.querySelector('.head')).toHaveTextContent('Programme · 19,5 °C');
     expect(container.querySelector('.head .fig')!.getAttribute('style') ?? '').not.toMatch(/color/);
     expect(container.querySelector('.st')).toHaveTextContent('Programme · Éco jusqu’à 17:30');
-    const primary = screen.getByRole('group', { name: 'Consigne Éco' });
-    expect(primary.querySelector('output')).toHaveTextContent('17,0°');
-    expect(screen.getByText('Éco · actuellement 19,5 °C')).toBeInTheDocument();
-    expect(screen.getByRole('slider', { name: 'Consigne Éco' })).toHaveAttribute('aria-valuenow', '17');
+    // Programme: −/+ always sets Confort (owner, 2026-10-29), even during an Éco period.
+    const primary = screen.getByRole('group', { name: 'Consigne Confort' });
+    expect(primary.querySelector('output')).toHaveTextContent('20,0°');
+    expect(screen.getByText('Confort · 20,0 °C')).toBeInTheDocument();
+    expect(screen.queryByText(/^Éco · /)).toBeNull();
+    expect(container.querySelector('.wait')).toHaveTextContent('Pris en compte à la prochaine plage Confort (17:30) · Chauffer maintenant…');
+    expect(screen.getByRole('slider', { name: 'Consigne Confort' })).toHaveAttribute('aria-valuenow', '20');
     expect(screen.getByRole('radiogroup', { name: 'Mode de la pièce' })).toBeInTheDocument();
     const heads = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent?.trim().replace(/\s+/g, ' '));
     expect(heads.map((h) => h?.split(' ex.')[0])).toEqual(['Chauffe temporaire', 'Aujourd’hui', 'Énergie aujourd’hui', 'Températures du programme', 'Radiateurs · 1']);
@@ -259,8 +262,48 @@ describe('the room panel, in order', () => {
     const minus = screen.getByRole('button', { name: 'Diminuer Éco' });
     await fireEvent.pointerDown(minus);
     await fireEvent.pointerUp(minus);
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((r) => setTimeout(r, 1600));
     expect(api.roomSetpoint).toHaveBeenCalledWith('salon', 'eco', 3.5);
+  });
+
+  it('during Éco, the large −/+ sends Confort once the taps stop; « Chauffer maintenant… » opens Chauffe temporaire', async () => {
+    vi.useRealTimers();
+    Element.prototype.scrollIntoView ??= () => {}; // jsdom has none
+    load(one());
+    render(RoomPanel, { roomId: 'salon' });
+    const plus = screen.getByRole('button', { name: 'Augmenter Consigne Confort' });
+    for (let i = 0; i < 3; i++) {
+      await fireEvent.pointerDown(plus);
+      await fireEvent.pointerUp(plus);
+    }
+    expect(api.roomSetpoint).not.toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 1600));
+    expect(api.roomSetpoint).toHaveBeenCalledTimes(1);
+    expect(api.roomSetpoint).toHaveBeenCalledWith('salon', 'comfort', 21.5);
+    const disc = screen.getByRole('button', { name: /^Chauffe temporaire/ });
+    expect(disc).toHaveAttribute('aria-expanded', 'false');
+    await fireEvent.click(screen.getByRole('button', { name: 'Chauffer maintenant…' }));
+    expect(disc).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Lancer' })).toBeInTheDocument();
+  });
+
+  it('Éco stops at Confort − its smallest lowering (Sauter: 2 °C) and says so, with « Modifier Confort »', async () => {
+    vi.useRealTimers();
+    load(one({ eco_delta: 2.5, eco: 17.5 }));
+    const { container } = render(RoomPanel, { roomId: 'salon' });
+    const eco = screen.getByRole('group', { name: 'Éco' });
+    expect(container.querySelector('.limit')).toBeNull();
+    const up = screen.getByRole('button', { name: 'Augmenter Éco' });
+    await fireEvent.pointerDown(up);
+    await fireEvent.pointerUp(up);
+    // The draft reaches the limit: the line shows before anything is sent, and + stops there.
+    expect(eco).toHaveTextContent('18,0');
+    expect(container.querySelector('.limit')).toHaveTextContent('Éco ne peut pas dépasser Confort − 2,0 °C · Modifier Confort');
+    expect(up).toHaveAttribute('aria-disabled', 'true');
+    await fireEvent.click(screen.getByRole('button', { name: 'Modifier Confort' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Augmenter Confort' }));
+    await new Promise((r) => setTimeout(r, 1600));
+    expect(api.roomSetpoint).toHaveBeenCalledWith('salon', 'eco', 2);
   });
 
   it('Chauffe temporaire: a closed disclosure, then a sentence with its consequence, and Lancer', async () => {
@@ -406,7 +449,8 @@ describe('the room panel, in order', () => {
     load(one());
     const { container } = render(RoomPanel, { roomId: 'salon' });
     expect(container.querySelector('.st')).toHaveTextContent('Schedule · Eco until 17:30');
-    expect(screen.getByText('Eco · now 19.5 °C')).toBeInTheDocument();
+    expect(screen.getByText('Comfort · 20.0 °C')).toBeInTheDocument();
+    expect(container.querySelector('.wait')).toHaveTextContent('Applies from the next comfort period (17:30) · Heat now…');
     expect(screen.getByText('3.0 °C below comfort')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Edit schedule' })).toBeInTheDocument();
   });
