@@ -3,7 +3,7 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
-## Unreleased
+## 0.3.4
 
 - **−/+ now sets Confort in Programme**, whatever level runs now. During an Éco period the room says
   « Confort · 20,0 °C » under the control and « Pris en compte à la prochaine plage Confort (17:30) », with
