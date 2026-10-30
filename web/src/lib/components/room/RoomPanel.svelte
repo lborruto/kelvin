@@ -1,6 +1,6 @@
 <!-- A room in the room sheet (Tableau §4 « Room sheet », section 2 of the mockups). Desktop (`modal`): on the
-     left, close and ⋯, the name and its state, the large setpoint flanked by −/+ (the primary control: the
-     setpoint in force, decision 4) with its caption, the vertical slider (secondary, 0,5 °C steps); on the right
+     left, close and ⋯, the name and its state, the large setpoint flanked by −/+ (the primary control: Manuel's
+     setpoint, or Confort in Programme, with « Pris en compte à la prochaine plage Confort » during Éco) with its caption, the vertical slider (secondary, 0,5 °C steps); on the right
      the modes as circles, the status sentence, Chauffe temporaire (a launch form, or the running card with
      Arrêter), « Aujourd’hui » (the chart, the day bar, the room's figures), « Températures du programme »,
      « Radiateurs · n » and this month's kWh and €. Phone (`sheet`): the same in one column, the slider between
@@ -25,7 +25,7 @@
   import { provenance } from '$lib/provenance';
   import { agg } from '$lib/room';
   import { livePower } from '$lib/roomfacts';
-  import { primaryLabel, primarySetpoint, sendPrimary } from '$lib/setpoint';
+  import { nextComfortAt, primaryLabel, primarySetpoint, sendPrimary } from '$lib/setpoint';
   import { Settle } from '$lib/settle.svelte';
   import { radiatorTitle, roomName, whenText as atText } from '$lib/setup';
   import { reportedKey, requestKey, roomReading, roomStatus, sharedProgram, whenAhead, whenParts } from '$lib/status';
@@ -40,7 +40,6 @@
   import { ATTRIBUTION_URL } from '$lib/weather';
   import DayBar from '../DayBar.svelte';
   import GroupedList from '../GroupedList.svelte';
-  import ListRow from '../ListRow.svelte';
   import Fig from '../Fig.svelte';
   import Icon from '../Icon.svelte';
   import Menu from '../Menu.svelte';
@@ -55,6 +54,7 @@
   import ThermalStrip from '../ThermalStrip.svelte';
   import VSlider from '../VSlider.svelte';
   import ModeCircles from './ModeCircles.svelte';
+  import ProgramTemps from './ProgramTemps.svelte';
 
   interface Props {
     roomId: string;
@@ -90,8 +90,6 @@
   let rc = $derived(roomControls(radiators));
   let readonly = $derived(rc.controllable === 0);
   let canOff = $derived(radiators.some((r) => !isReadOnly(r) && capsOf(r).levels.includes('off')));
-  let comfortRange = $derived(roomRange(radiators, 'comfort'));
-  let ecoRange = $derived(roomRange(radiators, 'eco'));
   let manualRange = $derived(roomRange(radiators, 'manual'));
   let expected = $derived(house.roomExpected(roomId));
   let pending = $derived(room ? house.pendingFor(room.radiator_ids) : undefined);
@@ -267,8 +265,14 @@
     return null;
   });
   let shownTarget = $derived(p ? p.value : (status?.target ?? (status?.kind === 'window' ? kept : null)));
+  // −/+ in Programme is Confort: during an Éco period the line under it names Confort and its value (never « Éco »).
+  let primaryShown = $state<number | null>(null);
+  // The slider's target while it moves: the large figure above follows it live.
+  let sliderShown = $state<number | null>(null);
   let caption = $derived(
-    status?.kind === 'window'
+    p?.waiting
+      ? m.roomSheet.levelValue(m.level.comfort, fmtTemp(primaryShown ?? p.value))
+      : status?.kind === 'window'
       ? m.roomSheet.captionPaused(levelNow, fmtTemp(reading))
       : levelNow
         ? m.roomSheet.caption(levelNow, fmtTemp(reading))
@@ -313,9 +317,14 @@
     { label: m.roomSheet.devicesLink, icon: 'grid' as const, onselect: () => goto(ROUTES.devices) }
   ]);
 
-  const send = (v: number) => p && run(() => sendPrimary(roomId, p!, v, comfortNow, Date.now()));
+  const send = (v: number) => p && run(() => sendPrimary(roomId, p!, v, Date.now()));
+  // Programme in an Éco period: −/+ sets Confort, taken at the next comfort slot; « Chauffer maintenant… » opens the boost.
+  let waitAt = $derived(p?.waiting ? nextComfortAt(program, now) : null);
+  function heatNow() {
+    if (!boostOpen) openBoost();
+    else document.getElementById(`${uid}-boost`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
   const boost = () => !busy && !paused && run(() => api.roomBoost(roomId, boostTemp, boostHours * 60));
-  const setEco = (v: number) => comfortNow != null && run(() => api.roomSetpoint(roomId, 'eco', Math.round((comfortNow - v) * 2) / 2));
   function openBoost() {
     if (boosting) return;
     boostOpen = !boostOpen;
@@ -354,7 +363,7 @@
 {#snippet slider(h: number)}
   <VSlider value={p ? p.value : shownTarget} label={p ? m.roomSheet.setpoint(primaryLabel(p.kind)) : m.room.setpoint} min={Math.min(10, p?.min ?? 10)}
     max={Math.max(26, p?.max ?? 26)} measured={reading} dim={!p || paused} pending={p?.pending ?? false} width={phone ? 120 : 140} height={h}
-    onchange={(v) => send(v)} />
+    onchange={(v) => send(v)} bind:shown={sliderShown} />
 {/snippet}
 
 {#snippet hero()}
@@ -372,11 +381,12 @@
     <div class="slider">{@render slider(phone ? 220 : 300)}</div>
     <p class="note center">{m.roomSheet.offNote}</p>
   {:else if p}
-    {#snippet below()}<p class="cap">{caption}</p>{#if p!.kind === 'manual' && rc.manual < rc.total}<p class="note center">{m.roomCaps.partial(rc.manual, rc.total)}</p>{/if}{/snippet}
+    {#snippet below()}<p class="cap">{caption}</p>{#if p!.waiting}<p class="note center wait">{m.roomSheet.waitComfort(waitAt == null ? null : fmtTime(waitAt))}{#if rc.boost > 0 && !boosting}{' · '}<button
+            type="button" class="linkbtn" aria-disabled={paused} onclick={() => !paused && heatNow()}>{m.roomSheet.heatNow}</button>{/if}</p>{/if}{#if p!.kind === 'manual' && rc.manual < rc.total}<p class="note center">{m.roomCaps.partial(rc.manual, rc.total)}</p>{/if}{/snippet}
     {#snippet between()}{@render slider(phone ? (boosting || room?.window_open ? 196 : 250) : 300)}{/snippet}
     <div class="primary">
-      <Stepper size="lg" label={m.roomSheet.setpoint(primaryLabel(p.kind))} value={p.value} min={p.min} max={p.max} pending={p.pending}
-        disabled={!house.online} announce={false} format={(v) => fmtTempShort(v)} onchange={send} {below} between={phone ? between : undefined} />
+      <Stepper size="lg" label={m.roomSheet.setpoint(primaryLabel(p.kind))} value={sliderShown ?? p.value} min={p.min} max={p.max} pending={p.pending}
+        disabled={!house.online} announce={false} format={(v) => fmtTempShort(v)} onchange={send} {below} bind:shown={primaryShown} between={phone ? between : undefined} />
     </div>
     {#if !phone}<div class="slider">{@render slider(320)}</div><p class="note center">{m.roomSheet.sliderNote}</p>{/if}
   {:else}
@@ -519,30 +529,8 @@
 {/snippet}
 
 {#snippet temps()}
-  {#if !readonly && !offline && mode !== 'off' && (comfortRange || (ecoRange && comfortNow != null))}
-    <section aria-labelledby="{uid}-temps">
-      <GroupedList label={m.roomSheet.programTemps} id="{uid}-temps">
-        {#if comfortRange}
-          <div class="li trow">
-            <span class="sw comfort" aria-hidden="true"></span>
-            <span class="x">{m.room.comfort}{#if aComfort.mixed && expected.comfort === undefined}<small>{m.room.mixedMean}</small>{/if}{#if rc.comfort < rc.total}<small>{m.roomCaps.partial(rc.comfort, rc.total)}</small>{/if}</span>
-            <Stepper label={m.room.comfort} announce={false} value={comfortNow} min={comfortRange[0]} max={comfortRange[1]} disabled={paused}
-              pending={expected.comfort !== undefined} onchange={(v) => run(() => api.roomSetpoint(roomId, 'comfort', v))} />
-          </div>
-        {/if}
-        {#if ecoRange && comfortNow != null}
-          <div class="li trow">
-            <span class="sw eco" aria-hidden="true"></span>
-            <span class="x">{m.room.eco}{#if deltaNow != null}<small>{m.room.ecoBelow(fmtTemp(deltaNow))}</small>{/if}{#if aEco.mixed && expected.eco_delta === undefined}<small>{m.room.mixedMean}</small>{/if}{#if rc.eco < rc.total}<small>{m.roomCaps.partial(rc.eco, rc.total)}</small>{/if}</span>
-            <Stepper label={m.room.eco} announce={false} value={ecoNow} min={comfortNow - ecoRange[1]} max={comfortNow - ecoRange[0]}
-              pending={expected.eco_delta !== undefined} disabled={paused} onchange={setEco} />
-          </div>
-        {/if}
-        {#if rc.program > 0}
-          <ListRow label={m.room.editHours} href="{ROUTES.schedule}?room={encodeURIComponent(roomId)}" />
-        {/if}
-      </GroupedList>
-    </section>
+  {#if !readonly && !offline && mode !== 'off'}
+    <section><ProgramTemps {roomId} {paused} label={m.roomSheet.programTemps} editHours /></section>
   {/if}
 {/snippet}
 
@@ -866,6 +854,24 @@
   .note {
     font-size: 12.5px;
   }
+  .wait {
+    margin-top: 4px;
+  }
+  /* An inline action in a muted line (« Chauffer maintenant… », « Modifier Confort »): text, underlined. */
+  .linkbtn {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--tx);
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .linkbtn[aria-disabled='true'] {
+    opacity: 0.5;
+    cursor: default;
+  }
   /* Chauffe temporaire running: the heat-edged card with Arrêter (heat means a running boost). */
   .boostcard {
     display: flex;
@@ -1054,18 +1060,6 @@
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--line);
-  }
-  .trow {
-    gap: 12px;
-  }
-  .trow .x {
-    display: grid;
-    flex: 1;
-    min-width: 0;
-  }
-  .trow small {
-    color: var(--fa);
-    font-size: 12px;
   }
   section > :global(.rads) {
     padding: 0 16px;

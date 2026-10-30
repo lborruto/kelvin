@@ -94,6 +94,10 @@ export const en: Messages = {
     pending: (name: string) => `${name} (pending)`
   },
   level: { comfort: 'Comfort', eco: 'Eco', frostprotection: 'Frost protection', off: 'Idle', mixed: 'Mixed' },
+  // The room sheet's vertical slider: the reading's tag (the target is the bubble).
+  slider: {
+    current: (t: string) => `Now ${t}`
+  },
   stepper: {
     decrease: (label: string) => `Decrease ${label}`,
     increase: (label: string) => `Increase ${label}`,
@@ -316,6 +320,7 @@ export const en: Messages = {
     offlineSend: 'Room offline: nothing can be sent to it.',
     lastKnown: 'last known',
     editTemps: 'Edit temperatures',
+    tempsTitle: (room: string) => `Temperatures · ${room}`,
     now: (level: string, when: string, next: string) => `Now: ${level} · ${when} → ${next}`,
     nowSteady: (level: string) => `Now: ${level}, no change this week`,
     whenTomorrow: (time: string) => `tomorrow ${time}`,
@@ -1602,6 +1607,7 @@ export const en: Messages = {
     energyLink: 'Energy',
     offNote: 'The room isn’t heating.',
     offNoteShort: 'Not heating',
+    waitShort: (time: string | null) => (time ? `Applies at ${time}` : 'From the next comfort period'),
     nextAt: (level: string, time: string) => `${level} → ${time}`,
     arrowAt: (time: string) => `→ ${time}`,
     arrowLevel: (level: string, time: string) => `→ ${level} ${time}`,
@@ -1669,6 +1675,7 @@ export const en: Messages = {
     caption: (level: string, temp: string) => `${level} · now ${temp}`,
     captionPaused: (level: string, temp: string) => `${level} · paused · now ${temp}`,
     now: (temp: string) => `now ${temp}`,
+    levelValue: (level: string, temp: string) => `${level} · ${temp}`,
     sliderNote: `−/+ by 0.5${NB}°C · you can also drag the slider`,
     offNote: 'No setpoint while off',
     noReading: (when: string, n: number) =>
@@ -1683,6 +1690,10 @@ export const en: Messages = {
     readSetpoint: 'Setpoint read',
     measured: 'Measured temperature',
     thenLevel: (level: string, temp: string) => `then ${level} ${temp}`,
+    waitComfort: (time: string | null) => (time ? `Applies from the next comfort period (${time})` : 'Applies from the next comfort period'),
+    heatNow: 'Heat now…',
+    ecoLimit: (delta: string) => `Eco cannot go above Comfort − ${delta}`,
+    editComfort: 'Change Comfort',
     backToProgram: 'Back to the schedule',
     boostRunning: (temp: string, until: string) => `${temp} until ${until}`,
     programTemps: 'Schedule temperatures',

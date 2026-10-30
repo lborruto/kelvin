@@ -14,7 +14,7 @@ export function capsOf(r: Radiator): Capabilities {
       modes: [...MODE_ORDER],
       manual: [7, r.max_temperature],
       comfort: [12, r.max_temperature],
-      eco: [1, 8],
+      eco: [2, 8], // Sauter: a lowering of 1 is refused (docs/overkiz-notes.md)
       levels: [],
       program: true,
       program_step_minutes: 30,

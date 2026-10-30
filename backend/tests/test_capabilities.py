@@ -74,7 +74,7 @@ def test_the_sauter_radiators_keep_every_control():
             "modes": ["off", "manual", "program"],
             "manual": [7.0, 28.0],
             "comfort": [12.0, 28.0],
-            "eco": [1.0, 8.0],
+            "eco": [2.0, 8.0],  # verified on Sauter: 1 refused (docs/overkiz-notes.md)
             "levels": [],
             "program": True,
             "program_step_minutes": 30,

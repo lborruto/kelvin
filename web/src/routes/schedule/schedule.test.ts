@@ -17,7 +17,7 @@ const media = vi.hoisted(() => ({ desktop: { matches: true } }));
 vi.mock('$lib/media.svelte', () => media);
 vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
 vi.mock('$lib/api/client', () => ({
-  api: { roomProgram: vi.fn() },
+  api: { roomProgram: vi.fn(), roomSetpoint: vi.fn().mockResolvedValue({ pending: null }) },
   ApiError: class extends Error {
     constructor(
       public status: number,
@@ -68,6 +68,34 @@ beforeEach(() => {
   state.page.url = new URL('http://kelvin.test/schedule');
   house.pending = {};
   snapshot([salonRoom], [rad]);
+});
+
+describe('/schedule: « Modifier les températures » (a compact sheet over Programme)', () => {
+  it('Confort and Éco in a sheet, Éco stops at Confort − 2 °C with « Modifier Confort »; closing sends the waiting value once', async () => {
+    house.connection = 'open';
+    vi.mocked(api.roomSetpoint).mockClear();
+    render(Page);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Modifier les températures' }));
+    const sheet = screen.getByRole('dialog', { name: 'Températures · Salon' });
+    expect(within(sheet).getByRole('group', { name: 'Confort' })).toHaveTextContent('19,0');
+    const eco = within(sheet).getByRole('group', { name: 'Éco' });
+    expect(eco).toHaveTextContent('16,0');
+    expect(sheet).toHaveTextContent('3,0 °C sous le confort');
+    const up = within(sheet).getByRole('button', { name: 'Augmenter Éco' });
+    for (let i = 0; i < 3; i++) {
+      await fireEvent.pointerDown(up);
+      await fireEvent.pointerUp(up);
+    }
+    expect(eco).toHaveTextContent('17,0');
+    expect(sheet.querySelector('.limit')).toHaveTextContent('Éco ne peut pas dépasser Confort − 2,0 °C · Modifier Confort');
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Modifier Confort' }));
+    expect(document.activeElement).toBe(within(sheet).getByRole('button', { name: 'Augmenter Confort' }));
+    expect(api.roomSetpoint).not.toHaveBeenCalled();
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Fermer' }));
+    expect(api.roomSetpoint).toHaveBeenCalledTimes(1);
+    expect(api.roomSetpoint).toHaveBeenCalledWith('salon', 'eco', 2);
+    expect(screen.queryByRole('dialog', { name: 'Températures · Salon' })).toBeNull();
+  });
 });
 
 const row = (day: string) => screen.getByRole('button', { name: new RegExp(`^${day},`) });
@@ -300,7 +328,9 @@ describe('/schedule: what the page says', () => {
       const { container } = render(Page);
       await screen.findByRole('button', { name: /^Jeudi,/ });
       expect(container.querySelector('.temps')).toHaveTextContent(/Confort\s19,0\s°C\s*Éco\s17,0\s°C/);
-      expect(screen.getByRole('link', { name: 'Modifier les températures' })).toHaveAttribute('href', '/schedule?sheet=salon'); // over Programme, never via Maison
+      // A compact sheet over Programme (Confort and Éco), never a trip to the room.
+      const edit = screen.getByRole('button', { name: 'Modifier les températures' });
+      expect(edit).toHaveAttribute('aria-haspopup', 'dialog');
       expect(screen.getByText(/^Maintenant\s:\sConfort · 23:00 → Éco$/)).toBeInTheDocument();
       expect(screen.getByText('Hors des plages Confort, la pièce est en Éco.')).toBeInTheDocument();
       const how = screen.getByRole('button', { name: 'Comment modifier\u00a0?' });
@@ -503,7 +533,7 @@ describe('/schedule in English', () => {
     expect(screen.getByRole('heading', { name: 'Schedule', level: 1 })).toBeInTheDocument();
     expect(await screen.findByText('Outside comfort periods, the room is on eco.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'How to edit' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Edit temperatures' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit temperatures' })).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: /^Monday,/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Add a period on Monday' }));
     expect(screen.getByText('1 day changed')).toBeInTheDocument();
@@ -722,7 +752,7 @@ describe('/schedule: the Tableau agenda', () => {
     expect(container.querySelector('.cal.compact')).not.toBeNull();
     expect(screen.getByText('Touchez un jour pour l’éditer.')).toBeInTheDocument();
     // The temperatures stay one tap away on a phone too.
-    expect(screen.getByRole('link', { name: 'Modifier les températures' })).toHaveAttribute('href', '/schedule?sheet=salon');
+    expect(screen.getByRole('button', { name: 'Modifier les températures' })).toBeInTheDocument();
     expect(container.querySelector('[data-lock="saturday"]')).toHaveTextContent(/^Samedi · Plage non reconnue/);
     const how = screen.getByRole('button', { name: 'Comment modifier ?' });
     await fireEvent.click(how);

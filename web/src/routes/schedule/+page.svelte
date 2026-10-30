@@ -7,8 +7,10 @@
   import { DAYS, type Day, type Pending } from '$lib/api/types';
   import { run, retry } from '$lib/actions';
   import { api, ApiError } from '$lib/api/client';
-  import { capsOf, programRooms } from '$lib/capabilities';
+  import { capsOf, programRooms, roomRange } from '$lib/capabilities';
   import ChoiceSheet from '$lib/components/ChoiceSheet.svelte';
+  import ProgramTemps from '$lib/components/room/ProgramTemps.svelte';
+  import Sheet from '$lib/components/Sheet.svelte';
   import DayEditor from '$lib/components/DayEditor.svelte';
   import GroupedList from '$lib/components/GroupedList.svelte';
   import ListRow from '$lib/components/ListRow.svelte';
@@ -21,7 +23,7 @@
   import { desktop } from '$lib/media.svelte';
   import { dur, easeOut, T } from '$lib/motion';
   import { m, pendingError } from '$lib/i18n';
-  import { ROUTES, roomSheetHref } from '$lib/paths';
+  import { ROUTES } from '$lib/paths';
   import {
     baseOf,
     changedDays,
@@ -222,6 +224,14 @@
     return r ? roomName(r) : id;
   };
   let room = $derived(roomId ? house.room(roomId) : undefined);
+  // « Modifier les températures »: Confort and Éco in a compact sheet, when a radiator of the room takes them.
+  let tempsEditable = $derived(!!roomId && (!!roomRange(house.roomRadiators(roomId), 'comfort') || !!roomRange(house.roomRadiators(roomId), 'eco')));
+  let tempsOpen = $state(false);
+  let tempsTrigger = $state<HTMLElement | null>(null);
+  function openTemps(el: HTMLElement) {
+    tempsTrigger = el;
+    tempsOpen = true;
+  }
   let roomOptions = $derived(
     rooms.map((r) => ({ value: r.id, label: roomName(r), hint: isOffline(r.id) ? m.program.offline : undefined }))
   );
@@ -387,8 +397,9 @@
     {#if offline}
       <span class="muted small">{m.program.lastKnown}</span>
     {:else if !compact && roomId}
-      <!-- The room sheet opens over Programme (`?sheet=`): the week and its unsent edits stay as they are. -->
-      <a class="link" href={roomSheetHref(page.url, roomId)} data-sveltekit-noscroll data-sveltekit-keepfocus>{m.program.editTemps}<Icon name="chevron" size={14} /></a>
+      <!-- A compact sheet over Programme (owner, 2026-10-29): Confort and Éco only, the week and its unsent edits stay. -->
+      {#if tempsEditable}<button type="button" class="link" aria-haspopup="dialog" onclick={(e) => openTemps(e.currentTarget)}>{m.program.editTemps}<Icon
+          name="chevron" size={14} /></button>{/if}
     {/if}
   </div>
 {/snippet}
@@ -567,6 +578,12 @@
     {/if}
     {#if !desktop.matches || offline}<div class="foot">{@render sendArea()}</div>{/if}
   {/if}
+{/if}
+
+{#if house.loaded && roomId}
+  <Sheet title={m.program.tempsTitle(roomTitle(roomId))} open={tempsOpen} trigger={tempsTrigger} onclose={() => (tempsOpen = false)} width={420}>
+    <div class="temps-sheet"><ProgramTemps roomId={roomId} paused={!house.online || offline} /></div>
+  </Sheet>
 {/if}
 
 <!-- Outside the week/day branches: the day view's send bar opens it too. -->
@@ -749,7 +766,15 @@
   .small {
     font-size: 12px;
   }
+  .temps-sheet {
+    padding-bottom: 8px;
+  }
   .link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 2px;

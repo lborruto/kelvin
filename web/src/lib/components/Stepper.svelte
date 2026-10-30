@@ -1,11 +1,12 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  import { untrack, type Snippet } from 'svelte';
   import { fmtTemp } from '$lib/format';
   import { m } from '$lib/i18n';
   import { Settle } from '$lib/settle.svelte';
   import { announcer } from '$lib/stores/announcer.svelte';
   import Icon from './Icon.svelte';
   import PendingEdge from './PendingEdge.svelte';
+  import { HOLD_DELAY_MS, HOLD_REPEAT_MS, SEND_IDLE_MS } from '$lib/send';
 
   interface Props {
     value: number | null;
@@ -15,6 +16,8 @@
     label: string;
     pending?: boolean;
     disabled?: boolean;
+    /** The idle time after the last tap (or the release of a hold) before the one send. 0 (a local value, nothing
+     * sent): every step reports at once. */
     debounceMs?: number;
     format?: (v: number | null) => string;
     /** Announce each committed value; off where the command's own progress is announced. */
@@ -32,16 +35,26 @@
     below?: Snippet;
     /** `lg` only (the phone room sheet): drawn between the − and + discs, the value and `below` above them (the slider). */
     between?: Snippet;
+    /** The group's id (a « Modifier Confort » link focuses it). */
+    id?: string;
+    /** Read-out of the value on screen (sent or not): a caller's note follows the draft, not only the radiator. */
+    shown?: number | null;
   }
   let {
     value, min, max, step = 0.5, label, pending = false, disabled = false,
-    debounceMs = 600, format = (v) => fmtTemp(v), announce = true, onchange, caption, size = 'md', block = false, below, between
+    debounceMs = SEND_IDLE_MS, format = (v) => fmtTemp(v), announce = true, onchange, caption, size = 'md', block = false, below, between,
+    id, shown: shownOut = $bindable(null)
   }: Props = $props();
 
   const FALLBACK_MS = 10_000;
   let local = $state<number | null>(null);
-  let committed = false;
+  // `committed`: the draft was sent (waiting for the radiator); a draft not yet sent is dashed too (« pas encore envoyé »).
+  let committed = $state(false);
   let shown = $derived(local ?? value);
+  let unsent = $derived(local !== null && !committed && local !== value);
+  $effect(() => {
+    shownOut = shown;
+  });
   // The value the radiator was asked for; confirmed when it reports exactly that (shared rule).
   const settle = new Settle(() => (pending ? (local ?? value) : null), () => value);
   // At a bound the button stays focusable (aria-disabled): a disabled button would drop focus to <body>.
@@ -51,6 +64,7 @@
   let holdTimer: ReturnType<typeof setTimeout> | undefined;
   let repeatTimer: ReturnType<typeof setInterval> | undefined;
   let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+  let holding = false;
 
   function release() {
     clearTimeout(fallbackTimer);
@@ -62,7 +76,7 @@
   let prevValue: number | null | undefined;
   $effect(() => {
     const v = value;
-    if (prevValue !== undefined && v !== prevValue && committed) release();
+    if (prevValue !== undefined && v !== prevValue && untrack(() => committed)) release();
     prevValue = v;
   });
 
@@ -70,41 +84,62 @@
   let prevPending = false;
   $effect(() => {
     const p = pending;
-    if (prevPending && !p && committed) release();
+    if (prevPending && !p && untrack(() => committed)) release();
     prevPending = p;
   });
 
-  $effect(() => () => {
+  // Closing the sheet or leaving the page while a draft waits sends it now rather than dropping it.
+  function flush() {
     clearTimeout(commitTimer);
-    clearTimeout(fallbackTimer);
+    commitTimer = undefined;
     stopHold();
+    holding = false;
+    if (local !== null && !committed && local !== value) commit();
+  }
+  $effect(() => {
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      flush();
+      clearTimeout(fallbackTimer);
+      stopHold();
+    };
   });
 
   function clamp(v: number) {
     return Math.min(max, Math.max(min, Math.round(v / step) * step));
   }
 
-  function bump(dir: 1 | -1) {
-    if (disabled) {
-      stopHold();
+  /** Restart the idle wait: the one send happens `debounceMs` after the last interaction. */
+  function arm() {
+    clearTimeout(commitTimer);
+    commitTimer = undefined;
+    if (local === null || committed) return;
+    if (debounceMs <= 0) {
+      commit();
       return;
     }
+    commitTimer = setTimeout(() => {
+      commitTimer = undefined;
+      commit();
+    }, debounceMs);
+  }
+
+  function bump(dir: 1 | -1): boolean {
+    if (disabled) return false;
     // No known value (e.g. radiators disagree and nothing aggregated it): nothing to step from.
     const base = local ?? value;
-    if (base === null) {
-      stopHold();
-      return;
-    }
+    if (base === null) return false;
     const next = clamp(base + dir * step);
-    if (next === base || next === local) {
-      stopHold();
-      return;
-    }
+    if (next === base) return false;
     local = next;
     committed = false;
     clearTimeout(fallbackTimer);
+    // Nothing goes out while a press is held; the wait starts at its release.
     clearTimeout(commitTimer);
-    commitTimer = setTimeout(commit, debounceMs);
+    commitTimer = undefined;
+    if (!holding || debounceMs <= 0) arm();
+    return true;
   }
 
   function commit() {
@@ -131,10 +166,17 @@
   function startHold(e: PointerEvent, dir: 1 | -1) {
     if (e.button !== 0) return;
     stopHold();
-    bump(dir);
+    holding = true;
+    if (!bump(dir)) {
+      endHold();
+      return;
+    }
+    // Press and hold: after 500 ms, one step every 150 ms; still one send, after the release.
     holdTimer = setTimeout(() => {
-      repeatTimer = setInterval(() => bump(dir), 120);
-    }, 400);
+      repeatTimer = setInterval(() => {
+        if (!bump(dir)) clearInterval(repeatTimer);
+      }, HOLD_REPEAT_MS);
+    }, HOLD_DELAY_MS);
   }
 
   function stopHold() {
@@ -142,25 +184,38 @@
     clearInterval(repeatTimer);
   }
 
+  function endHold() {
+    if (!holding) return;
+    holding = false;
+    stopHold();
+    arm();
+  }
+
   function key(e: KeyboardEvent, dir: 1 | -1) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       bump(dir);
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      bump(1);
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      bump(-1);
     }
   }
 </script>
 
-<div class="stepper {size}" class:pending class:block class:inert={disabled} class:around={!!between} class:with-below={!!below} role="group"
-  aria-label={label}>
+<div class="stepper {size}" class:pending={pending || unsent} class:block class:inert={disabled} class:around={!!between} class:with-below={!!below} role="group"
+  aria-label={label} {id}>
   <button type="button" class="hit dec" aria-label={m.stepper.decrease(label)} aria-disabled={atMin}
-    onpointerdown={(e) => startHold(e, -1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
+    onpointerdown={(e) => startHold(e, -1)} onpointerup={endHold} onpointerleave={endHold} onpointercancel={endHold}
     onkeydown={(e) => key(e, -1)}><Icon name="minus" size={size === 'lg' ? 24 : size === 'sm' ? 15 : 17} /></button>
-  <output class="num">{#if caption}<small aria-hidden="true">{caption}</small>{/if}<span class="val">{format(shown)}<PendingEdge {pending}
+  <output class="num">{#if caption}<small aria-hidden="true">{caption}</small>{/if}<span class="val">{format(shown)}<PendingEdge pending={pending || unsent}
         confirmed={settle.confirmed} /></span></output>
   {#if below}<div class="below">{@render below()}</div>{/if}
   {#if between}<div class="mid">{@render between()}</div>{/if}
   <button type="button" class="hit inc" aria-label={m.stepper.increase(label)} aria-disabled={atMax}
-    onpointerdown={(e) => startHold(e, 1)} onpointerup={stopHold} onpointerleave={stopHold} onpointercancel={stopHold}
+    onpointerdown={(e) => startHold(e, 1)} onpointerup={endHold} onpointerleave={endHold} onpointercancel={endHold}
     onkeydown={(e) => key(e, 1)}><Icon name="plus" size={size === 'lg' ? 24 : size === 'sm' ? 15 : 17} /></button>
 </div>
 

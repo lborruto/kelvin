@@ -3,6 +3,27 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## Unreleased
+
+- **−/+ now sets Confort in Programme**, whatever level runs now. During an Éco period the room says
+  « Confort · 20,0 °C » under the control and « Pris en compte à la prochaine plage Confort (17:30) », with
+  « Chauffer maintenant… » to start a Chauffe temporaire; the status sentence still says « Programme · Éco
+  jusqu’à 17:30 ». Éco is changed in « Températures du programme ».
+- **One command after you stop tapping.** Every −/+ tap (or arrow key) shows the new value at once, dashed
+  (not sent yet); Kelvin sends one command with the final value 1,5 s after your last tap. Press and hold
+  repeats. The slider sends 1,5 s after you let go. Closing the room or leaving the page sends a waiting
+  value straight away instead of dropping it.
+- **Sauter's Éco limit.** Sauter radiators refuse an Éco lowering of 1 °C (verified on real radiators):
+  Éco can now go up to Confort − 2 °C, and at that limit the room says « Éco ne peut pas dépasser
+  Confort − 2,0 °C » with « Modifier Confort ». Kelvin refuses such a value before sending it instead of
+  letting the radiator refuse it (« Le radiateur a refusé la commande »). Atlantic and Thermor keep 1 °C
+  until verified. The API and MCP capabilities say `eco: [2, 8]` on Sauter.
+- **Programme › « Modifier les températures »** opens a small sheet over Programme with Confort and Éco
+  (same limits, same one-send rule) instead of opening the whole room.
+- **The room's slider says what you choose:** while you drag, a bubble on the handle shows the target
+  (« 20,5 °C ») and the large figure follows it; the room's reading is a muted « Actuel 17,6° » line, no
+  longer orange, and the scale has a label every 2 °C.
+
 ## 0.3.3
 
 - A room in the sidebar's « Pièces » list opens over the page you are on (Énergie, Programme, Réglages…)

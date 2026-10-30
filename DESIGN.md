@@ -82,7 +82,9 @@ only accent for actions; colour carries meaning only (heat, away, tariff, errors
 2. **Orange only for heating:** a heating radiator, the comfort blocks of a programme, a running chauffe
    temporaire. Action buttons are ink, never orange.
 3. **Tempo colours only when the price row in force is Tempo.**
-4. **−/+ in Programme changes the level running now** (Confort or Éco) through the existing setpoint API.
+4. **−/+ in Programme always changes Confort** (owner, 2026-10-29; it changed the level running now before): during an
+   Éco period the line under it says « Pris en compte à la prochaine plage Confort (17:30) · Chauffer maintenant… »;
+   Éco is set in « Températures du programme ».
 5. **Dark only.** No light theme, no « Thème » preference, no `prefers-color-scheme` path. « Détails techniques »
    stays.
 
@@ -226,8 +228,11 @@ reach 44 px (`::before`). Hover lifts to s3, press scales 0.97. **Inert** = `ari
 handler, focus kept) and dims to 40 %; never native `disabled` on a focusable control.
 
 ### Stepper (primary setpoint control, amendment 2)
-`Stepper.svelte`, logic unchanged (600 ms debounce, hold to repeat, 10 s release, one announcement per settled
-value, `Settle` dashed → solid). Look: an s2 pill (4 px inset) with two s3 discs (36 px; `size="sm"` 32 px;
+`Stepper.svelte` (`$lib/send`): every tap or arrow key shows the value at once, dashed (« pas encore envoyé »);
+nothing is sent while the owner keeps going; one send 1,5 s after the last interaction (a held press: after its
+release; press and hold repeats after 500 ms, every 150 ms); unmounting (the sheet closes) or `pagehide` sends a
+waiting value at once. 10 s release, one announcement per settled value, `Settle` dashed → solid. `bind:shown`
+reads the value on screen (a note that follows the draft, the room sheet's caption). Look: an s2 pill (4 px inset) with two s3 discs (36 px; `size="sm"` 32 px;
 `size="lg"` 56 px s2 discs flanking a display figure) around the value, an optional `caption` above it
 (« Confort », « Manuel »). Pending: the value's underline dashed until the radiator reports it. At a bound the
 disc is `aria-disabled` (35 %). `disabled` = inert: the pill dims to 40 %. `block` stretches it (tiles; a `sm`
@@ -236,12 +241,14 @@ sheet: `below` (the caption under the figure, outside the live `output`) and `be
 figure and its caption on top, the slider between the two discs).
 
 ### What −/+ changes (`$lib/setpoint`)
-`primarySetpoint(status, rads, override, expected, inFlight?)` → `{ kind, value, min, max, pending, endsAt?, comfort? } | null`:
-Manuel → `manual`; Programme → `comfort` or `eco` (the level running now; eco shown absolute, sent as the
-lowering); Chauffe temporaire → `boost` (sent again with the minutes left); Arrêt, window open, away, offline,
+`primarySetpoint(status, rads, override, expected, inFlight?)` → `{ kind, value, min, max, pending, endsAt?, waiting? } | null`:
+Manuel → `manual`; Programme → `comfort` always (`waiting` during an Éco period: it applies at `nextComfortAt`,
+and the caption reads « Confort · 20,0 °C », never Éco); Chauffe temporaire → `boost` (sent again with the minutes left); Arrêt, window open, away, offline,
 read-only, restoring, other modes → `null` (no stepper: a command that cannot work is absent).
-`primaryLabel(kind)` gives the caption; `sendPrimary(roomId, p, v, comfort, now)` sends one result, clamped to the
-bounds; eco uses the comfort carried in `p` (never an aggregate or a missing one); a boost resend in flight is dashed.
+`primaryLabel(kind)` gives the caption; `sendPrimary(roomId, p, v, now)` sends one result, clamped to the
+bounds; a boost resend in flight is dashed. Éco's range comes from the radiators' capabilities (the lowering:
+Sauter [2, 8]): its stepper stops at Confort − 2 °C with « Éco ne peut pas dépasser Confort − 2,0 °C · Modifier
+Confort » (`room/ProgramTemps`, shared by the room sheet and Programme's « Modifier les températures » sheet).
 
 ### RoomTile
 `RoomTile.svelte`, `layout="tile"` (phone, 2 columns: 36 px glyph disc + 26 px reading, the name, one status line,
@@ -291,9 +298,12 @@ adds 00 · 06 · 12 · 18 · 24. **Editable** (`day` + `onchange`, Programme's D
 
 ### VSlider (secondary, amendment 2)
 `VSlider.svelte`: room sheet only. An s2 track (120–140 × 200–320, radius 28 % of its width), ink fill from 10 °C,
-ticks every 0,5, the measured temperature as a 2 px heat line with its value on a dark chip. `role="slider"`
-(vertical, `aria-valuetext` « 20,0 °C »); the drag follows the finger with no easing and snaps to 0,5 on release
-(60 ms), then sends once; keys ±0,5 (Page ±1, Home/End) send after 600 ms. `dim` = faded and inert. `pending`
+ticks every 0,5 with a label every 2 °C on the right, the measured temperature as a muted dashed line tagged
+« Actuel 17,6° » on the left (never heat: it must not read as the target). `role="slider"` (vertical,
+`aria-valuetext` the snapped target « 20,5 °C », live during the drag); the drag follows the finger with no easing;
+while it moves or waits to send, a high-contrast bubble on the handle says the target (beside the finger on touch),
+and `bind:shown` lets the large figure follow live. It snaps to 0,5 on release (60 ms) and sends once 1,5 s after
+the last release (pointer or key), like the stepper; closing sends a waiting value. `dim` = faded and inert. `pending`
 dashes the fill's top edge. `snapTo`, `valueAtY` are exported.
 
 ### Sheet (dialogs, bottom sheets)
@@ -380,7 +390,8 @@ tableau stays mounted (links keep scroll and focus: `data-sveltekit-noscroll`, `
 - **Tiles' words** (`$lib/dashboard` `tileLine`): desktop « En chauffe · Confort jusqu’à 23:00 » / « Confort
   jusqu’à 23:30 »; phone « En chauffe · → 23:00 » / « Confort → 23:30 »; absence cool with its temperature and
   « jusqu’à … » as the note; Arrêt « La pièce ne chauffe pas. » (phone « Ne chauffe pas »); a boost warm with its
-  end. The −/+ is `primarySetpoint` (decision 4), « 20,0° » on the phone tile, « 20,0 °C » in the widget.
+  end. The −/+ is `primarySetpoint` (decision 4), « 20,0° » on the phone tile, « 20,0 °C » in the widget; during Éco a
+  muted line under it: « Pris en compte à 17:30 » (tile), the full sentence and « Chauffer maintenant… » (widget).
 - **BillWidget:** « Octobre, jusqu’au 15 » (the last Linky day), « abonnement inclus », the € (a Fig: energy,
   subscription, total, kWh), « ≈ 194,80 € fin du mois est. » (the report's projection, a link to Énergie `#projection`), a 10 px ink bar for the days
   gone, « 16 / 31 jours » and last month. **Demain:** tomorrow's EcoWatt (« EcoWatt orange », « 18:00–20:00 ·
@@ -413,8 +424,9 @@ the outdoor lane, the radiators) is its own, whether Maison is mounted or not. `
 redirects to `/?sheet=[id]`. `RoomPanel` is its content:
 - **Desktop left** (320 px, sticky): × and ⋯ (Modifier les horaires, Énergie de la pièce, Pièces et appareils);
   the name; its state (« En chauffe » in heat, « Fenêtre ouverte » in bad, else the mode) · the reading (a Fig);
-  the large figure flanked by 56 px −/+ (`Stepper lg`, « Consigne Confort »), « Confort · actuellement 19,6 °C »;
-  the VSlider (140 × 320, 10–26 °C, the measured heat line) and « −/+ par 0,5 °C · on peut aussi glisser le
+  the large figure flanked by 56 px −/+ (`Stepper lg`, « Consigne Confort »), « Confort · actuellement 19,6 °C » (during Éco « Confort · 20,0 °C » and
+  « Pris en compte à la prochaine plage Confort (17:30) · Chauffer maintenant… »);
+  the VSlider (140 × 320, 10–26 °C, the « Actuel » reading line) and « −/+ par 0,5 °C · on peut aussi glisser le
   curseur ».
 - **Desktop right:** the notices (offline, read-only, window), `ModeCircles` (60 px discs: Arrêt / Manuel /
   Programme in a radiogroup with the manual-activation keyboard model, the dashed edge while pending; « Chauffe
@@ -798,7 +810,7 @@ never reloads. URL paths are English in both languages (`/rooms`, `/schedule`, `
 - **Do** use the tokens (`--s1`, `--r-widget`, `--t-state`…) and the kit; a new token joins `tokens.test.ts`.
 - **Do** keep orange for heating only (decision 2); ink for actions; cool for Absence; bad for what must be fixed.
 - **Do** show Tempo colours only when the price row in force is Tempo (decision 3), and only through `TempoDot`.
-- **Do** make −/+ the primary setpoint control, from `primarySetpoint` (decision 4); the VSlider stays secondary.
+- **Do** make −/+ the primary setpoint control, from `primarySetpoint` (decision 4: Confort in Programme); the VSlider stays secondary.
 - **Do** show every sent command dashed until the radiator reports it, then solid (`Settle`, `PendingEdge`); a
   failure plainly with « Réessayer ».
 - **Do** keep 44 px hit areas, `aria-disabled` (never native `disabled` on a focusable control), skeletons at final

@@ -142,16 +142,22 @@ describe('Maison on the phone', () => {
     expect(screen.getByRole('img', { name: `Salon${NB}: confort 06:15–08:00, 17:30–22:30` })).toBeInTheDocument();
   });
 
-  it('−/+ on a tile changes the level running now (Éco), sent as the lowering below comfort', async () => {
+  it('−/+ on a tile sets Confort in Programme, even during Éco, and says when it applies; one send after the taps', async () => {
     vi.useRealTimers();
     standard();
-    render(Tableau);
+    const { container } = render(Tableau);
     await settle();
-    const plus = screen.getByRole('button', { name: 'Augmenter Chambre 1 · Éco' });
-    await fireEvent.pointerDown(plus);
-    await fireEvent.pointerUp(plus);
-    await new Promise((r) => setTimeout(r, 700));
-    expect(api.roomSetpoint).toHaveBeenCalledWith('ch1', 'eco', 2.5);
+    const plus = screen.getByRole('button', { name: 'Augmenter Chambre 1 · Confort' });
+    expect(plus.closest('.ctl')!.querySelector('.wait')).toHaveTextContent(/^Pris en compte à \d\d:\d\d$/); // real timers: the next comfort slot from now
+    expect(container.querySelector('.rt')).toBeTruthy();
+    for (let i = 0; i < 2; i++) {
+      await fireEvent.pointerDown(plus);
+      await fireEvent.pointerUp(plus);
+    }
+    expect(api.roomSetpoint).not.toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 1600));
+    expect(api.roomSetpoint).toHaveBeenCalledTimes(1);
+    expect(api.roomSetpoint).toHaveBeenCalledWith('ch1', 'comfort', 21);
   });
 
   it('a phone menu holds the house actions; the away icon opens the sheet', async () => {

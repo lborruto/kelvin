@@ -25,7 +25,7 @@ describe('capsOf', () => {
   it('reads a radiator from an older backend as the Sauter set', () => {
     const c = capsOf(rad());
     expect(c.modes).toEqual(['off', 'manual', 'program']);
-    expect([c.manual, c.comfort, c.eco]).toEqual([[7, 28], [12, 28], [1, 8]]);
+    expect([c.manual, c.comfort, c.eco]).toEqual([[7, 28], [12, 28], [2, 8]]);
     expect([c.program, c.boost, c.night_light, c.read_only]).toEqual([true, true, true, false]);
     expect(capsOf(rad({ light: null, energy_wh: null })).night_light).toBe(false);
   });

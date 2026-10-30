@@ -1,18 +1,18 @@
 <!-- One room on the Maison tableau (Tableau §4): the kit RoomTile fed from the house. `tile` is the phone's
      two-column tile, `widget` the desktop column's head widget with its MiniSpark. The tile body opens the room
-     sheet; the −/+ changes the setpoint in force now (`primarySetpoint`, decision 4) and acts directly. No
+     sheet; the −/+ changes Manuel's setpoint, or Confort in Programme (`primarySetpoint`), and sends once the owner
+     stops (Stepper, `$lib/send`); during an Éco period a line says when the new Confort applies. No
      stepper when a command cannot work (Arrêt, window, absence, offline, read-only): a note says why instead. -->
 <script lang="ts">
   import type { Room } from '$lib/api/types';
   import { retry, run } from '$lib/actions';
   import { roomControls } from '$lib/capabilities';
-  import { fmtTemp, fmtTempShort, fmtWeekdayTime } from '$lib/format';
+  import { fmtTemp, fmtTempShort, fmtTime, fmtWeekdayTime } from '$lib/format';
   import { m } from '$lib/i18n';
   import { tileLine } from '$lib/dashboard';
-  import { ROUTES } from '$lib/paths';
+  import { ROUTES, roomSheetHref } from '$lib/paths';
   import { comfortBands } from '$lib/program';
-  import { agg } from '$lib/room';
-  import { primaryLabel, primarySetpoint, sendPrimary } from '$lib/setpoint';
+  import { nextComfortAt, primaryLabel, primarySetpoint, sendPrimary } from '$lib/setpoint';
   import { roomName } from '$lib/setup';
   import { roomReading, roomStatus, sharedProgram } from '$lib/status';
   import type { StripPoint } from '$lib/stores/history.svelte';
@@ -48,7 +48,8 @@
   let pending = $derived(house.pendingFor(room.radiator_ids));
   let inFlight = $derived(pending?.status === 'sending' || pending?.status === 'pending');
   let p = $derived(readonly ? null : primarySetpoint(status, rads, override, expected, inFlight));
-  let comfort = $derived(expected.comfort ?? agg(rads.map((r) => r.comfort)).value);
+  // Programme in an Éco period: −/+ sets Confort, which applies at the next comfort slot.
+  let waitAt = $derived(p?.waiting ? nextComfortAt(program, now) : null);
   let line = $derived(tileLine(status, heating, override, program, now, layout === 'tile'));
   let variant = $derived<'normal' | 'off' | 'absence' | 'readonly' | 'offline'>(
     offline ? 'offline' : readonly ? 'readonly' : status.kind === 'off' ? 'off' : status.kind === 'away' ? 'absence' : 'normal'
@@ -89,7 +90,8 @@
 {#snippet stepper()}{#if p}<Stepper size={layout === 'tile' ? 'sm' : 'md'} block caption={primaryLabel(p.kind)}
     label={`${name} · ${primaryLabel(p.kind)}`} value={p.value} min={p.min} max={p.max} pending={p.pending} disabled={!house.online}
     announce={false} format={layout === 'tile' ? (v) => fmtTempShort(v) : undefined}
-    onchange={(v) => run(() => sendPrimary(room.id, p!, v, comfort, Date.now()))} />{/if}{/snippet}
+    onchange={(v) => run(() => sendPrimary(room.id, p!, v, Date.now()))} />{#if p.waiting}<p class="wait">{#if layout === 'tile'}{m.maison.waitShort(waitAt == null ? null : fmtTime(waitAt))}{:else}{m.roomSheet.waitComfort(waitAt == null ? null : fmtTime(waitAt))}{#if rc.boost > 0}{' · '}<a
+          href={roomSheetHref(ROUTES.rooms, room.id, { boost: true })}>{m.roomSheet.heatNow}</a>{/if}{/if}</p>{/if}{/if}{/snippet}
 {#snippet pendingTag()}<PendingTag {pending} radiators={room.radiator_ids} onretry={retry} ondismiss={(id) => house.dismiss(id)} />{/snippet}
 {#snippet sparkLine()}<MiniSpark points={points.map((x) => ({ t: x.t, v: x.v }))} {setpoint} {bands} {start} {end} {now} dim={variant !== 'normal'} />{/snippet}
 
@@ -106,5 +108,17 @@
 <style>
   .keep {
     display: contents;
+  }
+  .wait {
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--mu);
+    text-align: center;
+  }
+  .wait a {
+    color: var(--tx);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 </style>

@@ -17,7 +17,8 @@
 ## What it does
 
 - **Rooms.** Temperature, what the radiator is doing and until when, and −/+ to
-  change it. A room with two radiators acts as one.
+  change it (in Programme, −/+ sets Confort; Éco has its own control). Tap as many times as you like:
+  Kelvin sends one command 1,5 s after your last tap. A room with two radiators acts as one.
 - **Weekly schedule.** See the week, drag the comfort periods, copy a day to others. Nothing is
   sent until you press « Envoyer ».
 - **Temporary heat.** Warm one room for a couple of hours (« Chauffer à 22 °C pendant 2 h »);

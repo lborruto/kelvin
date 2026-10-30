@@ -55,6 +55,8 @@ async def test_get_room(tmp_path):
         r0, v0 = d["radiators"][0], rads[0].view()
         assert r0["temperature_c"] == v0["temperature"] and r0["comfort_c"] == v0["comfort"]
         assert r0["mode"] == v0["mode"] and r0["power_w"] == v0["power_w"]
+        # Sauter's eco lowering as verified on hardware: 1 refused, so [2, 8].
+        assert r0["capabilities"]["eco"] == [2.0, 8.0]
         duty = views.rooms_duty(rt, int(NOW))["rooms"]["p-ch1"]
         assert d["heating_duty_24h_share"] == duty["duty"]
         midnight = int(NOW) - 14 * 3600

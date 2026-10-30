@@ -83,7 +83,7 @@ describe('VSlider', () => {
     expect(valueAtY(0, 0, 300, 10, 26)).toBe(26);
     expect(valueAtY(150, 0, 300, 10, 26)).toBe(18);
   });
-  it('an ARIA slider: keys step 0,5 and send once after the debounce; dim is inert', async () => {
+  it('an ARIA slider: keys step 0,5 and send once, 1,5 s after the last key; dim is inert', async () => {
     vi.useFakeTimers();
     const onchange = vi.fn();
     const { rerender } = render(VSlider, { value: 20, label: 'Consigne', measured: 19.6, onchange });
@@ -94,14 +94,81 @@ describe('VSlider', () => {
     await fireEvent.keyDown(s, { key: 'ArrowUp' });
     expect(s).toHaveAttribute('aria-valuenow', '21');
     expect(onchange).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(600);
+    vi.advanceTimersByTime(1000);
+    await fireEvent.keyUp(s, { key: 'ArrowUp' });
+    vi.advanceTimersByTime(1499);
+    expect(onchange).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(onchange).toHaveBeenCalledTimes(1);
     expect(onchange).toHaveBeenCalledWith(21);
     await rerender({ value: 20, label: 'Consigne', dim: true, onchange });
     await fireEvent.keyDown(s, { key: 'ArrowUp' });
-    vi.advanceTimersByTime(600);
+    vi.advanceTimersByTime(1500);
     expect(onchange).toHaveBeenCalledTimes(1);
     expect(s).toHaveAttribute('aria-disabled', 'true');
+    vi.useRealTimers();
+  });
+});
+
+describe('VSlider sends on release', () => {
+  const box = (el: Element) =>
+    vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({ top: 0, height: 320, left: 0, width: 140, bottom: 320, right: 140, x: 0, y: 0, toJSON: () => ({}) });
+  it('a drag sends nothing while held; one send 1,5 s after the release; a new touch restarts the wait', async () => {
+    vi.useFakeTimers();
+    const onchange = vi.fn();
+    const { container } = render(VSlider, { value: 20, label: 'Consigne', min: 10, max: 26, height: 320, onchange });
+    const s = screen.getByRole('slider', { name: 'Consigne' });
+    box(s);
+    await fireEvent.pointerDown(s, { clientY: 100, pointerId: 1 });
+    await fireEvent.pointerMove(s, { clientY: 80, pointerId: 1 });
+    vi.advanceTimersByTime(3000);
+    expect(onchange).not.toHaveBeenCalled();
+    await fireEvent.pointerUp(s, { clientY: 80, pointerId: 1 });
+    // Not sent yet: dashed.
+    expect(container.querySelector('.fill')).toHaveClass('pending');
+    vi.advanceTimersByTime(1000);
+    await fireEvent.pointerDown(s, { clientY: 60, pointerId: 1 });
+    await fireEvent.pointerUp(s, { clientY: 60, pointerId: 1 });
+    vi.advanceTimersByTime(1499);
+    expect(onchange).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(onchange).toHaveBeenCalledTimes(1);
+    expect(onchange).toHaveBeenCalledWith(23);
+    vi.useRealTimers();
+  });
+  it('while dragging: a bubble on the handle says the snapped target, aria-valuetext too; the reading is tagged « Actuel », muted', async () => {
+    vi.useFakeTimers();
+    const { container } = render(VSlider, { value: 20, label: 'Consigne', min: 10, max: 26, height: 320, measured: 17.6, onchange: vi.fn() });
+    const s = screen.getByRole('slider', { name: 'Consigne' });
+    box(s);
+    expect(container.querySelector('.bubble')).toBeNull();
+    expect(container.querySelector('.ml')).toHaveTextContent('Actuel 17,6°');
+    expect([...container.querySelectorAll('.tl')].map((x) => x.textContent)).toEqual(['12', '14', '16', '18', '20', '22', '24']);
+    // Touch on the right half: 21,3 under the finger snaps to 21,5; the bubble goes to the left half.
+    await fireEvent.pointerDown(s, { clientY: 94, clientX: 120, pointerId: 1, pointerType: 'touch' });
+    const bubble = container.querySelector('.bubble')!;
+    expect(bubble).toHaveTextContent('21,5 °C');
+    expect(bubble).toHaveClass('left');
+    expect(s.getAttribute('aria-valuetext')).toMatch(/^21,5\s°C$/);
+    expect(s).toHaveAttribute('aria-valuenow', '21.5');
+    await fireEvent.pointerUp(s, { clientY: 94, pointerId: 1 });
+    // Still shown until it is sent.
+    expect(container.querySelector('.bubble')).toHaveTextContent('21,5 °C');
+    vi.advanceTimersByTime(1500);
+    await Promise.resolve();
+    vi.useRealTimers();
+  });
+  it('closing during the wait sends at once', async () => {
+    vi.useFakeTimers();
+    const onchange = vi.fn();
+    const r = render(VSlider, { value: 20, label: 'Consigne', onchange });
+    const s = screen.getByRole('slider', { name: 'Consigne' });
+    await fireEvent.keyDown(s, { key: 'ArrowDown' });
+    await fireEvent.keyUp(s, { key: 'ArrowDown' });
+    r.unmount();
+    expect(onchange).toHaveBeenCalledWith(19.5);
+    vi.advanceTimersByTime(3000);
+    expect(onchange).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
 });
