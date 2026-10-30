@@ -19,11 +19,18 @@ function sends(page: Page) {
 }
 
 /** The commands the simulator settled lately (the snapshot's `recent`, the command log's tail) for Salon's setpoints. */
-async function logged(page: Page, kind: string) {
+async function logged(page: Page, kind: string, skip: Set<string> = new Set()) {
   const snap = await (await page.request.get('/api/house')).json();
-  return [...snap.pending, ...snap.recent]
-    .filter((p: { label_code: string; label_params: { name?: string; kind?: string } }) => p.label_code === 'setpoint' && p.label_params.name === 'Salon' && p.label_params.kind === kind)
-    .map((p: { label_params: { value: number } }) => p.label_params.value);
+  type Entry = { id: string; label_code: string; label_params: { name?: string; kind?: string; value: number } };
+  return ([...snap.pending, ...snap.recent] as Entry[])
+    .filter((p) => !skip.has(p.id) && p.label_code === 'setpoint' && p.label_params.name === 'Salon' && p.label_params.kind === kind)
+    .map((p) => p.label_params.value);
+}
+
+/** The ids of the commands already in the log: what a test sends is what comes after. */
+async function seen(page: Page) {
+  const snap = await (await page.request.get('/api/house')).json();
+  return new Set<string>([...snap.pending, ...snap.recent].map((p: { id: string }) => p.id));
 }
 
 async function put(page: Page, kind: 'comfort' | 'eco', value: number) {
@@ -62,6 +69,7 @@ test('five quick taps on + send one command, 1,5 s after the last, with the fina
   await expect(primary).toBeVisible({ timeout: 20_000 });
   const before = num(await primary.getByRole('status').textContent());
   const sent = sends(page);
+  const earlier = await seen(page);
   const plus = primary.getByRole('button', { name: 'Augmenter Consigne Confort' });
   for (let i = 0; i < 5; i++) await plus.click();
   // Shown at once, dashed (not sent yet), and nothing on the wire while the taps go on.
@@ -71,8 +79,8 @@ test('five quick taps on + send one command, 1,5 s after the last, with the fina
   await expect.poll(() => sent.length).toBe(1);
   await page.waitForTimeout(500);
   expect(sent).toEqual([{ kind: 'comfort', value: before + 2.5 }]);
-  await expect.poll(() => logged(page, 'comfort'), { timeout: 20_000 }).toContain(before + 2.5);
-  expect((await logged(page, 'comfort')).filter((v: number) => v > before && v < before + 2.5)).toEqual([]);
+  // The simulator's command log holds exactly one new command for these taps, with the final value.
+  await expect.poll(() => logged(page, 'comfort', earlier), { timeout: 20_000 }).toEqual([before + 2.5]);
   await put(page, 'comfort', before);
   await expect(primary.getByRole('status')).toContainText(String(before.toFixed(1)).replace('.', ','), { timeout: 20_000 });
 });
