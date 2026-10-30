@@ -87,7 +87,7 @@ place) and the words in `$lib/weather.ts`. Nothing about weather shows without a
 
 | Screen | Path | What it answers |
 |---|---|---|
-| Maison / Home | `/` | The « Tableau » dashboard: summary chips (climate, the month's €, grid signals, away), alerts, each room with its reading, state and −/+ for the setpoint in force, the month, the tariff right now, tomorrow and yesterday, today's schedule; offline rooms calm and last |
+| Maison / Home | `/` | The « Tableau » dashboard: summary chips (climate, the month's €, grid signals, away), alerts, each room with its reading, state and −/+ (Manuel's setpoint, or Confort in Programme), the month, the tariff right now, tomorrow and yesterday, today's schedule; offline rooms calm and last |
 | Room | `?sheet=<id>` on any page | The room sheet over the page you are on (Maison's tiles, the sidebar's « Pièces » rows; Back closes it): the large setpoint with −/+ and a slider, the modes, Chauffe temporaire, today's chart and energy, the schedule's temperatures, each radiator, this month's kWh and € |
 | Programme / Schedule | `/schedule` | The week as an agenda (drag on a desktop) beside the day being edited, copy to other days, locked days kept; nothing is sent before « Envoyer » |
 | Énergie / Energy | `/energy` | A board: the period's cost and kWh beside the bars (the half-hour curve first in Day and Week), the off-peak split or the Tempo days, where the energy goes, then the full sections, analysis and data quality |

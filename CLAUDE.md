@@ -65,7 +65,9 @@ depends on.
   capability-driven. A control a device does not support is absent from the UI and refused by the
   API (`unsupported_command`); a read-only device is never commanded (`read_only_device`); room and
   house commands skip radiators that cannot (`unsupported_in_room` when none can). Unknown heating
-  devices, water heaters, heat pumps and everything else are read-only and never hidden. Only
+  devices, water heaters, heat pumps and everything else are read-only and never hidden. Ranges are per profile and verified
+  ones only (`Profile.eco_offset_tested`: Sauter's eco lowering [2, 8]; [1, 8] elsewhere); `plan_setpoint` refuses
+  anything outside before sending. Only
   `setpoint_heater` on the Sauter server is `tested`; record anything verified on another kind in
   `docs/overkiz-notes.md` before changing its support level.
 - **One server per home.** The account file stores the Overkiz server; the data folder stores it
@@ -318,8 +320,9 @@ depends on.
   **Tableau (binding):** one dark theme (no light theme, no « Thème », no
   `prefers-color-scheme` path); « Maison » is the dashboard at `/` and « Réglages » is `/home` (URLs unchanged);
   orange (`--heat`) only for heating, comfort blocks and a running chauffe temporaire; Tempo colours only when
-  the price row in force is Tempo; −/+ is the primary setpoint control and in Programme changes the level running
-  now (`$lib/setpoint` `primarySetpoint`). Maison is `lib/components/dashboard/` (words in `$lib/dashboard`, energy
+  the price row in force is Tempo; −/+ is the primary setpoint control and in Programme always changes Confort (during
+  Éco: « Pris en compte à la prochaine plage Confort »; `$lib/setpoint` `primarySetpoint`); setpoint controls send once,
+  1,5 s after the last tap or release, dashed until then, and flush on close (`$lib/send`). Maison is `lib/components/dashboard/` (words in `$lib/dashboard`, energy
   answers in `$lib/stores/dashboardEnergy`). The room sheet (`lib/components/room/`) is a shell overlay in the root
   layout driven by `?sheet=<id>` on any route: it opens over the page the user is on, which stays mounted (scroll and
   state kept); a reload reopens it, Back closes it, closing returns focus to its opener, and it loads its own data
