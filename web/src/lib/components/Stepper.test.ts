@@ -26,19 +26,90 @@ describe('Stepper', () => {
     await tap(plus);
     expect(screen.getByRole('status')).toHaveTextContent('21,5');
     expect(onchange).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(onchange).toHaveBeenCalledTimes(1);
     expect(onchange).toHaveBeenCalledWith(21.5);
   });
 
-  it('holding repeats', async () => {
+  it('holding repeats (after 500 ms, every 150 ms) and sends once, 1,5 s after the release', async () => {
     const onchange = vi.fn();
     render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
     const minus = screen.getByRole('button', { name: 'Diminuer Consigne' });
     await fireEvent.pointerDown(minus);
-    await vi.advanceTimersByTimeAsync(400 + 120 * 3);
-    await fireEvent.pointerUp(minus);
+    await vi.advanceTimersByTimeAsync(499);
+    expect(screen.getByRole('status')).toHaveTextContent('19,5');
+    await vi.advanceTimersByTimeAsync(1 + 150 * 3);
     expect(screen.getByRole('status')).toHaveTextContent('18,0');
+    // Held well past the idle time: still nothing sent.
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(onchange).not.toHaveBeenCalled();
+    await fireEvent.pointerUp(minus);
+    const shown = screen.getByRole('status').textContent;
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(onchange).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(onchange).toHaveBeenCalledTimes(1);
+    expect(shown).toContain(String(onchange.mock.calls[0][0]).replace('.', ','));
+  });
+
+  it('every tap restarts the 1,5 s wait: one send with the final value after the last one', async () => {
+    const onchange = vi.fn();
+    render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
+    const plus = screen.getByRole('button', { name: 'Augmenter Consigne' });
+    for (let i = 0; i < 5; i++) {
+      await tap(plus);
+      await vi.advanceTimersByTimeAsync(1000);
+    }
+    expect(onchange).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('22,5');
+    await vi.advanceTimersByTimeAsync(499);
+    expect(onchange).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(onchange).toHaveBeenCalledTimes(1);
+    expect(onchange).toHaveBeenCalledWith(22.5);
+  });
+
+  it('a value not sent yet is dashed (« pas encore envoyé »)', async () => {
+    const { container } = render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange: vi.fn() });
+    expect(container.querySelector('.stepper')).not.toHaveClass('pending');
+    await tap(screen.getByRole('button', { name: 'Augmenter Consigne' }));
+    expect(container.querySelector('.stepper')).toHaveClass('pending');
+    expect(container.querySelector('.val svg.edge')).toHaveClass('pending');
+  });
+
+  it('closing (unmount) during the wait sends at once instead of dropping the value', async () => {
+    const onchange = vi.fn();
+    const r = render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
+    const plus = screen.getByRole('button', { name: 'Augmenter Consigne' });
+    await tap(plus);
+    await tap(plus);
+    r.unmount();
+    expect(onchange).toHaveBeenCalledTimes(1);
+    expect(onchange).toHaveBeenCalledWith(21);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(onchange).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaving the page (pagehide) during the wait sends at once, then never again', async () => {
+    const onchange = vi.fn();
+    render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
+    await tap(screen.getByRole('button', { name: 'Diminuer Consigne' }));
+    window.dispatchEvent(new Event('pagehide'));
+    expect(onchange).toHaveBeenCalledWith(19.5);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(onchange).toHaveBeenCalledTimes(1);
+  });
+
+  it('arrow keys step too, one send after the last', async () => {
+    const onchange = vi.fn();
+    render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
+    const plus = screen.getByRole('button', { name: 'Augmenter Consigne' });
+    await fireEvent.keyDown(plus, { key: 'ArrowUp' });
+    await fireEvent.keyDown(plus, { key: 'ArrowUp' });
+    await fireEvent.keyDown(plus, { key: 'ArrowDown' });
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(onchange).toHaveBeenCalledTimes(1);
+    expect(onchange).toHaveBeenCalledWith(20.5);
   });
 
   it('draws its −/+ as icons, named by their aria-labels', () => {
@@ -80,7 +151,7 @@ describe('Stepper', () => {
     await tap(plus);
     await tap(plus);
     expect(announcer.polite).toBe('');
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(announcer.polite).toBe('Confort\u00a0: 21,0\u00a0°C');
     expect(screen.getByRole('status')).not.toHaveAttribute('aria-live');
   });
@@ -89,7 +160,7 @@ describe('Stepper', () => {
     const onchange = vi.fn();
     render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
     await fireEvent.keyDown(screen.getByRole('button', { name: 'Augmenter Consigne' }), { key: 'Enter' });
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(onchange).toHaveBeenCalledWith(20.5);
   });
 
@@ -108,7 +179,7 @@ describe('Stepper', () => {
     expect(plus).toHaveAttribute('aria-disabled', 'true');
     await fireEvent.keyDown(minus, { key: 'Enter' });
     await tap(plus);
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(onchange).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent('—');
   });
@@ -117,7 +188,7 @@ describe('Stepper', () => {
     const onchange = vi.fn().mockResolvedValue(null);
     render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
     await tap(screen.getByRole('button', { name: 'Augmenter Consigne' }));
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(onchange).toHaveBeenCalledWith(20.5);
     await vi.advanceTimersByTimeAsync(0);
     flushSync();
@@ -128,7 +199,7 @@ describe('Stepper', () => {
     const onchange = vi.fn().mockResolvedValue({ id: 'p1' });
     render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
     await tap(screen.getByRole('button', { name: 'Augmenter Consigne' }));
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     flushSync();
     expect(screen.getByRole('status')).toHaveTextContent('20,5');
   });
@@ -137,7 +208,7 @@ describe('Stepper', () => {
     const onchange = vi.fn();
     const r = render(Stepper, { props: { value: 20, min: 7, max: 28, label: 'Consigne', onchange } });
     await tap(screen.getByRole('button', { name: 'Augmenter Consigne' }));
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(onchange).toHaveBeenCalledWith(20.5);
     await r.rerender({ value: 20 });
     expect(screen.getByRole('status')).toHaveTextContent('20,5');
@@ -149,7 +220,7 @@ describe('Stepper', () => {
   it('shows the server value when pending ends unchanged', async () => {
     const r = render(Stepper, { props: { value: 20, min: 7, max: 28, label: 'Consigne', onchange: vi.fn() } });
     await tap(screen.getByRole('button', { name: 'Augmenter Consigne' }));
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     await r.rerender({ pending: true });
     expect(screen.getByRole('status')).toHaveTextContent('20,5');
     await r.rerender({ pending: false });
@@ -160,21 +231,23 @@ describe('Stepper', () => {
   it('falls back to the server value after 10 s', async () => {
     render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange: vi.fn() });
     await tap(screen.getByRole('button', { name: 'Augmenter Consigne' }));
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     await vi.advanceTimersByTimeAsync(10_000);
     flushSync();
     expect(screen.getByRole('status')).toHaveTextContent('20,0');
   });
 
-  it('unmounting mid-hold stops all timers', async () => {
+  it('unmounting mid-hold stops all timers and sends the value held so far, once', async () => {
     const onchange = vi.fn();
     const r = render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
     await fireEvent.pointerDown(screen.getByRole('button', { name: 'Augmenter Consigne' }));
     await vi.advanceTimersByTimeAsync(500);
     r.unmount();
-    expect(vi.getTimerCount()).toBe(0);
-    await vi.advanceTimersByTimeAsync(2000);
-    expect(onchange).not.toHaveBeenCalled();
+    expect(onchange).toHaveBeenCalledTimes(1);
+    expect(onchange).toHaveBeenCalledWith(20.5);
+    // Only the 10 s fallback of the optimistic display is left; nothing more is sent.
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(onchange).toHaveBeenCalledTimes(1);
   });
 
   it('ignores non-primary buttons and stops repeating at a bound', async () => {
@@ -183,10 +256,12 @@ describe('Stepper', () => {
     await fireEvent.pointerDown(plus, { button: 2 });
     expect(screen.getByRole('status')).toHaveTextContent('27,5');
     await fireEvent.pointerDown(plus);
-    await vi.advanceTimersByTimeAsync(400 + 120 * 3);
+    await vi.advanceTimersByTimeAsync(500 + 150 * 3);
     expect(screen.getByRole('status')).toHaveTextContent('28,0');
-    await vi.advanceTimersByTimeAsync(120);
-    // repeat interval cleared at the bound: only the commit timer remains
+    await vi.advanceTimersByTimeAsync(150);
+    // repeat interval cleared at the bound, and nothing waits to send while the press is held
+    expect(vi.getTimerCount()).toBe(0);
+    await fireEvent.pointerUp(plus);
     expect(vi.getTimerCount()).toBe(1);
   });
 
@@ -194,7 +269,7 @@ describe('Stepper', () => {
     const r = render(Stepper, { props: { value: 20, min: 7, max: 28, label: 'Consigne', onchange: vi.fn() } });
     const line = () => r.container.querySelector('.val svg.edge')!;
     await tap(screen.getByRole('button', { name: 'Augmenter Consigne' }));
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     await r.rerender({ pending: true });
     expect(r.container.querySelector('.stepper')).toHaveClass('pending');
     await r.rerender({ value: 20.5, pending: false });
@@ -207,7 +282,7 @@ describe('Stepper', () => {
   it('a failed command does not morph to solid', async () => {
     const r = render(Stepper, { props: { value: 20, min: 7, max: 28, label: 'Consigne', onchange: vi.fn() } });
     await tap(screen.getByRole('button', { name: 'Augmenter Consigne' }));
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     await r.rerender({ pending: true });
     await r.rerender({ pending: false });
     flushSync();
