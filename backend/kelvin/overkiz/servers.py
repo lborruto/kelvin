@@ -2,7 +2,7 @@
 
 Ids and names are pyoverkiz's own (`Server`, `SUPPORTED_SERVERS`). The three Cozytouch servers
 are one Overkiz endpoint with the Cozytouch login; Kelvin is tested on real hardware on the
-Sauter one only. « Experimental » servers are every other pyoverkiz 2.2.2 server that logs in
+Sauter one only. « Experimental » servers are every other pyoverkiz 2.2.3 server that logs in
 with an email and a password. Left out: Rexel (an OAuth code from a browser redirect), Somfy
 multi-site (`Server.SOMFY`, experimental inside pyoverkiz itself) and the Somfy developer mode
 (a local API with a token).

@@ -1,6 +1,6 @@
 """Device registry (Plan 12): what kind of heating device a widget is, and how Kelvin drives it.
 
-Every widget, UI class, command, state and value is pyoverkiz 2.2.2's own (UIWidget, UIClass,
+Every widget, UI class, command, state and value is pyoverkiz 2.2.3's own (UIWidget, UIClass,
 OverkizCommand, OverkizState, OverkizCommandParam). Only `setpoint_heater` on the Sauter server
 is tested on real hardware (docs/overkiz-notes.md). The pilot-wire and towel-dryer profiles
 follow pyoverkiz's names and Home Assistant's Overkiz mapping: expected to work, unverified.

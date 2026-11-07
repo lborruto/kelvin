@@ -81,7 +81,7 @@ PlaceKind = Literal["created", "updated", "deleted"]
 
 @dataclass(frozen=True)
 class PlaceEvent:
-    """`PlaceCreated/Updated/DeletedEvent`. pyoverkiz 2.2.2 keeps only the event name, so the
+    """`PlaceCreated/Updated/DeletedEvent`. pyoverkiz 2.2.3 keeps only the event name, so the
     real listener fills `kind` alone; the simulator can add the oid and label."""
 
     kind: PlaceKind

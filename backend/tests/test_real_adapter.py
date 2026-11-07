@@ -94,7 +94,7 @@ def test_to_events_maps_device_updates_and_payload_less_place_events():
         {"name": "GatewayAliveEvent", "gatewayId": "g", "timestamp": 5},
     ]
     out = to_events(converter.structure(raw, list[OverkizEvent]))
-    # pyoverkiz 2.2.2 keeps only the name of a place event: no oid, no label.
+    # pyoverkiz 2.2.3 keeps only the name of a place event: no oid, no label.
     assert out == [
         PlaceEvent("created"),
         PlaceEvent("updated"),

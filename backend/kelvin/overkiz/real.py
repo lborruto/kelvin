@@ -138,7 +138,7 @@ def to_events(events: list[Any]) -> list[Event]:
         elif isinstance(e, DeviceUpdatedEvent):
             out.append(DeviceUpdate(e.device_url, e.place_oid, e.label))
         elif str(getattr(e, "name", "")) in PLACE_KINDS:
-            # pyoverkiz 2.2.2 structures Place*Event into its base Event: the name only.
+            # pyoverkiz 2.2.3 structures Place*Event into its base Event: the name only.
             out.append(PlaceEvent(PLACE_KINDS[str(e.name)]))
     return out
 
@@ -202,7 +202,7 @@ class PyOverkizGateway:
         return {s.name: s.value for s in states}
 
     async def quotas(self) -> Any:
-        # pyoverkiz 2.2.2 has no wrapper for this endpoint; `_get` is its own GET helper.
+        # pyoverkiz 2.2.3 has no wrapper for this endpoint; `_get` is its own GET helper.
         return await self._call(self._c()._get("setup/quotas"))
 
     def _setup(self) -> SetupHttp:
