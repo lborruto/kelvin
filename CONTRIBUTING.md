@@ -34,9 +34,11 @@ three rooms, four radiators, a week of history, a synthetic Linky and a demo tar
 
 ## Checks
 
-Run both before opening a pull request. CI runs the same: workflow lint, backend, web, the
-Playwright suite in 4 shards, and the Docker image (build, smoke test, then the e2e suite against
-the container in 3 shards); all must be green.
+Run both before opening a pull request. CI runs the same: workflow lint, a gitleaks scan of the
+whole history (`.gitleaks.toml`), backend, web, the Playwright suite in 4 shards, and the Docker
+image (build, smoke test, then the e2e suite against the container in 3 shards); all must be
+green, and « CI result » is the one check to require. CodeQL (`codeql.yml`) scans the Python,
+the TypeScript and the workflows on every pull request too.
 
     cd backend && uv run pytest -q && uv run ruff check . && uv run ruff format --check .
     cd web && npx vitest run && npm run check && npx playwright test
@@ -226,7 +228,14 @@ plain words.
   house follows the server chosen at login.
 - **AI assistants can read your data through MCP, read-only** (see [backend/README.md › MCP](backend/README.md#mcp)).
 
-## Project status
+## Releasing
+
+1. A pull request on `release/X.Y.Z` sets the version in `backend/pyproject.toml` and
+   `web/package.json` and adds the `## X.Y.Z` section to `CHANGELOG.md`; merge it.
+2. Tag the merge commit on `main`: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. `release.yml` checks the tagged commit is on `main`, runs CI on it, checks both versions and
+   the changelog section, publishes the multi-arch image to GHCR, scans it with Trivy, attests
+   its build provenance and creates the GitHub release with that section as notes.
 
 ## Project status
 

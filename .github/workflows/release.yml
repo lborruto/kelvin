@@ -1,51 +1,125 @@
 name: Release
 
-# A v* tag publishes the multi-arch image to GHCR (job `publish`, the only one that may write
-# packages), once CI (ci.yml, job `checks`) has passed on the tagged commit. A manual run is a
-# dry run (job `dry-run`): it builds both architectures, pushes nothing and holds no write
-# permission.
+# A tag vX.Y.Z on main runs CI on the tagged commit, checks that the backend and web versions are
+# the tag's and that CHANGELOG.md has its section, then publishes the multi-arch image to GHCR
+# (job `publish`, the only one that may write packages) with provenance and SBOM, scans the pushed
+# digest with Trivy, attests the image's build provenance, and creates the GitHub release with
+# that version's section of CHANGELOG.md as notes. A manual run is a dry run (job `dry-run`): it
+# builds both architectures, pushes nothing and holds no write permission.
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*.*.*"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# Tags queue rather than cancel one another: a cancelled run could leave an image published
+# without its attestation or its release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 # Every action is pinned to the commit of a release at least two weeks old (resolved from its
-# tag on 2026-10-14); the comment names the release, and the date it was published when added
-# by hand. Dependabot updates the version but not the date; its 14-day cooldown keeps the age
-# rule. No Actions cache feeds these builds: the published image is built from scratch.
+# tag on 2026-10-14, Trivy and the attestation on 2026-11-07); the comment names the release and
+# the date it was published. Dependabot updates the version but not the date; its 14-day
+# cooldown keeps the age rule. No Actions cache feeds these builds: the published image is built
+# from scratch.
 jobs:
+  # A release is only ever made from reviewed code: the tagged commit must be on main.
+  on-main:
+    name: Tagged commit is on main
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      # Asked of GitHub's API rather than with git fetch: the checkout keeps no credentials.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # main's commit by its full branch name, so a tag called "main" cannot stand in for it.
+          main_sha="$(gh api "repos/$GH_REPO/git/ref/heads/main" -q .object.sha)"
+          status="$(gh api "repos/$GH_REPO/compare/$main_sha...$GITHUB_SHA" -q .status)"
+          echo "compared with main ($main_sha): $status"
+          case "$status" in identical | behind) ;; *)
+            echo "::error::$GITHUB_REF_NAME points to a commit that is not on main ($status)"
+            exit 1 ;;
+          esac
+
   checks:
     name: CI on the tagged commit
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: on-main
     permissions:
       contents: read
     uses: ./.github/workflows/ci.yml
 
-  publish:
-    name: Multi-arch image to GHCR
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+  # The versions and the notes, checked before anything is published.
+  notes:
+    name: Version and notes
     needs: checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 5
     permissions:
       contents: read
-      packages: write
+    env:
+      TAG: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-07-20)
         with:
           persist-credentials: false
       - name: The tag matches the backend and web versions
         run: |
-          tag="${GITHUB_REF_NAME#v}"
+          tag="${TAG#v}"
           backend="$(sed -n 's/^version = "\(.*\)"$/\1/p' backend/pyproject.toml | head -n 1)"
           web="$(node -p "require('./web/package.json').version")"
           if [ "$tag" != "$backend" ] || [ "$tag" != "$web" ]; then
             echo "::error::tag v$tag does not match backend $backend / web $web"
             exit 1
           fi
+      # The notes are the `## X.Y.Z` section of CHANGELOG.md (`## [X.Y.Z]` is read too, and a
+      # heading may go on after the version: `## 0.1.0 — first public release`); a tag without
+      # its section fails here, so the changelog is written before the tag.
+      - name: Notes from CHANGELOG.md
+        run: |
+          version="${TAG#v}"
+          mkdir -p "$RUNNER_TEMP/notes"
+          awk -v v="$version" '
+            /^## / {
+              h = $0
+              found = (h == "## " v || h == "## [" v "]" || index(h, "## " v " ") == 1 || index(h, "## [" v "] ") == 1)
+              next
+            }
+            found
+          ' CHANGELOG.md >"$RUNNER_TEMP/notes/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes/notes.md"; then
+            echo "::error::CHANGELOG.md has no '## $version' section; add it before tagging v$version"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/notes/notes.md"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 (2026-10-07)
+        with:
+          name: notes
+          path: ${{ runner.temp }}/notes/
+          if-no-files-found: error
+          retention-days: 5
+
+  publish:
+    name: Multi-arch image to GHCR
+    needs: notes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-07-20)
+        with:
+          persist-credentials: false
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0 (2026-09-15)
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1 (2026-09-16)
       - id: meta
@@ -69,7 +143,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0 (2026-09-15)
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0 (2026-09-15)
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -79,6 +154,75 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           provenance: mode=max
           sbom: true
+      # The digest just pushed, pulled back with the login above. Fixable HIGH and CRITICAL
+      # vulnerabilities fail the run, so no attestation and no GitHub release follow.
+      - name: Trivy on the pushed image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0 (2026-04-22)
+        with:
+          scan-type: image
+          image-ref: ghcr.io/${{ github.repository_owner }}/kelvin@${{ steps.build.outputs.digest }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  # A signed build-provenance attestation of the image's digest (Sigstore, stored by GitHub): who
+  # built it, from which commit and workflow. The OIDC token exists only in this job, which runs
+  # no code from the repository. Attestations need a public repository on GitHub Free.
+  attest:
+    name: Build provenance
+    needs: publish
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2 (2026-08-06)
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/kelvin
+          subject-digest: ${{ needs.publish.outputs.digest }}
+
+  release:
+    name: GitHub release
+    needs: [notes, publish, attest]
+    # Runs when the image was published and scanned, and the attestation passed, or was skipped
+    # (private).
+    if: ${{ always() && needs.notes.result == 'success' && needs.publish.result == 'success' && (needs.attest.result == 'success' || needs.attest.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2 (2026-10-07)
+        with:
+          name: notes
+          path: notes
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/kelvin
+          DIGEST: ${{ needs.publish.outputs.digest }}
+          ATTESTED: ${{ needs.attest.result }}
+        run: |
+          version="${TAG#v}"
+          {
+            echo
+            echo "---"
+            echo
+            echo "Image: \`$IMAGE:$version\` (\`$DIGEST\`), linux/amd64 and linux/arm64."
+            if [ "$ATTESTED" = success ]; then
+              echo "Check its build provenance with"
+              echo "\`gh attestation verify oci://$IMAGE:$version --repo $GITHUB_REPOSITORY\`."
+            fi
+          } >>notes/notes.md
+          set --
+          case "$TAG" in *-*) set -- --prerelease ;; esac
+          gh release create "$TAG" --verify-tag --title "Kelvin $version" \
+            --notes-file notes/notes.md "$@"
 
   dry-run:
     name: Multi-arch build (dry run, nothing pushed)
