@@ -279,16 +279,19 @@ def _job(text: str, name: str) -> str:
 
 def test_workflows_start_read_only_and_never_run_fork_code_with_secrets():
     flows = _workflows()
-    assert set(flows) == {"ci.yml", "release.yml"}
+    assert set(flows) == {"ci.yml", "codeql.yml", "release.yml"}
     for name, text in flows.items():
         assert re.search(r"^permissions:\n  contents: read$", text, re.M), name
         assert "pull_request_target" not in text and "workflow_run" not in text, name
-        # No untrusted event data in scripts (titles, branch names): script injection.
-        assert "github.event." not in text and "head_ref" not in text, name
+        # No untrusted event data in scripts (titles, branch names): script injection. The one
+        # event field read is the repository's visibility, a boolean in a job's `if:`.
+        event = text.replace("if: ${{ !github.event.repository.private }}", "")
+        assert "github.event." not in event and "head_ref" not in text, name
         assert "secrets." not in text.replace("secrets.GITHUB_TOKEN", ""), name
         assert "toJSON(" not in text and "printenv" not in text, name
-    assert "packages: write" not in flows["ci.yml"]
-    assert "id-token" not in flows["ci.yml"]
+    for name in ("ci.yml", "codeql.yml"):
+        assert "packages: write" not in flows[name], name
+        assert "id-token" not in flows[name], name
 
 
 def test_actions_are_pinned_to_a_commit_and_checkout_drops_the_token():
@@ -308,10 +311,11 @@ def test_actions_are_pinned_to_a_commit_and_checkout_drops_the_token():
 
 def test_no_expression_is_expanded_inside_a_run_script():
     # `${{ }}` is pasted into the script before the shell runs: values go through env: instead.
-    for name, text in _workflows().items():
-        scripts = _run_blocks(text)
-        assert scripts, name
-        assert [s for s in scripts if "${{" in s] == [], name
+    flows = _workflows()
+    for name in ("ci.yml", "release.yml"):
+        assert _run_blocks(flows[name]), name
+    for name, text in flows.items():
+        assert [s for s in _run_blocks(text) if "${{" in s] == [], name
 
 
 def test_run_blocks_are_found_inline_and_as_block_scalars():
@@ -330,6 +334,26 @@ def test_ci_lints_the_workflows_with_a_checksummed_actionlint():
     assert "./actionlint" in lint
 
 
+def test_ci_scans_the_whole_history_for_secrets_with_a_checksummed_gitleaks():
+    secrets = _job(_workflows()["ci.yml"], "secrets")
+    assert "name: Secrets (gitleaks, whole history)" in secrets
+    assert re.search(r"GITLEAKS_SHA256: [0-9a-f]{64}$", secrets, re.M)
+    assert re.search(r'GITLEAKS_VERSION: "\d+\.\d+\.\d+"$', secrets, re.M)
+    assert secrets.index("sha256sum -c") < secrets.index("tar ")
+    assert "fetch-depth: 0" in secrets
+    assert "--redact" in secrets and "--config .gitleaks.toml" in secrets
+
+
+def test_codeql_scans_every_language_from_source_only():
+    text = _workflows()["codeql.yml"]
+    analyze = _job(text, "analyze")
+    assert "language: [python, javascript-typescript, actions]" in analyze
+    assert "build-mode: none" in analyze and "queries: security-extended" in analyze
+    assert re.search(r"^      security-events: write$", analyze, re.M)
+    assert "if: ${{ !github.event.repository.private }}" in analyze
+    assert re.search(r'^    - cron: "[^"]+"$', text, re.M)
+
+
 def test_ci_cancels_superseded_runs():
     # Actions minutes are scarce: a new push supersedes the running checks of its ref.
     text = _workflows()["ci.yml"]
@@ -346,7 +370,7 @@ def test_docs_only_pull_requests_skip_the_heavy_jobs_but_keep_one_result_check()
     assert "\\.md$|^docs/|^LICENSE$|^\\.github/ISSUE_TEMPLATE/" in changes
     result = _job(text, "result")
     assert "if: always()" in result and "success | skipped" in result
-    assert "needs: [changes, lint, backend, web, web-e2e, image]" in result
+    assert "needs: [changes, lint, secrets, backend, web, web-e2e, image]" in result
 
 
 def test_pull_requests_run_a_critical_container_subset_and_main_the_full_matrix():
@@ -367,13 +391,12 @@ def test_release_pushes_only_from_a_tag():
     text = _workflows()["release.yml"]
     on = text[text.index("\non:\n") : text.index("\npermissions:\n")]
     assert set(re.findall(r"^  (\w+):", on, re.M)) == {"push", "workflow_dispatch"}
-    assert re.search(r'^  push:\n    tags: \["v\*"\]$', text, re.M)
+    assert re.search(r'^  push:\n    tags: \["v\*\.\*\.\*"\]$', text, re.M)
     assert "branches" not in on
     jobs = set(re.findall(r"^  ([\w-]+):$", text[text.index("\njobs:\n") :], re.M))
-    assert jobs == {"checks", "publish", "dry-run"}
+    assert jobs == {"on-main", "checks", "notes", "publish", "attest", "release", "dry-run"}
 
     publish = _job(text, "publish")
-    assert "if: github.event_name == 'push' && github.ref_type == 'tag'" in publish
     assert re.search(
         r"^    permissions:\n      contents: read\n      packages: write$", publish, re.M
     )
@@ -394,21 +417,49 @@ def test_release_pushes_only_from_a_tag():
 
 def test_release_publishes_only_after_the_ci_checks_pass_on_the_tagged_commit():
     release = _workflows()["release.yml"]
+    on_main = _job(release, "on-main")
+    assert "if: github.event_name == 'push' && github.ref_type == 'tag'" in on_main
+    # Asked of the API (no git fetch), main resolved by its full ref, never by a tag named main.
+    assert "git/ref/heads/main" in on_main and "compare/" in on_main
+    assert "identical | behind" in on_main
+    assert "git fetch" not in "".join(_run_blocks(on_main))
     checks = _job(release, "checks")
-    assert "if: github.event_name == 'push' && github.ref_type == 'tag'" in checks
+    assert re.search(r"^    needs: on-main$", checks, re.M)
     assert "uses: ./.github/workflows/ci.yml" in checks
     assert re.search(r"^    permissions:\n      contents: read$", checks, re.M)
     assert "secrets:" not in checks  # nothing is passed down; ci.yml needs none
-    assert re.search(r"^    needs: \[?checks\]?$", _job(release, "publish"), re.M)
+    assert re.search(r"^    needs: checks$", _job(release, "notes"), re.M)
+    assert re.search(r"^    needs: notes$", _job(release, "publish"), re.M)
     ci_on = _workflows()["ci.yml"].split("\npermissions:\n")[0]
     assert re.search(r"^  workflow_call:$", ci_on, re.M)
 
 
 def test_release_refuses_a_tag_that_does_not_match_both_versions():
-    text = _job(_workflows()["release.yml"], "publish")
+    text = _job(_workflows()["release.yml"], "notes")
     assert "backend/pyproject.toml" in text and "web/package.json" in text
     assert '"$tag" != "$backend"' in text and '"$tag" != "$web"' in text
     assert "exit 1" in text
+    assert "CHANGELOG.md" in text  # a tag without its changelog section fails here too
+
+
+def test_release_scans_attests_then_releases_the_pushed_digest():
+    release = _workflows()["release.yml"]
+    publish = _job(release, "publish")
+    assert "aquasecurity/trivy-action@" in publish
+    assert "@${{ steps.build.outputs.digest }}" in publish
+    assert 'exit-code: "1"' in publish
+    attest = _job(release, "attest")
+    assert re.search(r"^    needs: publish$", attest, re.M)
+    assert "actions/attest-build-provenance@" in attest
+    assert "subject-digest: ${{ needs.publish.outputs.digest }}" in attest
+    assert "actions/checkout@" not in attest  # the OIDC job runs no repository code
+    # The OIDC token exists only in the attestation job.
+    assert release.count("id-token: write") == 1 and "id-token: write" in attest
+    final = _job(release, "release")
+    assert "needs.attest.result == 'skipped'" in final
+    assert "needs.publish.result == 'success'" in final
+    assert "gh release create" in final and "--verify-tag" in final
+    assert release.count("contents: write") == 1 and "contents: write" in final
 
 
 def test_ci_runs_every_check_and_the_image_smoke():

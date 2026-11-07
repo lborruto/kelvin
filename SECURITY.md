@@ -10,7 +10,8 @@ needs (network position, an account, a session), and the steps. Kelvin is mainta
 ## Supported versions
 
 `main`. Kelvin is a small self-hosted project: fixes land on `main` and in the image built
-from it.
+from it. Released images carry a build-provenance attestation (from the release after 0.3.4):
+`gh attestation verify oci://ghcr.io/lborruto/kelvin:X.Y.Z --repo lborruto/kelvin`.
 
 ## Security model
 
