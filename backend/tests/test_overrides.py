@@ -819,3 +819,37 @@ async def test_away_with_every_radiator_off_is_refused(env):
         await mgr.start("away", ["9000022"], 17.0, None, label="a")
     assert e.value.code == "away_all_off"
     assert len(gw.executed) == before and mgr.active() == []
+
+
+async def test_an_override_saves_the_radiator_state_read_fresh(env):
+    """The end writes the saved target back, and on Sauter that target is the programme's
+    Confort: it must come from the radiator, not from a copy Kelvin let go stale."""
+    clock, gw, house, svc, _, mgr = env
+    url = house.radiators["9500003"].heater_url
+    # Confort and the manual setpoint moved on the radiator without an event.
+    gw.devices[url].states["core:TargetTemperatureState"] = 21.5
+    gw.devices[url].states["core:ComfortRoomTemperatureState"] = 21.5
+    assert house.radiators["9500003"].target == 20.0
+    o, _ = await mgr.start("away", ["9500003"], 17.0, None, label="a")
+    assert o.previous["9500003"] == {"mode": "program", "target": 21.5}
+    await settle(clock, gw, house, svc)
+    await mgr.cancel(o.id)
+    restore = [(c.name, c.parameters) for c in gw.executed[-1]]
+    assert restore == [("setTargetTemperature", (21.5,)), ("setOperatingMode", ("internal",))]
+
+
+async def test_a_failed_fresh_read_keeps_kelvins_copy(env):
+    clock, gw, house, svc, _, mgr = env
+    gw.broken_devices.add(house.radiators["9500003"].heater_url)
+    o, p = await mgr.start("away", ["9500003"], 17.0, None, label="a")
+    assert o.previous["9500003"] == {"mode": "program", "target": 20.0}
+    assert gw.failed_state_reads == 1
+
+
+async def test_a_radiator_already_held_is_not_read_again(env):
+    clock, gw, house, svc, _, mgr = env
+    o, _ = await mgr.start("boost", list(SALON), 21.0, clock() + 3600, label="b")
+    await settle(clock, gw, house, svc)
+    reads = gw.state_reads
+    a, _ = await mgr.start("away", list(SALON), 17.0, None, label="a")
+    assert gw.state_reads == reads  # the boost's saved state is inherited, not re-read

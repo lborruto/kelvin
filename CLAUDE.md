@@ -158,7 +158,9 @@ depends on.
   most, 62 for hourly radiator buckets, `422 Période invalide.` otherwise), readings stream in pages (`PAGE_ROWS`), and loops
   that delete or migrate work in fixed batches.
 - **Restore order:** a restore sets the previous target first, then the mode, in one action. In
-  programme mode the target is the remembered manual setpoint.
+  programme mode the target is the remembered manual setpoint. An override reads each radiator it saves (one
+  targeted read, not one already held or in flight) before saving its state: on Sauter that target
+  is also the programme's Confort, so a stale copy would be written back as the room's Confort.
 - **Away leaves « Arrêt » alone:** an away never includes a radiator that is off (`_start`,
   `away_all_off` when every one is); its end has nothing to restore for it.
 - **Open-ended away** (« Jusqu’à mon retour »): an away override may have `ends_at = None` (API
