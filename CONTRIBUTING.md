@@ -234,8 +234,9 @@ plain words.
    `web/package.json` and adds the `## X.Y.Z` section to `CHANGELOG.md`; merge it.
 2. Tag the merge commit on `main`: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 3. `release.yml` checks the tagged commit is on `main`, runs CI on it, checks both versions and
-   the changelog section, publishes the multi-arch image to GHCR, scans it with Trivy, attests
-   its build provenance and creates the GitHub release with that section as notes.
+   the changelog section, pushes the multi-arch image to GHCR by digest, scans it with Trivy in
+   a job without write access, tags it only once the scan passed, attests its build provenance
+   and creates the GitHub release with that section as notes.
 
 ## Project status
 
