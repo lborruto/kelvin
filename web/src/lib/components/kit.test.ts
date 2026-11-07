@@ -207,7 +207,7 @@ describe('RoomTile', () => {
 describe('small pieces', () => {
   it('SummaryChip: label and value separate; a link or a button; a skeleton keeps its size', () => {
     const { container, unmount } = render(SummaryChip, { icon: 'flame', label: 'Climat', value: '19,1–19,6°', href: '/' });
-    expect(screen.getByRole('link')).toHaveTextContent('Climat19,1–19,6°');
+    expect(screen.getByRole('link')).toHaveTextContent('Climat 19,1–19,6°');
     unmount();
     render(SummaryChip, { icon: 'away', label: 'Absence', value: 'Partir…', onclick: () => {} });
     expect(screen.getByRole('button', { name: /Absence/ })).toHaveTextContent('Absence');

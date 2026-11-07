@@ -41,7 +41,7 @@ test('schedule: a change made elsewhere is never overwritten silently', async ({
     await p.goto('/schedule');
     // « Chambre 2 » is offline in the simulator: Salon takes the edits.
     await p.getByRole('radio', { name: 'Salon' }).click();
-    await p.getByRole('button', { name: /^Lundi,/ }).click();
+    await p.getByRole('button', { name: /^[^(]+\(Lundi,/ }).click();
   }
   // This page edits Monday and does not send yet.
   await page.getByRole('button', { name: 'Ajouter une plage le Lundi' }).click();
@@ -65,8 +65,8 @@ test('schedule: Chambre 1 shows its locked days read-only', async ({ page, isMob
   // The agenda hatches them and says why: in the day's name, in its column (desktop) or the notes under it (phone).
   // Today's day says « aujourd’hui » after its name (whatever day the suite runs on).
   const sunday = page.locator('[data-day="sunday"]');
-  await expect(sunday.getByRole('button')).toHaveAccessibleName(/^Dimanche, (aujourd’hui, )?20:00–24:00, .*Fin à minuit\s:\smodifiez ce jour/);
-  await expect(page.getByRole('button', { name: /^Samedi, (aujourd’hui, )?Plage non reconnue/ })).toBeVisible();
+  await expect(sunday.getByRole('button')).toHaveAccessibleName(/^[^(]+\(Dimanche, (aujourd’hui, )?20:00–24:00, .*Fin à minuit\s:\smodifiez ce jour/);
+  await expect(page.getByRole('button', { name: /^[^(]+\(Samedi, (aujourd’hui, )?Plage non reconnue/ })).toBeVisible();
   if (isMobile) {
     await expect(page.locator('[data-lock="sunday"]')).toContainText(/Fin à minuit\s:\smodifiez ce jour/);
     await expect(page.locator('[data-lock="saturday"]')).toContainText('Plage non reconnue');
@@ -90,7 +90,7 @@ test('schedule: an offline room is marked in the picker and shown read-only', as
   await expect(ch2).toBeVisible();
   await ch2.click();
   await expect(page.getByRole('status').filter({ hasText: 'Chambre 2 est hors ligne' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Lundi,/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^[^(]+\(Lundi,/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Ajouter une plage/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Envoyer', exact: true })).toHaveCount(0);
 });

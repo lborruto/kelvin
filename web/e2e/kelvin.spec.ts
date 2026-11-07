@@ -80,7 +80,7 @@ test('programme edit round-trips', async ({ page }) => {
   await page.getByRole('radio', { name: 'Salon' }).click();
   await expect(page.getByRole('radio', { name: 'Salon' })).toHaveAttribute('aria-checked', 'true');
   // A week row opens its day: beside the week on desktop, as its own view on a phone.
-  await page.getByRole('button', { name: /^Lundi,/ }).click();
+  await page.getByRole('button', { name: /^[^(]+\(Lundi,/ }).click();
   await expect(page.getByRole('heading', { name: /^Lundi/ })).toBeVisible();
   await page.getByRole('button', { name: 'Supprimer la plage 2 du Lundi' }).click();
   await expect(page.locator('.sendbar')).toContainText('1 jour modifié');

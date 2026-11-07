@@ -101,7 +101,7 @@ test.describe('key flows in English', () => {
     await expect(page.getByRole('heading', { name: 'Energy', level: 1 })).toBeVisible();
     await expect(page.locator('.hero .big')).toHaveText(/^€[\d,]+(\.\d{2})?/);
     await expect(page.locator('.hero .tag')).toHaveText('est.');
-    await expect(page.getByRole('button', { name: /^€[\d,.]+, estimate, details$/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^€[\d,.]+ est\. \(estimate\), details$/ })).toBeVisible();
     // Month (the default view) draws day bars.
     await expect(page.getByRole('img', { name: 'Home consumption by day' })).toBeVisible();
     await page.locator('.w-curve').getByRole('button', { name: /^by half-hour, load curve for / }).click();
@@ -145,7 +145,7 @@ test.describe('key flows in English', () => {
     await expect(page.getByText(/drag it to move it/)).toBeVisible();
     // The rule: under the title on desktop, in the help on a phone.
     await expect(page.getByText('Outside comfort periods, the room is on eco.')).toBeVisible();
-    await page.getByRole('button', { name: /^Monday,/ }).click();
+    await page.getByRole('button', { name: /^[^(]+\(Monday,/ }).click();
     await expect(page.getByRole('heading', { name: /^Monday/ })).toBeVisible();
     await page.getByRole('button', { name: 'Copy to…' }).click();
     const sheet = page.getByRole('dialog', { name: 'Copy Monday to…' });

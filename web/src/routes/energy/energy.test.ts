@@ -162,7 +162,7 @@ describe('Énergie', () => {
     expect(container.querySelector('.hero')).toHaveAttribute('aria-labelledby', 'period-label');
     expect(container.querySelector('.hero .big')).toHaveTextContent('98,40 €');
     expect(container.querySelector('.hero .tag')).toHaveTextContent('est.');
-    expect(screen.getByRole('button', { name: /^98,40\s€, estimation, détails$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^98,40\s€ est\. \(estimation\), détails$/ })).toBeInTheDocument();
     // A running month is described up to its last day with data, then the kWh its parts add up to.
     expect(container.querySelector('.hero .range')!.textContent).toBe('du\u00a01/10\u00a0au\u00a012/10 · 412,6\u00a0kWh');
     expect(screen.getByRole('img', { name: 'Heures creuses 158,3\u00a0kWh, heures pleines 254,3\u00a0kWh' })).toBeInTheDocument();
@@ -197,7 +197,7 @@ describe('Énergie', () => {
     desktop.matches = true;
     try {
       render(Page);
-      const fig = await screen.findByRole('button', { name: /^98,40\s€, estimation, détails$/ });
+      const fig = await screen.findByRole('button', { name: /^98,40\s€ est\. \(estimation\), détails$/ });
       await fireEvent.click(fig);
       const card = document.querySelector('.fiche')!;
       expect(card.querySelector('.title')).toHaveTextContent('Octobre 2026');
@@ -222,7 +222,7 @@ describe('Énergie', () => {
       this.setAttribute('open', '');
     };
     render(Page);
-    await fireEvent.click(await screen.findByRole('button', { name: /^98,40\s€, estimation, détails$/ }));
+    await fireEvent.click(await screen.findByRole('button', { name: /^98,40\s€ est\. \(estimation\), détails$/ }));
     const dialog = [...document.querySelectorAll('dialog')].find((d) => d.hasAttribute('open'))!;
     expect(dialog.querySelector('h2')).toHaveTextContent('Octobre 2026');
     expect(ficheRow(dialog, 'Coût estimé')).toBe('98,40\u00a0€');
@@ -1024,7 +1024,7 @@ describe('Energy in English', () => {
     expect(screen.getByRole('radio', { name: 'Month' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('radiogroup', { name: 'Period' })).toBeInTheDocument();
     expect(container.querySelector('.hero .big')).toHaveTextContent('€98.40');
-    expect(screen.getByRole('button', { name: '€98.40, estimate, details' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '€98.40 est. (estimate), details' })).toBeInTheDocument();
     expect(container.querySelector('.hero .range')).toHaveTextContent('1/10 – 12/10 · 412.6 kWh');
     expect(container.querySelector('.hero .words')).toHaveTextContent('Off-peak 158.3 kWh Peak 254.3 kWh');
     expect(screen.getByText('−4% consumption compared with September 2026, over 12 comparable days')).toBeInTheDocument();

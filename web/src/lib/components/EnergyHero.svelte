@@ -124,7 +124,7 @@
         })
   );
   let title = $derived(periodTitle(view, { from: p.from, to: p.to } as Span));
-  let figLabel = $derived(kind === 'eur' ? `${figure}, ${m.hero.estimate}` : figure);
+  let figLabel = $derived(kind === 'eur' ? `${figure} ${m.fiche.est} (${m.hero.estimate})` : figure);
 
   // The key figures (direction-2 §2): each a link to its section, named « Chauffage, 63 % de la maison ».
   type Key = { id: string; label: string; value: string; sub: string | null };

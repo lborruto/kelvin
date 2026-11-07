@@ -53,7 +53,12 @@
   // A block writes « Confort » and its times when it is tall enough, its times alone a little shorter.
   const px = (s: Seg) => ((s.end - s.start) / 1440) * bodyH;
 
-  function name(d: Day): string {
+  // What the header shows (« lun. », « lun. modifié »): the accessible name starts with it (WCAG 2.5.3).
+  const shown = (d: Day) => `${compact ? m.daysLetter[d] : m.daysAbbr[d]}${changed.includes(d) ? ` ${m.program.edited}` : ''}`;
+
+  // `head`: the header button's name, « lun. modifié (Lundi, …) »: what it shows first, then the day in full
+  // (« modifié » is already in what it shows, so the details leave it out).
+  function name(d: Day, head = false): string {
     const lock = locks[d];
     const segs = week[d];
     const parts = [m.days[d]];
@@ -62,9 +67,9 @@
       parts.push(segs.length ? m.program.list(slotTimes(segs)) : m.program.allEco);
       if (segs.length) parts.push(m.program.comfortFor(fmtDuration(comfortMinutes(segs))));
     }
-    if (changed.includes(d)) parts.push(m.program.edited);
+    if (changed.includes(d) && !head) parts.push(m.program.edited);
     if (lock) parts.push(lockText(lock));
-    return parts.join(', ');
+    return head ? `${shown(d)} (${parts.join(', ')})` : parts.join(', ');
   }
 
   // Arrows move between days (and, beside an editor, select the day at once).
@@ -163,7 +168,7 @@
           {#if changed.includes(d)}<span class="ed">{m.program.edited}</span>{:else if d === today}<span class="dot"></span>{/if}
         {/snippet}
         {#if interactive}
-          <button bind:this={heads[i]} type="button" class="hd" aria-pressed={selected ? selected === d : undefined} aria-label={name(d)}
+          <button bind:this={heads[i]} type="button" class="hd" aria-pressed={selected ? selected === d : undefined} aria-label={name(d, true)}
             tabindex={d === stop ? 0 : -1} onclick={() => onselect?.(d)} onkeydown={(e) => key(e, i)}>{@render head()}</button>
         {:else}
           <span class="hd" aria-hidden="true">{@render head()}</span><span class="visually-hidden">{name(d)}</span>

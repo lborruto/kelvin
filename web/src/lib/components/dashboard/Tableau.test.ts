@@ -122,9 +122,9 @@ describe('Maison on the phone', () => {
     const chips = screen.getByRole('group', { name: 'Résumés' });
     expect(chips).toHaveTextContent('Climat');
     expect(chips).toHaveTextContent('19,1–19,6°');
-    expect(chips).toHaveTextContent(`Octobre100,22 €`);
-    expect(chips).toHaveTextContent('RéseauRien à signaler');
-    expect(chips).toHaveTextContent('AbsencePartir…');
+    expect(chips).toHaveTextContent(`Octobre 100,22 €`);
+    expect(chips).toHaveTextContent('Réseau Rien à signaler');
+    expect(chips).toHaveTextContent('Absence Partir…');
     expect(screen.getByText('1 en chauffe · 1 hors ligne')).toBeInTheDocument();
     const links = screen.getAllByRole('link', { name: /^(Salon|Chambre)/ }).map((a) => a.getAttribute('aria-label'));
     expect(links).toEqual([
@@ -190,7 +190,7 @@ describe('Maison on the phone', () => {
     load([room('salon', 'Salon', ['a']), room('ch2', 'Chambre 2', ['d'])], [rad('a', 'salon'), rad('d', 'ch2', { reachable: false })], [away]);
     const { container } = render(Tableau);
     await settle();
-    expect(screen.getByRole('group', { name: 'Résumés' })).toHaveTextContent('Absencejusqu’à dim. 18:00');
+    expect(screen.getByRole('group', { name: 'Résumés' })).toHaveTextContent('Absence jusqu’à dim. 18:00');
     expect(container.querySelector('.rt.absence')).toHaveTextContent(`Absence · 12,0 °C`);
     expect(screen.queryByRole('group', { name: /^Salon · / })).toBeNull();
     expect(screen.getByText('toutes les pièces · Chambre 2 hors ligne')).toBeInTheDocument();
@@ -203,7 +203,7 @@ describe('Maison on the phone', () => {
     load([room('salon', 'Salon', ['a']), room('ch2', 'Chambre 2', ['d'])], [rad('a', 'salon'), rad('d', 'ch2', { reachable: false })], [away]);
     const { container } = render(Tableau);
     await settle();
-    expect(screen.getByRole('group', { name: 'Résumés' })).toHaveTextContent('Absencejusqu’à votre retour');
+    expect(screen.getByRole('group', { name: 'Résumés' })).toHaveTextContent('Absence jusqu’à votre retour');
     const line = [...container.querySelectorAll('.tx b')].find((b) => b.textContent!.includes(' · '));
     expect(line?.textContent).toMatch(/^Absence · 12,0\s°C · jusqu’à votre retour$/);
     expect(container.querySelector('.rt.absence')).toHaveTextContent(`Absence · 12,0 °C`);
@@ -314,8 +314,8 @@ describe('Maison on the phone', () => {
     expect(container.querySelector('.maison')).not.toHaveAttribute('data-sveltekit-noscroll');
     const tile = screen.getByRole('link', { name: /^Salon,/ });
     expect(tile.closest('[data-sveltekit-noscroll]')).not.toBeNull();
-    expect(screen.getByRole('link', { name: /^Chauffe temporaire · Salon/ }).closest('[data-sveltekit-noscroll]')).not.toBeNull();
-    for (const name of [/^Programme · Salon/, /^Programme$/, /^Énergie/]) {
+    expect(screen.getByRole('link', { name: /^Chauffe temp\. · .* · Salon$/ }).closest('[data-sveltekit-noscroll]')).not.toBeNull();
+    for (const name of [/^Programme · .* · Salon$/, /^Programme$/, /^Énergie/]) {
       for (const a of screen.getAllByRole('link', { name })) expect(a.closest('[data-sveltekit-noscroll]')).toBeNull();
     }
   });
@@ -351,11 +351,11 @@ describe('Maison on desktop', () => {
     expect(heads).toEqual(['Salon', 'Chambre 1', 'Hors ligne · 1', 'Programme d’aujourd’hui', 'Énergie et réseau']);
     const salon = screen.getByRole('region', { name: 'Salon' });
     expect(within(salon).getByText('2 radiateurs')).toBeInTheDocument();
-    expect(within(salon).getByRole('link', { name: /^Chauffe temporaire · Salon · Lancer…$/ })).toHaveAttribute('href', '/?sheet=salon&boost=1');
-    expect(within(salon).getByRole('link', { name: /^Programme · Salon · → Confort 17:30$/ })).toHaveAttribute('href', '/schedule?room=salon');
-    expect(within(salon).getByRole('link', { name: /^Radiateurs · Salon · 2 en chauffe · baie 19,7° · entrée 19,5°$/ })).toBeInTheDocument();
+    expect(within(salon).getByRole('link', { name: /^Chauffe temp\. · Lancer… · Salon$/ })).toHaveAttribute('href', '/?sheet=salon&boost=1');
+    expect(within(salon).getByRole('link', { name: /^Programme · → Confort 17:30 · Salon$/ })).toHaveAttribute('href', '/schedule?room=salon');
+    expect(within(salon).getByRole('link', { name: /^Radiateurs · 2 en chauffe · baie 19,7° · entrée 19,5° · Salon$/ })).toBeInTheDocument();
     // One radiator that reports windows: the Fenêtre tile instead.
-    expect(within(screen.getByRole('region', { name: 'Chambre 1' })).getByRole('link', { name: /^Fenêtre · Chambre 1 · Fermée$/ })).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Chambre 1' })).getByRole('link', { name: /^Fenêtre · Fermée · Chambre 1$/ })).toBeInTheDocument();
     expect(container.querySelector('.bill')).toHaveTextContent(`Octobre, jusqu’au 12`);
     expect(container.querySelector('.bill')).toHaveTextContent(`≈ 194,80 € fin du mois`);
     expect(container.querySelector('.bill')).toHaveTextContent(`septembre : 118,40 €`);
@@ -387,8 +387,8 @@ describe('Maison on desktop', () => {
     );
     render(Tableau);
     await settle();
-    expect(screen.getByRole('link', { name: /^Chauffe temporaire · Salon · jusqu’à 20:42$/ })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /^Fenêtre · Chambre 1 · Ouverte$/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Chauffe temp\. · jusqu’à 20:42 · Salon$/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Fenêtre · Ouverte · Chambre 1$/ })).toBeInTheDocument();
     expect(screen.queryByRole('group', { name: /^Chambre 1 · / })).toBeNull();
   });
 
@@ -444,7 +444,7 @@ describe('a tile and its commands', () => {
     render(Tableau);
     await settle();
     expect(screen.getByRole('link', { name: /^Salon, 21,0\s°C, .*1 radiateur sur 2 hors ligne$/ })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /^Radiateurs · Salon · .*1 radiateur sur 2 hors ligne$/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Radiateurs · .*1 radiateur sur 2 hors ligne · Salon$/ })).toBeInTheDocument();
   });
 });
 
