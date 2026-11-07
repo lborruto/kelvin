@@ -1603,24 +1603,10 @@
         [
           12.0
         ]
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "setOperatingMode",
-        [
-          "basic"
-        ]
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "setTargetTemperature",
-        [
-          12.0
-        ]
       ]
     ],
     "actions": [
-      8
+      6
     ],
     "expect": [
       [
@@ -1650,16 +1636,6 @@
       ],
       [
         "io://1234-5678-9012/9000011#1",
-        "core:TargetTemperatureState",
-        12.0
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "core:OperatingModeState",
-        "basic"
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
         "core:TargetTemperatureState",
         12.0
       ]
@@ -1719,24 +1695,10 @@
         [
           "internal"
         ]
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "setTargetTemperature",
-        [
-          18.0
-        ]
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "setOperatingMode",
-        [
-          "standby"
-        ]
       ]
     ],
     "actions": [
-      8
+      6
     ],
     "expect": [
       [
@@ -1768,16 +1730,6 @@
         "io://1234-5678-9012/9000011#1",
         "core:OperatingModeState",
         "internal"
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "core:TargetTemperatureState",
-        18.0
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "core:OperatingModeState",
-        "standby"
       ]
     ]
   },
@@ -1840,24 +1792,10 @@
         [
           14.0
         ]
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "setOperatingMode",
-        [
-          "basic"
-        ]
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "setTargetTemperature",
-        [
-          14.0
-        ]
       ]
     ],
     "actions": [
-      8
+      6
     ],
     "expect": [
       [
@@ -1887,16 +1825,6 @@
       ],
       [
         "io://1234-5678-9012/9000011#1",
-        "core:TargetTemperatureState",
-        14.0
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "core:OperatingModeState",
-        "basic"
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
         "core:TargetTemperatureState",
         14.0
       ]
@@ -1956,24 +1884,10 @@
         [
           "internal"
         ]
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "setTargetTemperature",
-        [
-          18.0
-        ]
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "setOperatingMode",
-        [
-          "standby"
-        ]
       ]
     ],
     "actions": [
-      8
+      6
     ],
     "expect": [
       [
@@ -2005,16 +1919,6 @@
         "io://1234-5678-9012/9000011#1",
         "core:OperatingModeState",
         "internal"
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "core:TargetTemperatureState",
-        18.0
-      ],
-      [
-        "io://1234-5678-9012/9000022#1",
-        "core:OperatingModeState",
-        "standby"
       ]
     ]
   },

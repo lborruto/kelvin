@@ -5,7 +5,9 @@ re-record is its own commit and updates FIXTURE_SHA256 here. Re-recorded after t
 their Cozytouch labels (a setup write, no device command; a name never travels with other
 fields): each time identical to main + this harness alone. Re-recorded once more when the
 simulator's device serials were replaced by clearly invented ones: the new fixture equals the
-old one with that substitution applied, byte for byte."""
+old one with that substitution applied, byte for byte. Re-recorded when an away stopped
+including a radiator in « Arrêt » (owner, 2026-11-07): the new fixture equals the old one minus
+that radiator's commands in the two aways and their ends (8 commands per action → 6)."""
 
 import hashlib
 import json
@@ -20,7 +22,7 @@ from kelvin.overkiz.fake import FakeGateway
 from tests.conftest import ManualClock, login
 from tests.sauter_script import FIXTURE, WALL_START, dump, run_script
 
-FIXTURE_SHA256 = "fb8ab0d0d0de88a438320628c2fa969a69ec14fc808d77fcd7e07ade0d3cdbad"
+FIXTURE_SHA256 = "e1cc4608dc0ca3f430d44123958148feebe185bebe4891a026d64d1e63f2b0e8"
 REQUESTS = 27
 
 
@@ -96,15 +98,17 @@ def test_the_fixture_covers_every_command_route():
     boost_end, away_end = _requests(recorded, "DELETE", "/api/overrides/{id}")
     assert [c[1] for c in boost_end["commands"]] == ["setTargetTemperature", "setOperatingMode"]
     assert boost_end["actions"] == [2]
-    # A restore back to « off » sets the remembered target, then standby.
-    off = [c[1:] for c in away_end["commands"] if c[0].endswith("/9000022#1")]
-    assert off == [["setTargetTemperature", [18.0]], ["setOperatingMode", ["standby"]]]
-    assert away_end["actions"] == [8]
+    # A radiator in « Arrêt » is left alone by an away (owner, 2026-11-07): neither the away nor
+    # its end sends it anything.
+    (away, _) = _requests(recorded, "POST", "/api/house/away")
+    for step in (away, away_end):
+        assert not [c for c in step["commands"] if c[0].endswith("/9000022#1")]
+    assert away_end["actions"] == [6]
     # The expiry (override tick) restores the same way as a cancel, in one action.
     (expired,) = _requests(recorded, "EXPIRE", "away")
     assert expired["label"][1] == "away_end"
     assert expired["commands"] == away_end["commands"]
-    assert expired["actions"] == [8]
+    assert expired["actions"] == [6]
 
 
 async def test_sauter_commands_are_unchanged(ctx):

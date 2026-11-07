@@ -55,7 +55,7 @@ depends on.
 - **Sauter commands are pinned byte for byte** by `tests/test_sauter_golden.py` and its fixture
   (`tests/fixtures/sauter_commands.json`, recorded by `scripts/sauter_golden.py` before the
   multi-brand command layer existed; each justified re-record so far was identical to `main` + the
-  harness alone, or differed only by a substitution its commit states).
+  harness alone, or differed only by a substitution or an owner-decided removal its commit states).
   Never regenerate the fixture to make a change pass; a diff there is a regression. The script
   refuses to overwrite it without `--force`, and the test pins its SHA-256: a re-record needs its
   own justified commit that also edits `FIXTURE_SHA256`.
