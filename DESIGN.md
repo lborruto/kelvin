@@ -815,6 +815,9 @@ never reloads. URL paths are English in both languages (`/rooms`, `/schedule`, `
   failure plainly with « Réessayer ».
 - **Do** keep 44 px hit areas, `aria-disabled` (never native `disabled` on a focusable control), skeletons at final
   heights, no sideways scroll from 320 px, CLS < 0.05, axe clean (`a11y.spec.ts`, `cls.spec.ts`, `layout.spec.ts`).
+- **Do** start a control's `aria-label` with the words it shows, in order (WCAG 2.5.3 « label in name », axe
+  `label-content-name-mismatch`): context comes after (« Fenêtre · Fermée · Chambre 1 », « lun. modifié (Lundi, …) »,
+  « 55,67 € est. (estimation), détails »), and a kit title and its line under it are separate words in the DOM.
 - **Do** put every exact figure behind a `Fig` with Provenance; « — » always with its reason; numbers through
   `$lib/format` (`fmtTempShort` for tile readings, `fmtKwhPrice` for the price per kWh).
 - **Do** take every word from `fr.ts` and `en.ts` (glossary first); a chip's label and value are separate keys.

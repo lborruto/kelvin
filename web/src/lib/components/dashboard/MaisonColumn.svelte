@@ -56,20 +56,20 @@
       {#if rc.boost > 0}
         <div class="keep" data-sveltekit-noscroll data-sveltekit-keepfocus><IconTile layout="stack" icon="bolt" tone={boosting ? 'heat' : null} title={m.kit.boostShort}
           sub={boosting ? m.maison.boostUntil(boostEnd) : m.maison.boostLaunch} href={boosting ? href : roomSheetHref(ROUTES.rooms, room.id, { boost: true })}
-          ariaLabel={`${m.boost.title} · ${name} · ${boosting ? m.maison.boostUntil(boostEnd) : m.maison.boostLaunch}`} inert={!house.online} /></div>
+          ariaLabel={`${m.kit.boostShort} · ${boosting ? m.maison.boostUntil(boostEnd) : m.maison.boostLaunch} · ${name}`} inert={!house.online} /></div>
       {/if}
       {#if rc.program > 0}
         <IconTile layout="stack" icon="cal" title={m.mode.program} sub={programSub} href="{ROUTES.schedule}?room={encodeURIComponent(room.id)}"
-          ariaLabel={`${m.mode.program} · ${name} · ${programSub}`} />
+          ariaLabel={`${m.mode.program} · ${programSub} · ${name}`} />
       {/if}
     </div>
   {/if}
   {#if windowTile}
     <IconTile icon="window" title={m.maison.window} sub={room.window_open ? m.maison.windowOpen : m.maison.windowClosed} {href}
-      ariaLabel={`${m.maison.window} · ${name} · ${room.window_open ? m.maison.windowOpen : m.maison.windowClosed}`} />
+      ariaLabel={`${m.maison.window} · ${room.window_open ? m.maison.windowOpen : m.maison.windowClosed} · ${name}`} />
   {:else}
     <IconTile icon="rad" tone={heatingRads ? 'heat' : null} title={m.maison.radiators} sub={radiatorsText(rads, name, status.kind === 'off')} {href}
-      ariaLabel={`${m.maison.radiators} · ${name} · ${radiatorsText(rads, name, status.kind === 'off')}`} />
+      ariaLabel={`${m.maison.radiators} · ${radiatorsText(rads, name, status.kind === 'off')} · ${name}`} />
   {/if}
 </section>
 

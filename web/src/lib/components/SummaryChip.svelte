@@ -41,7 +41,7 @@
 
 {#snippet inner()}
   <span class="ci {tone ?? ''}" aria-hidden="true"><Icon name={icon} size={16} /></span>
-  <span class="tx"><b>{label}</b><span class="v {tone ?? ''}">{value}</span></span>
+  <span class="tx"><b>{label}</b>{' '}<span class="v {tone ?? ''}">{value}</span></span>
 {/snippet}
 
 {#if skeleton}

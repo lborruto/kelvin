@@ -98,7 +98,7 @@ describe('/schedule: « Modifier les températures » (a compact sheet over Prog
   });
 });
 
-const row = (day: string) => screen.getByRole('button', { name: new RegExp(`^${day},`) });
+const row = (day: string) => screen.getByRole('button', { name: new RegExp(`^[^(]+\\(${day},`) });
 const sendBar = () => document.querySelector('.sendbar');
 /** A Thursday at 12:00 in Paris: the days these tests name (Monday, Tuesday, Friday) are not « aujourd’hui »,
  *  whose tag would join their row's name. */
@@ -114,7 +114,7 @@ async function onAThursday(run: () => Promise<void>) {
 
 /** Desktop: pick Monday in the week, then add a period to it in the editor. */
 async function editMonday() {
-  await fireEvent.click(await screen.findByRole('button', { name: /^Lundi,/ }));
+  await fireEvent.click(await screen.findByRole('button', { name: /^[^(]+\(Lundi,/ }));
   await fireEvent.click(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' }));
 }
 async function editAndSend() {
@@ -237,7 +237,7 @@ describe('/schedule', () => {
     render(Page);
     const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const cancel = vi.fn();
-    await screen.findByRole('button', { name: /^Lundi,/ });
+    await screen.findByRole('button', { name: /^[^(]+\(Lundi,/ });
     nav.guard!({ willUnload: false, cancel });
     expect(ask).not.toHaveBeenCalled(); // clean draft: leave freely
     await editMonday();
@@ -302,7 +302,7 @@ describe('/schedule', () => {
 
   it('keeps Annuler and Envoyer in a bar that counts the modified days; « Voir les modifications » lists them', async () => {
     render(Page);
-    await screen.findByRole('button', { name: /^Lundi,/ });
+    await screen.findByRole('button', { name: /^[^(]+\(Lundi,/ });
     expect(sendBar()).toBeNull();
     await editMonday();
     const bar = sendBar()!;
@@ -326,7 +326,7 @@ describe('/schedule: what the page says', () => {
     try {
       snapshot([salonRoom], [{ ...rad, program: { thursday: [{ start: '17:00', end: '23:00' }] } }]);
       const { container } = render(Page);
-      await screen.findByRole('button', { name: /^Jeudi,/ });
+      await screen.findByRole('button', { name: /^[^(]+\(Jeudi,/ });
       expect(container.querySelector('.temps')).toHaveTextContent(/Confort\s19,0\s°C\s*Éco\s17,0\s°C/);
       // A compact sheet over Programme (Confort and Éco), never a trip to the room.
       const edit = screen.getByRole('button', { name: 'Modifier les températures' });
@@ -359,7 +359,7 @@ describe('/schedule: what the page says', () => {
 
   it('a week row opens its day in the editor; previous and next day step through the week', async () => {
     render(Page);
-    await fireEvent.click(await screen.findByRole('button', { name: /^Mardi,/ }));
+    await fireEvent.click(await screen.findByRole('button', { name: /^[^(]+\(Mardi,/ }));
     expect(screen.getByRole('heading', { level: 2, name: /^Mardi/ })).toBeInTheDocument();
     expect(row('Mardi')).toHaveAttribute('aria-pressed', 'true');
     await fireEvent.click(screen.getByRole('button', { name: 'Jour suivant' }));
@@ -376,7 +376,7 @@ describe('/schedule: what the page says', () => {
     onAThursday(async () => {
       render(Page);
       await editMonday();
-      expect(row('Lundi')).toHaveAccessibleName(/, modifié$/);
+      expect(row('Lundi')).toHaveAccessibleName(/^\S+ modifié \(/);
       expect(screen.getByRole('heading', { level: 2, name: 'Lundi' })).toBeInTheDocument();
       expect(document.querySelector('.editor .sub')).toHaveTextContent(/^Salon·?\s*modifié$/);
       expect(document.querySelector('[data-day="monday"] .ed')).toHaveTextContent('modifié');
@@ -393,7 +393,7 @@ describe('/schedule: what the page says', () => {
       await fireEvent.click(screen.getByRole('button', { name: 'Jours de semaine' }));
       await fireEvent.click(screen.getByRole('button', { name: 'Copier sur 4 jours' }));
       expect(sendBar()).toHaveTextContent('5 jours modifiés');
-      expect(row('Vendredi')).toHaveAccessibleName(/^Vendredi, 07:00–09:00, 2\sh confort, modifié$/);
+      expect(row('Vendredi')).toHaveAccessibleName(/^ven\. modifié \(Vendredi, 07:00–09:00, 2\sh confort\)$/);
       expect(container.querySelector<HTMLElement>('[data-day="friday"] .bar')!.style.animationName).toMatch(/^kv-pulse/);
       expect(container.querySelector<HTMLElement>('[data-day="saturday"] .bar')!.style.animationName).toBe('none');
       expect(say).toHaveBeenCalledWith(expect.stringMatching(/^Copié sur 4 jours\./));
@@ -404,16 +404,16 @@ describe('/schedule: what the page says', () => {
   it('a locked day can be viewed in the editor but never edited, and copies skip it', async () => {
     snapshot([salonRoom], [{ ...rad, program: { sunday: [{ start: '20:00', end: '24:00' }] }, program_locked: { sunday: 'midnight' } }]);
     render(Page);
-    await fireEvent.click(await screen.findByRole('button', { name: /^Dimanche,/ }));
+    await fireEvent.click(await screen.findByRole('button', { name: /^[^(]+\(Dimanche,/ }));
     expect(screen.getByRole('heading', { level: 2, name: /^Dimanche/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Ajouter une plage le Dimanche' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Copier vers…' })).toBeNull();
     // The editor says why; the agenda's header button names it and its column says « fin à minuit ».
     expect(screen.getAllByText(/^Fin à minuit\s:\smodifiez ce jour dans l’app Cozytouch$/)).toHaveLength(1);
-    expect(row('Dimanche')).toHaveAccessibleName(/Fin à minuit\s:\smodifiez ce jour dans l’app Cozytouch$/);
+    expect(row('Dimanche')).toHaveAccessibleName(/Fin à minuit\s:\smodifiez ce jour dans l’app Cozytouch\)$/);
     expect(document.querySelector('[data-day="sunday"] .why')).toHaveTextContent('fin à minuit');
     expect(screen.getByText('Ce jour reste tel que le radiateur l’a.')).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole('button', { name: /^Lundi,/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /^[^(]+\(Lundi,/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Copier vers…' }));
     expect(screen.queryByRole('checkbox', { name: 'Dimanche' })).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Tous les jours' }));
@@ -441,7 +441,7 @@ describe('/schedule: offline rooms', () => {
       const notice = screen.getByRole('status');
       expect(notice).toHaveTextContent('Chambre 2 est hors ligne');
       expect(notice).toHaveTextContent('Le programme affiché est le dernier connu.');
-      expect(screen.queryByRole('button', { name: /^Lundi,/ })).toBeNull(); // rows are not buttons
+      expect(screen.queryByRole('button', { name: /^[^(]+\(Lundi,/ })).toBeNull(); // rows are not buttons
       expect(screen.getByText(/^Lundi, 06:15–08:00, 1\sh\s45 confort$/)).toBeInTheDocument();
       expect(screen.queryByRole('heading', { level: 2 })).toBeNull(); // no editor
       expect(screen.queryByRole('button', { name: /Ajouter une plage/ })).toBeNull();
@@ -477,7 +477,7 @@ describe('/schedule: links and the phone', () => {
   it('on a phone the week is a list of days; a day opens its own view, with the week one tap back', async () => {
     media.desktop.matches = false;
     render(Page);
-    const monday = await screen.findByRole('button', { name: /^Lundi,/ });
+    const monday = await screen.findByRole('button', { name: /^[^(]+\(Lundi,/ });
     expect(monday).not.toHaveAttribute('aria-pressed');
     expect(screen.queryByRole('button', { name: /Ajouter une plage/ })).toBeNull(); // no editor beside the week
     await fireEvent.click(monday);
@@ -489,7 +489,7 @@ describe('/schedule: links and the phone', () => {
     expect(temps).toHaveTextContent(/Confort\s19,0\s°C/);
     expect(temps.compareDocumentPosition(screen.getByTestId('bar-monday')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: /^Lundi/ }).compareDocumentPosition(temps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /^Mardi,/ })).toBeNull(); // the week is hidden
+    expect(screen.queryByRole('button', { name: /^[^(]+\(Mardi,/ })).toBeNull(); // the week is hidden
     await fireEvent.click(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' }));
     expect(sendBar()).toHaveTextContent('1 jour modifié');
     await fireEvent.click(screen.getByRole('button', { name: 'Jour suivant' }));
@@ -498,14 +498,14 @@ describe('/schedule: links and the phone', () => {
     await fireEvent.click(screen.getByRole('link', { name: 'Semaine · Salon' }));
     expect(goto).toHaveBeenLastCalledWith('/schedule?room=salon');
     expect(screen.getByRole('heading', { level: 1, name: 'Programme' })).toBeInTheDocument();
-    expect(row('Lundi')).toHaveAccessibleName(/, modifié$/); // the edits stay
+    expect(row('Lundi')).toHaveAccessibleName(/^\S+ modifié \(/); // the edits stay
   });
 
   it('on a phone « Aussi pour… » opens from the day view, and « ← Semaine » never reopens it', async () => {
     media.desktop.matches = false;
     twoRooms();
     render(Page);
-    await fireEvent.click(await screen.findByRole('button', { name: /^Lundi,/ }));
+    await fireEvent.click(await screen.findByRole('button', { name: /^[^(]+\(Lundi,/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Aussi pour…' }));
     expect(screen.getByRole('dialog', { name: 'Envoyer aussi à' })).toHaveAttribute('open');
@@ -534,7 +534,7 @@ describe('/schedule in English', () => {
     expect(await screen.findByText('Outside comfort periods, the room is on eco.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'How to edit' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit temperatures' })).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole('button', { name: /^Monday,/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /^[^(]+\(Monday,/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Add a period on Monday' }));
     expect(screen.getByText('1 day changed')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Undo changes' })).toBeInTheDocument();
@@ -580,7 +580,7 @@ describe('changed elsewhere', () => {
       render(Page);
       await editMonday();
       house.applyHouse({ rooms: [], radiators: [{ ...rad, program: { tuesday: [{ start: '18:00', end: '20:00' }] } }] } as never);
-      await waitFor(() => expect(row('Mardi')).toHaveAccessibleName(/^Mardi, 18:00–20:00,/));
+      await waitFor(() => expect(row('Mardi')).toHaveAccessibleName(/^[^(]+\(Mardi, 18:00–20:00,/));
       expect(screen.queryByText('Programme modifié ailleurs')).toBeNull();
       expect(sendBar()).toHaveTextContent('1 jour modifié');
     }));
@@ -706,7 +706,7 @@ describe('Schedule across kinds', () => {
   it('offers only rooms whose programme Kelvin can edit', async () => {
     snapshot([roomOf('salon', 'Salon', ['a']), roomOf('bureau', 'Bureau', ['p'])], [rad, pilot]);
     render(Page);
-    expect(await screen.findByRole('button', { name: /^Lundi,/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^[^(]+\(Lundi,/ })).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: 'Bureau' })).toBeNull();
     expect(screen.queryByText('Bureau')).toBeNull();
   });
@@ -721,7 +721,7 @@ describe('Schedule across kinds', () => {
 describe('/schedule: the Tableau agenda', () => {
   it('a drag in the agenda edits that day of the draft and brings it into the editor; nothing is sent', async () => {
     const { container } = render(Page);
-    await screen.findByRole('button', { name: /^Mardi,/ });
+    await screen.findByRole('button', { name: /^[^(]+\(Mardi,/ });
     const bar = container.querySelector<HTMLElement>('[data-day="tuesday"] .bar')!;
     bar.getBoundingClientRect = () => ({ left: 0, width: 100, top: 0, height: 1440, right: 100, bottom: 1440, x: 0, y: 0, toJSON() {} }) as DOMRect;
     await fireEvent.pointerDown(bar, { clientY: 600, button: 0, pointerId: 1 });
@@ -748,7 +748,7 @@ describe('/schedule: the Tableau agenda', () => {
     media.desktop.matches = false;
     snapshot([salonRoom], [{ ...rad, program_locked: { saturday: 'unrecognised' } }]);
     const { container } = render(Page);
-    await screen.findByRole('button', { name: /^Lundi,/ });
+    await screen.findByRole('button', { name: /^[^(]+\(Lundi,/ });
     expect(container.querySelector('.cal.compact')).not.toBeNull();
     expect(screen.getByText('Touchez un jour pour l’éditer.')).toBeInTheDocument();
     // The temperatures stay one tap away on a phone too.

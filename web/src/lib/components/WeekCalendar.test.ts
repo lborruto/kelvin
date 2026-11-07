@@ -22,8 +22,8 @@ describe('WeekCalendar', () => {
   it('one header button per day, named with its periods, comfort total and today', () => {
     render(WeekCalendar, { ...base, onselect: vi.fn() });
     expect(screen.getAllByRole('button')).toHaveLength(7);
-    expect(screen.getByRole('button', { name: 'Jeudi, aujourd’hui, 06:30–08:00 et 17:00–23:00, 7 h 30 confort' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Mercredi, 06:30–08:00, 12:00–14:00 et 17:00–23:00, 9\sh\s30 confort$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'jeu. (Jeudi, aujourd’hui, 06:30–08:00 et 17:00–23:00, 7 h 30 confort)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^[^(]+\(Mercredi, 06:30–08:00, 12:00–14:00 et 17:00–23:00, 9\sh\s30 confort\)$/ })).toBeInTheDocument();
   });
 
   it('draws each period as a block down its day, with the hour scale and the now marker on today only', () => {
@@ -51,13 +51,13 @@ describe('WeekCalendar', () => {
 
   it('an empty day reads « Éco toute la journée »', () => {
     render(WeekCalendar, { ...base, week: { ...week, monday: [] } });
-    expect(screen.getByRole('button', { name: 'Lundi, Éco toute la journée' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'lun. (Lundi, Éco toute la journée)' })).toBeInTheDocument();
   });
 
   it('marks edited days « ● modifié », in the header and in the name', () => {
     const { container } = render(WeekCalendar, { ...base, changed: ['monday'] });
     expect(container.querySelector('[data-day="monday"] .ed')).toHaveTextContent('modifié');
-    expect(screen.getByRole('button', { name: /^Lundi, .*, modifié$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^lun\. modifié \(Lundi, .*\)$/ })).toBeInTheDocument();
     expect(container.querySelectorAll('.ed')).toHaveLength(1);
   });
 
@@ -70,39 +70,39 @@ describe('WeekCalendar', () => {
     const saturday = container.querySelector('[data-day="saturday"]')!;
     expect(saturday.querySelectorAll('.blk')).toHaveLength(0);
     expect(saturday.querySelector('.why')).toHaveTextContent('non reconnu');
-    expect(screen.getByRole('button', { name: /^Samedi, Plage non reconnue\s:\smodifiez ce jour dans l’app Cozytouch$/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Dimanche, 20:00–24:00, 4\sh confort, Fin à minuit/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^[^(]+\(Samedi, Plage non reconnue\s:\smodifiez ce jour dans l’app Cozytouch\)$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^[^(]+\(Dimanche, 20:00–24:00, 4\sh confort, Fin à minuit/ })).toBeInTheDocument();
   });
 
   it('beside an editor: the selected day is pressed, arrows move and select, Home/End reach the ends', async () => {
     const onselect = vi.fn();
     render(WeekCalendar, { ...base, selected: 'tuesday', onselect });
-    const tuesday = screen.getByRole('button', { name: /^Mardi/ });
+    const tuesday = screen.getByRole('button', { name: /^[^(]+\(Mardi/ });
     expect(tuesday).toHaveAttribute('aria-pressed', 'true');
     expect(tuesday).toHaveAttribute('tabindex', '0');
-    expect(screen.getByRole('button', { name: /^Lundi/ })).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByRole('button', { name: /^[^(]+\(Lundi/ })).toHaveAttribute('tabindex', '-1');
     tuesday.focus();
     await fireEvent.keyDown(tuesday, { key: 'ArrowRight' });
     expect(onselect).toHaveBeenLastCalledWith('wednesday');
-    expect(screen.getByRole('button', { name: /^Mercredi/ })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /^[^(]+\(Mercredi/ })).toHaveFocus();
     await fireEvent.keyDown(document.activeElement!, { key: 'End' });
     expect(onselect).toHaveBeenLastCalledWith('sunday');
     await fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
     expect(onselect).toHaveBeenLastCalledWith('saturday');
     await fireEvent.keyDown(document.activeElement!, { key: 'Home' });
-    expect(screen.getByRole('button', { name: /^Lundi/ })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /^[^(]+\(Lundi/ })).toHaveFocus();
   });
 
   it('on a phone: headers are not pressed toggles; arrows move focus only; a tap on a day opens it', async () => {
     const onselect = vi.fn();
     const { container } = render(WeekCalendar, { ...base, compact: true, onselect });
-    const thursday = screen.getByRole('button', { name: /^Jeudi/ });
+    const thursday = screen.getByRole('button', { name: /^[^(]+\(Jeudi/ });
     expect(thursday).not.toHaveAttribute('aria-pressed');
     thursday.focus();
     await fireEvent.keyDown(thursday, { key: 'ArrowRight' });
-    expect(screen.getByRole('button', { name: /^Vendredi/ })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /^[^(]+\(Vendredi/ })).toHaveFocus();
     expect(onselect).not.toHaveBeenCalled();
-    await fireEvent.click(screen.getByRole('button', { name: /^Vendredi/ }));
+    await fireEvent.click(screen.getByRole('button', { name: /^[^(]+\(Vendredi/ }));
     expect(onselect).toHaveBeenCalledWith('friday');
     await fireEvent.click(container.querySelector('[data-day="monday"] .bar')!);
     expect(onselect).toHaveBeenLastCalledWith('monday');
@@ -133,8 +133,8 @@ describe('WeekCalendar', () => {
     applyLocale('en');
     render(WeekCalendar, { ...base, changed: ['thursday'], locks: { sunday: 'midnight' } });
     expect(screen.getByRole('list', { name: 'Week' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Thursday, today, 06:30–08:00 and 17:00–23:00, 7\sh\s30\smin comfort, edited$/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Ends at midnight: edit this day in the Cozytouch app$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Thu edited \(Thursday, today, 06:30–08:00 and 17:00–23:00, 7\sh\s30\smin comfort\)$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ends at midnight: edit this day in the Cozytouch app\)$/ })).toBeInTheDocument();
     expect(screen.getByText('ends at midnight')).toBeInTheDocument();
   });
 });

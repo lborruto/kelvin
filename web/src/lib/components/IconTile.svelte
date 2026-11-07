@@ -29,7 +29,7 @@
 
 {#snippet inner()}
   <span class="ti {tone ?? ''}" aria-hidden="true"><Icon name={icon} size={18} /></span>
-  <span class="tx"><b>{title}</b>{#if sub}<span class="sub">{sub}</span>{/if}</span>
+  <span class="tx"><b>{title}</b>{#if sub}{' '}<span class="sub">{sub}</span>{/if}</span>
 {/snippet}
 
 {#if href}
