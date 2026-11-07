@@ -14,10 +14,12 @@ account.json
 # Captures from a live installation (backend/scripts write here): never committed
 backend/captures/
 
-# Private working material: design exploration and agent plans
+# Private working material: design exploration, agent plans and worktrees
+.claude/
 .impeccable/
 .superpowers/
 docs/superpowers/
+.worktrees/
 
 # Tooling
 node_modules/
