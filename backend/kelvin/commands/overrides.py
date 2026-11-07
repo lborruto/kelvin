@@ -15,6 +15,7 @@ from kelvin.commands.service import CommandService, Pending
 from kelvin.commands.translate import CommandError, Planned, plan_mode, plan_setpoint
 from kelvin.house.model import House, Radiator
 from kelvin.labels import Label
+from kelvin.overkiz.errors import GatewayError
 from kelvin.recorder import away as away_log
 from kelvin.recorder.db import Database
 
@@ -307,6 +308,7 @@ class OverrideManager:
         if ends_at is not None and ends_at <= now:
             raise CommandError("end_in_past")
         self._reap()
+        await self._read_fresh(ids)
         rads = [self.house.radiators[i] for i in ids]
         if kind == "away":
             # A radiator the owner switched off stays off: an away never turns one on (owner,
@@ -358,6 +360,31 @@ class OverrideManager:
         if o.kind == "away":
             away_log.record_start(self.db, o.id, o.created_at, o.ends_at)
         return o, pending
+
+    async def _read_fresh(self, ids: list[str]) -> None:
+        """One targeted state read of each radiator whose state the override will save.
+
+        The end restores the saved target, and on Sauter that target is also the programme's
+        Confort (docs/overkiz-notes.md, 2026-11-07): a stale copy would be written back as the
+        room's Confort. Radiators already held by an override (their saved state is inherited)
+        or touched by a command in flight (its expectations say where they are heading) are
+        not read; a failed read keeps the copy Kelvin has."""
+        busy = {rid for p in self.commands.active() for rid in p.radiator_ids}
+        urls = [
+            self.house.radiators[rid].heater_url
+            for rid in ids
+            if rid not in busy and self._holder(rid) is None
+        ]
+
+        async def read(url: str) -> None:
+            try:
+                states = await self.commands.gateway.device_states(url)
+            except GatewayError as e:
+                log.warning("state read before an override failed (%s)", type(e).__name__)
+                return
+            self.house.reload_device(url, states)
+
+        await asyncio.gather(*(read(u) for u in urls))
 
     async def cancel(self, override_id: str) -> Pending | None:
         async with self._lock:

@@ -282,7 +282,8 @@ sent):
 Since then a confirmed command carrying `setTargetTemperature`, `setComfortTemperature` or
 `setOperatingMode` triggers one targeted `device_states(url)` read of that heater 60 s later
 (`CommandService`, `FOLLOWUP_READ_S`; a later command on it pushes the read back, so a burst of
-sends costs one read). The same report: the away had switched on a radiator the owner had left in
+sends costs one read), and an away or a boost reads each radiator it saves just before saving
+its state, since the restore writes that target back as Confort. The same report: the away had switched on a radiator the owner had left in
 `standby` (it ran at the away temperature all day, then went back to `standby`); an away now
 leaves a radiator that is off as it is (`away_all_off` when every one is).
 
