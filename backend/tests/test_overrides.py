@@ -68,7 +68,8 @@ async def test_boost_applies_then_restores(env):
 async def test_restore_sends_target_before_mode_for_each_radiator(env):
     clock, gw, house, svc, _, mgr = env
     ids = ["9500003", "9000022"]  # programme 20.0 and off 16.5
-    await mgr.start("away", ids, 12.0, clock() + 60, label="a")
+    # A boost may start a radiator that is off (an away leaves it alone): its end puts "off" back.
+    await mgr.start("boost", ids, 12.0, clock() + 60, label="b")
     await settle(clock, gw, house, svc)
     clock.advance(60)
     assert len(await mgr.tick()) == 1
@@ -586,8 +587,8 @@ async def test_away_with_an_offline_radiator_is_confirmed_for_the_others(env):
     """2026-10-18 on a real house: the Salon took « Absence », two unreachable bedrooms did not,
     and the whole command read « failed ». Offline radiators never fail what the others took."""
     clock, gw, house, svc, _, mgr = env
-    _unplug(gw, house, "9000022")
-    ids = [*SALON, "9000022"]
+    _unplug(gw, house, "9000011")
+    ids = [*SALON, "9000011"]
     _, p = await mgr.start("away", ids, 18.0, clock() + 3600, label="a")
     await settle(clock, gw, house, svc)
     for _ in range(3):  # past the FAILED grace and the targeted read
@@ -596,55 +597,55 @@ async def test_away_with_an_offline_radiator_is_confirmed_for_the_others(env):
         await svc.verify()
     assert all(house.radiators[i].target == 18.0 for i in SALON)
     assert p.status == "confirmed" and p.error_code is None
-    assert p.offline == ("9000022",)
-    assert p.view()["offline"] == ["9000022"]
+    assert p.offline == ("9000011",)
+    assert p.view()["offline"] == ["9000011"]
 
 
 async def test_restore_keeps_an_offline_radiator_for_a_later_try(env):
     """A radiator that took the away and went offline before its end is not dropped by a
     restore the others confirmed: it is retried, so it does not stay at the away setpoint."""
     clock, gw, house, svc, _, mgr = env
-    ids = [*SALON, "9000022"]
+    ids = [*SALON, "9000011"]
     await mgr.start("away", ids, 18.0, clock() + 60, label="a")
     await settle(clock, gw, house, svc)
-    _unplug(gw, house, "9000022")
+    _unplug(gw, house, "9000011")
     clock.advance(60)
     [r] = await mgr.tick()
     await settle(clock, gw, house, svc)
-    assert r.status == "confirmed" and r.offline == ("9000022",)
+    assert r.status == "confirmed" and r.offline == ("9000011",)
     [o] = mgr.active()
-    assert o["radiator_ids"] == ["9000022"]
+    assert o["radiator_ids"] == ["9000011"]
     # Back online: the next try restores it and the override ends.
-    url = house.radiators["9000022"].heater_url
+    url = house.radiators["9000011"].heater_url
     gw.devices[url].states["core:StatusState"] = "available"
     house.apply(StateChange(url, "core:StatusState", "available"), event=False)
     clock.advance(RESTORE_RETRY_FIRST_S)
     [again] = await mgr.tick()
     await settle(clock, gw, house, svc)
     assert again.status == "confirmed" and again.offline == ()
-    assert house.radiators["9000022"].mode == "off"
+    assert house.radiators["9000011"].mode == "program"
     assert mgr.active() == []
 
 
 async def test_an_offline_radiator_changed_by_hand_before_the_retry_is_left_alone(env):
     clock, gw, house, svc, _, mgr = env
-    ids = [*SALON, "9000022"]
+    ids = [*SALON, "9000011"]
     await mgr.start("away", ids, 18.0, clock() + 60, label="a")
     await settle(clock, gw, house, svc)
-    _unplug(gw, house, "9000022")
+    _unplug(gw, house, "9000011")
     clock.advance(60)
     await mgr.tick()
     await settle(clock, gw, house, svc)
-    assert mgr.active()[0]["radiator_ids"] == ["9000022"]
+    assert mgr.active()[0]["radiator_ids"] == ["9000011"]
     # Back online, set to programme on the panel before Kelvin's retry.
-    url = house.radiators["9000022"].heater_url
+    url = house.radiators["9000011"].heater_url
     for name, value in (("core:StatusState", "available"), ("core:OperatingModeState", "internal")):
         gw.devices[url].states[name] = value
         house.apply(StateChange(url, name, value), event=False)
     sent = len(gw.executed)
     clock.advance(RESTORE_RETRY_FIRST_S)
     assert await mgr.tick() == []
-    assert len(gw.executed) == sent and house.radiators["9000022"].mode == "program"
+    assert len(gw.executed) == sent and house.radiators["9000011"].mode == "program"
     assert mgr.active() == []
 
 
@@ -655,7 +656,7 @@ async def test_an_offline_radiator_changed_by_hand_before_the_retry_is_left_alon
 
 async def test_open_ended_away_runs_until_cancelled_and_restores(env):
     clock, gw, house, svc, db, mgr = env
-    ids = ["9500003", "9000022"]  # programme 20.0 and off 16.5
+    ids = ["9500003", "9000011"]  # programme 20.0 and programme 19.0
     o, p = await mgr.start("away", ids, 12.0, None, label="a")
     await settle(clock, gw, house, svc)
     assert p.status == "confirmed"
@@ -673,13 +674,13 @@ async def test_open_ended_away_runs_until_cancelled_and_restores(env):
     assert sent_restore == [  # the restore order: target, then mode (CLAUDE.md)
         (h["9500003"], "setTargetTemperature", (20.0,)),
         (h["9500003"], "setOperatingMode", ("internal",)),
-        (h["9000022"], "setTargetTemperature", (16.5,)),
-        (h["9000022"], "setOperatingMode", ("standby",)),
+        (h["9000011"], "setTargetTemperature", (19.0,)),
+        (h["9000011"], "setOperatingMode", ("internal",)),
     ]
     await settle(clock, gw, house, svc)
     assert r.status == "confirmed"
     assert house.radiators["9500003"].mode == "program"
-    assert house.radiators["9000022"].mode == "off"
+    assert house.radiators["9000011"].mode == "program"
     assert mgr.active() == []
     assert db.rows("SELECT id, start, end, ended FROM away_log") == [
         (o.id, o.created_at, ended_at, 1)
@@ -718,24 +719,24 @@ async def test_open_ended_away_survives_restart(env):
 
 async def test_open_ended_away_restore_retries_an_offline_radiator(env):
     clock, gw, house, svc, _, mgr = env
-    ids = [*SALON, "9000022"]
+    ids = [*SALON, "9000011"]
     o, _ = await mgr.start("away", ids, 18.0, None, label="a")
     await settle(clock, gw, house, svc)
-    _unplug(gw, house, "9000022")
+    _unplug(gw, house, "9000011")
     r = await mgr.cancel(o.id)
     await settle(clock, gw, house, svc)
-    assert r.status == "confirmed" and r.offline == ("9000022",)
+    assert r.status == "confirmed" and r.offline == ("9000011",)
     [left] = mgr.active()
-    assert left["radiator_ids"] == ["9000022"] and left["restoring"] is True
+    assert left["radiator_ids"] == ["9000011"] and left["restoring"] is True
     assert left["ends_at"] is not None  # ended: its end is the time « Terminer » was pressed
-    url = house.radiators["9000022"].heater_url
+    url = house.radiators["9000011"].heater_url
     gw.devices[url].states["core:StatusState"] = "available"
     house.apply(StateChange(url, "core:StatusState", "available"), event=False)
     clock.advance(RESTORE_RETRY_FIRST_S)
     [again] = await mgr.tick()
     await settle(clock, gw, house, svc)
     assert again.status == "confirmed"
-    assert house.radiators["9000022"].mode == "off"
+    assert house.radiators["9000011"].mode == "program"
     assert mgr.active() == []
 
 
@@ -793,3 +794,28 @@ async def test_a_stored_open_ended_boost_row_is_skipped(tmp_path):
     house = build_house(gw.root, list(gw.devices.values()))
     svc = CommandService(gw, house, clock=clock, wall=clock)
     assert OverrideManager(db, house, svc, wall=clock).active() == []
+
+
+async def test_away_leaves_a_radiator_that_is_off_alone(env):
+    clock, gw, house, svc, _, mgr = env
+    ids = ["9500003", "9000022"]  # programme 20.0 and off 16.5
+    o, p = await mgr.start("away", ids, 17.0, None, label="a")
+    sent = {c.device_url for c in gw.executed[-1]}
+    assert house.radiators["9000022"].heater_url not in sent
+    assert o.radiator_ids == ["9500003"] and p.radiator_ids == ("9500003",)
+    await settle(clock, gw, house, svc)
+    assert house.radiators["9000022"].mode == "off"
+    assert house.radiators["9000022"].target == 16.5
+    await mgr.cancel(o.id)
+    assert {c.device_url for c in gw.executed[-1]} == {house.radiators["9500003"].heater_url}
+    await settle(clock, gw, house, svc)
+    assert house.radiators["9000022"].mode == "off" and mgr.active() == []
+
+
+async def test_away_with_every_radiator_off_is_refused(env):
+    clock, gw, house, svc, _, mgr = env
+    before = len(gw.executed)
+    with pytest.raises(CommandError) as e:
+        await mgr.start("away", ["9000022"], 17.0, None, label="a")
+    assert e.value.code == "away_all_off"
+    assert len(gw.executed) == before and mgr.active() == []

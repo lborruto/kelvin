@@ -2,7 +2,12 @@ import asyncio
 
 import pytest
 
-from kelvin.commands.service import CONFIRM_TIMEOUT, SUPERSEDED_WAIT, CommandService
+from kelvin.commands.service import (
+    CONFIRM_TIMEOUT,
+    FOLLOWUP_READ_S,
+    SUPERSEDED_WAIT,
+    CommandService,
+)
 from kelvin.commands.translate import plan_identify, plan_mode, plan_setpoint
 from kelvin.house.model import build_house
 from kelvin.overkiz.errors import GatewayError
@@ -438,3 +443,52 @@ async def test_one_took_one_refused_one_offline_fails(env):
     await svc.verify()
     assert p.status == "failed" and p.error_code == "no_confirmation"
     assert p.offline == (off.id,)
+
+
+async def test_a_setpoint_or_mode_change_reads_the_heater_once_afterwards(env):
+    """On Sauter the manual setpoint and Confort are one register, but the radiator reports only
+    the state a command names (docs/overkiz-notes.md, 2026-11-07): one targeted read after the
+    confirmation brings the other states back in line."""
+    clock, gw, house, svc, _ = env
+    r = house.radiators["9500003"]
+    p = await svc.submit("Mode", (r.id,), plan_mode(r, "manual") + plan_setpoint(r, "manual", 17.0))
+    clock.advance(2)
+    await drain(gw, house, svc)
+    assert p.status == "confirmed"
+    # The device moved Confort with the target and said nothing about it.
+    gw.devices[r.heater_url].states["core:ComfortRoomTemperatureState"] = 17.0
+    reads = gw.state_reads
+    clock.advance(FOLLOWUP_READ_S - 5)
+    await drain(gw, house, svc)
+    assert gw.state_reads == reads and r.comfort != 17.0
+    clock.advance(5)
+    assert r.id in await svc.verify()
+    assert gw.state_reads == reads + 1 and r.comfort == 17.0
+    clock.advance(FOLLOWUP_READ_S)
+    await drain(gw, house, svc)
+    assert gw.state_reads == reads + 1  # once
+
+
+async def test_a_burst_of_sends_costs_one_follow_up_read(env):
+    clock, gw, house, svc, _ = env
+    r = house.radiators["9500003"]
+    reads = gw.state_reads
+    for t in (18.0, 18.5, 19.0):
+        await svc.submit("Consigne", (r.id,), plan_setpoint(r, "manual", t))
+        clock.advance(20)
+        await drain(gw, house, svc)
+    clock.advance(FOLLOWUP_READ_S)
+    await drain(gw, house, svc)
+    assert gw.state_reads == reads + 1
+
+
+async def test_an_identify_needs_no_follow_up_read(env):
+    clock, gw, house, svc, _ = env
+    r = house.radiators["9500003"]
+    reads = gw.state_reads
+    await svc.submit("Identifier", (r.id,), plan_identify(r))
+    clock.advance(2)
+    await drain(gw, house, svc)
+    clock.advance(FOLLOWUP_READ_S + 1)
+    await drain(gw, house, svc)
+    assert gw.state_reads == reads

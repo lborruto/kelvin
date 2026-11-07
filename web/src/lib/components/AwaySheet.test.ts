@@ -115,6 +115,20 @@ describe('AwaySheet consequence', () => {
     await open(THURSDAY);
     expect(screen.getByText(/^La pièce passera à 12,0\s°C/)).toBeInTheDocument();
   });
+  it('leaves out the rooms that are off (the backend never turns one on)', async () => {
+    const off = (id: string) => ({ ...(rad(id, true) as object), mode: 'off' }) as never;
+    snapshot([rad('a', true), off('b'), off('c')]);
+    await open(THURSDAY);
+    expect(screen.getByText(/^La pièce passera à 12,0\s°C/)).toBeInTheDocument();
+    expect(screen.getByText('Les pièces qui chauffent baissent, puis reprennent leur réglage. Les pièces à l’arrêt restent à l’arrêt.')).toBeInTheDocument();
+  });
+  it('every room off: nothing to send', async () => {
+    const off = (id: string) => ({ ...(rad(id, true) as object), mode: 'off' }) as never;
+    snapshot([off('a'), off('b'), off('c')]);
+    await open(THURSDAY);
+    expect(screen.getByText(/^Toutes les pièces sont à l’arrêt\s: une absence ne changerait rien\.$/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Partir' })).toHaveAttribute('aria-disabled', 'true');
+  });
   it('in English', async () => {
     applyLocale('en');
     await open(THURSDAY);

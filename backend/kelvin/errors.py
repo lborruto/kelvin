@@ -75,6 +75,7 @@ TEMPLATES: dict[str, str] = {
     # No id in params (a device id never goes into an error): the text says where instead.
     "radiator_unknown_id": "Radiateur inconnu dans la demande.",
     "end_in_past": "Choisissez une fin dans le futur.",
+    "away_all_off": "Toutes les pièces sont à l’arrêt : une absence ne changerait rien.",
     # Command validation
     "unsupported_command": "Ce radiateur ne prend pas en charge « {command} ».",
     "temp_range": "{subject} doit être comprise entre {min_fr} et {max_fr} °C.",

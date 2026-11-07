@@ -308,6 +308,13 @@ class OverrideManager:
             raise CommandError("end_in_past")
         self._reap()
         rads = [self.house.radiators[i] for i in ids]
+        if kind == "away":
+            # A radiator the owner switched off stays off: an away never turns one on (owner,
+            # 2026-11-07), and its end has nothing to put back for it.
+            rads = [r for r in rads if self._intended(r)[0] != "off"]
+            if not rads:
+                raise CommandError("away_all_off")
+            ids = [r.id for r in rads]
         planned: Planned | None = None
         for r in rads:
             part = plan_mode(r, "manual") + plan_setpoint(r, "manual", temperature)
