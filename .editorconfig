@@ -1,0 +1,32 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# The backend follows ruff (4 spaces, 100 columns).
+[*.py]
+indent_size = 4
+max_line_length = 100
+
+# uv writes its lock file with 4 spaces.
+[backend/uv.lock]
+indent_size = 4
+
+# Recorded fixtures are compared byte for byte (the Sauter golden file's SHA-256, the weather
+# model samples): an editor never rewrites them.
+[{backend/tests/fixtures/**,web/src/lib/fixtures/**}]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+indent_style = unset
+indent_size = unset
+
+# Two trailing spaces are a line break in Markdown.
+[*.md]
+trim_trailing_whitespace = false
