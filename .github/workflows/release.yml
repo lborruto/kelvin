@@ -1,10 +1,11 @@
 name: Release
 
 # A tag vX.Y.Z on main runs CI on the tagged commit, checks that the backend and web versions are
-# the tag's and that CHANGELOG.md has its section, then publishes the multi-arch image to GHCR
-# (job `publish`, the only one that may write packages) with provenance and SBOM, scans the pushed
-# digest with Trivy, attests the image's build provenance, and creates the GitHub release with
-# that version's section of CHANGELOG.md as notes. A manual run is a dry run (job `dry-run`): it
+# the tag's and that CHANGELOG.md has its section, then pushes the multi-arch image to GHCR by
+# digest only (job `publish`) with provenance and SBOM, scans that digest with Trivy in a job
+# without write access (`scan`), tags it only once the scan passed (`tag`; `publish` and `tag`
+# are the only jobs that may write packages), attests the image's build provenance, and creates
+# the GitHub release with that version's section of CHANGELOG.md as notes. A manual run is a dry run (job `dry-run`): it
 # builds both architectures, pushes nothing and holds no write permission.
 on:
   push:
@@ -106,8 +107,9 @@ jobs:
           if-no-files-found: error
           retention-days: 5
 
+  # Pushed by digest only: no tag points at the image until Trivy has passed (job `tag`).
   publish:
-    name: Multi-arch image to GHCR
+    name: Multi-arch image to GHCR (by digest)
     needs: notes
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -116,6 +118,7 @@ jobs:
       packages: write
     outputs:
       digest: ${{ steps.build.outputs.digest }}
+      tags: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (2026-07-20)
         with:
@@ -148,29 +151,77 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ghcr.io/${{ github.repository_owner }}/kelvin
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
           provenance: mode=max
           sbom: true
-      # The digest just pushed, pulled back with the login above. Fixable HIGH and CRITICAL
-      # vulnerabilities fail the run, so no attestation and no GitHub release follow.
-      - name: Trivy on the pushed image
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0 (2026-04-22)
+
+  # Trivy (a third-party action) runs in its own job, with a read-only package token: it never
+  # sees the write credentials. Fixable HIGH and CRITICAL vulnerabilities fail the run, so the
+  # image gets no tag, no attestation and no GitHub release.
+  scan:
+    name: Trivy on the pushed digest
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0 (2026-07-29)
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0 (2026-04-22)
         with:
           scan-type: image
-          image-ref: ghcr.io/${{ github.repository_owner }}/kelvin@${{ steps.build.outputs.digest }}
+          image-ref: ghcr.io/${{ github.repository_owner }}/kelvin@${{ needs.publish.outputs.digest }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+
+  # The scanned digest gets its tags {X.Y.Z, X.Y, sha-…, latest}. With one source, imagetools
+  # create re-tags the same index: the digest, its provenance and its SBOM are unchanged.
+  tag:
+    name: Tag the scanned image
+    needs: [publish, scan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1 (2026-09-16)
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0 (2026-07-29)
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/kelvin
+          DIGEST: ${{ needs.publish.outputs.digest }}
+          TAGS: ${{ needs.publish.outputs.tags }}
+        run: |
+          set --
+          while IFS= read -r tag; do
+            [ -n "$tag" ] && set -- "$@" --tag "$tag"
+          done <<<"$TAGS"
+          if [ "$#" -eq 0 ]; then
+            echo "::error::no tag to apply"
+            exit 1
+          fi
+          docker buildx imagetools create "$@" "$IMAGE@$DIGEST"
+          docker buildx imagetools inspect "$IMAGE@$DIGEST"
 
   # A signed build-provenance attestation of the image's digest (Sigstore, stored by GitHub): who
   # built it, from which commit and workflow. The OIDC token exists only in this job, which runs
   # no code from the repository. Attestations need a public repository on GitHub Free.
   attest:
     name: Build provenance
-    needs: publish
+    needs: [publish, tag]
     if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -186,10 +237,10 @@ jobs:
 
   release:
     name: GitHub release
-    needs: [notes, publish, attest]
-    # Runs when the image was published and scanned, and the attestation passed, or was skipped
+    needs: [notes, publish, tag, attest]
+    # Runs when the image was scanned and tagged, and the attestation passed, or was skipped
     # (private).
-    if: ${{ always() && needs.notes.result == 'success' && needs.publish.result == 'success' && (needs.attest.result == 'success' || needs.attest.result == 'skipped') }}
+    if: ${{ always() && needs.notes.result == 'success' && needs.publish.result == 'success' && needs.tag.result == 'success' && (needs.attest.result == 'success' || needs.attest.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

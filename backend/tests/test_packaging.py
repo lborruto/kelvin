@@ -394,13 +394,25 @@ def test_release_pushes_only_from_a_tag():
     assert re.search(r'^  push:\n    tags: \["v\*\.\*\.\*"\]$', text, re.M)
     assert "branches" not in on
     jobs = set(re.findall(r"^  ([\w-]+):$", text[text.index("\njobs:\n") :], re.M))
-    assert jobs == {"on-main", "checks", "notes", "publish", "attest", "release", "dry-run"}
+    assert jobs == {
+        "on-main",
+        "checks",
+        "notes",
+        "publish",
+        "scan",
+        "tag",
+        "attest",
+        "release",
+        "dry-run",
+    }
 
     publish = _job(text, "publish")
     assert re.search(
         r"^    permissions:\n      contents: read\n      packages: write$", publish, re.M
     )
-    assert "push: true" in publish and "docker/login-action@" in publish
+    # Pushed by digest only: the tags come after the scan.
+    assert "push-by-digest=true" in publish and "docker/login-action@" in publish
+    assert "          tags: ghcr.io/${{ github.repository_owner }}/kelvin\n" in publish
     assert "provenance: mode=max" in publish and "sbom: true" in publish
     # Index and manifest annotations; no shared Actions cache feeds the published image.
     assert "DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index" in publish
@@ -409,10 +421,11 @@ def test_release_pushes_only_from_a_tag():
     dry = _job(text, "dry-run")
     assert "if: github.event_name == 'workflow_dispatch'" in dry
     assert "packages: write" not in dry and "login-action" not in dry
-    assert "push: false" in dry and "push: true" not in dry
+    assert "push: false" in dry and "push: true" not in dry and "push=true" not in dry
     for job in (publish, dry):
         assert "platforms: linux/amd64,linux/arm64" in job
-    assert text.count("packages: write") == 1
+    assert text.count("packages: write") == 2  # publish and tag only
+    assert "packages: write" in _job(text, "tag")
 
 
 def test_release_publishes_only_after_the_ci_checks_pass_on_the_tagged_commit():
@@ -444,12 +457,18 @@ def test_release_refuses_a_tag_that_does_not_match_both_versions():
 
 def test_release_scans_attests_then_releases_the_pushed_digest():
     release = _workflows()["release.yml"]
-    publish = _job(release, "publish")
-    assert "aquasecurity/trivy-action@" in publish
-    assert "@${{ steps.build.outputs.digest }}" in publish
-    assert 'exit-code: "1"' in publish
+    # Trivy, a third-party action, never sees the package write token.
+    assert "aquasecurity/trivy-action@" not in _job(release, "publish")
+    scan = _job(release, "scan")
+    assert "aquasecurity/trivy-action@" in scan
+    assert re.search(r"^    needs: publish$", scan, re.M)
+    assert re.search(r"^    permissions:\n      contents: read\n      packages: read$", scan, re.M)
+    assert "@${{ needs.publish.outputs.digest }}" in scan and 'exit-code: "1"' in scan
+    tag = _job(release, "tag")
+    assert re.search(r"^    needs: \[publish, scan\]$", tag, re.M)
+    assert "docker buildx imagetools create" in tag and "actions/checkout@" not in tag
     attest = _job(release, "attest")
-    assert re.search(r"^    needs: publish$", attest, re.M)
+    assert re.search(r"^    needs: \[publish, tag\]$", attest, re.M)
     assert "actions/attest-build-provenance@" in attest
     assert "subject-digest: ${{ needs.publish.outputs.digest }}" in attest
     assert "actions/checkout@" not in attest  # the OIDC job runs no repository code
@@ -457,7 +476,7 @@ def test_release_scans_attests_then_releases_the_pushed_digest():
     assert release.count("id-token: write") == 1 and "id-token: write" in attest
     final = _job(release, "release")
     assert "needs.attest.result == 'skipped'" in final
-    assert "needs.publish.result == 'success'" in final
+    assert "needs.publish.result == 'success'" in final and "needs.tag.result == 'success'" in final
     assert "gh release create" in final and "--verify-tag" in final
     assert release.count("contents: write") == 1 and "contents: write" in final
 
