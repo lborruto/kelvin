@@ -86,18 +86,23 @@
   let openEnded = $derived(preset === 'return');
   let until = $derived(preset === 'tomorrow' ? presets.tomorrow : openEnded ? null : parisLocalMs(picked));
 
-  // An away sets a temperature: it reaches the radiators that take one (backend `_capable(…, boost)`).
+  // An away sets a temperature: it reaches the radiators that take one (backend `_capable(…, boost)`) and are not
+  // off (the backend leaves a radiator in Arrêt as it is, `overrides._start`).
   const takes = (r: Radiator) => capsOf(r).boost && !isReadOnly(r);
-  let rooms = $derived(house.rooms.filter((r) => house.roomRadiators(r.id).some(takes)));
-  let offline = $derived(rooms.filter((r) => house.roomRadiators(r.id).filter(takes).every((x) => x.reachable === false)));
+  const heats = (r: Radiator) => takes(r) && r.mode !== 'off';
+  let capable = $derived(house.rooms.filter((r) => house.roomRadiators(r.id).some(takes)));
+  let rooms = $derived(capable.filter((r) => house.roomRadiators(r.id).some(heats)));
+  let offline = $derived(rooms.filter((r) => house.roomRadiators(r.id).filter(heats).every((x) => x.reachable === false)));
   let consequence = $derived(
-    !rooms.length
+    !capable.length
       ? m.away.noRoom
-      : openEnded
-        ? m.away.consequenceOpen(rooms.length, fmtTemp(temp))
-        : until === null
-          ? null
-          : m.away.consequence(rooms.length, fmtTemp(temp), fmtDateTime(until))
+      : !rooms.length
+        ? m.away.allOff
+        : openEnded
+          ? m.away.consequenceOpen(rooms.length, fmtTemp(temp))
+          : until === null
+            ? null
+            : m.away.consequence(rooms.length, fmtTemp(temp), fmtDateTime(until))
   );
   let offlineLine = $derived(offline.length && rooms.length ? m.away.offline(offline.map((r) => roomName(r)), offline.length) : null);
   // Another house-wide command on its way (« Tout éteindre », « Tout remettre en programme »): one at a time.

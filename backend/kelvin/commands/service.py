@@ -37,6 +37,13 @@ FLIPPABLE = frozenset(
 SUPERSEDED_WAIT = 30.0
 # How long a settled command stays in the snapshot, so a client that slept learns its real outcome.
 RECENT_KEEP = 300.0
+# Commands after which a heater's other setpoint states may have moved without an event: on
+# Sauter the manual setpoint and Confort are one register (docs/overkiz-notes.md, 2026-11-07),
+# yet a target sent in `basic` or a mode change reports only the states it names. One targeted
+# read of the heater this long after the confirmation keeps Kelvin's copy true; a later command
+# on the same heater pushes it back, so a burst of sends costs one read.
+FOLLOWUP_COMMANDS = frozenset({"setTargetTemperature", "setComfortTemperature", "setOperatingMode"})
+FOLLOWUP_READ_S = 60.0
 Status = Literal["sending", "pending", "confirmed", "failed", "superseded"]
 
 
@@ -155,6 +162,8 @@ class CommandService:
         self._running: dict[str, Pending] = {}
         # Settled commands (confirmed, failed, superseded) with the time they settled.
         self._recent: dict[str, tuple[float, Pending]] = {}
+        # Heater URL → when its follow-up state read is due (FOLLOWUP_READ_S).
+        self._followup: dict[str, float] = {}
 
     def active(self) -> list[Pending]:
         return list(self._pending.values())
@@ -328,9 +337,10 @@ class CommandService:
         a full setup read nor states/refresh) per device whose expected state is still missing,
         for each command whose failure is due; then its verdict. Returns the radiators whose
         states changed, for the house event."""
+        changed = await self._read_followups()
         due = [p for p in self.active() if p.verify_code is not None and not p.verified]
         if not due:
-            return set()
+            return changed
         urls: list[str] = []
         for p in due:
             p.verified = True
@@ -339,7 +349,6 @@ class CommandService:
                     self.house.device_state(e.device_url, e.name)
                 ):
                     urls.append(e.device_url)
-        changed: set[str] = set()
         for url in urls:
             try:
                 states = await self.gateway.device_states(url)
@@ -353,6 +362,24 @@ class CommandService:
             self._evaluate(p, how="read")
             if p.active and p.verify_code is not None:
                 self._fail(p, p.verify_code, how="read")
+        return changed
+
+    async def _read_followups(self) -> set[str]:
+        """The follow-up reads that are due (FOLLOWUP_READ_S), one targeted read per heater;
+        one a command in flight still touches waits for that command's own confirmation."""
+        now = self.clock()
+        busy = {u for p in self.active() for u, _ in p.keys}
+        changed: set[str] = set()
+        for url, at in list(self._followup.items()):
+            if at > now or url in busy:
+                continue
+            del self._followup[url]
+            try:
+                states = await self.gateway.device_states(url)
+            except GatewayError as e:
+                log.warning("follow-up state read failed (%s)", type(e).__name__)
+                continue
+            changed |= self.house.reload_device(url, states)
         return changed
 
     def _fail(self, p: Pending, code: str, *, how: str) -> None:
@@ -487,6 +514,13 @@ class CommandService:
         self._pending.pop(p.id, None)
         self._recent.pop(p.id, None)
         self._recent[p.id] = (self.clock(), p)
+        if status == "confirmed":
+            offline = {
+                self.house.radiators[r].heater_url for r in p.offline if r in self.house.radiators
+            }
+            for c in p.planned.commands:
+                if c.name in FOLLOWUP_COMMANDS and c.device_url not in offline:
+                    self._followup[c.device_url] = self.clock() + FOLLOWUP_READ_S
         self._prune_recent()
         if status != "superseded":
             p.after.clear()

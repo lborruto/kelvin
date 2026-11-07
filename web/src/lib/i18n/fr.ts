@@ -941,7 +941,7 @@ export const fr = {
   away: {
     title: 'Partir en absence',
     activeTitle: 'Absence en cours',
-    lead: 'Toutes les pièces baissent, puis reprennent leur réglage.',
+    lead: 'Les pièces qui chauffent baissent, puis reprennent leur réglage. Les pièces à l’arrêt restent à l’arrêt.',
     until: 'Jusqu’à',
     parisTime: '(heure de Paris)',
     tomorrow: (t: string) => `Demain ${t}`,
@@ -965,6 +965,7 @@ export const fr = {
         ? `${names[0]} est hors ligne${NB}: elle ne recevra peut-être pas la consigne.`
         : `${list(names)} sont hors ligne${NB}: elles ne recevront peut-être pas la consigne.`,
     noRoom: `Aucun radiateur ne prend de consigne de température${NB}: une absence ne changerait rien.`,
+    allOff: `Toutes les pièces sont à l’arrêt${NB}: une absence ne changerait rien.`,
     go: 'Partir',
     extendGo: 'Prolonger',
     waiting: 'En attente de la connexion à Kelvin.',
@@ -1485,6 +1486,7 @@ export const fr = {
     no_radiator: () => 'Aucun radiateur.',
     radiator_unknown_id: () => 'Radiateur inconnu dans la demande.',
     end_in_past: () => 'Choisissez une fin dans le futur.',
+    away_all_off: () => `Toutes les pièces sont à l’arrêt${NB}: une absence ne changerait rien.`,
     unsupported_command: (p: ApiParams) => `Ce radiateur ne prend pas en charge «${NB}${p.command}${NB}».`,
     temp_range: (p: ApiParams) => `${subject(p.kind)} doit être comprise entre ${bound(p.min)} et ${bound(p.max)}${NB}°C.`,
     temp_step: (p: ApiParams) => `${subject(p.kind)} se règle par pas de 0,5${NB}°C.`,

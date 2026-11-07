@@ -907,7 +907,7 @@ export const en: Messages = {
   away: {
     title: 'Go away',
     activeTitle: 'Away mode on',
-    lead: 'Every room turns down, then goes back to its settings.',
+    lead: 'Rooms that are heating turn down, then go back to their settings. Rooms that are off stay off.',
     until: 'Until',
     parisTime: '(Paris time)',
     tomorrow: (t: string) => `Tomorrow ${t}`,
@@ -929,6 +929,7 @@ export const en: Messages = {
     offline: (names: string[], n: number) =>
       n === 1 ? `${names[0]} is offline: it may not get the setting.` : `${list(names)} are offline: they may not get the setting.`,
     noRoom: 'No radiator takes a temperature: going away would change nothing.',
+    allOff: 'Every room is off: going away would change nothing.',
     go: 'Go away',
     extendGo: 'Extend',
     waiting: 'Waiting for the connection to Kelvin.',
@@ -1440,6 +1441,7 @@ export const en: Messages = {
     no_radiator: () => 'No radiators.',
     radiator_unknown_id: () => 'Unknown radiator in the request.',
     end_in_past: () => 'Choose an end time in the future.',
+    away_all_off: () => 'Every room is off: going away would change nothing.',
     unsupported_command: (p: ApiParams) => `This radiator doesn’t support “${p.command}”.`,
     temp_range: (p: ApiParams) => `${subject(p.kind)} must be between ${String(p.min).replace(/^-/, '−')} and ${String(p.max).replace(/^-/, '−')}${NB}°C.`,
     temp_step: (p: ApiParams) => `${subject(p.kind)} goes in steps of 0.5${NB}°C.`,

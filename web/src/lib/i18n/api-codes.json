@@ -4,6 +4,10 @@
       "fr": "Alerte introuvable.",
       "params": {}
     },
+    "away_all_off": {
+      "fr": "Toutes les pièces sont à l’arrêt : une absence ne changerait rien.",
+      "params": {}
+    },
     "bad_credentials": {
       "fr": "Cozytouch refuse cet email ou ce mot de passe.",
       "params": {}

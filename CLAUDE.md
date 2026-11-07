@@ -87,7 +87,9 @@ depends on.
   `SetupReadGuard` (`overkiz/budget.py`, at most 3 per 24 h, kept across restarts); reconcile
   with `device_states(url)` instead (one radiator every 10 minutes). The poller never takes the
   last read of the day; a start never waits for the budget (stored setup structure, else one
-  overdraft read a day). Never send `states/refresh`.
+  overdraft read a day). Never send `states/refresh`. A confirmed setpoint or mode command reads
+  its heater once more 60 s later (`CommandService` follow-up read): on Sauter the manual setpoint
+  and Confort are one register and the device reports only the state a command names.
 - **Cozytouch setup writes** go only through the allowlisted client `kelvin/setup/client.py`:
   five writes (create, rename and delete a place; relocate a device; set a device label) and two
   targeted reads. Never add a setup operation without adding it there and to its test; device
@@ -157,6 +159,8 @@ depends on.
   that delete or migrate work in fixed batches.
 - **Restore order:** a restore sets the previous target first, then the mode, in one action. In
   programme mode the target is the remembered manual setpoint.
+- **Away leaves « Arrêt » alone:** an away never includes a radiator that is off (`_start`,
+  `away_all_off` when every one is); its end has nothing to restore for it.
 - **Open-ended away** (« Jusqu’à mon retour »): an away override may have `ends_at = None` (API
   `until: null`, views `ends_at: null` + `open_ended: true`); only a cancel ends it, then it restores
   like any other. Away is manual mode at a setpoint, which the radiator keeps with no end of its own,

@@ -257,6 +257,35 @@ observed; nothing in the verified behaviour suggests a time-out. Record here if 
 override would then be judged « changed by hand » and dropped without a restore, as for any manual
 change, and the `away_open_long` reminder would stop).
 
+## Manual setpoint and Confort are one register (2026-11-07, owner's report; read-only check)
+
+« Absence » at 17 °C over four HEKLA radiators, ended by « Terminer » some hours later. Afterwards
+a bedroom in programme (Confort 19 before) showed « Confort 17 °C » in Kelvin. Checked read-only
+from Kelvin's `command_log`, its `samples` and two targeted `device_states(url)` reads (nothing
+sent):
+
+- **`setComfortTemperature(x)` moves `core:TargetTemperatureState` to x as well** (seen several
+  times in the samples: a Confort sent in programme mode, the target follows within minutes).
+- **A target sent in `basic` becomes the Confort the programme uses**: a « Manuel » setpoint
+  followed by « Programme » ran the programme's comfort periods at that setpoint, and a heater in
+  `standby` reads `core:ComfortRoomTemperatureState` equal to its target. So on these radiators
+  the manual setpoint and Confort are a single value.
+- **The device reports only the state a command names.** A restore (`setTargetTemperature` then
+  `setOperatingMode internal`) is confirmed by those two events; no `ComfortRoomTemperatureState`
+  event follows. Kelvin had learned Confort 17 from a periodic targeted read during the away, kept
+  it after the restore while the radiator was back at 19, and a « Confort 19 » sent afterwards was
+  confirmed by an event 3 s later (it would have been immediate had Kelvin's copy said 19).
+- The restore itself was right: the radiators' comfort periods ran at their earlier Confort after
+  every away in the samples (`io:EffectiveTemperatureSetpointState` lags 5 to 10 min after any
+  change).
+
+Since then a confirmed command carrying `setTargetTemperature`, `setComfortTemperature` or
+`setOperatingMode` triggers one targeted `device_states(url)` read of that heater 60 s later
+(`CommandService`, `FOLLOWUP_READ_S`; a later command on it pushes the read back, so a burst of
+sends costs one read). The same report: the away had switched on a radiator the owner had left in
+`standby` (it ran at the away temperature all day, then went back to `standby`); an away now
+leaves a radiator that is off as it is (`away_all_off` when every one is).
+
 ## Multi-brand (2026-10-14) — UNVERIFIED
 
 Nothing in this section has been tried on a real device. It records what Kelvin sends for device
