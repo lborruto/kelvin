@@ -1,14 +1,14 @@
 """Cozytouch setup writes (spec §2.7, §9.4): an allowlist of five writes and two targeted reads,
 sent once each through the pyoverkiz client's own authenticated session.
 
-pyoverkiz 2.2.2 reads places but cannot write them, and its `_post`/`_put`/`_delete` helpers do
+pyoverkiz 2.2.3 reads places but cannot write them, and its `_post`/`_put`/`_delete` helpers do
 not fit: `check_response` accepts only 200 and 204 (place creation answers 201), and
 `retry_on_connection_failure` re-sends a POST after a dropped connection (a second room). So
 every request is built here, matched against ALLOWED by `check_allowed`, and sent once. Every
 other setup operation (device delete, _deleteCascade, firmware, metadata, deviceType,
 controllables, persistent states, place re-parenting, the bulk reads) raises SetupNotAllowed
 before a byte is sent. The private pyoverkiz surface used here is pinned by the exact
-`pyoverkiz==2.2.2` dependency and by tests/test_setup_client.py.
+`pyoverkiz==2.2.3` dependency and by tests/test_setup_client.py.
 """
 
 from __future__ import annotations

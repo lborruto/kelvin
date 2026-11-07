@@ -253,7 +253,7 @@ async def test_the_private_pyoverkiz_surface_setup_http_uses_is_there():
     from pyoverkiz import exceptions as ox
     from pyoverkiz.response_handler import check_response
 
-    assert importlib.metadata.version("pyoverkiz") == "2.2.2"
+    assert importlib.metadata.version("pyoverkiz") == "2.2.3"
     assert inspect.iscoroutinefunction(check_response)
     assert issubclass(ox.UnknownObjectError, ox.BaseOverkizError)
     client = OverkizClient(

@@ -105,7 +105,7 @@ class FakeGateway:
         }
         self.root_oid = root.oid
         self.setup_delay = SETUP_DELAY_S
-        self.place_event_payload = False  # like pyoverkiz 2.2.2: place events carry no payload
+        self.place_event_payload = False  # like pyoverkiz 2.2.3: place events carry no payload
         self.silent_setup = False  # no setup events at all (confirmation by re-read only)
         self.fail_setup: dict[str, Exception] = {}  # operation -> raised on every call
         self.refuse_relocate: dict[str, Exception] = {}  # device URL -> raised by relocate
