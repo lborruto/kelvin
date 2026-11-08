@@ -263,7 +263,8 @@ async def test_restore_confirmation_publishes_overrides_without_a_tick(ctx):
     q = rt.broadcaster.subscribe()
     await settle(rt, clock)  # the boost runs, then the restore it was superseded by
     await settle(rt, clock)
-    await asyncio.sleep(0)
+    for _ in range(20):  # the read back runs as soon as the restore settles (no override tick)
+        await asyncio.sleep(0)
     assert rt.overrides.active() == []
     events = [q.get_nowait() for _ in range(q.qsize())]
     overrides = [e for e in events if e["event"] == "overrides"]

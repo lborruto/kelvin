@@ -123,6 +123,13 @@ class OverrideManager:
         # retry, then backs off again. Accepted.
         self._failures: dict[str, int] = {}  # override id → consecutive failed restores
         self._retry_at: dict[str, float] = {}  # override id → no restore before this wall time
+        # override id → radiators whose restore is confirmed but not read back yet. On Sauter the
+        # manual setpoint is also the programme's Confort, and the radiator reports only the states
+        # a command names: until one targeted read shows its Confort back, Kelvin's copy still holds
+        # the override's setpoint, and a −/+ tap would send a Confort computed from it (2026-11-08,
+        # « Salon : confort 17,5 °C » five seconds after « Terminer »). The override stays
+        # « restoring » (no stepper) until that read; memory only, like the backoff.
+        self._readback: dict[str, list[str]] = {}
         self._items: dict[str, Override] = {}
         for row in db.query("SELECT id, payload FROM overrides"):
             try:
@@ -152,6 +159,7 @@ class OverrideManager:
         self._restore_pending.pop(o.id, None)
         self._failures.pop(o.id, None)
         self._retry_at.pop(o.id, None)
+        self._readback.pop(o.id, None)
         self.db.execute("DELETE FROM overrides WHERE id = ?", (o.id,))
 
     def _drop(self, o: Override, rid: str) -> None:
@@ -184,9 +192,8 @@ class OverrideManager:
                             int(delay),
                         )
                 continue
-            for rid in rids:
-                if rid not in p.offline:
-                    self._drop(o, rid)
+            back = self._readback.setdefault(oid, [])
+            back.extend(r for r in rids if r not in p.offline and r not in back)
             if p.offline:
                 # Confirmed for the reachable radiators; the offline ones keep the override and
                 # are retried with the same backoff, so none stays at the override's setpoint.
@@ -196,10 +203,32 @@ class OverrideManager:
             else:
                 self._failures.pop(oid, None)
                 self._retry_at.pop(oid, None)
+            self._save(o)
+
+    async def _read_back(self) -> None:
+        """Read the restored radiators once (concurrently), then let them leave their override."""
+        for oid, rids in list(self._readback.items()):
+            o = self._items.get(oid)
+            if o is None:
+                self._readback.pop(oid, None)
+                continue
+            urls = [self.house.radiators[r].heater_url for r in rids if r in self.house.radiators]
+            await asyncio.gather(*(self._read(u, "a restore") for u in urls))
+            self._readback.pop(oid, None)
+            for rid in rids:
+                self._drop(o, rid)
             if o.radiator_ids:
                 self._save(o)
             else:
                 self._delete(o)
+
+    async def _read(self, url: str, why: str) -> None:
+        try:
+            states = await self.commands.gateway.device_states(url)
+        except GatewayError as e:
+            log.warning("state read after %s failed (%s)", why, type(e).__name__)
+            return
+        self.house.reload_device(url, states)
 
     def _holder(
         self, rid: str, *, kind: Kind | None = None, exclude: str | None = None
@@ -376,15 +405,16 @@ class OverrideManager:
             if rid not in busy and self._holder(rid) is None
         ]
 
-        async def read(url: str) -> None:
-            try:
-                states = await self.commands.gateway.device_states(url)
-            except GatewayError as e:
-                log.warning("state read before an override failed (%s)", type(e).__name__)
-                return
-            self.house.reload_device(url, states)
+        await asyncio.gather(*(self._read(u, "an override start") for u in urls))
 
-        await asyncio.gather(*(read(u) for u in urls))
+    async def settle_restores(self) -> None:
+        """Read back the radiators of restores confirmed since the last call (run as soon as a
+        command settles, so a restored room shows its real Confort within seconds, not at the
+        next tick)."""
+        async with self._lock:
+            self._reap()
+            if self._readback and self.is_connected():
+                await self._read_back()
 
     async def cancel(self, override_id: str) -> Pending | None:
         async with self._lock:
@@ -393,6 +423,9 @@ class OverrideManager:
             rp = self._restore_pending.get(o.id)
             if rp is not None and rp[0].active:
                 return rp[0]
+            if o.id in self._readback:
+                await self._read_back()  # restored already: only the read back is left
+                return None
             now = self.wall()
             o.ends_at = (
                 now if o.ends_at is None else min(o.ends_at, now)
@@ -402,6 +435,8 @@ class OverrideManager:
     async def tick(self) -> list[Pending]:
         async with self._lock:
             self._reap()
+            if self._readback and self.is_connected():
+                await self._read_back()
             out: list[Pending] = []
             now = self.wall()
             for o in sorted(self._items.values(), key=lambda o: o.created_at):

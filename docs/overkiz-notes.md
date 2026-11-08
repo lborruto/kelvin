@@ -287,6 +287,17 @@ its state, since the restore writes that target back as Confort. The same report
 `standby` (it ran at the away temperature all day, then went back to `standby`); an away now
 leaves a radiator that is off as it is (`away_all_off` when every one is).
 
+## A −/+ tap right after « Terminer » (2026-11-08, owner's report; read-only check)
+
+« Absence à 17 °C » on the Salon, then « Terminer »: the restore (`setTargetTemperature 20.5`, then
+`setOperatingMode internal`) was confirmed in 2 s, and five seconds later the web sent « Salon :
+confort 17,5 °C » (`setComfortTemperature 17.5`, one −/+ tap). During the away Kelvin's copy of
+`core:ComfortRoomTemperatureState` had become 17 (the manual setpoint is the Confort register, and
+a periodic read saw it); the restore put 20.5 back on the radiator, which reported only the target
+and the mode, so the room showed « Confort 17 » with its −/+ live, and the tap computed 17.5 from
+it. Since then an override stays « restoring » (no −/+) until one targeted read of each restored
+radiator (`OverrideManager._read_back`, in the next override tick) brings Kelvin's copy back.
+
 ## Multi-brand (2026-10-14) — UNVERIFIED
 
 Nothing in this section has been tried on a real device. It records what Kelvin sends for device

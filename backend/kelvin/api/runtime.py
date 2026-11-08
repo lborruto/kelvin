@@ -137,6 +137,16 @@ class Runtime:
         self.published_overrides = self.overrides.active()
         self.broadcaster.publish("overrides", self.published_overrides)
 
+    async def settle_overrides(self) -> None:
+        """A command settled: read back what a confirmed restore reached, then publish."""
+        if self.closed:
+            return
+        try:
+            await self.overrides.settle_restores()
+        except Exception:
+            log.exception("reading back a restore failed")
+        self.sync_overrides()
+
     def sync_overrides(self) -> None:
         """Publish the overrides when they differ from what clients last received."""
         if self.closed:  # a sync scheduled by a late command update after shutdown
@@ -449,10 +459,15 @@ async def start_runtime(
         def on_update(p: Pending) -> None:
             bc.publish("pending", p.view())
             if p.status in ("confirmed", "failed", "superseded"):
-                # A settled restore ends its override: tell clients now, not at the next tick.
-                # Deferred, so the override manager is never re-entered mid-operation.
-                if runtime:
-                    asyncio.get_running_loop().call_soon(runtime[0].sync_overrides)
+                # A settled restore ends its override once its radiators are read back: do it
+                # now, not at the next tick, then tell clients. A task, so the override manager is
+                # never re-entered mid-operation; kept in `tasks` so it is not collected early.
+                if runtime and not runtime[0].closed:
+                    task = asyncio.get_running_loop().create_task(runtime[0].settle_overrides())
+                    runtime[0].tasks.append(task)
+                    task.add_done_callback(
+                        lambda t: t in runtime[0].tasks and runtime[0].tasks.remove(t)
+                    )
                 db.log_command(
                     p.view(),
                     [
@@ -678,9 +693,9 @@ async def start_runtime(
 
 async def stop_runtime(rt: Runtime) -> None:
     rt.closed = True
-    for t in rt.tasks:
+    for t in list(rt.tasks):
         t.cancel()
-    for t in rt.tasks:
+    for t in list(rt.tasks):
         with contextlib.suppress(asyncio.CancelledError):
             await t
     try:
