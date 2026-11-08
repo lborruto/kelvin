@@ -3,6 +3,27 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## 0.3.5
+
+- **« Partir… » leaves rooms in Arrêt alone.** An absence used to switch on a radiator you had turned
+  off and heat that room all day at the absence temperature. Now it skips every radiator in Arrêt, and
+  « Terminer » has nothing to put back for it. The sheet counts only the rooms that heat and says
+  « Les pièces à l’arrêt restent à l’arrêt. »; when every room is off it says so and sends nothing.
+- **Confort comes back right after an absence.** On Sauter radiators the Manuel setpoint and Confort are
+  one value, and the radiator does not say when Confort comes back. After « Terminer » a room could show
+  the absence temperature as its Confort, and one −/+ tap then wrote that wrong Confort to the radiator.
+  Now an absence or a chauffe temporaire ends only once Kelvin has read each radiator back: until then the
+  room says it is being restored and shows no −/+. Kelvin also reads each radiator just before an absence
+  or a chauffe temporaire saves its state, and once more a minute after any setpoint or mode change.
+- **−/+ change the setpoint only on a real tap.** They used to react to the touch itself, so a scroll that
+  started on « + » or « − » changed the setpoint and sent it. Now a step counts when your finger lifts on the
+  button; a touch that turns into a scroll, or slides off the button, changes nothing. Holding still repeats.
+- **What each control says out loud starts with what it shows** (voice control, screen readers): Maison's
+  tiles (« Fenêtre · Fermée · Chambre 1 »), Programme's day headers (« lun. (Lundi, …) »), Énergie's figure
+  (« 55,67 € est. (estimation), détails ») and the summary chips.
+- Dependency updates, among them security fixes in the web build tools (undici, fast-uri,
+  serialize-javascript) and pyoverkiz 2.2.3.
+
 ## 0.3.4
 
 - **−/+ now sets Confort in Programme**, whatever level runs now. During an Éco period the room says
