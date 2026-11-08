@@ -163,18 +163,23 @@
     } else release();
   }
 
+  // A touch is a step only once it is a tap: the step comes on the release, never on the touch itself. A finger
+  // that starts a scroll on −/+ (the browser cancels the pointer) or slides off the button changes nothing
+  // (2026-11-08: a scroll over « + » right after « Terminer » sent « Confort + 0,5 »). Holding still repeats.
+  let heldSteps = 0;
+
   function startHold(e: PointerEvent, dir: 1 | -1) {
     if (e.button !== 0) return;
     stopHold();
     holding = true;
-    if (!bump(dir)) {
-      endHold();
-      return;
-    }
-    // Press and hold: after 500 ms, one step every 150 ms; still one send, after the release.
+    heldSteps = 0;
+    // Press and hold: after 500 ms, one step, then one every 150 ms; still one send, after the release.
     holdTimer = setTimeout(() => {
+      if (!bump(dir)) return;
+      heldSteps++;
       repeatTimer = setInterval(() => {
-        if (!bump(dir)) clearInterval(repeatTimer);
+        if (bump(dir)) heldSteps++;
+        else clearInterval(repeatTimer);
       }, HOLD_REPEAT_MS);
     }, HOLD_DELAY_MS);
   }
@@ -184,11 +189,22 @@
     clearInterval(repeatTimer);
   }
 
+  /** The finger lifted on the button: a tap steps once; a hold has stepped already. */
+  function lift(dir: 1 | -1) {
+    if (!holding) return;
+    const tapped = heldSteps === 0;
+    holding = false;
+    stopHold();
+    if (tapped) bump(dir);
+    arm();
+  }
+
+  /** The pointer left or the browser took it (a scroll): a tap that never was changes nothing. */
   function endHold() {
     if (!holding) return;
     holding = false;
     stopHold();
-    arm();
+    if (heldSteps > 0) arm();
   }
 
   function key(e: KeyboardEvent, dir: 1 | -1) {
@@ -208,14 +224,14 @@
 <div class="stepper {size}" class:pending={pending || unsent} class:block class:inert={disabled} class:around={!!between} class:with-below={!!below} role="group"
   aria-label={label} {id}>
   <button type="button" class="hit dec" aria-label={m.stepper.decrease(label)} aria-disabled={atMin}
-    onpointerdown={(e) => startHold(e, -1)} onpointerup={endHold} onpointerleave={endHold} onpointercancel={endHold}
+    onpointerdown={(e) => startHold(e, -1)} onpointerup={() => lift(-1)} onpointerleave={endHold} onpointercancel={endHold}
     onkeydown={(e) => key(e, -1)}><Icon name="minus" size={size === 'lg' ? 24 : size === 'sm' ? 15 : 17} /></button>
   <output class="num">{#if caption}<small aria-hidden="true">{caption}</small>{/if}<span class="val">{format(shown)}<PendingEdge pending={pending || unsent}
         confirmed={settle.confirmed} /></span></output>
   {#if below}<div class="below">{@render below()}</div>{/if}
   {#if between}<div class="mid">{@render between()}</div>{/if}
   <button type="button" class="hit inc" aria-label={m.stepper.increase(label)} aria-disabled={atMax}
-    onpointerdown={(e) => startHold(e, 1)} onpointerup={endHold} onpointerleave={endHold} onpointercancel={endHold}
+    onpointerdown={(e) => startHold(e, 1)} onpointerup={() => lift(1)} onpointerleave={endHold} onpointercancel={endHold}
     onkeydown={(e) => key(e, 1)}><Icon name="plus" size={size === 'lg' ? 24 : size === 'sm' ? 15 : 17} /></button>
 </div>
 

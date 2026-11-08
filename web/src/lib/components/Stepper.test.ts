@@ -36,9 +36,12 @@ describe('Stepper', () => {
     render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
     const minus = screen.getByRole('button', { name: 'Diminuer Consigne' });
     await fireEvent.pointerDown(minus);
+    // The touch alone is not a step: a hold steps at 500 ms, then every 150 ms.
     await vi.advanceTimersByTimeAsync(499);
+    expect(screen.getByRole('status')).toHaveTextContent('20,0');
+    await vi.advanceTimersByTimeAsync(1);
     expect(screen.getByRole('status')).toHaveTextContent('19,5');
-    await vi.advanceTimersByTimeAsync(1 + 150 * 3);
+    await vi.advanceTimersByTimeAsync(150 * 3);
     expect(screen.getByRole('status')).toHaveTextContent('18,0');
     // Held well past the idle time: still nothing sent.
     await vi.advanceTimersByTimeAsync(2000);
@@ -248,6 +251,43 @@ describe('Stepper', () => {
     // Only the 10 s fallback of the optimistic display is left; nothing more is sent.
     await vi.advanceTimersByTimeAsync(12_000);
     expect(onchange).toHaveBeenCalledTimes(1);
+  });
+
+  it('a touch that becomes a scroll changes nothing and sends nothing (2026-11-08)', async () => {
+    // A scroll over Maison's tiles after « Terminer » started on « + »: the browser cancels the pointer.
+    const onchange = vi.fn();
+    render(Stepper, { value: 17, min: 12, max: 28, label: 'Confort', onchange });
+    const plus = screen.getByRole('button', { name: 'Augmenter Confort' });
+    await fireEvent.pointerDown(plus);
+    expect(screen.getByRole('status')).toHaveTextContent('17,0');
+    await fireEvent.pointerCancel(plus);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(screen.getByRole('status')).toHaveTextContent('17,0');
+    expect(onchange).not.toHaveBeenCalled();
+  });
+
+  it('a finger that slides off the button before lifting changes nothing', async () => {
+    const onchange = vi.fn();
+    render(Stepper, { value: 20, min: 12, max: 28, label: 'Confort', onchange });
+    const minus = screen.getByRole('button', { name: 'Diminuer Confort' });
+    await fireEvent.pointerDown(minus);
+    await fireEvent.pointerLeave(minus);
+    await fireEvent.pointerUp(minus);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(screen.getByRole('status')).toHaveTextContent('20,0');
+    expect(onchange).not.toHaveBeenCalled();
+  });
+
+  it('a held press that the browser cancels keeps the steps it made and sends them once', async () => {
+    const onchange = vi.fn();
+    render(Stepper, { value: 20, min: 12, max: 28, label: 'Confort', onchange });
+    const plus = screen.getByRole('button', { name: 'Augmenter Confort' });
+    await fireEvent.pointerDown(plus);
+    await vi.advanceTimersByTimeAsync(500 + 150);
+    await fireEvent.pointerCancel(plus);
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(onchange).toHaveBeenCalledTimes(1);
+    expect(onchange).toHaveBeenCalledWith(21);
   });
 
   it('ignores non-primary buttons and stops repeating at a bound', async () => {
