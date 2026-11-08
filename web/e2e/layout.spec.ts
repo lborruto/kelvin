@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { addDays, parisDay } from './clock';
+import { addDays, parisDay, pinYesterdayAt } from './clock';
 
 // Layout guards, run once (desktop project; widths are set per check).
 const WIDTHS = [320, 360, 390, 768, 1024, 1280, 1440];
@@ -257,6 +257,10 @@ test.describe('Maison without layout shift', () => {
   });
 
   test('/ room tiles have one height per width whatever their state', async ({ page }) => {
+    // At a fixed time (every simulated room in its Éco period), never the hour the suite runs at: during
+    // Éco a tile adds « Pris en compte à … » under its −/+, so a run straddling a room's switch compared
+    // tiles in different states (CLAUDE.md « Time in tests »).
+    await pinYesterdayAt(page, 3);
     for (const width of [320, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/');
