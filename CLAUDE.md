@@ -160,7 +160,10 @@ depends on.
 - **Restore order:** a restore sets the previous target first, then the mode, in one action. In
   programme mode the target is the remembered manual setpoint. An override reads each radiator it saves (one
   targeted read, not one already held or in flight) before saving its state: on Sauter that target
-  is also the programme's Confort, so a stale copy would be written back as the room's Confort.
+  is also the programme's Confort, so a stale copy would be written back as the room's Confort. An override
+  ends only after a targeted read of each radiator its restore reached (`settle_restores`, run as soon as the restore settles; else the next tick):
+  until then it stays « restoring » and the room shows no −/+, which would otherwise send a Confort computed
+  from the override's setpoint still in Kelvin's copy.
 - **Away leaves « Arrêt » alone:** an away never includes a radiator that is off (`_start`,
   `away_all_off` when every one is); its end has nothing to restore for it.
 - **Open-ended away** (« Jusqu’à mon retour »): an away override may have `ends_at = None` (API

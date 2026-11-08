@@ -62,6 +62,7 @@ async def test_boost_applies_then_restores(env):
     assert all(house.radiators[i].mode == "program" for i in SALON)
     # Programme mode remembers the manual setpoint: the restore puts it back too (I5).
     assert all(house.radiators[i].target == 20.0 for i in SALON)
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active() == []
 
 
@@ -83,6 +84,7 @@ async def test_restore_sends_target_before_mode_for_each_radiator(env):
     ]
     await settle(clock, gw, house, svc)
     assert house.radiators["9000022"].mode == "off" and house.radiators["9000022"].target == 16.5
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active() == []
 
 
@@ -105,6 +107,7 @@ async def test_cancel_restores_now(env):
     await settle(clock, gw, house, svc)
     p = await mgr.cancel(o.id)
     await settle(clock, gw, house, svc)
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert p.status == "confirmed" and house.radiators["9500003"].mode == "program"
     with pytest.raises(KeyError):
         await mgr.cancel(o.id)
@@ -159,6 +162,7 @@ async def test_boost_ending_inside_away_returns_to_away_then_program(env):
     await settle(clock, gw, house, svc)
     assert house.radiators["9500003"].mode == "manual"
     assert house.radiators["9500003"].target == 12.0
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert [a["kind"] for a in mgr.active()] == ["away"]
     assert "9500003" in mgr.active()[0]["radiator_ids"]
     clock.advance(600)
@@ -254,6 +258,7 @@ async def test_failed_restore_keeps_override_and_retries(env):
     assert p2.status == "confirmed"
     assert all(house.radiators[i].mode == "program" for i in SALON)
     assert house.radiators["9000022"].mode == "off"
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active() == []
     assert db.query("SELECT id FROM overrides") == []
 
@@ -276,6 +281,7 @@ async def test_unconfirmed_restore_is_retried_after_timeout(env):
     [p2] = await mgr.tick()
     await settle(clock, gw, house, svc)
     assert p2.status == "confirmed" and house.radiators["9500003"].mode == "program"
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active() == []
 
 
@@ -292,6 +298,7 @@ async def test_no_restore_while_disconnected(env):
     connected = True
     [p] = await mgr.tick()
     await settle(clock, gw, house, svc)
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert p.status == "confirmed" and mgr.active() == []
 
 
@@ -311,6 +318,7 @@ async def test_cancel_while_restoring_returns_in_flight_or_resubmits(env):
     assert p2 is not p and p2.status == "failed"
     p3 = await mgr.cancel(o.id)
     await settle(clock, gw, house, svc)
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert p3.status == "confirmed" and mgr.active() == []
     with pytest.raises(KeyError):
         await mgr.cancel(o.id)
@@ -340,6 +348,7 @@ async def test_concurrent_boosts_restore_to_program(tmp_path):
     await settle(clock, gw, house, svc)
     assert all(house.radiators[i].mode == "program" for i in SALON)
     assert all(house.radiators[i].target == 20.0 for i in SALON)
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active() == []
 
 
@@ -361,6 +370,7 @@ async def test_unmapped_mode_skips_only_that_radiator(env):
     assert p.status == "confirmed"
     assert all(house.radiators[i].mode == "program" for i in SALON)
     assert house.radiators["9000011"].mode == "other"
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active() == []
 
 
@@ -375,6 +385,7 @@ async def test_unloaded_radiator_waits_alone_then_is_dropped(env):
     assert p.radiator_ids == ("10000001", "9500003")
     await settle(clock, gw, house, svc)
     assert all(house.radiators[i].mode == "program" for i in SALON)
+    await mgr.tick()  # the restored radiators are read back, then leave
     [view] = mgr.active()
     assert view["radiator_ids"] == ["9000011"] and view["restoring"] is True
     clock.advance(1800)
@@ -398,6 +409,7 @@ async def test_unloaded_radiator_restored_once_state_returns(env):
     assert p.radiator_ids == ("9000011",)
     await settle(clock, gw, house, svc)
     assert r.mode == "program" and r.target == 19.0
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active() == []
 
 
@@ -495,6 +507,7 @@ async def test_a_failing_restore_waits_longer_each_time(env):
         clock.advance(1)
     [p] = await mgr.tick()
     await settle(clock, gw, house, svc)
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert p.status == "confirmed" and mgr.active() == []
 
 
@@ -509,6 +522,7 @@ async def test_cancel_ignores_the_backoff(env):
     assert await mgr.tick() == []
     p2 = await mgr.cancel(o.id)  # the user asked: no waiting
     await settle(clock, gw, house, svc)
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert p2.status == "confirmed" and mgr.active() == []
 
 
@@ -527,6 +541,7 @@ async def test_a_backing_off_override_does_not_delay_another(env):
     clock.advance(RESTORE_RETRY_FIRST_S)
     [p] = await mgr.tick()
     await settle(clock, gw, house, svc)
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert p.status == "confirmed" and mgr.active() == []
 
 
@@ -542,6 +557,7 @@ async def test_confirmed_restore_clears_failure_and_retry_state(env):
     clock.advance(RESTORE_RETRY_FIRST_S)
     await mgr.tick()
     await settle(clock, gw, house, svc)
+    await mgr.tick()  # the restored radiators are read back, then leave
     mgr.active()
     assert o.id not in mgr._failures and o.id not in mgr._retry_at
     assert mgr.active() == []
@@ -613,6 +629,7 @@ async def test_restore_keeps_an_offline_radiator_for_a_later_try(env):
     [r] = await mgr.tick()
     await settle(clock, gw, house, svc)
     assert r.status == "confirmed" and r.offline == ("9000011",)
+    await mgr.tick()  # the restored radiators are read back, then leave
     [o] = mgr.active()
     assert o["radiator_ids"] == ["9000011"]
     # Back online: the next try restores it and the override ends.
@@ -624,6 +641,7 @@ async def test_restore_keeps_an_offline_radiator_for_a_later_try(env):
     await settle(clock, gw, house, svc)
     assert again.status == "confirmed" and again.offline == ()
     assert house.radiators["9000011"].mode == "program"
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active() == []
 
 
@@ -636,6 +654,7 @@ async def test_an_offline_radiator_changed_by_hand_before_the_retry_is_left_alon
     clock.advance(60)
     await mgr.tick()
     await settle(clock, gw, house, svc)
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active()[0]["radiator_ids"] == ["9000011"]
     # Back online, set to programme on the panel before Kelvin's retry.
     url = house.radiators["9000011"].heater_url
@@ -681,6 +700,7 @@ async def test_open_ended_away_runs_until_cancelled_and_restores(env):
     assert r.status == "confirmed"
     assert house.radiators["9500003"].mode == "program"
     assert house.radiators["9000011"].mode == "program"
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active() == []
     assert db.rows("SELECT id, start, end, ended FROM away_log") == [
         (o.id, o.created_at, ended_at, 1)
@@ -714,6 +734,7 @@ async def test_open_ended_away_survives_restart(env):
     await settle(clock, gw, house, svc)
     assert house.radiators["9500003"].mode == "program"
     assert house.radiators["9000022"].mode == "off"
+    await mgr2.tick()  # the restored radiators are read back, then leave
     assert mgr2.active() == []
 
 
@@ -726,6 +747,7 @@ async def test_open_ended_away_restore_retries_an_offline_radiator(env):
     r = await mgr.cancel(o.id)
     await settle(clock, gw, house, svc)
     assert r.status == "confirmed" and r.offline == ("9000011",)
+    await mgr.tick()  # the restored radiators are read back, then leave
     [left] = mgr.active()
     assert left["radiator_ids"] == ["9000011"] and left["restoring"] is True
     assert left["ends_at"] is not None  # ended: its end is the time « Terminer » was pressed
@@ -737,6 +759,7 @@ async def test_open_ended_away_restore_retries_an_offline_radiator(env):
     await settle(clock, gw, house, svc)
     assert again.status == "confirmed"
     assert house.radiators["9000011"].mode == "program"
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert mgr.active() == []
 
 
@@ -809,6 +832,7 @@ async def test_away_leaves_a_radiator_that_is_off_alone(env):
     await mgr.cancel(o.id)
     assert {c.device_url for c in gw.executed[-1]} == {house.radiators["9500003"].heater_url}
     await settle(clock, gw, house, svc)
+    await mgr.tick()  # the restored radiators are read back, then leave
     assert house.radiators["9000022"].mode == "off" and mgr.active() == []
 
 
@@ -853,3 +877,31 @@ async def test_a_radiator_already_held_is_not_read_again(env):
     reads = gw.state_reads
     a, _ = await mgr.start("away", list(SALON), 17.0, None, label="a")
     assert gw.state_reads == reads  # the boost's saved state is inherited, not re-read
+
+
+async def test_a_restored_room_stays_restoring_until_its_confort_is_read_back(env):
+    """2026-11-08 on a real house: a Sauter radiator's manual setpoint is also its Confort. The
+    away's 17 °C showed up as Confort 17 in Kelvin's copy; « Terminer » put the radiator back at
+    20.5 without reporting Confort, and a −/+ tap five seconds later sent « confort 17,5 °C ». The
+    override now ends only once a targeted read shows the radiator's real states."""
+    clock, gw, house, svc, _, mgr = env
+    r = house.radiators["9500003"]
+    url = r.heater_url
+    comfort = r.comfort
+    o, _ = await mgr.start("away", ["9500003"], 17.0, None, label="a")
+    await settle(clock, gw, house, svc)
+    # During the away the radiator's Confort is its manual setpoint, and a periodic read sees it.
+    gw.devices[url].states["core:ComfortRoomTemperatureState"] = 17.0
+    house.reload_device(url, await gw.device_states(url))
+    assert r.comfort == 17.0
+    await mgr.cancel(o.id)
+    # The restore puts Confort back on the radiator, which reports only the target and the mode.
+    gw.devices[url].states["core:ComfortRoomTemperatureState"] = comfort
+    await settle(clock, gw, house, svc)
+    assert r.mode == "program" and r.comfort == 17.0  # Kelvin's copy is stale here
+    [view] = mgr.active()
+    assert view["restoring"] is True  # so the room shows no −/+ to send it from
+    reads = gw.state_reads
+    await mgr.tick()
+    assert gw.state_reads == reads + 1 and r.comfort == comfort
+    assert mgr.active() == []
