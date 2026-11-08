@@ -331,7 +331,8 @@ depends on.
   orange (`--heat`) only for heating, comfort blocks and a running chauffe temporaire; Tempo colours only when
   the price row in force is Tempo; −/+ is the primary setpoint control and in Programme always changes Confort (during
   Éco: « Pris en compte à la prochaine plage Confort »; `$lib/setpoint` `primarySetpoint`); setpoint controls send once,
-  1,5 s after the last tap or release, dashed until then, and flush on close (`$lib/send`). Maison is `lib/components/dashboard/` (words in `$lib/dashboard`, energy
+  1,5 s after the last tap or release, dashed until then, and flush on close (`$lib/send`); a −/+ step comes on the
+  release, never on the touch (a scroll starting on −/+, `pointercancel`, changes nothing). Maison is `lib/components/dashboard/` (words in `$lib/dashboard`, energy
   answers in `$lib/stores/dashboardEnergy`). The room sheet (`lib/components/room/`) is a shell overlay in the root
   layout driven by `?sheet=<id>` on any route: it opens over the page the user is on, which stays mounted (scroll and
   state kept); a reload reopens it, Back closes it, closing returns focus to its opener, and it loads its own data
