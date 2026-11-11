@@ -308,15 +308,21 @@ class CommandService:
                 if now - (p.verify_since or now) >= VERIFY_WAIT:
                     self._fail(p, p.verify_code, how="no read")
                 continue
-            if p.status == "pending" and (
-                p.exec_failed_at is not None and now - p.exec_failed_at >= EXEC_FAILURE_GRACE
+            # A superseded execution still running may yet change these states: no verdict from
+            # this command's own execution before it is over (SUPERSEDED_WAIT bounds the wait).
+            waiting = any(not o.exec_done for o in p.after)
+            if (
+                p.status == "pending"
+                and p.exec_failed_at is not None
+                and now - p.exec_failed_at >= EXEC_FAILURE_GRACE
+                and not waiting
             ):
                 self._due(p, code="radiator_refused", can_read=can_read)
             elif (
                 p.status == "pending"
                 and p.exec_completed_at is not None
                 and now - p.exec_completed_at >= SETTLE_AFTER_COMPLETED
-                and not any(not o.exec_done for o in p.after)
+                and not waiting
             ):
                 self._due(p, code="no_confirmation", can_read=can_read)
             elif now - p.created_at >= CONFIRM_TIMEOUT:

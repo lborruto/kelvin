@@ -4,6 +4,7 @@ import pytest
 
 from kelvin.commands.service import (
     CONFIRM_TIMEOUT,
+    EXEC_FAILURE_GRACE,
     FOLLOWUP_READ_S,
     SUPERSEDED_WAIT,
     CommandService,
@@ -492,3 +493,26 @@ async def test_an_identify_needs_no_follow_up_read(env):
     clock.advance(FOLLOWUP_READ_S + 1)
     await drain(gw, house, svc)
     assert gw.state_reads == reads
+
+
+async def test_a_failed_execution_is_not_judged_before_a_superseded_one_is_over(env):
+    """Quick successive commands: the newest execution reports FAILED (OVERRIDEMODE_ERROR on a
+    command that did apply) while an older, superseded one has not reported. The verdict must
+    wait for it, as a COMPLETED one does: judged at once, the command read « refused » and
+    turned confirmed seconds later."""
+    clock, gw, house, svc, updates = env
+    gw.silent = True  # events are fed by hand below
+    r = house.radiators["9500003"]
+    a = await svc.submit("A", (r.id,), plan_mode(r, "manual"))
+    b = await svc.submit("B", (r.id,), plan_mode(r, "program"))
+    assert a.status == "superseded" and b.status == "pending"
+    svc.on_exec(ExecUpdate(b.exec_id, "FAILED", "OVERRIDEMODE_ERROR"))
+    clock.advance(EXEC_FAILURE_GRACE)
+    svc.tick()
+    await svc.verify()
+    assert b.status == "pending"  # A may still run: nothing is known yet
+    clock.advance(SUPERSEDED_WAIT - EXEC_FAILURE_GRACE)
+    svc.tick()
+    await svc.verify()
+    assert b.status == "confirmed"
+    assert "failed" not in updates
