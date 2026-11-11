@@ -27,6 +27,17 @@ Contents: [Develop](#develop) · [Run it like production](#run-it-like-productio
 set. It keeps every file it creates private (umask 077). If `KELVIN_DATA` is not writable, or
 `account.json` cannot be read, it stops with a one-line message.
 
+Started like this, Kelvin serves the API only: `KELVIN_WEB` is not set outside the image, so
+`GET /` answers `404` (« Introuvable. », code `not_found`) while `/api/health` answers. That is
+expected, not a broken start. To serve the web app from the same port, as the image does, build
+it and point `KELVIN_WEB` at the build:
+
+    (cd ../web && npm ci && npm run build)
+    KELVIN_DATA=./data KELVIN_WEB=../web/build uv run python -m kelvin
+
+A `KELVIN_WEB` folder with no `index.html` is ignored in the same way. For development, run the
+web app with hot reload instead (`npm run dev` in `web/`, which proxies `/api` to port 8000).
+
 Settings come from the environment only. To use a `.env` file (never committed), load it in
 the shell:
 
