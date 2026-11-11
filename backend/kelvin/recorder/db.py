@@ -210,11 +210,35 @@ MIGRATIONS = {
 SCHEMA_VERSION = max(MIGRATIONS)  # a new migration is the new version
 
 
+class SchemaTooNew(RuntimeError):
+    """kelvin.db was written by a newer Kelvin: this build does not know its schema, so it
+    refuses to open it rather than read or write tables it may misunderstand."""
+
+    def __init__(self, version: int) -> None:
+        super().__init__(
+            f"kelvin.db was written by a newer Kelvin (schema {version}; this version knows "
+            f"schema {SCHEMA_VERSION}). Start the newer version again, or use another "
+            "KELVIN_DATA folder."
+        )
+        self.version = version
+
+
+def _refuse_newer(conn: sqlite3.Connection) -> None:
+    """Raises SchemaTooNew when the stored version is above this build's (a downgrade)."""
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'settings'").fetchone():
+        return  # a new database
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (SCHEMA_VERSION_KEY,)).fetchone()
+    version = json.loads(row[0]) if row else 0
+    if isinstance(version, int) and version > SCHEMA_VERSION:
+        raise SchemaTooNew(version)
+
+
 def migrate(conn: sqlite3.Connection) -> int:
     """Run the pending migrations in order; returns the schema version.
 
     Each migration is idempotent and commits its own batches; the version is recorded only once
     it finished, so an interrupted migration runs again, whole, at the next start."""
+    _refuse_newer(conn)
     row = conn.execute("SELECT value FROM settings WHERE key = ?", (SCHEMA_VERSION_KEY,)).fetchone()
     version = json.loads(row[0]) if row else 0
     for target in sorted(v for v in MIGRATIONS if v > version):
@@ -239,8 +263,9 @@ class Database:
         self.conn = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.executescript(SCHEMA)
         try:
+            _refuse_newer(self.conn)  # before the schema script: nothing is written to it
+            self.conn.executescript(SCHEMA)
             migrate(self.conn)
             # Every start, not only at v2: a session an older build wrote has no id (downgrade).
             _v2_session_ids(self.conn)

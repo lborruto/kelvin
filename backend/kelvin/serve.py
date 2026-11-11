@@ -28,7 +28,7 @@ from pydantic import ValidationError
 from kelvin.account import AccountFileError, AccountStore
 from kelvin.config import Settings, split_list
 from kelvin.overkiz.servers import server_name
-from kelvin.recorder.db import Database
+from kelvin.recorder.db import Database, SchemaTooNew
 
 APP = "kelvin.api.app:create_app"
 
@@ -200,7 +200,7 @@ def main() -> int:
         settings = Settings()
         options = uvicorn_options(settings)
         preflight(settings)
-    except (ConfigError, ValidationError) as e:
+    except (ConfigError, ValidationError, SchemaTooNew) as e:
         print(f"kelvin: {e}", file=sys.stderr)
         return 2
     warning = exposure_warning(settings)

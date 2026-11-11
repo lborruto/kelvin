@@ -4,7 +4,13 @@ import sqlite3
 
 import pytest
 
-from kelvin.recorder.db import SCHEMA, SCHEMA_VERSION, SCHEMA_VERSION_KEY, Database
+from kelvin.recorder.db import (
+    SCHEMA,
+    SCHEMA_VERSION,
+    SCHEMA_VERSION_KEY,
+    Database,
+    SchemaTooNew,
+)
 
 
 def legacy_db(path) -> None:
@@ -233,3 +239,18 @@ def test_executemany_writes_the_whole_batch_or_nothing(tmp_path):
     assert len(db.query("SELECT * FROM linky_daily")) == 2
     assert not db.conn.in_transaction
     db.close()
+
+
+def test_a_database_from_a_newer_kelvin_is_refused(tmp_path):
+    """An older image must not open (and write into) a schema it does not know."""
+    path = tmp_path / "k.db"
+    db = Database(path)
+    db.set_setting(SCHEMA_VERSION_KEY, SCHEMA_VERSION + 1)
+    db.close()
+    with pytest.raises(SchemaTooNew) as e:
+        Database(path)
+    assert str(SCHEMA_VERSION + 1) in str(e.value) and str(SCHEMA_VERSION) in str(e.value)
+    conn = sqlite3.connect(path)  # untouched: the newer build still finds its version
+    stored = conn.execute("SELECT value FROM settings WHERE key = ?", (SCHEMA_VERSION_KEY,))
+    assert stored.fetchone()[0] == str(SCHEMA_VERSION + 1)
+    conn.close()
