@@ -226,6 +226,19 @@ def test_v6_creates_outlook_and_away_tables(tmp_path):
     conn.close()
 
 
+def test_v7_creates_the_kept_half_hours_table(tmp_path):
+    from kelvin.recorder.db import MIGRATIONS
+
+    db = Database(tmp_path / "k.db")
+    cols = [r["name"] for r in db.query("PRAGMA table_info(radiator_halfhours)")]
+    assert cols == ["radiator_id", "start", "day", "wh", "interpolated", "apportioned"]
+    assert db.get_setting(SCHEMA_VERSION_KEY) == SCHEMA_VERSION >= 7
+    db.close()
+    conn = sqlite3.connect(tmp_path / "k.db")
+    MIGRATIONS[7](conn)  # running it again is harmless
+    conn.close()
+
+
 def test_executemany_writes_the_whole_batch_or_nothing(tmp_path):
     """One transaction: a failing row leaves nothing of its batch behind (and the rows are
     not committed one by one on the event loop)."""

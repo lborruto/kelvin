@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import struct
 import time
 from bisect import bisect_left, bisect_right
 from collections.abc import Callable, Iterable, Iterator
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from itertools import chain
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -42,6 +43,14 @@ COUNTERS = {"total": "total_wh", "t1": "t1_wh", "t2": "t2_wh"}
 CHUNK_S = 28 * 86400
 LOOKBACK_S = 3 * 86400
 RANGES_PER_QUERY = 200  # sample ranges OR-ed in one query
+# The half-hours of complete radiator-days are kept (`radiator_halfhours`, schema v7) before a
+# prune deletes the samples that weight them: see `Recorder._keep_final_days`.
+HALF_S = 1800
+DAY_MAX_S = 25 * 3600  # a local day, the autumn DST one included
+ARCHIVE_KEY = "radiator_halfhours_cutoff"  # the sample cutoff of the last finished prune
+ARCHIVE_BATCH_DAYS = 28
+ARCHIVE_MARGIN_DAYS = 3
+LIVE_RUN_GAP = 3 * 48  # buckets: stretches to compute closer than this are computed as one
 
 
 class Recorder:
@@ -62,12 +71,13 @@ class Recorder:
         # Per radiator: its last row's time and counters, as written.
         self._last_written: dict[str, tuple[int, tuple[float | None, ...]]] = {}
         # Moves when a write can change energy already computed for a past day: a reading that
-        # replaces or predates its radiator's last one, a sample not after every sample and
+        # replaces or predates its radiator's last one, or a sample not after every sample and
         # reading already written (a wall clock stepped back: it lands in a span already
-        # counted and moves its weights), or pruned samples (old spans' weights). Appending a
-        # newer reading or sample never does (a span `clean_spans` emitted is final, its weights
-        # are samples before its end), so the cache of complete radiator-days
-        # (`linky/radiator_cache.py`) is dropped only then.
+        # counted and moves its weights). Appending a newer reading or sample never does (a span
+        # `clean_spans` emitted is final, its weights are samples before its end), and neither
+        # does a prune (the complete days its samples weight are kept first, `_keep_final_days`),
+        # so the cache of complete radiator-days (`linky/radiator_cache.py`) is dropped only
+        # then.
         self.energy_epoch = 0
         self._high: list[int | None] | None = None  # newest sample, newest reading (`_highs`)
 
@@ -137,6 +147,7 @@ class Recorder:
         ids = list(radiator_ids) if radiator_ids is not None else list(self.house.radiators)
         rows = []
         rewrites = False
+        stale: dict[str, int] = {}  # radiator → the time from which its kept days may change
         for rid in ids:
             r = self.house.radiators.get(rid)
             e = r.energy_wh if r is not None else None
@@ -147,8 +158,18 @@ class Recorder:
             if last is not None and values == last[1]:
                 continue
             rows.append((t, rid, *values))
-            rewrites |= last is not None and t <= last[0]  # replaces (same second) or predates it
+            if last is not None and t <= last[0]:  # replaces (same second) or predates it
+                rewrites = True
+                span = self._span_at(rid, t - 1)  # the span this reading cuts or ends
+                stale[rid] = span.start if span is not None else t
         self.db.executemany("INSERT OR REPLACE INTO energy VALUES (?,?,?,?,?)", rows)
+        for rid, since in stale.items():
+            # Kept half-hours are final only while history is not rewritten under them (they are
+            # more than a year old; this reading is not, unless the clock stepped far back).
+            self.db.execute(
+                "DELETE FROM radiator_halfhours WHERE radiator_id = ? AND start > ?",
+                (rid, since - DAY_MAX_S),
+            )
         for row in rows:  # only once written: a failed insert is retried at the next call
             rid = row[1]
             last = self._last_written.get(rid)
@@ -168,10 +189,14 @@ class Recorder:
         if chunk <= 0:
             raise ValueError("chunk must be positive")  # the delete loop would never end
         now = self.wall()
+        oldest = int(now - SAMPLE_RETENTION_S)
         total = 0
         try:
+            # First, and whole: the complete days these samples weight keep their half-hours, so
+            # deleting the samples changes no final figure (and `energy_epoch` does not move).
+            self._keep_final_days(oldest)
             for table, column, cutoff in (
-                ("samples", "ts", int(now - SAMPLE_RETENTION_S)),
+                ("samples", "ts", oldest),
                 ("command_log", "ts", now - COMMAND_LOG_RETENTION_S),
                 ("away_log", "end", now - AWAY_KEEP_S),
             ):
@@ -182,10 +207,10 @@ class Recorder:
                         (cutoff, chunk),
                     )
                     total += n
-                    if n and table == "samples":  # the weights of old spans changed
-                        self.energy_epoch += 1
                     if n < chunk:
                         break
+                if table == "samples":  # all gone: the next prune keeps the days from here on
+                    self.db.set_setting(ARCHIVE_KEY, oldest)
         except DatabaseClosed:
             pass
         return total
@@ -392,6 +417,139 @@ class Recorder:
         return RateIndex(rows)
 
     def _buckets(self, rid: str, edges: list[int], cols: list[str]) -> list[list[Bucket]]:
+        """One radiator's buckets per counter: computed from its readings (`_live_buckets`),
+        except the total counter's energy over the days kept in `radiator_halfhours`, which is
+        read from there. A bucket made of kept half-hours holds their sum (its flags and cover
+        do not depend on the samples and stay as computed); a kept half-hour asked as such is
+        not computed at all, so years of final days cost one read."""
+        total = COUNTERS["total"]
+        half: dict[int, tuple[float, bool, bool]] = {}
+        if total in cols and all(e % HALF_S == 0 for e in edges):
+            half = self._kept(rid, edges[0], edges[-1])
+        if not half:
+            return self._live_buckets(rid, edges, cols)
+        n = len(edges) - 1
+        sums: list[float | None] = [None] * n
+        for i in range(n):
+            s = 0.0
+            for t in range(edges[i], edges[i + 1], HALF_S):
+                h = half.get(t)
+                if h is None:
+                    break
+                s += h[0]
+            else:
+                sums[i] = s
+        if cols == [total]:
+            # Only what is not a kept half-hour is computed: a bucket's energy does not depend
+            # on the window asked, so each stretch is computed on its own.
+            acc = [[_UNKNOWN] * n]
+            need = [i for i in range(n) if sums[i] is None or edges[i + 1] - edges[i] != HALF_S]
+            for lo, hi in _runs(need, LIVE_RUN_GAP):
+                acc[0][lo:hi] = self._live_buckets(rid, edges[lo : hi + 1], cols)[0]
+        else:
+            acc = self._live_buckets(rid, edges, cols)
+        row = acc[cols.index(total)]
+        for i, s in enumerate(sums):
+            if s is None:
+                continue
+            if edges[i + 1] - edges[i] == HALF_S:
+                row[i] = Bucket(s, HALF_S, *half[edges[i]][1:])
+            else:
+                row[i] = Bucket(s, row[i].covered_s, row[i].interpolated, row[i].apportioned)
+        return acc
+
+    def _kept(self, rid: str, lo: int, hi: int) -> dict[int, tuple[float, bool, bool]]:
+        """The kept half-hours of the days overlapping [lo, hi): start → (Wh, interpolated,
+        apportioned). One row a day: bounded by the window asked."""
+        rows = self.db.rows(
+            "SELECT start, wh, interpolated, apportioned FROM radiator_halfhours"
+            " WHERE radiator_id = ? AND start > ? AND start < ? ORDER BY start",
+            (rid, lo - DAY_MAX_S, hi),
+        )
+        out: dict[int, tuple[float, bool, bool]] = {}
+        for start, blob, interp, appor in rows:
+            for k, (wh,) in enumerate(struct.iter_unpack("<d", blob)):
+                out[start + k * HALF_S] = (wh, bool(interp >> k & 1), bool(appor >> k & 1))
+        return out
+
+    def _span_at(self, rid: str, t: int) -> Span | None:
+        """The total counter's span that holds the instant t, as the chunk of t replays it;
+        None when that time is unknown (before the first reading, a gap, the open end)."""
+        col = COUNTERS["total"]
+        first = {col: self._first_ts(rid, col)}
+        if first[col] is None or first[col] > t:
+            return None
+        radiator = self.house.radiators.get(rid)
+        power_w = radiator.power_w if radiator is not None else None
+        g = t // CHUNK_S * CHUNK_S
+        a0 = g - LOOKBACK_S
+        heads = [self._head(rid, col, a0) if first[col] < a0 else None]
+        per, _ = self._chunk_spans(rid, [col], g, (t, t + 1), power_w, first, heads)
+        return next((s for s in per[0] if s.start <= t < s.end), None)
+
+    def _keep_final_days(self, cutoff: int) -> int:
+        """Before the samples older than `cutoff` are deleted: write the half-hours of every
+        complete radiator-day those samples weight to `radiator_halfhours`, so the day reads the
+        same kWh, HC/HP and € afterwards (a complete radiator-day is final).
+
+        A span is weighted by the samples from its start to its end, so the days at stake are
+        those of the spans that reach into what this prune deletes: from the span holding the
+        last prune's cutoff to the end of the span holding this one (a reading that closes idle
+        months keeps all of them). The first run goes back to the first reading. A day already
+        kept is never rewritten; a day that is not complete is not final and is left to be
+        computed. Work is in batches of ARCHIVE_BATCH_DAYS days, one transaction each.
+        """
+        prev = self.db.get_setting(ARCHIVE_KEY)
+        kept = 0
+        for rid, (a, b) in self.energy_extent().items():
+            lo_t = a
+            if prev is not None and b < prev - SAMPLE_STEP_S:
+                continue  # no reading since the last prune's cutoff: nothing new at stake
+            if prev is not None:
+                s = self._span_at(rid, prev - SAMPLE_STEP_S)
+                lo_t = max(a, s.start if s is not None else prev - SAMPLE_STEP_S)
+            e = self._span_at(rid, cutoff + SAMPLE_STEP_S)
+            hi_t = min(b, e.end if e is not None else cutoff + SAMPLE_STEP_S)
+            if hi_t <= lo_t:
+                continue
+            margin = timedelta(days=ARCHIVE_MARGIN_DAYS)  # the replay's lookback, to be safe
+            lo = max(self._day(a), self._day(lo_t) - margin)
+            hi = self._day(hi_t) + timedelta(days=1)
+            while lo < hi:
+                nxt = min(lo + timedelta(days=ARCHIVE_BATCH_DAYS), hi)
+                kept += self._keep_days(rid, lo, nxt)
+                lo = nxt
+        return kept
+
+    def _day(self, t: int) -> date:
+        return datetime.fromtimestamp(t, self.tz).date()
+
+    def _keep_days(self, rid: str, lo: date, hi: date) -> int:
+        """Write the complete days of [lo, hi) not kept yet; returns how many were complete."""
+        edges = local_edges(lo, hi, "halfhour", self.tz)
+        days = local_edges(lo, hi, "day", self.tz)
+        row = self._buckets(rid, edges, [COUNTERS["total"]])[0]
+        out = []
+        i = 0
+        for k in range(len(days) - 1):
+            n = (days[k + 1] - days[k]) // HALF_S
+            part, i = row[i : i + n], i + n
+            if not all(b.wh is not None and b.covered_s == HALF_S for b in part):
+                continue
+            out.append(
+                (
+                    rid,
+                    days[k],
+                    (lo + timedelta(days=k)).isoformat(),
+                    struct.pack(f"<{n}d", *(b.wh for b in part)),
+                    sum(1 << j for j, b in enumerate(part) if b.interpolated),
+                    sum(1 << j for j, b in enumerate(part) if b.apportioned),
+                )
+            )
+        self.db.executemany("INSERT OR IGNORE INTO radiator_halfhours VALUES (?,?,?,?,?,?)", out)
+        return len(out)
+
+    def _live_buckets(self, rid: str, edges: list[int], cols: list[str]) -> list[list[Bucket]]:
         """One radiator, several counters, one pass over its rows (spec §2.1).
 
         Time is cut into fixed chunks of CHUNK_S (epoch-aligned, not window-aligned); each
@@ -600,6 +758,17 @@ def _advance(head: _Head, ts: tuple, values: tuple, t: int) -> _Head:
     if head[1][1] == v:  # the run began before t'
         return head[0], head[1], last
     return head[2], (ts[first], v), last
+
+
+def _runs(indexes: list[int], gap: int) -> list[tuple[int, int]]:
+    """Sorted indexes as [lo, hi) stretches, joined when fewer than `gap` apart."""
+    out: list[list[int]] = []
+    for i in indexes:
+        if out and i - out[-1][1] < gap:
+            out[-1][1] = i + 1
+        else:
+            out.append([i, i + 1])
+    return [(lo, hi) for lo, hi in out]
 
 
 def _spread(spans: list[Span], edges: list[int], lo: int, hi: int) -> Iterator[tuple[int, int]]:

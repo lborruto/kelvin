@@ -199,6 +199,20 @@ def _v6_outlook_and_away(conn: sqlite3.Connection) -> None:
                 )
 
 
+def _v7_radiator_halfhours(conn: sqlite3.Connection) -> None:
+    """v7: the half-hours of complete radiator-days, written by `Recorder.prune` before the
+    working-rate samples that weight them are deleted, so a final day keeps its figures. One row
+    per radiator and local day: `start` is its local midnight (epoch), `wh` its 46, 48 or 50
+    half-hours as little-endian doubles, `interpolated` and `apportioned` one bit per half-hour.
+    Idempotent."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS radiator_halfhours ("
+        " radiator_id TEXT NOT NULL, start INTEGER NOT NULL, day TEXT NOT NULL,"
+        " wh BLOB NOT NULL, interpolated INTEGER NOT NULL, apportioned INTEGER NOT NULL,"
+        " PRIMARY KEY (radiator_id, start))"
+    )
+
+
 MIGRATIONS = {
     1: _v1_energy_counters,
     2: _v2_session_ids,
@@ -206,6 +220,7 @@ MIGRATIONS = {
     4: _v4_mcp_tables,
     5: _v5_weather_tables,
     6: _v6_outlook_and_away,
+    7: _v7_radiator_halfhours,
 }
 SCHEMA_VERSION = max(MIGRATIONS)  # a new migration is the new version
 
