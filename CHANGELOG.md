@@ -3,6 +3,46 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## 0.3.6
+
+- **−/+ and the slider are one setpoint.** In a room, tapping + and then moving the slider (or the other
+  way round) used to send two commands, and the radiator could end on a value the screen never showed.
+  Both now continue from the figure on screen and send one command with the last value. A waiting value
+  is also sent when you lock the phone or switch app, not only when you close the room.
+- **An absence you end by hand is over.** Putting the radiators back yourself (on the radiator, in the
+  Cozytouch app or with a mode in Kelvin) instead of « Terminer » left an absence « Jusqu’à mon retour »
+  open in Kelvin’s records: every later day counted as an absence and was left out of « Météo et coût ».
+  It is now closed at that moment.
+- **A radiator that is unplugged when an absence ends** no longer gets a new attempt, a failed command
+  and an alert every half hour. Kelvin waits until the radiator is reachable again, and gives up after
+  7 days.
+- **A wrong Cozytouch password is tried once.** After Cozytouch refuses the stored password, Kelvin makes
+  no further attempt until you log in again (repeated attempts can lock the account). Logging in with a
+  new password signs every other device out.
+- **A command is sent once.** A dropped connection could make Kelvin send the same command to Cozytouch a
+  second time; it no longer can. A radiator paired or removed in the Cozytouch app appears or leaves
+  after « Synchroniser », without a restart.
+- **Last year’s radiator figures stay as they were.** Kelvin keeps 400 days of detailed samples; past
+  that, a radiator’s day could be split differently between heures creuses and heures pleines, and its €
+  move by a few percent. Each complete day is now kept before its samples go. Énergie also no longer
+  recomputes every radiator-day once a day on an install older than 400 days.
+- **Tempo: tomorrow’s colour is fetched even when EcoWatt is down.** EcoWatt’s retries could use up the
+  day’s calls and the « demain rouge » alert never came.
+- **A new version without a surprise reload.** Kelvin looks for a new version while it stays open (a
+  tablet on the wall, an installed app) and offers it: « Une nouvelle version de Kelvin est prête. »
+  « Mettre à jour ». It updates by itself only while the page is hidden, and never over a value or a
+  programme you have not sent.
+- **A request that never answers ends** with a network error instead of leaving « Tout éteindre » or « Envoyer »
+  unusable until a reload.
+- **Hardening.** A request body above 256 KiB is refused before it is read (one large request could
+  exhaust the container’s memory). A valid MCP token is no longer locked out by another client’s failed
+  attempts from the same address. Kelvin refuses to start on data written by a newer version instead
+  of opening it.
+- **Docker: the published image by default.** `docker compose pull && docker compose up -d` now runs
+  `ghcr.io/lborruto/kelvin` (`KELVIN_IMAGE_TAG` picks a version); `--build` still builds the checkout.
+- **Upgrade note.** The first start migrates the data to a new format (schema 7). 0.3.5 and older do not
+  check for it: back the data folder up before upgrading if you may want to go back.
+
 ## 0.3.5
 
 - **« Partir… » leaves rooms in Arrêt alone.** An absence used to switch on a radiator you had turned
