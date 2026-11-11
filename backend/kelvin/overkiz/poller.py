@@ -195,7 +195,13 @@ class EventPump:
             self._publish_layout()
             if changed:
                 self._safe(self.on_changed, changed)
-            if isinstance(e, AuthError):
+            if isinstance(e, BadCredentialsError):
+                # Already refused (pyoverkiz re-logs in by itself): one more login is one more
+                # bad attempt on the account.
+                self.auth_rejected = True
+                log.warning("overkiz refused the stored Cozytouch password")
+                self._notify_status()
+            elif isinstance(e, AuthError):
                 try:
                     await self.gateway.login()
                 except BadCredentialsError:
