@@ -1,9 +1,10 @@
 """The /mcp gate (spec MCP §5.2, ruling R2): Kelvin checks the MCP token in front of the SDK.
 
 Pure ASGI, so the SDK's responses pass through untouched. Order: Origin (no browser ever talks
-to /mcp: this closes DNS rebinding and cross-site posts), the client's failure lockout, the
-bearer token, the token's rate limit, then the SDK with the token id in CURRENT_TOKEN for the
-audit. No token material is ever logged or stored."""
+to /mcp: this closes DNS rebinding and cross-site posts), the bearer token (a request without a
+live one is refused, and locked out after too many from its address), the token's rate limit,
+then the SDK with the token id in CURRENT_TOKEN for the audit. No token material is ever logged
+or stored."""
 
 from __future__ import annotations
 
@@ -52,12 +53,17 @@ class McpGate:
             return
         client = scope.get("client")
         key = client_key(client[0]) if client else "unknown"
-        wait = ctx.mcp_limits.failure_wait(key)
-        if wait is not None:
-            await _answer(send, 429, "too_many_attempts", retry_after=wait)
-            return
+        # The token first: the lockout is keyed on the client's address, which every client
+        # shares behind NAT or a reverse proxy, so it only ever refuses a request that failed.
+        # A live token passes (its own rate limit follows); ten wrong ones from a neighbour
+        # must not shut the owner's assistant out. Tokens are 256 random bits: the lockout
+        # bounds noise and audit rows, not a guessing attack.
         record = ctx.mcp_tokens.verify(bearer(headers.get("authorization")))
         if record is None:
+            wait = ctx.mcp_limits.failure_wait(key)
+            if wait is not None:  # locked: neither counted nor audited again
+                await _answer(send, 429, "too_many_attempts", retry_after=wait)
+                return
             ctx.mcp_limits.failure(key)
             ctx.mcp_audit.refusal(
                 token_id=None,

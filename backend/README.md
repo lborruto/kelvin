@@ -284,8 +284,8 @@ Security: a token reads everything in Kelvin except secrets (never the PDL, your
 token or a device id). It is stored hashed, limited to 60 calls a minute, and revoked at once
 from the same panel (the token's “⋯” menu), which also lists the recent calls. Use HTTPS (your
 reverse proxy): on plain HTTP the token crosses the network in clear. Behind a reverse proxy,
-set `KELVIN_TRUSTED_PROXIES` to it, or every client looks like the proxy and ten wrong tokens from
-any device lock your assistant out for 15 minutes; set `KELVIN_ALLOWED_HOSTS` to the names you
+set `KELVIN_TRUSTED_PROXIES` to it, or every client looks like the proxy and shares one login
+throttle and one lockout for wrong tokens (a valid token is never locked out); set `KELVIN_ALLOWED_HOSTS` to the names you
 reach Kelvin by (with the refusal of any browser `Origin`, it replaces the MCP SDK's
 localhost-only DNS-rebinding check). Kelvin stays off the
 internet; clients that need a public URL with OAuth (claude.ai web connectors) are not
@@ -305,9 +305,10 @@ Auth: only `Authorization: Bearer kmcp_…` with a live token from `POST /api/mc
 session cookie is never accepted, and an MCP token is never accepted on `/api`. Answers before
 the SDK, always JSON `{"error": …}` with `Cache-Control: no-store`:
 - `403 origin_refused`: any request carrying an `Origin` header (no browser talks to `/mcp`);
-- `429 too_many_attempts` + `Retry-After`: 10 failed authentications from one client in 15 min;
 - `401 invalid_token` + `WWW-Authenticate: Bearer realm="kelvin"`: no, malformed, wrong or
   revoked token;
+- `429 too_many_attempts` + `Retry-After`: instead of that `401` after 10 of them from one
+  client in 15 min (a valid token is never refused for another's failures);
 - `429 rate_limited` + `Retry-After`: more than 60 calls a minute or 1 000 an hour for a token;
 - `413` from the SDK above 64 KiB of body.
 

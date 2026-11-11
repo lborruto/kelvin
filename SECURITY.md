@@ -37,6 +37,11 @@ Read this before installing.
   proxy you control, set `KELVIN_TRUSTED_PROXIES` to that proxy's exact address. `*` and
   wildcard-sized networks are refused: they would let any client fake its IP (dodging the login
   throttle) and HTTPS.
+  Without it, Kelvin sees every client as the proxy's address: they all share one login
+  throttle key (five wrong passwords from anyone make everyone wait 15 minutes, the right
+  password included: letting it through would turn the throttle into a password oracle) and
+  one lockout for wrong MCP tokens. A valid MCP token is never locked out by others' failures;
+  it only has its own rate limit.
 - **Host allowlist (recommended):** set `KELVIN_ALLOWED_HOSTS` in `.env` to the host names and
   addresses you use to reach Kelvin (for example `kelvin.lan,192.168.1.10`), before the first
   login. Kelvin then refuses requests for any other host name. This blocks DNS rebinding, where
