@@ -4,6 +4,7 @@ import json
 import pytest
 
 from kelvin.commands.overrides import (
+    RESTORE_GIVE_UP_S,
     RESTORE_RETRY_FIRST_S,
     OverrideManager,
     restore_retry_delay,
@@ -931,3 +932,56 @@ async def test_an_abandoned_open_ended_away_closes_its_log_row(env):
     assert db.rows("SELECT id, start, end, ended FROM away_log") == [
         (o.id, o.created_at, dropped_at, 1)
     ]
+
+
+def _plug(gw, house, rid):
+    url = house.radiators[rid].heater_url
+    gw.devices[url].states["core:StatusState"] = "available"
+    house.apply(StateChange(url, "core:StatusState", "available"), event=False)
+
+
+async def test_a_restore_waits_for_an_offline_radiator_without_sending(env):
+    """A restore whose radiators are all unreachable was sent every 30 min for ever: each try a
+    failed execution, a `command_log` row and an alert. It now waits until one is reachable."""
+    clock, gw, house, svc, db, mgr = env
+    o, _ = await mgr.start("away", ["9000011"], 18.0, clock() + 60, label="a")
+    await settle(clock, gw, house, svc)
+    _unplug(gw, house, "9000011")
+    sent = len(gw.executed)
+    clock.advance(60)
+    for _ in range(12):  # six hours of ticks
+        assert await mgr.tick() == []
+        clock.advance(1800)
+    assert len(gw.executed) == sent
+    [view] = mgr.active()
+    assert view["radiator_ids"] == ["9000011"] and view["restoring"] is True
+    assert db.rows("SELECT ended FROM away_log") == [(1,)]  # the away itself did end
+    _plug(gw, house, "9000011")
+    [again] = await mgr.tick()
+    await settle(clock, gw, house, svc)
+    assert again.status == "confirmed"
+    assert house.radiators["9000011"].mode == "program"
+    await mgr.tick()  # the restored radiator is read back, then leaves
+    assert mgr.active() == []
+
+
+async def test_a_restore_is_given_up_after_a_week_offline(env, caplog):
+    clock, gw, house, svc, db, mgr = env
+    await mgr.start("boost", ["9000011"], 21.0, clock() + 60, label="b")
+    await settle(clock, gw, house, svc)
+    _unplug(gw, house, "9000011")
+    sent = len(gw.executed)
+    clock.advance(60)
+    assert await mgr.tick() == []
+    clock.advance(RESTORE_GIVE_UP_S - 1)
+    # The bound is stored: a restart in between does not start the week again.
+    mgr2 = OverrideManager(db, house, svc, wall=clock)
+    assert await mgr2.tick() == []
+    assert len(mgr2.active()) == 1
+    clock.advance(1)
+    with caplog.at_level("WARNING"):
+        assert await mgr2.tick() == []
+    assert mgr2.active() == [] and db.rows("SELECT * FROM overrides") == []
+    assert len(gw.executed) == sent
+    assert "restore given up" in caplog.text
+    assert "9000011" not in caplog.text  # no radiator id in a log

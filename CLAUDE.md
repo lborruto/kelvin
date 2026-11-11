@@ -81,7 +81,8 @@ depends on.
   never byte for byte; a failure whose states arrive later turns confirmed (5 min window).
   The verdict is per radiator: radiators `unavailable` (`core:StatusState`) never fail a command
   the reachable ones took (`confirmed` with `offline`; `radiator_offline` only when all are), and a
-  restore keeps its offline radiators in the override for a later try.
+  restore keeps its offline radiators in the override for a later try (nothing is sent while
+  every radiator left is unreachable; given up after `RESTORE_GIVE_UP_S`, 7 days).
 - **Overkiz quota:** never call `Gateway.snapshot()` (`GET /setup/places` + `/setup/devices`,
   documented as one call a day) on a timer. Full setup reads go through the one stored
   `SetupReadGuard` (`overkiz/budget.py`, at most 3 per 24 h, kept across restarts); reconcile
