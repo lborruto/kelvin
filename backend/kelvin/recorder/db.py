@@ -261,8 +261,19 @@ class Database:
             return self._open_conn().execute(sql, params).rowcount
 
     def executemany(self, sql: str, rows: list[tuple]) -> None:
+        """Every row or none, in one transaction: the connection is in autocommit mode, where
+        each row would otherwise be its own commit (and a failure would leave half a batch)."""
         with self._lock:
-            self._open_conn().executemany(sql, rows)
+            conn = self._open_conn()
+            if not rows:
+                return
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                conn.executemany(sql, rows)
+                conn.execute("COMMIT")
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
 
     def query(self, sql: str, params: tuple | list = ()) -> list[dict[str, Any]]:
         with self._lock:
