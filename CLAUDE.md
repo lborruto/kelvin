@@ -107,7 +107,9 @@ depends on.
   changes, one after a change made in the Cozytouch app, and « Synchroniser » (`POST
   /api/setup/sync`). Every reason leaves the last read of the 24 h for a restart, never one read
   per write (several writes share one read), and a spent budget answers `setup_sync_spent` with
-  the next possible time. The device tree is served from memory.
+  the next possible time. The device tree is served from memory. A full read is also what
+  says which radiators exist: one paired since joins the house, one removed leaves it
+  (`House.sync_setup`); radiators already known keep their object and states.
 - **Rooms are Cozytouch places:** a radiator's room is its heater's place and its name its
   heater's Cozytouch label (the device name when the label is Overkiz's generic one); Kelvin keeps
   no room mapping of its own.
