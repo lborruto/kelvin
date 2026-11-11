@@ -18,9 +18,8 @@ const LEGACY_FORMS = [
 const ROOTS = ['web/src', 'web/e2e', 'web/static', 'web/scripts', 'web/vite.config.ts', 'web/svelte.config.js',
   'web/playwright.config.ts', 'backend/kelvin', 'backend/tests', 'docs', 'README.md', 'CONTRIBUTING.md',
   'DESIGN.md', 'PRODUCT.md', 'CLAUDE.md', 'web/README.md', 'backend/README.md'];
-// The redirect table and its tests; the 2026-10-14 design snapshot, which documents the old paths
-// it replaced; the gitignored plans.
-const SKIP_FILES = ['web/src/lib/paths.ts', 'web/src/lib/paths.test.ts', 'docs/i18n-catalogue.md'];
+// The redirect table and its tests; the gitignored plans.
+const SKIP_FILES = ['web/src/lib/paths.ts', 'web/src/lib/paths.test.ts'];
 const SKIP_DIRS = ['node_modules', '__pycache__', 'superpowers', '.svelte-kit', 'build'];
 
 /**
