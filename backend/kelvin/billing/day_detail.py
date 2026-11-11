@@ -23,6 +23,13 @@ def _r(v: float | None, n: int = 3) -> float | None:
     return None if v is None else round(v, n)
 
 
+def curve_edges(points: list[CurvePoint]) -> list[int]:
+    """The bucket edges of a curve's own intervals (Enedis also serves 10, 15 and 60 minutes):
+    every interval's start and end, in order. A hole in the curve is a bucket no interval
+    matches."""
+    return sorted({t for p in points for t in (p.ts, p.ts + p.minutes * 60)})
+
+
 def day_detail(
     day: date,
     points: list[CurvePoint],
@@ -37,7 +44,8 @@ def day_detail(
     life: dict[str, tuple[int, int | None]] | None = None,
     colours: Mapping[date, str] | None = None,
 ) -> dict[str, Any]:
-    """`radiators`: half-hour buckets per radiator over `edges` (the day's half-hours);
+    """`radiators`: buckets per radiator over `edges` (the day's half-hours, or `curve_edges`
+    for a curve at another step);
     `rooms`: radiator id → current room (radiators no longer in the house have none);
     `life`: radiator id → (first reading ts, last reading ts, or None while in the house);
     `colours`: Tempo colour per Tempo day (the day before and the day itself).
@@ -64,7 +72,10 @@ def day_detail(
         else:
             hc_c += p.wh * f
             hp_c += p.wh * (1 - f)
-        i = index.get(p.ts) if p.minutes == 30 else None
+        # The radiators' figure of an interval is the bucket on exactly its edges, or none.
+        i = index.get(p.ts)
+        if i is not None and edges[i + 1] != p.ts + p.minutes * 60:
+            i = None
         known: list[Bucket] = []
         total = 0
         rooms_wh: dict[str, float | None] = {}

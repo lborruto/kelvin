@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 
 from kelvin.billing.compare import minus_years
 from kelvin.billing.costs import curve_complete, day_energy
-from kelvin.billing.day_detail import day_detail
+from kelvin.billing.day_detail import curve_edges, day_detail
 from kelvin.billing.pricing import Pricing
 from kelvin.billing.radiators import RadiatorDay
 from kelvin.billing.report import (
@@ -510,6 +510,10 @@ class LinkyService:
             pool = FallbackShares({d: p for d, p in full.items() if lo <= d < hi}, self.tz)
             energy = day_energy(day, daily, points, pricing, self.tz, pool.for_day(day))
         edges = local_edges(day, nxt, "halfhour", self.tz)
+        if any(p.minutes != 30 for p in points):
+            # A 10, 15 or 60-minute curve: the radiators are bucketed on its own intervals (a
+            # bucket's energy does not depend on the edges around it). At most a day of them.
+            edges = curve_edges(points)
         radiators = recorder.energy_buckets(edges, recorder.energy_radiator_ids())
         # As in `report`: a radiator still in the house exists from its first reading on, one
         # no longer in it up to its last.

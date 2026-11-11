@@ -14,7 +14,7 @@ from httpx import ASGITransport, AsyncClient
 from kelvin.api.app import create_app
 from kelvin.config import Settings
 from kelvin.linky.fake import FakeLinkySource
-from kelvin.linky.models import DailyReading, LinkyAuthError, LinkyError, day_bounds
+from kelvin.linky.models import CurvePoint, DailyReading, LinkyAuthError, LinkyError, day_bounds
 from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.weather.normalise import FIT_MARGIN_DAYS
@@ -657,6 +657,35 @@ async def test_day_detail_of_a_simulated_day(api):
     assert any(i["radiators_wh"] for i in body["intervals"])
     assert body["room"]["id"] == salon and body["room"]["samples"]
     assert str(day) in body["available"]
+
+
+@pytest.mark.parametrize("minutes", [10, 15, 60])
+async def test_day_detail_carries_the_radiators_on_a_curve_that_is_not_half_hourly(api, minutes):
+    """Enedis load curves also come at 10, 15 and 60 minutes: the radiators are bucketed on the
+    curve's own intervals, and add up to what the half-hours give."""
+    c, _, rt, _ = api
+    day = today() - timedelta(days=2)
+    params = {"date": str(day)}
+    halves = (await c.get("/api/energy/day", params=params)).json()["intervals"]
+    a, b = day_bounds(day, PARIS)
+    rt.db.execute("DELETE FROM linky_curve WHERE ts >= ? AND ts < ?", (a, b))
+    step = minutes * 60
+    rt.linky.store.upsert_curve([CurvePoint(t, minutes, 600.0) for t in range(a, b, step)])
+    body = (await c.get("/api/energy/day", params=params)).json()
+    got = body["intervals"]
+    assert body["complete"] is True and len(got) == (b - a) // step
+    assert all(i["minutes"] == minutes for i in got)
+    assert {i["radiators_total"] for i in got} == {i["radiators_total"] for i in halves} != {0}
+    compared = 0
+    for t in range(a, b, 3600):  # hour by hour, whatever the step
+        hour = [i["radiators_wh"] for i in got if t <= i["ts"] < t + 3600]
+        ref = [i["radiators_wh"] for i in halves if t <= i["ts"] < t + 3600]
+        if None in ref:
+            continue
+        assert None not in hour
+        assert sum(hour) == pytest.approx(sum(ref), abs=0.1 * (len(hour) + len(ref)))
+        compared += 1
+    assert compared >= 12
 
 
 async def test_day_detail_of_an_unknown_room_is_404(api):
