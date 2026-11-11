@@ -189,10 +189,23 @@ describe('api client: a send survives leaving the page, a stalled request ends',
     expect(fn.mock.calls[0][1].keepalive).toBeFalsy();
   });
 
-  it('a request with no answer after 20 s fails as a network error', async () => {
+  it('a write with no answer gets 90 s: the backend waits on Overkiz longer than a read may take', async () => {
     vi.useFakeTimers();
     stalled();
     const res = api.houseOff().then(
+      () => 'answered',
+      (e) => e
+    );
+    await vi.advanceTimersByTimeAsync(89_999);
+    expect(await Promise.race([res, Promise.resolve('waiting')])).toBe('waiting');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await res).toMatchObject({ name: 'ApiError', status: 0, code: 'network' });
+  });
+
+  it('a read with no answer after 20 s fails as a network error', async () => {
+    vi.useFakeTimers();
+    stalled();
+    const res = api.house().then(
       () => 'answered',
       (e) => e
     );

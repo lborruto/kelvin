@@ -231,8 +231,8 @@ handler, focus kept) and dims to 40 %; never native `disabled` on a focusable co
 `Stepper.svelte` (`$lib/send`): every tap or arrow key shows the value at once, dashed (« pas encore envoyé »);
 nothing is sent while the owner keeps going; one send 1,5 s after the last interaction (a held press: after its
 release; press and hold steps at 500 ms, then every 150 ms). A step comes when the finger lifts on the button, never
-on the touch: a touch the browser cancels (a scroll starting on −/+) or a finger sliding off changes nothing; unmounting (the sheet closes) or `pagehide` sends a
-waiting value at once. 10 s release, one announcement per settled value, `Settle` dashed → solid. `bind:shown`
+on the touch: a touch the browser cancels (a scroll starting on −/+) or a finger sliding off changes nothing; unmounting (the sheet closes), `pagehide` or a page turning hidden (a locked phone) sends a
+waiting value at once. The unsent value and its one timer are a `SendDraft` (`$lib/sendDraft.svelte.ts`): a control owns one by default, and the room sheet gives the same one to its Stepper and its VSlider (`draft`), so both continue from the value shown and one command leaves. 10 s release, one announcement per settled value, `Settle` dashed → solid. `bind:shown`
 reads the value on screen (a note that follows the draft, the room sheet's caption). Look: an s2 pill (4 px inset) with two s3 discs (36 px; `size="sm"` 32 px;
 `size="lg"` 56 px s2 discs flanking a display figure) around the value, an optional `caption` above it
 (« Confort », « Manuel »). Pending: the value's underline dashed until the radiator reports it. At a bound the
