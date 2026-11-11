@@ -15,6 +15,7 @@ from kelvin.api.auth_routes import public
 from kelvin.api.bodylimit import BodyLimit
 from kelvin.api.context import boot, open_context
 from kelvin.api.exposure import ExposureWarning
+from kelvin.api.forwarded import ForwardedWarning
 from kelvin.api.guards import LOGIN_REQUIRED_BODY, LoginRequired
 from kelvin.api.headers import SecurityHeaders
 from kelvin.api.routes import router
@@ -127,6 +128,10 @@ def create_app(
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=[*hosts, "localhost", "127.0.0.1"])
     else:  # any Host passes: say so once, the first time Kelvin is reached from elsewhere
         app.add_middleware(ExposureWarning)
+    if not split_list(settings.kelvin_trusted_proxies):
+        # Forwarded headers are ignored (kelvin.serve): one carried anyway means a proxy whose
+        # address every client then shares as its throttle key. Said once.
+        app.add_middleware(ForwardedWarning)
     # Outermost: an oversized /api body is refused before routing, the login check or the
     # X-Kelvin header, none of which run until FastAPI has buffered it.
     app.add_middleware(BodyLimit)
