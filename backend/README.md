@@ -1,6 +1,6 @@
 # Kelvin backend
 
-FastAPI service that mirrors Sauter Cozytouch radiators (Overkiz cloud) and exposes REST + SSE.
+FastAPI service that mirrors Cozytouch radiators (Sauter tested; Atlantic and Thermor expected) through the Overkiz cloud and exposes REST + SSE.
 
 Contents: [Develop](#develop) · [Run it like production](#run-it-like-production) ·
 [Docker configuration](#docker-configuration) · [First login](#first-login) ·

@@ -142,7 +142,10 @@ depends on.
   radiator-day (every half-hour inside an emitted span) is final, so the report caches it
   (`linky/radiator_cache.py`); a write that can change a past day (a reading replacing or
   predating its radiator's last one, a sample not after the newest sample and reading, as after
-  a wall clock stepped back, pruned samples) must bump `Recorder.energy_epoch`.
+  a wall clock stepped back) must bump `Recorder.energy_epoch`. A prune does not: before it
+  deletes samples, `Recorder.prune` keeps the half-hours of every complete day they weight in
+  `radiator_halfhours` (schema v7), and `Recorder._buckets` serves those, so a day older than
+  the sample retention reads the same figure after the prune (a later tariff still re-prices it).
 - **Report figures:** never pass a partial sum off as whole. In `/api/energy/day`, a
   half-hour's radiator sum (and a room's) is `null` unless every radiator that existed then is
   known (`radiators_known` / `radiators_total`). In the report, a radiator sum may be partial
