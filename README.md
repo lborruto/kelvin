@@ -51,8 +51,12 @@ account (optional).
 ```bash
 git clone https://github.com/lborruto/kelvin.git && cd kelvin
 cp .env.example .env          # optional: every value has a safe default
-docker compose up -d --build
+docker compose pull && docker compose up -d
 ```
+
+This runs the published image of the latest release (`ghcr.io/lborruto/kelvin`, amd64 and arm64;
+`KELVIN_IMAGE_TAG` in `.env` pins a version). To build the image from the checkout instead, which
+takes a while on a small machine: `docker compose up -d --build`.
 
 1. **Open Kelvin** at http://localhost:8070 on the machine that runs it. By default Kelvin is
    published on this machine only (`127.0.0.1:8070`); see « Reach it from your other devices »
@@ -169,8 +173,11 @@ Claude Desktop setup, the available prompts and tools, and the security details:
 Update to the latest version:
 
 ```bash
-git pull && docker compose up -d --build
+git pull && docker compose pull && docker compose up -d
 ```
+
+`docker compose pull` fetches the published image of the latest release; nothing is built on your
+machine. If you build the image yourself, update with `git pull && docker compose up -d --build`.
 
 The data volume holds your Cozytouch password and Linky token: treat a backup like a password
 store. This writes it to your home directory, outside the checkout (so `git add` can never pick
