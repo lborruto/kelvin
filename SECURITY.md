@@ -60,7 +60,16 @@ Read this before installing.
 - The image runs as uid 10001; the example compose file adds a read-only root filesystem, no
   capabilities and `no-new-privileges`.
 - **Session cookie:** a session is a random token in an HttpOnly, SameSite=Lax cookie; only its
-  SHA-256 is stored.
+  SHA-256 is stored. It is marked Secure only when Kelvin sees HTTPS (through a trusted proxy).
+  A cookie belongs to a host name, not to a port: another web app served under the same name
+  on another port receives Kelvin's cookie with every request. Give Kelvin a host name of its
+  own, or share the name only with apps you trust as much.
+- **Login answers:** once the home is claimed, a login with another email is answered
+  `wrong_account` by Kelvin itself, and a wrong password for the home's email `bad_credentials`.
+  The difference is deliberate: a wrong email never reaches Cozytouch, so a stranger cannot
+  use Kelvin to get the Cozytouch account locked. It also tells whoever can reach the login
+  page whether an email is the home's; both answers count against the same per-client
+  throttle, and no route gives the email without a session.
 
 ## In scope
 
