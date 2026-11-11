@@ -54,12 +54,33 @@ async def test_revoked_token_is_refused_at_once(tmp_path):
 
 async def test_failures_lock_out_a_client(tmp_path):
     async with kelvin_app(tmp_path, sync=False) as (c, app):
-        good = (await _token(c))["secret"]
         for _ in range(FAIL_LIMIT):
             await rpc(c, "initialize", INIT, token="kmcp_" + "x" * 43)
-        r = await rpc(c, "initialize", INIT, token=good)  # even the right token waits
+        r = await rpc(c, "initialize", INIT, token="kmcp_" + "y" * 43)  # one more wrong one
         assert r.status_code == 429 and int(r.headers["retry-after"]) > 0
         assert r.json() == {"error": "too_many_attempts"}
+        r = await rpc(c, "initialize", INIT)  # and no token at all
+        assert r.status_code == 429
+        app.state.ctx.mcp_audit.flush()
+        assert json.loads(_denials(app)[0]["args"])["count"] == FAIL_LIMIT  # none while locked
+
+
+async def test_a_valid_token_is_never_locked_out_by_others_failures(tmp_path):
+    """Behind NAT or a reverse proxy every client shares one address: ten wrong tokens from any
+    of them must not shut the owner's assistant out. Its own rate limits still apply."""
+    async with kelvin_app(tmp_path, sync=False) as (c, app):
+        good = (await _token(c))["secret"]
+        for _ in range(FAIL_LIMIT + 3):
+            await rpc(c, "initialize", INIT, token="kmcp_" + "x" * 43)
+        r = await rpc(c, "initialize", INIT, token=good)
+        assert r.status_code == 200
+        assert app.state.ctx.mcp_tokens.listing()[0]["last_used"] is not None
+        for _ in range(MINUTE_LIMIT - 1):
+            assert (await rpc(c, "tools/list", token=good)).status_code == 200
+        r = await rpc(c, "tools/list", token=good)
+        assert r.status_code == 429 and r.json() == {"error": "rate_limited"}
+        r = await rpc(c, "initialize", INIT, token="kmcp_" + "x" * 43)  # the lockout holds
+        assert r.status_code == 429 and r.json() == {"error": "too_many_attempts"}
 
 
 async def test_per_token_rate_limit(tmp_path):
