@@ -156,6 +156,37 @@ async def test_an_allowlist_never_warns_about_exposure(tmp_path, caplog):
     assert "claim the home" not in caplog.text
 
 
+async def test_a_forwarded_header_without_a_trusted_proxy_warns_once(tmp_path, caplog):
+    """A reverse proxy in front and KELVIN_TRUSTED_PROXIES empty: every client is the proxy's
+    address, so they share one throttle key. Said once, without the header's value."""
+    app = _app(tmp_path, with_web=False)
+    async with LifespanManager(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as c:
+            await c.get("/api/health")
+            assert "KELVIN_TRUSTED_PROXIES" not in caplog.text
+            for _ in range(3):
+                r = await c.get("/api/health", headers={"X-Forwarded-For": "203.0.113.77"})
+                assert r.status_code == 200
+    warnings = [r for r in caplog.records if "KELVIN_TRUSTED_PROXIES" in r.getMessage()]
+    assert len(warnings) == 1 and warnings[0].levelname == "WARNING"
+    assert "X-Forwarded-For" in warnings[0].getMessage()
+    assert "203.0.113.77" not in caplog.text
+
+
+async def test_a_trusted_proxy_never_warns_about_forwarded_headers(tmp_path, caplog):
+    settings = Settings(
+        _env_file=None,
+        kelvin_data=tmp_path / "data",
+        kelvin_fake=True,
+        kelvin_trusted_proxies="172.18.0.2",
+    )
+    app = create_app(settings, FakeGateway(), start_tasks=False)
+    async with LifespanManager(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://localhost") as c:
+            await c.get("/api/health", headers={"X-Forwarded-For": "203.0.113.77"})
+    assert "KELVIN_TRUSTED_PROXIES" not in caplog.text
+
+
 def _assert_headers(r, label):
     for name, value in SECURITY_HEADERS:
         assert r.headers[name.decode()] == value.decode(), (label, name)

@@ -4,6 +4,8 @@ It runs uvicorn with the app factory and Kelvin's own network policy:
 - X-Forwarded-* headers are ignored unless KELVIN_TRUSTED_PROXIES lists the reverse proxy's
   addresses. Trusting them from anyone would let any client pick its IP (bypassing the per-IP
   login throttle) and claim HTTPS (the session cookie's Secure flag). A wildcard is refused.
+  A request that carries X-Forwarded-For while none is listed logs one warning
+  (kelvin.api.forwarded): behind an untrusted proxy every client shares its address.
 - Every file Kelvin creates is private to its user (umask 077): kelvin.db and its WAL hold
   session hashes and the home's history.
 - A data directory it cannot write, an account file it cannot read, a data folder that holds
