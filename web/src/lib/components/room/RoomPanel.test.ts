@@ -456,6 +456,102 @@ describe('the room panel, in order', () => {
   });
 });
 
+describe('the room sheet: −/+ and the slider share one unsent value', () => {
+  // Tuesday 13 October 2026, 13:48 in Paris.
+  const now = Date.parse('2026-10-13T11:48:00Z');
+  const rad = { ...base, id: 'a', name: 'Radiateur', mode: 'manual' as const, target: 20, comfort: 20, reachable: true };
+  const room = { id: 'salon', name: 'Salon', radiator_ids: ['a'], temperature: 19.5, mode: 'manual', target: 20, comfort: 20, eco: 17,
+    effective_setpoint: 20, heating_level: 'comfort', window_open: false, occupied: false, presence: false };
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    house.applySnapshot({ house: { rooms: [room], radiators: [rad] }, pending: [], overrides: [],
+      status: { connected: true, last_ok_at: 1, last_error: null } } as never);
+    house.pending = {};
+    house.connection = 'open';
+    vi.mocked(api.roomSetpoint).mockReset();
+    vi.mocked(api.roomSetpoint).mockResolvedValue({ pending: null } as never);
+  });
+  afterEach(() => vi.useRealTimers());
+  const tap = async (el: HTMLElement) => {
+    await fireEvent.pointerDown(el);
+    await fireEvent.pointerUp(el);
+  };
+  const parts = () => ({
+    plus: screen.getByRole('button', { name: 'Augmenter Consigne Manuel' }),
+    slider: screen.getByRole('slider', { name: 'Consigne Manuel' }),
+    figure: screen.getByRole('group', { name: 'Consigne Manuel' }).querySelector('output')!
+  });
+
+  it('the slider, then + inside the wait: + continues from the slider’s value and one command goes out', async () => {
+    render(RoomPanel, { roomId: 'salon' });
+    const { plus, slider, figure } = parts();
+    await fireEvent.keyDown(slider, { key: 'ArrowUp' });
+    await fireEvent.keyUp(slider, { key: 'ArrowUp' });
+    expect(figure).toHaveTextContent('20,5');
+    await vi.advanceTimersByTimeAsync(1000);
+    await tap(plus);
+    expect(figure).toHaveTextContent('21,0');
+    expect(slider).toHaveAttribute('aria-valuenow', '21');
+    // The wait restarted with the tap: nothing 1,5 s after the key.
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(api.roomSetpoint).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(api.roomSetpoint).toHaveBeenCalledTimes(1);
+    expect(api.roomSetpoint).toHaveBeenCalledWith('salon', 'manual', 21);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(api.roomSetpoint).toHaveBeenCalledTimes(1);
+  });
+
+  it('+ twice, then the slider: the slider steps from the value on screen and the last value shown is the one sent', async () => {
+    const { container } = render(RoomPanel, { roomId: 'salon' });
+    const { plus, slider, figure } = parts();
+    await tap(plus);
+    await tap(plus);
+    expect(figure).toHaveTextContent('21,0');
+    expect(slider).toHaveAttribute('aria-valuenow', '21');
+    // Not sent yet: both controls are dashed.
+    expect(container.querySelector('.vs .fill')).toHaveClass('pending');
+    expect(container.querySelector('.stepper.lg')).toHaveClass('pending');
+    await fireEvent.keyDown(slider, { key: 'ArrowUp' });
+    await fireEvent.keyUp(slider, { key: 'ArrowUp' });
+    expect(figure).toHaveTextContent('21,5');
+    expect(slider).toHaveAttribute('aria-valuenow', '21.5');
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(api.roomSetpoint).toHaveBeenCalledTimes(1);
+    expect(api.roomSetpoint).toHaveBeenCalledWith('salon', 'manual', 21.5);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(api.roomSetpoint).toHaveBeenCalledTimes(1);
+  });
+
+  it('closing the sheet with a value waiting sends it once', async () => {
+    const { unmount } = render(RoomPanel, { roomId: 'salon' });
+    const { plus, slider } = parts();
+    await tap(plus);
+    await fireEvent.keyDown(slider, { key: 'ArrowUp' });
+    await fireEvent.keyUp(slider, { key: 'ArrowUp' });
+    expect(api.roomSetpoint).not.toHaveBeenCalled();
+    unmount();
+    expect(api.roomSetpoint).toHaveBeenCalledTimes(1);
+    expect(api.roomSetpoint).toHaveBeenCalledWith('salon', 'manual', 21);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(api.roomSetpoint).toHaveBeenCalledTimes(1);
+  });
+
+  it('a rejected send shows the radiator’s value again on both controls', async () => {
+    vi.mocked(api.roomSetpoint).mockRejectedValue(new Error('refused'));
+    render(RoomPanel, { roomId: 'salon' });
+    const { slider, figure } = parts();
+    await fireEvent.keyDown(slider, { key: 'ArrowUp' });
+    await fireEvent.keyUp(slider, { key: 'ArrowUp' });
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(api.roomSetpoint).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(figure).toHaveTextContent('20,0');
+    expect(slider).toHaveAttribute('aria-valuenow', '20');
+  });
+});
+
 describe('« Détails techniques » on the room panel (direction-2 §1.3)', () => {
   afterEach(() => detail.set(false));
   const heatingSnapshot = () =>

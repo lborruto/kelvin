@@ -26,6 +26,7 @@
   import { agg } from '$lib/room';
   import { livePower } from '$lib/roomfacts';
   import { nextComfortAt, primaryLabel, primarySetpoint, sendPrimary } from '$lib/setpoint';
+  import { SendDraft } from '$lib/sendDraft.svelte';
   import { Settle } from '$lib/settle.svelte';
   import { radiatorTitle, roomName, whenText as atText } from '$lib/setup';
   import { reportedKey, requestKey, roomReading, roomStatus, sharedProgram, whenAhead, whenParts } from '$lib/status';
@@ -267,8 +268,6 @@
   let shownTarget = $derived(p ? p.value : (status?.target ?? (status?.kind === 'window' ? kept : null)));
   // −/+ in Programme is Confort: during an Éco period the line under it names Confort and its value (never « Éco »).
   let primaryShown = $state<number | null>(null);
-  // The slider's target while it moves: the large figure above follows it live.
-  let sliderShown = $state<number | null>(null);
   let caption = $derived(
     p?.waiting
       ? m.roomSheet.levelValue(m.level.comfort, fmtTemp(primaryShown ?? p.value))
@@ -318,6 +317,13 @@
   ]);
 
   const send = (v: number) => p && run(() => sendPrimary(roomId, p!, v, Date.now()));
+  // −/+ and the slider show and send one value: either continues from what is on screen, one command goes out
+  // 1,5 s after the last touch of either, and closing the sheet sends a waiting value (the draft does).
+  const draft = new SendDraft({ value: () => p?.value ?? null, pending: () => p?.pending ?? false, send });
+  // No −/+ any more (Arrêt, offline, a window open): a value still waiting has nowhere to go.
+  $effect(() => {
+    if (!p) untrack(() => draft.release());
+  });
   // Programme in an Éco period: −/+ sets Confort, taken at the next comfort slot; « Chauffer maintenant… » opens the boost.
   let waitAt = $derived(p?.waiting ? nextComfortAt(program, now) : null);
   function heatNow() {
@@ -363,7 +369,7 @@
 {#snippet slider(h: number)}
   <VSlider value={p ? p.value : shownTarget} label={p ? m.roomSheet.setpoint(primaryLabel(p.kind)) : m.room.setpoint} min={Math.min(10, p?.min ?? 10)}
     max={Math.max(26, p?.max ?? 26)} measured={reading} dim={!p || paused} pending={p?.pending ?? false} width={phone ? 120 : 140} height={h}
-    onchange={(v) => send(v)} bind:shown={sliderShown} />
+    onchange={(v) => send(v)} draft={p ? draft : undefined} />
 {/snippet}
 
 {#snippet hero()}
@@ -385,8 +391,8 @@
             type="button" class="linkbtn" aria-disabled={paused} onclick={() => !paused && heatNow()}>{m.roomSheet.heatNow}</button>{/if}</p>{/if}{#if p!.kind === 'manual' && rc.manual < rc.total}<p class="note center">{m.roomCaps.partial(rc.manual, rc.total)}</p>{/if}{/snippet}
     {#snippet between()}{@render slider(phone ? (boosting || room?.window_open ? 196 : 250) : 300)}{/snippet}
     <div class="primary">
-      <Stepper size="lg" label={m.roomSheet.setpoint(primaryLabel(p.kind))} value={sliderShown ?? p.value} min={p.min} max={p.max} pending={p.pending}
-        disabled={!house.online} announce={false} format={(v) => fmtTempShort(v)} onchange={send} {below} bind:shown={primaryShown} between={phone ? between : undefined} />
+      <Stepper size="lg" label={m.roomSheet.setpoint(primaryLabel(p.kind))} value={p.value} min={p.min} max={p.max} pending={p.pending}
+        disabled={!house.online} announce={false} format={(v) => fmtTempShort(v)} onchange={send} {draft} {below} bind:shown={primaryShown} between={phone ? between : undefined} />
     </div>
     {#if !phone}<div class="slider">{@render slider(320)}</div><p class="note center">{m.roomSheet.sliderNote}</p>{/if}
   {:else}
