@@ -319,8 +319,8 @@ depends on.
 - **Content-Security-Policy:** the page's scripts are Kelvin's own files plus the inline scripts
   of the built `index.html`, allowed by SHA-256 computed at startup (`api/web.py`); `app.html`
   never holds an inline event handler (`onclick=`…), and a build with one is refused at start.
-- **Web stack:** SvelteKit stays on 2.x (`@vite-pwa/sveltekit` does not support kit 3);
-  Playwright uses `channel: 'chromium'`.
+- **Web stack:** SvelteKit stays on 2.x until `@vite-pwa/sveltekit` is moved to 2.x (the installed 1.x
+  does not accept kit 3) and the kit 3 migration is done as its own change; Playwright uses `channel: 'chromium'`.
 - **UI rules** (details in DESIGN.md): motion uses the tokens in `app.css` and `$lib/motion`
   (`dur()` returns 0 under reduced motion — pass it to every Svelte transition); a pending
   control shows the shared dashed→solid edge; controls that can hold focus are paused with
