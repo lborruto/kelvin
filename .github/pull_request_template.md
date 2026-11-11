@@ -10,4 +10,4 @@
 ## Checklist
 
 - [ ] No credentials, ids, serials, emails or household data in code, tests, docs or screenshots
-- [ ] UI copy in French, following `DESIGN.md`
+- [ ] UI copy in French and English, in both dictionaries (`web/src/lib/i18n/fr.ts` and `en.ts`), following `DESIGN.md`

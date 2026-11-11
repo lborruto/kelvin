@@ -37,7 +37,7 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-edi
 # --- runtime ------------------------------------------------------------------------------
 FROM python:3.13-slim-trixie@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f
 LABEL org.opencontainers.image.title="Kelvin" \
-      org.opencontainers.image.description="Self-hosted control for Sauter Cozytouch radiators (Overkiz), with Linky energy" \
+      org.opencontainers.image.description="Self-hosted control for Sauter, Atlantic and Thermor radiators on Cozytouch (Overkiz), with Linky energy" \
       org.opencontainers.image.licenses="MIT"
 RUN groupadd --system --gid 10001 kelvin \
  && useradd --system --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent \
