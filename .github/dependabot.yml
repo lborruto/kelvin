@@ -12,6 +12,10 @@ updates:
     groups:
       backend:
         patterns: ["*"]
+        # pyoverkiz and mcp are pinned exactly on purpose (Kelvin leans on pyoverkiz's private
+        # surface and on the MCP SDK's stateless mode): each bump is reviewed by hand, so it
+        # comes as its own pull request and never holds up the rest of the group.
+        exclude-patterns: ["pyoverkiz", "mcp"]
         update-types: ["minor", "patch"]
 
   - package-ecosystem: "npm"
