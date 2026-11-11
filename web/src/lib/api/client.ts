@@ -37,6 +37,7 @@ import type {
   WeatherView,
   WeekProgram
 } from './types';
+import { sendStarted } from '$lib/busy';
 import type { ApiParams } from '$lib/i18n';
 import type { Base } from '$lib/program';
 
@@ -79,6 +80,8 @@ async function call<T>(method: string, path: string, body?: unknown, timeoutMs =
   // A timer rather than `AbortSignal.timeout`: it covers the body too, and older phones have no `timeout`.
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  // A write in flight: the page is not reloaded for a new version until it is over.
+  const done = method === 'GET' ? null : sendStarted();
   try {
     let res: Response;
     try {
@@ -122,6 +125,7 @@ async function call<T>(method: string, path: string, body?: unknown, timeoutMs =
     }
   } finally {
     clearTimeout(timer);
+    done?.();
   }
 }
 

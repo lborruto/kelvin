@@ -53,6 +53,10 @@ export const fr = {
     close: 'Fermer',
     colon: `${NB}: `
   },
+  appUpdate: {
+    ready: 'Une nouvelle version de Kelvin est prête.',
+    apply: 'Mettre à jour'
+  },
   error: {
     network: 'Kelvin est injoignable. Vérifiez la connexion.',
     unexpected: 'Erreur inattendue. Réessayez.',

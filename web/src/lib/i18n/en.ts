@@ -49,6 +49,10 @@ export const en: Messages = {
     close: 'Close',
     colon: ': '
   },
+  appUpdate: {
+    ready: 'A new version of Kelvin is ready.',
+    apply: 'Update'
+  },
   error: {
     network: 'Can’t reach Kelvin. Check your connection.',
     unexpected: 'Something went wrong. Try again.',

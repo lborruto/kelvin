@@ -5,6 +5,7 @@
   import { afterNavigate, goto, onNavigate } from '$app/navigation';
   import { navigating, page } from '$app/state';
   import { setLoginRequiredHandler } from '$lib/api/client';
+  import { startAppUpdates } from '$lib/appUpdate';
   import { loginHref } from '$lib/auth';
   import AwaySheet from '$lib/components/AwaySheet.svelte';
   import Banner from '$lib/components/Banner.svelte';
@@ -62,9 +63,19 @@
     document.getElementById('kv-shell')?.remove();
   });
 
+  // The service worker: a new version is looked for at load, when the tab comes back and every hour, and never
+  // reloads the page under the owner's finger (`$lib/appUpdate`).
   $effect(() => {
     if (!pwaInfo) return;
-    import('virtual:pwa-register').then(({ registerSW }) => registerSW({ immediate: true }));
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+    void import('virtual:pwa-register').then(({ registerSW }) => {
+      if (!cancelled) stop = startAppUpdates(registerSW);
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
   });
 
   $effect(() => {

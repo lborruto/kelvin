@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { sending } from '$lib/busy';
 import { api, ApiError } from './client';
 
 function mockFetch(status: number, body: unknown) {
@@ -212,6 +213,23 @@ describe('api client: a send survives leaving the page, a stalled request ends',
     expect(await Promise.race([res, Promise.resolve('waiting')])).toBe('waiting');
     await vi.advanceTimersByTimeAsync(1);
     expect(await res).toMatchObject({ code: 'network' });
+  });
+
+  it('a write counts as in flight until it answers or fails; a read never does', async () => {
+    let answer!: (r: Response) => void;
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((r) => (answer = r))));
+    const read = api.house();
+    expect(sending()).toBe(false);
+    answer(new Response('{}', { status: 200 }));
+    await read;
+    const write = api.houseOff();
+    expect(sending()).toBe(true);
+    answer(new Response('{"pending":null}', { status: 202 }));
+    await write;
+    expect(sending()).toBe(false);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    await api.houseOff().catch(() => {});
+    expect(sending()).toBe(false);
   });
 
   it('an answer in time leaves no timer behind', async () => {
