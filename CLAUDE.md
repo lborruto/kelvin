@@ -420,7 +420,9 @@ depends on.
 
 ## Checks
 
-- backend: `cd backend && uv run pytest -q && uv run ruff check . && uv run ruff format --check .`
+- backend: `cd backend && uv run pytest -q -n auto && uv run ruff check . && uv run ruff format --check .`
+  (`-n auto` is pytest-xdist, one worker per core; it is not in `addopts`, so a plain `uv run pytest -x`
+  still runs in one process)
 - property tests use `hypothesis` (dev dependency); keep their example counts as written.
 - web: `cd web && npx vitest run && npm run check && npx playwright test` (CI shards the e2e
   suite: 4 shards on the dev server, 3 against the container image)
