@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 from collections.abc import Callable
 from dataclasses import asdict, replace
@@ -232,6 +233,8 @@ async def rooms_duty(request: Request, since: float | None = None) -> dict:
     if since is None:
         start = end - DUTY_WINDOW_S
     else:
+        if not math.isfinite(since):  # nan, inf: int() would raise
+            raise UserError("period_invalid")
         start = max(int(since), end - DUTY_WINDOW_S - 3600)
         if start >= end:
             raise UserError("period_invalid")

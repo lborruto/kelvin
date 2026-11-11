@@ -616,6 +616,9 @@ async def test_duty_route_can_start_at_local_midnight(tmp_path):
             assert body["to"] - body["from"] == 25 * 3600
             r = await c.get("/api/rooms/duty", params={"since": now + 60})
             assert (r.status_code, r.json()["code"]) == (422, "period_invalid")
+            for bad in ("nan", "inf", "-inf", "1e400"):  # int() of these raised: a 500
+                r = await c.get("/api/rooms/duty", params={"since": bad})
+                assert (r.status_code, r.json()["code"]) == (422, "period_invalid"), bad
 
 
 async def test_activity_and_duty_read_the_runtime_clock(tmp_path):
