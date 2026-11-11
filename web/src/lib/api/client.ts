@@ -65,14 +65,22 @@ export function setLoginRequiredHandler(fn: (() => void) | null): void {
 
 const enc = encodeURIComponent;
 
-/** A request with no answer after this long is over: its caller gets `network` and its busy flag ends. */
+/** A read with no answer after this long is over: its caller gets `network` and its busy flag ends. */
 const TIMEOUT_MS = 20_000;
+/** A write waits for Overkiz inside the backend (30 s a call there, an override start reads its radiators first):
+ * ending it sooner would report `network` for a command that went through. */
+const WRITE_MS = 90_000;
 /** The login and the calls that wait on a third party (Cozytouch, MyElectricalData, Open-Meteo) or build a long report. */
 const SLOW_MS = 60_000;
 /** Browsers refuse a keepalive request once the bodies in flight pass 64 KiB: a larger body goes without it. */
 const KEEPALIVE_MAX = 16 * 1024;
 
-async function call<T>(method: string, path: string, body?: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
+async function call<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  timeoutMs = method === 'GET' ? TIMEOUT_MS : WRITE_MS
+): Promise<T> {
   const headers: Record<string, string> = {};
   if (method !== 'GET') headers['X-Kelvin'] = '1';
   if (body !== undefined) headers['Content-Type'] = 'application/json';
