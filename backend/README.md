@@ -42,9 +42,11 @@ app in mode `offline` and retries in the background (15 s, doubling to 5 min).
 What a self-hoster sets in the Docker image (the next section lists the same variables for
 `python -m kelvin` outside Docker, with their defaults there).
 
-The example `docker-compose.yml` builds the image from the repository (`build: .`). Once a
-release is published, you can pull the image instead of building it: replace `build: .` with the
-commented `image: ghcr.io/lborruto/kelvin:latest` line.
+The example `docker-compose.yml` names the published image (`ghcr.io/lborruto/kelvin`, tag
+`KELVIN_IMAGE_TAG`, `latest` by default: the newest release) and can also build it from the
+repository (`build: .`). `docker compose pull && docker compose up -d` runs the published image;
+`docker compose up -d --build` builds this checkout and runs that instead. A plain
+`docker compose up -d` pulls the published image when the machine holds none.
 
 The simulator (`KELVIN_FAKE=1`) needs no account. A data volume belongs to one home: Kelvin
 refuses to connect a Cozytouch account to a data directory that holds simulator data, and the
@@ -59,6 +61,7 @@ The compose file reads these from `.env` (or the shell):
 | `KELVIN_BIND` | `127.0.0.1` | Host address the port is published on: this machine only. To reach Kelvin from the LAN, set the host's LAN address (or `0.0.0.0`) and `KELVIN_ALLOWED_HOSTS` |
 | `KELVIN_PORT` | `8070` | Host port (inside the container Kelvin listens on 8080) |
 | `KELVIN_VOLUME` | `kelvin_data` | Docker volume holding the data |
+| `KELVIN_IMAGE_TAG` | `latest` | Tag of the published image `docker compose pull` fetches: the newest release, or a version (`0.3.5`, `0.3`) to pin one |
 | `KELVIN_ALLOWED_HOSTS` | — | Host allowlist; with none, Kelvin warns when it listens beyond loopback and when reached by another name |
 | `KELVIN_FAKE`, `KELVIN_FAKE_HOUSE` | `0`, — | The simulator (`KELVIN_FAKE=1 docker compose up`) |
 | `TZ` | `Europe/Paris` | Time zone |

@@ -1,10 +1,12 @@
 # Kelvin — an example stack.
 #
 #   cp .env.example .env    # optional: every value may stay empty; keep .env out of git
-#   docker compose up -d --build
+#   docker compose pull && docker compose up -d    # the published image (amd64 and arm64)
+#   docker compose up -d --build                   # or build this checkout instead
 #
-# The image is built from this repository (`build: .`), natively for the host (amd64 or
-# arm64). By default Kelvin is published on this machine only: open http://localhost:8070 and
+# `docker compose pull` fetches the image of the latest release from GHCR; `--build` builds it
+# from this repository (`build: .`), natively for the host, which is what a developer wants and
+# takes a while on a small machine. By default Kelvin is published on this machine only: open http://localhost:8070 and
 # log in with the home's Cozytouch account. The first login decides which account this Kelvin
 # belongs to, so whoever reaches an unclaimed Kelvin first can claim it. Then connect Linky in
 # Réglages. No password or token belongs in this file or in .env.
@@ -21,6 +23,8 @@
 #                         copy of Kelvin on the same Docker host (another checkout, a test)
 #                         sets its own KELVIN_VOLUME, KELVIN_PORT and COMPOSE_PROJECT_NAME, or
 #                         it would share this one's container and home.
+#   KELVIN_IMAGE_TAG      the published image's tag (default latest: the newest release). A
+#                         version (0.3.5, or 0.3 for its newest patch) pins it.
 #   KELVIN_FAKE           1 runs the simulator (no Cozytouch or Linky calls; log in with
 #                         demo@kelvin.local / kelvin): `KELVIN_FAKE=1 docker compose up`.
 #                         A data volume belongs to one home: the simulator refuses a real
@@ -29,9 +33,11 @@ name: kelvin
 
 services:
   kelvin:
-    build: .
-    # To pull the published image instead of building, replace `build: .` with:
+    # The published image, and the name a local build (`--build`) is tagged with. Without
+    # KELVIN_IMAGE_TAG this reads:
     # image: ghcr.io/lborruto/kelvin:latest
+    image: ghcr.io/lborruto/kelvin:${KELVIN_IMAGE_TAG:-latest}
+    build: .
     restart: unless-stopped
     ports:
       - "${KELVIN_BIND:-127.0.0.1}:${KELVIN_PORT:-8070}:8080"
