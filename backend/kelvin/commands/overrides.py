@@ -29,6 +29,10 @@ UNLOADED_WAIT = 3600.0
 # 30 min: a dead radiator must not cost one Overkiz execution per tick forever.
 RESTORE_RETRY_FIRST_S = 30.0
 RESTORE_RETRY_MAX_S = 1800.0
+# A restore waits for a radiator that is unreachable (core:StatusState) without sending anything.
+# One still unreachable this long after the restore began is given up: the override is dropped and
+# the radiator keeps whatever it holds when it comes back.
+RESTORE_GIVE_UP_S = 7 * 86400.0
 
 
 def restore_retry_delay(failures: int) -> float:
@@ -50,6 +54,8 @@ class Override:
     created_at: float = 0.0
     # Ended (expired or cancelled); kept until the restore is confirmed by the device.
     restoring: bool = False
+    # When the restore began (0: not yet), stored so the give-up bound holds across restarts.
+    restore_since: float = 0.0
 
     def view(self) -> dict[str, Any]:
         return {
@@ -93,6 +99,7 @@ class Override:
             raise ValueError("only an away may be open-ended")
         o.created_at = float(o.created_at)
         o.restoring = bool(o.restoring)
+        o.restore_since = float(o.restore_since)
         return o
 
 
@@ -471,6 +478,8 @@ class OverrideManager:
         """
         now = self.wall()
         o.restoring = True
+        if not o.restore_since:
+            o.restore_since = now
         if o.kind == "away":
             away_log.record_end(self.db, o.id, now)
         planned: Planned | None = None
@@ -520,6 +529,18 @@ class OverrideManager:
             return None
         self._save(o)
         if planned is None:
+            return None
+        if not force and all(self.house.radiators[rid].reachable is False for rid in rids):
+            # Nothing would reach a radiator: each try would be a failed execution, a
+            # `command_log` row and an alert. Wait until one is seen reachable again.
+            if now - o.restore_since >= RESTORE_GIVE_UP_S:
+                log.warning(
+                    "override %s: %d radiator(s) unreachable for %d days; restore given up",
+                    o.id,
+                    len(rids),
+                    int(RESTORE_GIVE_UP_S // 86400),
+                )
+                self._delete(o)
             return None
         label = Label.of("boost_end" if o.kind == "boost" else "away_end")
         p = await self.commands.submit(label, tuple(rids), planned)
