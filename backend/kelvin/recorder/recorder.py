@@ -376,11 +376,14 @@ class Recorder:
             cond = " OR ".join(["(ts >= ? AND ts < ?)"] * len(part))
             bounds = [x for r in part for x in r]
             after = part[0][0] - 1
+            top = part[-1][1]  # the ranges are sorted and disjoint: the last one ends them all
             while True:
+                # `ts < top` repeats what the ranges say, for the planner: with several ranges
+                # OR-ed it otherwise reads the radiator's samples to the end of the table.
                 page = self.db.rows(
                     f"SELECT ts, working_rate FROM samples WHERE radiator_id = ? AND ts > ?"
-                    f" AND ({cond}) ORDER BY ts LIMIT ?",
-                    (rid, after, *bounds, PAGE_ROWS),
+                    f" AND ts < ? AND ({cond}) ORDER BY ts LIMIT ?",
+                    (rid, after, top, *bounds, PAGE_ROWS),
                 )
                 rows += page
                 if len(page) < PAGE_ROWS:

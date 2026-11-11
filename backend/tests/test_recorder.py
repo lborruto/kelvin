@@ -393,6 +393,39 @@ def test_readings_and_samples_stream_in_pages_with_the_same_result(env, monkeypa
     assert rec.energy_buckets(edges, ["9500003"]) == whole
 
 
+def test_the_working_rate_query_is_bounded_on_both_sides(env):
+    """The samples a chunk needs are a range scan of the primary key, closed at the top: without
+    the upper bound each chunk read the index to the end of the table."""
+    db, _, _, rec = env
+    a = int(ts(2026, 10, 13))
+    # Two spans cross an hour edge (00:30→01:30, 01:50→02:30) with spans inside one hour
+    # between them: two separate sample ranges in one query.
+    minutes = [30, 90, 100, 110, 150]
+    db.executemany(
+        "INSERT INTO energy VALUES (?,?,?,?,?)",
+        [(a + m * 60, "9500003", 1000.0 + i * 100, None, None) for i, m in enumerate(minutes)],
+    )
+    db.executemany(
+        "INSERT INTO samples (ts, radiator_id, working_rate) VALUES (?,?,?)",
+        [(a + i * 300, "9500003", 50.0) for i in range(400)],
+    )
+    edges = [a + h * 3600 for h in range(5)]
+    seen = []
+    rows = db.rows
+
+    def spy(sql, params=()):
+        if "FROM samples" in sql:
+            seen.append((sql, params))
+        return rows(sql, params)
+
+    with mock.patch.object(db, "rows", spy):
+        rec.energy_buckets(edges, ["9500003"])
+    assert seen and any(sql.count(" OR ") for sql, _ in seen)
+    for sql, params in seen:
+        plan = " ".join(r["detail"] for r in db.query("EXPLAIN QUERY PLAN " + sql, params))
+        assert "ts>? AND ts<?" in plan, plan
+
+
 def _h(d, h=0):
     return int(ts(2026, 10, d, h))
 
