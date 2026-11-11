@@ -156,6 +156,9 @@ class PyOverkizGateway:
         self._creds = UsernamePasswordCredentials(username=username, password=password)
         self._client: OverkizClient | None = None
         self._timeout = timeout
+        # Cozytouch refused these credentials. Every later call would go through pyoverkiz's own
+        # re-login, one more bad login each (an account lock): none is made until new ones come.
+        self._rejected = False
 
     def _client_for(self, creds: UsernamePasswordCredentials) -> OverkizClient:
         ssl_ctx = ssl.create_default_context(cafile=certifi.where())
@@ -174,20 +177,36 @@ class PyOverkizGateway:
         # The client holds its credentials: drop it, the next login builds a new one.
         await self.close()
         self._creds = UsernamePasswordCredentials(username=username, password=password)
+        self._rejected = False
 
     async def check_credentials(self, username: str, password: str) -> None:
         client = self._client_for(UsernamePasswordCredentials(username=username, password=password))
         try:
-            await self._call(client.login(register_event_listener=False))
+            await self._call(client.login(register_event_listener=False), own=False)
         finally:
             await client.close()
 
-    async def _call(self, coro):
+    def _refuse_if_rejected(self) -> None:
+        if self._rejected:
+            raise BadCredentialsError("credentials refused earlier; no call made")
+
+    def _mapped(self, e: BaseException) -> GatewayError:
+        err = _map_error(e)
+        if isinstance(err, BadCredentialsError):
+            self._rejected = True
+        return err
+
+    async def _call(self, coro, *, own: bool = True):
+        """Await one pyoverkiz call. `own=False`: a call with other credentials than the
+        gateway's (`check_credentials`), which neither sets nor obeys the refusal."""
+        if own and self._rejected:
+            coro.close()  # never awaited: no network call
+            self._refuse_if_rejected()
         try:
             async with asyncio.timeout(self._timeout):
                 return await coro
         except (ox.BaseOverkizError, aiohttp.ClientError, TimeoutError) as e:
-            raise _map_error(e) from e
+            raise (self._mapped(e) if own else _map_error(e)) from e
 
     async def login(self) -> None:
         await self._call(self._c().login(register_event_listener=True))
@@ -206,7 +225,8 @@ class PyOverkizGateway:
         return await self._call(self._c()._get("setup/quotas"))
 
     def _setup(self) -> SetupHttp:
-        return SetupHttp(self._c, timeout=self._timeout, map_error=_map_error)
+        self._refuse_if_rejected()
+        return SetupHttp(self._c, timeout=self._timeout, map_error=self._mapped)
 
     async def read_place(self, oid: str) -> SetupPlace:
         _, body = await self._setup().request("GET", place_path(oid))
