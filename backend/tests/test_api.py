@@ -153,6 +153,30 @@ async def test_history(ctx):
     ).status_code == 422
 
 
+async def test_history_defaults_to_the_last_day_on_the_runtime_clock(tmp_path):
+    """No start/end: the last 24 h of the injected clock, not of the machine's; and the window's
+    upper bound follows it too."""
+    then = time.time() - 40 * 86400
+    app = create_app(
+        Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
+        FakeGateway(clock=ManualClock()),
+        start_tasks=False,
+        wall=lambda: then,
+    )
+    async with LifespanManager(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://t", headers={"X-Kelvin": "1"}
+        ) as c:
+            await login(c)
+            rt = app.state.ctx.rt
+            rt.recorder.sample()
+            r = await c.get("/api/history", params={"radiators": "9500003"})
+            assert r.status_code == 200
+            assert [p["ts"] for p in r.json()][-1] == int(then) // 300 * 300
+            far = {"radiators": "9500003", "start": then, "end": then + 2 * 366 * 86400 + 86400}
+            assert (await c.get("/api/history", params=far)).status_code == 422
+
+
 async def test_event_stream_starts_with_snapshot(ctx):
     _, rt, _ = ctx
     gen = event_stream(rt)

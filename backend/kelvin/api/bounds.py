@@ -18,10 +18,13 @@ FIRST_TS = 946_684_800  # 2000-01-01T00:00:00Z
 FIRST_DAY = date(2000, 1, 1)
 
 
-def check_span(start: float, end: float, max_days: int = MAX_REPORT_DAYS) -> None:
+def check_span(
+    start: float, end: float, max_days: int = MAX_REPORT_DAYS, *, now: float | None = None
+) -> None:
     """Epoch windows get the same bounds as the dated reports: from 2000-01-01 to two years
-    ahead, `end` after `start`, at most `max_days` long. Every query below is bounded."""
-    hi = time.time() + 2 * 366 * 86400
+    ahead, `end` after `start`, at most `max_days` long. Every query below is bounded.
+    `now`: the runtime's injected clock (callers that do not pass it yet get the machine's)."""
+    hi = (time.time() if now is None else now) + 2 * 366 * 86400
     if not (FIRST_TS <= start < end <= hi) or end - start > max_days * 86400:
         raise UserError("period_invalid")
 
