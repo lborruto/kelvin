@@ -26,7 +26,14 @@ from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from kelvin.errors import french
-from kelvin.linky.models import Contract, LinkyAuthError, LinkyError, LinkySource, LinkyThrottled
+from kelvin.linky.models import (
+    Contract,
+    LinkyAuthError,
+    LinkyError,
+    LinkyNetworkError,
+    LinkySource,
+    LinkyThrottled,
+)
 from kelvin.linky.store import LinkyStore
 from kelvin.recorder.db import Database
 
@@ -389,6 +396,13 @@ class LinkySync:
                     break
                 except LinkyAuthError:
                     self.state.error = "auth"
+                    failed = True
+                    break
+                except LinkyNetworkError as e:
+                    # MED cannot be reached: every other request would wait for its timeout and
+                    # spend a call for nothing. The next run tries again; nothing is given up.
+                    log.warning("linky %s sync failed: %s", req.kind, type(e).__name__)
+                    self.state.error = "error"
                     failed = True
                     break
                 except LinkyError as e:

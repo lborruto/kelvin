@@ -9,6 +9,7 @@ import pytest
 
 from kelvin.linky.fake import FakeLinkySource
 from kelvin.linky.med import (
+    MAX_BYTES,
     MedSource,
     parse_contract,
     parse_curve,
@@ -20,6 +21,7 @@ from kelvin.linky.med import (
 from kelvin.linky.models import (
     LinkyAuthError,
     LinkyError,
+    LinkyNetworkError,
     LinkyThrottled,
     day_bounds,
     local_day,
@@ -271,6 +273,7 @@ def test_curve_span_guard_is_shared():
         {"value": "abc", "date": "2026-10-06"},
         {"value": "1", "date": "not-a-date"},
         {"value": "1e999", "date": "2026-10-06 00:30:00"},
+        {"value": "-5", "date": "2026-10-06 00:30:00"},  # consumption is never negative
         "junk",
     ],
 )
@@ -299,9 +302,25 @@ async def test_network_error_leaves_no_cause_or_context():
         raise httpx.ConnectError("cannot reach", request=req)
 
     src = _source(boom)
-    with pytest.raises(LinkyError) as err:
+    with pytest.raises(LinkyNetworkError) as err:  # the sync stops its run on this one
         await src.check()
     assert err.value.__cause__ is None and err.value.__context__ is None
+
+
+async def test_a_response_larger_than_the_cap_is_refused_not_read_whole():
+    read = []
+
+    async def endless():
+        for _ in range(100):
+            read.append(1)
+            yield b" " * 100_000
+
+    src = _source(lambda req: httpx.Response(200, content=endless()))
+    with pytest.raises(LinkyError, match="response too large") as err:
+        await src.fetch_daily(date(2026, 10, 1), date(2026, 10, 2))
+    assert not isinstance(err.value, LinkyNetworkError)
+    assert len(read) * 100_000 <= MAX_BYTES + 200_000  # it stopped reading at the cap
+    await src.aclose()
 
 
 async def test_end_boundary_is_exclusive():

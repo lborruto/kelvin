@@ -10,6 +10,7 @@ from kelvin.linky.models import (
     CurvePoint,
     LinkyAuthError,
     LinkyError,
+    LinkyNetworkError,
     LinkyThrottled,
     curve_complete,
 )
@@ -383,6 +384,20 @@ async def test_linky_error_is_logged_by_type_and_keeps_progress(env, caplog):
     assert len(store.daily()) == 365
     assert "secret-token-in-message" not in caplog.text
     assert "LinkyError" in caplog.text
+
+
+async def test_a_network_failure_stops_the_run(env):
+    """MED unreachable: the other planned requests would each wait for the timeout and spend a
+    call of the day's budget for nothing. The run stops; the next one tries again."""
+    clock, _, store, fake, sync = env
+    fake.fail["curve"] = LinkyNetworkError("network error: ConnectTimeout")
+    assert await sync.run_once() == 2  # the daily call, then the first curve chunk
+    assert len(fake.calls) == 2 and sync.calls_today() == 2
+    assert sync.status()["state"] == "error" and len(store.daily()) == 365
+    assert not any(k.startswith("curve:") for k in sync.state.tries)  # an outage gives up nothing
+    del fake.fail["curve"]
+    clock.t = at(2026, 10, 14, 14)
+    assert await sync.run_once() > 0 and sync.status()["state"] == "ok"
 
 
 async def test_run_loop_survives_errors(env, caplog):

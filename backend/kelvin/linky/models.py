@@ -44,6 +44,11 @@ class LinkyError(Exception):
     """MyElectricalData failed or answered something unexpected. Never carries a secret."""
 
 
+class LinkyNetworkError(LinkyError):
+    """MyElectricalData could not be reached (no answer, a timeout): the sync stops its run
+    rather than send, and pay for, the requests still planned."""
+
+
 class LinkyAuthError(LinkyError):
     """Token or PDL refused, or the Enedis consent expired."""
 
