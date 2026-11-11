@@ -8,7 +8,7 @@ import aiohttp
 import certifi
 from pyoverkiz import exceptions as ox
 from pyoverkiz.auth.credentials import UsernamePasswordCredentials
-from pyoverkiz.client import OverkizClient
+from pyoverkiz.client import OverkizClient, retry_on_auth_error, retry_on_too_many_executions
 from pyoverkiz.enums import Server
 from pyoverkiz.models import (
     Action,
@@ -17,6 +17,7 @@ from pyoverkiz.models import (
     DeviceUpdatedEvent,
     ExecutionStateChangedEvent,
 )
+from pyoverkiz.serializers import prepare_payload
 
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
 from kelvin.overkiz.models import (
@@ -24,6 +25,7 @@ from kelvin.overkiz.models import (
     DeviceUpdate,
     Event,
     ExecUpdate,
+    ListenerReset,
     PlaceEvent,
     PlaceKind,
     RawDevice,
@@ -141,6 +143,30 @@ def to_events(events: list[Any]) -> list[Event]:
             # pyoverkiz 2.2.3 structures Place*Event into its base Event: the name only.
             out.append(PlaceEvent(PLACE_KINDS[str(e.name)]))
     return out
+
+
+@retry_on_too_many_executions
+@retry_on_auth_error
+async def _apply_once(c: Any, payload: Any) -> str:
+    """`POST exec/apply` through the client's own session, sent once.
+
+    pyoverkiz 2.2.3's `execute_action_group` goes through `_post`, which sends the request again
+    after a timeout or a dropped connection (`retry_on_connection_failure`): Overkiz may have
+    accepted the first one, and the radiators would get the command twice. The two retries kept
+    are pyoverkiz's own for answers that prove Overkiz refused the request (not authenticated:
+    one re-login; too many executions). The request is `_post`'s, byte for byte. The private
+    surface used is pinned by `pyoverkiz==2.2.3` and tests/test_real_adapter.py."""
+    path = "exec/apply"
+    await c._refresh_token_if_expired()
+    async with c.session.post(
+        f"{c._auth.endpoint}{path}",
+        data=None,
+        json=payload,
+        headers=await c._auth.auth_headers(path),
+        ssl=c._ssl,
+    ) as response:
+        body = await c._parse_response(response)
+    return str(body["execId"])
 
 
 class PyOverkizGateway:
@@ -261,7 +287,14 @@ class PyOverkizGateway:
         await self._setup().request("PUT", label_path(device_url, label))
 
     async def fetch_events(self) -> list[Event]:
-        return to_events(await self._call(self._c().fetch_events()))
+        c = self._c()
+        before = c.event_listener_id
+        events = to_events(await self._call(c.fetch_events()))
+        if before is not None and c.event_listener_id != before:
+            # pyoverkiz registered a new listener inside the fetch (the old one was unknown to
+            # Overkiz): the events the old one held are gone, and nothing else says so.
+            events.append(ListenerReset())
+        return events
 
     async def execute(self, commands: list[DeviceCommand], label: str) -> str:
         by_device: dict[str, list[Command]] = {}
@@ -270,7 +303,8 @@ class PyOverkizGateway:
                 Command(name=c.name, parameters=list(c.parameters) or None)
             )
         actions = [Action(device_url=url, commands=cmds) for url, cmds in by_device.items()]
-        return await self._call(self._c().execute_action_group(actions=actions, label=label))
+        payload = prepare_payload({"label": label, "actions": [a.to_payload() for a in actions]})
+        return await self._call(_apply_once(self._c(), payload))
 
     async def close(self) -> None:
         if self._client is not None:

@@ -15,7 +15,14 @@ from kelvin.house.model import House
 from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
 from kelvin.overkiz.gateway import Gateway
-from kelvin.overkiz.models import DeviceUpdate, PlaceEvent, RawDevice, RawPlace, StateChange
+from kelvin.overkiz.models import (
+    DeviceUpdate,
+    ListenerReset,
+    PlaceEvent,
+    RawDevice,
+    RawPlace,
+    StateChange,
+)
 
 if TYPE_CHECKING:  # types only: no import cycle at runtime
     from kelvin.setup.refresh import Reason, SetupRefresher
@@ -142,6 +149,10 @@ class EventPump:
             elif isinstance(ev, DeviceUpdate | PlaceEvent):
                 if self.setup is not None and self.setup.on_event(ev):
                     self._layout_dirty = True
+            elif isinstance(ev, ListenerReset):
+                # Events were lost with the old listener: resynchronise, as after an outage.
+                log.info("overkiz event listener replaced; resyncing")
+                self._resync_due = True
             else:
                 self.commands.on_exec(ev)
         except Exception:

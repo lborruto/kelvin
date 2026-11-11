@@ -89,9 +89,15 @@ class PlaceEvent:
     label: str | None = None
 
 
+@dataclass(frozen=True)
+class ListenerReset:
+    """The event listener was replaced during a fetch (pyoverkiz registers a new one by itself
+    when Overkiz no longer knows the old one): what the old one still held is lost."""
+
+
 SetupEvent = DeviceUpdate | PlaceEvent
 
-Event = StateChange | ExecUpdate | DeviceUpdate | PlaceEvent
+Event = StateChange | ExecUpdate | DeviceUpdate | PlaceEvent | ListenerReset
 
 
 def iter_places(root: RawPlace) -> Iterator[RawPlace]:

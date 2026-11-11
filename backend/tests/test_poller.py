@@ -8,7 +8,7 @@ from kelvin.commands.translate import plan_mode
 from kelvin.house.model import build_house
 from kelvin.overkiz.errors import AuthError, QuotaError
 from kelvin.overkiz.fake import FakeGateway
-from kelvin.overkiz.models import StateChange
+from kelvin.overkiz.models import ListenerReset, StateChange
 from kelvin.overkiz.poller import EventPump
 from kelvin.overkiz.sample import SAMPLE_GATEWAY
 from tests.conftest import ManualClock
@@ -391,3 +391,16 @@ async def test_pump_says_when_the_radiators_kept_other_times(env):
         },
     )
     assert house.radiators[rads[0].id].program["monday"] == [{"start": "17:00", "end": "22:00"}]
+
+
+async def test_a_replaced_event_listener_resyncs_the_house(env):
+    """pyoverkiz registers a new listener by itself when Overkiz forgot the old one: the events
+    the old one held are lost, so the house is read again, as after an outage."""
+    _, gw, house, _, pump, changed, _ = env
+    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9500003#2", "core:TemperatureState", 22.0)
+    gw._events.append(ListenerReset())
+    await pump.run_once()
+    assert house.radiators["9500003"].temperature == 22.0
+    assert gw.snapshots == 1 and pump.connected is True
+    await pump.run_once()
+    assert gw.snapshots == 1  # once
