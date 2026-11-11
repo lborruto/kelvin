@@ -27,7 +27,6 @@ RADIATOR_KINDS: tuple[str, ...] = (
     "heater_unknown",
 )
 APPLIANCE_KINDS: tuple[str, ...] = ("water_heater", "heat_pump")
-SUPPORTS: tuple[str, ...] = ("tested", "expected", "experimental", "readonly")
 PILOT_LEVELS: tuple[str, ...] = (
     P.COMFORT.value,
     P.COMFORT_1.value,
