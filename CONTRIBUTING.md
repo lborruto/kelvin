@@ -38,9 +38,12 @@ Run both before opening a pull request. CI runs the same: workflow lint, backend
 Playwright suite in 4 shards, and the Docker image (build, smoke test, then the e2e suite against
 the container in 3 shards); all must be green.
 
-    cd backend && uv run pytest -q && uv run ruff check . && uv run ruff format --check .
+    cd backend && uv run pytest -q -n auto && uv run ruff check . && uv run ruff format --check .
     cd web && npx vitest run && npm run check && npx playwright test
     bash scripts/docker-smoke.sh   # when you touch the Dockerfile, compose or the launcher
+
+`-n auto` (pytest-xdist) runs the backend tests on every core; leave it out to run them in one
+process, as `-x` or a debugger want.
 
 Every automated test uses the simulator (`KELVIN_FAKE=1`) or fakes (Overkiz, MyElectricalData,
 Open-Meteo), and logs in through the
