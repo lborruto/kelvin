@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   fmtAgo, fmtAmount, fmtDateLong, fmtDay, fmtKwh, fmtPct, fmtPrice, fmtTemp, fmtTime, fmtWh,
-  fmtDayShort, fmtWeekdayDay, monthName, monthYear, parseDecimal, premier
+  fmtDayShort, fmtMonthLong, fmtMonthShort, fmtWeekdayDay, monthName, monthYear, parseDecimal, premier
 } from './format';
 import { applyLocale } from '$lib/i18n';
 
@@ -450,6 +450,30 @@ describe('the first of the month in French (« 1er »)', () => {
     expect(premier('11 h')).toBe('11 h');
     applyLocale('en');
     expect(fmtDateLong('2000-01-01')).toBe('1 January 2000');
+    applyLocale('fr');
+  });
+});
+
+describe('a month by its number (the seasons of a tariff)', () => {
+  const intl = (tag: string, month: 'short' | 'long') => (mo: number) =>
+    new Intl.DateTimeFormat(tag, { month, timeZone: 'UTC' }).format(new Date(Date.UTC(2026, mo - 1, 15)));
+  const all = Array.from({ length: 12 }, (_, i) => i + 1);
+  it('fmtMonthShort: « janv. », “Jan”, as the chips and the tariff summary always wrote it', () => {
+    applyLocale('fr');
+    expect(fmtMonthShort(1)).toBe('janv.');
+    expect(fmtMonthShort(5)).toBe('mai');
+    expect(all.map(fmtMonthShort)).toEqual(all.map(intl('fr-FR', 'short')));
+    applyLocale('en');
+    expect(fmtMonthShort(1)).toBe('Jan');
+    expect(all.map(fmtMonthShort)).toEqual(all.map(intl('en-GB', 'short')));
+    applyLocale('fr');
+  });
+  it('fmtMonthLong: « janvier », “January”', () => {
+    applyLocale('fr');
+    expect(fmtMonthLong(1)).toBe('janvier');
+    expect(all.map(fmtMonthLong)).toEqual(all.map(intl('fr-FR', 'long')));
+    applyLocale('en');
+    expect(fmtMonthLong(12)).toBe('December');
     applyLocale('fr');
   });
 });

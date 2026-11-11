@@ -4,8 +4,8 @@
      has any. -->
 <script lang="ts">
   import type { HcVariant, Slot, Tariff, TariffRow } from '$lib/api/types';
-  import { fmtAmount, fmtDateLong, fmtEurExact } from '$lib/format';
-  import { locale, m } from '$lib/i18n';
+  import { fmtAmount, fmtDateLong, fmtEurExact, fmtMonthShort } from '$lib/format';
+  import { m } from '$lib/i18n';
   import { RATE_KEYS } from '$lib/tariff';
 
   interface Props {
@@ -14,8 +14,7 @@
   let { tariff }: Props = $props();
   const rates = (p: TariffRow) => RATE_KEYS[p.option].map((k) => `${m.tariff.rateShort[k]} ${fmtAmount(p.rates[k], 4)}`).join(' · ');
   const slots = (s: Slot[]) => s.map((x) => `${x.start}–${x.end}`).join(', ');
-  const month = (mo: number) => new Intl.DateTimeFormat(locale.intl, { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, mo - 1, 15)));
-  const variant = (v: HcVariant) => `${v.months.length === 12 ? m.tariff.allYear : v.months.map(month).join(', ')}${m.common.colon}${slots(v.slots)}`;
+  const variant = (v: HcVariant) => `${v.months.length === 12 ? m.tariff.allYear : v.months.map(fmtMonthShort).join(', ')}${m.common.colon}${slots(v.slots)}`;
   let rows = $derived([...tariff.prices].sort((a, b) => b.valid_from.localeCompare(a.valid_from)));
 </script>
 

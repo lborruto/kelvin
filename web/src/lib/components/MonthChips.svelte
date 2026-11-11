@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { locale } from '$lib/i18n';
+  import { fmtMonthShort as name } from '$lib/format';
   import { ALL_MONTHS } from '$lib/tariff';
 
   interface Props {
@@ -7,7 +7,6 @@
     label: string;
   }
   let { months = $bindable(), label }: Props = $props();
-  const name = (mo: number) => new Intl.DateTimeFormat(locale.intl, { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, mo - 1, 15)));
   function toggle(mo: number, on: boolean) {
     months = on ? [...months, mo].sort((a, b) => a - b) : months.filter((x) => x !== mo);
   }

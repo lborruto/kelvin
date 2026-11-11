@@ -11,6 +11,8 @@ interface Formats {
   dayShort: Intl.DateTimeFormat;
   dayLong: Intl.DateTimeFormat;
   monthYear: Intl.DateTimeFormat;
+  monthShort: Intl.DateTimeFormat;
+  monthLong: Intl.DateTimeFormat;
 }
 const cache = new Map<Locale, Formats>();
 const parisDay = new Intl.DateTimeFormat('en-CA', { timeZone: ZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -31,7 +33,9 @@ function f(): Formats {
       dateTime: new Intl.DateTimeFormat(tag, { ...t, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
       dayShort: new Intl.DateTimeFormat(tag, { timeZone: ZONE, day: 'numeric', month: 'short' }),
       dayLong: new Intl.DateTimeFormat(tag, { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' }),
-      monthYear: new Intl.DateTimeFormat(tag, { timeZone: 'UTC', month: 'long', year: 'numeric' })
+      monthYear: new Intl.DateTimeFormat(tag, { timeZone: 'UTC', month: 'long', year: 'numeric' }),
+      monthShort: new Intl.DateTimeFormat(tag, { timeZone: 'UTC', month: 'short' }),
+      monthLong: new Intl.DateTimeFormat(tag, { timeZone: 'UTC', month: 'long' })
     };
     cache.set(l, x);
   }
@@ -234,6 +238,17 @@ export function monthYear(iso: string): string {
 export function monthName(iso: string): string {
   const s = monthYear(iso);
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// A month by its number (1 to 12), with no year: the tariff's seasons.
+const midMonth = (mo: number) => new Date(Date.UTC(2026, mo - 1, 15));
+/** « janv. », “Jan”. */
+export function fmtMonthShort(mo: number): string {
+  return f().monthShort.format(midMonth(mo));
+}
+/** « janvier », “January”. */
+export function fmtMonthLong(mo: number): string {
+  return f().monthLong.format(midMonth(mo));
 }
 
 /** Today's date in Paris as YYYY-MM-DD. */

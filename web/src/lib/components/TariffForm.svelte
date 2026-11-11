@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import { api } from '$lib/api/client';
   import type { SettingsView, Slot, TariffOption } from '$lib/api/types';
-  import { fmtDateLong, fmtDay, parisTodayIso, parseDecimal } from '$lib/format';
+  import { fmtDateLong, fmtDay, fmtMonthLong, parisTodayIso, parseDecimal } from '$lib/format';
   import { errorText, locale, m } from '$lib/i18n';
   import { ALL_MONTHS, DEFAULT_TEMPO_HOURS, OPTIONS, RATE_KEYS, buildDocument, inForce, monthsProblem, priceProblem, withSchedule } from '$lib/tariff';
   import HcScheduleEditor from './HcScheduleEditor.svelte';
@@ -74,7 +74,7 @@
   let contract = $derived(option === 'hchp' && settings.tariff && contractSlots?.length ? contractSlots : null);
 
   const monthNames = (months: number[]) => () =>
-    months.map((mo) => new Intl.DateTimeFormat(locale.intl, { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, mo - 1, 15)))).join(', ');
+    months.map(fmtMonthLong).join(', ');
 
   function readRates(): Record<string, number> | null {
     const out: Record<string, number> = {};

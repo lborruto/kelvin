@@ -5,8 +5,8 @@
      the times written beside it (one band per season). Rows whose value just changed pulse once (`changed`). -->
 <script lang="ts">
   import type { HcVariant, Tariff, TempoColour } from '$lib/api/types';
-  import { fmtAmount, fmtEurExact, fmtPrice } from '$lib/format';
-  import { locale, m } from '$lib/i18n';
+  import { fmtAmount, fmtEurExact, fmtMonthShort, fmtPrice } from '$lib/format';
+  import { m } from '$lib/i18n';
   import { inForce, slotsText } from '$lib/tariff';
   import { dayBlocks } from '$lib/maintenant';
   import TariffBand from './TariffBand.svelte';
@@ -25,9 +25,7 @@
   let row = $derived(inForce(tariff.prices, today));
   let sched = $derived(inForce(tariff.hc_schedules, today));
   const COLOURS: TempoColour[] = ['blue', 'white', 'red'];
-  const month = (mo: number) =>
-    new Intl.DateTimeFormat(locale.intl, { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, mo - 1, 15)));
-  const months = (v: HcVariant) => (v.months.length === 12 ? m.tariff.allYear : v.months.map(month).join(', '));
+  const months = (v: HcVariant) => (v.months.length === 12 ? m.tariff.allYear : v.months.map(fmtMonthShort).join(', '));
   let seasons = $derived(
     row?.option === 'hchp' && sched
       ? sched.variants.map((v) => ({ label: sched.variants.length > 1 ? months(v) : null, slots: v.slots }))
