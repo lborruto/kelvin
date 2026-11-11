@@ -77,6 +77,7 @@ FORBIDDEN_CALLS = {
     "wake",
     "evaluate",
     "revoke_others",
+    "revoke_all",
     "upsert_tempo",
     "upsert_ecowatt",
     "upsert_curve",

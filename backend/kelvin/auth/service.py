@@ -52,6 +52,16 @@ def _bad_credentials(server: str) -> LoginRefused:
     return LoginRefused(401, "bad_credentials_server", server=server_name(server))
 
 
+def _password_replaced(ctx: AppContext, old: Account | None, password: str) -> None:
+    """Cozytouch accepted a password other than the stored one: the sessions opened with the
+    old one end here, so changing a leaked password locks its holders out of Kelvin too (a
+    session otherwise slides for a year). The caller's own session is created after this. MCP
+    tokens are separate credentials, revoked from Réglages: they stay."""
+    if old is not None and not _same_password(password, old.password):
+        ended = ctx.sessions.revoke_all()
+        log.info("Password replaced: %d earlier session(s) signed out", ended)
+
+
 async def login(
     ctx: AppContext, email: str, password: str, ip: str, server: str | None = None
 ) -> Account:
@@ -118,6 +128,7 @@ async def login(
                     await stop_runtime(started)
                 raise
             ctx.account = new
+            _password_replaced(ctx, account, password)
             ctx.offline = False
             if ctx.retry_task is not None:  # the runtime runs: stop the background retry now
                 ctx.retry_task.cancel()
@@ -138,6 +149,7 @@ async def login(
         new = replace(account, password=password)
         ctx.accounts.save(new)
         ctx.account = new
+        _password_replaced(ctx, account, password)
         await rt.gateway.set_credentials(new.email, password)
         try:
             await rt.gateway.login()

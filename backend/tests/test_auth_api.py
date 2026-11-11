@@ -313,3 +313,36 @@ async def test_the_stream_of_a_revoked_session_ends(setup_mode):
         await c.post("/api/sessions/revoke-others")
         with pytest.raises(StopAsyncIteration):
             await anext(gen)
+
+
+async def test_a_login_that_changes_the_password_signs_every_other_device_out(tmp_path):
+    """A password changed in Cozytouch after a leak: the login that brings the new one to
+    Kelvin ends the sessions opened with the old one. MCP tokens are separate credentials,
+    revoked from Réglages, and stay."""
+    app, gw = _app(tmp_path)
+    async with LifespanManager(app):
+        transport = ASGITransport(app=app)
+        kw = {"transport": transport, "base_url": "http://t", "headers": {"X-Kelvin": "1"}}
+        async with AsyncClient(**kw) as phone, AsyncClient(**kw) as laptop:
+            ctx = app.state.ctx
+            await login(phone)
+            await login(laptop)  # the stored password: nobody is signed out
+            assert (await phone.get("/api/house")).status_code == 200
+            assert ctx.sessions.count() == 2
+            secret = (await phone.post("/api/mcp/tokens", json={"name": "t"})).json()["secret"]
+            old_cookie = laptop.cookies.get("kelvin_session")
+
+            gw.cloud_password = "new-pw"
+            r = await laptop.post("/api/auth/login", json={**DEMO, "password": "new-pw"})
+            assert r.status_code == 200
+            assert laptop.cookies.get("kelvin_session") != old_cookie
+            assert (await laptop.get("/api/house")).status_code == 200
+            assert (await phone.get("/api/house")).status_code == 401
+            assert not ctx.sessions.validate(old_cookie)
+            assert ctx.sessions.count() == 1
+            assert ctx.mcp_tokens.verify(secret) is not None
+
+            r = await phone.post("/api/auth/login", json={**DEMO, "password": "new-pw"})
+            assert r.status_code == 200  # now the stored password: the laptop stays
+            assert (await laptop.get("/api/house")).status_code == 200
+            assert ctx.sessions.count() == 2

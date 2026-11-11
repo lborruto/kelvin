@@ -24,6 +24,9 @@ Read this before installing.
 - **Sessions:** every signed-in browser is listed in Settings › Account › Signed-in devices (browser
   and system only; the raw user agent and the session token never leave the server). Signing a
   device out takes effect on its next request and closes its live stream within 30 seconds.
+  A session otherwise lasts a year from its last use. **If the password leaks,** change it in
+  Cozytouch, then log in to Kelvin with the new one: that login signs every other device out.
+  MCP tokens are separate credentials and are not touched: revoke them in Settings › Account.
 - **Kelvin stores that password** in `/data/account.json` (mode 0600), because it must
   re-login to Cozytouch unattended. Protect and back up the data volume like a password store.
 - **Keep it on your LAN or a VPN** such as Tailscale or WireGuard. Kelvin serves plain HTTP.

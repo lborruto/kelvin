@@ -340,9 +340,12 @@ async def test_boot_with_a_rejected_stored_password_waits_for_a_login(tmp_path):
     try:
         await boot(ctx)
         assert ctx.mode == "reauth" and ctx.rt is None
+        stale = ctx.sessions.create("a browser signed in with the old password")
         with pytest.raises(LoginRefused):
             await login(ctx, DEMO_EMAIL, "old-password", IP)  # no shortcut without a runtime
+        assert ctx.sessions.validate(stale)  # a refused login signs nobody out
         await login(ctx, DEMO_EMAIL, DEMO_PASSWORD, IP)
+        assert not ctx.sessions.validate(stale)  # the password was replaced
         assert ctx.mode == "running"
         assert AccountStore(tmp_path).load().password == DEMO_PASSWORD
     finally:
