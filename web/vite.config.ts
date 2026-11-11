@@ -20,7 +20,9 @@ export default defineConfig({
       // './sw.js' and links './manifest.webmanifest', which break on deep links like /rooms/x.
       base: '/',
       scope: '/',
-      registerType: 'autoUpdate',
+      // 'prompt': a new version waits instead of taking control and reloading the page at once (possibly
+      // mid-tap). `$lib/appUpdate` lets it in when the page is hidden, or on « Mettre à jour ».
+      registerType: 'prompt',
       kit: { adapterFallback: 'index.html', spa: true },
       manifest: {
         // A stable identity: the installed PWA stays the same app if start_url ever changes.

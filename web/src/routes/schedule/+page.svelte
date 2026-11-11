@@ -7,6 +7,7 @@
   import { DAYS, type Day, type Pending } from '$lib/api/types';
   import { run, retry } from '$lib/actions';
   import { api, ApiError } from '$lib/api/client';
+  import { holdReload } from '$lib/busy';
   import { capsOf, programRooms, roomRange } from '$lib/capabilities';
   import ChoiceSheet from '$lib/components/ChoiceSheet.svelte';
   import ProgramTemps from '$lib/components/room/ProgramTemps.svelte';
@@ -204,6 +205,10 @@
     if (nav.from && nav.to && nav.from.url.pathname === nav.to.url.pathname) return;
     if (nav.willUnload) nav.cancel(); // the browser asks with its own dialog
     else if (!confirm(m.program.discard)) nav.cancel();
+  });
+  // A new version of Kelvin never reloads the page over them either (`$lib/appUpdate`).
+  $effect(() => {
+    if (unsent) return holdReload();
   });
   let shown = $derived(locked ? lock!.week : draft);
   let changes = $derived(draft && baseline ? changedDays(baseline, draft) : []);
