@@ -178,3 +178,31 @@ test('the slider says the target it moves to, and the large figure follows it li
   await expect(primary.getByRole('status')).toContainText(String(target.toFixed(1)).replace('.', ','));
   await put(page, 'comfort', before);
 });
+
+test('−/+ and the slider share one unsent value: each continues from the figure on screen, one command with the last', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'shared simulator state: one project runs it');
+  await pinYesterdayAt(page, 23, 30);
+  await page.goto('/?sheet=p-salon');
+  const sheet = page.getByRole('dialog', { name: 'Salon' });
+  const primary = sheet.getByRole('group', { name: 'Consigne Confort' });
+  const slider = sheet.getByRole('slider', { name: 'Consigne Confort' });
+  await expect(primary).toBeVisible({ timeout: 20_000 });
+  const figure = primary.getByRole('status');
+  const before = num(await figure.textContent());
+  const text = (v: number) => String(v.toFixed(1)).replace('.', ',');
+  const sent = sends(page);
+  const plus = primary.getByRole('button', { name: 'Augmenter Consigne Confort' });
+  await slider.press('ArrowUp');
+  await expect(figure).toContainText(text(before + 0.5));
+  await plus.click();
+  await expect(figure).toContainText(text(before + 1));
+  await expect(slider).toHaveAttribute('aria-valuenow', String(before + 1));
+  await slider.press('ArrowUp');
+  await expect(figure).toContainText(text(before + 1.5));
+  expect(sent).toEqual([]);
+  await expect.poll(() => sent.length).toBe(1);
+  await page.waitForTimeout(2000);
+  expect(sent).toEqual([{ kind: 'comfort', value: before + 1.5 }]);
+  await put(page, 'comfort', before);
+  await expect(figure).toContainText(text(before), { timeout: 20_000 });
+});
