@@ -130,6 +130,11 @@ class SessionStore:
             return 0
         return self.db.execute("DELETE FROM sessions WHERE hash != ?", (_hash(token),))
 
+    def revoke_all(self) -> int:
+        """Sign every device out: the home's password was replaced (auth.service.login). The
+        login that brought the new password opens its own session afterwards."""
+        return self.db.execute("DELETE FROM sessions")
+
     def prune(self) -> int:
         return self.db.execute(
             "DELETE FROM sessions WHERE last_seen < ?", (self.wall() - SESSION_TTL_S,)
