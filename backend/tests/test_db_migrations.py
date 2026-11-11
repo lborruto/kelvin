@@ -2,6 +2,8 @@
 
 import sqlite3
 
+import pytest
+
 from kelvin.recorder.db import SCHEMA, SCHEMA_VERSION, SCHEMA_VERSION_KEY, Database
 
 
@@ -216,3 +218,18 @@ def test_v6_creates_outlook_and_away_tables(tmp_path):
     conn = sqlite3.connect(tmp_path / "k.db")
     MIGRATIONS[6](conn)  # running it again is harmless
     conn.close()
+
+
+def test_executemany_writes_the_whole_batch_or_nothing(tmp_path):
+    """One transaction: a failing row leaves nothing of its batch behind (and the rows are
+    not committed one by one on the event loop)."""
+    db = Database(tmp_path / "k.db")
+    good = [(day, 1000) for day in ("2026-01-01", "2026-01-02")]
+    with pytest.raises(sqlite3.IntegrityError):
+        db.executemany("INSERT INTO linky_daily VALUES (?, ?)", [*good, ("2026-01-03", None)])
+    assert db.query("SELECT * FROM linky_daily") == []
+    assert not db.conn.in_transaction  # rolled back: the next statement is not stuck in it
+    db.executemany("INSERT INTO linky_daily VALUES (?, ?)", good)
+    assert len(db.query("SELECT * FROM linky_daily")) == 2
+    assert not db.conn.in_transaction
+    db.close()
