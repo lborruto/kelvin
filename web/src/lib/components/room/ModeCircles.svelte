@@ -35,7 +35,7 @@
   let waiting = $derived(pending !== null && pending !== value);
   const settle = new Settle<Mode>(() => (waiting ? pending : null), () => value as Mode | null);
   let tabStop = $derived(options.find((o) => o === current) ?? options[0]);
-  let buttons: HTMLButtonElement[] = [];
+  let buttons = $state<HTMLButtonElement[]>([]);
   function key(e: KeyboardEvent, i: number) {
     const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
     if (!d) return;
