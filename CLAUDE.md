@@ -13,7 +13,7 @@ depends on.
   in French and English). It is the design reference; UI work follows it. Every kit component in its
   states: `/kit` under `npm run dev` (development only: a production build answers 404 and ships no gallery).
 - `docs/glossary.md`: the French ↔ English terms every English string follows; a new term goes
-  there first. `docs/i18n-catalogue.md` is the design snapshot behind the dictionaries.
+  there first.
 - `docs/overkiz-notes.md`: Overkiz behaviour verified on real radiators (its « UNVERIFIED » section
   lists what is only expected for other kinds). Read it before adding
   or changing any device command, and record every new verification there (no ids or serials).
