@@ -209,16 +209,18 @@ class LinkySync:
     def calls_today(self) -> int:
         return self.state.calls if self.state.calls_day == self.today().isoformat() else 0
 
-    def spend(self, today: date | None = None, *, kind: Kind = "essential") -> bool:
+    def spend(self, today: date | None = None, *, kind: Kind = "essential", keep: int = 0) -> bool:
         """Count one MED call in today's ledger, or refuse it: the day's budget is spent, the
-        grid has had its share, or a backfill would eat the grid calls still planned today."""
+        grid has had its share, or a backfill would eat the grid calls still planned today.
+        `keep`: grid calls this grid call leaves in the grid's share for others (EcoWatt keeps
+        the calls Tempo still has planned today, so its retries never cost tomorrow's colour)."""
         day = (today or self.today()).isoformat()
         st = self.state
         if st.calls_day != day:
             st.calls_day, st.calls, st.grid_calls = day, 0, 0
         if st.calls >= self.budget:
             return False
-        if kind == "grid" and st.grid_calls >= GRID_DAILY_MAX:
+        if kind == "grid" and st.grid_calls >= GRID_DAILY_MAX - max(0, keep):
             return False
         if kind == "backfill" and st.calls >= self.budget - max(0, self.reserve()):
             return False
