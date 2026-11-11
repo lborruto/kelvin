@@ -19,6 +19,7 @@ from kelvin.linky.models import (
     DailyReading,
     LinkyAuthError,
     LinkyError,
+    LinkyNetworkError,
     LinkyThrottled,
     check_curve_span,
     day_bounds,
@@ -27,6 +28,9 @@ from kelvin.linky.models import (
 MED_BASE_URL = "https://www.myelectricaldata.fr"
 CURVE_DATE_IS_END = True  # docs/linky-notes.md: a point dated 00:30 covers 00:00–00:30
 NO_DATA_STATUSES = frozenset({404})  # "not published yet": an empty answer, not an error
+# A year of daily readings or a week of load curve is some tens of kB: anything near this is
+# not an answer, and is not read to its end (as grid/client.py and weather/client.py do).
+MAX_BYTES = 2_000_000
 
 # httpx logs request URLs at INFO, and MED URLs carry the PDL: keep those lines out of the logs.
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -94,13 +98,16 @@ def parse_daily(payload: Any) -> list[DailyReading]:
     unit = (reading.get("reading_type") or {}).get("unit", "Wh")
     factor = 1000 if unit == "kWh" else 1
     try:
-        return [
+        out = [
             DailyReading(date.fromisoformat(str(i["date"])[:10]), round(float(i["value"]) * factor))
             for i in reading["interval_reading"]
             if i.get("value") not in (None, "")
         ]
     except (KeyError, ValueError, TypeError, AttributeError, OverflowError):
         raise LinkyError("unexpected payload") from None
+    if any(r.wh < 0 for r in out):  # consumption is never negative: not a reading
+        raise LinkyError("unexpected payload")
+    return out
 
 
 def _minutes(text: Any) -> int:
@@ -137,8 +144,8 @@ def parse_curve(
             stamp = _local_ts(str(item["date"]), tz, last)
             last = stamp
             value = float(item["value"])
-            if not math.isfinite(value):
-                raise ValueError("non-finite value")
+            if not math.isfinite(value) or value < 0:  # consumption is never negative
+                raise ValueError("not a reading")
             wh = value * minutes / 60 if unit == "W" else value
             start = stamp - minutes * 60 if date_is_end else stamp
             points.append(CurvePoint(start, minutes, round(wh, 3)))
@@ -184,28 +191,37 @@ class MedSource:
 
     async def _get(self, path: str) -> Any:
         failure: str | None = None
+        status = 0
+        raw = b""
+        headers = {"Authorization": self._token, "Accept": "application/json"}
         try:
-            r = await self._client.get(
-                f"/{path}", headers={"Authorization": self._token, "Accept": "application/json"}
-            )
+            async with self._client.stream("GET", f"/{path}", headers=headers) as r:
+                status = r.status_code
+                async for chunk in r.aiter_bytes():
+                    raw += chunk
+                    if len(raw) > MAX_BYTES:
+                        failure = "too large"
+                        break
         except httpx.HTTPError as e:
             failure = type(e).__name__
+        if failure == "too large":
+            raise LinkyError("response too large")
         if failure is not None:
             # Raised outside the except block: neither __cause__ nor __context__ may hold the
             # httpx error, whose repr carries the URL, hence the PDL.
-            raise LinkyError(f"network error: {failure}")
+            raise LinkyNetworkError(f"network error: {failure}")
         try:
-            body = r.json()
-        except ValueError:
+            body = json.loads(raw) if raw else None
+        except (ValueError, RecursionError):
             body = None
-        if r.status_code == 429:
+        if status == 429:
             raise LinkyThrottled(parse_retry_at(body))
-        if r.status_code in (401, 403):
-            raise LinkyAuthError(f"HTTP {r.status_code}")
-        if r.status_code in NO_DATA_STATUSES:
+        if status in (401, 403):
+            raise LinkyAuthError(f"HTTP {status}")
+        if status in NO_DATA_STATUSES:
             return None
-        if r.status_code >= 400 or body is None:
-            raise LinkyError(f"HTTP {r.status_code}")
+        if status >= 400 or body is None:
+            raise LinkyError(f"HTTP {status}")
         if not isinstance(body, dict):  # every MED answer is an object; anything else is junk
             raise LinkyError("unexpected payload")
         return body
