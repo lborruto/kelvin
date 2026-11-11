@@ -46,6 +46,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['client/**/*.{js,css,html,svg,png,woff2}'],
+        // Only the font subsets the French and English copy can use (latin, latin-ext) are precached; the others
+        // stay on the server, never fetched (`src/lib/fonts.test.ts` checks the copy against their unicode-ranges).
+        globIgnores: ['**/*-{cyrillic,cyrillic-ext,greek,vietnamese}-*.woff2'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/mcp(\/|$)/]
       }
