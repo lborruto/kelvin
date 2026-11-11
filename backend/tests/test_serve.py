@@ -253,3 +253,23 @@ def test_preflight_refuses_the_simulator_on_a_real_homes_data(tmp_path):
     db.set_setting(SIM_DB_KEY, True)
     db.close()
     serve.preflight(_settings(tmp_path))  # the simulator's own data: fine
+
+
+def test_main_refuses_a_database_written_by_a_newer_kelvin(app_env, monkeypatch, capsys, tmp_path):
+    from kelvin.recorder.db import SCHEMA_VERSION, SCHEMA_VERSION_KEY
+
+    data = tmp_path / "data"
+    data.mkdir()
+    db = Database(data / "kelvin.db")
+    db.set_setting(SCHEMA_VERSION_KEY, SCHEMA_VERSION + 1)
+    db.close()
+    called = []
+    monkeypatch.setattr(serve.uvicorn, "run", lambda **kw: called.append(kw))
+    old = os.umask(0o022)
+    try:
+        assert serve.main() == 2
+    finally:
+        os.umask(old)
+    assert called == []
+    err = capsys.readouterr().err
+    assert err.startswith("kelvin: ") and "newer Kelvin" in err and "Traceback" not in err
