@@ -25,12 +25,6 @@ FLOOR_DAYS = 35  # the month and all-days pools read curves from day − 35 days
 
 
 @dataclass(frozen=True)
-class Share:
-    value: float
-    method: str  # curve | fallback_window | fallback_month | fallback_all | slots
-
-
-@dataclass(frozen=True)
 class Profile:
     weights: tuple[tuple[int, float], ...]  # half-hour start minute → share of the energy
     method: str  # fallback_window | fallback_month | fallback_all | slots (weights empty)
