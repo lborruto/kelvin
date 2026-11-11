@@ -1,7 +1,7 @@
 [project]
 name = "kelvin"
 version = "0.3.5"
-description = "Kelvin — home heating control for Sauter Cozytouch radiators"
+description = "Kelvin — self-hosted control for Sauter, Atlantic and Thermor radiators on Cozytouch, with Linky energy"
 requires-python = ">=3.13"
 dependencies = [
   "fastapi>=0.156.4",

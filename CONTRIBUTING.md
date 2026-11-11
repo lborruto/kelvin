@@ -30,7 +30,7 @@ npm, and Docker for the image checks.
     cd web && npm run dev
 
 Open http://127.0.0.1:5173 and log in with `demo@kelvin.local` / `kelvin`. The simulator has
-three rooms, four radiators, a week of history, a synthetic Linky and a demo tariff.
+three rooms, four radiators, 45 days of history (`KELVIN_SIM_HISTORY_DAYS`), a synthetic Linky and a demo tariff.
 
 ## Checks
 
@@ -52,8 +52,9 @@ or real data will not be merged.
 
 ## Commits and pull requests
 
-- Conventional Commit subjects, as in the history: `feat(web): …`, `fix(api): …`, `test: …`,
-  `docs: …`, `ci: …`, `build: …`, `chore: …`. Say why in the body when it is not obvious.
+- Commit subjects are plain imperative sentences, as in the history, with no type prefix:
+  « Pin the room-tile height check to a fixed time », « End an override only after its restored
+  radiators are read back ». Say why in the body when it is not obvious.
 - One topic per pull request, with tests. Fill in the template's checklist.
 
 ## UI copy (French and English)
@@ -167,7 +168,7 @@ plain words.
   dragged and resized in the radiators' steps: 30 minutes on Sauter, the only times they keep), the comfort and eco temperatures and what happens next, and one
   day edited at a time (drag or type the periods, « Copier vers… » weekdays, the weekend or every day; nothing is sent before « Envoyer »;
   an offline room's schedule is shown read-only); boost a room for a few hours (« Chauffe temporaire »); away for the whole house from wherever you are (« Partir en absence » with
-  « Demain 18:00 » / « Dimanche 18:00 » presets and the consequence written before sending). Boost and away
+  « Demain 18:00 », « Jusqu’à mon retour » or « Date précise… » and the consequence written before sending). Boost and away
   restore what was there before. The night light's brightness (1–100 %). The programme editor
   never writes a day it cannot edit: a day ending at midnight or that Kelvin cannot read is shown
   and kept exactly as the radiator has it, and a programme changed in the Cozytouch app (or
@@ -215,8 +216,8 @@ plain words.
 - **French and English.** The whole UI, errors included, in French (the default) or English
   (en-GB, with its own number, date and currency formats), chosen per device in Settings › Display or
   on the sign-in screen, without a reload. A browser in French starts in French, any other
-  language in English. URLs are English (`/rooms`, `/schedule`, `/energy`, `/home`, `/home/devices`, `/home/tariff`, `/home/linky`, `/home/sources`, `/home/account`); old
-  bookmarks are redirected.
+  language in English. URLs are English (`/schedule`, `/energy`, `/home`, `/home/devices`, `/home/tariff`, `/home/linky`, `/home/sources`, `/home/account`; a room is the sheet `?sheet=<id>` over the page you are on); old
+  bookmarks, `/rooms/<id>` included, are redirected.
 - **Calm by default, real data on demand.** Every figure that has more precision or a source shows it
   one hover, tap or Enter away (its exact value, where it comes from, how fresh, measured or estimated);
   analysis sits behind « Détails ». Settings › Display › « Afficher les détails techniques » brings it up one
@@ -228,8 +229,6 @@ plain words.
   `KELVIN_FAKE_HOUSE=atlantic|thermor|experimental` shows another invented house; without it, the
   house follows the server chosen at login.
 - **AI assistants can read your data through MCP, read-only** (see [backend/README.md › MCP](backend/README.md#mcp)).
-
-## Project status
 
 ## Project status
 
