@@ -10,8 +10,10 @@ complete day reads the same forever, unless
 - the tariff changes (the day's HC/HP and € are priced here): everything goes;
 - a radiator's power changes (it bounds what `clean_spans` accepts): that radiator's days go;
 - the recorder rewrites history (`Recorder.energy_epoch`: a reading that replaces or predates its
-  radiator's last one, a sample not after the newest sample and reading, or pruned samples):
-  everything goes;
+  radiator's last one, or a sample not after the newest sample and reading): everything goes.
+  A prune is no rewrite: before it deletes samples, the recorder keeps the half-hours of the
+  complete days they weight (`radiator_halfhours`), and `energy_buckets` reads those, so a day
+  cached here and the same day computed after the prune are one figure;
 - a complete day whose € is unknown (a Tempo colour not published yet) is never kept; it is
   replayed until it is priced.
 Every other day (today, the days since a counter last moved, a gap) is computed on every request,

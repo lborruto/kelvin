@@ -150,16 +150,21 @@ def test_a_reading_that_rewrites_the_last_one_drops_what_is_cached(home):
     assert report(svc, rec, rooms) == fresh(db, clock, rec, rooms)
 
 
-def test_pruned_samples_drop_what_is_cached(home):
+def test_pruned_samples_leave_what_is_cached(home):
+    """A prune keeps the half-hours of the complete days its samples weight before deleting
+    them (`tests/test_radiator_archive.py`), so no cached day can change: nothing is dropped."""
     clock, db, _, rec, svc, rooms = home
     db.executemany(
         "INSERT INTO samples (ts, radiator_id, working_rate) VALUES (?,?,?)",
         [(ts(date(2025, 1, 1)), RID, 50.0)],
     )
+    before = report(svc, rec, rooms)
+    cached = len(svc.radiator_days)
     epoch = rec.energy_epoch
     assert rec.prune() == 1
-    assert rec.energy_epoch == epoch + 1
-    assert rec.prune() == 0 and rec.energy_epoch == epoch + 1
+    assert rec.energy_epoch == epoch
+    assert report(svc, rec, rooms) == before == fresh(db, clock, rec, rooms)
+    assert len(svc.radiator_days) == cached > 0
 
 
 def test_the_cache_is_bounded(home):
