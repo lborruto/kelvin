@@ -12,6 +12,7 @@ from starlette.types import ASGIApp
 
 from kelvin.api.accesslog import install as install_access_filter
 from kelvin.api.auth_routes import public
+from kelvin.api.bodylimit import BodyLimit
 from kelvin.api.context import boot, open_context
 from kelvin.api.exposure import ExposureWarning
 from kelvin.api.guards import LOGIN_REQUIRED_BODY, LoginRequired
@@ -126,4 +127,7 @@ def create_app(
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=[*hosts, "localhost", "127.0.0.1"])
     else:  # any Host passes: say so once, the first time Kelvin is reached from elsewhere
         app.add_middleware(ExposureWarning)
+    # Outermost: an oversized /api body is refused before routing, the login check or the
+    # X-Kelvin header, none of which run until FastAPI has buffered it.
+    app.add_middleware(BodyLimit)
     return app
