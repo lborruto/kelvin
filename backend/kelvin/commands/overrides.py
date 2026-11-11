@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Literal
 from uuid import uuid4
 
-from kelvin.commands.service import CommandService, Pending
+from kelvin.commands.service import CONFIRM_TIMEOUT, CommandService, Pending
 from kelvin.commands.translate import CommandError, Planned, plan_mode, plan_setpoint
 from kelvin.house.model import House, Radiator
 from kelvin.labels import Label
@@ -33,6 +33,9 @@ RESTORE_RETRY_MAX_S = 1800.0
 # One still unreachable this long after the restore began is given up: the override is dropped and
 # the radiator keeps whatever it holds when it comes back.
 RESTORE_GIVE_UP_S = 7 * 86400.0
+# An override whose start got no answer from Overkiz (it may have run all the same) is kept this
+# long before its radiators' states say whether it holds them.
+PROVISIONAL_WAIT_S = CONFIRM_TIMEOUT
 
 
 def restore_retry_delay(failures: int) -> float:
@@ -137,6 +140,9 @@ class OverrideManager:
         # « Salon : confort 17,5 °C » five seconds after « Terminer »). The override stays
         # « restoring » (no stepper) until that read; memory only, like the backoff.
         self._readback: dict[str, list[str]] = {}
+        # override id → until when a start that got no answer is not judged abandoned (memory
+        # only: after a restart the states decide at once).
+        self._provisional: dict[str, float] = {}
         self._items: dict[str, Override] = {}
         for row in db.query("SELECT id, payload FROM overrides"):
             try:
@@ -167,6 +173,7 @@ class OverrideManager:
         self._failures.pop(o.id, None)
         self._retry_at.pop(o.id, None)
         self._readback.pop(o.id, None)
+        self._provisional.pop(o.id, None)
         self.db.execute("DELETE FROM overrides WHERE id = ?", (o.id,))
 
     def _drop(self, o: Override, rid: str) -> None:
@@ -300,7 +307,7 @@ class OverrideManager:
         Judged only when no command touching it is in flight: that covers our own start
         (not applied yet) and a change that could still fail and leave our setpoint on.
         """
-        if self._busy(o):
+        if self._busy(o) or self.wall() < self._provisional.get(o.id, 0.0):
             return False
         for rid in o.radiator_ids:
             r = self.house.radiators.get(rid)
@@ -379,11 +386,18 @@ class OverrideManager:
             created_at=created_at,
         )
         pending = await self.commands.submit(label, tuple(ids), planned)
-        if pending.status == "failed":
+        # A send that got no answer may have run: radiators that did switch must be restored
+        # at the end (and an away logged), so the override is kept and the states decide. If
+        # they never arrive it is dropped as abandoned; until then an override it would have
+        # replaced keeps its radiators too (the older one hands them over at its own end).
+        provisional = pending.status == "failed" and pending.unanswered
+        if pending.status == "failed" and not provisional:
             return o, pending
+        if provisional:
+            self._provisional[o.id] = now + PROVISIONAL_WAIT_S
         for r in rads:
             same = self._holder(r.id, kind=kind)
-            if same is not None:
+            if same is not None and not provisional:
                 self._drop(same, r.id)
                 if same.radiator_ids:
                     self._save(same)

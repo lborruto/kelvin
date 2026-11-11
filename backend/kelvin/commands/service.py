@@ -14,7 +14,7 @@ from kelvin.commands.translate import PROGRAM_STATE, Planned, day_difference, pr
 from kelvin.errors import french, gateway_error_code, safe_reason
 from kelvin.house.model import DAY_ORDER, House
 from kelvin.labels import Label
-from kelvin.overkiz.errors import GatewayError
+from kelvin.overkiz.errors import GatewayError, UnansweredError
 from kelvin.overkiz.gateway import Gateway
 from kelvin.overkiz.models import ExecUpdate, StateChange
 
@@ -82,6 +82,8 @@ class Pending:
     # Radiators unreachable (core:StatusState) that did not take it: they never fail a command
     # the reachable ones took; « confirmé, N hors ligne ».
     offline: tuple[str, ...] = ()
+    # The send got no answer (a timeout, a dropped connection): Overkiz may have taken it.
+    unanswered: bool = False
 
     @property
     def active(self) -> bool:
@@ -216,6 +218,7 @@ class CommandService:
             exec_id = await self.gateway.execute(list(planned.commands), text)
         except GatewayError as e:
             p.exec_done = True
+            p.unanswered = isinstance(e, UnansweredError)
             if p.status == "sending":
                 self._resolve(
                     p,
