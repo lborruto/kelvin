@@ -36,6 +36,9 @@ RESTORE_GIVE_UP_S = 7 * 86400.0
 # An override whose start got no answer from Overkiz (it may have run all the same) is kept this
 # long before its radiators' states say whether it holds them.
 PROVISIONAL_WAIT_S = CONFIRM_TIMEOUT
+# A restored radiator whose read back fails stays in its override for the next tick; after this
+# many failed rounds it leaves unread (a device that never answers must not cost a read a tick).
+READBACK_TRIES = 5
 
 
 def restore_retry_delay(failures: int) -> float:
@@ -140,6 +143,7 @@ class OverrideManager:
         # « Salon : confort 17,5 °C » five seconds after « Terminer »). The override stays
         # « restoring » (no stepper) until that read; memory only, like the backoff.
         self._readback: dict[str, list[str]] = {}
+        self._readback_failures: dict[str, int] = {}  # override id → failed read-back rounds
         # override id → until when a start that got no answer is not judged abandoned (memory
         # only: after a restart the states decide at once).
         self._provisional: dict[str, float] = {}
@@ -173,6 +177,7 @@ class OverrideManager:
         self._failures.pop(o.id, None)
         self._retry_at.pop(o.id, None)
         self._readback.pop(o.id, None)
+        self._readback_failures.pop(o.id, None)
         self._provisional.pop(o.id, None)
         self.db.execute("DELETE FROM overrides WHERE id = ?", (o.id,))
 
@@ -220,29 +225,52 @@ class OverrideManager:
             self._save(o)
 
     async def _read_back(self) -> None:
-        """Read the restored radiators once (concurrently), then let them leave their override."""
+        """Read the restored radiators once (concurrently), then let them leave their override.
+        One whose read failed stays for the next tick: nothing showed its real states."""
         for oid, rids in list(self._readback.items()):
             o = self._items.get(oid)
             if o is None:
                 self._readback.pop(oid, None)
+                self._readback_failures.pop(oid, None)
                 continue
-            urls = [self.house.radiators[r].heater_url for r in rids if r in self.house.radiators]
-            await asyncio.gather(*(self._read(u, "a restore") for u in urls))
-            self._readback.pop(oid, None)
+            known = [r for r in rids if r in self.house.radiators]
+            read = await asyncio.gather(
+                *(self._read(self.house.radiators[r].heater_url, "a restore") for r in known)
+            )
+            failed = [r for r, ok in zip(known, read, strict=True) if not ok]
+            if failed:
+                n = self._readback_failures.get(oid, 0) + 1
+                self._readback_failures[oid] = n
+                if n >= READBACK_TRIES:
+                    log.warning(
+                        "override %s: %d restored radiator(s) not read back after %d tries",
+                        oid,
+                        len(failed),
+                        n,
+                    )
+                    failed = []
+            if failed:
+                self._readback[oid] = failed
+            else:
+                self._readback.pop(oid, None)
+                self._readback_failures.pop(oid, None)
             for rid in rids:
-                self._drop(o, rid)
+                if rid not in failed:
+                    self._drop(o, rid)
             if o.radiator_ids:
                 self._save(o)
             else:
                 self._delete(o)
 
-    async def _read(self, url: str, why: str) -> None:
+    async def _read(self, url: str, why: str) -> bool:
+        """One targeted state read; False when it failed (Kelvin's copy is unchanged)."""
         try:
             states = await self.commands.gateway.device_states(url)
         except GatewayError as e:
             log.warning("state read after %s failed (%s)", why, type(e).__name__)
-            return
+            return False
         self.house.reload_device(url, states)
+        return True
 
     def _holder(
         self, rid: str, *, kind: Kind | None = None, exclude: str | None = None
@@ -445,7 +473,8 @@ class OverrideManager:
             if rp is not None and rp[0].active:
                 return rp[0]
             if o.id in self._readback:
-                await self._read_back()  # restored already: only the read back is left
+                if self.is_connected():
+                    await self._read_back()  # restored already: only the read back is left
                 return None
             now = self.wall()
             o.ends_at = (
@@ -498,7 +527,10 @@ class OverrideManager:
             away_log.record_end(self.db, o.id, now)
         planned: Planned | None = None
         rids: list[str] = []
+        awaiting = self._readback.get(o.id, ())
         for rid in list(o.radiator_ids):
+            if rid in awaiting:
+                continue  # restored already; it leaves once it is read back
             prev = o.previous.get(rid)
             r = self.house.radiators.get(rid)
             if r is None or prev is None or prev.get("mode") not in RESTORABLE_MODES:

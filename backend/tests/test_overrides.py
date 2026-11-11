@@ -5,6 +5,7 @@ import pytest
 
 from kelvin.commands.overrides import (
     PROVISIONAL_WAIT_S,
+    READBACK_TRIES,
     RESTORE_GIVE_UP_S,
     RESTORE_RETRY_FIRST_S,
     OverrideManager,
@@ -1043,3 +1044,69 @@ async def test_an_unanswered_start_does_not_take_over_the_away_it_would_replace(
     await settle(clock, gw, house, svc)
     assert house.radiators["9500003"].mode == "program"
     assert house.radiators["9500003"].target == 20.0
+
+
+async def _restored_awaiting_read_back(env):
+    """An away on one radiator, ended and confirmed; Kelvin's copy of its Confort is stale."""
+    clock, gw, house, svc, _, mgr = env
+    r = house.radiators["9500003"]
+    comfort = r.comfort
+    o, _ = await mgr.start("away", ["9500003"], 17.0, None, label="a")
+    await settle(clock, gw, house, svc)
+    gw.devices[r.heater_url].states["core:ComfortRoomTemperatureState"] = 17.0
+    house.reload_device(r.heater_url, await gw.device_states(r.heater_url))
+    await mgr.cancel(o.id)
+    gw.devices[r.heater_url].states["core:ComfortRoomTemperatureState"] = comfort
+    await settle(clock, gw, house, svc)
+    assert r.comfort == 17.0 and mgr.active()[0]["restoring"] is True
+    return o, r, comfort
+
+
+async def test_a_failed_read_back_keeps_the_radiator_for_the_next_tick(env):
+    """The read back is what makes the room's −/+ safe again: a read that failed proved nothing,
+    so the radiator must not leave the override on it."""
+    clock, gw, house, svc, _, mgr = env
+    o, r, comfort = await _restored_awaiting_read_back(env)
+    gw.fail_states = GatewayError("down")
+    sent = len(gw.executed)
+    assert await mgr.tick() == []
+    [view] = mgr.active()
+    assert view["restoring"] is True and view["radiator_ids"] == ["9500003"]
+    assert r.comfort == 17.0 and len(gw.executed) == sent  # and no second restore is sent
+    gw.fail_states = None
+    await mgr.tick()
+    assert r.comfort == comfort and mgr.active() == []
+
+
+async def test_a_read_back_that_keeps_failing_is_given_up(env, caplog):
+    clock, gw, house, svc, _, mgr = env
+    await _restored_awaiting_read_back(env)
+    gw.fail_states = GatewayError("down")
+    for _ in range(READBACK_TRIES - 1):
+        await mgr.tick()
+    assert len(mgr.active()) == 1
+    with caplog.at_level("WARNING"):
+        await mgr.tick()
+    assert mgr.active() == []
+    assert "not read back" in caplog.text
+
+
+async def test_cancel_reads_nothing_back_while_disconnected(tmp_path):
+    clock = ManualClock(1_000_000.0)
+    gw = FakeGateway(clock=clock)
+    house = build_house(gw.root, list(gw.devices.values()))
+    svc = CommandService(gw, house, clock=clock, wall=clock)
+    connected = [True]
+    mgr = OverrideManager(
+        Database(tmp_path / "k.db"), house, svc, wall=clock, is_connected=lambda: connected[0]
+    )
+    o, _ = await mgr.start("away", ["9500003", "9000011"], 17.0, None, label="a")
+    await settle(clock, gw, house, svc)
+    _unplug(gw, house, "9000011")  # stays in the override, so the id is still there to cancel
+    await mgr.cancel(o.id)
+    await settle(clock, gw, house, svc)
+    connected[0] = False
+    reads = gw.state_reads
+    assert await mgr.cancel(o.id) is None
+    assert gw.state_reads == reads
+    assert mgr.active()[0]["radiator_ids"] == ["9500003", "9000011"]
