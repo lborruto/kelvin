@@ -905,3 +905,29 @@ async def test_a_restored_room_stays_restoring_until_its_confort_is_read_back(en
     await mgr.tick()
     assert gw.state_reads == reads + 1 and r.comfort == comfort
     assert mgr.active() == []
+
+
+async def _to_programme_by_hand(clock, gw, house, svc, ids):
+    rads = [house.radiators[i] for i in ids]
+    planned = plan_mode(rads[0], "program")
+    for x in rads[1:]:
+        planned = planned + plan_mode(x, "program")
+    p = await svc.submit("Programme", tuple(ids), planned)
+    await settle(clock, gw, house, svc)
+    assert p.status == "confirmed"
+
+
+async def test_an_abandoned_open_ended_away_closes_its_log_row(env):
+    """An away every radiator left by hand is dropped without a restore: its `away_log` row must
+    end then, or an open-ended one counts every later day as an absence."""
+    clock, gw, house, svc, db, mgr = env
+    o, _ = await mgr.start("away", list(SALON), 12.0, None, label="a")
+    await settle(clock, gw, house, svc)
+    clock.advance(3 * 86400)
+    await _to_programme_by_hand(clock, gw, house, svc, SALON)
+    dropped_at = clock()
+    assert await mgr.tick() == []
+    assert mgr.active() == []
+    assert db.rows("SELECT id, start, end, ended FROM away_log") == [
+        (o.id, o.created_at, dropped_at, 1)
+    ]

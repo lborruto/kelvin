@@ -445,6 +445,10 @@ class OverrideManager:
                 if (o.ends_at is None or o.ends_at > now) and not o.restoring:
                     if self._abandoned(o):
                         log.info("override %s no longer holds any radiator; dropped", o.id)
+                        if o.kind == "away":
+                            # No restore will close its log row: an open-ended one would count
+                            # every later day as an absence.
+                            away_log.record_end(self.db, o.id, now)
                         self._delete(o)
                     continue
                 if not self.is_connected():
