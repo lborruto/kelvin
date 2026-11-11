@@ -26,8 +26,8 @@ export function draftWaiting(): boolean {
 
 /**
  * The unsent value of a setpoint control and its one timer (`$lib/send`): the value on screen, dashed until sent;
- * one send `debounceMs` after the last interaction; a waiting value is sent at once when its owner goes away or
- * the page is left. A Stepper or a VSlider owns one by default; the room sheet makes one and gives it to both
+ * one send `debounceMs` after the last interaction; a waiting value is sent at once when its owner goes away, the
+ * page is left or hidden. A Stepper or a VSlider owns one by default; the room sheet makes one and gives it to both
  * (`draft`), so −/+ and the slider continue from the same value and send it once.
  *
  * Create it during component initialisation (it owns effects).
@@ -65,13 +65,20 @@ export class SendDraft {
       if (prevPending && !p && untrack(() => this.committed)) this.release();
       prevPending = p;
     });
-    // Closing the sheet or leaving the page while a value waits sends it now rather than dropping it.
+    // Closing the sheet or leaving the page while a value waits sends it now rather than dropping it. On a phone,
+    // locking the screen or switching apps hides the page without a `pagehide`, and a frozen page would send hours
+    // later or never: a hidden page sends too.
     $effect(() => {
       const flush = () => this.flush();
+      const hidden = () => {
+        if (document.visibilityState === 'hidden') this.flush();
+      };
       alive.add(this);
       window.addEventListener('pagehide', flush);
+      document.addEventListener('visibilitychange', hidden);
       return () => {
         window.removeEventListener('pagehide', flush);
+        document.removeEventListener('visibilitychange', hidden);
         this.flush();
         clearTimeout(this.#fallback);
         alive.delete(this);

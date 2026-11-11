@@ -110,6 +110,25 @@ describe('VSlider', () => {
   });
 });
 
+describe('VSlider leaves nothing behind', () => {
+  it('a hidden page (screen locked, app switched) sends a waiting value at once', async () => {
+    vi.useFakeTimers();
+    const onchange = vi.fn();
+    render(VSlider, { value: 20, label: 'Consigne', onchange });
+    const s = screen.getByRole('slider', { name: 'Consigne' });
+    await fireEvent.keyDown(s, { key: 'ArrowUp' });
+    await fireEvent.keyUp(s, { key: 'ArrowUp' });
+    const state = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(onchange).toHaveBeenCalledTimes(1);
+    expect(onchange).toHaveBeenCalledWith(20.5);
+    vi.advanceTimersByTime(3000);
+    expect(onchange).toHaveBeenCalledTimes(1);
+    state.mockRestore();
+    vi.useRealTimers();
+  });
+});
+
 describe('VSlider sends on release', () => {
   const box = (el: Element) =>
     vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({ top: 0, height: 320, left: 0, width: 140, bottom: 320, right: 140, x: 0, y: 0, toJSON: () => ({}) });
