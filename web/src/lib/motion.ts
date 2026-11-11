@@ -48,8 +48,6 @@ function bezier(x1: number, y1: number, x2: number, y2: number): (t: number) => 
 
 /** --ease-out: a confident deceleration for arrivals. */
 export const easeOut = bezier(0.16, 1, 0.3, 1);
-/** --ease-in: for exits. */
-export const easeIn = bezier(0.4, 0, 1, 1);
 
 /** Enter by rising `y` px while fading in; exits use `fade`. Opacity only under reduced motion. */
 export function rise(_node: Element, { y = 8, duration = T.enter, delay = 0 } = {}): TransitionConfig {
