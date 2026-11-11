@@ -298,6 +298,27 @@ and the mode, so the room showed « Confort 17 » with its −/+ live, and the t
 it. Since then an override stays « restoring » (no −/+) until one targeted read of each restored
 radiator (`OverrideManager._read_back`, in the next override tick) brings Kelvin's copy back.
 
+## A command is posted once (2026-11-11, owner's check on real radiators)
+
+Since 0.3.6 Kelvin no longer sends a command through pyoverkiz's `execute_action_group`, whose
+`_post` sends the request again after a timeout or a dropped connection (Overkiz may have accepted
+the first one: the radiators would get the command twice). `PyOverkizGateway.execute` posts
+`exec/apply` itself through the client's session, once (`_apply_once` in `overkiz/real.py`): same
+URL, headers and JSON body as pyoverkiz 2.2.3 builds (a test compares the two requests), keeping
+only pyoverkiz's retries for answers that prove a refusal (not authenticated: one re-login; too
+many executions).
+
+- Verified: on the owner's installation running 0.3.6, two commands sent from Kelvin were
+  accepted and the radiators reported the expected states (each confirmed by event in about 2 s),
+  as before the change.
+- Not exercised: the failure paths. A timeout or a connection dropped after the request left now
+  fails the command as `network` and the states decide (`CommandService.verify`); an override
+  start in that case is kept for 90 s (`PROVISIONAL_WAIT_S`). Both are covered by tests against a
+  stub session only.
+- The private pyoverkiz surface this uses (`_refresh_token_if_expired`, `_auth`, `_ssl`,
+  `_parse_response`) is why `pyoverkiz` stays pinned exactly; a bump re-runs
+  `tests/test_real_adapter.py` and deserves one command on a real radiator.
+
 ## Multi-brand (2026-10-14) — UNVERIFIED
 
 Nothing in this section has been tried on a real device. It records what Kelvin sends for device
