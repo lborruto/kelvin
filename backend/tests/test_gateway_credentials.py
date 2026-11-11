@@ -106,6 +106,7 @@ class _RefusingClient:
         self.refuse = refuse
         self.logins = 0
         self.calls = 0
+        self.event_listener_id = None
 
     async def _any(self, *_a, **_kw):
         self.calls += 1

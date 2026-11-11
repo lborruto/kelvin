@@ -83,6 +83,10 @@ depends on.
   the reachable ones took (`confirmed` with `offline`; `radiator_offline` only when all are), and a
   restore keeps its offline radiators in the override for a later try (nothing is sent while
   every radiator left is unreachable; given up after `RESTORE_GIVE_UP_S`, 7 days).
+- **A command is sent once.** `exec/apply` goes through `_apply_once` (`overkiz/real.py`), never
+  pyoverkiz's `_post`, which re-sends after a timeout or a dropped connection; a send that may
+  have reached Overkiz fails as `network` and the states decide. A listener pyoverkiz replaced
+  inside a fetch comes back as `ListenerReset` and the pump resyncs.
 - **Overkiz quota:** never call `Gateway.snapshot()` (`GET /setup/places` + `/setup/devices`,
   documented as one call a day) on a timer. Full setup reads go through the one stored
   `SetupReadGuard` (`overkiz/budget.py`, at most 3 per 24 h, kept across restarts); reconcile

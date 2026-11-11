@@ -1,18 +1,29 @@
 import asyncio
+import importlib.metadata
 from types import SimpleNamespace
 
+import aiohttp
 import pytest
+from pyoverkiz.auth.credentials import UsernamePasswordCredentials
+from pyoverkiz.client import OverkizClient
 from pyoverkiz.converter import converter
-from pyoverkiz.enums import DataType, EventName, ExecutionState, UIClass, UIWidget
-from pyoverkiz.models import DeviceStateChangedEvent, EventState, ExecutionStateChangedEvent
+from pyoverkiz.enums import DataType, EventName, ExecutionState, Server, UIClass, UIWidget
+from pyoverkiz.models import (
+    Action,
+    Command,
+    DeviceStateChangedEvent,
+    EventState,
+    ExecutionStateChangedEvent,
+)
 from pyoverkiz.models import Event as OverkizEvent
 from pyoverkiz.models import Place as OverkizPlace
 
-from kelvin.overkiz.errors import GatewayError
+from kelvin.overkiz.errors import GatewayError, QuotaError
 from kelvin.overkiz.models import (
     DeviceCommand,
     DeviceUpdate,
     ExecUpdate,
+    ListenerReset,
     PlaceEvent,
     RawPlace,
     StateChange,
@@ -55,8 +66,12 @@ def test_to_events_converts_state_and_execution_events():
 class _HangingClient:
     """Stands in for pyoverkiz's client: every call hangs (no network is touched)."""
 
-    async def execute_action_group(self, **_kw):
+    session = SimpleNamespace()  # no `post`: the call hangs before any request
+
+    async def _refresh_token_if_expired(self):
         await asyncio.sleep(3600)
+
+    event_listener_id = "listener-1"
 
     async def fetch_events(self):
         await asyncio.sleep(3600)
@@ -154,3 +169,133 @@ def test_to_raw_device_without_definition_or_ui_class():
     )
     raw = to_raw_device(d)
     assert (raw.ui_class, raw.state_values, raw.commands) == ("", {}, [])
+
+
+# `exec/apply` is sent once (never through pyoverkiz's `_post`, which re-sends after a dropped
+# connection). A real pyoverkiz client on a stub session: no network is touched.
+
+
+class _Resp:
+    def __init__(self, status: int, body):
+        self.status = status
+        self._body = body
+        self.url = "https://stub.example/"
+
+    async def json(self, content_type=None):
+        return self._body
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class _Session:
+    def __init__(self, *responses):
+        self.responses = list(responses)
+        self.posts: list[dict] = []
+
+    def post(self, url, **kw):
+        self.posts.append({"url": url, **kw})
+        r = self.responses.pop(0)
+        if isinstance(r, BaseException):
+            raise r
+        return r
+
+    async def close(self):
+        return None
+
+
+def _gateway_on(session: _Session) -> PyOverkizGateway:
+    gw = PyOverkizGateway("a@example.invalid", "x")
+    gw._client = OverkizClient(
+        server=Server.SAUTER_COZYTOUCH,
+        credentials=UsernamePasswordCredentials(username="a@example.invalid", password="x"),
+        session=session,  # type: ignore[arg-type]
+    )
+    return gw
+
+
+_COMMANDS = [
+    DeviceCommand("io://g/1#1", "setTargetTemperature", (20.5,)),
+    DeviceCommand("io://g/1#1", "setOperatingMode", ("internal",)),
+    DeviceCommand("io://g/2#1", "identify"),
+]
+
+
+async def test_a_command_is_not_sent_again_after_a_dropped_connection():
+    """Overkiz may have accepted the request before the connection dropped: a second send
+    would run the command twice. The pending fails as `network` and the states decide."""
+    session = _Session(
+        aiohttp.ServerDisconnectedError("dropped"),
+        _Resp(200, {"execId": "second"}),
+        _Resp(200, {"execId": "third"}),
+    )
+    gw = _gateway_on(session)
+    with pytest.raises(GatewayError):
+        await gw.execute(_COMMANDS, "Salon")
+    assert len(session.posts) == 1
+
+
+async def test_a_command_is_sent_exactly_as_pyoverkiz_sends_it():
+    assert importlib.metadata.version("pyoverkiz") == "2.2.3"
+    ours = _Session(_Resp(200, {"execId": "exec-1"}))
+    assert await _gateway_on(ours).execute(_COMMANDS, "Salon") == "exec-1"
+    theirs = _Session(_Resp(200, {"execId": "exec-1"}))
+    actions = [
+        Action(
+            device_url="io://g/1#1",
+            commands=[
+                Command(name="setTargetTemperature", parameters=[20.5]),
+                Command(name="setOperatingMode", parameters=["internal"]),
+            ],
+        ),
+        Action(device_url="io://g/2#1", commands=[Command(name="identify", parameters=None)]),
+    ]
+    client = _gateway_on(theirs)._client
+    assert await client.execute_action_group(actions=actions, label="Salon") == "exec-1"
+    assert len(ours.posts) == 1 and ours.posts == theirs.posts
+    assert ours.posts[0]["url"].endswith("/exec/apply")
+    assert ours.posts[0]["json"] == {
+        "label": "Salon",
+        "actions": [
+            {
+                "deviceURL": "io://g/1#1",
+                "commands": [
+                    {"name": "setTargetTemperature", "parameters": [20.5]},
+                    {"name": "setOperatingMode", "parameters": ["internal"]},
+                ],
+            },
+            {"deviceURL": "io://g/2#1", "commands": [{"name": "identify"}]},
+        ],
+    }
+
+
+async def test_a_refused_command_keeps_its_error_mapping():
+    session = _Session(
+        _Resp(400, {"errorCode": "EXEC_QUEUE_FULL", "error": "Execution queue is full"})
+    )
+    with pytest.raises(QuotaError):
+        await _gateway_on(session).execute(_COMMANDS, "Salon")
+    assert len(session.posts) == 1
+
+
+class _ListenerClient:
+    """pyoverkiz's client when Overkiz forgot the listener: the fetch registers a new one."""
+
+    def __init__(self, replaced_by: str | None):
+        self.event_listener_id = "listener-1"
+        self.replaced_by = replaced_by
+
+    async def fetch_events(self):
+        if self.replaced_by is not None:
+            self.event_listener_id, self.replaced_by = self.replaced_by, None
+        return []
+
+
+async def test_a_listener_replaced_inside_a_fetch_is_reported_once():
+    gw = PyOverkizGateway("a@example.invalid", "x")
+    gw._client = _ListenerClient("listener-2")
+    assert await gw.fetch_events() == [ListenerReset()]
+    assert await gw.fetch_events() == []
