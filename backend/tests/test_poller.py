@@ -404,3 +404,25 @@ async def test_a_replaced_event_listener_resyncs_the_house(env):
     assert gw.snapshots == 1 and pump.connected is True
     await pump.run_once()
     assert gw.snapshots == 1  # once
+
+
+async def test_a_resync_in_which_every_read_failed_stays_due(env):
+    """Device by device, one broken device is skipped on purpose; but when no read at all
+    succeeded nothing was resynchronised, and the lost events are still lost."""
+    clock, gw, house, _, pump, _, _ = env
+    for _ in range(pump.guard.limit):
+        pump.guard.record()
+    gw.set_state_silently(f"{SAMPLE_GATEWAY}/9500003#2", "core:TemperatureState", 22.0)
+    gw.broken_devices.update(house.device_urls())
+    pump.request_resync()
+    await pump.run_once()
+    assert pump.connected is True and pump._resync_due is True
+    failed = gw.failed_state_reads
+    clock.advance(30)
+    await pump.run_once()
+    assert gw.failed_state_reads == failed  # each device keeps its own backoff: no burst
+    gw.broken_devices.clear()
+    clock.advance(600)
+    await pump.run_once()
+    assert pump._resync_due is False
+    assert house.radiators["9500003"].temperature == 22.0

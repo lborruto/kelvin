@@ -242,10 +242,12 @@ class EventPump:
     def _may_read_devices(self) -> bool:
         return self.clock() >= self._quota_hold_until
 
-    async def _read_states(self, urls: list[str], changed: set[str], *, paced: bool) -> None:
-        """Read these devices' states. A device whose read fails is skipped and retried later
-        with its own backoff; only a quota or auth answer fails the poll."""
+    async def _read_states(self, urls: list[str], changed: set[str], *, paced: bool) -> int:
+        """Read these devices' states; returns how many were read. A device whose read fails is
+        skipped and retried later with its own backoff; only a quota or auth answer fails the
+        poll."""
         first = True
+        read = 0
         for url in urls:
             if self.clock() < self._device_retry_at.get(url, float("-inf")):
                 continue
@@ -266,9 +268,12 @@ class EventPump:
             self._device_failures.pop(url, None)
             self._device_retry_at.pop(url, None)
             changed |= self.house.reload_device(url, states)
+            read += 1
+        return read
 
     async def _resync(self, changed: set[str]) -> bool:
-        """Resynchronise the whole house; False when it has to wait (quota hold).
+        """Resynchronise the whole house; False when it has to wait (quota hold, or no device
+        answered).
 
         The pump never takes the last full read of the day: it can always resync device by
         device, while a restart needs a full read (final review I1). Without this reserve, a
@@ -283,7 +288,11 @@ class EventPump:
             return False
         else:
             log.info("full setup read budget spent; resyncing device by device")
-            await self._read_states(self.house.device_urls(), changed, paced=True)
+            urls = self.house.device_urls()
+            if urls and not await self._read_states(urls, changed, paced=True):
+                # Not one device answered: nothing was resynchronised. Stay due; each device's
+                # own backoff paces the next tries.
+                return False
         self._next_state_read = self.clock() + self.state_interval  # everything was just read
         self.commands.evaluate_all()
         return True
