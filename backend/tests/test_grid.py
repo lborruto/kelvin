@@ -264,7 +264,7 @@ def grid_env(t, when: datetime):
     svc = GridService(
         GridStore(db),
         fake,
-        spend=lambda: sync.spend(kind="grid"),
+        spend=lambda keep=0: sync.spend(kind="grid", keep=keep),
         tariff=lambda: tariff["t"],
         db=db,
         tz=PARIS,
@@ -325,6 +325,36 @@ async def test_a_day_of_jobs_stays_within_the_grid_share():
             clock.advance(300)
         assert sync.calls_today() == sync.grid_calls_today() <= most
         assert sum(c.startswith("ecowatt") for c in fake.calls) == 2
+
+
+async def test_an_ecowatt_outage_leaves_tempo_its_calls_for_tomorrows_colour():
+    """EcoWatt answering 500 all morning retries every few minutes; those retries stop before
+    they take the grid calls Tempo still has planned at 11:15 and 13:15."""
+    clock, db, sync, _, fake, svc = grid_env(TEMPO_T, datetime(2026, 12, 1, 0, 5, tzinfo=PARIS))
+    fake.fail["ecowatt"] = GridError("http")
+    s = Scheduler(db, svc.jobs(), wall=clock)
+    s.state = {"tempo": {"slot": clock()}, "ecowatt": {"slot": clock()}}  # running since yesterday
+    tomorrow = D + timedelta(days=1)
+    for _ in range(23 * 12):  # every 5 minutes, 00:05 to 23:00
+        await s.run_due()
+        clock.advance(300)
+    assert svc.store.tempo_colours(tomorrow, tomorrow + timedelta(days=1)) == {
+        tomorrow: FakeGridSource.colour(tomorrow)
+    }
+    # Tempo: 06:30 (today) and 11:15 (tomorrow). EcoWatt: one try in the morning, then, once
+    # tomorrow's colour is in, the evening slot takes the call that is left.
+    assert sum(c.startswith("tempo") for c in fake.calls) == 2
+    assert sum(c.startswith("ecowatt") for c in fake.calls) == 2
+    assert sync.grid_calls_today() == 4
+
+
+def test_a_grid_call_can_be_asked_to_keep_room_for_others():
+    db = Database(":memory:")
+    sync = LinkySync(LinkyStore(db), db, None, wall=ManualClock(1_800_000_000.0))
+    assert sync.spend(kind="grid", keep=2) and sync.spend(kind="grid", keep=2)
+    assert not sync.spend(kind="grid", keep=2)  # the last two are kept
+    assert sync.spend(kind="grid", keep=1) and sync.spend(kind="grid")
+    assert not sync.spend(kind="grid") and sync.grid_calls_today() == 4
 
 
 class HoleyGridSource(FakeGridSource):

@@ -137,9 +137,10 @@ class LinkyService:
         self.tariffs.set_contract_last(contract, self.wall())
         self.sync.mark_contract_read(self.today())
 
-    def spend_grid(self) -> bool:
-        """One grid call (Tempo, EcoWatt, Tempo prices) from the shared MED ledger."""
-        return self.sync.spend(kind="grid")
+    def spend_grid(self, keep: int = 0) -> bool:
+        """One grid call (Tempo, EcoWatt, Tempo prices) from the shared MED ledger, leaving
+        `keep` calls of the grid's share for others (`LinkySync.spend`)."""
+        return self.sync.spend(kind="grid", keep=keep)
 
     def today(self) -> date:
         return datetime.fromtimestamp(self.wall(), self.tz).date()

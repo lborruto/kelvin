@@ -71,7 +71,7 @@ class GridService:
         store: GridStore,
         source: GridSource,
         *,
-        spend: Callable[[], bool],
+        spend: Callable[..., bool],  # spend(keep=0): one grid call, leaving `keep` for others
         tariff: Callable[[], Tariff | None],
         db: Database,
         tz: str | ZoneInfo = "Europe/Paris",
@@ -155,7 +155,9 @@ class GridService:
         return True
 
     async def ecowatt_job(self) -> bool:
-        if not self.spend():
+        # A failing EcoWatt retries every few minutes: it leaves the grid calls Tempo still has
+        # planned today, or an outage would cost tomorrow's colour (and its alert).
+        if not self.spend(self._tempo_planned()):
             raise BudgetSpent("budget")
         today = self._now().date()
         # Key D carries the hours of D+1: today's hours sit under yesterday's key.
@@ -185,12 +187,18 @@ class GridService:
         missed = bool(past) and (
             last is None or last < datetime.combine(today, past[-1], tzinfo=self.tz).timestamp()
         )
-        n = sum(1 for t in ECOWATT_TIMES if t > now_t) + int(missed)
-        if self.tempo_needed():
-            n += int(self.tempo_window() is not None)
-            tomorrow = today + timedelta(days=1)
-            if tomorrow not in self.store.tempo_colours(tomorrow, tomorrow + timedelta(days=1)):
-                n += sum(1 for t in TEMPO_TIMES[1:] if t > now_t)
+        return sum(1 for t in ECOWATT_TIMES if t > now_t) + int(missed) + self._tempo_planned()
+
+    def _tempo_planned(self) -> int:
+        """Tempo calls still planned today: one when something is missing now, plus the 11:15
+        and 13:15 slots still to come while tomorrow's colour is unknown."""
+        if not self.tempo_needed():
+            return 0
+        local = self._now()
+        n = int(self.tempo_window() is not None)
+        tomorrow = local.date() + timedelta(days=1)
+        if tomorrow not in self.store.tempo_colours(tomorrow, tomorrow + timedelta(days=1)):
+            n += sum(1 for t in TEMPO_TIMES[1:] if t > local.time())
         return n
 
     def view(self) -> dict[str, Any]:
