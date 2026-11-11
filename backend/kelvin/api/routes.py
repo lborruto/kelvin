@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-import time
 from collections.abc import Callable
 from dataclasses import asdict, replace
 from datetime import date
@@ -511,12 +510,13 @@ async def history(
     ids = _ids(radiators)
     for i in ids:
         _radiator(rt, i)
-    end = end or time.time()
+    now = rt.recorder.wall()  # the runtime's injected clock
+    end = end or now
     start = start or end - 86400
-    _check_span(start, end)
+    _check_span(start, end, now=now)
     if (end - start) / step > MAX_HISTORY_POINTS:
         raise UserError("period_invalid")
-    return rt.recorder.history(ids, start, end, step)
+    return await asyncio.to_thread(rt.recorder.history, ids, start, end, step)
 
 
 @router.get("/energy/radiators")
@@ -728,7 +728,7 @@ async def energy_day(
 async def linky_curve(request: Request, day: Annotated[date, Query(alias="date")]) -> dict:
     linky = _linky(_rt(request))
     _check_days(linky, day)
-    return linky.curve_day(day)
+    return await asyncio.to_thread(linky.curve_day, day)
 
 
 @router.get("/settings")
