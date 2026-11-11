@@ -59,10 +59,6 @@ def slot_ranges(slots: Sequence[Slot]) -> Ranges:
     return ranges
 
 
-def slots_from_pairs(pairs: Iterable[tuple[str, str]]) -> tuple[Slot, ...]:
-    return tuple(Slot(a, b) for a, b in pairs)
-
-
 def offpeak_share_of_day(ranges: Ranges) -> float:
     return sum(b - a for a, b in ranges) / DAY_MIN
 

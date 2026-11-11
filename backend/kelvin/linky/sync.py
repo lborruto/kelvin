@@ -77,7 +77,6 @@ class Request:
 @dataclass
 class SyncState:
     last_ok_at: float | None = None
-    last_attempt_at: float | None = None
     error: str | None = None  # "auth" | "throttled" | "quota" | "error"
     retry_at: float | None = None
     calls_day: str | None = None
@@ -360,7 +359,6 @@ class LinkySync:
             return 0
         today = self.today()
         self.state.retry_at = None
-        self.state.last_attempt_at = now
         made = 0
         failed = False
         ok: set[str] = set()  # kinds with a request that succeeded in this run
