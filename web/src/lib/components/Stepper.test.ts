@@ -103,6 +103,24 @@ describe('Stepper', () => {
     expect(onchange).toHaveBeenCalledTimes(1);
   });
 
+  it('a locked screen or another app (visibilitychange → hidden) sends a waiting value at once, then never again', async () => {
+    const onchange = vi.fn();
+    render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
+    await tap(screen.getByRole('button', { name: 'Diminuer Consigne' }));
+    const state = vi.spyOn(document, 'visibilityState', 'get');
+    // Coming back to the tab sends nothing by itself.
+    state.mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(onchange).not.toHaveBeenCalled();
+    state.mockReturnValue('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(onchange).toHaveBeenCalledTimes(1);
+    expect(onchange).toHaveBeenCalledWith(19.5);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(onchange).toHaveBeenCalledTimes(1);
+    state.mockRestore();
+  });
+
   it('arrow keys step too, one send after the last', async () => {
     const onchange = vi.fn();
     render(Stepper, { value: 20, min: 7, max: 28, label: 'Consigne', onchange });
