@@ -157,3 +157,67 @@ describe('api client', () => {
     ]);
   });
 });
+
+describe('api client: a send survives leaving the page, a stalled request ends', () => {
+  /** A server that never answers: the request ends only when its signal aborts, as a browser's would. */
+  function stalled() {
+    const fn = vi.fn().mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        })
+    );
+    vi.stubGlobal('fetch', fn);
+    return fn;
+  }
+  afterEach(() => vi.useRealTimers());
+
+  it('commands are sent with keepalive (a setpoint flushed while the page goes away still leaves); reads are not', async () => {
+    const fn = mockFetch(202, { pending: null });
+    await api.roomSetpoint('salon', 'manual', 21);
+    expect(fn.mock.calls[0][1].keepalive).toBe(true);
+    await api.cancelOverride('o1');
+    expect(fn.mock.calls[1][1].keepalive).toBe(true);
+    await api.house();
+    expect(fn.mock.calls[2][1].keepalive).toBeFalsy();
+  });
+
+  it('a body too large for the browser’s keepalive budget goes without it', async () => {
+    const fn = mockFetch(200, {});
+    await api.putTariffDoc({ note: 'x'.repeat(20_000) } as never);
+    expect(fn.mock.calls[0][1].keepalive).toBeFalsy();
+  });
+
+  it('a request with no answer after 20 s fails as a network error', async () => {
+    vi.useFakeTimers();
+    stalled();
+    const res = api.houseOff().then(
+      () => 'answered',
+      (e) => e
+    );
+    await vi.advanceTimersByTimeAsync(19_999);
+    expect(await Promise.race([res, Promise.resolve('waiting')])).toBe('waiting');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await res).toMatchObject({ name: 'ApiError', status: 0, code: 'network' });
+  });
+
+  it('the login and the calls that wait on a third party get 60 s', async () => {
+    vi.useFakeTimers();
+    stalled();
+    const res = api.login('a@b.fr', 'x').then(
+      () => 'answered',
+      (e) => e
+    );
+    await vi.advanceTimersByTimeAsync(59_999);
+    expect(await Promise.race([res, Promise.resolve('waiting')])).toBe('waiting');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await res).toMatchObject({ code: 'network' });
+  });
+
+  it('an answer in time leaves no timer behind', async () => {
+    vi.useFakeTimers();
+    mockFetch(200, { rooms: [] });
+    await api.house();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

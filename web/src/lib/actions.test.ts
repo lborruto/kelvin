@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './api/client';
-import { retry, run } from './actions';
+import { retry, run, runHouse } from './actions';
 import { house } from './stores/house.svelte';
 import { toasts } from './stores/toasts.svelte';
 
@@ -61,5 +61,24 @@ describe('run with an error handler', () => {
     expect(toasts.items.length).toBe(before);
     await run(() => Promise.reject(new ApiError(500, 'y')), { onError: () => false });
     expect(toasts.items.length).toBe(before + 1);
+  });
+
+  it('a house command that fails (a stalled request timing out) frees the next one', async () => {
+    const down = vi.fn().mockRejectedValue(new ApiError(0, '', 'network'));
+    expect(await runHouse(down)).toBeNull();
+    const ok = vi.fn().mockResolvedValue({ pending: p('p9') });
+    expect((await runHouse(ok))?.id).toBe('p9');
+    expect(ok).toHaveBeenCalledTimes(1);
+  });
+
+  it('a second house command while one is in flight is not sent', async () => {
+    let answer!: (v: unknown) => void;
+    const slow = vi.fn(() => new Promise((r) => (answer = r)));
+    const first = runHouse(slow as never);
+    const second = vi.fn();
+    expect(await runHouse(second)).toBeNull();
+    expect(second).not.toHaveBeenCalled();
+    answer({ pending: null });
+    await first;
   });
 });
