@@ -342,10 +342,15 @@ class LinkyService:
         change."""
         today = self.today()
         tariff = self.tariffs.get()
+        w_from = today - timedelta(days=WINDOW_DAYS)
+        # The Tempo colours that price the model: a stored colour never changes, so their count
+        # and newest day say whether one was published since (11:15, mid-hour).
+        tempo = self.colours(w_from, today + timedelta(days=FORECAST_DAYS + 2))
         key = (
             today,
             int(self.wall() // 3600),
             recorder.energy_epoch,
+            (len(tempo), max(tempo, default=None)),
             self.store.signature(),
             self.weather_on(),
             self.weather_signature(),
@@ -355,7 +360,6 @@ class LinkyService:
         )
         if self._core_memo is not None and self._core_memo[0] == key:
             return self._core_memo[1], self._core_memo[2]
-        w_from = today - timedelta(days=WINDOW_DAYS)
         inp, _ = self._inputs(
             w_from, today + timedelta(days=1), "day", recorder, rooms, (w_from, today)
         )

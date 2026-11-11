@@ -51,6 +51,22 @@ async def test_period_query_and_bounds(tmp_path):
         ).status_code == 422
 
 
+async def test_a_newly_published_tempo_colour_rebuilds_the_model(tmp_path):
+    """The model's € are priced with the Tempo colours: a colour published at 11:15 must not
+    wait for the next hour behind the memo."""
+    from datetime import date, timedelta
+
+    async with demo(tmp_path, fetched=False) as (client, rt):
+        linky = rt.linky
+        first, _ = linky._core(rt.recorder, {})
+        assert linky._core(rt.recorder, {})[0] is first  # memoised
+        day = linky.today() + timedelta(days=1)
+        stored = rt.grid.store.tempo_colours(date(2000, 1, 1), date(2100, 1, 1))
+        assert day not in stored
+        rt.grid.store.upsert_tempo({day: "red"}, linky.wall())
+        assert linky._core(rt.recorder, {})[0] is not first
+
+
 async def test_forecast_endpoint_is_light(tmp_path):
     async with demo(tmp_path) as (client, rt):
         v = (await client.get("/api/energy/weather/forecast")).json()
