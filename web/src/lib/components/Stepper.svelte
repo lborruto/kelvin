@@ -7,6 +7,7 @@
   import Icon from './Icon.svelte';
   import PendingEdge from './PendingEdge.svelte';
   import { HOLD_DELAY_MS, HOLD_REPEAT_MS, SEND_IDLE_MS } from '$lib/send';
+  import { SendDraft } from '$lib/sendDraft.svelte';
 
   interface Props {
     value: number | null;
@@ -39,69 +40,43 @@
     id?: string;
     /** Read-out of the value on screen (sent or not): a caller's note follows the draft, not only the radiator. */
     shown?: number | null;
+    /** A draft shared with another control of the same value (the room sheet's slider): both continue from the
+     * value on screen and one send goes out, by the draft (`onchange` and `debounceMs` are then the draft's). */
+    draft?: SendDraft;
   }
   let {
     value, min, max, step = 0.5, label, pending = false, disabled = false,
     debounceMs = SEND_IDLE_MS, format = (v) => fmtTemp(v), announce = true, onchange, caption, size = 'md', block = false, below, between,
-    id, shown: shownOut = $bindable(null)
+    id, shown: shownOut = $bindable(null), draft
   }: Props = $props();
 
-  const FALLBACK_MS = 10_000;
-  let local = $state<number | null>(null);
-  // `committed`: the draft was sent (waiting for the radiator); a draft not yet sent is dashed too (« pas encore envoyé »).
-  let committed = $state(false);
-  let shown = $derived(local ?? value);
-  let unsent = $derived(local !== null && !committed && local !== value);
+  // The unsent value and its one timer: the caller's (shared with the room sheet's slider) or this stepper's own.
+  const d =
+    untrack(() => draft) ??
+    new SendDraft({ value: () => value, pending: () => pending, debounceMs: () => debounceMs, send: (v) => onchange(v) });
+  let shown = $derived(d.local ?? value);
+  // A draft not yet sent is dashed too (« pas encore envoyé »).
+  let unsent = $derived(d.local !== null && !d.committed && d.local !== value);
   $effect(() => {
     shownOut = shown;
   });
   // The value the radiator was asked for; confirmed when it reports exactly that (shared rule).
-  const settle = new Settle(() => (pending ? (local ?? value) : null), () => value);
+  const settle = new Settle(() => (pending ? (d.local ?? value) : null), () => value);
   // At a bound the button stays focusable (aria-disabled): a disabled button would drop focus to <body>.
   let atMin = $derived(disabled || shown === null || shown <= min);
   let atMax = $derived(disabled || shown === null || shown >= max);
-  let commitTimer: ReturnType<typeof setTimeout> | undefined;
   let holdTimer: ReturnType<typeof setTimeout> | undefined;
   let repeatTimer: ReturnType<typeof setInterval> | undefined;
-  let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
   let holding = false;
 
-  function release() {
-    clearTimeout(fallbackTimer);
-    committed = false;
-    local = null;
-  }
-
-  // Once a commit was sent, any change of the server value ends the optimistic display.
-  let prevValue: number | null | undefined;
+  // Closing the sheet or leaving the page while a draft waits sends it now (the draft does); a held press ends first.
   $effect(() => {
-    const v = value;
-    if (prevValue !== undefined && v !== prevValue && untrack(() => committed)) release();
-    prevValue = v;
-  });
-
-  // pending true -> false: the radiator answered (or the command failed); show the truth.
-  let prevPending = false;
-  $effect(() => {
-    const p = pending;
-    if (prevPending && !p && untrack(() => committed)) release();
-    prevPending = p;
-  });
-
-  // Closing the sheet or leaving the page while a draft waits sends it now rather than dropping it.
-  function flush() {
-    clearTimeout(commitTimer);
-    commitTimer = undefined;
-    stopHold();
-    holding = false;
-    if (local !== null && !committed && local !== value) commit();
-  }
-  $effect(() => {
-    window.addEventListener('pagehide', flush);
+    const off = d.onflush(() => {
+      stopHold();
+      holding = false;
+    });
     return () => {
-      window.removeEventListener('pagehide', flush);
-      flush();
-      clearTimeout(fallbackTimer);
+      off();
       stopHold();
     };
   });
@@ -111,56 +86,21 @@
   }
 
   /** Restart the idle wait: the one send happens `debounceMs` after the last interaction. */
-  function arm() {
-    clearTimeout(commitTimer);
-    commitTimer = undefined;
-    if (local === null || committed) return;
-    if (debounceMs <= 0) {
-      commit();
-      return;
-    }
-    commitTimer = setTimeout(() => {
-      commitTimer = undefined;
-      commit();
-    }, debounceMs);
-  }
+  const arm = () => d.arm();
+  // One announcement per settled choice, not per tap or hold step.
+  const say = (v: number) => announcer.say(m.stepper.announce(label, format(v)));
 
   function bump(dir: 1 | -1): boolean {
     if (disabled) return false;
     // No known value (e.g. radiators disagree and nothing aggregated it): nothing to step from.
-    const base = local ?? value;
+    const base = d.local ?? value;
     if (base === null) return false;
     const next = clamp(base + dir * step);
     if (next === base) return false;
-    local = next;
-    committed = false;
-    clearTimeout(fallbackTimer);
     // Nothing goes out while a press is held; the wait starts at its release.
-    clearTimeout(commitTimer);
-    commitTimer = undefined;
+    d.set(next, announce ? say : undefined);
     if (!holding || debounceMs <= 0) arm();
     return true;
-  }
-
-  function commit() {
-    // One announcement per settled choice, not per tap or hold step.
-    if (announce && local !== null) announcer.say(m.stepper.announce(label, format(local)));
-    if (local !== null && local !== value) {
-      committed = true;
-      fallbackTimer = setTimeout(release, FALLBACK_MS);
-      const sent = local;
-      const r = onchange(sent);
-      if (r instanceof Promise) {
-        r.then(
-          (res) => {
-            if (res === null && committed && local === sent) release();
-          },
-          () => {
-            if (committed && local === sent) release();
-          }
-        );
-      }
-    } else release();
   }
 
   // A touch is a step only once it is a tap: the step comes on the release, never on the touch itself. A finger

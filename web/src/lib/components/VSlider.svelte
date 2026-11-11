@@ -21,7 +21,9 @@
      `pending` dashes the fill's edge until the radiator reports the value. -->
 <script lang="ts">
   import { fmtTemp, fmtTempShort, fmtTempTick } from '$lib/format';
+  import { untrack } from 'svelte';
   import { SEND_IDLE_MS } from '$lib/send';
+  import { SendDraft } from '$lib/sendDraft.svelte';
   import { announcer } from '$lib/stores/announcer.svelte';
   import { m } from '$lib/i18n';
 
@@ -41,35 +43,38 @@
     onchange: (v: number) => unknown;
     /** Read-out of the target on screen (snapped while dragging): the room sheet's large figure follows it live. */
     shown?: number | null;
+    /** A draft shared with −/+ (the room sheet): both continue from the value on screen and one send goes out, by
+     * the draft (`onchange` and `debounceMs` are then the draft's). */
+    draft?: SendDraft;
   }
   let {
     value, label, min = 10, max = 26, step = 0.5, measured = null, dim = false, pending = false, width = 120, height = 300,
-    debounceMs = SEND_IDLE_MS, onchange, shown: shownOut = $bindable(null)
+    debounceMs = SEND_IDLE_MS, onchange, shown: shownOut = $bindable(null), draft
   }: Props = $props();
 
   let track = $state<HTMLElement>();
-  let local = $state<number | null>(null);
+  // The unsent value and its one timer: the caller's (shared with −/+) or this slider's own.
+  const d =
+    untrack(() => draft) ??
+    new SendDraft({ value: () => value, pending: () => pending, debounceMs: () => debounceMs, send: (v) => onchange(v) });
   let dragging = $state(false);
   let snapping = $state(false);
-  // A value moved to but not sent yet: dashed like a pending one (« pas encore envoyé »).
-  let unsent = $state(false);
-  let timer: ReturnType<typeof setTimeout> | undefined;
   // The target, snapped to the step even mid-drag: the bubble, the large figure and aria-valuetext say the value
   // that will be sent, never the raw finger position.
-  let shown = $derived(local != null ? snapTo(local, step, min, max) : value);
+  let shown = $derived(d.local ?? value);
+  // A value moved to but not sent yet: dashed like a pending one (« pas encore envoyé »).
+  let unsent = $derived(d.local !== null && !d.committed && d.local !== value);
+  // The bubble follows this slider's own moves; a value −/+ is stepping is read on the large figure.
+  let mine = $state(false);
+  $effect(() => {
+    if (!unsent && !dragging) mine = false;
+  });
   // The finger's side (touch): the bubble goes to the other half so the finger never covers it.
   let fingerRight = $state(false);
   let touch = $state(false);
-  let bubble = $derived(!dim && shown != null && (dragging || unsent));
+  let bubble = $derived(!dim && shown != null && (dragging || (mine && unsent)));
   $effect(() => {
     shownOut = shown;
-  });
-  // A new value from the radiators ends the optimistic display (never a draft still waiting to be sent).
-  let prev: number | null | undefined;
-  $effect(() => {
-    const v = value;
-    if (prev !== undefined && v !== prev && !dragging && !unsent) local = null;
-    prev = v;
   });
 
   const pct = (v: number | null) => (v == null ? 0 : ((Math.min(max, Math.max(min, v)) - min) / (max - min)) * 100);
@@ -77,47 +82,18 @@
   // A readable scale: a label every 2 °C, inside the bounds.
   let labels = $derived(ticks.filter((t) => t % 2 === 0));
 
-  function commit() {
-    clearTimeout(timer);
-    timer = undefined;
-    const v = local;
-    unsent = false;
-    if (v == null || v === value) return;
-    announcer.say(m.stepper.announce(label, fmtTemp(v)));
-    onchange(v);
+  const say = (v: number) => announcer.say(m.stepper.announce(label, fmtTemp(v)));
+  function show(v: number) {
+    mine = true;
+    d.set(snapTo(v, step, min, max), say);
   }
-  /** The one send, `debounceMs` after the last release; a new touch or key restarts the wait. */
-  function arm() {
-    clearTimeout(timer);
-    if (local == null || local === value) {
-      unsent = false;
-      return;
-    }
-    unsent = true;
-    timer = setTimeout(commit, debounceMs);
-  }
-  function hold() {
-    clearTimeout(timer);
-    timer = undefined;
-  }
-  // Closing the sheet or leaving the page sends a waiting value at once.
-  function flush() {
-    if (timer !== undefined) commit();
-  }
-  $effect(() => {
-    window.addEventListener('pagehide', flush);
-    return () => {
-      window.removeEventListener('pagehide', flush);
-      flush();
-    };
-  });
 
   function down(e: PointerEvent) {
     if (dim || e.button !== 0 || !track) return;
     dragging = true;
     snapping = false;
     touch = e.pointerType === 'touch' || e.pointerType === 'pen';
-    hold();
+    d.hold();
     try {
       track.setPointerCapture?.(e.pointerId);
     } catch {
@@ -128,36 +104,34 @@
   function move(e: PointerEvent) {
     if (!dragging || !track) return;
     const r = track.getBoundingClientRect();
-    local = valueAtY(e.clientY, r.top, r.height, min, max);
+    show(valueAtY(e.clientY, r.top, r.height, min, max));
     fingerRight = e.clientX > r.left + r.width / 2;
-    unsent = true;
   }
   function up() {
     if (!dragging) return;
     dragging = false;
-    if (local == null) return;
+    if (d.local == null) return;
     snapping = true;
-    local = snapTo(local, step, min, max);
     setTimeout(() => (snapping = false), 60);
-    arm();
+    d.arm();
   }
   function key(e: KeyboardEvent) {
     if (dim) return;
     const base = shown ?? min;
-    const d: Record<string, number> = { ArrowUp: step, ArrowRight: step, ArrowDown: -step, ArrowLeft: -step, PageUp: 1, PageDown: -1 };
+    const by: Record<string, number> = { ArrowUp: step, ArrowRight: step, ArrowDown: -step, ArrowLeft: -step, PageUp: 1, PageDown: -1 };
     let next: number | null = null;
-    if (e.key in d) next = snapTo(base + d[e.key], step, min, max);
+    if (e.key in by) next = snapTo(base + by[e.key], step, min, max);
     else if (e.key === 'Home') next = min;
     else if (e.key === 'End') next = max;
     if (next == null) return;
     e.preventDefault();
     touch = false;
-    local = next;
+    show(next);
     // A key held repeats keydown: the wait restarts on each, and again on its release (keyup).
-    arm();
+    d.arm();
   }
   function keyUp() {
-    if (timer !== undefined) arm();
+    if (d.armed) d.arm();
   }
 </script>
 
