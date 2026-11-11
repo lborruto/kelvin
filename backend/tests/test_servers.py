@@ -12,6 +12,7 @@ from kelvin.api.runtime import SERVER_KEY, DataServerMismatch, start_runtime, st
 from kelvin.config import Settings
 from kelvin.errors import UserError
 from kelvin.house.model import build_house
+from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.overkiz.real import PyOverkizGateway
 from kelvin.overkiz.sample import sample_house
@@ -125,7 +126,9 @@ def test_the_fake_gateway_carries_its_server():
 async def test_a_first_start_records_the_server(tmp_path):
     db = Database(tmp_path / "kelvin.db")
     settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
-    rt = await start_runtime(settings, FakeGateway(), start_tasks=False, db=db)
+    rt = await start_runtime(
+        settings, FakeGateway(), start_tasks=False, guard=SetupReadGuard(), db=db
+    )
     try:
         assert db.get_setting(SERVER_KEY) == "sauter_cozytouch"
     finally:
@@ -138,7 +141,7 @@ async def test_a_start_on_another_servers_data_is_refused_before_any_call(tmp_pa
     gw = FakeGateway()  # Sauter
     settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
     with pytest.raises(DataServerMismatch) as e:
-        await start_runtime(settings, gw, start_tasks=False, db=db)
+        await start_runtime(settings, gw, start_tasks=False, guard=SetupReadGuard(), db=db)
     assert e.value.server == "atlantic_cozytouch"
     assert gw.logins == 0 and gw.snapshots == 0
 
@@ -184,3 +187,24 @@ def test_setup_writes_stay_open_on_cozytouch_servers():
     house = build_house(root, devices, wall=ManualClock(10_000.0))
     for sid in ("sauter_cozytouch", "atlantic_cozytouch", "thermor_cozytouch"):
         assert SetupService(FakeGateway(server=sid), house).writable is True
+
+
+async def test_the_pump_stamps_its_last_success_with_the_injected_clock(tmp_path):
+    from tests.conftest import ManualClock
+
+    clock = ManualClock(1_700_000_000.0)
+    settings = Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True)
+    rt = await start_runtime(
+        settings,
+        FakeGateway(clock=clock),
+        start_tasks=False,
+        guard=SetupReadGuard(wall=clock),
+        wall=clock,
+    )
+    try:
+        assert rt.pump.status()["last_ok_at"] == clock()
+        clock.advance(120)
+        await rt.pump.run_once()
+        assert rt.pump.status()["last_ok_at"] == clock()
+    finally:
+        await stop_runtime(rt)

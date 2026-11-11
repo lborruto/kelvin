@@ -15,6 +15,7 @@ from kelvin.api.app import create_app
 from kelvin.config import Settings
 from kelvin.linky.fake import FakeLinkySource
 from kelvin.linky.models import DailyReading, LinkyAuthError, LinkyError, day_bounds
+from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.weather.normalise import FIT_MARGIN_DAYS
 from tests.conftest import ManualClock, err, login
@@ -360,6 +361,7 @@ async def test_failed_start_closes_the_linky_source(tmp_path, monkeypatch):
             Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
             FakeGateway(clock=ManualClock()),
             start_tasks=False,
+            guard=SetupReadGuard(),
         )
     assert closed == [1]
 
@@ -371,6 +373,7 @@ async def test_real_runtime_without_linky_config_is_off(tmp_path):
         Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=False),
         FakeGateway(clock=ManualClock()),
         start_tasks=False,
+        guard=SetupReadGuard(),
     )
     try:
         assert rt.linky is not None and rt.linky.status()["state"] == "off"

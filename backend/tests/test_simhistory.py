@@ -6,6 +6,7 @@ import pytest
 from kelvin.api.runtime import SERVER_KEY, SETUP_KEY, start_runtime, stop_runtime
 from kelvin.config import Settings
 from kelvin.house.model import build_house
+from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.overkiz.sample import sample_house
 from kelvin.overkiz.simhistory import SIM_PRESENCE, SIM_WINDOW, seed_history
@@ -90,11 +91,13 @@ async def test_runtime_seeds_only_in_fake_mode(tmp_path):
         Settings(_env_file=None, kelvin_data=tmp_path / "a", kelvin_fake=True),
         FakeGateway(),
         start_tasks=False,
+        guard=SetupReadGuard(),
     )
     real = await start_runtime(
         Settings(_env_file=None, kelvin_data=tmp_path / "b", kelvin_fake=False),
         FakeGateway(),
         start_tasks=False,
+        guard=SetupReadGuard(),
     )
     try:
         assert fake.db.query("SELECT COUNT(*) AS n FROM samples")[0]["n"] > 0
@@ -133,6 +136,7 @@ async def test_fake_runtime_on_non_empty_db_seeds_nothing(tmp_path):
         Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
         FakeGateway(),
         start_tasks=False,
+        guard=SetupReadGuard(),
     )
     try:
         assert rt.db.query("SELECT COUNT(*) AS n FROM samples")[0]["n"] == 1
@@ -146,13 +150,17 @@ async def test_real_gateway_refuses_sim_db(tmp_path):
         Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
         FakeGateway(),
         start_tasks=False,
+        guard=SetupReadGuard(),
     )
     assert sim.db.get_setting("sim_db") is True
     await stop_runtime(sim)
     gw = StubGateway()
     with pytest.raises(RuntimeError, match="simulator data"):
         await start_runtime(
-            Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=False), gw, start_tasks=False
+            Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=False),
+            gw,
+            start_tasks=False,
+            guard=SetupReadGuard(),
         )
     assert gw.closed
 
@@ -165,7 +173,10 @@ async def test_a_real_gateway_on_simulator_data_is_refused_before_any_call(tmp_p
     gw = StubGateway()
     with pytest.raises(RuntimeError, match="simulator data"):
         await start_runtime(
-            Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=False), gw, start_tasks=False
+            Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=False),
+            gw,
+            start_tasks=False,
+            guard=SetupReadGuard(),
         )
     assert (gw.logins, gw.snapshots, gw.closed) == (0, 0, True)
     db = Database(tmp_path / "kelvin.db")
@@ -180,6 +191,7 @@ async def test_fake_flag_with_non_fake_gateway_seeds_nothing(tmp_path):
         Settings(_env_file=None, kelvin_data=tmp_path, kelvin_fake=True),
         StubGateway(),
         start_tasks=False,
+        guard=SetupReadGuard(),
     )
     try:
         assert rt.db.query("SELECT COUNT(*) AS n FROM samples") == [{"n": 0}]

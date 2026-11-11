@@ -374,11 +374,12 @@ async def start_runtime(
     start_tasks: bool = True,
     db: Database | None = None,
     linky: tuple[str, str] | None = None,
-    guard: SetupReadGuard | None = None,
+    guard: SetupReadGuard,
     wall: Callable[[], float] = time.time,
 ) -> Runtime:
     """Log in, read the whole setup once and start the runtime. `guard` is the process's
-    budget of full setup reads (spec ruling 8).
+    budget of full setup reads (spec ruling 8): required, so no start runs on a budget that
+    nothing stores.
 
     A start is never held up for a day by the budget (final review I1). When it is spent, the
     house is built from the stored structure of the last full read and every device's states
@@ -398,7 +399,6 @@ async def start_runtime(
     linky_service: LinkyService | None = None
     grid: GridService | None = None
     weather: WeatherService | None = None
-    guard = guard or SetupReadGuard()
     try:
         if db is None:
             settings.kelvin_data.mkdir(parents=True, exist_ok=True)
@@ -540,6 +540,7 @@ async def start_runtime(
             commands,
             on_changed=on_changed,
             on_status=lambda s: bc.publish("status", s),
+            wall=wall,
             guard=guard,
             on_setup=lambda r, d: store_setup(db, r, d),
             setup=setup,

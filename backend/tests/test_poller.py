@@ -6,6 +6,7 @@ import pytest
 from kelvin.commands.service import CommandService
 from kelvin.commands.translate import plan_mode
 from kelvin.house.model import build_house
+from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import AuthError, QuotaError
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.overkiz.models import ListenerReset, StateChange
@@ -34,6 +35,7 @@ def env():
         on_changed=changed.append,
         on_status=statuses.append,
         sleep=_no_sleep,
+        guard=SetupReadGuard(wall=clock),
     )
     pump.mark_ok()
     return clock, gw, house, svc, pump, changed, statuses

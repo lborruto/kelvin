@@ -14,7 +14,7 @@ from kelvin.auth.service import (
     login,
 )
 from kelvin.config import Settings
-from kelvin.overkiz.budget import DAY_S, FULL_READS_PER_DAY
+from kelvin.overkiz.budget import DAY_S, FULL_READS_PER_DAY, SetupReadGuard
 from kelvin.overkiz.errors import GatewayError, QuotaError
 from kelvin.overkiz.fake import DEMO_EMAIL, DEMO_PASSWORD, FakeGateway
 from kelvin.recorder.db import Database
@@ -241,7 +241,7 @@ async def test_failed_gateway_login_closes_the_gateway(tmp_path):
     db = Database(tmp_path / "kelvin.db")
     try:
         with pytest.raises(GatewayError):
-            await start_runtime(settings, gw, start_tasks=False, db=db)
+            await start_runtime(settings, gw, start_tasks=False, guard=SetupReadGuard(), db=db)
         assert gw.closed == 1
         db.get_setting("x")  # the borrowed DB is still open
     finally:
