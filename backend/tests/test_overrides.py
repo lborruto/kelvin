@@ -4,6 +4,7 @@ import json
 import pytest
 
 from kelvin.commands.overrides import (
+    PROVISIONAL_WAIT_S,
     RESTORE_GIVE_UP_S,
     RESTORE_RETRY_FIRST_S,
     OverrideManager,
@@ -12,7 +13,7 @@ from kelvin.commands.overrides import (
 from kelvin.commands.service import CommandService
 from kelvin.commands.translate import CommandError, plan_mode
 from kelvin.house.model import build_house
-from kelvin.overkiz.errors import GatewayError
+from kelvin.overkiz.errors import GatewayError, UnansweredError
 from kelvin.overkiz.fake import FakeGateway
 from kelvin.overkiz.models import StateChange
 from kelvin.recorder.db import Database
@@ -985,3 +986,60 @@ async def test_a_restore_is_given_up_after_a_week_offline(env, caplog):
     assert len(gw.executed) == sent
     assert "restore given up" in caplog.text
     assert "9000011" not in caplog.text  # no radiator id in a log
+
+
+async def test_a_start_that_got_no_answer_is_kept_and_restored_when_it_did_run(env):
+    """A timeout or a dropped connection after Overkiz took the command: the pending reads
+    failed, yet the radiators switch. Without the override nothing would ever put them back
+    (and an away would have no log row)."""
+    clock, gw, house, svc, db, mgr = env
+    gw.fail_next_execute = UnansweredError("TimeoutError")
+    o, p = await mgr.start("away", ["9500003"], 12.0, clock() + 3600, label="a")
+    assert p.status == "failed" and p.reason_code == "network"
+    assert [v["id"] for v in mgr.active()] == [o.id]
+    assert await mgr.tick() == [] and len(mgr.active()) == 1  # not judged before the states
+    for e in p.planned.expectations:  # Overkiz did run it
+        gw.push_state(e.device_url, e.name, e.value)
+    await settle(clock, gw, house, svc)
+    clock.advance(PROVISIONAL_WAIT_S)
+    assert await mgr.tick() == [] and len(mgr.active()) == 1
+    assert db.rows("SELECT id, ended FROM away_log") == [(o.id, 0)]
+    clock.advance(3600)
+    [r] = await mgr.tick()
+    await settle(clock, gw, house, svc)
+    assert r.status == "confirmed"
+    assert house.radiators["9500003"].mode == "program"
+    assert house.radiators["9500003"].target == 20.0
+    await mgr.tick()
+    assert mgr.active() == []
+
+
+async def test_a_start_that_got_no_answer_and_never_ran_is_dropped(env):
+    clock, gw, house, svc, db, mgr = env
+    gw.fail_next_execute = UnansweredError("ServerDisconnectedError")
+    o, p = await mgr.start("away", ["9500003"], 12.0, None, label="a")
+    assert p.status == "failed"
+    clock.advance(PROVISIONAL_WAIT_S - 1)
+    assert await mgr.tick() == [] and len(mgr.active()) == 1
+    clock.advance(1)
+    sent = len(gw.executed)
+    assert await mgr.tick() == []
+    assert mgr.active() == [] and db.query("SELECT id FROM overrides") == []
+    assert len(gw.executed) == sent  # nothing to restore
+    assert db.rows("SELECT id, ended FROM away_log") == [(o.id, 1)]
+
+
+async def test_an_unanswered_start_does_not_take_over_the_away_it_would_replace(env):
+    clock, gw, house, svc, _, mgr = env
+    first, _ = await mgr.start("away", ["9500003"], 12.0, None, label="a")
+    await settle(clock, gw, house, svc)
+    gw.fail_next_execute = UnansweredError("TimeoutError")
+    await mgr.start("away", ["9500003"], 14.0, None, label="a")
+    clock.advance(PROVISIONAL_WAIT_S)
+    await mgr.tick()  # the second never ran: dropped, the first still holds its radiator
+    [v] = mgr.active()
+    assert v["id"] == first.id and v["radiator_ids"] == ["9500003"]
+    await mgr.cancel(first.id)
+    await settle(clock, gw, house, svc)
+    assert house.radiators["9500003"].mode == "program"
+    assert house.radiators["9500003"].target == 20.0

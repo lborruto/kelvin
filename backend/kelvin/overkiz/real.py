@@ -19,7 +19,13 @@ from pyoverkiz.models import (
 )
 from pyoverkiz.serializers import prepare_payload
 
-from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError, QuotaError
+from kelvin.overkiz.errors import (
+    AuthError,
+    BadCredentialsError,
+    GatewayError,
+    QuotaError,
+    UnansweredError,
+)
 from kelvin.overkiz.models import (
     DeviceCommand,
     DeviceUpdate,
@@ -65,6 +71,11 @@ def _map_error(e: BaseException) -> GatewayError:
         return BadCredentialsError(str(e) or type(e).__name__)
     if isinstance(e, _AUTH):
         return AuthError(str(e) or type(e).__name__)
+    if isinstance(e, TimeoutError) or (
+        isinstance(e, aiohttp.ClientError) and not isinstance(e, aiohttp.ClientConnectorError)
+    ):
+        # Not an answer from Overkiz, and not a connection that never opened either.
+        return UnansweredError(str(e) or type(e).__name__)
     return GatewayError(str(e) or type(e).__name__)
 
 

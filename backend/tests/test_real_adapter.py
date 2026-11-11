@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import aiohttp
 import pytest
+from pyoverkiz import exceptions as ox
 from pyoverkiz.auth.credentials import UsernamePasswordCredentials
 from pyoverkiz.client import OverkizClient
 from pyoverkiz.converter import converter
@@ -18,7 +19,7 @@ from pyoverkiz.models import (
 from pyoverkiz.models import Event as OverkizEvent
 from pyoverkiz.models import Place as OverkizPlace
 
-from kelvin.overkiz.errors import GatewayError, QuotaError
+from kelvin.overkiz.errors import GatewayError, QuotaError, UnansweredError
 from kelvin.overkiz.models import (
     DeviceCommand,
     DeviceUpdate,
@@ -31,6 +32,7 @@ from kelvin.overkiz.models import (
 from kelvin.overkiz.real import (
     REQUEST_TIMEOUT_S,
     PyOverkizGateway,
+    _map_error,
     to_events,
     to_raw_device,
     to_raw_place,
@@ -233,9 +235,20 @@ async def test_a_command_is_not_sent_again_after_a_dropped_connection():
         _Resp(200, {"execId": "third"}),
     )
     gw = _gateway_on(session)
-    with pytest.raises(GatewayError):
+    with pytest.raises(UnansweredError):  # it may have run: the caller must not assume it did not
         await gw.execute(_COMMANDS, "Salon")
     assert len(session.posts) == 1
+
+
+def test_only_a_request_that_may_have_left_is_unanswered():
+    assert isinstance(_map_error(TimeoutError()), UnansweredError)
+    assert isinstance(_map_error(aiohttp.ServerDisconnectedError("x")), UnansweredError)
+    assert isinstance(_map_error(aiohttp.ClientPayloadError("x")), UnansweredError)
+    never_opened = aiohttp.ClientConnectorError(
+        SimpleNamespace(ssl=None, host="h", port=443), OSError("refused")
+    )
+    for definite in (never_opened, ox.OverkizError("400"), ox.TooManyExecutionsError("x")):
+        assert not isinstance(_map_error(definite), UnansweredError)
 
 
 async def test_a_command_is_sent_exactly_as_pyoverkiz_sends_it():

@@ -2,6 +2,11 @@ class GatewayError(Exception):
     """Overkiz is unreachable or refused the request."""
 
 
+class UnansweredError(GatewayError):
+    """No answer came back (a timeout, a connection dropped after it opened): Overkiz may have
+    taken the request all the same. A command sent this way can still run."""
+
+
 class QuotaError(GatewayError):
     """Overkiz rate limit (QUOTA_EXCEEDED / too many requests or executions)."""
 
