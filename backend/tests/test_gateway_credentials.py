@@ -3,6 +3,7 @@ from pyoverkiz import exceptions as ox
 
 from kelvin.commands.service import CommandService
 from kelvin.house.model import build_house
+from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError
 from kelvin.overkiz.fake import DEMO_EMAIL, DEMO_PASSWORD, FakeGateway
 from kelvin.overkiz.models import DeviceCommand
@@ -47,6 +48,7 @@ def _pump():
         clock=clock,
         wall=clock,
         on_status=statuses.append,
+        guard=SetupReadGuard(wall=clock),
     )
     pump.mark_ok()
     return gw, pump, statuses

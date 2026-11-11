@@ -41,6 +41,7 @@ class EventPump:
         house: House,
         commands: CommandService,
         *,
+        guard: SetupReadGuard,
         on_changed: Callable[[set[str]], None] | None = None,
         on_status: Callable[[dict[str, Any]], None] | None = None,
         clock: Callable[[], float] = time.monotonic,
@@ -49,7 +50,6 @@ class EventPump:
         busy_interval: float = 2.0,
         state_interval: float = 600.0,
         max_backoff: float = 600.0,
-        guard: SetupReadGuard | None = None,
         device_pause: float = 0.2,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         on_setup: Callable[[RawPlace, list[RawDevice]], None] | None = None,
@@ -68,7 +68,7 @@ class EventPump:
         self.busy_interval = busy_interval
         self.state_interval = state_interval
         self.max_backoff = max_backoff
-        self.guard = guard or SetupReadGuard(wall=wall)
+        self.guard = guard
         self.device_pause = device_pause  # between the reads of a device-by-device resync
         self.sleep = sleep
         self.on_setup = on_setup or (lambda root, devices: None)  # after each full read
