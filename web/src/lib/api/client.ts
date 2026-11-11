@@ -64,41 +64,65 @@ export function setLoginRequiredHandler(fn: (() => void) | null): void {
 
 const enc = encodeURIComponent;
 
-async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+/** A request with no answer after this long is over: its caller gets `network` and its busy flag ends. */
+const TIMEOUT_MS = 20_000;
+/** The login and the calls that wait on a third party (Cozytouch, MyElectricalData, Open-Meteo) or build a long report. */
+const SLOW_MS = 60_000;
+/** Browsers refuse a keepalive request once the bodies in flight pass 64 KiB: a larger body goes without it. */
+const KEEPALIVE_MAX = 16 * 1024;
+
+async function call<T>(method: string, path: string, body?: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
   const headers: Record<string, string> = {};
   if (method !== 'GET') headers['X-Kelvin'] = '1';
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  let res: Response;
+  const payload = body === undefined ? undefined : JSON.stringify(body);
+  // A timer rather than `AbortSignal.timeout`: it covers the body too, and older phones have no `timeout`.
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    res = await fetch(`/api${path}`, {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body)
-    });
-  } catch {
-    throw new ApiError(0, '', 'network');
-  }
-  if (!res.ok) {
-    let detail = '';
-    let code: string | null = null;
-    let params: ApiParams = {};
+    let res: Response;
     try {
-      const data = await res.json();
-      if (typeof data?.detail === 'string') detail = data.detail;
-      if (typeof data?.code === 'string') code = data.code;
-      if (data?.params && typeof data.params === 'object') params = data.params;
+      res = await fetch(`/api${path}`, {
+        method,
+        headers,
+        body: payload,
+        signal: ctl.signal,
+        // A command sent while the page goes away (a waiting setpoint flushed on `pagehide`) still leaves.
+        keepalive: method !== 'GET' && (payload?.length ?? 0) <= KEEPALIVE_MAX
+      });
     } catch {
-      /* body was not JSON */
+      throw new ApiError(0, '', 'network');
     }
-    // A 503 carries Kelvin's own message (Cozytouch or MyElectricalData unreachable); other 5xx
-    // details are internal and never shown.
-    if (res.status >= 500 && res.status !== 503) [detail, code, params] = ['', 'server', {}];
-    else if (!code && !detail) code = 'unexpected';
-    if (res.status === 401 && code === 'login_required') onLoginRequired?.();
-    throw new ApiError(res.status, detail, code, params);
+    if (!res.ok) {
+      let detail = '';
+      let code: string | null = null;
+      let params: ApiParams = {};
+      try {
+        const data = await res.json();
+        if (typeof data?.detail === 'string') detail = data.detail;
+        if (typeof data?.code === 'string') code = data.code;
+        if (data?.params && typeof data.params === 'object') params = data.params;
+      } catch {
+        /* body was not JSON */
+      }
+      // A 503 carries Kelvin's own message (Cozytouch or MyElectricalData unreachable); other 5xx
+      // details are internal and never shown.
+      if (res.status >= 500 && res.status !== 503) [detail, code, params] = ['', 'server', {}];
+      else if (!code && !detail) code = 'unexpected';
+      if (res.status === 401 && code === 'login_required') onLoginRequired?.();
+      throw new ApiError(res.status, detail, code, params);
+    }
+    if (res.status === 204) return undefined as T;
+    try {
+      return (await res.json()) as T;
+    } catch (e) {
+      // The answer started and stalled: the same as no answer.
+      if (ctl.signal.aborted) throw new ApiError(0, '', 'network');
+      throw e;
+    }
+  } finally {
+    clearTimeout(timer);
   }
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
 }
 
 const cmd = (method: string, path: string, body?: unknown) => call<CommandResult>(method, path, body);
@@ -119,7 +143,7 @@ export const api = {
   me: () => call<Me>('GET', '/auth/me'),
   status: () => call<StatusView>('GET', '/status'),
   login: (email: string, password: string, server?: string) =>
-    call<Me>('POST', '/auth/login', server ? { email, password, server } : { email, password }),
+    call<Me>('POST', '/auth/login', server ? { email, password, server } : { email, password }, SLOW_MS),
   servers: () => call<ServerList>('GET', '/auth/servers'),
   logout: () => call<Me>('POST', '/auth/logout'),
   house: () => call<Snapshot>('GET', '/house'),
@@ -165,7 +189,7 @@ export const api = {
   moveRadiator: (id: string, roomId: string) => cmd('POST', `/radiators/${enc(id)}/move`, { room_id: roomId }),
   renameRadiator: (id: string, name: string) => cmd('PATCH', `/radiators/${enc(id)}/features`, { name }),
   tidyDevice: (deviceId: string) => cmd('POST', `/setup/devices/${enc(deviceId)}/tidy`),
-  syncSetup: () => call<{ sync: SyncStatus }>('POST', '/setup/sync'),
+  syncSetup: () => call<{ sync: SyncStatus }>('POST', '/setup/sync', undefined, SLOW_MS),
   radiatorLevel: (id: string, level: PilotLevel) => cmd('POST', `/radiators/${enc(id)}/level`, { level }),
   radiatorDryer: (id: string, action: DryerAction) => cmd('POST', `/radiators/${enc(id)}/dryer`, { action }),
 
@@ -190,28 +214,30 @@ export const api = {
     call<EnergyReport>(
       'GET',
       `/energy?from=${enc(from)}&to=${enc(to)}&group=${group}` +
-        (period ? `&period_from=${enc(period.from)}&period_to=${enc(period.to)}` : '')
+        (period ? `&period_from=${enc(period.from)}&period_to=${enc(period.to)}` : ''),
+      undefined,
+      SLOW_MS
     ),
   energyDay: (date: string, room?: string | null) =>
     call<EnergyDay>('GET', `/energy/day?date=${enc(date)}` + (room ? `&room=${enc(room)}` : '')),
   settings: () => call<SettingsView>('GET', '/settings'),
   putTariffDoc: (doc: TariffDoc) => call<SettingsView>('PUT', '/settings', { tariff: doc }),
-  tempoPrices: () => call<TempoPrices>('POST', '/grid/tempo-prices'),
+  tempoPrices: () => call<TempoPrices>('POST', '/grid/tempo-prices', undefined, SLOW_MS),
   linkyStatus: () => call<LinkyStatus>('GET', '/settings/linky'),
   putLinky: (prm: string, token?: string) =>
-    call<LinkyStatus>('PUT', '/settings/linky', token ? { prm, token } : { prm }),
+    call<LinkyStatus>('PUT', '/settings/linky', token ? { prm, token } : { prm }, SLOW_MS),
 
   // Weather (Plan 14): the outdoor temperature; null without a place. Times are epoch s.
   weather: () => call<WeatherView | null>('GET', '/weather'),
   weatherHourly: (start: number, end: number) => call<WeatherHourly>('GET', `/weather/hourly?start=${start}&end=${end}`),
   weatherSearch: (q: string, lang: 'fr' | 'en') =>
-    call<{ results: WeatherPlace[] }>('POST', '/weather/search', { q, lang }),
+    call<{ results: WeatherPlace[] }>('POST', '/weather/search', { q, lang }, SLOW_MS),
   weatherSettings: () => call<WeatherSettings>('GET', '/settings/weather'),
-  putWeather: (body: WeatherLocationBody) => call<WeatherSettings>('PUT', '/settings/weather', body),
+  putWeather: (body: WeatherLocationBody) => call<WeatherSettings>('PUT', '/settings/weather', body, SLOW_MS),
   deleteWeather: () => call<void>('DELETE', '/settings/weather'),
 
   // « Météo et coût » (Plan 15, spec 2026-10-18 §8): `period` is the selected one, `to` exclusive.
   weatherCost: (period?: { from: string; to: string }) =>
-    call<WeatherCost>('GET', period ? `/energy/weather?from=${enc(period.from)}&to=${enc(period.to)}` : '/energy/weather'),
+    call<WeatherCost>('GET', period ? `/energy/weather?from=${enc(period.from)}&to=${enc(period.to)}` : '/energy/weather', undefined, SLOW_MS),
   weatherCostForecast: () => call<WeatherCostForecastView>('GET', '/energy/weather/forecast')
 };
