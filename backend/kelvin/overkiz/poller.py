@@ -300,8 +300,14 @@ class EventPump:
     def _apply_full_read(self, root: RawPlace, devices: list[RawDevice], changed: set[str]) -> None:
         """A full read refreshes states, and also places, labels and placement (spec §2.7)."""
         changed |= self.house.reload(devices)
+        before = set(self.house.radiators)
         if self.house.sync_setup(root, devices):
             self._layout_dirty = True
+        # The read may have brought a new radiator or dropped a removed one: the first is
+        # published like a change, the second no longer exists to publish.
+        after = set(self.house.radiators)
+        changed.difference_update(before - after)
+        changed.update(after - before)
         if self.setup is not None:
             self.setup.reconciled()  # what the unconfirmed writes did is in this read
         if self.refresher is not None:

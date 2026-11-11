@@ -491,9 +491,11 @@ class House:
         radiators: dict[str, Radiator],
         *,
         wall: Callable[[], float] = time.time,
+        server: str = DEFAULT_SERVER,
     ) -> None:
         self.rooms: dict[str, Room] = {r.id: r for r in rooms}
         self.radiators = radiators
+        self.server = server  # sets the support of a radiator a later full read brings
         self._by_url: dict[str, str] = {
             url: rid for rid, r in radiators.items() for url in r.states
         }
@@ -603,9 +605,10 @@ class House:
         )
 
     def sync_setup(self, root: RawPlace, devices: list[RawDevice]) -> bool:
-        """Places, labels, placement and bridge states from a full setup read. True when the
-        rooms, the placement or a label changed."""
+        """Radiators, places, labels, placement and bridge states from a full setup read. True
+        when the rooms, the placement, a label or the set of devices changed."""
         before = self.layout_key()
+        self._follow_radiators(radiators_of(root, devices, self.server))
         self.root_oid = root.oid
         self.places = {p.oid: Place(p.oid, p.label, p.type, parent) for parent, p in _walk(root)}
         self.meta = {
@@ -617,6 +620,27 @@ class House:
         }
         self._rebuild()
         return self.layout_key() != before
+
+    def _follow_radiators(self, fresh: dict[str, Radiator]) -> None:
+        """A full setup read says which radiators exist: one paired since the last read joins
+        the house (it was listed as a read-only « other » device until a restart), one removed
+        from the setup leaves it (it stayed as a ghost). A radiator already known keeps its
+        object, states and signal, so commands in flight and overrides are untouched."""
+        for rid in [rid for rid in self.radiators if rid not in fresh]:
+            for url in self.radiators.pop(rid).states:
+                self._by_url.pop(url, None)
+                self.signal.status_seen.pop(url, None)
+                self.signal.last_event_ts.pop(url, None)
+        now = self.wall()
+        for rid, r in fresh.items():
+            if rid in self.radiators:
+                continue
+            r.signal = self.signal
+            self.radiators[rid] = r
+            for url, states in r.states.items():
+                self._by_url[url] = rid
+                if STATUS in states:
+                    self.signal.status_seen[url] = StatusSeen(states[STATUS], now, False)
 
     def _rebuild(self) -> None:
         """Rooms from placement: a radiator's room is its heater's place."""
@@ -817,19 +841,12 @@ class House:
         }
 
 
-def build_house(
-    root: RawPlace,
-    devices: list[RawDevice],
-    *,
-    wall: Callable[[], float] = time.time,
-    server: str = DEFAULT_SERVER,
-) -> House:
-    """`server`: the home's Overkiz server, which sets each radiator's support (Plan 12)."""
+def radiators_of(root: RawPlace, devices: list[RawDevice], server: str) -> dict[str, Radiator]:
+    """The radiators a full setup read holds: one per group of devices with a heater."""
     groups: dict[str, list[RawDevice]] = {}
     for d in devices:
         groups.setdefault(base_url(d.device_url), []).append(d)
-    places = list(iter_places(root))
-    labels = {p.oid: p.label.strip() for p in places}
+    known = {p.oid for p in iter_places(root)}
 
     radiators: dict[str, Radiator] = {}
     for devs in groups.values():
@@ -845,7 +862,7 @@ def build_house(
         rid = radiator_id(heater.device_url)
         radiators[rid] = Radiator(
             id=rid,
-            room_id=heater.place_oid if heater.place_oid in labels else root.oid,
+            room_id=heater.place_oid if heater.place_oid in known else root.oid,
             heater_url=heater.device_url,
             urls=urls,
             states={d.device_url: dict(d.states) for d in devs},
@@ -854,6 +871,20 @@ def build_house(
             support=support_for(kind, server),
             values=dict(heater.state_values),
         )
+    return radiators
+
+
+def build_house(
+    root: RawPlace,
+    devices: list[RawDevice],
+    *,
+    wall: Callable[[], float] = time.time,
+    server: str = DEFAULT_SERVER,
+) -> House:
+    """`server`: the home's Overkiz server, which sets each radiator's support (Plan 12)."""
+    places = list(iter_places(root))
+    labels = {p.oid: p.label.strip() for p in places}
+    radiators = radiators_of(root, devices, server)
 
     rooms = []
     for p in places:
@@ -861,6 +892,6 @@ def build_house(
         if rids:
             name = "Maison" if p.oid == root.oid else labels[p.oid]
             rooms.append(Room(id=p.oid, name=name, radiator_ids=rids))
-    house = House(rooms, radiators, wall=wall)
+    house = House(rooms, radiators, wall=wall, server=server)
     house.sync_setup(root, devices)
     return house

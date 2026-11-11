@@ -185,3 +185,54 @@ def test_bridge_events_update_their_states_and_last_signal():
     )
     box = next(b for b in h.setup_view()["bridges"] if b["role"] == "box")
     assert box["reachable"] is False and box["last_event_at"] == 10_060.0
+
+
+# A full setup read is the truth for which radiators exist (not only where they are).
+
+
+def _without(devices, rid):
+    return [d for d in devices if not d.device_url.startswith(f"{S}/{rid}#")]
+
+
+def test_a_radiator_paired_after_the_start_joins_the_house_on_a_full_read():
+    clock = ManualClock(10_000.0)
+    root, devices = sample_house()
+    h = build_house(root, _without(devices, "9000011"), wall=clock)
+    assert "9000011" not in h.radiators and "p-ch1" not in h.rooms
+    kept = h.radiators["9500003"]
+    kept_states = json.dumps(kept.states, sort_keys=True)
+    clock.advance(60)
+    assert h.sync_setup(root, devices)
+    assert h.rooms["p-ch1"].radiator_ids == ["9000011"]
+    new = h.radiators["9000011"]
+    assert new.mode == "program" and new.support == kept.support and new.kind == kept.kind
+    assert not any(u.startswith(f"{S}/9000011#") for u in h.others)
+    assert h.radiator_for_url(new.heater_url) == "9000011"
+    assert new.view()["reachable"] is True and new.signal is h.signal
+    # it takes events and reads like any other
+    assert h.apply(StateChange(new.heater_url, "core:TargetTemperatureState", 17.0)) == "9000011"
+    assert new.target == 17.0
+    ids = {
+        d["id"] for r in h.setup_view()["radiators"] if r["id"] == "9000011" for d in r["devices"]
+    }
+    assert "9000011#1" in ids
+    # the radiators already there are the same objects, untouched
+    assert h.radiators["9500003"] is kept
+    assert json.dumps(kept.states, sort_keys=True) == kept_states
+    assert not h.sync_setup(root, devices)  # and the same read again changes nothing
+
+
+def test_a_radiator_removed_from_the_setup_leaves_the_house_on_a_full_read():
+    root, devices = sample_house()
+    h = build_house(root, devices)
+    gone = h.radiators["9000011"]
+    h.apply(StateChange(gone.heater_url, "core:TargetTemperatureState", 17.0))
+    kept = h.radiators["9500003"]
+    assert h.sync_setup(root, _without(devices, "9000011"))
+    assert "9000011" not in h.radiators and "p-ch1" not in h.rooms
+    assert h.radiator_for_url(gone.heater_url) is None
+    assert gone.heater_url not in h.last_event_ts and gone.heater_url not in h.device_urls()
+    assert all(r["id"] != "9000011" for r in h.view()["radiators"])
+    assert all(r["id"] != "9000011" for r in h.setup_view()["radiators"])
+    assert h.apply(StateChange(gone.heater_url, "core:TargetTemperatureState", 18.0)) is None
+    assert h.radiators["9500003"] is kept

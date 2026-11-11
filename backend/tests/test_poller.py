@@ -428,3 +428,34 @@ async def test_a_resync_in_which_every_read_failed_stays_due(env):
     await pump.run_once()
     assert pump._resync_due is False
     assert house.radiators["9500003"].temperature == 22.0
+
+
+async def test_a_full_read_adds_a_new_radiator_and_drops_a_removed_one(env):
+    """Until now a radiator paired after the start stayed a read-only « other » device until a
+    restart, and a removed one stayed as a ghost."""
+    clock, gw, house, svc, pump, changed, _ = env
+    layouts: list[int] = []
+    pump.on_layout = lambda: layouts.append(1)
+    prefix = f"{SAMPLE_GATEWAY}/9000011#"
+    held = {u: d for u, d in gw.devices.items() if u.startswith(prefix)}
+    for u in held:
+        del gw.devices[u]
+    kept = house.radiators["9500003"]
+    p = await svc.submit("Mode", (kept.id,), plan_mode(kept, "manual"))
+    pump.request_resync()
+    await pump.run_once()  # the radiator is gone from the setup
+    assert "9000011" not in house.radiators and layouts == [1]
+    assert all("9000011" not in ids for ids in changed)
+    clock.advance(2)
+    await pump.run_once()
+    assert p.status == "confirmed" and house.radiators["9500003"] is kept  # nothing else moved
+    gw.devices.update(held)
+    pump.request_resync()
+    await pump.run_once()  # paired again
+    assert house.radiators["9000011"].mode == "program" and layouts == [1, 1]
+    assert "9000011" in changed[-1]
+    r = house.radiators["9000011"]
+    q = await svc.submit("Mode", (r.id,), plan_mode(r, "manual"))
+    clock.advance(2)
+    await pump.run_once()
+    assert q.status == "confirmed" and r.mode == "manual"
