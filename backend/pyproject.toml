@@ -20,7 +20,7 @@ dev = [
   "pytest-asyncio>=1.4.1",
   "asgi-lifespan>=2.1",
   "ruff>=0.17.3",
-  "hypothesis==6.170.13",
+  "hypothesis==6.170.14",
   "pytest-xdist>=3.8.0",
 ]
 
