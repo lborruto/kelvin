@@ -21,9 +21,6 @@ backend/captures/
 docs/superpowers/
 .worktrees/
 
-# Agent worktrees (whole checkouts of this repository)
-.claude/worktrees/
-
 # Tooling
 node_modules/
 __pycache__/
