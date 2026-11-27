@@ -34,9 +34,11 @@ three rooms, four radiators, 45 days of history (`KELVIN_SIM_HISTORY_DAYS`), a s
 
 ## Checks
 
-Run both before opening a pull request. CI runs the same: workflow lint, backend, web, the
-Playwright suite in 4 shards, and the Docker image (build, smoke test, then the e2e suite against
-the container in 3 shards); all must be green.
+Run both before opening a pull request. CI runs the same: workflow lint, a gitleaks scan of the
+whole history (`.gitleaks.toml`), backend, web, the Playwright suite in 4 shards, and the Docker
+image (build, smoke test, then the e2e suite against the container in 3 shards); all must be
+green, and « CI result » is the one check to require. CodeQL (`codeql.yml`) scans the Python,
+the TypeScript and the workflows on every pull request too.
 
     cd backend && uv run pytest -q -n auto && uv run ruff check . && uv run ruff format --check .
     cd web && npx vitest run && npm run check && npx playwright test
@@ -126,6 +128,16 @@ Geist with tabular figures, screens built from the kit), keep 44 px touch target
 - **What each feature does:** [README.md](README.md#what-it-does) in plain words; the behaviour a
   change must keep is in [CLAUDE.md](CLAUDE.md) (« Rules the code depends on »), each rule next to the
   test that guards it.
+
+## Releasing
+
+1. A pull request on `release/X.Y.Z` sets the version in `backend/pyproject.toml` and
+   `web/package.json` and adds the `## X.Y.Z` section to `CHANGELOG.md`; merge it.
+2. Tag the merge commit on `main`: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. `release.yml` checks the tagged commit is on `main`, runs CI on it, checks both versions and
+   the changelog section, pushes the multi-arch image to GHCR by digest, scans it with Trivy in
+   a job without write access, tags it only once the scan passed, attests its build provenance
+   and creates the GitHub release with that section as notes.
 
 ## Project status
 
