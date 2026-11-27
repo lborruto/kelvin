@@ -96,7 +96,7 @@ Nothing in this section has run against a real account yet. The five writes belo
 and house place types are what Kelvin sends, built from the Overkiz API documentation and the
 simulator; they are recorded here as **unverified**.
 
-- pyoverkiz 2.2.3 has no place or label writes; `_post` rejects the 201 of place creation and
+- pyoverkiz 2.3.2 has no place or label writes; `_post` rejects the 201 of place creation and
   retries a POST after a dropped connection. Kelvin sends setup requests itself, once each,
   through the client's session (`kelvin/setup/client.py`), with the same error mapping.
 - The allowlisted writes (unverified): create a place, rename a place, delete a place, relocate
@@ -304,7 +304,7 @@ Since 0.3.6 Kelvin no longer sends a command through pyoverkiz's `execute_action
 `_post` sends the request again after a timeout or a dropped connection (Overkiz may have accepted
 the first one: the radiators would get the command twice). `PyOverkizGateway.execute` posts
 `exec/apply` itself through the client's session, once (`_apply_once` in `overkiz/real.py`): same
-URL, headers and JSON body as pyoverkiz 2.2.3 builds (a test compares the two requests), keeping
+URL, headers and JSON body as pyoverkiz 2.3.2 builds (a test compares the two requests), keeping
 only pyoverkiz's retries for answers that prove a refusal (not authenticated: one re-login; too
 many executions).
 
@@ -325,15 +325,17 @@ Nothing in this section has been tried on a real device. It records what Kelvin 
 kinds other than the Sauter radiators verified above, and where each name comes from. Move an entry
 to a verified section only after a real, reverted test (owner watching).
 
-- **Servers.** pyoverkiz 2.2.3: Sauter, Atlantic and Thermor Cozytouch share one endpoint
+- **Servers.** pyoverkiz 2.3.2: Sauter, Atlantic and Thermor Cozytouch share one endpoint
   (`ha110-1.overkiz.com`) and pyoverkiz's Cozytouch login. Kelvin offers as « experimental » every
   other server pyoverkiz logs in to with an email and a password (Somfy Europe/America/Oceania,
   Hi Kumo x3, Flexom, Nexity, Brandt, Hexaom, SIMU LiveIn2, Ubiwizz). Rexel needs an OAuth code,
-  `Server.SOMFY` is marked experimental inside pyoverkiz: not offered.
+  `Server.SOMFY` is marked experimental inside pyoverkiz: not offered. Sauter Smart Control
+  (`Server.SAUTER_SMART_CONTROL`, new in pyoverkiz 2.3.0: Brandt's middleware login, another
+  endpoint) is not offered yet.
 - **Classification.** By widget (`UIWidget`), then by UI class (`UIClass`): `WaterHeatingSystem` ->
   water heater, `HeatPumpSystem` -> heat pump, `HeatingSystem` or a widget containing « Heater »
   (not a sensor) -> unknown heater (read-only radiator). Every widget and UI class the simulator
-  houses use is a pyoverkiz 2.2.3 enum value (`tests/test_fake_houses.py` pins them).
+  houses use is a pyoverkiz 2.3.2 enum value (`tests/test_fake_houses.py` pins them).
 - **Adjustable-setpoint heaters on Atlantic/Thermor** (`AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint`):
   the Sauter profile, unchanged (`setOperatingMode` `standby`/`basic`/`internal`, `setTargetTemperature`,
   `setComfortTemperature`, `setEcoTemperature`, `setTimeProgram`). Expected to behave as on Sauter,

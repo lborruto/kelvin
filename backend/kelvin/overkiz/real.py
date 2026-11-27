@@ -151,7 +151,7 @@ def to_events(events: list[Any]) -> list[Event]:
         elif isinstance(e, DeviceUpdatedEvent):
             out.append(DeviceUpdate(e.device_url, e.place_oid, e.label))
         elif str(getattr(e, "name", "")) in PLACE_KINDS:
-            # pyoverkiz 2.2.3 structures Place*Event into its base Event: the name only.
+            # pyoverkiz 2.3.2 structures Place*Event into its base Event: the name only.
             out.append(PlaceEvent(PLACE_KINDS[str(e.name)]))
     return out
 
@@ -161,12 +161,12 @@ def to_events(events: list[Any]) -> list[Event]:
 async def _apply_once(c: Any, payload: Any) -> str:
     """`POST exec/apply` through the client's own session, sent once.
 
-    pyoverkiz 2.2.3's `execute_action_group` goes through `_post`, which sends the request again
+    pyoverkiz 2.3.2's `execute_action_group` goes through `_post`, which sends the request again
     after a timeout or a dropped connection (`retry_on_connection_failure`): Overkiz may have
     accepted the first one, and the radiators would get the command twice. The two retries kept
     are pyoverkiz's own for answers that prove Overkiz refused the request (not authenticated:
     one re-login; too many executions). The request is `_post`'s, byte for byte. The private
-    surface used is pinned by `pyoverkiz==2.2.3` and tests/test_real_adapter.py."""
+    surface used is pinned by `pyoverkiz==2.3.2` and tests/test_real_adapter.py."""
     path = "exec/apply"
     await c._refresh_token_if_expired()
     async with c.session.post(
@@ -267,7 +267,7 @@ class PyOverkizGateway:
         return {s.name: s.value for s in states}
 
     async def quotas(self) -> Any:
-        # pyoverkiz 2.2.3 has no wrapper for this endpoint; `_get` is its own GET helper.
+        # pyoverkiz 2.3.2 has no wrapper for this endpoint; `_get` is its own GET helper.
         return await self._call(self._c()._get("setup/quotas"))
 
     def _setup(self) -> SetupHttp:

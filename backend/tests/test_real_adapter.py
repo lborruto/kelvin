@@ -111,7 +111,7 @@ def test_to_events_maps_device_updates_and_payload_less_place_events():
         {"name": "GatewayAliveEvent", "gatewayId": "g", "timestamp": 5},
     ]
     out = to_events(converter.structure(raw, list[OverkizEvent]))
-    # pyoverkiz 2.2.3 keeps only the name of a place event: no oid, no label.
+    # pyoverkiz 2.3.2 keeps only the name of a place event: no oid, no label.
     assert out == [
         PlaceEvent("created"),
         PlaceEvent("updated"),
@@ -252,7 +252,7 @@ def test_only_a_request_that_may_have_left_is_unanswered():
 
 
 async def test_a_command_is_sent_exactly_as_pyoverkiz_sends_it():
-    assert importlib.metadata.version("pyoverkiz") == "2.2.3"
+    assert importlib.metadata.version("pyoverkiz") == "2.3.2"
     ours = _Session(_Resp(200, {"execId": "exec-1"}))
     assert await _gateway_on(ours).execute(_COMMANDS, "Salon") == "exec-1"
     theirs = _Session(_Resp(200, {"execId": "exec-1"}))
