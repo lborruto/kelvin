@@ -57,8 +57,11 @@ const SHEET_PAGES: ReadonlySet<string> = new Set(
 /** The query parameters the pages under a sheet read (Programme's `room` and `day`); any other one is dropped. */
 const PAGE_PARAMS = ['room', 'day'] as const;
 
+/** A URL read, never changed: SvelteKit's `page.url` (read-only since kit 3) or a plain `URL`. */
+type ReadUrl = Readonly<Omit<URL, 'searchParams'> & { searchParams: Omit<URLSearchParams, 'set' | 'append' | 'delete' | 'sort'> }>;
+
 /** The page under a sheet: a known path (else Maison), only its own parameters, the hash kept when asked. */
-function pageUnder(at: string | URL, hash: boolean): { path: string; params: URLSearchParams; hash: string } {
+function pageUnder(at: string | ReadUrl, hash: boolean): { path: string; params: URLSearchParams; hash: string } {
   // A string is a path of ours (`ROUTES.*`); anything not starting with one '/' is not, and is never resolved.
   const u = typeof at === 'string' ? new URL(/^\/(?![/\\])/.test(at) ? at : '/', BASE) : at;
   const path = SHEET_PAGES.has(u.pathname) ? u.pathname : ROUTES.rooms;
@@ -77,7 +80,7 @@ const href = (p: { path: string; params: URLSearchParams; hash: string }) => {
 /** The page `at` (a path or the current URL) with room `id`'s sheet open over it; any other sheet (and its boost)
  * replaced, the page's own parameters kept, the hash dropped (the page stays where it is scrolled). Always a
  * same-origin path from `ROUTES`. */
-export function roomSheetHref(at: string | URL, id: string, opts: { boost?: boolean } = {}): string {
+export function roomSheetHref(at: string | ReadUrl, id: string, opts: { boost?: boolean } = {}): string {
   const p = pageUnder(at, false);
   p.params.set(ROOM_SHEET, id);
   if (opts.boost) p.params.set(ROOM_SHEET_BOOST, '1');
@@ -85,21 +88,21 @@ export function roomSheetHref(at: string | URL, id: string, opts: { boost?: bool
 }
 
 /** The room whose sheet `url` opens, or null. */
-export function roomSheetOf(url: URL | null | undefined): string | null {
+export function roomSheetOf(url: ReadUrl | null | undefined): string | null {
   return url?.searchParams.get(ROOM_SHEET) || null;
 }
 
 /** `url` with no room sheet: the page under it (a known path, its own parameters, a plain anchor kept). */
-export function withoutRoomSheet(url: URL): string {
+export function withoutRoomSheet(url: ReadUrl): string {
   return href(pageUnder(url, true));
 }
 
 /** Whether `a` → `b` only opens, closes or switches the room sheet: the page under it is the same (path and
  * parameters; the hash ignored), so it stays mounted, scrolled and focused as it was. */
-export function sheetOnly(a: URL | null | undefined, b: URL | null | undefined): boolean {
+export function sheetOnly(a: ReadUrl | null | undefined, b: ReadUrl | null | undefined): boolean {
   if (!a || !b) return false;
-  const rest = (u: URL) => {
-    const q = new URLSearchParams(u.searchParams);
+  const rest = (u: ReadUrl) => {
+    const q = new URLSearchParams([...u.searchParams]);
     q.delete(ROOM_SHEET);
     q.delete(ROOM_SHEET_BOOST);
     q.sort();

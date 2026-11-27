@@ -1,13 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "$lib/api/client";
-import type { McpAuditRow, McpTokenList } from "$lib/api/types";
-import { applyLocale } from "$lib/i18n";
+import { api } from "#lib/api/client.js";
+import type { McpAuditRow, McpTokenList } from "#lib/api/types.js";
+import { applyLocale } from "#lib/i18n/index.js";
 import McpPanel from "./McpPanel.svelte";
 
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
-vi.mock("$lib/media.svelte", () => media);
-vi.mock("$lib/api/client", () => ({
+vi.mock("#lib/media.svelte.js", () => media);
+vi.mock("#lib/api/client.js", () => ({
   api: {
     mcpTokens: vi.fn(),
     createMcpToken: vi.fn(),

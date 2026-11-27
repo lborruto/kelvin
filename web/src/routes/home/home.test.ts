@@ -1,17 +1,17 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
-import { api } from '$lib/api/client';
-import { applyLocale, m } from '$lib/i18n';
-import { desktop } from '$lib/media.svelte';
-import { alerts } from '$lib/stores/alerts.svelte';
-import { auth } from '$lib/stores/auth.svelte';
-import { awaySheet } from '$lib/stores/away.svelte';
-import { detail } from '$lib/stores/detail.svelte';
-import { house } from '$lib/stores/house.svelte';
-import { toasts } from '$lib/stores/toasts.svelte';
-import { weather } from '$lib/stores/weather.svelte';
-import { VIEW } from '$lib/weather.fixture';
+import { api } from '#lib/api/client.js';
+import { applyLocale, m } from '#lib/i18n/index.js';
+import { desktop } from '#lib/media.svelte.js';
+import { alerts } from '#lib/stores/alerts.svelte.js';
+import { auth } from '#lib/stores/auth.svelte.js';
+import { awaySheet } from '#lib/stores/away.svelte.js';
+import { detail } from '#lib/stores/detail.svelte.js';
+import { house } from '#lib/stores/house.svelte.js';
+import { toasts } from '#lib/stores/toasts.svelte.js';
+import { weather } from '#lib/stores/weather.svelte.js';
+import { VIEW } from '#lib/weather.fixture.js';
 import Page from './+page.svelte';
 
 const LINKY_OFF = {
@@ -25,7 +25,7 @@ const TARIFF = {
   prices: [{ valid_from: '2025-01-15', option: 'hchp', subscription_eur_month: 15, rates: { hc: 0.2, hp: 0.27 } }]
 };
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: {
     houseAway: vi.fn().mockResolvedValue({ pending: null }),
     houseProgram: vi.fn().mockResolvedValue({ pending: null }),
@@ -238,14 +238,14 @@ describe('old Maison anchors', () => {
       vi.mocked(goto).mockClear();
       history.replaceState(null, '', `/home${hash}`);
       const { unmount } = render(Page);
-      expect(goto).toHaveBeenCalledWith(to, { replaceState: true });
+      expect(goto).toHaveBeenCalledWith(to, { replace: true });
       unmount();
     }
   });
   it('#away goes to Maison (/) and opens the Absence sheet over it; #alerts stays', async () => {
     history.replaceState(null, '', '/home#away');
     render(Page);
-    expect(goto).toHaveBeenCalledWith('/', { replaceState: true });
+    expect(goto).toHaveBeenCalledWith('/', { replace: true });
     await vi.waitFor(() => expect(awaySheet.open).toBe(true));
     awaySheet.close();
     vi.mocked(goto).mockClear();

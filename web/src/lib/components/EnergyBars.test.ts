@@ -1,13 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { Inspection } from '$lib/inspector';
-import { announcer } from '$lib/stores/announcer.svelte';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { Inspection } from '#lib/inspector.js';
+import { announcer } from '#lib/stores/announcer.svelte.js';
 import EnergyBars, { labelEvery } from './EnergyBars.svelte';
 
 const media = vi.hoisted(() => ({ desktop: { matches: false } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 
 const ins = (title: string, value: string): Inspection => ({
   title,

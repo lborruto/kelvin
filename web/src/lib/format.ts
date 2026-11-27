@@ -1,4 +1,4 @@
-import { INTL, locale, m, type Locale } from '$lib/i18n';
+import { INTL, locale, m, type Locale } from '#lib/i18n/index.js';
 
 const NB = '\u00a0';
 const ZONE = 'Europe/Paris';

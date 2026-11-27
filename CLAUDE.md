@@ -189,7 +189,7 @@ depends on.
   "HC"/"HP"; both: `−`, `—` for a missing value, typographic `’`). Messages are never read at
   module scope or in a plain `const`: arrays hold keys or getters and templates or `$derived`
   read `m.*`, so a language switch (no reload) reaches every label. Numbers and dates go through
-  `$lib/format`, which follows the active language. The strict scan (`web/scripts/i18n-check.mjs
+  `#lib/format`, which follows the active language. The strict scan (`web/scripts/i18n-check.mjs
   --strict`, also run by `npx vitest run`) fails on hard-coded French, an unused key or a
   message read at module scope; a line that must keep a French literal (an upstream device
   default, a data value) is marked `// i18n-ignore: <why>`. Its blind spots are short forms
@@ -321,9 +321,11 @@ depends on.
 - **Content-Security-Policy:** the page's scripts are Kelvin's own files plus the inline scripts
   of the built `index.html`, allowed by SHA-256 computed at startup (`api/web.py`); `app.html`
   never holds an inline event handler (`onclick=`…), and a build with one is refused at start.
-- **Web stack:** SvelteKit stays on 2.x until `@vite-pwa/sveltekit` is moved to 2.x (the installed 1.x
-  does not accept kit 3) and the kit 3 migration is done as its own change; Playwright uses `channel: 'chromium'`.
-- **UI rules** (details in DESIGN.md): motion uses the tokens in `app.css` and `$lib/motion`
+- **Web stack:** SvelteKit 3 with `@vite-pwa/sveltekit` 2: no `svelte.config.js`, the kit options
+  (adapter-static) go to `withPwa(kitOptions, pwaOptions)` in `vite.config.ts`, which runs `sveltekit()`
+  itself. `src/lib` is imported as `#lib/…` (`package.json` `imports`) with explicit extensions
+  (`#lib/format.js`, `#lib/media.svelte.js`); `page.url` is read-only. Playwright uses `channel: 'chromium'`.
+- **UI rules** (details in DESIGN.md): motion uses the tokens in `app.css` and `#lib/motion`
   (`dur()` returns 0 under reduced motion — pass it to every Svelte transition); a pending
   control shows the shared dashed→solid edge; controls that can hold focus are paused with
   `aria-disabled` and a guarded handler, never native `disabled`; every route shows skeletons
@@ -342,15 +344,15 @@ depends on.
   `prefers-color-scheme` path); « Maison » is the dashboard at `/` and « Réglages » is `/home` (URLs unchanged);
   orange (`--heat`) only for heating, comfort blocks and a running chauffe temporaire; Tempo colours only when
   the price row in force is Tempo; −/+ is the primary setpoint control and in Programme always changes Confort (during
-  Éco: « Pris en compte à la prochaine plage Confort »; `$lib/setpoint` `primarySetpoint`); setpoint controls send once,
-  1,5 s after the last tap or release, dashed until then, and flush on close (`$lib/send`); a −/+ step comes on the
-  release, never on the touch (a scroll starting on −/+, `pointercancel`, changes nothing). Maison is `lib/components/dashboard/` (words in `$lib/dashboard`, energy
-  answers in `$lib/stores/dashboardEnergy`). The room sheet (`lib/components/room/`) is a shell overlay in the root
+  Éco: « Pris en compte à la prochaine plage Confort »; `#lib/setpoint` `primarySetpoint`); setpoint controls send once,
+  1,5 s after the last tap or release, dashed until then, and flush on close (`#lib/send`); a −/+ step comes on the
+  release, never on the touch (a scroll starting on −/+, `pointercancel`, changes nothing). Maison is `lib/components/dashboard/` (words in `#lib/dashboard`, energy
+  answers in `#lib/stores/dashboardEnergy`). The room sheet (`lib/components/room/`) is a shell overlay in the root
   layout driven by `?sheet=<id>` on any route: it opens over the page the user is on, which stays mounted (scroll and
   state kept); a reload reopens it, Back closes it, closing returns focus to its opener, and it loads its own data
   (never through Maison). A floating card (Fiche, Menu) opened inside an open modal is portalled into it.
   **Nav:** sidebar Maison · Programme · Énergie, the « Pièces » rows, « Partir… », Réglages; phone tab bar Maison ·
-  Programme · Énergie · Réglages (`$lib/nav`, labels `m.nav.*`). The « Pièces » rows are a glanceable status
+  Programme · Énergie · Réglages (`#lib/nav`, labels `m.nav.*`). The « Pièces » rows are a glanceable status
   whose click opens the room sheet over the current page (never a trip to Maison); they are not drawn on Maison
   (its tiles are the rooms). While a sheet is open its row is current (`aria-current="true"`) and the page's own
   nav item stays current underneath; the phone tab bar has no rooms list (tiles on Maison open the sheet). The house actions (Partir…, Tout éteindre, Tout remettre en
@@ -360,7 +362,7 @@ depends on.
   needs more extends a kit component additively (optional props, defaults keep the old behaviour) and never forks
   a copy (one `DayBar`: read-only on Maison and the room sheet, editable in Programme's day editor). Réglages
   sub-pages start with `settings/SettingsHeader`. Énergie sections reached by a hash (`#energy-where`,
-  `#offpeak`, `#projection`, `#curve`) open themselves, from an in-page link (`$lib/sections` `goToSection`) and
+  `#offpeak`, `#projection`, `#curve`) open themselves, from an in-page link (`#lib/sections` `goToSection`) and
   on arrival from another screen.
   Every route stays free of serious and critical axe violations (`e2e/a11y.spec.ts`,
   `@axe-core/playwright`); a new route joins it, `e2e/cls.spec.ts` and `e2e/screens.spec.ts`.
@@ -370,17 +372,17 @@ depends on.
   consequence, estimated vs measured). A backend error text changes in `errors.py` and `fr.ts` together
   (`codes.test.ts`); `labels.py` text is the Overkiz execution label pinned by the Sauter golden fixture, so
   a pending label is reworded on the web only (`REWORDED` in `codes.test.ts`).
-- **« Détails techniques »** (`$lib/stores/detail.svelte.ts`, `<html data-detail>` before first paint) only
+- **« Détails techniques »** (`#lib/stores/detail.svelte.ts`, `<html data-detail>` before first paint) only
   moves L1/L2 content up one depth (open `detail` disclosures, live power via `livePower`, inline radiator
   facts via `detailFacts`); it never changes a format, adds a panel or shifts the page.
 - **Data on demand** (DESIGN « Data on demand: three depths »): L0 the rounded answer on screen, L1 the
   exact value in a Fiche one hover/tap/Enter away, L2 the analysis in a `Disclosure` (`hidden="until-found"`).
-  Every exact figure goes through `Fig` (its Fiche) with a Provenance block from `$lib/provenance.ts`
+  Every exact figure goes through `Fig` (its Fiche) with a Provenance block from `#lib/provenance.ts`
   (Source, Relevé, Nature: mesuré / estimé / projection / calculé / publié); freshness is said with
-  `Freshness` + `SourceLine` (`$lib/freshness.ts` cadences), never in ad-hoc words. Their props are
+  `Freshness` + `SourceLine` (`#lib/freshness.ts` cadences), never in ad-hoc words. Their props are
   listed in DESIGN.md « Foundation components: API ».
-- **Énergie figures:** formatted through the precision functions in `$lib/format.ts`, and every inspector, readout, hidden table and announcement built from
-  `$lib/inspector.ts`, so a value reads the same everywhere. Shown sums add up: a total shown
+- **Énergie figures:** formatted through the precision functions in `#lib/format.ts`, and every inspector, readout, hidden table and announcement built from
+  `#lib/inspector.ts`, so a value reads the same everywhere. Shown sums add up: a total shown
   with its parts goes through `matchParts` (largest remainder at the total's decimals). € are
   rounded once, in `billing/report.py`, from running sums anchored on 1 January (a span's cents
   are round(cum(to)) − round(cum(from))); never round a bucket's € on its own, in the backend or
@@ -390,7 +392,7 @@ depends on.
   reads what Par pièce shows; a test pins it. A « — »
   always carries its reason. The Courbe readout's fields stack every text they take over the day
   in one cell, so scrubbing never reflows them; keep that when adding a field. Énergie strings
-  live in the `$lib/i18n` dictionaries like every other string (one group per component or
+  live in the `#lib/i18n` dictionaries like every other string (one group per component or
   module: `m.hero`, `m.inspector`, …); the CSV export is a machine contract documented in `web/README.md` (French headers in every locale; `;` and a
   decimal comma in French, `,` and a point in English; no ids, no PDL).
 - **MCP is read-only** (`kelvin/mcp/`): no tool,

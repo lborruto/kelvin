@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { Inspection } from '$lib/inspector';
-import { T } from '$lib/motion';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { Inspection } from '#lib/inspector.js';
+import { T } from '#lib/motion.js';
 import ChartInspector from './ChartInspector.svelte';
 import EnergyBars from './EnergyBars.svelte';
 
@@ -13,9 +13,9 @@ const fx = vi.hoisted(() => ({
 }));
 vi.mock('svelte/transition', async (orig) => ({ ...(await orig<typeof import('svelte/transition')>()), ...fx }));
 // dur() marks what passes through it, so a raw duration would show.
-vi.mock('$lib/motion', async (orig) => ({ ...(await orig<typeof import('$lib/motion')>()), dur: (ms: number) => ms + 0.5 }));
+vi.mock('#lib/motion.js', async (orig) => ({ ...(await orig<typeof import('#lib/motion.js')>()), dur: (ms: number) => ms + 0.5 }));
 const media = vi.hoisted(() => ({ desktop: { matches: false } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 
 const ins: Inspection = {
   title: 'Mardi 13 octobre 2026',

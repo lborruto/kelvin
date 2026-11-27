@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GridView } from '$lib/api/types';
+import type { GridView } from '#lib/api/types.js';
 import { hoursText, stripLines } from './grid';
 
 const view = (over: Partial<GridView> = {}): GridView => ({

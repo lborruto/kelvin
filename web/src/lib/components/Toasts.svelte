@@ -1,9 +1,9 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import { flip } from 'svelte/animate';
-  import { m } from '$lib/i18n';
-  import { dur, easeOut, rise, T } from '$lib/motion';
-  import { toasts } from '$lib/stores/toasts.svelte';
+  import { m } from '#lib/i18n/index.js';
+  import { dur, easeOut, rise, T } from '#lib/motion.js';
+  import { toasts } from '#lib/stores/toasts.svelte.js';
   import Icon from './Icon.svelte';
 
   // Two regions that are always present: errors interrupt, information waits its turn.

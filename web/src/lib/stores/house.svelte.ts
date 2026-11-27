@@ -10,9 +10,9 @@ import type {
   SetupView,
   Snapshot,
   Status
-} from '$lib/api/types';
-import { capsOf } from '$lib/capabilities';
-import { LOST, m, pendingError, pendingLabel, UNKNOWN } from '$lib/i18n';
+} from '#lib/api/types.js';
+import { capsOf } from '#lib/capabilities.js';
+import { LOST, m, pendingError, pendingLabel, UNKNOWN } from '#lib/i18n/index.js';
 import { announcer } from './announcer.svelte';
 import { toasts } from './toasts.svelte';
 

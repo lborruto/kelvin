@@ -1,4 +1,4 @@
-import type { AlertSummary, GridView, WeatherView } from '$lib/api/types';
+import type { AlertSummary, GridView, WeatherView } from '#lib/api/types.js';
 import { alerts } from './alerts.svelte';
 import { grid } from './grid.svelte';
 import type { HouseStore } from './house.svelte';

@@ -15,7 +15,7 @@ const LEGACY_FORMS = [
   new RegExp(`\\bid=["'](?:${IDS})["']`),
   new RegExp(`\\b(?:hash(?:\\.slice\\(1\\))?|id)\\s*[!=]==?\\s*['"\`](?:${IDS})['"\`]`)
 ];
-const ROOTS = ['web/src', 'web/e2e', 'web/static', 'web/scripts', 'web/vite.config.ts', 'web/svelte.config.js',
+const ROOTS = ['web/src', 'web/e2e', 'web/static', 'web/scripts', 'web/vite.config.ts',
   'web/playwright.config.ts', 'backend/kelvin', 'backend/tests', 'docs', 'README.md', 'CONTRIBUTING.md',
   'DESIGN.md', 'PRODUCT.md', 'CLAUDE.md', 'web/README.md', 'backend/README.md'];
 // The redirect table and its tests; the gitignored plans.

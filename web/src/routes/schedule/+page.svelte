@@ -1,30 +1,30 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { roomName } from '$lib/setup';
+  import { roomName } from '#lib/setup.js';
   import { fly, slide } from 'svelte/transition';
   import { beforeNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { DAYS, type Day, type Pending } from '$lib/api/types';
-  import { run, retry } from '$lib/actions';
-  import { api, ApiError } from '$lib/api/client';
-  import { holdReload } from '$lib/busy';
-  import { capsOf, programRooms, roomRange } from '$lib/capabilities';
-  import ChoiceSheet from '$lib/components/ChoiceSheet.svelte';
-  import ProgramTemps from '$lib/components/room/ProgramTemps.svelte';
-  import Sheet from '$lib/components/Sheet.svelte';
-  import DayEditor from '$lib/components/DayEditor.svelte';
-  import GroupedList from '$lib/components/GroupedList.svelte';
-  import ListRow from '$lib/components/ListRow.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import Notice from '$lib/components/Notice.svelte';
-  import PendingTag from '$lib/components/PendingTag.svelte';
-  import Segmented from '$lib/components/Segmented.svelte';
-  import WeekCalendar from '$lib/components/WeekCalendar.svelte';
-  import { fmtTemp } from '$lib/format';
-  import { desktop } from '$lib/media.svelte';
-  import { dur, easeOut, T } from '$lib/motion';
-  import { m, pendingError } from '$lib/i18n';
-  import { ROUTES } from '$lib/paths';
+  import { DAYS, type Day, type Pending } from '#lib/api/types.js';
+  import { run, retry } from '#lib/actions.js';
+  import { api, ApiError } from '#lib/api/client.js';
+  import { holdReload } from '#lib/busy.js';
+  import { capsOf, programRooms, roomRange } from '#lib/capabilities.js';
+  import ChoiceSheet from '#lib/components/ChoiceSheet.svelte';
+  import ProgramTemps from '#lib/components/room/ProgramTemps.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
+  import DayEditor from '#lib/components/DayEditor.svelte';
+  import GroupedList from '#lib/components/GroupedList.svelte';
+  import ListRow from '#lib/components/ListRow.svelte';
+  import Icon from '#lib/components/Icon.svelte';
+  import Notice from '#lib/components/Notice.svelte';
+  import PendingTag from '#lib/components/PendingTag.svelte';
+  import Segmented from '#lib/components/Segmented.svelte';
+  import WeekCalendar from '#lib/components/WeekCalendar.svelte';
+  import { fmtTemp } from '#lib/format.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { dur, easeOut, T } from '#lib/motion.js';
+  import { m, pendingError } from '#lib/i18n/index.js';
+  import { ROUTES } from '#lib/paths.js';
   import {
     baseOf,
     changedDays,
@@ -40,11 +40,11 @@
     type Base,
     type Seg,
     type Week
-  } from '$lib/program';
-  import { follow } from '$lib/schedule-sync';
-  import { announcer } from '$lib/stores/announcer.svelte';
-  import { house } from '$lib/stores/house.svelte';
-  import { parisMinuteOfDay, parisParts } from '$lib/time';
+  } from '#lib/program.js';
+  import { follow } from '#lib/schedule-sync.js';
+  import { announcer } from '#lib/stores/announcer.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
+  import { parisMinuteOfDay, parisParts } from '#lib/time.js';
 
   interface SentEntry {
     roomId: string;
@@ -206,7 +206,7 @@
     if (nav.willUnload) nav.cancel(); // the browser asks with its own dialog
     else if (!confirm(m.program.discard)) nav.cancel();
   });
-  // A new version of Kelvin never reloads the page over them either (`$lib/appUpdate`).
+  // A new version of Kelvin never reloads the page over them either (`#lib/appUpdate.js`).
   $effect(() => {
     if (unsent) return holdReload();
   });
@@ -304,7 +304,7 @@
   }
   function step(delta: number) {
     selected = shiftDay(selected, delta);
-    if (dayView && !desktop.matches) void goto(dayHref(selected), { replaceState: true, keepFocus: true, noScroll: true });
+    if (dayView && !desktop.matches) void goto(dayHref(selected), { replace: true, reset: false });
   }
   function toWeek(e: MouseEvent) {
     e.preventDefault();

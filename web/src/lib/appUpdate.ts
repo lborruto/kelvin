@@ -118,7 +118,7 @@ export class AppUpdater {
   }
 }
 
-/** The part of `virtual:pwa-register` used here (vite-plugin-pwa 1.x). */
+/** The part of `virtual:pwa-register` used here (`@vite-pwa/sveltekit` 2.x, `@unplugin-pwa/core`). */
 type RegisterSW = (options: {
   immediate?: boolean;
   onNeedRefresh?: () => void;

@@ -1,12 +1,12 @@
 <script lang="ts">
   import { scaleBand, scaleLinear } from 'd3-scale';
   import Scrubber from './Scrubber.svelte';
-  import type { EnergyInterval, RoomSample } from '$lib/api/types';
-  import { SERIES } from '$lib/energy';
-  import { fmtTemp, fmtTempTick, fmtTime, fmtWh } from '$lib/format';
-  import { heatColor } from '$lib/heat';
-  import { locale, m } from '$lib/i18n';
-  import { intervalLabel, roomInterval } from '$lib/inspector';
+  import type { EnergyInterval, RoomSample } from '#lib/api/types.js';
+  import { SERIES } from '#lib/energy.js';
+  import { fmtTemp, fmtTempTick, fmtTime, fmtWh } from '#lib/format.js';
+  import { heatColor } from '#lib/heat.js';
+  import { locale, m } from '#lib/i18n/index.js';
+  import { intervalLabel, roomInterval } from '#lib/inspector.js';
 
   interface Props {
     intervals: EnergyInterval[];

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import WeatherCostPanel from './WeatherCostPanel.svelte';
-import { HIDDEN, OFF, OK, THIN } from '$lib/weatherModel.fixture';
+import { HIDDEN, OFF, OK, THIN } from '#lib/weatherModel.fixture.js';
 
 const nb = (t: string | null | undefined) => (t ?? '').replace(/[  ]/g, ' ');
 const text = (c: HTMLElement) => nb(c.textContent);

@@ -6,15 +6,15 @@
      under the rooms (`children`), and opening a room selects it there. Figures are `roomEnergy`'s, unchanged. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { ByRadiator, Heating, Radiator, RadiatorSum, RoomModel } from '$lib/api/types';
-  import { SERIES, spanLabel, type Span } from '$lib/energy';
-  import { fmtDateLong, fmtEurExact, fmtHours, fmtKwh, fmtKwhExact, fmtPct, fmtPct1, fmtTemp } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { ENERGY_ANCHORS } from '$lib/paths';
-  import { provenance } from '$lib/provenance';
-  import { NO_ROOM, roomEnergy, type Figures, type RoomRow } from '$lib/roomEnergy';
-  import { house } from '$lib/stores/house.svelte';
-  import { whereDetail, whereLine } from '$lib/weatherCost';
+  import type { ByRadiator, Heating, Radiator, RadiatorSum, RoomModel } from '#lib/api/types.js';
+  import { SERIES, spanLabel, type Span } from '#lib/energy.js';
+  import { fmtDateLong, fmtEurExact, fmtHours, fmtKwh, fmtKwhExact, fmtPct, fmtPct1, fmtTemp } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ENERGY_ANCHORS } from '#lib/paths.js';
+  import { provenance } from '#lib/provenance.js';
+  import { NO_ROOM, roomEnergy, type Figures, type RoomRow } from '#lib/roomEnergy.js';
+  import { house } from '#lib/stores/house.svelte.js';
+  import { whereDetail, whereLine } from '#lib/weatherCost.js';
   import Fig from './Fig.svelte';
   import type { FicheRow } from './FicheBody.svelte';
   import Icon from './Icon.svelte';

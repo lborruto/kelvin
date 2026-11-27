@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { EnergyDay } from '$lib/api/types';
-import { parisDayStart } from '$lib/time';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { EnergyDay } from '#lib/api/types.js';
+import { parisDayStart } from '#lib/time.js';
 import PowerPanel from './PowerPanel.svelte';
 
 const a = parisDayStart('2026-10-13') / 1000;

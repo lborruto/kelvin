@@ -165,7 +165,7 @@ describe('Stepper', () => {
   });
 
   it('announces the committed value once, not every step', async () => {
-    const { announcer } = await import('$lib/stores/announcer.svelte');
+    const { announcer } = await import('#lib/stores/announcer.svelte.js');
     announcer.clear();
     render(Stepper, { value: 20, min: 7, max: 28, label: 'Confort', onchange: vi.fn() });
     const plus = screen.getByRole('button', { name: 'Augmenter Confort' });
@@ -356,7 +356,7 @@ describe('Stepper', () => {
 });
 
 it('in English: the buttons and the announcement', async () => {
-  const { applyLocale } = await import('$lib/i18n');
+  const { applyLocale } = await import('#lib/i18n/index.js');
   applyLocale('en');
   render(Stepper, { value: 20, min: 7, max: 28, label: 'Setpoint', onchange: vi.fn() });
   expect(screen.getByRole('button', { name: 'Decrease Setpoint' })).toBeInTheDocument();

@@ -4,14 +4,14 @@
      rows the full section shows (same shares, same matched kWh), never recomputed here. Partial rows carry the
      same « partiel » mark, explained in the full section. -->
 <script lang="ts">
-  import type { ByRadiator, Heating } from '$lib/api/types';
-  import { SERIES, type Span } from '$lib/energy';
-  import { fmtEurExact, fmtKwhExact, fmtPct } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { ENERGY_ANCHORS } from '$lib/paths';
-  import { NO_ROOM, roomEnergy, type RoomRow } from '$lib/roomEnergy';
-  import { goToSection } from '$lib/sections';
-  import { house } from '$lib/stores/house.svelte';
+  import type { ByRadiator, Heating } from '#lib/api/types.js';
+  import { SERIES, type Span } from '#lib/energy.js';
+  import { fmtEurExact, fmtKwhExact, fmtPct } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ENERGY_ANCHORS } from '#lib/paths.js';
+  import { NO_ROOM, roomEnergy, type RoomRow } from '#lib/roomEnergy.js';
+  import { goToSection } from '#lib/sections.js';
+  import { house } from '#lib/stores/house.svelte.js';
 
   interface Props {
     heating: Heating;

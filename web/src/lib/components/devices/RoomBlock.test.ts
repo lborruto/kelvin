@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 import RoomBlock from './RoomBlock.svelte';
 import { setupFixture } from './fixture';
 
 // Menus as desktop popovers (a phone shows the same items in a sheet).
-vi.mock('$lib/media.svelte', () => ({ desktop: { matches: true } }));
+vi.mock('#lib/media.svelte.js', () => ({ desktop: { matches: true } }));
 afterEach(() => applyLocale('fr'));
 
 describe('RoomBlock', () => {

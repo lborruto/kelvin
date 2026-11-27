@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { run } from '$lib/actions';
-  import { api } from '$lib/api/client';
-  import type { Radiator } from '$lib/api/types';
-  import { fmtPct } from '$lib/format';
-  import { m, pendingError } from '$lib/i18n';
-  import { snapIntensity, stepIntensity } from '$lib/light';
-  import { Settle } from '$lib/settle.svelte';
-  import { house } from '$lib/stores/house.svelte';
+  import { run } from '#lib/actions.js';
+  import { api } from '#lib/api/client.js';
+  import type { Radiator } from '#lib/api/types.js';
+  import { fmtPct } from '#lib/format.js';
+  import { m, pendingError } from '#lib/i18n/index.js';
+  import { snapIntensity, stepIntensity } from '#lib/light.js';
+  import { Settle } from '#lib/settle.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import PendingEdge from './PendingEdge.svelte';
 
   interface Props {

@@ -25,9 +25,9 @@
 </script>
 
 <script lang="ts">
-  import { m } from '$lib/i18n';
-  import { ANCHORS } from '$lib/paths';
-  import type { Provenance } from '$lib/provenance';
+  import { m } from '#lib/i18n/index.js';
+  import { ANCHORS } from '#lib/paths.js';
+  import type { Provenance } from '#lib/provenance.js';
 
   interface Props {
     /** Null when the host already shows it (the phone sheet's heading). */

@@ -1,4 +1,4 @@
-import type { Day, EnergyGroup } from '$lib/api/types';
+import type { Day, EnergyGroup } from '#lib/api/types.js';
 import { intFor, listFor, own, pluralFor, type ApiParams } from './rules';
 
 const NB = '\u00a0';

@@ -3,13 +3,13 @@
      EcoWatt signal (every household) and, only when Tempo is the price row in force, tomorrow's Tempo colour. A signal
      not published yet says so, never a guess. The weather line's height is held while it loads (CLS). -->
 <script lang="ts">
-  import type { GridView, WeatherCostForecastView } from '$lib/api/types';
-  import { fmtTemp, fmtWeekdayDay } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { ecowattTomorrow } from '$lib/dashboard';
-  import { provenance } from '$lib/provenance';
-  import { ATTRIBUTION_URL } from '$lib/weather';
-  import { forecastRows, tomorrowDay, tomorrowLine, tomorrowWhy } from '$lib/weatherCost';
+  import type { GridView, WeatherCostForecastView } from '#lib/api/types.js';
+  import { fmtTemp, fmtWeekdayDay } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ecowattTomorrow } from '#lib/dashboard.js';
+  import { provenance } from '#lib/provenance.js';
+  import { ATTRIBUTION_URL } from '#lib/weather.js';
+  import { forecastRows, tomorrowDay, tomorrowLine, tomorrowWhy } from '#lib/weatherCost.js';
   import Fig from '../Fig.svelte';
   import Icon from '../Icon.svelte';
   import Skeleton from '../Skeleton.svelte';

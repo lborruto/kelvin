@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { m } from '$lib/i18n';
-  import { labelProblem, problemText } from '$lib/setup';
+  import { m } from '#lib/i18n/index.js';
+  import { labelProblem, problemText } from '#lib/setup.js';
 
   interface Props {
     /** The field's caption, also its accessible name. */

@@ -1,15 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import { parisLocalMs } from '$lib/away';
-import { applyLocale } from '$lib/i18n';
-import { awaySheet } from '$lib/stores/away.svelte';
-import { house } from '$lib/stores/house.svelte';
-import { toasts } from '$lib/stores/toasts.svelte';
+import { api } from '#lib/api/client.js';
+import { parisLocalMs } from '#lib/away.js';
+import { applyLocale } from '#lib/i18n/index.js';
+import { awaySheet } from '#lib/stores/away.svelte.js';
+import { house } from '#lib/stores/house.svelte.js';
+import { toasts } from '#lib/stores/toasts.svelte.js';
 import AwaySheet from './AwaySheet.svelte';
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: {
     houseAway: vi.fn(),
     cancelOverride: vi.fn().mockResolvedValue({ pending: null })

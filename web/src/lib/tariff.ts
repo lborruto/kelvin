@@ -1,5 +1,5 @@
-import type { HcSchedule, Slot, Tariff, TariffDoc, TariffOption, TariffRow } from '$lib/api/types';
-import { parseDecimal } from '$lib/format';
+import type { HcSchedule, Slot, Tariff, TariffDoc, TariffOption, TariffRow } from '#lib/api/types.js';
+import { parseDecimal } from '#lib/format.js';
 
 export const OPTIONS: TariffOption[] = ['base', 'hchp', 'tempo'];
 export const RATE_KEYS: Record<TariffOption, string[]> = {

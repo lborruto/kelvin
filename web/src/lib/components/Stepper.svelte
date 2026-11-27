@@ -1,13 +1,13 @@
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte';
-  import { fmtTemp } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { Settle } from '$lib/settle.svelte';
-  import { announcer } from '$lib/stores/announcer.svelte';
+  import { fmtTemp } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { Settle } from '#lib/settle.svelte.js';
+  import { announcer } from '#lib/stores/announcer.svelte.js';
   import Icon from './Icon.svelte';
   import PendingEdge from './PendingEdge.svelte';
-  import { HOLD_DELAY_MS, HOLD_REPEAT_MS, SEND_IDLE_MS } from '$lib/send';
-  import { SendDraft } from '$lib/sendDraft.svelte';
+  import { HOLD_DELAY_MS, HOLD_REPEAT_MS, SEND_IDLE_MS } from '#lib/send.js';
+  import { SendDraft } from '#lib/sendDraft.svelte.js';
 
   interface Props {
     value: number | null;

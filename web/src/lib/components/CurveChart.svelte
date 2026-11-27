@@ -3,14 +3,14 @@
   import Scrubber from './Scrubber.svelte';
   import OutdoorToggle from './OutdoorToggle.svelte';
   import Swatch from './Swatch.svelte';
-  import type { EnergyInterval, RoomSample } from '$lib/api/types';
-  import { SERIES } from '$lib/energy';
-  import { fmtFixed, fmtTemp, fmtTempTick, fmtTime, fmtWh } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { inspectionTable, intervalLabel, READOUT_ORDER, readInterval, type Inspection, type Row } from '$lib/inspector';
-  import { hourlyLine, linePaths, maxTicks, tempScale, type Pt } from '$lib/outdoorLine';
-  import type { OutdoorPoint } from '$lib/roomchart';
-  import { outdoorLine } from '$lib/stores/outdoorLine.svelte';
+  import type { EnergyInterval, RoomSample } from '#lib/api/types.js';
+  import { SERIES } from '#lib/energy.js';
+  import { fmtFixed, fmtTemp, fmtTempTick, fmtTime, fmtWh } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { inspectionTable, intervalLabel, READOUT_ORDER, readInterval, type Inspection, type Row } from '#lib/inspector.js';
+  import { hourlyLine, linePaths, maxTicks, tempScale, type Pt } from '#lib/outdoorLine.js';
+  import type { OutdoorPoint } from '#lib/roomchart.js';
+  import { outdoorLine } from '#lib/stores/outdoorLine.svelte.js';
 
   interface Props {
     intervals: EnergyInterval[];

@@ -26,9 +26,6 @@ updates:
       default-days: 14
     open-pull-requests-limit: 5
     ignore:
-      # SvelteKit stays on 2.x: @vite-pwa/sveltekit does not support kit 3.
-      - dependency-name: "@sveltejs/kit"
-        update-types: ["version-update:semver-major"]
       # TypeScript 7 (the native compiler) is not supported by svelte-check yet.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]

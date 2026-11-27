@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError } from '$lib/api/client';
-import type { SessionInfo } from '$lib/api/types';
-import { forEachLocale } from '$lib/i18n/testing';
+import { api, ApiError } from '#lib/api/client.js';
+import type { SessionInfo } from '#lib/api/types.js';
+import { forEachLocale } from '#lib/i18n/testing.js';
 import SessionsPanel, { deviceName } from './SessionsPanel.svelte';
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: { sessions: vi.fn(), revokeSession: vi.fn(), revokeOtherSessions: vi.fn() },
   ApiError: class extends Error {
     constructor(public status: number, message: string, public code: string | null = null, public params = {}) {

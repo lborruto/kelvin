@@ -2,8 +2,8 @@
      that shows or hides the line, remembered per device. « prévision » (a dashed key) follows it while a forecast
      is drawn; `forecastSlot` holds its place while the forecast may still arrive, so the legend never moves. -->
 <script lang="ts">
-  import { m } from '$lib/i18n';
-  import { outdoorLine } from '$lib/stores/outdoorLine.svelte';
+  import { m } from '#lib/i18n/index.js';
+  import { outdoorLine } from '#lib/stores/outdoorLine.svelte.js';
 
   interface Props {
     /** A forecast segment is drawn: « prévision » is shown. */

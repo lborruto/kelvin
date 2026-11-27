@@ -3,12 +3,12 @@
      last month's figure. A Fig: the exact parts in its Fiche, Linky and the tariff as its source. Hidden by the
      caller without Linky. `compact` is the phone's half-width card. -->
 <script lang="ts">
-  import type { EnergyReport } from '$lib/api/types';
-  import { fmtEurExact, fmtEurHero, fmtKwhExact, fmtKwhHero, monthTitle, monthWord } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { monthSpan } from '$lib/dashboard';
-  import { ENERGY_ANCHORS, ROUTES } from '$lib/paths';
-  import { provenance } from '$lib/provenance';
+  import type { EnergyReport } from '#lib/api/types.js';
+  import { fmtEurExact, fmtEurHero, fmtKwhExact, fmtKwhHero, monthTitle, monthWord } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { monthSpan } from '#lib/dashboard.js';
+  import { ENERGY_ANCHORS, ROUTES } from '#lib/paths.js';
+  import { provenance } from '#lib/provenance.js';
   import Fig from '../Fig.svelte';
   import Widget from '../Widget.svelte';
 

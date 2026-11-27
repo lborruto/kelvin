@@ -1,9 +1,9 @@
 <script lang="ts">
   import { fade, slide } from 'svelte/transition';
-  import { CARD_W } from '$lib/chart';
-  import type { Inspection } from '$lib/inspector';
-  import { dur, T } from '$lib/motion';
-  import type { Provenance } from '$lib/provenance';
+  import { CARD_W } from '#lib/chart.js';
+  import type { Inspection } from '#lib/inspector.js';
+  import { dur, T } from '#lib/motion.js';
+  import type { Provenance } from '#lib/provenance.js';
   import FicheBody from './FicheBody.svelte';
 
   interface Props {

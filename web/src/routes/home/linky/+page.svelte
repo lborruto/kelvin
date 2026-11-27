@@ -4,18 +4,18 @@
      (a Fig: per day, limit, reset) and the Enedis consent. « Modifier la connexion » holds LinkyPanel's form in a
      grouped row of its own, open when Linky is not connected. The J+1 note closes the page. -->
 <script lang="ts">
-  import { api } from '$lib/api/client';
-  import type { LinkyStatus } from '$lib/api/types';
-  import Disclosure from '$lib/components/Disclosure.svelte';
-  import Fig from '$lib/components/Fig.svelte';
-  import Freshness from '$lib/components/Freshness.svelte';
-  import GroupedList from '$lib/components/GroupedList.svelte';
-  import LinkyPanel from '$lib/components/LinkyPanel.svelte';
-  import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
-  import { fmtAgo, fmtDateLong } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { linkyFresh, linkyLine, linkyProblem, maskPdl } from '$lib/linky';
-  import { provenance } from '$lib/provenance';
+  import { api } from '#lib/api/client.js';
+  import type { LinkyStatus } from '#lib/api/types.js';
+  import Disclosure from '#lib/components/Disclosure.svelte';
+  import Fig from '#lib/components/Fig.svelte';
+  import Freshness from '#lib/components/Freshness.svelte';
+  import GroupedList from '#lib/components/GroupedList.svelte';
+  import LinkyPanel from '#lib/components/LinkyPanel.svelte';
+  import SettingsHeader from '#lib/components/settings/SettingsHeader.svelte';
+  import { fmtAgo, fmtDateLong } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { linkyFresh, linkyLine, linkyProblem, maskPdl } from '#lib/linky.js';
+  import { provenance } from '#lib/provenance.js';
 
   let status = $state<LinkyStatus | null>(null);
   let failed = $state(false);

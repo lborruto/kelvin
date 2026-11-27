@@ -7,13 +7,13 @@
      through `onstate` (null while loading keeps the line's height). -->
 <script lang="ts">
   import { tick } from 'svelte';
-  import { api } from '$lib/api/client';
-  import type { WeatherLocationBody, WeatherPlace, WeatherSettings } from '$lib/api/types';
-  import { fmtCoord, fmtDateLong, fmtInt, fmtMetres, fmtTime, parseDecimal } from '$lib/format';
-  import { errorText, locale, m } from '$lib/i18n';
-  import { toasts } from '$lib/stores/toasts.svelte';
-  import { weather } from '$lib/stores/weather.svelte';
-  import { ATTRIBUTION_URL, GEONAMES_URL, placeLine, weatherFresh } from '$lib/weather';
+  import { api } from '#lib/api/client.js';
+  import type { WeatherLocationBody, WeatherPlace, WeatherSettings } from '#lib/api/types.js';
+  import { fmtCoord, fmtDateLong, fmtInt, fmtMetres, fmtTime, parseDecimal } from '#lib/format.js';
+  import { errorText, locale, m } from '#lib/i18n/index.js';
+  import { toasts } from '#lib/stores/toasts.svelte.js';
+  import { weather } from '#lib/stores/weather.svelte.js';
+  import { ATTRIBUTION_URL, GEONAMES_URL, placeLine, weatherFresh } from '#lib/weather.js';
   import Disclosure from '../Disclosure.svelte';
   import Freshness from '../Freshness.svelte';
   import GroupedList from '../GroupedList.svelte';

@@ -3,8 +3,8 @@
      its end. Without a split (Base, or no tariff) one series-1 bar and no words. The figures arrive formatted and
      matched to the total (`fmtKwhParts`), so the words add up to the range line. -->
 <script lang="ts">
-  import { SERIES, seriesBackground } from '$lib/energy';
-  import { m } from '$lib/i18n';
+  import { SERIES, seriesBackground } from '#lib/energy.js';
+  import { m } from '#lib/i18n/index.js';
   import Swatch from './Swatch.svelte';
 
   interface Props {

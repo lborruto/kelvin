@@ -4,9 +4,9 @@
      (the only text button inside a room block). Each radiator is a RadiatorDevices row. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { Pending, Radiator, SetupDevice, SetupRadiator, SetupRoom } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { roomName, sameNamed } from '$lib/setup';
+  import type { Pending, Radiator, SetupDevice, SetupRadiator, SetupRoom } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { roomName, sameNamed } from '#lib/setup.js';
   import Icon from '../Icon.svelte';
   import Menu, { type MenuItem } from '../Menu.svelte';
   import PendingEdge from '../PendingEdge.svelte';

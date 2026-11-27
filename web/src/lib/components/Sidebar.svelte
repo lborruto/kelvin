@@ -6,15 +6,15 @@
      Maison, only for a must-fix alert. -->
 <script lang="ts">
   import { page } from '$app/state';
-  import { fmtTemp, fmtTempShort, fmtWeekdayTime } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { ALERT_KEY, NAV_BOTTOM, NAV_ICON, NAV_TOP, sidebarRooms } from '$lib/nav';
-  import { navAlerts } from '$lib/navAlerts';
-  import { isActive, ROUTES, roomSheetHref, roomSheetOf } from '$lib/paths';
-  import { roomName } from '$lib/setup';
-  import { alerts } from '$lib/stores/alerts.svelte';
-  import { awaySheet } from '$lib/stores/away.svelte';
-  import { house } from '$lib/stores/house.svelte';
+  import { fmtTemp, fmtTempShort, fmtWeekdayTime } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ALERT_KEY, NAV_BOTTOM, NAV_ICON, NAV_TOP, sidebarRooms } from '#lib/nav.js';
+  import { navAlerts } from '#lib/navAlerts.js';
+  import { isActive, ROUTES, roomSheetHref, roomSheetOf } from '#lib/paths.js';
+  import { roomName } from '#lib/setup.js';
+  import { alerts } from '#lib/stores/alerts.svelte.js';
+  import { awaySheet } from '#lib/stores/away.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import CozytouchStatus from './CozytouchStatus.svelte';
   import Icon from './Icon.svelte';
   import Wordmark from './Wordmark.svelte';

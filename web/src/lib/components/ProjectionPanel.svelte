@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { ENERGY_ANCHORS } from '$lib/paths';
+  import { ENERGY_ANCHORS } from '#lib/paths.js';
   import Disclosure from './Disclosure.svelte';
   import { scaleLinear } from 'd3-scale';
-  import type { Projection } from '$lib/api/types';
-  import { addDays, SERIES } from '$lib/energy';
-  import { fmtDateLong, fmtDay, fmtEurHero, fmtKwhExact, fmtKwhHero, fmtPrice, monthName } from '$lib/format';
-  import { locale, m } from '$lib/i18n';
-  import { projectionLines } from '$lib/weatherCost';
+  import type { Projection } from '#lib/api/types.js';
+  import { addDays, SERIES } from '#lib/energy.js';
+  import { fmtDateLong, fmtDay, fmtEurHero, fmtKwhExact, fmtKwhHero, fmtPrice, monthName } from '#lib/format.js';
+  import { locale, m } from '#lib/i18n/index.js';
+  import { projectionLines } from '#lib/weatherCost.js';
 
   /** Beyond this many days behind today, the backend gives no projection (report.py `STALE_DAYS`). */
   const STALE_DAYS = 3;

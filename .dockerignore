@@ -6,7 +6,6 @@
 !backend/kelvin/
 !web/package.json
 !web/package-lock.json
-!web/svelte.config.js
 !web/vite.config.ts
 !web/tsconfig.json
 !web/src/

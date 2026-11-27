@@ -7,30 +7,30 @@
      home's server (/auth/me) are both known (skeleton until then; error + retry when one fails). -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api } from '$lib/api/client';
-  import Icon from '$lib/components/Icon.svelte';
-  import RoomBlock from '$lib/components/devices/RoomBlock.svelte';
-  import StrayNotice from '$lib/components/devices/StrayNotice.svelte';
-  import SyncLine from '$lib/components/devices/SyncLine.svelte';
-  import type { Pending, SetupDevice, SetupRadiator, SetupRoom } from '$lib/api/types';
-  import { retry } from '$lib/actions';
-  import PendingTag from '$lib/components/PendingTag.svelte';
-  import DeleteRoomDialog from '$lib/components/devices/DeleteRoomDialog.svelte';
-  import LabelForm from '$lib/components/devices/LabelForm.svelte';
-  import MoveDialog from '$lib/components/devices/MoveDialog.svelte';
-  import AppliancesBlock from '$lib/components/devices/AppliancesBlock.svelte';
-  import GroupedList from '$lib/components/GroupedList.svelte';
-  import { canEditSetup, capsOf, isReadOnly } from '$lib/capabilities';
-  import { run } from '$lib/actions';
-  import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
-  import BridgeRow from '$lib/components/devices/BridgeRow.svelte';
-  import type { MenuItem } from '$lib/components/Menu.svelte';
-  import { m } from '$lib/i18n';
-  import { desktop } from '$lib/media.svelte';
-  import { radiatorName } from '$lib/setup';
-  import { installUndo, runSetup } from '$lib/setupActions';
-  import { auth } from '$lib/stores/auth.svelte';
-  import { house } from '$lib/stores/house.svelte';
+  import { api } from '#lib/api/client.js';
+  import Icon from '#lib/components/Icon.svelte';
+  import RoomBlock from '#lib/components/devices/RoomBlock.svelte';
+  import StrayNotice from '#lib/components/devices/StrayNotice.svelte';
+  import SyncLine from '#lib/components/devices/SyncLine.svelte';
+  import type { Pending, SetupDevice, SetupRadiator, SetupRoom } from '#lib/api/types.js';
+  import { retry } from '#lib/actions.js';
+  import PendingTag from '#lib/components/PendingTag.svelte';
+  import DeleteRoomDialog from '#lib/components/devices/DeleteRoomDialog.svelte';
+  import LabelForm from '#lib/components/devices/LabelForm.svelte';
+  import MoveDialog from '#lib/components/devices/MoveDialog.svelte';
+  import AppliancesBlock from '#lib/components/devices/AppliancesBlock.svelte';
+  import GroupedList from '#lib/components/GroupedList.svelte';
+  import { canEditSetup, capsOf, isReadOnly } from '#lib/capabilities.js';
+  import { run } from '#lib/actions.js';
+  import SettingsHeader from '#lib/components/settings/SettingsHeader.svelte';
+  import BridgeRow from '#lib/components/devices/BridgeRow.svelte';
+  import type { MenuItem } from '#lib/components/Menu.svelte';
+  import { m } from '#lib/i18n/index.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { radiatorName } from '#lib/setup.js';
+  import { installUndo, runSetup } from '#lib/setupActions.js';
+  import { auth } from '#lib/stores/auth.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
 
   const REFRESH_MS = 30_000; // memory only on the server: no Overkiz call
   let now = $state(Date.now());

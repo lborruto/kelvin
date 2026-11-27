@@ -2,10 +2,10 @@
      rounded once in the backend) and the half-hour bars of its curve (off-peak hatched under peak when a tariff
      is set). No reading yet: one sentence, never 0. -->
 <script lang="ts">
-  import type { EnergyDay, EnergyReport } from '$lib/api/types';
-  import { fmtEurExact, fmtKwhExact, fmtKwhHero } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { provenance } from '$lib/provenance';
+  import type { EnergyDay, EnergyReport } from '#lib/api/types.js';
+  import { fmtEurExact, fmtKwhExact, fmtKwhHero } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { provenance } from '#lib/provenance.js';
   import Fig from '../Fig.svelte';
   import MiniBars from '../MiniBars.svelte';
   import Widget from '../Widget.svelte';

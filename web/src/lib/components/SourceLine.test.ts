@@ -4,7 +4,7 @@ import Freshness from './Freshness.svelte';
 import SourceLine from './SourceLine.svelte';
 
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 
 describe('Freshness', () => {
   it('solid ring fresh, dashed ring late, bad dot failed, nothing when there is nothing to say', () => {

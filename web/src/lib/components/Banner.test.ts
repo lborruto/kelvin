@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Banner, { DOWN_MS, QUIET_MS } from './Banner.svelte';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 
 // 13 Oct 2026, 14:00 in Paris (UTC+2): the injected clock; « données de 13:58 » is two minutes before.
 const now = Date.parse('2026-10-13T12:00:00Z');

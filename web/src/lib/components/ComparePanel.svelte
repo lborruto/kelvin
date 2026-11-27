@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { Average4, Comparison, Comparisons, WeatherRow } from '$lib/api/types';
-  import { addDays, previousName, type View } from '$lib/energy';
-  import { fmtChangeShare, fmtDateLong, fmtDju, fmtFixed, fmtKwhExact, fmtSigned } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { normalisedLine, whyText } from '$lib/weather';
+  import type { Average4, Comparison, Comparisons, WeatherRow } from '#lib/api/types.js';
+  import { addDays, previousName, type View } from '#lib/energy.js';
+  import { fmtChangeShare, fmtDateLong, fmtDju, fmtFixed, fmtKwhExact, fmtSigned } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { normalisedLine, whyText } from '#lib/weather.js';
   import Disclosure from './Disclosure.svelte';
 
   interface Props {

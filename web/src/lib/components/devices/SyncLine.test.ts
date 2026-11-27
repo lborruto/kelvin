@@ -1,25 +1,25 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError } from '$lib/api/client';
-import type { SyncStatus } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
-import { house } from '$lib/stores/house.svelte';
-import { toasts } from '$lib/stores/toasts.svelte';
+import { api, ApiError } from '#lib/api/client.js';
+import type { SyncStatus } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
+import { house } from '#lib/stores/house.svelte.js';
+import { toasts } from '#lib/stores/toasts.svelte.js';
 import SyncLine from './SyncLine.svelte';
 import { setupFixture } from './fixture';
 
 // The Fiche as a desktop card (a phone opens the same rows in a sheet).
-vi.mock('$lib/media.svelte', () => ({ desktop: { matches: true } }));
+vi.mock('#lib/media.svelte.js', () => ({ desktop: { matches: true } }));
 
 /** Opens the line's Fiche (pinned): the budget, the daily time and the spent reason live there. */
 async function fiche() {
   await fireEvent.click(screen.getByRole('button', { name: /^(Synchronisé avec Cozytouch|Synced with Cozytouch|Pas encore|Not synced)/ }));
 }
 
-vi.mock('$lib/api/client', async (importActual) => {
+vi.mock('#lib/api/client.js', async (importActual) => {
   // The real ApiError: errorText (already loaded by the test setup) checks against that class.
-  const actual = await importActual<typeof import('$lib/api/client')>();
+  const actual = await importActual<typeof import('#lib/api/client.js')>();
   return { api: { syncSetup: vi.fn(), setupDevices: vi.fn() }, ApiError: actual.ApiError };
 });
 

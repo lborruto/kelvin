@@ -30,7 +30,7 @@ import {
   toWeekProgram,
   validateDay
 } from './program';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 
 const DAY = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 const usual: WeekProgram = Object.fromEntries(

@@ -1,15 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
-import { api } from '$lib/api/client';
-import { applyLocale } from '$lib/i18n';
-import { auth } from '$lib/stores/auth.svelte';
-import { history } from '$lib/stores/history.svelte';
-import { house } from '$lib/stores/house.svelte';
-import { toasts } from '$lib/stores/toasts.svelte';
+import { api } from '#lib/api/client.js';
+import { applyLocale } from '#lib/i18n/index.js';
+import { auth } from '#lib/stores/auth.svelte.js';
+import { history } from '#lib/stores/history.svelte.js';
+import { house } from '#lib/stores/house.svelte.js';
+import { toasts } from '#lib/stores/toasts.svelte.js';
 import Page from './+page.svelte';
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: {
     sessions: vi.fn().mockResolvedValue([]),
     revokeSession: vi.fn(),
@@ -68,7 +68,7 @@ describe('Maison › Compte', () => {
     render(Page);
     await fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
     expect(api.logout).toHaveBeenCalled();
-    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replaceState: true }));
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/login', { replace: true }));
     expect(house.overrides).toEqual([]);
     expect(house.loaded).toBe(false);
     expect(history.data).toEqual({});

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import { fromWeekProgram } from '$lib/program';
+import { applyLocale } from '#lib/i18n/index.js';
+import { fromWeekProgram } from '#lib/program.js';
 import WeekCalendar from './WeekCalendar.svelte';
 
 const weekday = [{ start: '06:30', end: '08:00' }, { start: '17:00', end: '23:00' }];

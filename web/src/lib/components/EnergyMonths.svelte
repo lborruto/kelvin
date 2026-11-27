@@ -2,9 +2,9 @@
      reads them (`inspectBucket` rows, so the table, the bar card and the CSV say the same figure). A running month
      says up to which day it is counted. A row opens that month (the bar's drill). Two columns from 640 px. -->
 <script lang="ts">
-  import type { Inspection } from '$lib/inspector';
-  import { fmtDay, monthName } from '$lib/format';
-  import { m } from '$lib/i18n';
+  import type { Inspection } from '#lib/inspector.js';
+  import { fmtDay, monthName } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
 
   interface Props {
     /** Month keys (« 2026-10 »), in order. */

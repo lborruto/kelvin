@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { EnergyInterval, RoomSample } from '$lib/api/types';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { EnergyInterval, RoomSample } from '#lib/api/types.js';
 import RoomDayChart from './RoomDayChart.svelte';
 
 const t0 = Date.UTC(2026, 9, 12, 22) / 1000; // 13 Oct 00:00 Paris

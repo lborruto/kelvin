@@ -23,10 +23,10 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { fade } from 'svelte/transition';
-  import { m } from '$lib/i18n';
-  import { desktop } from '$lib/media.svelte';
-  import { dur, T } from '$lib/motion';
-  import { portal } from '$lib/portal';
+  import { m } from '#lib/i18n/index.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { dur, T } from '#lib/motion.js';
+  import { portal } from '#lib/portal.js';
   import Sheet from './Sheet.svelte';
   import Icon from './Icon.svelte';
 

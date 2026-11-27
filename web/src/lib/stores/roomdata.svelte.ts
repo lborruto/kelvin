@@ -1,4 +1,4 @@
-import type { RoomActivity, RoomEnergy, RoomsDuty } from '$lib/api/types';
+import type { RoomActivity, RoomEnergy, RoomsDuty } from '#lib/api/types.js';
 
 export interface Entry<T> {
   value: T | null;

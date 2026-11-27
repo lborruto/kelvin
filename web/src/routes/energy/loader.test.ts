@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import { api, ApiError } from '$lib/api/client';
-import type { EnergyDay, EnergyReport } from '$lib/api/types';
+import { applyLocale } from '#lib/i18n/index.js';
+import { api, ApiError } from '#lib/api/client.js';
+import type { EnergyDay, EnergyReport } from '#lib/api/types.js';
 import { EnergieData } from './energie.svelte';
 
 // The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
-vi.mock('$lib/api/client', async (orig) => ({
-  ...(await orig<typeof import('$lib/api/client')>()),
+vi.mock('#lib/api/client.js', async (orig) => ({
+  ...(await orig<typeof import('#lib/api/client.js')>()),
   api: { energyReport: vi.fn(), energyDay: vi.fn() }
 }));
 

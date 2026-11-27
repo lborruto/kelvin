@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import type { SettingsView, Tariff } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
+import { api } from '#lib/api/client.js';
+import type { SettingsView, Tariff } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
 import TariffForm from './TariffForm.svelte';
 
-vi.mock('$lib/api/client', async (orig) => ({
+vi.mock('#lib/api/client.js', async (orig) => ({
   ...(await orig<object>()),
   api: { putTariffDoc: vi.fn(), tempoPrices: vi.fn() }
 }));

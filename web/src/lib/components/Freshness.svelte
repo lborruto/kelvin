@@ -3,7 +3,7 @@
      dashed-means-not-yet signature as a pending command) · solid bad dot: failed (only what DESIGN already
      makes red) · nothing when there is nothing to say. Always paired with words; decorative. -->
 <script lang="ts">
-  import type { Fresh } from '$lib/freshness';
+  import type { Fresh } from '#lib/freshness.js';
 
   interface Props {
     state: Fresh;

@@ -7,18 +7,18 @@
      sidebar's PendingTag shows « Envoi… »); a toast confirms with « Annuler l’absence ». -->
 <script lang="ts">
   import { tick, untrack } from 'svelte';
-  import { run, runHouse } from '$lib/actions';
-  import { api } from '$lib/api/client';
-  import type { Radiator } from '$lib/api/types';
-  import { AWAY_TEMP, awayPresets, isOpenEnded, parisLocal, parisLocalMs, type AwayPreset } from '$lib/away';
-  import { capsOf, isReadOnly } from '$lib/capabilities';
-  import { fmtDateTime, fmtTemp, fmtTime } from '$lib/format';
-  import { apiMessage, m } from '$lib/i18n';
-  import { roomName } from '$lib/setup';
-  import { awaySheet } from '$lib/stores/away.svelte';
-  import { house } from '$lib/stores/house.svelte';
-  import { toasts } from '$lib/stores/toasts.svelte';
-  import { desktop } from '$lib/media.svelte';
+  import { run, runHouse } from '#lib/actions.js';
+  import { api } from '#lib/api/client.js';
+  import type { Radiator } from '#lib/api/types.js';
+  import { AWAY_TEMP, awayPresets, isOpenEnded, parisLocal, parisLocalMs, type AwayPreset } from '#lib/away.js';
+  import { capsOf, isReadOnly } from '#lib/capabilities.js';
+  import { fmtDateTime, fmtTemp, fmtTime } from '#lib/format.js';
+  import { apiMessage, m } from '#lib/i18n/index.js';
+  import { roomName } from '#lib/setup.js';
+  import { awaySheet } from '#lib/stores/away.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
+  import { toasts } from '#lib/stores/toasts.svelte.js';
+  import { desktop } from '#lib/media.svelte.js';
   import Icon from './Icon.svelte';
   import Sheet from './Sheet.svelte';
   import Skeleton from './Skeleton.svelte';

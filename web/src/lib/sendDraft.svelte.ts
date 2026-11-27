@@ -25,7 +25,7 @@ export function draftWaiting(): boolean {
 }
 
 /**
- * The unsent value of a setpoint control and its one timer (`$lib/send`): the value on screen, dashed until sent;
+ * The unsent value of a setpoint control and its one timer (`#lib/send.js`): the value on screen, dashed until sent;
  * one send `debounceMs` after the last interaction; a waiting value is sent at once when its owner goes away, the
  * page is left or hidden. A Stepper or a VSlider owns one by default; the room sheet makes one and gives it to both
  * (`draft`), so −/+ and the slider continue from the same value and send it once.

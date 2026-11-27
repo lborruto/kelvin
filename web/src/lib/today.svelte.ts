@@ -5,9 +5,9 @@
  * A timer is armed for the next Paris midnight (DST days included); a page coming back into view checks again, since a
  * sleeping tab's timers run late.
  */
-import { addDays } from '$lib/energy';
-import { parisTodayIso } from '$lib/format';
-import { parisDayStart } from '$lib/time';
+import { addDays } from '#lib/energy.js';
+import { parisTodayIso } from '#lib/format.js';
+import { parisDayStart } from '#lib/time.js';
 
 export class Today {
   iso = $state('');

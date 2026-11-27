@@ -4,15 +4,15 @@
      on desktop, docked under the chart on a phone), a polite live region says it, and a hidden table lists every
      day. No colour carries meaning alone: the panel's legend names the dot kinds and the band. -->
 <script lang="ts">
-  import type { LineSample, ModelPoint } from '$lib/api/types';
-  import { CARD_W, guideCard } from '$lib/chart';
-  import { fmtInt, fmtTemp, fmtTempTick } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import type { Inspection, Row } from '$lib/inspector';
-  import { desktop } from '$lib/media.svelte';
-  import { provenance } from '$lib/provenance';
-  import { MARGIN, nearest, scatterLayout, type ScatterMode } from '$lib/scatter';
-  import { pointRows } from '$lib/weatherCost';
+  import type { LineSample, ModelPoint } from '#lib/api/types.js';
+  import { CARD_W, guideCard } from '#lib/chart.js';
+  import { fmtInt, fmtTemp, fmtTempTick } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import type { Inspection, Row } from '#lib/inspector.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { provenance } from '#lib/provenance.js';
+  import { MARGIN, nearest, scatterLayout, type ScatterMode } from '#lib/scatter.js';
+  import { pointRows } from '#lib/weatherCost.js';
   import ChartInspector from './ChartInspector.svelte';
 
   interface Props {

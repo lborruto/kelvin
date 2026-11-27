@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { VIEW } from '$lib/weather.fixture';
+import { VIEW } from '#lib/weather.fixture.js';
 import { HOURLY_MAX_AGE_MS, WeatherStore } from './weather.svelte';
 
 const H = 3_600_000;

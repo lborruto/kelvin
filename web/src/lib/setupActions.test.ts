@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CommandResult, Pending } from '$lib/api/types';
-import { house } from '$lib/stores/house.svelte';
-import { toasts } from '$lib/stores/toasts.svelte';
+import type { CommandResult, Pending } from '#lib/api/types.js';
+import { house } from '#lib/stores/house.svelte.js';
+import { toasts } from '#lib/stores/toasts.svelte.js';
 import { installUndo, runSetup } from './setupActions';
 
 const setupPending = (status: Pending['status']): Pending =>

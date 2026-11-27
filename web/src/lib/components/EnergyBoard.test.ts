@@ -1,10 +1,10 @@
 // The Énergie « Tableau » board widgets (spec §4 Énergie): presentation over figures the page already has.
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ByRadiator, EnergyDay, Heating } from '$lib/api/types';
-import type { Inspection } from '$lib/inspector';
-import { roomEnergy } from '$lib/roomEnergy';
-import { house } from '$lib/stores/house.svelte';
+import type { ByRadiator, EnergyDay, Heating } from '#lib/api/types.js';
+import type { Inspection } from '#lib/inspector.js';
+import { roomEnergy } from '#lib/roomEnergy.js';
+import { house } from '#lib/stores/house.svelte.js';
 import CurveMini from './CurveMini.svelte';
 import EnergyBars from './EnergyBars.svelte';
 import EnergyMonths from './EnergyMonths.svelte';
@@ -12,7 +12,7 @@ import HcHpPanel from './HcHpPanel.svelte';
 import WhereTop from './WhereTop.svelte';
 
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 
 const text = (c: Element) => c.textContent!.replace(/\s+/g, ' ').trim();
 const ins = (rows: Inspection['rows']): Inspection => ({ title: 't', rows, notes: [], empty: null, spoken: 's' });
@@ -139,7 +139,7 @@ describe('EnergyMonths', () => {
 
 describe('Résumé parts at the figure’s decimals', () => {
   it('cents below 1 000 €, whole euros above, always adding up to the figure', async () => {
-    const { eurDigits, fmtEurAt, matchParts } = await import('$lib/format');
+    const { eurDigits, fmtEurAt, matchParts } = await import('#lib/format.js');
     expect(eurDigits(999.994)).toBe(2);
     expect(eurDigits(1777.4)).toBe(0);
     const [e, s] = matchParts(1777.4, [1634.6, 142.8], 0).parts;

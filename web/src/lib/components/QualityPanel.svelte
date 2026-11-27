@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { EnergyGroup, EnergyReport, Quality, SplitMethod } from '$lib/api/types';
-  import { bucketLabel, bucketSpan } from '$lib/energy';
-  import { fmtDateLong, fmtPct1 } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { ANCHORS } from '$lib/paths';
+  import type { EnergyGroup, EnergyReport, Quality, SplitMethod } from '#lib/api/types.js';
+  import { bucketLabel, bucketSpan } from '#lib/energy.js';
+  import { fmtDateLong, fmtPct1 } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ANCHORS } from '#lib/paths.js';
   import Disclosure from './Disclosure.svelte';
 
   type Mark = 'full' | 'partial' | 'missing' | 'none';

@@ -3,8 +3,8 @@
      state, or a SourceLine-like snippet) that holds its height from the first paint; actions on the right. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { m } from '$lib/i18n';
-  import { ROUTES } from '$lib/paths';
+  import { m } from '#lib/i18n/index.js';
+  import { ROUTES } from '#lib/paths.js';
   import Icon from '../Icon.svelte';
 
   interface Props {

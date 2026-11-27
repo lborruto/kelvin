@@ -2,20 +2,20 @@
   import { untrack } from 'svelte';
   import { scaleLinear } from 'd3-scale';
   import { curveMonotoneX, curveStepAfter, line } from 'd3-shape';
-  import { runText } from '$lib/activity';
-  import type { Override, RoomActivity, RoomMode, WeekProgram } from '$lib/api/types';
-  import { CARD_W, guideCard } from '$lib/chart';
-  import { fmtTemp, fmtTempTick, fmtTime } from '$lib/format';
-  import { heatColor } from '$lib/heat';
-  import { m } from '$lib/i18n';
-  import { inspectionTable } from '$lib/inspector';
-  import { desktop } from '$lib/media.svelte';
-  import { comfortBands } from '$lib/program';
+  import { runText } from '#lib/activity.js';
+  import type { Override, RoomActivity, RoomMode, WeekProgram } from '#lib/api/types.js';
+  import { CARD_W, guideCard } from '#lib/chart.js';
+  import { fmtTemp, fmtTempTick, fmtTime } from '#lib/format.js';
+  import { heatColor } from '#lib/heat.js';
+  import { m } from '#lib/i18n/index.js';
+  import { inspectionTable } from '#lib/inspector.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { comfortBands } from '#lib/program.js';
   import {
     inspectMoment, laneRange, MOMENT_ORDER, momentProvenance, outdoorAt, pointAt, slots, yRange, type MomentCtx, type OutdoorPoint, type RangeKind
-  } from '$lib/roomchart';
-  import { announcer } from '$lib/stores/announcer.svelte';
-  import type { StripPoint } from '$lib/stores/history.svelte';
+  } from '#lib/roomchart.js';
+  import { announcer } from '#lib/stores/announcer.svelte.js';
+  import type { StripPoint } from '#lib/stores/history.svelte.js';
   import ChartInspector from './ChartInspector.svelte';
   import Scrubber from './Scrubber.svelte';
 

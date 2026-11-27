@@ -3,11 +3,11 @@
      (bad text at level 3). Each chip is a Fig: its Fiche holds every signal with RTE's fetch time (the time no longer
      sits on the page). -->
 <script lang="ts">
-  import { fmtTime, parisTodayIso } from '$lib/format';
-  import { stripLines } from '$lib/grid';
-  import { m } from '$lib/i18n';
-  import { provenance } from '$lib/provenance';
-  import { grid } from '$lib/stores/grid.svelte';
+  import { fmtTime, parisTodayIso } from '#lib/format.js';
+  import { stripLines } from '#lib/grid.js';
+  import { m } from '#lib/i18n/index.js';
+  import { provenance } from '#lib/provenance.js';
+  import { grid } from '#lib/stores/grid.svelte.js';
   import Fig from './Fig.svelte';
   import type { FicheRow } from './FicheBody.svelte';
   import Icon from './Icon.svelte';

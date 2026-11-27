@@ -5,14 +5,14 @@
      Radiators that disagree read as their mean (« Mixte (moyenne) »); a partial capability says how many take it.
      Nothing is drawn for a read-only or offline room, off, or a room without these setpoints. -->
 <script lang="ts">
-  import { run } from '$lib/actions';
-  import { api } from '$lib/api/client';
-  import { roomControls, roomRange } from '$lib/capabilities';
-  import { fmtTemp } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { ROUTES } from '$lib/paths';
-  import { agg } from '$lib/room';
-  import { house } from '$lib/stores/house.svelte';
+  import { run } from '#lib/actions.js';
+  import { api } from '#lib/api/client.js';
+  import { roomControls, roomRange } from '#lib/capabilities.js';
+  import { fmtTemp } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ROUTES } from '#lib/paths.js';
+  import { agg } from '#lib/room.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import GroupedList from '../GroupedList.svelte';
   import ListRow from '../ListRow.svelte';
   import Stepper from '../Stepper.svelte';

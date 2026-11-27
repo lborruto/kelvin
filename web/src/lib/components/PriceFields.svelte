@@ -3,9 +3,9 @@
      decimals, 0, above 5 €/kWh) is flagged as soon as the field is left: red edge, aria-invalid and one line under
      the fields, before anything is saved. -->
 <script lang="ts">
-  import type { TariffOption, TempoColour } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { priceProblem, RATE_KEYS } from '$lib/tariff';
+  import type { TariffOption, TempoColour } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { priceProblem, RATE_KEYS } from '#lib/tariff.js';
   import Swatch from './Swatch.svelte';
   import TempoDot from './TempoDot.svelte';
 

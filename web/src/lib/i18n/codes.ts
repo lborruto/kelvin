@@ -1,5 +1,5 @@
-import { ApiError } from '$lib/api/client';
-import type { Pending, Status } from '$lib/api/types';
+import { ApiError } from '#lib/api/client.js';
+import type { Pending, Status } from '#lib/api/types.js';
 import { own, type ApiParams } from './rules';
 import { m } from './state.svelte';
 

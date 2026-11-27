@@ -3,7 +3,7 @@
      Never a round dot: round dots belong to Tempo days (TempoDot). Decorative: the words beside it carry
      the meaning. -->
 <script lang="ts">
-  import { SERIES, seriesBackground, type SeriesKey } from '$lib/energy';
+  import { SERIES, seriesBackground, type SeriesKey } from '#lib/energy.js';
 
   interface Props {
     series: SeriesKey;

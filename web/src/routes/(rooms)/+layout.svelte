@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Tableau from '$lib/components/dashboard/Tableau.svelte';
+  import Tableau from '#lib/components/dashboard/Tableau.svelte';
 
   let { children } = $props();
   // Maison's tableau. A room opens as a sheet over it (or over any other page): the sheet lives in the root

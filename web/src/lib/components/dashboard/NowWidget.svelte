@@ -3,13 +3,13 @@
      temperature and end, « Arrêter ». « Absence » is cool; a running boost's glyph is heat. A boost whose
      radiators are all offline cannot be stopped (nothing would answer): its button pauses, like the room's. -->
 <script lang="ts">
-  import type { Override } from '$lib/api/types';
-  import { run } from '$lib/actions';
-  import { api } from '$lib/api/client';
-  import { fmtTemp, fmtTime, fmtWeekdayTime, parisTodayIso } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { roomName } from '$lib/setup';
-  import { house } from '$lib/stores/house.svelte';
+  import type { Override } from '#lib/api/types.js';
+  import { run } from '#lib/actions.js';
+  import { api } from '#lib/api/client.js';
+  import { fmtTemp, fmtTime, fmtWeekdayTime, parisTodayIso } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { roomName } from '#lib/setup.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import Icon from '../Icon.svelte';
 
   interface Props {

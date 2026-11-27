@@ -1,10 +1,10 @@
-import type { Alert, EcowattRun, Pending } from '$lib/api/types';
-import { fmtDay, fmtTime } from '$lib/format';
-import { hoursText } from '$lib/grid';
-import { locale, m, pendingError, pendingLabel } from '$lib/i18n';
-import { ANCHORS, ROUTES } from '$lib/paths';
-import { roomName } from '$lib/setup';
-import { house } from '$lib/stores/house.svelte';
+import type { Alert, EcowattRun, Pending } from '#lib/api/types.js';
+import { fmtDay, fmtTime } from '#lib/format.js';
+import { hoursText } from '#lib/grid.js';
+import { locale, m, pendingError, pendingLabel } from '#lib/i18n/index.js';
+import { ANCHORS, ROUTES } from '#lib/paths.js';
+import { roomName } from '#lib/setup.js';
+import { house } from '#lib/stores/house.svelte.js';
 
 const MED = 'https://www.myelectricaldata.fr/';
 

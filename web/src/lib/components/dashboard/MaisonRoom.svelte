@@ -1,22 +1,22 @@
 <!-- One room on the Maison tableau (Tableau §4): the kit RoomTile fed from the house. `tile` is the phone's
      two-column tile, `widget` the desktop column's head widget with its MiniSpark. The tile body opens the room
      sheet; the −/+ changes Manuel's setpoint, or Confort in Programme (`primarySetpoint`), and sends once the owner
-     stops (Stepper, `$lib/send`); during an Éco period a line says when the new Confort applies. No
+     stops (Stepper, `#lib/send.js`); during an Éco period a line says when the new Confort applies. No
      stepper when a command cannot work (Arrêt, window, absence, offline, read-only): a note says why instead. -->
 <script lang="ts">
-  import type { Room } from '$lib/api/types';
-  import { retry, run } from '$lib/actions';
-  import { roomControls } from '$lib/capabilities';
-  import { fmtTemp, fmtTempShort, fmtTime, fmtWeekdayTime } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { tileLine } from '$lib/dashboard';
-  import { ROUTES, roomSheetHref } from '$lib/paths';
-  import { comfortBands } from '$lib/program';
-  import { nextComfortAt, primaryLabel, primarySetpoint, sendPrimary } from '$lib/setpoint';
-  import { roomName } from '$lib/setup';
-  import { roomReading, roomStatus, sharedProgram } from '$lib/status';
-  import type { StripPoint } from '$lib/stores/history.svelte';
-  import { house } from '$lib/stores/house.svelte';
+  import type { Room } from '#lib/api/types.js';
+  import { retry, run } from '#lib/actions.js';
+  import { roomControls } from '#lib/capabilities.js';
+  import { fmtTemp, fmtTempShort, fmtTime, fmtWeekdayTime } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { tileLine } from '#lib/dashboard.js';
+  import { ROUTES, roomSheetHref } from '#lib/paths.js';
+  import { comfortBands } from '#lib/program.js';
+  import { nextComfortAt, primaryLabel, primarySetpoint, sendPrimary } from '#lib/setpoint.js';
+  import { roomName } from '#lib/setup.js';
+  import { roomReading, roomStatus, sharedProgram } from '#lib/status.js';
+  import type { StripPoint } from '#lib/stores/history.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import MiniSpark from '../MiniSpark.svelte';
   import PendingTag from '../PendingTag.svelte';
   import RoomTile from '../RoomTile.svelte';

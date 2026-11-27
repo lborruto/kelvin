@@ -5,16 +5,16 @@
      (missing days, prices applied after the fact, a partial radiator sum), each one muted line with an ⓘ. With a
      weather place, one muted line gives the period's outdoor mean and degree days (Plan 14). -->
 <script lang="ts">
-  import type { EnergyReport, LinkyState } from '$lib/api/types';
-  import { dataSpan, periodTitle, previousName, spanLabel, type Span, type View } from '$lib/energy';
-  import { fmtChangeShare, fmtDateLong, fmtDay, fmtDju, fmtTemp, eurDigits, fmtEurAt, fmtEurExact, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct, fmtPct1, matchParts } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { inspectBucket } from '$lib/inspector';
-  import { ENERGY_ANCHORS, ROUTES } from '$lib/paths';
-  import { provenance } from '$lib/provenance';
-  import { goToSection } from '$lib/sections';
-  import { today } from '$lib/today.svelte';
-  import { weather } from '$lib/stores/weather.svelte';
+  import type { EnergyReport, LinkyState } from '#lib/api/types.js';
+  import { dataSpan, periodTitle, previousName, spanLabel, type Span, type View } from '#lib/energy.js';
+  import { fmtChangeShare, fmtDateLong, fmtDay, fmtDju, fmtTemp, eurDigits, fmtEurAt, fmtEurExact, fmtEurHero, fmtKwhHero, fmtKwhParts, fmtPct, fmtPct1, matchParts } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { inspectBucket } from '#lib/inspector.js';
+  import { ENERGY_ANCHORS, ROUTES } from '#lib/paths.js';
+  import { provenance } from '#lib/provenance.js';
+  import { goToSection } from '#lib/sections.js';
+  import { today } from '#lib/today.svelte.js';
+  import { weather } from '#lib/stores/weather.svelte.js';
   import Fig from './Fig.svelte';
   import Icon from './Icon.svelte';
   import SplitBar from './SplitBar.svelte';

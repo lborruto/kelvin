@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import type { TempoLens } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
+import type { TempoLens } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
 import TempoRows from './TempoRows.svelte';
 
 const NB = '\u00a0';

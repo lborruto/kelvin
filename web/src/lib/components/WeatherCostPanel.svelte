@@ -3,13 +3,13 @@
      title and its reason with counts, the strip's temperatures, the measured dots. Loading: skeletons at the final
      height (CLS). Every figure is a Fig with the « calculé » Provenance; an « estimation » tag says when it is thin. -->
 <script lang="ts">
-  import type { WeatherCost } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { desktop } from '$lib/media.svelte';
-  import { provenance } from '$lib/provenance';
-  import type { ScatterMode } from '$lib/scatter';
-  import { ATTRIBUTION_URL } from '$lib/weather';
-  import { figures, houseWhy, methodLines, thinText } from '$lib/weatherCost';
+  import type { WeatherCost } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { provenance } from '#lib/provenance.js';
+  import type { ScatterMode } from '#lib/scatter.js';
+  import { ATTRIBUTION_URL } from '#lib/weather.js';
+  import { figures, houseWhy, methodLines, thinText } from '#lib/weatherCost.js';
   import Disclosure from './Disclosure.svelte';
   import Fig from './Fig.svelte';
   import ForecastStrip from './ForecastStrip.svelte';

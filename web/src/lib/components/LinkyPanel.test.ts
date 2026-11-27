@@ -1,13 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import type { LinkyStatus } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
+import { api } from '#lib/api/client.js';
+import type { LinkyStatus } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
 import LinkyPanel from './LinkyPanel.svelte';
 
 // The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
-vi.mock('$lib/api/client', async (orig) => ({
-  ApiError: (await orig<typeof import('$lib/api/client')>()).ApiError,
+vi.mock('#lib/api/client.js', async (orig) => ({
+  ApiError: (await orig<typeof import('#lib/api/client.js')>()).ApiError,
   api: { putLinky: vi.fn() }
 }));
 

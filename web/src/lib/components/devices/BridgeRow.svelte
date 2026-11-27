@@ -4,10 +4,10 @@
      « Détails techniques » opens it. -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { SetupDevice } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { bridgeName } from '$lib/setup';
-  import { detail } from '$lib/stores/detail.svelte';
+  import type { SetupDevice } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { bridgeName } from '#lib/setup.js';
+  import { detail } from '#lib/stores/detail.svelte.js';
   import Icon, { type IconName } from '../Icon.svelte';
   import SupportChip from '../SupportChip.svelte';
   import DeviceRow from './DeviceRow.svelte';

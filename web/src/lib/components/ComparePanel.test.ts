@@ -1,7 +1,7 @@
 import { render } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { Comparison } from '$lib/api/types';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { Comparison } from '#lib/api/types.js';
 import ComparePanel from './ComparePanel.svelte';
 
 const cmp = (o: Partial<Comparison> = {}): Comparison => ({

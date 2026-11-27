@@ -1,5 +1,5 @@
-import { api } from '$lib/api/client';
-import type { WeatherHourly, WeatherView } from '$lib/api/types';
+import { api } from '#lib/api/client.js';
+import type { WeatherHourly, WeatherView } from '#lib/api/types.js';
 
 /** `at`: when the answer was asked (epoch ms); a refresh keeps the old points on screen until it lands. */
 export type HourlyEntry = { status: 'loading' | 'ok' | 'error'; points: { t: number; v: number }[]; at: number };

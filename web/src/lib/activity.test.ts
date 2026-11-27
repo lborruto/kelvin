@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 import { activityKey, runText } from './activity';
 
 const at = (iso: string) => Date.parse(iso) / 1000;

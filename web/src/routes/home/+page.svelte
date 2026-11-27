@@ -7,36 +7,36 @@
      (`homeAnchor`; #away opens the Absence sheet over Maison, spec §2). -->
 <script lang="ts">
   import { afterNavigate, goto } from '$app/navigation';
-  import { api } from '$lib/api/client';
-  import type { LinkyStatus, McpTokenList, SessionInfo, SettingsView, Sources, WeatherSettings } from '$lib/api/types';
-  import { alertText } from '$lib/alerts-text';
-  import AlertList from '$lib/components/AlertList.svelte';
-  import CozytouchStatus from '$lib/components/CozytouchStatus.svelte';
-  import HomeCard from '$lib/components/HomeCard.svelte';
-  import Segmented from '$lib/components/Segmented.svelte';
-  import SourceLine from '$lib/components/SourceLine.svelte';
-  import Swatch from '$lib/components/Swatch.svelte';
-  import TariffBand from '$lib/components/TariffBand.svelte';
-  import TempoDot from '$lib/components/TempoDot.svelte';
-  import Toggle from '$lib/components/Toggle.svelte';
-  import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
-  import { canEditSetup } from '$lib/capabilities';
-  import { fmtAgo, fmtCoord, fmtEurExact, fmtPrice, fmtWeekdayTime, parisTodayIso } from '$lib/format';
-  import { LOCALE_NAMES, LOCALES, locale, m, setLocale } from '$lib/i18n';
-  import { linkyFresh, linkyLine, linkyProblem } from '$lib/linky';
-  import { dayBlocks, hcText, offpeakSlots } from '$lib/maintenant';
-  import { navAlerts } from '$lib/navAlerts';
-  import { ANCHORS, homeAnchor, ROUTES } from '$lib/paths';
-  import { lateCount, sourceRows } from '$lib/sources';
-  import { modelName, placeLine, viewModel, weatherFresh } from '$lib/weather';
-  import { weather } from '$lib/stores/weather.svelte';
-  import { alerts } from '$lib/stores/alerts.svelte';
-  import { auth } from '$lib/stores/auth.svelte';
-  import { awaySheet } from '$lib/stores/away.svelte';
-  import { detail } from '$lib/stores/detail.svelte';
-  import { house } from '$lib/stores/house.svelte';
-  import { inForce, RATE_KEYS } from '$lib/tariff';
-  import { VERSION } from '$lib/version';
+  import { api } from '#lib/api/client.js';
+  import type { LinkyStatus, McpTokenList, SessionInfo, SettingsView, Sources, WeatherSettings } from '#lib/api/types.js';
+  import { alertText } from '#lib/alerts-text.js';
+  import AlertList from '#lib/components/AlertList.svelte';
+  import CozytouchStatus from '#lib/components/CozytouchStatus.svelte';
+  import HomeCard from '#lib/components/HomeCard.svelte';
+  import Segmented from '#lib/components/Segmented.svelte';
+  import SourceLine from '#lib/components/SourceLine.svelte';
+  import Swatch from '#lib/components/Swatch.svelte';
+  import TariffBand from '#lib/components/TariffBand.svelte';
+  import TempoDot from '#lib/components/TempoDot.svelte';
+  import Toggle from '#lib/components/Toggle.svelte';
+  import SettingsHeader from '#lib/components/settings/SettingsHeader.svelte';
+  import { canEditSetup } from '#lib/capabilities.js';
+  import { fmtAgo, fmtCoord, fmtEurExact, fmtPrice, fmtWeekdayTime, parisTodayIso } from '#lib/format.js';
+  import { LOCALE_NAMES, LOCALES, locale, m, setLocale } from '#lib/i18n/index.js';
+  import { linkyFresh, linkyLine, linkyProblem } from '#lib/linky.js';
+  import { dayBlocks, hcText, offpeakSlots } from '#lib/maintenant.js';
+  import { navAlerts } from '#lib/navAlerts.js';
+  import { ANCHORS, homeAnchor, ROUTES } from '#lib/paths.js';
+  import { lateCount, sourceRows } from '#lib/sources.js';
+  import { modelName, placeLine, viewModel, weatherFresh } from '#lib/weather.js';
+  import { weather } from '#lib/stores/weather.svelte.js';
+  import { alerts } from '#lib/stores/alerts.svelte.js';
+  import { auth } from '#lib/stores/auth.svelte.js';
+  import { awaySheet } from '#lib/stores/away.svelte.js';
+  import { detail } from '#lib/stores/detail.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
+  import { inForce, RATE_KEYS } from '#lib/tariff.js';
+  import { VERSION } from '#lib/version.js';
 
   const TEMPO_COLOURS = ['blue', 'white', 'red'] as const;
 
@@ -48,10 +48,10 @@
     leaving = true;
     if (target === 'away') {
       // The sheet lives in the layout: open it once Maison is the page under it.
-      void goto(ROUTES.rooms, { replaceState: true }).then(() => awaySheet.show());
+      void goto(ROUTES.rooms, { replace: true }).then(() => awaySheet.show());
       return;
     }
-    void goto(target, { replaceState: true });
+    void goto(target, { replace: true });
   }
   afterNavigate(({ to }) => land(to?.url.hash ?? ''));
   // A hash typed or followed while already on Réglages is not a navigation for the router.

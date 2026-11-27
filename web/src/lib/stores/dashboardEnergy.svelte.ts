@@ -1,7 +1,7 @@
-import { api } from '$lib/api/client';
-import type { EnergyDay, EnergyReport, Tariff, WeatherCostForecastView } from '$lib/api/types';
-import { addDays } from '$lib/energy';
-import { monthSpan } from '$lib/dashboard';
+import { api } from '#lib/api/client.js';
+import type { EnergyDay, EnergyReport, Tariff, WeatherCostForecastView } from '#lib/api/types.js';
+import { addDays } from '#lib/energy.js';
+import { monthSpan } from '#lib/dashboard.js';
 
 /** What Maison's energy column reads (Tableau §5: existing endpoints only): the tariff in force (`/api/settings`,
  * the « Maintenant » card), this month's report with last month's bucket and the projection (`/api/energy`,

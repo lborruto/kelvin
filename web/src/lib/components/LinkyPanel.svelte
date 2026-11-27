@@ -1,9 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { api } from '$lib/api/client';
-  import type { LinkyStatus } from '$lib/api/types';
-  import { fmtAgo, fmtDateLong, fmtDay, fmtTime } from '$lib/format';
-  import { apiMessage, errorText, m } from '$lib/i18n';
+  import { api } from '#lib/api/client.js';
+  import type { LinkyStatus } from '#lib/api/types.js';
+  import { fmtAgo, fmtDateLong, fmtDay, fmtTime } from '#lib/format.js';
+  import { apiMessage, errorText, m } from '#lib/i18n/index.js';
 
   interface Props {
     status: LinkyStatus;

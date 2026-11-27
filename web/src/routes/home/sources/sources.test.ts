@@ -1,12 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import { applyLocale } from '$lib/i18n';
-import { detail } from '$lib/stores/detail.svelte';
-import { house } from '$lib/stores/house.svelte';
+import { api } from '#lib/api/client.js';
+import { applyLocale } from '#lib/i18n/index.js';
+import { detail } from '#lib/stores/detail.svelte.js';
+import { house } from '#lib/stores/house.svelte.js';
 import Page from './+page.svelte';
 
-vi.mock('$lib/api/client', () => ({ api: { linkyStatus: vi.fn(), status: vi.fn() }, ApiError: class extends Error {} }));
+vi.mock('#lib/api/client.js', () => ({ api: { linkyStatus: vi.fn(), status: vi.fn() }, ApiError: class extends Error {} }));
 
 const at = (h: number, m: number) => new Date(`2026-12-01T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+01:00`).getTime() / 1000;
 const GRID = {

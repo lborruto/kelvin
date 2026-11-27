@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { Projection } from '$lib/api/types';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { Projection } from '#lib/api/types.js';
 import ProjectionPanel from './ProjectionPanel.svelte';
 
 const months = Array.from({ length: 12 }, (_, i) => ({

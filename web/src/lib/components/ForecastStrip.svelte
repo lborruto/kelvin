@@ -4,11 +4,11 @@
      week's sentence with its heating part matched. Cells have a fixed height (CLS); seven abreast, 4 + 3 when narrow,
      never a horizontal scroll. -->
 <script lang="ts">
-  import type { WeatherForecast } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { provenance } from '$lib/provenance';
-  import { ATTRIBUTION_URL } from '$lib/weather';
-  import { forecastCell, forecastRows, weekLine } from '$lib/weatherCost';
+  import type { WeatherForecast } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { provenance } from '#lib/provenance.js';
+  import { ATTRIBUTION_URL } from '#lib/weather.js';
+  import { forecastCell, forecastRows, weekLine } from '#lib/weatherCost.js';
   import Fig from './Fig.svelte';
 
   interface Props {

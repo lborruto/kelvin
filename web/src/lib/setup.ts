@@ -1,7 +1,7 @@
 /** Rooms and devices (spec §6): label checks that mirror the backend, detail rows, sync status. */
-import type { Radiator, SetupDevice, SetupRadiator, SyncStatus } from '$lib/api/types';
-import { fmtDateTime, fmtTime, parisTodayIso } from '$lib/format';
-import { locale, m } from '$lib/i18n';
+import type { Radiator, SetupDevice, SetupRadiator, SyncStatus } from '#lib/api/types.js';
+import { fmtDateTime, fmtTime, parisTodayIso } from '#lib/format.js';
+import { locale, m } from '#lib/i18n/index.js';
 
 export const MAX_LABEL = 32;
 // Control, format (zero-width), surrogate, private-use, unassigned, line and paragraph separators.

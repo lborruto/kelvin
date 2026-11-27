@@ -6,12 +6,12 @@
      or a bottom sheet on a phone, with the Claude Code and Claude Desktop snippets; closing it drops the secret
      from the page (never kept client-side). -->
 <script lang="ts">
-  import { api } from '$lib/api/client';
-  import type { McpAuditRow, McpCreated, McpToken, McpTokenList } from '$lib/api/types';
-  import { fmtAgo, fmtDateTime } from '$lib/format';
-  import { errorText, m } from '$lib/i18n';
-  import { claudeCodeSnippet, claudeDesktopSnippet, endpointUrl } from '$lib/mcp';
-  import { toasts } from '$lib/stores/toasts.svelte';
+  import { api } from '#lib/api/client.js';
+  import type { McpAuditRow, McpCreated, McpToken, McpTokenList } from '#lib/api/types.js';
+  import { fmtAgo, fmtDateTime } from '#lib/format.js';
+  import { errorText, m } from '#lib/i18n/index.js';
+  import { claudeCodeSnippet, claudeDesktopSnippet, endpointUrl } from '#lib/mcp.js';
+  import { toasts } from '#lib/stores/toasts.svelte.js';
   import { tick } from 'svelte';
   import Disclosure from './Disclosure.svelte';
   import Icon from './Icon.svelte';

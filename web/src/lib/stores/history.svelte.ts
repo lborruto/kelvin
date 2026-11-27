@@ -1,5 +1,5 @@
-import { api } from '$lib/api/client';
-import type { HistoryPoint } from '$lib/api/types';
+import { api } from '#lib/api/client.js';
+import type { HistoryPoint } from '#lib/api/types.js';
 
 /** One radiator's bucket, as the room chart's inspector reads it. */
 export interface StripRadiator {

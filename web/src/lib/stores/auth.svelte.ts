@@ -1,5 +1,5 @@
-import { api, ApiError } from '$lib/api/client';
-import type { Me, ServerInfo } from '$lib/api/types';
+import { api, ApiError } from '#lib/api/client.js';
+import type { Me, ServerInfo } from '#lib/api/types.js';
 import { alerts } from './alerts.svelte';
 import { grid } from './grid.svelte';
 import { history } from './history.svelte';

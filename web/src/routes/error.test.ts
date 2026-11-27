@@ -25,7 +25,7 @@ describe('+error', () => {
   it('the error page sends a legacy path to its English page, query and anchor kept', () => {
     state.url = new URL('http://kelvin.test/maison?x=1#tarif'); // legacy-path-test
     render(ErrorPage);
-    expect(goto).toHaveBeenCalledWith('/home?x=1#tariff', { replaceState: true });
+    expect(goto).toHaveBeenCalledWith('/home?x=1#tariff', { replace: true });
   });
   it('an unknown English path shows the 404 with the ways out', () => {
     state.url = new URL('http://kelvin.test/nowhere');
@@ -66,7 +66,7 @@ describe('+error', () => {
 });
 
 it('the 404 reads in English', async () => {
-  const { applyLocale } = await import('$lib/i18n');
+  const { applyLocale } = await import('#lib/i18n/index.js');
   applyLocale('en');
   state.url = new URL('http://kelvin.test/nowhere');
   render(ErrorPage);

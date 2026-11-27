@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Pending, Radiator, Room, Snapshot } from '$lib/api/types';
+import type { Pending, Radiator, Room, Snapshot } from '#lib/api/types.js';
 import { HouseStore } from './house.svelte';
-import { LOST, pendingError, UNKNOWN } from '$lib/i18n';
+import { LOST, pendingError, UNKNOWN } from '#lib/i18n/index.js';
 import { toasts } from './toasts.svelte';
 
 const rad = (id: string, room: string, extra: Partial<Radiator> = {}): Radiator => ({

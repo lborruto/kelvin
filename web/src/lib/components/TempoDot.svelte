@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { TempoColour } from '$lib/api/types';
+  import type { TempoColour } from '#lib/api/types.js';
 
   interface Props {
     colour: TempoColour | null;

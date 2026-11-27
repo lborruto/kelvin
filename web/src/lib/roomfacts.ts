@@ -1,7 +1,7 @@
-import type { Radiator } from '$lib/api/types';
-import { fmtAgo, fmtDateTime, fmtTime } from '$lib/format';
-import { m } from '$lib/i18n';
-import { parisMidnight } from '$lib/time';
+import type { Radiator } from '#lib/api/types.js';
+import { fmtAgo, fmtDateTime, fmtTime } from '#lib/format.js';
+import { m } from '#lib/i18n/index.js';
+import { parisMidnight } from '#lib/time.js';
 
 export interface InfoRow {
   key: 'model' | 'power' | 'signal' | 'reach' | 'last';

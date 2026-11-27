@@ -3,17 +3,17 @@
      runs) and Programme (the next change), then Radiateurs (several) or Fenêtre (one radiator that reports it).
      A tile a room cannot use is absent, never greyed (capability gating). -->
 <script lang="ts">
-  import type { Room } from '$lib/api/types';
-  import { boostEndMs } from '$lib/away';
-  import { roomControls } from '$lib/capabilities';
-  import { fmtTime, fmtWeekdayTime, parisTodayIso } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { nextLevelText, radiatorsText } from '$lib/dashboard';
-  import { ROUTES, roomSheetHref } from '$lib/paths';
-  import { roomName } from '$lib/setup';
-  import { roomStatus, sharedProgram } from '$lib/status';
-  import type { StripPoint } from '$lib/stores/history.svelte';
-  import { house } from '$lib/stores/house.svelte';
+  import type { Room } from '#lib/api/types.js';
+  import { boostEndMs } from '#lib/away.js';
+  import { roomControls } from '#lib/capabilities.js';
+  import { fmtTime, fmtWeekdayTime, parisTodayIso } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { nextLevelText, radiatorsText } from '#lib/dashboard.js';
+  import { ROUTES, roomSheetHref } from '#lib/paths.js';
+  import { roomName } from '#lib/setup.js';
+  import { roomStatus, sharedProgram } from '#lib/status.js';
+  import type { StripPoint } from '#lib/stores/history.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import IconTile from '../IconTile.svelte';
   import MaisonRoom from './MaisonRoom.svelte';
 

@@ -7,8 +7,8 @@
      from 0.98 in 180 ms. The scrim is black at 60 %. Reduced motion: no travel or scale, opacity only. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { m } from '$lib/i18n';
-  import { reducedMotion } from '$lib/motion';
+  import { m } from '#lib/i18n/index.js';
+  import { reducedMotion } from '#lib/motion.js';
   import Icon from './Icon.svelte';
 
   interface Props {

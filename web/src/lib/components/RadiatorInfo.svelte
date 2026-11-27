@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Radiator } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { infoRows } from '$lib/roomfacts';
+  import type { Radiator } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { infoRows } from '#lib/roomfacts.js';
 
   interface Props {
     radiator: Radiator;

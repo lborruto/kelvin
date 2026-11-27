@@ -5,9 +5,9 @@
      the figure). Phone (< 1024 px): a tap opens the bottom sheet. See foundation-api.md. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { m } from '$lib/i18n';
-  import { desktop } from '$lib/media.svelte';
-  import type { Provenance } from '$lib/provenance';
+  import { m } from '#lib/i18n/index.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import type { Provenance } from '#lib/provenance.js';
   import Fiche from './Fiche.svelte';
   import type { FicheAction, FicheLink, FicheRow } from './FicheBody.svelte';
 

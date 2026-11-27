@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { retry, runHouse } from '$lib/actions';
-  import { api } from '$lib/api/client';
-  import { fmtWeekdayTime } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { awaySheet } from '$lib/stores/away.svelte';
-  import { house } from '$lib/stores/house.svelte';
+  import { retry, runHouse } from '#lib/actions.js';
+  import { api } from '#lib/api/client.js';
+  import { fmtWeekdayTime } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { awaySheet } from '#lib/stores/away.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import Icon from './Icon.svelte';
   import Menu from './Menu.svelte';
   import PendingTag from './PendingTag.svelte';

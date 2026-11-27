@@ -2,15 +2,15 @@
      next (« → Éco 23:00 »). A room not in Programme shows its day dimmed « en pause »; an offline room its last
      known day, faint, « dernier connu ». Desktop: a widget spanning the room columns; phone: a grouped list. -->
 <script lang="ts">
-  import type { Room } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { nextLevelText, segsText, todaySegs } from '$lib/dashboard';
-  import { ROUTES } from '$lib/paths';
-  import { roomName } from '$lib/setup';
-  import { isOffline, sharedProgram } from '$lib/status';
-  import { house } from '$lib/stores/house.svelte';
-  import { parisMinuteOfDay } from '$lib/time';
-  import { capsOf } from '$lib/capabilities';
+  import type { Room } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { nextLevelText, segsText, todaySegs } from '#lib/dashboard.js';
+  import { ROUTES } from '#lib/paths.js';
+  import { roomName } from '#lib/setup.js';
+  import { isOffline, sharedProgram } from '#lib/status.js';
+  import { house } from '#lib/stores/house.svelte.js';
+  import { parisMinuteOfDay } from '#lib/time.js';
+  import { capsOf } from '#lib/capabilities.js';
   import DayBar from '../DayBar.svelte';
   import Icon from '../Icon.svelte';
 

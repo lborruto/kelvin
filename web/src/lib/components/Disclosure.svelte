@@ -7,8 +7,8 @@
      the help glyph, inside a sentence line: its region takes the next line of a wrapping flex parent). -->
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte';
-  import { dur, T } from '$lib/motion';
-  import { detail as pref } from '$lib/stores/detail.svelte';
+  import { dur, T } from '#lib/motion.js';
+  import { detail as pref } from '#lib/stores/detail.svelte.js';
   import Icon from './Icon.svelte';
 
   interface Props {

@@ -5,18 +5,18 @@
      Each part arrives below or beside what is already placed, so nothing on screen moves. -->
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import CozytouchStatus from '$lib/components/CozytouchStatus.svelte';
-  import GroupedList from '$lib/components/GroupedList.svelte';
-  import McpPanel from '$lib/components/McpPanel.svelte';
-  import SessionsPanel from '$lib/components/SessionsPanel.svelte';
-  import SupportChip from '$lib/components/SupportChip.svelte';
-  import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
-  import { m, statusError } from '$lib/i18n';
-  import { desktop } from '$lib/media.svelte';
-  import { ANCHORS, ROUTES } from '$lib/paths';
-  import { auth } from '$lib/stores/auth.svelte';
-  import { house } from '$lib/stores/house.svelte';
-  import { toasts } from '$lib/stores/toasts.svelte';
+  import CozytouchStatus from '#lib/components/CozytouchStatus.svelte';
+  import GroupedList from '#lib/components/GroupedList.svelte';
+  import McpPanel from '#lib/components/McpPanel.svelte';
+  import SessionsPanel from '#lib/components/SessionsPanel.svelte';
+  import SupportChip from '#lib/components/SupportChip.svelte';
+  import SettingsHeader from '#lib/components/settings/SettingsHeader.svelte';
+  import { m, statusError } from '#lib/i18n/index.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { ANCHORS, ROUTES } from '#lib/paths.js';
+  import { auth } from '#lib/stores/auth.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
+  import { toasts } from '#lib/stores/toasts.svelte.js';
 
   let now = $state(Date.now());
   $effect(() => {
@@ -39,7 +39,7 @@
     } finally {
       loggingOut = false;
     }
-    await goto(ROUTES.login, { replaceState: true });
+    await goto(ROUTES.login, { replace: true });
   }
 </script>
 

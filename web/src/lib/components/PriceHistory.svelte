@@ -3,10 +3,10 @@
      decimals). Past days keep the prices of their own row. The successive off-peak hours follow when the tariff
      has any. -->
 <script lang="ts">
-  import type { HcVariant, Slot, Tariff, TariffRow } from '$lib/api/types';
-  import { fmtAmount, fmtDateLong, fmtEurExact, fmtMonthShort } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { RATE_KEYS } from '$lib/tariff';
+  import type { HcVariant, Slot, Tariff, TariffRow } from '#lib/api/types.js';
+  import { fmtAmount, fmtDateLong, fmtEurExact, fmtMonthShort } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { RATE_KEYS } from '#lib/tariff.js';
 
   interface Props {
     tariff: Tariff;

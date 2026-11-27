@@ -1,10 +1,10 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { api } from '$lib/api/client';
-  import type { SettingsView, Slot, TariffOption } from '$lib/api/types';
-  import { fmtDateLong, fmtDay, fmtMonthLong, parisTodayIso, parseDecimal } from '$lib/format';
-  import { errorText, locale, m } from '$lib/i18n';
-  import { ALL_MONTHS, DEFAULT_TEMPO_HOURS, OPTIONS, RATE_KEYS, buildDocument, inForce, monthsProblem, priceProblem, withSchedule } from '$lib/tariff';
+  import { api } from '#lib/api/client.js';
+  import type { SettingsView, Slot, TariffOption } from '#lib/api/types.js';
+  import { fmtDateLong, fmtDay, fmtMonthLong, parisTodayIso, parseDecimal } from '#lib/format.js';
+  import { errorText, locale, m } from '#lib/i18n/index.js';
+  import { ALL_MONTHS, DEFAULT_TEMPO_HOURS, OPTIONS, RATE_KEYS, buildDocument, inForce, monthsProblem, priceProblem, withSchedule } from '#lib/tariff.js';
   import HcScheduleEditor from './HcScheduleEditor.svelte';
   import PriceFields from './PriceFields.svelte';
   import Segmented from './Segmented.svelte';

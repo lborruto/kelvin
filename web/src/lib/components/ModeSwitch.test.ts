@@ -2,7 +2,7 @@ import { flushSync } from 'svelte';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import ModeSwitch from './ModeSwitch.svelte';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 
 describe('ModeSwitch', () => {
   it('compact scale: every segment carries the 44 px hit area (.hit)', () => {

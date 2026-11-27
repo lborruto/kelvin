@@ -6,11 +6,11 @@
  * itself (`group` = the view). Both carry `period_from`/`period_to`; Jour is a single request.
  * Every request has a sequence number: an answer that is no longer the latest is dropped.
  */
-import { api, ApiError } from '$lib/api/client';
-import type { EnergyDay, EnergyReport } from '$lib/api/types';
-import { addDays, canStep, chartWindow, isLatest, periodOf, stepPeriod, type Span, type View } from '$lib/energy';
-import { parisTodayIso } from '$lib/format';
-import { errorText, m } from '$lib/i18n';
+import { api, ApiError } from '#lib/api/client.js';
+import type { EnergyDay, EnergyReport } from '#lib/api/types.js';
+import { addDays, canStep, chartWindow, isLatest, periodOf, stepPeriod, type Span, type View } from '#lib/energy.js';
+import { parisTodayIso } from '#lib/format.js';
+import { errorText, m } from '#lib/i18n/index.js';
 
 /** Kelvin's own failures with no more to say than the page's sentence (unreachable, a server error, an empty body). */
 const GENERIC = new Set(['network', 'server', 'unexpected']);
