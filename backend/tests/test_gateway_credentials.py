@@ -7,7 +7,7 @@ from kelvin.overkiz.budget import SetupReadGuard
 from kelvin.overkiz.errors import AuthError, BadCredentialsError, GatewayError
 from kelvin.overkiz.fake import DEMO_EMAIL, DEMO_PASSWORD, FakeGateway
 from kelvin.overkiz.models import DeviceCommand
-from kelvin.overkiz.poller import EventPump
+from kelvin.overkiz.poller import AUTH_RETRY_FIRST_S, EventPump
 from kelvin.overkiz.real import PyOverkizGateway, _map_error
 from tests.conftest import ManualClock
 
@@ -66,6 +66,73 @@ async def test_rejected_password_stops_overkiz_calls_and_is_published():
     gw.fail_fetch = None
     assert await pump.run_once() == pump.max_backoff
     assert gw.logins == logins  # no new attempt with a known-bad password
+
+
+async def test_a_refusal_made_by_mistake_is_got_over_without_a_login():
+    """Cozytouch refused a good password once (a real installation, 2026-11-25): the pump tries
+    it again after an hour and resumes by itself."""
+    gw, pump, statuses = _pump()
+    gw.fail_fetch = BadCredentialsError("Bad credentials")
+    await pump.run_once()
+    assert pump.auth_rejected is True
+    gw.fail_fetch = None
+    pump.clock.advance(AUTH_RETRY_FIRST_S - 1)
+    assert await pump.run_once() == pump.max_backoff
+    assert gw.checks == 0  # not before the hour
+    pump.clock.advance(1)
+    assert await pump.run_once() == pump.busy_interval
+    assert (gw.checks, pump.auth_rejected) == (1, False)
+    assert statuses[-1]["auth_rejected"] is False
+    await pump.run_once()
+    assert pump.connected is True
+
+
+async def test_a_password_really_changed_is_tried_twice_a_day_at_most():
+    gw, pump, _ = _pump()
+    gw.cloud_password = "changed-on-cozytouch"
+    gw.fail_fetch = BadCredentialsError("Bad credentials")
+    await pump.run_once()
+    pump.clock.advance(AUTH_RETRY_FIRST_S)
+    await pump.run_once()
+    assert (gw.checks, pump.auth_rejected) == (1, True)
+    for _ in range(11):  # polls every hour for the next 11 h: no attempt
+        pump.clock.advance(3600)
+        await pump.run_once()
+    assert gw.checks == 1
+    pump.clock.advance(3600)
+    await pump.run_once()
+    assert gw.checks == 2
+    assert gw.logins == 0  # the running session never logs in with it
+
+
+async def test_cozytouch_unreachable_at_the_retry_tries_again_an_hour_later():
+    gw, pump, _ = _pump()
+    gw.fail_fetch = BadCredentialsError("Bad credentials")
+    await pump.run_once()
+    gw.fail_login = GatewayError("down")
+    pump.clock.advance(AUTH_RETRY_FIRST_S)
+    await pump.run_once()
+    assert pump.auth_rejected is True
+    gw.fail_login = gw.fail_fetch = None
+    pump.clock.advance(AUTH_RETRY_FIRST_S)
+    await pump.run_once()
+    assert pump.auth_rejected is False
+
+
+async def test_the_real_gateway_resumes_when_its_own_credentials_are_accepted_again(monkeypatch):
+    gw = PyOverkizGateway("me@example.fr", "good")
+    gw._client = _RefusingClient()
+    with pytest.raises(BadCredentialsError):
+        await gw.fetch_events()
+    monkeypatch.setattr(gw, "_client_for", lambda creds: _RefusingClient())
+    with pytest.raises(BadCredentialsError):
+        await gw.retry_credentials()
+    with pytest.raises(BadCredentialsError):
+        await gw.fetch_events()  # still stopped
+    fresh = _RefusingClient(refuse=False)
+    monkeypatch.setattr(gw, "_client_for", lambda creds: fresh)
+    await gw.retry_credentials()
+    assert await gw.fetch_events() == []
 
 
 async def test_credentials_changed_resumes_the_pump():

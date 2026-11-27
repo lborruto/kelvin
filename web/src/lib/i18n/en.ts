@@ -87,7 +87,7 @@ export const en: Messages = {
     reconnecting: (time: string | null) => (time ? `Reconnecting to Kelvin… · data from ${time}` : 'Reconnecting to Kelvin…'),
     kelvinDown: (minutes: number, time: string | null) =>
       `Kelvin hasn’t answered for ${minutes < 60 ? `${int(minutes)}${NB}min` : `${int(Math.floor(minutes / 60))}${NB}h`}${time ? ` · data from ${time}` : ''}`,
-    passwordChanged: 'Cozytouch password changed: sign in again',
+    passwordChanged: 'Cozytouch refuses the password: sign in again',
     unreachable: 'Can’t reach Cozytouch',
     unreachableAt: (time: string) => `Can’t reach Cozytouch — data from ${time}`,
     signInAgain: 'Sign in again'

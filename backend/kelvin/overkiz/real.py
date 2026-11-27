@@ -223,6 +223,15 @@ class PyOverkizGateway:
         finally:
             await client.close()
 
+    async def retry_credentials(self) -> None:
+        await self.check_credentials(self._creds.username, self._creds.password)
+        # Accepted after all: the refused client is dropped, the next login builds a new one.
+        self._rejected = False
+        try:
+            await self.close()
+        except (ox.BaseOverkizError, aiohttp.ClientError, TimeoutError):
+            self._client = None  # its session is already gone on Cozytouch's side
+
     def _refuse_if_rejected(self) -> None:
         if self._rejected:
             raise BadCredentialsError("credentials refused earlier; no call made")

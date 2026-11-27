@@ -66,7 +66,8 @@
 
   $effect(() => {
     void auth.refresh().then((ok) => {
-      if (ok === true) void goto(safeNext(page.url.searchParams.get('next')), { replaceState: true });
+      // A refused Cozytouch password keeps the session: the form stays, it is why the banner sent here.
+      if (ok === true && !auth.reauth) void goto(safeNext(page.url.searchParams.get('next')), { replaceState: true });
     });
   });
 

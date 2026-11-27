@@ -91,7 +91,7 @@ export const fr = {
     reconnecting: (time: string | null) => (time ? `Reconnexion à Kelvin… · données de ${time}` : 'Reconnexion à Kelvin…'),
     kelvinDown: (minutes: number, time: string | null) =>
       `Kelvin ne répond pas depuis ${minutes < 60 ? `${int(minutes)}${NB}min` : `${int(Math.floor(minutes / 60))}${NB}h`}${time ? ` · données de ${time}` : ''}`,
-    passwordChanged: `Mot de passe Cozytouch modifié${NB}: reconnectez-vous`,
+    passwordChanged: `Cozytouch refuse le mot de passe${NB}: reconnectez-vous`,
     unreachable: 'Cozytouch injoignable',
     unreachableAt: (time: string) => `Cozytouch injoignable — données de ${time}`,
     signInAgain: 'Se reconnecter'

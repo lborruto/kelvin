@@ -3,6 +3,18 @@
 What changes from one release to the next, in plain words. Versions follow
 [Semantic Versioning](https://semver.org/); the image for each one is tagged with its number.
 
+## 0.3.7
+
+- **A password Cozytouch refuses by mistake no longer stops Kelvin for good.** Cozytouch can refuse a
+  good password once. Kelvin then showed « Mot de passe Cozytouch modifié » and made no further
+  attempt until a restart, although nothing had changed. It now tries the stored password again by
+  itself, after an hour and then twice a day (rare enough not to lock an account whose password did
+  change), and resumes as soon as Cozytouch accepts it. The banner now reads « Cozytouch refuse le
+  mot de passe ».
+- **« Se reconnecter » opens the login form.** The banner's link led to the login page, which sent a
+  signed-in browser straight back: nothing seemed to happen. The form now stays, and logging in with
+  the current password resumes Kelvin at once.
+
 ## 0.3.6
 
 - **−/+ and the slider are one setpoint.** In a room, tapping + and then moving the slider (or the other

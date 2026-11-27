@@ -75,7 +75,7 @@ describe('Banner', () => {
       status: { connected: false, last_ok_at: now / 1000, last_error: 'bad credentials', auth_rejected: true },
       now
     });
-    expect(banner()).toHaveTextContent('Mot de passe Cozytouch modifié : reconnectez-vous');
+    expect(banner()).toHaveTextContent('Cozytouch refuse le mot de passe : reconnectez-vous');
     expect(screen.getByRole('link', { name: 'Se reconnecter' })).toHaveAttribute('href', '/login?reauth=1');
     expect(tone()).toBe('bad');
   });
