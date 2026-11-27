@@ -24,6 +24,12 @@ class Gateway(Protocol):
         Raises BadCredentialsError if Cozytouch refuses them, GatewayError if unreachable."""
         ...
 
+    async def retry_credentials(self) -> None:
+        """Log in once with the gateway's own credentials after Cozytouch refused them, apart
+        from the running session. Accepted: the gateway makes calls again. Raises
+        BadCredentialsError if they are refused again, GatewayError if unreachable."""
+        ...
+
     async def snapshot(self) -> tuple[RawPlace, list[RawDevice]]:
         """The whole setup (places + devices). Rate-limited by Overkiz: see SetupReadGuard."""
         ...

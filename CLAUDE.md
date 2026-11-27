@@ -219,7 +219,9 @@ depends on.
 - **API header:** mutating API routes require the header `X-Kelvin: 1`.
 - **Login:** every `/api` route except `/api/auth/*` and `/api/health` needs a session (cookie
   `kelvin_session`), `/api/stream` included. Login is the home's account on its Overkiz server, chosen at the first login
-  (`GET /api/auth/servers`).
+  (`GET /api/auth/servers`). A stored password Cozytouch refuses stops every Overkiz call
+  (`auth_rejected`); the pump tries it again only through `Gateway.retry_credentials` (after
+  `AUTH_RETRY_FIRST_S`, then every `AUTH_RETRY_EVERY_S`), never poll after poll: an account can lock.
 - **Secrets:** the Cozytouch password and the MED token live only in env vars or
   `$KELVIN_DATA/account.json` (0600): never in logs, API responses, the DB or git. The Linky
   token is write-only; the PDL is never logged.

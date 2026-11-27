@@ -170,6 +170,9 @@ class FakeGateway:
         if not self._accepts(username, password):
             raise BadCredentialsError("bad credentials")
 
+    async def retry_credentials(self) -> None:
+        await self.check_credentials(self.username, self.password)
+
     async def close(self) -> None:
         return None
 

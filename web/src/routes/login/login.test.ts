@@ -129,6 +129,21 @@ describe('Login', () => {
   });
 });
 
+describe('Login after a refused Cozytouch password', () => {
+  it('keeps the form although the session is still valid', async () => {
+    url.current = new URL('http://kelvin.test/login?reauth=1');
+    vi.mocked(api.me).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true, reauth: true });
+    vi.mocked(api.servers).mockResolvedValue({ ...LIST, current: 'sauter_cozytouch' });
+    vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
+    render(Page);
+    expect(await screen.findByText('Reconnectez-vous avec le compte Cozytouch.')).toBeInTheDocument();
+    await waitFor(() => expect(api.me).toHaveBeenCalled());
+    expect(goto).not.toHaveBeenCalled();
+    await fill('demo@kelvin.local', 'kelvin');
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/', { replaceState: true }));
+  });
+});
+
 describe('Login server', () => {
   it('offers the Cozytouch servers first, Sauter chosen', async () => {
     render(Page);

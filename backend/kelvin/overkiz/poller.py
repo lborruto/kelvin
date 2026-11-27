@@ -31,6 +31,10 @@ if TYPE_CHECKING:  # types only: no import cycle at runtime
 log = logging.getLogger(__name__)
 
 DEVICE_BACKOFF_MAX_S = 6 * 3600.0  # a device whose state read fails is retried at most this rarely
+# A refused Cozytouch password is tried again after an hour, then twice a day: enough to get over
+# a refusal Cozytouch made by mistake, too rare to lock an account whose password did change.
+AUTH_RETRY_FIRST_S = 3600.0
+AUTH_RETRY_EVERY_S = 12 * 3600.0
 PUMP_RESERVE = 1  # full setup reads the pump leaves for a restart
 
 
@@ -85,6 +89,9 @@ class EventPump:
         self._device_retry_at: dict[str, float] = {}
         self._wake = asyncio.Event()
         self.auth_rejected = False
+        # When the refused password is tried again (monotonic clock); never, unless a poll saw
+        # the refusal (`_reject`).
+        self._auth_retry_at = float("inf")
         self._published: tuple[bool, bool] = (False, False)
         self.setup = setup
         self.refresher = refresher
@@ -121,9 +128,39 @@ class EventPump:
             self._published = now
             self._safe(self.on_status, self.status())
 
+    def _reject(self) -> None:
+        self.auth_rejected = True
+        self._auth_retry_at = self.clock() + AUTH_RETRY_FIRST_S
+        self._notify_status()
+
+    async def _retry_rejected(self) -> bool:
+        """Cozytouch can refuse a good password once (seen on a real installation: the stored
+        password was accepted again later, unchanged). Try it again, rarely enough that a
+        password really changed never locks the account. True when it is accepted."""
+        if self.clock() < self._auth_retry_at:
+            return False
+        try:
+            await self.gateway.retry_credentials()
+        except BadCredentialsError:
+            self._auth_retry_at = self.clock() + AUTH_RETRY_EVERY_S
+            log.warning("overkiz still refuses the stored Cozytouch password")
+            return False
+        except GatewayError as e:
+            self._auth_retry_at = self.clock() + AUTH_RETRY_FIRST_S
+            log.warning("overkiz password retry failed: %s", safe_reason(e))
+            return False
+        log.info("overkiz accepts the stored Cozytouch password again; resuming")
+        try:
+            await self.gateway.login()
+        except GatewayError as e:
+            log.warning("overkiz re-login failed (%s); the pump retries", safe_reason(e))
+        self.credentials_changed()
+        return True
+
     def credentials_changed(self) -> None:
         """The home's account has a new, accepted password: resume and resync."""
         self.auth_rejected = False
+        self._auth_retry_at = float("inf")
         self.request_resync()
         self._notify_status()
 
@@ -160,9 +197,10 @@ class EventPump:
 
     async def run_once(self) -> float:
         if self.auth_rejected:
-            # Never retry a known-bad password: it could lock the Cozytouch account.
+            # A refused password is not retried poll after poll (it could lock the Cozytouch
+            # account): once after an hour, then twice a day.
             self._safe(self.commands.tick)
-            return self.max_backoff
+            return self.busy_interval if await self._retry_rejected() else self.max_backoff
         changed: set[str] = set()
         events_ok = False
         try:
@@ -209,16 +247,14 @@ class EventPump:
             if isinstance(e, BadCredentialsError):
                 # Already refused (pyoverkiz re-logs in by itself): one more login is one more
                 # bad attempt on the account.
-                self.auth_rejected = True
                 log.warning("overkiz refused the stored Cozytouch password")
-                self._notify_status()
+                self._reject()
             elif isinstance(e, AuthError):
                 try:
                     await self.gateway.login()
                 except BadCredentialsError:
-                    self.auth_rejected = True
                     log.warning("overkiz re-login refused: the stored Cozytouch password is wrong")
-                    self._notify_status()
+                    self._reject()
                 except GatewayError as login_err:
                     log.warning("overkiz re-login failed: %s", safe_reason(login_err))
             exponent = min(self.failures - 1, 16)

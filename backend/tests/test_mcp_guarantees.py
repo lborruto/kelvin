@@ -178,6 +178,7 @@ def _spy_writers(monkeypatch, gw) -> list[str]:
         "login",
         "set_credentials",
         "check_credentials",
+        "retry_credentials",
         "fetch_events",
     ):
         monkeypatch.setattr(gw, n, spy(f"gateway.{n}"))

@@ -115,9 +115,11 @@ account.”). It names the server on one line, Sauter Cozytouch by default: choo
 (**Changer**) to pick Atlantic or Thermor Cozytouch or an experimental server before this first
 login; afterwards the server is fixed. The eye button in the password field shows the password
 while you type it.
-Anyone in the household logs in with the same account. If the Cozytouch password changes,
-Kelvin shows “Cozytouch password changed: sign in again” (« Mot de passe Cozytouch modifié :
-reconnectez-vous » in French); log in once with the new one.
+Anyone in the household logs in with the same account. If Cozytouch refuses the stored password,
+Kelvin shows “Cozytouch refuses the password: sign in again” (« Cozytouch refuse le mot de passe :
+reconnectez-vous » in French); log in once with the current one. Kelvin also tries the stored
+password again by itself, after an hour and then twice a day, in case Cozytouch refused it by
+mistake.
 
 ## Device compatibility
 
