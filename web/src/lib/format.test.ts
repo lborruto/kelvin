@@ -3,7 +3,7 @@ import {
   fmtAgo, fmtAmount, fmtDateLong, fmtDay, fmtKwh, fmtPct, fmtPrice, fmtTemp, fmtTime, fmtWh,
   fmtDayShort, fmtMonthLong, fmtMonthShort, fmtWeekdayDay, monthName, monthYear, parseDecimal, premier
 } from './format';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 
 const NB = ' ';
 

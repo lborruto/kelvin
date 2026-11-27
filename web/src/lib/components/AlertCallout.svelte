@@ -1,10 +1,10 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
-  import type { Alert } from '$lib/api/types';
-  import { alertText } from '$lib/alerts-text';
-  import { m } from '$lib/i18n';
-  import { dur, T } from '$lib/motion';
-  import { alerts } from '$lib/stores/alerts.svelte';
+  import type { Alert } from '#lib/api/types.js';
+  import { alertText } from '#lib/alerts-text.js';
+  import { m } from '#lib/i18n/index.js';
+  import { dur, T } from '#lib/motion.js';
+  import { alerts } from '#lib/stores/alerts.svelte.js';
   import Icon from './Icon.svelte';
 
   interface Props {

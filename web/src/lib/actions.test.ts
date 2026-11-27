@@ -44,7 +44,7 @@ describe('actions', () => {
   });
 
   it('a coded error toasts in the active language, even after a switch', async () => {
-    const { applyLocale } = await import('$lib/i18n');
+    const { applyLocale } = await import('#lib/i18n/index.js');
     await run(async () => {
       throw new ApiError(422, 'La consigne se règle par pas de 0,5 °C.', 'temp_step', { kind: 'manual' });
     });

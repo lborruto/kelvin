@@ -1,11 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import { grid } from '$lib/stores/grid.svelte';
+import { applyLocale } from '#lib/i18n/index.js';
+import { grid } from '#lib/stores/grid.svelte.js';
 import GridChips from './GridChips.svelte';
 
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 // The next calendar day, not now + 24 h: on the eve of the spring change (a 23 h day) that lands two days ahead.

@@ -10,9 +10,9 @@
      and returns (400 ms) when `dipKey` changes. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { fmtTempShort } from '$lib/format';
-  import { flash } from '$lib/motion';
-  import type { Tone } from '$lib/status';
+  import { fmtTempShort } from '#lib/format.js';
+  import { flash } from '#lib/motion.js';
+  import type { Tone } from '#lib/status.js';
   import Icon, { type IconName } from './Icon.svelte';
 
   interface Props {

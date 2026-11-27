@@ -3,10 +3,10 @@
      the day's figures from the same idle readout as the Courbe (`readDay`: the bar's own kWh, €, peak). « par
      demi-heure › » opens the full Courbe in a sheet (scrubber, readout, notes). A day without a curve says why there. -->
 <script lang="ts">
-  import type { EnergyDay } from '$lib/api/types';
-  import { fmtDateLong } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { readDay, type Inspection } from '$lib/inspector';
+  import type { EnergyDay } from '#lib/api/types.js';
+  import { fmtDateLong } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { readDay, type Inspection } from '#lib/inspector.js';
   import MiniBars from './MiniBars.svelte';
 
   interface Props {

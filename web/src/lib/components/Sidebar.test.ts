@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 import Sidebar from './Sidebar.svelte';
 
 const state = vi.hoisted(() => ({ url: new URL('http://kelvin.test/schedule') }));
@@ -12,7 +12,7 @@ vi.mock('$app/state', () => ({
     }
   }
 }));
-vi.mock('$lib/api/client', () => ({ api: {}, ApiError: class extends Error {} }));
+vi.mock('#lib/api/client.js', () => ({ api: {}, ApiError: class extends Error {} }));
 
 const rad = (id: string, room_id: string, extra: Record<string, unknown> = {}) => ({
   id, room_id, name: 'Radiateur', model: 'HEKLA P', power_w: 1500, temperature: 19.6, mode: 'program' as const, target: 20,
@@ -26,7 +26,7 @@ const room = (id: string, name: string, ids: string[], temperature: number | nul
 });
 
 async function seed() {
-  const { house } = await import('$lib/stores/house.svelte');
+  const { house } = await import('#lib/stores/house.svelte.js');
   house.applySnapshot({
     house: {
       rooms: [room('ch2', 'Chambre 2', ['c'], null), room('salon', 'Salon', ['a'], 19.6), room('ch1', 'Chambre 1', ['b'], 19.1)],
@@ -38,8 +38,8 @@ async function seed() {
 }
 
 afterEach(async () => {
-  const { house } = await import('$lib/stores/house.svelte');
-  const { alerts } = await import('$lib/stores/alerts.svelte');
+  const { house } = await import('#lib/stores/house.svelte.js');
+  const { alerts } = await import('#lib/stores/alerts.svelte.js');
   house.reset();
   alerts.reset();
   applyLocale('fr');
@@ -109,7 +109,7 @@ describe('Sidebar (Tableau)', () => {
   });
 
   it('the alert dot on Maison only for a must-fix alert; the count is in the name', async () => {
-    const { alerts } = await import('$lib/stores/alerts.svelte');
+    const { alerts } = await import('#lib/stores/alerts.svelte.js');
     alerts.summary = { active: 2, highest: 'bad' };
     alerts.list = [
       { id: 1, kind: 'radiator_unreachable', severity: 'bad' },
@@ -125,8 +125,8 @@ describe('Sidebar (Tableau)', () => {
   });
 
   it('Partir… opens the Absence sheet; the wordmark and the Cozytouch status footer', async () => {
-    const { house } = await import('$lib/stores/house.svelte');
-    const { awaySheet } = await import('$lib/stores/away.svelte');
+    const { house } = await import('#lib/stores/house.svelte.js');
+    const { awaySheet } = await import('#lib/stores/away.svelte.js');
     const now = Date.parse('2026-10-15T19:11:00Z');
     house.status = { connected: true, last_ok_at: (now - 60_000) / 1000, last_error: null };
     house.loaded = true;

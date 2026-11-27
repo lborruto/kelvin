@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyLocale, dictionary, locale, m, type Messages } from '$lib/i18n';
+import { applyLocale, dictionary, locale, m, type Messages } from '#lib/i18n/index.js';
 import { fr } from './fr';
 import { intFor, listFor, pluralFor } from './rules';
 import { forEachLocale } from './testing';

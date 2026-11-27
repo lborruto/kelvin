@@ -1,13 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { EnergyDay } from '$lib/api/types';
-import { house } from '$lib/stores/house.svelte';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { EnergyDay } from '#lib/api/types.js';
+import { house } from '#lib/stores/house.svelte.js';
 import RoomDayPanel from './RoomDayPanel.svelte';
 
 const media = vi.hoisted(() => ({ desktop: { matches: false } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 
 const t0 = Date.UTC(2026, 9, 12, 22) / 1000;
 const day = (room: string | null, date = '2026-10-13'): EnergyDay => ({

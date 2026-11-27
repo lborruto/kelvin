@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
-import { api, ApiError } from '$lib/api/client';
-import { applyLocale } from '$lib/i18n';
+import { api, ApiError } from '#lib/api/client.js';
+import { applyLocale } from '#lib/i18n/index.js';
 import Page from './+page.svelte';
 
 const url = { current: new URL('http://kelvin.test/login?next=%2Fschedule') };
@@ -15,8 +15,8 @@ vi.mock('$app/state', () => ({
 }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 // The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
-vi.mock('$lib/api/client', async (orig) => ({
-  ApiError: (await orig<typeof import('$lib/api/client')>()).ApiError,
+vi.mock('#lib/api/client.js', async (orig) => ({
+  ApiError: (await orig<typeof import('#lib/api/client.js')>()).ApiError,
   api: { me: vi.fn(), login: vi.fn(), logout: vi.fn(), servers: vi.fn() }
 }));
 
@@ -60,7 +60,7 @@ describe('Login', () => {
     await screen.findByText('Serveur : Sauter Cozytouch');
     await fill(' demo@kelvin.local ', 'kelvin');
     expect(api.login).toHaveBeenCalledWith('demo@kelvin.local', 'kelvin', 'sauter_cozytouch');
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replaceState: true }));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replace: true }));
   });
 
   it('shows the server message and stays', async () => {
@@ -111,7 +111,7 @@ describe('Login', () => {
     vi.mocked(api.login).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
     render(Page);
     await fill('demo@kelvin.local', 'kelvin');
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/', { replaceState: true }));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/', { replace: true }));
   });
 
   it('explains a password change and shows the simulator account', async () => {
@@ -125,7 +125,7 @@ describe('Login', () => {
   it('leaves the form at once when a session already exists', async () => {
     vi.mocked(api.me).mockResolvedValue({ email: 'demo@kelvin.local', logged_in: true });
     render(Page);
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replaceState: true }));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/schedule', { replace: true }));
   });
 });
 
@@ -140,7 +140,7 @@ describe('Login after a refused Cozytouch password', () => {
     await waitFor(() => expect(api.me).toHaveBeenCalled());
     expect(goto).not.toHaveBeenCalled();
     await fill('demo@kelvin.local', 'kelvin');
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/', { replaceState: true }));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/', { replace: true }));
   });
 });
 

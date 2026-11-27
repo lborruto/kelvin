@@ -5,18 +5,18 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import Disclosure from '$lib/components/Disclosure.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import { fmtTime } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { canonical, ROUTES } from '$lib/paths';
+  import Disclosure from '#lib/components/Disclosure.svelte';
+  import Icon from '#lib/components/Icon.svelte';
+  import { fmtTime } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { canonical, ROUTES } from '#lib/paths.js';
 
   // Defence in depth: app.html rewrites a French path before the router boots, and an in-app link
   // to an unmatched route is a full page load, so it goes through app.html too. Should the
   // pre-boot script not have run, a legacy 404 still lands on its English page here.
   let target = $derived(page.status === 404 ? canonical(page.url.pathname, page.url.hash) : null);
   $effect(() => {
-    if (target) void goto(target.pathname + page.url.search + target.hash, { replaceState: true });
+    if (target) void goto(target.pathname + page.url.search + target.hash, { replace: true });
   });
   let notFound = $derived(page.status === 404);
   /** The cause in words: the server's own failure, Kelvin unreachable, or unexpected. */

@@ -1,10 +1,10 @@
 <!-- The 24 h tariff band (spec §3 « MaintenantCard », decision 3): the civil day as HC blocks (light blue, always
      hatched) and HP (solid dark blue), never a heat colour and never a Tempo colour. The now marker is a 3 px
      ink bar with the time above it. An image named by the off-peak hours in words; the caller writes them
-     beside it too. Blocks come from `$lib/maintenant` (`dayBlocks`). -->
+     beside it too. Blocks come from `#lib/maintenant.js` (`dayBlocks`). -->
 <script lang="ts">
-  import { seriesBackground } from '$lib/energy';
-  import type { Block } from '$lib/maintenant';
+  import { seriesBackground } from '#lib/energy.js';
+  import type { Block } from '#lib/maintenant.js';
 
   interface Props {
     blocks: Block[];

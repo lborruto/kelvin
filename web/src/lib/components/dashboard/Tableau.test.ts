@@ -1,23 +1,23 @@
 import { flushSync } from 'svelte';
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import { alerts } from '$lib/stores/alerts.svelte';
-import { grid } from '$lib/stores/grid.svelte';
-import { house } from '$lib/stores/house.svelte';
-import { toasts } from '$lib/stores/toasts.svelte';
-import { dashboardEnergy } from '$lib/stores/dashboardEnergy.svelte';
-import { weather } from '$lib/stores/weather.svelte';
-import { VIEW } from '$lib/weather.fixture';
-import { FORECAST, HIDDEN, forecastView } from '$lib/weatherModel.fixture';
+import { applyLocale } from '#lib/i18n/index.js';
+import { alerts } from '#lib/stores/alerts.svelte.js';
+import { grid } from '#lib/stores/grid.svelte.js';
+import { house } from '#lib/stores/house.svelte.js';
+import { toasts } from '#lib/stores/toasts.svelte.js';
+import { dashboardEnergy } from '#lib/stores/dashboardEnergy.svelte.js';
+import { weather } from '#lib/stores/weather.svelte.js';
+import { VIEW } from '#lib/weather.fixture.js';
+import { FORECAST, HIDDEN, forecastView } from '#lib/weatherModel.fixture.js';
 import Tableau from './Tableau.svelte';
 
 const NB = ' ';
 const media = vi.hoisted(() => ({ desktop: { matches: false } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
-vi.mock('$lib/today.svelte', () => ({ today: { iso: '2026-10-13' } }));
-vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
+vi.mock('#lib/today.svelte.js', () => ({ today: { iso: '2026-10-13' } }));
+vi.mock('#lib/stores/history.svelte.js', () => ({ history: { data: {}, load: vi.fn() } }));
 const report = {
   linky: true, tariff: true, last_day: '2026-10-12', from: '2026-09-01', to: '2026-11-01',
   period: { eur: 100.22, energy_eur: 80, subscription_eur: 20.22, kwh: 300.4 },
@@ -40,7 +40,7 @@ const api = vi.hoisted(() => ({
   cancelOverride: vi.fn(),
   weatherCostForecast: vi.fn()
 }));
-vi.mock('$lib/api/client', () => ({ api, ApiError: class extends Error {} }));
+vi.mock('#lib/api/client.js', () => ({ api, ApiError: class extends Error {} }));
 
 // Tuesday 13 October 2026, 13:48 in Paris: Éco until 17:30.
 const NOW = Date.parse('2026-10-13T11:48:00Z');

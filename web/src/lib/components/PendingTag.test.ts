@@ -1,9 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import PendingTag from './PendingTag.svelte';
-import { forEachLocale } from '$lib/i18n/testing';
-import { house } from '$lib/stores/house.svelte';
-import type { Radiator } from '$lib/api/types';
+import { forEachLocale } from '#lib/i18n/testing.js';
+import { house } from '#lib/stores/house.svelte.js';
+import type { Radiator } from '#lib/api/types.js';
 
 const base = { id: 'p1', label: 'Salon : Manuel', radiator_ids: ['a'], error: null, created_at: 1, expected: {} };
 

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { HcLens, TariffOption, TempoLens } from '$lib/api/types';
-  import { fmtEurExact, fmtKwhExact, fmtKwhParts, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '$lib/format';
-  import { SERIES } from '$lib/energy';
-  import { m } from '$lib/i18n';
-  import { ROUTES, ENERGY_ANCHORS } from '$lib/paths';
-  import { shiftValue } from '$lib/power';
+  import type { HcLens, TariffOption, TempoLens } from '#lib/api/types.js';
+  import { fmtEurExact, fmtKwhExact, fmtKwhParts, fmtPct1, fmtPrice, fmtSigned, fmtSignedPrice } from '#lib/format.js';
+  import { SERIES } from '#lib/energy.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ROUTES, ENERGY_ANCHORS } from '#lib/paths.js';
+  import { shiftValue } from '#lib/power.js';
   import Disclosure from './Disclosure.svelte';
   import Swatch from './Swatch.svelte';
   import TempoRows from './TempoRows.svelte';

@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet, flushSync } from 'svelte';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import type { GridView, Tariff } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
+import type { GridView, Tariff } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
 import IconTile from './IconTile.svelte';
 import ListRow from './ListRow.svelte';
 import MaintenantCard from './MaintenantCard.svelte';
@@ -14,7 +14,7 @@ import SummaryChip from './SummaryChip.svelte';
 import VSlider, { snapTo, valueAtY } from './VSlider.svelte';
 import Widget from './Widget.svelte';
 
-vi.mock('$lib/api/client', () => ({ api: {}, ApiError: class extends Error {} }));
+vi.mock('#lib/api/client.js', () => ({ api: {}, ApiError: class extends Error {} }));
 
 beforeAll(() => {
   // jsdom has no modal dialogs: open and close by the attribute, as a browser would.

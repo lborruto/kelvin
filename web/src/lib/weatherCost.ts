@@ -1,6 +1,6 @@
 /** « Météo et coût » in words (Plan 15, spec 2026-10-18 §7): the three figures, reasons, the inspector of a day, the
  * forecast cells and their Fiches, the Maison line, the room line, the projection's weather sentence. Pure; every
- * number comes from the API and is formatted by `$lib/format`. Messages are read inside the functions. */
+ * number comes from the API and is formatted by `#lib/format.js`. Messages are read inside the functions. */
 import type { FicheRow } from './components/FicheBody.svelte';
 import type { ForecastDay, HouseModel, HouseSummary, ModelPoint, MonthWeather, RoomModel, WeatherCost, WeatherForecast } from './api/types';
 import { fmtDay, fmtEurExact, fmtFixed, fmtKwh, fmtKwhExact, fmtPct, fmtPrice, fmtTemp, fmtWeekdayDay, matchParts } from './format';

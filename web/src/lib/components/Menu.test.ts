@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Menu, { type MenuItem } from './Menu.svelte';
 
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 
 const rename = vi.fn();
 const remove = vi.fn();
@@ -65,7 +65,7 @@ describe('Menu (desktop popover)', () => {
   });
 
   it('the default name follows the language', async () => {
-    const { applyLocale } = await import('$lib/i18n');
+    const { applyLocale } = await import('#lib/i18n/index.js');
     const { flushSync } = await import('svelte');
     render(Menu, { items });
     expect(screen.getByRole('button', { name: 'Plus d’actions' })).toBeInTheDocument();

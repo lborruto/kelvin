@@ -37,9 +37,9 @@ import type {
   WeatherView,
   WeekProgram
 } from './types';
-import { sendStarted } from '$lib/busy';
-import type { ApiParams } from '$lib/i18n';
-import type { Base } from '$lib/program';
+import { sendStarted } from '#lib/busy.js';
+import type { ApiParams } from '#lib/i18n/index.js';
+import type { Base } from '#lib/program.js';
 
 export class ApiError extends Error {
   status: number;

@@ -5,10 +5,10 @@
      closes then clears, Tab closes; a pointer press picks. A polite live region says how many places came back;
      an error sits under the field, tied to it by aria-describedby. -->
 <script lang="ts">
-  import { api } from '$lib/api/client';
-  import type { WeatherPlace } from '$lib/api/types';
-  import { errorText, m } from '$lib/i18n';
-  import { placeLine } from '$lib/weather';
+  import { api } from '#lib/api/client.js';
+  import type { WeatherPlace } from '#lib/api/types.js';
+  import { errorText, m } from '#lib/i18n/index.js';
+  import { placeLine } from '#lib/weather.js';
 
   interface Props {
     onpick: (p: WeatherPlace) => void;

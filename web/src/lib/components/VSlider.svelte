@@ -17,15 +17,15 @@
      target), labels every 2 °C on the right; while it moves, a bubble on the handle says the target (« 20,5 °C »,
      snapped), beside the finger on touch, and `shown` lets the large figure follow live. The drag follows the finger with no easing and
      snaps to 0,5 °C on release (60 ms); the keyboard steps 0,5 (Page ±1 °C, Home/End). Like the stepper, it sends
-     once, 1,5 s after the last release (`$lib/send`), dashed until then; closing or leaving sends a waiting value. `dim` (off, read-only, offline): faded and inert (aria-disabled, focus kept).
+     once, 1,5 s after the last release (`#lib/send.js`), dashed until then; closing or leaving sends a waiting value. `dim` (off, read-only, offline): faded and inert (aria-disabled, focus kept).
      `pending` dashes the fill's edge until the radiator reports the value. -->
 <script lang="ts">
-  import { fmtTemp, fmtTempShort, fmtTempTick } from '$lib/format';
+  import { fmtTemp, fmtTempShort, fmtTempTick } from '#lib/format.js';
   import { untrack } from 'svelte';
-  import { SEND_IDLE_MS } from '$lib/send';
-  import { SendDraft } from '$lib/sendDraft.svelte';
-  import { announcer } from '$lib/stores/announcer.svelte';
-  import { m } from '$lib/i18n';
+  import { SEND_IDLE_MS } from '#lib/send.js';
+  import { SendDraft } from '#lib/sendDraft.svelte.js';
+  import { announcer } from '#lib/stores/announcer.svelte.js';
+  import { m } from '#lib/i18n/index.js';
 
   interface Props {
     value: number | null;

@@ -1,16 +1,16 @@
 import { flushSync } from 'svelte';
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import { house } from '$lib/stores/house.svelte';
+import { api } from '#lib/api/client.js';
+import { house } from '#lib/stores/house.svelte.js';
 import RoomPanel from './RoomPanel.svelte';
-import { applyLocale } from '$lib/i18n';
-import { alerts } from '$lib/stores/alerts.svelte';
-import { detail } from '$lib/stores/detail.svelte';
-import { weather } from '$lib/stores/weather.svelte';
-import { VIEW } from '$lib/weather.fixture';
+import { applyLocale } from '#lib/i18n/index.js';
+import { alerts } from '#lib/stores/alerts.svelte.js';
+import { detail } from '#lib/stores/detail.svelte.js';
+import { weather } from '#lib/stores/weather.svelte.js';
+import { VIEW } from '#lib/weather.fixture.js';
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: { roomMode: vi.fn(), roomSetpoint: vi.fn(), roomBoost: vi.fn(), cancelOverride: vi.fn(), history: vi.fn().mockResolvedValue([]),
     roomEnergy: vi.fn(() => new Promise(() => {})), alerts: vi.fn().mockResolvedValue([]), dismissAlert: vi.fn(),
     roomActivity: vi.fn().mockResolvedValue({ step: 300, window: [], presence: [] }),
@@ -20,7 +20,7 @@ vi.mock('$lib/api/client', () => ({
   ApiError: class extends Error {}
 }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
-vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
+vi.mock('#lib/stores/history.svelte.js', () => ({ history: { data: {}, load: vi.fn() } }));
 
 const base = {
   room_id: 'salon', model: 'HEKLA P', power_w: 1500, temperature: 19.5, mode: 'program' as const, target: 20,
@@ -410,8 +410,8 @@ describe('the room panel, in order', () => {
   });
 
   it('offline: the chart stops when the radiators went offline (no stale value drawn after)', async () => {
-    const { history } = await import('$lib/stores/history.svelte');
-    const { parisMidnight } = await import('$lib/time');
+    const { history } = await import('#lib/stores/history.svelte.js');
+    const { parisMidnight } = await import('#lib/time.js');
     const since = Date.parse('2026-10-13T10:32:00Z');
     const day = `salon|day|${parisMidnight(now)}`;
     (history.data as Record<string, unknown>)[day] = [

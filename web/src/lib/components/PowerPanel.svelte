@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { CurveSummary, EnergyDay } from '$lib/api/types';
-  import { SERIES, type View } from '$lib/energy';
-  import { fmtEurExact, fmtKwhExact, fmtPct, fmtTime, fmtW } from '$lib/format';
-  import { locale, m } from '$lib/i18n';
-  import { baseLoad, peakShare } from '$lib/power';
+  import type { CurveSummary, EnergyDay } from '#lib/api/types.js';
+  import { SERIES, type View } from '#lib/energy.js';
+  import { fmtEurExact, fmtKwhExact, fmtPct, fmtTime, fmtW } from '#lib/format.js';
+  import { locale, m } from '#lib/i18n/index.js';
+  import { baseLoad, peakShare } from '#lib/power.js';
   import Disclosure from './Disclosure.svelte';
 
   /** The skeleton's stand-in texts: never shown (transparent, aria-hidden), they only give the bars a complete

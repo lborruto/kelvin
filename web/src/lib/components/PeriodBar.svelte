@@ -4,7 +4,7 @@
      which stays the one control for assistive technology: aria-hidden always, its buttons out of the tab order, inert
      while hidden. Its buttons run the navigator's own handlers. -->
 <script lang="ts">
-  import { m } from '$lib/i18n';
+  import { m } from '#lib/i18n/index.js';
   import Icon from './Icon.svelte';
 
   interface Props {

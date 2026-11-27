@@ -5,8 +5,8 @@
      rest. Tempo dots under the bars only when `tempo` is given (Tempo in force). Behind it, a visually hidden
      table (`rows`) or, without rows, the image's name (`label`). Fills the width it is given. -->
 <script lang="ts">
-  import type { TempoColour } from '$lib/api/types';
-  import { seriesBackground } from '$lib/energy';
+  import type { TempoColour } from '#lib/api/types.js';
+  import { seriesBackground } from '#lib/energy.js';
   import TempoDot from './TempoDot.svelte';
 
   interface Props {

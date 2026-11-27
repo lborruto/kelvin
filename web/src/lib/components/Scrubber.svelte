@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { nearestIndex, stepIndex } from '$lib/chart';
+  import { nearestIndex, stepIndex } from '#lib/chart.js';
 
   interface Props {
     /** Interval centres in the chart's own units (0…W). */

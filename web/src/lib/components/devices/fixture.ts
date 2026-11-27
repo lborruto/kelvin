@@ -1,4 +1,4 @@
-import type { DeviceRole, SetupDevice, SetupView } from '$lib/api/types';
+import type { DeviceRole, SetupDevice, SetupView } from '#lib/api/types.js';
 
 const WIDGET: Record<DeviceRole, string> = {
   heater: 'AtlanticElectricalHeaterWithAdjustableTemperatureSetpoint',

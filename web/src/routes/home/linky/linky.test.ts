@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import { applyLocale } from '$lib/i18n';
+import { api } from '#lib/api/client.js';
+import { applyLocale } from '#lib/i18n/index.js';
 import Page from './+page.svelte';
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: { linkyStatus: vi.fn(), putLinky: vi.fn() },
   ApiError: class extends Error {}
 }));

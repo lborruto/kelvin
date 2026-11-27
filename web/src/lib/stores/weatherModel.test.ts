@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { OK } from '$lib/weatherModel.fixture';
+import { OK } from '#lib/weatherModel.fixture.js';
 import { REFRESH_MS, WeatherModelStore } from './weatherModel.svelte';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));

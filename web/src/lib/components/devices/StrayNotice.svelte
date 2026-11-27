@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { api } from '$lib/api/client';
-  import { canEditSetup } from '$lib/capabilities';
-  import type { Pending, SetupDevice } from '$lib/api/types';
-  import { retry } from '$lib/actions';
-  import { m } from '$lib/i18n';
-  import { runSetup } from '$lib/setupActions';
-  import { auth } from '$lib/stores/auth.svelte';
-  import { house } from '$lib/stores/house.svelte';
+  import { api } from '#lib/api/client.js';
+  import { canEditSetup } from '#lib/capabilities.js';
+  import type { Pending, SetupDevice } from '#lib/api/types.js';
+  import { retry } from '#lib/actions.js';
+  import { m } from '#lib/i18n/index.js';
+  import { runSetup } from '#lib/setupActions.js';
+  import { auth } from '#lib/stores/auth.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import Icon from '../Icon.svelte';
   import PendingTag from '../PendingTag.svelte';
 

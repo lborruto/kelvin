@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Tariff } from '$lib/api/types';
+import type { Tariff } from '#lib/api/types.js';
 import { ALL_MONTHS, buildDocument, inForce, monthsProblem, priceProblem, slotsText, tariffDiff, withSchedule } from './tariff';
 
 const NIGHT = [{ start: '22:00', end: '06:00' }];

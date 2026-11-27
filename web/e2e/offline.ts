@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 // real wall clock: a suite started just after midnight sees it begin « le 15 oct. » (the UI's rule:
 // the time alone only when it began today). These helpers pin the browser's clock to a known
 // distance from that instant and give the words the UI writes, with the UI's own Intl options
-// ($lib/format: clock and dayShort, Europe/Paris), so the assertions are exact at any hour.
+// (#lib/format: clock and dayShort, Europe/Paris), so the assertions are exact at any hour.
 
 /** When the room's radiators went offline (ms), from the house view. */
 export async function offlineSince(page: Page, roomId = 'p-ch2'): Promise<number> {

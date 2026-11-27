@@ -1,4 +1,4 @@
-import type { ApiParams } from '$lib/i18n';
+import type { ApiParams } from '#lib/i18n/index.js';
 
 export type Mode = 'off' | 'manual' | 'program' | 'other';
 export type RoomMode = Mode | 'mixed';

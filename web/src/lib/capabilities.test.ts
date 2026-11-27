@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Capabilities, Radiator, Room } from '$lib/api/types';
+import type { Capabilities, Radiator, Room } from '#lib/api/types.js';
 import { canEditSetup, capsOf, isReadOnly, programRooms, roomControls, roomRange } from './capabilities';
 
 const BASE = {

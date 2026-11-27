@@ -48,14 +48,14 @@ the Heures creuses card says there are none.
 
 Weather pieces (Plan 14): `settings/PlaceSearch` (an APG combobox over `POST /api/weather/search`),
 `settings/WeatherPanel` (Réglages › Météo: the place, the coordinates form, « Supprimer »), the store
-`$lib/stores/weather.svelte.ts` (the snapshot's and SSE's `weather`, the hourly cache per window and
-place) and the words in `$lib/weather.ts`. Nothing about weather shows without a place.
+`#lib/stores/weather.svelte.ts` (the snapshot's and SSE's `weather`, the hourly cache per window and
+place) and the words in `#lib/weather.ts`. Nothing about weather shows without a place.
 
 ## Languages and paths
 
 - Messages live in `src/lib/i18n/fr.ts` (the source) and `en.ts` (typed from it); components read
-  `m.area.key` from `$lib/i18n`, in templates or `$derived`, never at module scope. Plurals use
-  `Intl.PluralRules`; numbers and dates come from `$lib/format` in the active language (English
+  `m.area.key` from `#lib/i18n`, in templates or `$derived`, never at module scope. Plurals use
+  `Intl.PluralRules`; numbers and dates come from `#lib/format` in the active language (English
   is en-GB; both use 24 h and Paris time).
 - The language: a choice stored in `localStorage['kelvin-locale']` wins; else French when any
   browser language is French; else English when the browser names a language; else French.

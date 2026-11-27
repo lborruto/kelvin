@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import { detail } from '$lib/stores/detail.svelte';
+import { detail } from '#lib/stores/detail.svelte.js';
 import Disclosure from './Disclosure.svelte';
 
 const children = createRawSnippet(() => ({ render: () => '<p>Le détail caché</p>' }));

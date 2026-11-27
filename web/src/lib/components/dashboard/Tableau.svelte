@@ -8,11 +8,11 @@
      the page (DESIGN « Maison »). The room sheet opens over it (`?sheet=<id>`, the root layout). -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { Room } from '$lib/api/types';
-  import { alertText } from '$lib/alerts-text';
-  import { roomControls } from '$lib/capabilities';
-  import { fmtEurHero, fmtKwhHero, fmtTime, fmtWeekdayDate, fmtWeekdayTime, monthTitle } from '$lib/format';
-  import { m } from '$lib/i18n';
+  import type { Room } from '#lib/api/types.js';
+  import { alertText } from '#lib/alerts-text.js';
+  import { roomControls } from '#lib/capabilities.js';
+  import { fmtEurHero, fmtKwhHero, fmtTime, fmtWeekdayDate, fmtWeekdayTime, monthTitle } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
   import {
     climate,
     climateText,
@@ -23,23 +23,23 @@
     sameAlerts,
     type AlertsFrame,
     type RoomFacts
-  } from '$lib/dashboard';
-  import { desktop } from '$lib/media.svelte';
-  import { ROUTES } from '$lib/paths';
-  import { roomName } from '$lib/setup';
-  import { isOffline, roomReading, roomStatus } from '$lib/status';
-  import { alerts } from '$lib/stores/alerts.svelte';
-  import { auth } from '$lib/stores/auth.svelte';
-  import { awaySheet } from '$lib/stores/away.svelte';
-  import { grid } from '$lib/stores/grid.svelte';
-  import { history } from '$lib/stores/history.svelte';
-  import { house } from '$lib/stores/house.svelte';
-  import { weather } from '$lib/stores/weather.svelte';
-  import { chipValue, weatherFiche } from '$lib/weather';
-  import { dashboardEnergy as energy } from '$lib/stores/dashboardEnergy.svelte';
-  import { addParisDays, parisMidnight } from '$lib/time';
-  import { toasts } from '$lib/stores/toasts.svelte';
-  import { today } from '$lib/today.svelte';
+  } from '#lib/dashboard.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { ROUTES } from '#lib/paths.js';
+  import { roomName } from '#lib/setup.js';
+  import { isOffline, roomReading, roomStatus } from '#lib/status.js';
+  import { alerts } from '#lib/stores/alerts.svelte.js';
+  import { auth } from '#lib/stores/auth.svelte.js';
+  import { awaySheet } from '#lib/stores/away.svelte.js';
+  import { grid } from '#lib/stores/grid.svelte.js';
+  import { history } from '#lib/stores/history.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
+  import { weather } from '#lib/stores/weather.svelte.js';
+  import { chipValue, weatherFiche } from '#lib/weather.js';
+  import { dashboardEnergy as energy } from '#lib/stores/dashboardEnergy.svelte.js';
+  import { addParisDays, parisMidnight } from '#lib/time.js';
+  import { toasts } from '#lib/stores/toasts.svelte.js';
+  import { today } from '#lib/today.svelte.js';
   import HouseActions from '../HouseActions.svelte';
   import Icon from '../Icon.svelte';
   import MaintenantCard from '../MaintenantCard.svelte';

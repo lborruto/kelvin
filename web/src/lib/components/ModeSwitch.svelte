@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Mode, RoomMode, SettableMode } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { Settle } from '$lib/settle.svelte';
+  import type { Mode, RoomMode, SettableMode } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { Settle } from '#lib/settle.svelte.js';
   import PendingEdge from './PendingEdge.svelte';
 
   interface Props {

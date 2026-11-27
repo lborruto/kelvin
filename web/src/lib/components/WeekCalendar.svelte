@@ -2,12 +2,12 @@
      heat. Each day's header is a button named as a sentence (its periods, comfort total, today, edited, lock).
      Desktop (`onedit`): drag a block, or its top or bottom edge, in the room's steps (30 minutes on Sauter) with a time bubble; a click
      selects it; dragging on an empty area of a day with fewer than 3 periods draws out a 1 h period. Every
-     change goes through `$lib/program` (snap, one step before midnight at the latest, neighbours never overlap). The compact
+     change goes through `#lib/program.js` (snap, one step before midnight at the latest, neighbours never overlap). The compact
      agenda (a phone) is a picture: a tap opens the day. Locked days are hatched and never take an edit. -->
 <script lang="ts">
-  import { DAYS, type Day, type DayLock } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { comfortMinutes, DEFAULT_STEP, drawSlot, fmtDuration, fromMin, moveSlot, resizeSlot, slotTimes, type Seg, type Week } from '$lib/program';
+  import { DAYS, type Day, type DayLock } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { comfortMinutes, DEFAULT_STEP, drawSlot, fmtDuration, fromMin, moveSlot, resizeSlot, slotTimes, type Seg, type Week } from '#lib/program.js';
   import Icon from './Icon.svelte';
 
   interface Props {

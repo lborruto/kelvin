@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { sending } from '$lib/busy';
+import { sending } from '#lib/busy.js';
 import { api, ApiError } from './client';
 
 function mockFetch(status: number, body: unknown) {

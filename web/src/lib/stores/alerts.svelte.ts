@@ -1,5 +1,5 @@
-import { api } from '$lib/api/client';
-import type { Alert, AlertSummary } from '$lib/api/types';
+import { api } from '#lib/api/client.js';
+import type { Alert, AlertSummary } from '#lib/api/types.js';
 
 /** The active alerts (spec §2.4). The SSE `alerts` count says when to reload the list. */
 export class AlertsStore {

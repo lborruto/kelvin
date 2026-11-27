@@ -1,4 +1,4 @@
-import type { GridView } from '$lib/api/types';
+import type { GridView } from '#lib/api/types.js';
 
 /** Tempo and EcoWatt for the strip (spec §5.1 QW1). The snapshot and the SSE `grid` event keep it current. */
 export class GridStore {

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Support } from '$lib/api/types';
-  import { m } from '$lib/i18n';
+  import type { Support } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
 
   /** How far Kelvin vouches for a device (Plan 12). Tested hardware needs no badge. */
   let { support }: { support: Support | null | undefined } = $props();

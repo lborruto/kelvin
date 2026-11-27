@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { SetupRoom } from '$lib/api/types';
-  import { apiMessage, m } from '$lib/i18n';
+  import type { SetupRoom } from '#lib/api/types.js';
+  import { apiMessage, m } from '#lib/i18n/index.js';
   import SetupDialog from './SetupDialog.svelte';
 
   interface Props {

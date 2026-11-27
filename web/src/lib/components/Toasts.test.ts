@@ -1,9 +1,9 @@
 import { render } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { toasts } from '$lib/stores/toasts.svelte';
+import { toasts } from '#lib/stores/toasts.svelte.js';
 import Toasts from './Toasts.svelte';
-import { applyLocale, m } from '$lib/i18n';
+import { applyLocale, m } from '#lib/i18n/index.js';
 
 beforeEach(() => {
   for (const t of toasts.items) toasts.remove(t.id);

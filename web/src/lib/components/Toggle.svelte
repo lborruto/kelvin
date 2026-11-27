@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Settle, SETTLE_MS } from '$lib/settle.svelte';
+  import { Settle, SETTLE_MS } from '#lib/settle.svelte.js';
   import PendingEdge from './PendingEdge.svelte';
 
   interface Props {

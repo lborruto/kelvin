@@ -1,9 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import WeatherScatter from './WeatherScatter.svelte';
-import { desktop } from '$lib/media.svelte';
-import { order } from '$lib/scatter';
-import { OK } from '$lib/weatherModel.fixture';
+import { desktop } from '#lib/media.svelte.js';
+import { order } from '#lib/scatter.js';
+import { OK } from '#lib/weatherModel.fixture.js';
 
 const props = { points: OK.house.points, line: OK.house.line, tb: 15.5, mode: 'kwh' as const, height: 260 };
 const live = (c: HTMLElement) => c.querySelector('[aria-live="polite"]')!.textContent ?? '';

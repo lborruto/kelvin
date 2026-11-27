@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import DayBar from './DayBar.svelte';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 
 const segs = [
   { start: 375, end: 480 },

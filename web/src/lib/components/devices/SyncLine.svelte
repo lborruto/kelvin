@@ -3,15 +3,15 @@
      and a ghost « Synchroniser » (spinner glyph while it runs; paused with « possible à 14:30 » when the budget
      is spent). A change made in the Cozytouch app and not read yet is said under it. -->
 <script lang="ts">
-  import { api } from '$lib/api/client';
-  import type { SyncStatus } from '$lib/api/types';
-  import { fmtAgo, fmtDateTime, fmtTime } from '$lib/format';
-  import type { Fresh } from '$lib/freshness';
-  import { errorText, m } from '$lib/i18n';
-  import { provenance } from '$lib/provenance';
-  import { syncInfo, whenText } from '$lib/setup';
-  import { house } from '$lib/stores/house.svelte';
-  import { toasts } from '$lib/stores/toasts.svelte';
+  import { api } from '#lib/api/client.js';
+  import type { SyncStatus } from '#lib/api/types.js';
+  import { fmtAgo, fmtDateTime, fmtTime } from '#lib/format.js';
+  import type { Fresh } from '#lib/freshness.js';
+  import { errorText, m } from '#lib/i18n/index.js';
+  import { provenance } from '#lib/provenance.js';
+  import { syncInfo, whenText } from '#lib/setup.js';
+  import { house } from '#lib/stores/house.svelte.js';
+  import { toasts } from '#lib/stores/toasts.svelte.js';
   import Fig from '../Fig.svelte';
   import Freshness from '../Freshness.svelte';
   import Icon from '../Icon.svelte';

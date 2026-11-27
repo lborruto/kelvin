@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { ROUTES, roomSheetHref } from '$lib/paths';
+import { ROUTES, roomSheetHref } from '#lib/paths.js';
 
 /** `/rooms/<id>` (links from before the room sheet opened over any page, and the legacy French room path): the
  * sheet over Maison, `/?sheet=<id>`, with the link's other parameters (`boost`) and hash kept. */

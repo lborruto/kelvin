@@ -1,9 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { EnergyInterval } from '$lib/api/types';
-import { parisDayStart } from '$lib/time';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { EnergyInterval } from '#lib/api/types.js';
+import { parisDayStart } from '#lib/time.js';
 import CurveChart from './CurveChart.svelte';
 
 const NB = '\u00a0';
@@ -210,7 +210,7 @@ describe('CurveChart: the outdoor line (hourly, its own °C axis)', () => {
   ];
   it('draws the hours on their own right-hand axis, Wh on the left in ink; the readout and the table say « Dehors »', async () => {
     localStorage.clear();
-    const { outdoorLine } = await import('$lib/stores/outdoorLine.svelte');
+    const { outdoorLine } = await import('#lib/stores/outdoorLine.svelte.js');
     outdoorLine.set(true);
     const { container } = render(CurveChart, { intervals: four, label: 'Courbe', outdoor });
     expect(container.querySelector('path.t-line')!.getAttribute('d')).toMatch(/^M[\d.]+,[\d.]+L[\d.]+,[\d.]+$/);

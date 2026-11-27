@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError } from '$lib/api/client';
-import { house } from '$lib/stores/house.svelte';
+import { api, ApiError } from '#lib/api/client.js';
+import { house } from '#lib/stores/house.svelte.js';
 import Page from './+page.svelte';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 import { goto } from '$app/navigation';
-import { announcer } from '$lib/stores/announcer.svelte';
+import { announcer } from '#lib/stores/announcer.svelte.js';
 
 const nav = vi.hoisted(() => ({
   guard: null as null | ((n: { willUnload: boolean; cancel: () => void; from?: { url: URL }; to?: { url: URL } }) => void)
@@ -14,9 +14,9 @@ vi.mock('$app/navigation', () => ({ beforeNavigate: (fn: never) => (nav.guard = 
 const state = vi.hoisted(() => ({ page: { url: new URL('http://kelvin.test/schedule') } }));
 vi.mock('$app/state', () => state);
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
-vi.mock('$lib/media.svelte', () => media);
-vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/media.svelte.js', () => media);
+vi.mock('#lib/stores/history.svelte.js', () => ({ history: { data: {}, load: vi.fn() } }));
+vi.mock('#lib/api/client.js', () => ({
   api: { roomProgram: vi.fn(), roomSetpoint: vi.fn().mockResolvedValue({ pending: null }) },
   ApiError: class extends Error {
     constructor(
@@ -493,7 +493,7 @@ describe('/schedule: links and the phone', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Ajouter une plage le Lundi' }));
     expect(sendBar()).toHaveTextContent('1 jour modifié');
     await fireEvent.click(screen.getByRole('button', { name: 'Jour suivant' }));
-    expect(goto).toHaveBeenLastCalledWith('/schedule?room=salon&day=tuesday', { replaceState: true, keepFocus: true, noScroll: true });
+    expect(goto).toHaveBeenLastCalledWith('/schedule?room=salon&day=tuesday', { replace: true, reset: false });
     expect(screen.getByRole('heading', { level: 1, name: /^Mardi/ })).toBeInTheDocument();
     await fireEvent.click(screen.getByRole('link', { name: 'Semaine · Salon' }));
     expect(goto).toHaveBeenLastCalledWith('/schedule?room=salon');

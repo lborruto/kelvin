@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { sveltekit } from '@sveltejs/kit/vite';
-import { SvelteKitPWA } from '@vite-pwa/sveltekit';
+import adapter from '@sveltejs/adapter-static';
+import { withPwa } from '@vite-pwa/sveltekit';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vitest/config';
 
@@ -14,45 +14,53 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 export default defineConfig({
   define: { __KELVIN_VERSION__: JSON.stringify(pkg.version) },
   plugins: [
-    sveltekit(),
-    SvelteKitPWA({
-      // SvelteKit builds with a relative base ('./'): without an absolute base the app registers
-      // './sw.js' and links './manifest.webmanifest', which break on deep links like /rooms/x.
-      base: '/',
-      scope: '/',
-      // 'prompt': a new version waits instead of taking control and reloading the page at once (possibly
-      // mid-tap). `$lib/appUpdate` lets it in when the page is hidden, or on « Mettre à jour ».
-      registerType: 'prompt',
-      kit: { adapterFallback: 'index.html', spa: true },
-      manifest: {
-        // A stable identity: the installed PWA stays the same app if start_url ever changes.
-        id: '/',
-        name: 'Kelvin',
-        short_name: 'Kelvin',
-        // The manifest is static: it keeps the product default, French. The installed app's name
-        // and description do not follow the runtime language (Réglages › Langue); the UI does.
-        description: 'Le chauffage de la maison',
-        lang: 'fr',
-        start_url: '/',
+    // SvelteKit 3 takes its options here (no svelte.config.js); `withPwa` runs `sveltekit()` itself.
+    ...withPwa(
+      { adapter: adapter({ fallback: 'index.html', precompress: true }) },
+      {
+        // SvelteKit builds with a relative base ('./'): without an absolute base the app registers
+        // './sw.js' and links './manifest.webmanifest', which break on deep links like /rooms/x.
+        base: '/',
         scope: '/',
-        display: 'standalone',
-        background_color: '#0B0B0D',
-        theme_color: '#050506',
-        icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
-        ]
-      },
-      workbox: {
-        globPatterns: ['client/**/*.{js,css,html,svg,png,woff2}'],
-        // Only the font subsets the French and English copy can use (latin, latin-ext) are precached; the others
-        // stay on the server, never fetched (`src/lib/fonts.test.ts` checks the copy against their unicode-ranges).
-        globIgnores: ['**/*-{cyrillic,cyrillic-ext,greek,vietnamese}-*.woff2'],
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/mcp(\/|$)/]
+        // 'prompt': a new version waits instead of taking control and reloading the page at once (possibly
+        // mid-tap). `#lib/appUpdate.js` lets it in when the page is hidden, or on « Mettre à jour ».
+        registerType: 'prompt',
+        // Registered by `virtual:pwa-register` in +layout.svelte: no generated registerSW.js.
+        injectRegister: false,
+        kit: { adapterFallback: 'index.html', spa: true },
+        manifest: {
+          // A stable identity: the installed PWA stays the same app if start_url ever changes.
+          id: '/',
+          name: 'Kelvin',
+          short_name: 'Kelvin',
+          // The manifest is static: it keeps the product default, French. The installed app's name
+          // and description do not follow the runtime language (Réglages › Langue); the UI does.
+          description: 'Le chauffage de la maison',
+          lang: 'fr',
+          start_url: '/',
+          scope: '/',
+          display: 'standalone',
+          background_color: '#0B0B0D',
+          theme_color: '#050506',
+          icons: [
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+            { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+          ]
+        },
+        generateSW: {
+          globPatterns: ['client/**/*.{js,css,html,svg,png,woff2}'],
+          // The plugin always adds `prerendered/**`; this SPA prerenders nothing, and since 2.x a pattern that
+          // matches no file fails the build. `e2e/kelvin.spec.ts` checks the app still works offline.
+          globStrict: false,
+          // Only the font subsets the French and English copy can use (latin, latin-ext) are precached; the others
+          // stay on the server, never fetched (`src/lib/fonts.test.ts` checks the copy against their unicode-ranges).
+          globIgnores: ['**/*-{cyrillic,cyrillic-ext,greek,vietnamese}-*.woff2'],
+          navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/api\//, /^\/mcp(\/|$)/]
+        }
       }
-    }),
+    ),
     ...(process.env.VITEST ? [svelteTesting()] : [])],
   server: { port: 5173, proxy },
   preview: { port: 4173, proxy },

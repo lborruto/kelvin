@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError } from '$lib/api/client';
+import { api, ApiError } from '#lib/api/client.js';
 import { AuthStore } from './auth.svelte';
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: { me: vi.fn(), login: vi.fn(), logout: vi.fn() },
   ApiError: class extends Error {
     status: number;

@@ -5,11 +5,11 @@
      A locked day is shown read-only with its reason and what Kelvin does with it: no field, no add, no copy. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { Day, DayLock } from '$lib/api/types';
-  import { m } from '$lib/i18n';
+  import type { Day, DayLock } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
   import {
     addSlot, DEFAULT_STEP, comfortMinutes, fmtDuration, fromMin, removeSlot, resizeSlot, slotTimes, toMin, validateDay, type Seg
-  } from '$lib/program';
+  } from '#lib/program.js';
   import CopyDays from './CopyDays.svelte';
   import Icon from './Icon.svelte';
   import Notice from './Notice.svelte';

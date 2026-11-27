@@ -1,12 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { provenance } from '$lib/provenance';
+import { provenance } from '#lib/provenance.js';
 import Fig from './Fig.svelte';
 import { fichePlace } from './Fiche.svelte';
 
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 
 const NB = ' ';
 const now = Date.parse('2026-10-15T19:11:00Z');

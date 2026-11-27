@@ -1,16 +1,16 @@
 <script lang="ts">
   import CurveChart from './CurveChart.svelte';
   import Icon from './Icon.svelte';
-  import type { EnergyDay } from '$lib/api/types';
-  import { addDays, halfHoursIn, type View } from '$lib/energy';
-  import { fmtDateLong, fmtKwhExact, fmtPct1, matchParts } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { readDay, type Inspection } from '$lib/inspector';
-  import { roomName } from '$lib/setup';
-  import { house } from '$lib/stores/house.svelte';
-  import { weather } from '$lib/stores/weather.svelte';
-  import { ANCHORS } from '$lib/paths';
-  import { parisDayStart } from '$lib/time';
+  import type { EnergyDay } from '#lib/api/types.js';
+  import { addDays, halfHoursIn, type View } from '#lib/energy.js';
+  import { fmtDateLong, fmtKwhExact, fmtPct1, matchParts } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { readDay, type Inspection } from '#lib/inspector.js';
+  import { roomName } from '#lib/setup.js';
+  import { house } from '#lib/stores/house.svelte.js';
+  import { weather } from '#lib/stores/weather.svelte.js';
+  import { ANCHORS } from '#lib/paths.js';
+  import { parisDayStart } from '#lib/time.js';
 
   interface Props {
     dayIso: string;

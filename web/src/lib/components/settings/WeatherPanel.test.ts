@@ -1,14 +1,14 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError } from '$lib/api/client';
-import type { WeatherSettings } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
-import { weather } from '$lib/stores/weather.svelte';
-import { VIEW } from '$lib/weather.fixture';
+import { api, ApiError } from '#lib/api/client.js';
+import type { WeatherSettings } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
+import { weather } from '#lib/stores/weather.svelte.js';
+import { VIEW } from '#lib/weather.fixture.js';
 import WeatherPanel from './WeatherPanel.svelte';
 
-vi.mock('$lib/api/client', async (orig) => {
-  const real = await orig<typeof import('$lib/api/client')>();
+vi.mock('#lib/api/client.js', async (orig) => {
+  const real = await orig<typeof import('#lib/api/client.js')>();
   return {
     ...real,
     api: {

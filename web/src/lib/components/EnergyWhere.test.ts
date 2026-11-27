@@ -1,13 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { ByRadiator, Heating, RadiatorSum } from '$lib/api/types';
-import { house } from '$lib/stores/house.svelte';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { ByRadiator, Heating, RadiatorSum } from '#lib/api/types.js';
+import { house } from '#lib/stores/house.svelte.js';
 import EnergyWhere from './EnergyWhere.svelte';
-import { OK } from '$lib/weatherModel.fixture';
+import { OK } from '#lib/weatherModel.fixture.js';
 
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 
 const row = (id: string, room: string | null, o: Partial<ByRadiator> = {}): ByRadiator => ({
   radiator_id: id, room_id: room, kwh: 100, hc_kwh: 40, hp_kwh: 60, eur: 25, coverage: 1, interpolated: false,

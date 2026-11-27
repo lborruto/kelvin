@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { EnergyReport, Quality } from '$lib/api/types';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { EnergyReport, Quality } from '#lib/api/types.js';
 import QualityPanel from './QualityPanel.svelte';
 
 const b = (key: string, o: Record<string, unknown>) => ({ key, days: 1, present_days: 1, missing_days: 0, curve: { complete_days: 1 }, radiators: { coverage: 1 }, ...o });

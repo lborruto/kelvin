@@ -9,15 +9,15 @@
   import { scaleBand, scaleLinear } from 'd3-scale';
   import { tick, untrack } from 'svelte';
   import ChartInspector from './ChartInspector.svelte';
-  import { cardLeft, nearestIndex, stepIndex, swipeDirection } from '$lib/chart';
-  import type { TempoColour } from '$lib/api/types';
-  import { SERIES_HATCH } from '$lib/energy';
-  import { fmtFixed, fmtKwh, fmtTemp, fmtTempTick } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { inspectionTable, type Inspection } from '$lib/inspector';
-  import { desktop } from '$lib/media.svelte';
-  import { linePaths, maxTicks, tempScale, type Pt, type TempValue } from '$lib/outdoorLine';
-  import { announcer } from '$lib/stores/announcer.svelte';
+  import { cardLeft, nearestIndex, stepIndex, swipeDirection } from '#lib/chart.js';
+  import type { TempoColour } from '#lib/api/types.js';
+  import { SERIES_HATCH } from '#lib/energy.js';
+  import { fmtFixed, fmtKwh, fmtTemp, fmtTempTick } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { inspectionTable, type Inspection } from '#lib/inspector.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { linePaths, maxTicks, tempScale, type Pt, type TempValue } from '#lib/outdoorLine.js';
+  import { announcer } from '#lib/stores/announcer.svelte.js';
   import TempoDot from './TempoDot.svelte';
 
   interface Group {

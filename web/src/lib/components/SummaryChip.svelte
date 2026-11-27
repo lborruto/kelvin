@@ -4,7 +4,7 @@
      détails », hover 120 ms / click pins / Enter; Plan 14) or plain. `tone="cool"` (an absence running) colours the glyph and the value; heat only
      for heating. `skeleton` keeps its final size before data. The label and the value are separate strings. -->
 <script lang="ts" module>
-  import type { Provenance } from '$lib/provenance';
+  import type { Provenance } from '#lib/provenance.js';
   import type { FicheLink, FicheRow } from './FicheBody.svelte';
 
   /** The exact values behind a chip (L1): the Fig's Fiche. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 import { addDays, bucketLabel, firstCounted, leadingMissing, SERIES, SERIES_HATCH, seriesBackground, spanLabel } from './energy';
 
 describe('energy periods', () => {

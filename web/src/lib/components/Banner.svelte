@@ -9,10 +9,10 @@
      Kelvin's stream lost is silent for 60 s, then neutral, then bad after 3 min with « Réessayer »;
      Cozytouch unreachable and a refused password stay bad. Every message says how old the data is. -->
 <script lang="ts">
-  import type { Status } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { ROUTES } from '$lib/paths';
-  import { stamp } from '$lib/provenance';
+  import type { Status } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ROUTES } from '#lib/paths.js';
+  import { stamp } from '#lib/provenance.js';
   import Icon from './Icon.svelte';
 
   interface Props {

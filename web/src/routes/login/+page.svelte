@@ -7,17 +7,17 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { api, ApiError } from '$lib/api/client';
-  import type { ServerInfo } from '$lib/api/types';
-  import { safeNext } from '$lib/auth';
-  import Icon from '$lib/components/Icon.svelte';
-  import Segmented from '$lib/components/Segmented.svelte';
-  import Wordmark from '$lib/components/Wordmark.svelte';
-  import { errorText, LOCALE_NAMES, LOCALE_SHORT, LOCALES, locale, m, setLocale } from '$lib/i18n';
-  import { dur, easeOut, T } from '$lib/motion';
+  import { api, ApiError } from '#lib/api/client.js';
+  import type { ServerInfo } from '#lib/api/types.js';
+  import { safeNext } from '#lib/auth.js';
+  import Icon from '#lib/components/Icon.svelte';
+  import Segmented from '#lib/components/Segmented.svelte';
+  import Wordmark from '#lib/components/Wordmark.svelte';
+  import { errorText, LOCALE_NAMES, LOCALE_SHORT, LOCALES, locale, m, setLocale } from '#lib/i18n/index.js';
+  import { dur, easeOut, T } from '#lib/motion.js';
   import { tick } from 'svelte';
   import { slide } from 'svelte/transition';
-  import { auth } from '$lib/stores/auth.svelte';
+  import { auth } from '#lib/stores/auth.svelte.js';
 
   let email = $state('');
   let password = $state('');
@@ -67,7 +67,7 @@
   $effect(() => {
     void auth.refresh().then((ok) => {
       // A refused Cozytouch password keeps the session: the form stays, it is why the banner sent here.
-      if (ok === true && !auth.reauth) void goto(safeNext(page.url.searchParams.get('next')), { replaceState: true });
+      if (ok === true && !auth.reauth) void goto(safeNext(page.url.searchParams.get('next')), { replace: true });
     });
   });
 
@@ -91,7 +91,7 @@
       // The server only on a first login with a list read: afterwards it is the home's.
       await auth.login(email.trim(), password, current ? undefined : server);
       password = '';
-      await goto(safeNext(page.url.searchParams.get('next')), { replaceState: true });
+      await goto(safeNext(page.url.searchParams.get('next')), { replace: true });
     } catch (err) {
       error = () => errorText(err);
       // A refused account is about both fields (the password is the one to retype); a network or

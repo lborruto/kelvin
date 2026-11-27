@@ -1,5 +1,5 @@
 // Énergie's three CSV files as menu actions (direction-2 §2: the « Exporter » header menu, the phone « ⋯ » sheet and
-// the bottom ghost button all list the same items). The files themselves are `$lib/csv` (the machine contract in
+// the bottom ghost button all list the same items). The files themselves are `#lib/csv.js` (the machine contract in
 // web/README.md); this module only says which files the page on screen offers and when one must wait.
 import type { EnergyDay, EnergyReport, Radiator, Room, WeatherCost } from './api/types';
 import { curveCsv, download, energyCsv, meteoCsv, roomsCsv } from './csv';

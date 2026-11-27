@@ -1,6 +1,6 @@
 <script module lang="ts">
-  import type { SessionInfo } from '$lib/api/types';
-  import { m } from '$lib/i18n';
+  import type { SessionInfo } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
 
   /** « Safari · iPhone », « Firefox », « Navigateur inconnu · Linux »… */
   export function deviceName(s: SessionInfo): string {
@@ -14,10 +14,10 @@
      danger row that asks first (Annuler focused). -->
 <script lang="ts">
   import { tick } from 'svelte';
-  import { api, ApiError } from '$lib/api/client';
-  import { fmtAgo, fmtDateTime } from '$lib/format';
-  import { errorText } from '$lib/i18n';
-  import { toasts } from '$lib/stores/toasts.svelte';
+  import { api, ApiError } from '#lib/api/client.js';
+  import { fmtAgo, fmtDateTime } from '#lib/format.js';
+  import { errorText } from '#lib/i18n/index.js';
+  import { toasts } from '#lib/stores/toasts.svelte.js';
   import Sheet from './Sheet.svelte';
 
   interface Props {

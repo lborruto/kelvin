@@ -1,6 +1,6 @@
-import type { Run } from '$lib/api/types';
-import { fmtDateTime, fmtTime } from '$lib/format';
-import { m } from '$lib/i18n';
+import type { Run } from '#lib/api/types.js';
+import { fmtDateTime, fmtTime } from '#lib/format.js';
+import { m } from '#lib/i18n/index.js';
 
 /** Samples are 5-minute: one fetch per 5 minutes of the window's end. */
 export function activityKey(roomId: string, startMs: number, endMs: number): string {

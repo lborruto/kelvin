@@ -1,17 +1,17 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import { setupFixture } from '$lib/components/devices/fixture';
-import type { Pending } from '$lib/api/types';
-import { auth } from '$lib/stores/auth.svelte';
-import { house } from '$lib/stores/house.svelte';
-import { toasts } from '$lib/stores/toasts.svelte';
+import { api } from '#lib/api/client.js';
+import { setupFixture } from '#lib/components/devices/fixture.js';
+import type { Pending } from '#lib/api/types.js';
+import { auth } from '#lib/stores/auth.svelte.js';
+import { house } from '#lib/stores/house.svelte.js';
+import { toasts } from '#lib/stores/toasts.svelte.js';
 import Page from './+page.svelte';
 
 // Menus as desktop popovers (a phone shows the same items in a sheet).
-vi.mock('$lib/media.svelte', () => ({ desktop: { matches: true } }));
+vi.mock('#lib/media.svelte.js', () => ({ desktop: { matches: true } }));
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: {
     setupDevices: vi.fn(),
     me: vi.fn(),

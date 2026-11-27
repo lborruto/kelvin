@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Tariff } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
+import type { Tariff } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
 import TariffSummary from './TariffSummary.svelte';
 
 const ALL = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];

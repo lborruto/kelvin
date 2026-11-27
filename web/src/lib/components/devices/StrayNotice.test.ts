@@ -1,11 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import { auth } from '$lib/stores/auth.svelte';
+import { api } from '#lib/api/client.js';
+import { auth } from '#lib/stores/auth.svelte.js';
 import StrayNotice from './StrayNotice.svelte';
 import { device } from './fixture';
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: { tidyDevice: vi.fn().mockResolvedValue({ pending: null }) },
   ApiError: class extends Error {}
 }));

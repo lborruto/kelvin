@@ -1,16 +1,16 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import type { RoomEnergy as RE } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
-import { forEachLocale } from '$lib/i18n/testing';
-import { resetRoomData } from '$lib/stores/roomdata.svelte';
-import { weather } from '$lib/stores/weather.svelte';
-import { VIEW } from '$lib/weather.fixture';
-import { ROOM } from '$lib/weatherModel.fixture';
+import { api } from '#lib/api/client.js';
+import type { RoomEnergy as RE } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
+import { forEachLocale } from '#lib/i18n/testing.js';
+import { resetRoomData } from '#lib/stores/roomdata.svelte.js';
+import { weather } from '#lib/stores/weather.svelte.js';
+import { VIEW } from '#lib/weather.fixture.js';
+import { ROOM } from '#lib/weatherModel.fixture.js';
 import RoomFigures from './RoomFigures.svelte';
 
-vi.mock('$lib/api/client', () => ({ api: { roomEnergy: vi.fn() }, ApiError: class extends Error {} }));
+vi.mock('#lib/api/client.js', () => ({ api: { roomEnergy: vi.fn() }, ApiError: class extends Error {} }));
 
 const full: RE = {
   from: '2026-10-14', to: '2026-10-14', days: 1, kwh: 4.567, hc_kwh: 1.5, hp_kwh: 3.067, eur: 1.23, heating_hours: 3.04,
@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 const media = vi.hoisted(() => ({ desktop: { matches: true } }));
-vi.mock('$lib/media.svelte', () => media);
+vi.mock('#lib/media.svelte.js', () => media);
 
 describe('RoomFigures', () => {
   it('data on demand: each figure is a Fig whose Fiche gives the exact value, its parts and its source', async () => {

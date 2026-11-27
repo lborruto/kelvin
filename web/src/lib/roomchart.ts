@@ -1,7 +1,7 @@
 /**
  * The room sheet's « Aujourd’hui » chart in numbers (pure): the moments it can be read at, the bucket at a
  * moment, the temperature scale fitted to what it draws, and what a moment reads. The inspection is a
- * `$lib/inspector` Inspection, so the card, the phone sheet, the slider's text, the hidden table and the
+ * `#lib/inspector.js` Inspection, so the card, the phone sheet, the slider's text, the hidden table and the
  * announcement come from the same rows and cannot disagree (DESIGN « ChartInspector »).
  */
 import type { Override, RoomMode, Run, WeekProgram } from './api/types';

@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { api } from '$lib/api/client';
-  import { addDays, spanLabel } from '$lib/energy';
-  import { fmtEurExact, fmtHours, fmtKwhExact, fmtPct, fmtPct1, matchParts } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { ROUTES } from '$lib/paths';
-  import { provenance } from '$lib/provenance';
-  import { roomEnergy } from '$lib/stores/roomdata.svelte';
-  import { weather } from '$lib/stores/weather.svelte';
-  import { roomRows, roomValue, roomWhy, thinText } from '$lib/weatherCost';
+  import { api } from '#lib/api/client.js';
+  import { addDays, spanLabel } from '#lib/energy.js';
+  import { fmtEurExact, fmtHours, fmtKwhExact, fmtPct, fmtPct1, matchParts } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ROUTES } from '#lib/paths.js';
+  import { provenance } from '#lib/provenance.js';
+  import { roomEnergy } from '#lib/stores/roomdata.svelte.js';
+  import { weather } from '#lib/stores/weather.svelte.js';
+  import { roomRows, roomValue, roomWhy, thinText } from '#lib/weatherCost.js';
   import Fig from './Fig.svelte';
   import type { FicheRow } from './FicheBody.svelte';
 

@@ -9,11 +9,11 @@
 <script lang="ts">
   import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { m } from '$lib/i18n';
-  import { desktop } from '$lib/media.svelte';
-  import { ROOM_SHEET_BOOST, roomSheetOf, sheetOnly, withoutRoomSheet } from '$lib/paths';
-  import { roomName } from '$lib/setup';
-  import { house } from '$lib/stores/house.svelte';
+  import { m } from '#lib/i18n/index.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { ROOM_SHEET_BOOST, roomSheetOf, sheetOnly, withoutRoomSheet } from '#lib/paths.js';
+  import { roomName } from '#lib/setup.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import Sheet from '../Sheet.svelte';
   import RoomPanel from './RoomPanel.svelte';
 
@@ -49,7 +49,7 @@
   const close = () => {
     if (!roomId) return;
     if (backable) history.back();
-    else void goto(withoutRoomSheet(page.url), { replaceState: true, noScroll: true, keepFocus: true });
+    else void goto(withoutRoomSheet(page.url), { replace: true, reset: false });
   };
 </script>
 

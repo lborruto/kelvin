@@ -1,9 +1,9 @@
 <!-- Réglages › Météo (Plan 14, spec §7.1): the header with the place and its last reading (or « Désactivée »),
      then WeatherPanel (search, coordinates, the place's facts, « Supprimer », the attribution). -->
 <script lang="ts">
-  import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
-  import WeatherPanel from '$lib/components/settings/WeatherPanel.svelte';
-  import { m } from '$lib/i18n';
+  import SettingsHeader from '#lib/components/settings/SettingsHeader.svelte';
+  import WeatherPanel from '#lib/components/settings/WeatherPanel.svelte';
+  import { m } from '#lib/i18n/index.js';
 
   let stateLine = $state<string | null>(null);
 </script>

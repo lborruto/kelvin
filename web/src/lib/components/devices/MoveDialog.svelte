@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { SetupRadiator, SetupRoom } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { radiatorName, roomName } from '$lib/setup';
+  import type { SetupRadiator, SetupRoom } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { radiatorName, roomName } from '#lib/setup.js';
   import SetupDialog from './SetupDialog.svelte';
 
   interface Props {

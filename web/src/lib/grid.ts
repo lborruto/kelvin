@@ -1,4 +1,4 @@
-import type { EcowattRun, GridView, TempoColour } from '$lib/api/types';
+import type { EcowattRun, GridView, TempoColour } from '#lib/api/types.js';
 
 export interface StripLines {
   tempo: { today: TempoColour | null; tomorrow: TempoColour | null; expectedAt: string | null } | null;

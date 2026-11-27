@@ -4,11 +4,11 @@
      TempoDot for the colour and the swatch for the hour), then the off-peak hours on the tariff band (TariffBand) with
      the times written beside it (one band per season). Rows whose value just changed pulse once (`changed`). -->
 <script lang="ts">
-  import type { HcVariant, Tariff, TempoColour } from '$lib/api/types';
-  import { fmtAmount, fmtEurExact, fmtMonthShort, fmtPrice } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { inForce, slotsText } from '$lib/tariff';
-  import { dayBlocks } from '$lib/maintenant';
+  import type { HcVariant, Tariff, TempoColour } from '#lib/api/types.js';
+  import { fmtAmount, fmtEurExact, fmtMonthShort, fmtPrice } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { inForce, slotsText } from '#lib/tariff.js';
+  import { dayBlocks } from '#lib/maintenant.js';
   import TariffBand from './TariffBand.svelte';
   import Swatch from './Swatch.svelte';
   import TempoDot from './TempoDot.svelte';

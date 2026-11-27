@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Slot } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { ALL_MONTHS, SUMMER, WINTER } from '$lib/tariff';
+  import type { Slot } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ALL_MONTHS, SUMMER, WINTER } from '#lib/tariff.js';
   import MonthChips from './MonthChips.svelte';
 
   interface Variant {

@@ -1,13 +1,13 @@
 // Énergie's Résumé: the outdoor line (Plan 14). Only the fields the Résumé reads.
 import { render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import type { EnergyReport, EnergySummary, Outdoor } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
-import { weather } from '$lib/stores/weather.svelte';
-import { VIEW } from '$lib/weather.fixture';
+import type { EnergyReport, EnergySummary, Outdoor } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
+import { weather } from '#lib/stores/weather.svelte.js';
+import { VIEW } from '#lib/weather.fixture.js';
 import EnergyHero from './EnergyHero.svelte';
 
-vi.mock('$lib/today.svelte', () => ({ today: { iso: '2026-11-20' } }));
+vi.mock('#lib/today.svelte.js', () => ({ today: { iso: '2026-11-20' } }));
 
 const summary = (o: Partial<EnergySummary> = {}): EnergySummary => ({
   kwh: 310.4, hc_kwh: 120.2, hp_kwh: 190.2, radiators_kwh: null, energy_eur: 70.1, subscription_eur: 15, eur: 85.1,

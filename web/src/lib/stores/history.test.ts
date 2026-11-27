@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { HistoryPoint } from '$lib/api/types';
+import type { HistoryPoint } from '#lib/api/types.js';
 import { averageByTs, HistoryCache } from './history.svelte';
 
 describe('history', () => {

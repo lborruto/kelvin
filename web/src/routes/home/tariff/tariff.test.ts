@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import { alerts } from '$lib/stores/alerts.svelte';
+import { api } from '#lib/api/client.js';
+import { alerts } from '#lib/stores/alerts.svelte.js';
 import Page from './+page.svelte';
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: { settings: vi.fn(), putTariffDoc: vi.fn(), tempoPrices: vi.fn() },
   ApiError: class extends Error {}
 }));

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError } from '$lib/api/client';
-import type { Pending, Status } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
+import { ApiError } from '#lib/api/client.js';
+import type { Pending, Status } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
 import codes from './api-codes.json';
 import { apiMessage, errorText, LOST, pendingError, pendingLabel, statusError } from './codes';
 import { en } from './en';

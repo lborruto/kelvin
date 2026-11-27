@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 import DayEditor from './DayEditor.svelte';
 
 beforeAll(() => {

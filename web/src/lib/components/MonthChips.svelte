@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { fmtMonthShort as name } from '$lib/format';
-  import { ALL_MONTHS } from '$lib/tariff';
+  import { fmtMonthShort as name } from '#lib/format.js';
+  import { ALL_MONTHS } from '#lib/tariff.js';
 
   interface Props {
     months: number[];

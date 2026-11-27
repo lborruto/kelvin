@@ -45,7 +45,7 @@
         }
         /* locale:end */
         // <html lang> before first paint, so screen readers and hyphenation start right (spec §4).
-        // Same rule as detectLocale ($lib/i18n/locale.ts); locale.test.ts runs both on one table.
+        // Same rule as detectLocale (#lib/i18n/locale.ts); locale.test.ts runs both on one table.
         try {
           var stored = null;
           try {
@@ -58,7 +58,7 @@
     <script>
       (function () {
         try {
-          // « Détails techniques » ($lib/stores/detail.svelte.ts): set before first paint.
+          // « Détails techniques » (#lib/stores/detail.svelte.ts): set before first paint.
           if (localStorage.getItem('kelvin-detail') === 'on') document.documentElement.dataset.detail = 'on';
         } catch {}
       })();

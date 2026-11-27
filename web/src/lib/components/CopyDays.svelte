@@ -3,9 +3,9 @@
      are never offered (a line says which and why). Desktop: a 400 px dialog; phone: a bottom sheet with the
      large « Copier sur N jours ». `variant="row"`: the trigger is a grouped-list row (the phone day view). -->
 <script lang="ts">
-  import { DAYS, type Day, type DayLock } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { presetDays, type Preset } from '$lib/program';
+  import { DAYS, type Day, type DayLock } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { presetDays, type Preset } from '#lib/program.js';
   import ChoiceSheet from './ChoiceSheet.svelte';
   import Icon from './Icon.svelte';
 

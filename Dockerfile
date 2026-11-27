@@ -11,7 +11,7 @@ FROM node:24-trixie-slim@sha256:173f125896c3b47ddf056734c7ea789d04595a6a08769a8f
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --no-audit --no-fund
-COPY web/svelte.config.js web/vite.config.ts web/tsconfig.json ./
+COPY web/vite.config.ts web/tsconfig.json ./
 COPY web/src ./src
 COPY web/static ./static
 RUN npm run build

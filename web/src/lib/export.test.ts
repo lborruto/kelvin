@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import type { EnergyDay, EnergyReport, Radiator, Room } from '$lib/api/types';
-import { download, energyCsv } from '$lib/csv';
+import { applyLocale } from '#lib/i18n/index.js';
+import type { EnergyDay, EnergyReport, Radiator, Room } from '#lib/api/types.js';
+import { download, energyCsv } from '#lib/csv.js';
 import { exportActions, type ExportInput } from './export';
 import { HIDDEN, OK } from './weatherModel.fixture';
 
-vi.mock('$lib/csv', async (orig) => ({ ...(await orig<typeof import('$lib/csv')>()), download: vi.fn() }));
+vi.mock('#lib/csv.js', async (orig) => ({ ...(await orig<typeof import('#lib/csv.js')>()), download: vi.fn() }));
 
 const chart = { group: 'day', buckets: [] } as unknown as EnergyReport;
 const main = {

@@ -5,18 +5,18 @@
      mistyped price is flagged before saving (PriceFields). Enedis' notices (new off-peak hours, a price change)
      sit above. No tariff yet: the editor is the page. -->
 <script lang="ts">
-  import { api } from '$lib/api/client';
-  import type { SettingsView, Slot, Tariff } from '$lib/api/types';
-  import AlertCallout from '$lib/components/AlertCallout.svelte';
-  import PriceHistory from '$lib/components/PriceHistory.svelte';
-  import TariffForm from '$lib/components/TariffForm.svelte';
-  import TariffSummary from '$lib/components/TariffSummary.svelte';
-  import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
-  import { fmtDateLong, parisTodayIso } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { ROUTES } from '$lib/paths';
-  import { alerts } from '$lib/stores/alerts.svelte';
-  import { inForce, tariffDiff } from '$lib/tariff';
+  import { api } from '#lib/api/client.js';
+  import type { SettingsView, Slot, Tariff } from '#lib/api/types.js';
+  import AlertCallout from '#lib/components/AlertCallout.svelte';
+  import PriceHistory from '#lib/components/PriceHistory.svelte';
+  import TariffForm from '#lib/components/TariffForm.svelte';
+  import TariffSummary from '#lib/components/TariffSummary.svelte';
+  import SettingsHeader from '#lib/components/settings/SettingsHeader.svelte';
+  import { fmtDateLong, parisTodayIso } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { ROUTES } from '#lib/paths.js';
+  import { alerts } from '#lib/stores/alerts.svelte.js';
+  import { inForce, tariffDiff } from '#lib/tariff.js';
 
   let settings = $state<SettingsView | null>(null);
   let failed = $state(false);

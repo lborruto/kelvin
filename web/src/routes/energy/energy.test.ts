@@ -1,25 +1,25 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyLocale } from '$lib/i18n';
-import { api, ApiError } from '$lib/api/client';
-import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus, Quality } from '$lib/api/types';
-import { download } from '$lib/csv';
-import { addDays, bucketLabel } from '$lib/energy';
-import { fmtTime } from '$lib/format';
-import { alerts } from '$lib/stores/alerts.svelte';
-import { announcer } from '$lib/stores/announcer.svelte';
-import { house } from '$lib/stores/house.svelte';
-import { parisDayStart } from '$lib/time';
-import { today } from '$lib/today.svelte';
-import { desktop } from '$lib/media.svelte';
+import { applyLocale } from '#lib/i18n/index.js';
+import { api, ApiError } from '#lib/api/client.js';
+import type { EnergyDay, EnergyReport, EnergySummary, LinkyStatus, Quality } from '#lib/api/types.js';
+import { download } from '#lib/csv.js';
+import { addDays, bucketLabel } from '#lib/energy.js';
+import { fmtTime } from '#lib/format.js';
+import { alerts } from '#lib/stores/alerts.svelte.js';
+import { announcer } from '#lib/stores/announcer.svelte.js';
+import { house } from '#lib/stores/house.svelte.js';
+import { parisDayStart } from '#lib/time.js';
+import { today } from '#lib/today.svelte.js';
+import { desktop } from '#lib/media.svelte.js';
 import Page from './+page.svelte';
 
-vi.mock('$lib/csv', async (orig) => ({ ...(await orig<typeof import('$lib/csv')>()), download: vi.fn() }));
-vi.mock('$lib/stores/history.svelte', () => ({ history: { data: {}, load: vi.fn() } }));
+vi.mock('#lib/csv.js', async (orig) => ({ ...(await orig<typeof import('#lib/csv.js')>()), download: vi.fn() }));
+vi.mock('#lib/stores/history.svelte.js', () => ({ history: { data: {}, load: vi.fn() } }));
 // The real ApiError: the i18n module (loaded by the test setup) checks `instanceof` against it.
-vi.mock('$lib/api/client', async (orig) => ({
-  ...(await orig<typeof import('$lib/api/client')>()),
+vi.mock('#lib/api/client.js', async (orig) => ({
+  ...(await orig<typeof import('#lib/api/client.js')>()),
   api: { energyReport: vi.fn(), energyDay: vi.fn(), linkyStatus: vi.fn(), history: vi.fn().mockResolvedValue([]),
     alerts: vi.fn().mockResolvedValue([]), dismissAlert: vi.fn() }
 }));

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 import type { EnergyInterval, EnergySummary, RoomSample } from './api/types';
 import { bucketSpan, periodOf } from './energy';
-import { fmtPrice } from '$lib/format';
+import { fmtPrice } from '#lib/format.js';
 import { inspectBucket, inspectionTable, intervalLabel, pricesText, READOUT_ORDER, readDay, readInterval, roomInterval } from './inspector';
 import { parisDayStart } from './time';
 

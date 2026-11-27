@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
+import { api } from '#lib/api/client.js';
 import { AlertsStore } from './alerts.svelte';
 
-vi.mock('$lib/api/client', () => ({ api: { alerts: vi.fn(), dismissAlert: vi.fn() }, ApiError: class extends Error {} }));
+vi.mock('#lib/api/client.js', () => ({ api: { alerts: vi.fn(), dismissAlert: vi.fn() }, ApiError: class extends Error {} }));
 
 const one = { id: 7, kind: 'linky_stalled', severity: 'warn', params: {}, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false };
 

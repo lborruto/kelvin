@@ -3,8 +3,8 @@
      Fiche (`title` + rows / provenance) the words are a Fig that opens the source's exact times, quotas
      and next read. -->
 <script lang="ts">
-  import type { Fresh } from '$lib/freshness';
-  import type { Provenance } from '$lib/provenance';
+  import type { Fresh } from '#lib/freshness.js';
+  import type { Provenance } from '#lib/provenance.js';
   import Fig from './Fig.svelte';
   import type { FicheAction, FicheLink, FicheRow } from './FicheBody.svelte';
   import Freshness from './Freshness.svelte';

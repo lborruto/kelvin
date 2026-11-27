@@ -1,9 +1,9 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { SetupDevice } from '$lib/api/types';
-  import { fmtAgo } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { detailRows, deviceLabel } from '$lib/setup';
+  import type { SetupDevice } from '#lib/api/types.js';
+  import { fmtAgo } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { detailRows, deviceLabel } from '#lib/setup.js';
   import SupportChip from '../SupportChip.svelte';
 
   interface Props {

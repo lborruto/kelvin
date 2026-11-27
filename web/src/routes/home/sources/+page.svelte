@@ -2,13 +2,13 @@
      row with its freshness ring, its state sentence and its last time; a row opens its exact times (SourcesList).
      The day's MyElectricalData calls close the page as a note. -->
 <script lang="ts">
-  import { api } from '$lib/api/client';
-  import type { LinkyStatus, Sources } from '$lib/api/types';
-  import SourcesList from '$lib/components/SourcesList.svelte';
-  import SettingsHeader from '$lib/components/settings/SettingsHeader.svelte';
-  import { m } from '$lib/i18n';
-  import { lateCount, sourceRows } from '$lib/sources';
-  import { house } from '$lib/stores/house.svelte';
+  import { api } from '#lib/api/client.js';
+  import type { LinkyStatus, Sources } from '#lib/api/types.js';
+  import SourcesList from '#lib/components/SourcesList.svelte';
+  import SettingsHeader from '#lib/components/settings/SettingsHeader.svelte';
+  import { m } from '#lib/i18n/index.js';
+  import { lateCount, sourceRows } from '#lib/sources.js';
+  import { house } from '#lib/stores/house.svelte.js';
 
   let linky = $state<LinkyStatus | null | undefined>(undefined);
   let grid = $state<Sources | null | undefined>(undefined);

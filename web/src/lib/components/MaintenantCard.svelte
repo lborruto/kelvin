@@ -3,15 +3,15 @@
      the now marker. HC/HP: « Heures pleines · jusqu’à 22:00, puis creuses à 0,2000 € ». Tempo (only when the
      price row in force is Tempo): the day's colour in the header, tomorrow's colour and prices under the band;
      a price whose Tempo colour is unknown reads « — » with its reason. Base: « Prix unique 0,2516 €/kWh »,
-     no band. No tariff: one line and « Renseigner le tarif ». Pure view of `$lib/maintenant`. -->
+     no band. No tariff: one line and « Renseigner le tarif ». Pure view of `#lib/maintenant.js`. -->
 <script lang="ts">
-  import type { GridView, Tariff } from '$lib/api/types';
-  import { fmtKwhPrice, fmtPrice, fmtTime } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { hcText, maintenant } from '$lib/maintenant';
-  import { ROUTES } from '$lib/paths';
-  import { provenance } from '$lib/provenance';
-  import { parisMinuteOfDay } from '$lib/time';
+  import type { GridView, Tariff } from '#lib/api/types.js';
+  import { fmtKwhPrice, fmtPrice, fmtTime } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { hcText, maintenant } from '#lib/maintenant.js';
+  import { ROUTES } from '#lib/paths.js';
+  import { provenance } from '#lib/provenance.js';
+  import { parisMinuteOfDay } from '#lib/time.js';
   import Fig from './Fig.svelte';
   import Swatch from './Swatch.svelte';
   import TariffBand from './TariffBand.svelte';

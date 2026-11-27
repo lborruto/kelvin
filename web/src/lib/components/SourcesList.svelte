@@ -5,11 +5,11 @@
      old Réglages. -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { fmtTime, fmtWeekdayTime, parisTodayIso } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { dur, T } from '$lib/motion';
-  import type { SourceRow } from '$lib/sources';
-  import { detail } from '$lib/stores/detail.svelte';
+  import { fmtTime, fmtWeekdayTime, parisTodayIso } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { dur, T } from '#lib/motion.js';
+  import type { SourceRow } from '#lib/sources.js';
+  import { detail } from '#lib/stores/detail.svelte.js';
   import FicheBody from './FicheBody.svelte';
   import Freshness from './Freshness.svelte';
   import Icon from './Icon.svelte';

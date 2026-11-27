@@ -2,10 +2,10 @@
      « Tout remettre en programme »; an offline room is named calmly (it may not have received the command).
      No time is shown: Kelvin does not know when the house went off. -->
 <script lang="ts">
-  import { runHouse } from '$lib/actions';
-  import { api } from '$lib/api/client';
-  import { m } from '$lib/i18n';
-  import { house } from '$lib/stores/house.svelte';
+  import { runHouse } from '#lib/actions.js';
+  import { api } from '#lib/api/client.js';
+  import { m } from '#lib/i18n/index.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import Icon from '../Icon.svelte';
 
   interface Props {

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { alertText } from '$lib/alerts-text';
-  import { m } from '$lib/i18n';
-  import { alerts } from '$lib/stores/alerts.svelte';
-  import { auth } from '$lib/stores/auth.svelte';
-  import { house } from '$lib/stores/house.svelte';
+  import { alertText } from '#lib/alerts-text.js';
+  import { m } from '#lib/i18n/index.js';
+  import { alerts } from '#lib/stores/alerts.svelte.js';
+  import { auth } from '#lib/stores/auth.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import AlertCallout from './AlertCallout.svelte';
 
   interface Props {

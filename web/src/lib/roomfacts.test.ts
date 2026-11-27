@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Radiator } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
+import type { Radiator } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
 import { detailFacts, infoRows, livePower } from './roomfacts';
 
 const NB = ' ';

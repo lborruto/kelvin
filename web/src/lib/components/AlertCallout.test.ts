@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { forEachLocale } from '$lib/i18n/testing';
-import { alerts } from '$lib/stores/alerts.svelte';
+import { forEachLocale } from '#lib/i18n/testing.js';
+import { alerts } from '#lib/stores/alerts.svelte.js';
 import AlertCallout from './AlertCallout.svelte';
 
-vi.mock('$lib/api/client', () => ({ api: { alerts: vi.fn().mockResolvedValue([]), dismissAlert: vi.fn().mockResolvedValue(undefined) }, ApiError: class extends Error {} }));
+vi.mock('#lib/api/client.js', () => ({ api: { alerts: vi.fn().mockResolvedValue([]), dismissAlert: vi.fn().mockResolvedValue(undefined) }, ApiError: class extends Error {} }));
 
 const price = { id: 3, kind: 'price_change', severity: 'info' as const, params: { date: '2027-02-01' }, first_seen: 0, last_seen: 0, resolved_at: null, dismissed: false };
 

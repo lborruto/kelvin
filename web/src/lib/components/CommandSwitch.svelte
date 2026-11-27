@@ -1,6 +1,6 @@
 <script lang="ts" generics="T extends string">
-  import { m } from '$lib/i18n';
-  import { Settle } from '$lib/settle.svelte';
+  import { m } from '#lib/i18n/index.js';
+  import { Settle } from '#lib/settle.svelte.js';
   import PendingEdge from './PendingEdge.svelte';
 
   /** A device command as a radio group (a pilot-wire level, a towel dryer's boost): manual

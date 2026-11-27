@@ -8,9 +8,9 @@
      `ghost` dims the blocks (paused: Arrêt, Manuel, absence, offline « dernier connu »), `times` writes a wide
      block's hours inside it, `ticks` adds the 00 · 06 · 12 · 18 · 24 row. -->
 <script lang="ts">
-  import type { Day, DayLock } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { addSlot, DEFAULT_STEP, fromMin, moveSlot, removeSlot, resizeSlot, type Seg } from '$lib/program';
+  import type { Day, DayLock } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { addSlot, DEFAULT_STEP, fromMin, moveSlot, removeSlot, resizeSlot, type Seg } from '#lib/program.js';
 
   interface Props {
     segs: Seg[];

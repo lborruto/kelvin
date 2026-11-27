@@ -5,10 +5,10 @@
      A setup write in flight draws the shared dashed edge; the rename form (`children`) sits under the row. -->
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte';
-  import type { Pending, Radiator, SetupDevice, SetupRadiator } from '$lib/api/types';
-  import { fmtTime, fmtWeekdayTime, parisTodayIso } from '$lib/format';
-  import { locale, m } from '$lib/i18n';
-  import { radiatorFacts, radiatorName } from '$lib/setup';
+  import type { Pending, Radiator, SetupDevice, SetupRadiator } from '#lib/api/types.js';
+  import { fmtTime, fmtWeekdayTime, parisTodayIso } from '#lib/format.js';
+  import { locale, m } from '#lib/i18n/index.js';
+  import { radiatorFacts, radiatorName } from '#lib/setup.js';
   import Menu, { type MenuItem } from '../Menu.svelte';
   import PendingEdge from '../PendingEdge.svelte';
   import SupportChip from '../SupportChip.svelte';

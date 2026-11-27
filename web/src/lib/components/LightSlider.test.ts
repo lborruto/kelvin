@@ -1,12 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import type { Pending } from '$lib/api/types';
-import { forEachLocale } from '$lib/i18n/testing';
-import { house } from '$lib/stores/house.svelte';
+import { api } from '#lib/api/client.js';
+import type { Pending } from '#lib/api/types.js';
+import { forEachLocale } from '#lib/i18n/testing.js';
+import { house } from '#lib/stores/house.svelte.js';
 import LightSlider from './LightSlider.svelte';
 
-vi.mock('$lib/api/client', () => ({
+vi.mock('#lib/api/client.js', () => ({
   api: { radiatorLight: vi.fn() },
   ApiError: class extends Error {}
 }));

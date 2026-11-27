@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import type { SetupDevice } from '$lib/api/types';
+import type { SetupDevice } from '#lib/api/types.js';
 import AppliancesBlock from './AppliancesBlock.svelte';
 
 const device = (id: string, role: SetupDevice['role'], label: string): SetupDevice => ({

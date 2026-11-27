@@ -1,12 +1,12 @@
 <script lang="ts">
   import RoomDayChart from './RoomDayChart.svelte';
   import Segmented from './Segmented.svelte';
-  import type { EnergyDay } from '$lib/api/types';
-  import { fmtDateLong } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { roomName } from '$lib/setup';
-  import { desktop } from '$lib/media.svelte';
-  import { house } from '$lib/stores/house.svelte';
+  import type { EnergyDay } from '#lib/api/types.js';
+  import { fmtDateLong } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { roomName } from '#lib/setup.js';
+  import { desktop } from '#lib/media.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
 
   interface Props {
     day: EnergyDay | null;

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { TempoColour, TempoLens } from '$lib/api/types';
-  import { fmtEurExact, fmtKwhExact } from '$lib/format';
-  import { m } from '$lib/i18n';
+  import type { TempoColour, TempoLens } from '#lib/api/types.js';
+  import { fmtEurExact, fmtKwhExact } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
   import TempoDot from './TempoDot.svelte';
 
   interface Props {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 import type { EnergyDay, EnergyInterval, EnergyReport, EnergySummary } from './api/types';
 import { BOM, csvNum, csvSeparator, csvText, curveCsv, ENERGY_HEADER, energyCsv, METEO_HEADER, meteoCsv, meteoFileName, pricesCsv, ROOMS_HEADER, roomsCsv } from './csv';
 import { HIDDEN, OK } from './weatherModel.fixture';

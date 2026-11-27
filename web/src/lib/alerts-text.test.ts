@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Alert } from '$lib/api/types';
-import { applyLocale } from '$lib/i18n';
-import { house } from '$lib/stores/house.svelte';
+import type { Alert } from '#lib/api/types.js';
+import { applyLocale } from '#lib/i18n/index.js';
+import { house } from '#lib/stores/house.svelte.js';
 import { alertText, fmtDayMonth } from './alerts-text';
 
 const NB = ' ';

@@ -3,11 +3,11 @@
      only for a must-fix alert; the count is in the name. Rooms are reached from the Maison tiles. -->
 <script lang="ts">
   import { page } from '$app/state';
-  import { m } from '$lib/i18n';
-  import { ALERT_KEY, NAV_ICON } from '$lib/nav';
-  import { navAlerts } from '$lib/navAlerts';
-  import { isActive, NAV } from '$lib/paths';
-  import { alerts } from '$lib/stores/alerts.svelte';
+  import { m } from '#lib/i18n/index.js';
+  import { ALERT_KEY, NAV_ICON } from '#lib/nav.js';
+  import { navAlerts } from '#lib/navAlerts.js';
+  import { isActive, NAV } from '#lib/paths.js';
+  import { alerts } from '#lib/stores/alerts.svelte.js';
   import Icon from './Icon.svelte';
 
   let dot = $derived(navAlerts(alerts.summary, alerts.list));

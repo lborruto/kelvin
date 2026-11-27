@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { FORECAST } from '$lib/weatherModel.fixture';
+import { FORECAST } from '#lib/weatherModel.fixture.js';
 import { DashboardEnergy } from './dashboardEnergy.svelte';
 
 const api = vi.hoisted(() => ({ settings: vi.fn(), energyReport: vi.fn(), energyDay: vi.fn(), weatherCostForecast: vi.fn() }));
-vi.mock('$lib/api/client', () => ({ api }));
+vi.mock('#lib/api/client.js', () => ({ api }));
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe('DashboardEnergy: tomorrow’s forecast (Plan 15)', () => {

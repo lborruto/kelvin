@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 import type { ByRadiator, Radiator, Room } from './api/types';
 import { NO_ROOM, roomEnergy } from './roomEnergy';
 

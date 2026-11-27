@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '$lib/api/client';
-import { alerts } from '$lib/stores/alerts.svelte';
+import { api } from '#lib/api/client.js';
+import { alerts } from '#lib/stores/alerts.svelte.js';
 import AlertList from './AlertList.svelte';
 
-vi.mock('$lib/api/client', () => ({ api: { alerts: vi.fn(), dismissAlert: vi.fn() }, ApiError: class extends Error {} }));
+vi.mock('#lib/api/client.js', () => ({ api: { alerts: vi.fn(), dismissAlert: vi.fn() }, ApiError: class extends Error {} }));
 
 beforeEach(() => {
   alerts.reset();

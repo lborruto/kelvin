@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import { applyLocale } from '$lib/i18n';
+import { applyLocale } from '#lib/i18n/index.js';
 import HcHpPanel from './HcHpPanel.svelte';
 
 const lens = { hc_share: 0.384, slot_share: 0.3333, avg_price: 0.2437, delta_price: 0.0632 };

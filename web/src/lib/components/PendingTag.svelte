@@ -1,9 +1,9 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
-  import type { Pending } from '$lib/api/types';
-  import { m, pendingError } from '$lib/i18n';
-  import { dur, T } from '$lib/motion';
-  import { house } from '$lib/stores/house.svelte';
+  import type { Pending } from '#lib/api/types.js';
+  import { m, pendingError } from '#lib/i18n/index.js';
+  import { dur, T } from '#lib/motion.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import Icon from './Icon.svelte';
 
   interface Props {

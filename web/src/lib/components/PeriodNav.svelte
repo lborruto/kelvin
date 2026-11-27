@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import { m } from '$lib/i18n';
+  import { m } from '#lib/i18n/index.js';
 
   interface Props {
     title: string;

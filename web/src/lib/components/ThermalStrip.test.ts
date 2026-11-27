@@ -1,9 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ThermalStrip from './ThermalStrip.svelte';
-import { applyLocale } from '$lib/i18n';
-import { desktop } from '$lib/media.svelte';
-import { announcer } from '$lib/stores/announcer.svelte';
+import { applyLocale } from '#lib/i18n/index.js';
+import { desktop } from '#lib/media.svelte.js';
+import { announcer } from '#lib/stores/announcer.svelte.js';
 
 const start = Date.parse('2026-10-12T22:00:00Z'); // Tue 00:00 Paris
 const end = start + 86_400_000;

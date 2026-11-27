@@ -4,24 +4,24 @@
   import { pwaInfo } from 'virtual:pwa-info';
   import { afterNavigate, goto, onNavigate } from '$app/navigation';
   import { navigating, page } from '$app/state';
-  import { setLoginRequiredHandler } from '$lib/api/client';
-  import { startAppUpdates } from '$lib/appUpdate';
-  import { loginHref } from '$lib/auth';
-  import AwaySheet from '$lib/components/AwaySheet.svelte';
-  import Banner from '$lib/components/Banner.svelte';
-  import ChartDefs from '$lib/components/ChartDefs.svelte';
-  import Sidebar from '$lib/components/Sidebar.svelte';
-  import TabBar from '$lib/components/TabBar.svelte';
-  import Toasts from '$lib/components/Toasts.svelte';
-  import { initLocale, m } from '$lib/i18n';
-  import { reducedMotion } from '$lib/motion';
-  import { ROUTES, sheetOnly } from '$lib/paths';
-  import RoomSheet from '$lib/components/room/RoomSheet.svelte';
-  import { alerts } from '$lib/stores/alerts.svelte';
-  import { announcer } from '$lib/stores/announcer.svelte';
-  import { auth } from '$lib/stores/auth.svelte';
-  import { house } from '$lib/stores/house.svelte';
-  import { connectStream } from '$lib/stores/stream';
+  import { setLoginRequiredHandler } from '#lib/api/client.js';
+  import { startAppUpdates } from '#lib/appUpdate.js';
+  import { loginHref } from '#lib/auth.js';
+  import AwaySheet from '#lib/components/AwaySheet.svelte';
+  import Banner from '#lib/components/Banner.svelte';
+  import ChartDefs from '#lib/components/ChartDefs.svelte';
+  import Sidebar from '#lib/components/Sidebar.svelte';
+  import TabBar from '#lib/components/TabBar.svelte';
+  import Toasts from '#lib/components/Toasts.svelte';
+  import { initLocale, m } from '#lib/i18n/index.js';
+  import { reducedMotion } from '#lib/motion.js';
+  import { ROUTES, sheetOnly } from '#lib/paths.js';
+  import RoomSheet from '#lib/components/room/RoomSheet.svelte';
+  import { alerts } from '#lib/stores/alerts.svelte.js';
+  import { announcer } from '#lib/stores/announcer.svelte.js';
+  import { auth } from '#lib/stores/auth.svelte.js';
+  import { house } from '#lib/stores/house.svelte.js';
+  import { connectStream } from '#lib/stores/stream.js';
 
   // Once per app start: the stored choice, else the browser's languages; reactive from here on.
   initLocale();
@@ -55,7 +55,7 @@
 
   function toLogin() {
     auth.clearSession();
-    if (page.url.pathname !== ROUTES.login) void goto(loginHref(page.url), { replaceState: true });
+    if (page.url.pathname !== ROUTES.login) void goto(loginHref(page.url), { replace: true });
   }
 
   // The static first-paint shell in app.html (a fixed overlay, so removing it moves nothing).
@@ -64,7 +64,7 @@
   });
 
   // The service worker: a new version is looked for at load, when the tab comes back and every hour, and never
-  // reloads the page under the owner's finger (`$lib/appUpdate`).
+  // reloads the page under the owner's finger (`#lib/appUpdate.js`).
   $effect(() => {
     if (!pwaInfo) return;
     let stop: (() => void) | null = null;

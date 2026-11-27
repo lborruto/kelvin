@@ -1,5 +1,5 @@
-import { api } from '$lib/api/client';
-import type { WeatherCost } from '$lib/api/types';
+import { api } from '#lib/api/client.js';
+import type { WeatherCost } from '#lib/api/types.js';
 
 /** Spec §8.5: the web refetches on a new forecast at most every 10 minutes. */
 export const REFRESH_MS = 600_000;

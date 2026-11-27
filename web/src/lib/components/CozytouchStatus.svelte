@@ -3,11 +3,11 @@
      and the last error. Dashed while Kelvin's own stream is not open (reconnecting, or before the first
      snapshot); a bad dot when Cozytouch is unreachable. -->
 <script lang="ts">
-  import { freshness, type Fresh } from '$lib/freshness';
-  import { fmtAgo, fmtDateTime } from '$lib/format';
-  import { m } from '$lib/i18n';
-  import { provenance } from '$lib/provenance';
-  import { house } from '$lib/stores/house.svelte';
+  import { freshness, type Fresh } from '#lib/freshness.js';
+  import { fmtAgo, fmtDateTime } from '#lib/format.js';
+  import { m } from '#lib/i18n/index.js';
+  import { provenance } from '#lib/provenance.js';
+  import { house } from '#lib/stores/house.svelte.js';
   import type { FicheRow } from './FicheBody.svelte';
   import SourceLine from './SourceLine.svelte';
 

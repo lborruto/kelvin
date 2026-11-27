@@ -1,8 +1,8 @@
-/** What must not be interrupted by a reload for a new version (`$lib/appUpdate`): a command on its way to Kelvin
- * and edits nobody sent yet. (A setpoint waiting to be sent is `draftWaiting`, `$lib/sendDraft.svelte`.) */
+/** What must not be interrupted by a reload for a new version (`#lib/appUpdate.js`): a command on its way to Kelvin
+ * and edits nobody sent yet. (A setpoint waiting to be sent is `draftWaiting`, `#lib/sendDraft.svelte.js`.) */
 
 let sends = 0;
-/** A mutating request left (`$lib/api/client`); call the result when it is over. */
+/** A mutating request left (`#lib/api/client.js`); call the result when it is over. */
 export function sendStarted(): () => void {
   sends++;
   let open = true;

@@ -79,7 +79,6 @@ ALLOWED_IN_CONTEXT = {
     "backend/kelvin/",
     "web/package.json",
     "web/package-lock.json",
-    "web/svelte.config.js",
     "web/vite.config.ts",
     "web/tsconfig.json",
     "web/src/",
@@ -525,7 +524,8 @@ def test_dependabot_watches_every_ecosystem_weekly():
     assert text.count('interval: "weekly"') == 4
     assert text.count("default-days: 14") == 4
     assert text.count("groups:") == 4
-    assert 'dependency-name: "@sveltejs/kit"' in text
+    # SvelteKit 3 is in: its majors are no longer held back.
+    assert 'dependency-name: "@sveltejs/kit"' not in text
 
 
 def test_product_md_describes_the_project_not_one_home():

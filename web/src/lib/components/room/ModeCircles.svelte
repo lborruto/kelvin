@@ -4,9 +4,9 @@
      (aria-expanded), a heat disc while one runs. A pending mode is drawn dashed until the radiators report it.
      `dim` pauses them (offline, reconnecting): aria-disabled, focus kept. A mode a room cannot take is absent. -->
 <script lang="ts">
-  import type { Mode, RoomMode, SettableMode } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { Settle } from '$lib/settle.svelte';
+  import type { Mode, RoomMode, SettableMode } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { Settle } from '#lib/settle.svelte.js';
   import Icon, { type IconName } from '../Icon.svelte';
   import PendingEdge from '../PendingEdge.svelte';
 

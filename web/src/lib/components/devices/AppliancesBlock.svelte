@@ -1,9 +1,9 @@
 <!-- The other devices in Pièces et appareils (Plan 12; Tableau mockups 5): a grouped list under its label, each
      read-only and never hidden. -->
 <script lang="ts">
-  import type { SetupDevice } from '$lib/api/types';
-  import { m } from '$lib/i18n';
-  import { deviceLabel } from '$lib/setup';
+  import type { SetupDevice } from '#lib/api/types.js';
+  import { m } from '#lib/i18n/index.js';
+  import { deviceLabel } from '#lib/setup.js';
   import BridgeRow from './BridgeRow.svelte';
   import GroupedList from '../GroupedList.svelte';
 

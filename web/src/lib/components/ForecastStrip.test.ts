@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import ForecastStrip from './ForecastStrip.svelte';
-import { desktop } from '$lib/media.svelte';
-import { HIDDEN, OK, week } from '$lib/weatherModel.fixture';
+import { desktop } from '#lib/media.svelte.js';
+import { HIDDEN, OK, week } from '#lib/weatherModel.fixture.js';
 
 const nb = (t: string | null | undefined) => (t ?? '').replace(/[  ]/g, ' ');
 
