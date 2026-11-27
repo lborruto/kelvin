@@ -781,7 +781,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "mcp", specifier = "==2.3.0" },
     { name = "pydantic-settings", specifier = ">=2.16.2" },
-    { name = "pyoverkiz", specifier = "==2.2.3" },
+    { name = "pyoverkiz", specifier = "==2.3.2" },
     { name = "sse-starlette", specifier = ">=3.7.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
@@ -1227,7 +1227,7 @@ crypto = [
 
 [[package]]
 name = "pyoverkiz"
-version = "2.2.3"
+version = "2.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -1235,9 +1235,9 @@ dependencies = [
     { name = "backoff" },
     { name = "cattrs" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7a/0c/5ce35775f24db12c980fb86ffe821ba1090d3b83d40e1e0648691211c73f/pyoverkiz-2.2.3.tar.gz", hash = "sha256:cf730646b5689e51d8082be7725fd71f5d14f0fccf3195db8d87b0f97423dec1", size = 129085, upload-time = "2026-10-20T21:06:48.933Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/50/d78adad00ddf759d5a1ca3bcacf2d2e79a863c66f6b09b07d267a8cd505e/pyoverkiz-2.3.2.tar.gz", hash = "sha256:8d1f3ca846b35218951bf02e41a768eeb411b991a105fa989fad3437cbf023f9", size = 129638, upload-time = "2026-11-08T23:22:40.157Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/31/d7/63f60c48eacba0d95e42dadcd26bcdcc8c292aa005e2d6264821ef03cbdc/pyoverkiz-2.2.3-py3-none-any.whl", hash = "sha256:6d03bef9b668f4f48d592700b37bedb461ce708aaacdfc63e4f28c1eae7b081b", size = 140269, upload-time = "2026-10-20T21:06:47.434Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/93/75b267f1f94feb0fd99dc62153fe7762d2d3e4ef14fd2f40d756583426a4/pyoverkiz-2.3.2-py3-none-any.whl", hash = "sha256:246690b685cc8a52490eba7c727963a716896dc946a58773276228f58af86c24", size = 140836, upload-time = "2026-11-08T23:22:37.551Z" },
 ]
 
 [[package]]
