@@ -30,10 +30,17 @@ describe('WeekCalendar', () => {
     const { container } = render(WeekCalendar, { ...base });
     const monday = container.querySelector('[data-day="monday"]')!;
     const blocks = [...monday.querySelectorAll<HTMLElement>('.blk')];
-    expect(blocks.map((b) => [b.style.top, b.style.height])).toEqual([
-      [`${(390 / 1440) * 100}%`, `${(90 / 1440) * 100}%`],
-      [`${(1020 / 1440) * 100}%`, `${(360 / 1440) * 100}%`]
-    ]);
+    // Compared as numbers: jsdom 31 rounds serialized percentages to 4 decimals.
+    const at = blocks.map((b) => [parseFloat(b.style.top), parseFloat(b.style.height)]);
+    const want = [
+      [(390 / 1440) * 100, (90 / 1440) * 100],
+      [(1020 / 1440) * 100, (360 / 1440) * 100]
+    ];
+    expect(at).toHaveLength(want.length);
+    want.forEach(([top, height], i) => {
+      expect(at[i][0]).toBeCloseTo(top, 3);
+      expect(at[i][1]).toBeCloseTo(height, 3);
+    });
     expect(monday.querySelector('.dn')).toHaveTextContent('lun.');
     expect([...container.querySelectorAll('.hours span')].map((s) => s.textContent)).toEqual(
       ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00', '24:00']
